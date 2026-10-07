@@ -1,0 +1,417 @@
+# car_funcs
+
+if $ARGS[0] = 'has_car':
+	if car['ID'] > 0:
+		result = 1
+	else
+		result = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'has_wreck':
+	if car['ID'] > 0 and car['wreck'] = 1:
+		result = 1
+	else
+		result = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_here':
+	result = 0
+	if car['ID'] = 0: exit
+	!! if car['wreck'] = 1: exit
+
+	if arrsize('$ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('$ARGS') = 2: $ARGS[2] = $loc_arg
+	if arrsize('$ARGS') = 3: $ARGS[3] = $region
+
+	if $ARGS[1] = $car['loc'] and $ARGS[2] = $car['loc_arg'] and $ARGS[3] = $car['region']:
+		result = 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_here_area':
+	result = 0
+	if car['ID'] = 0: exit
+	!! if car['wreck'] = 1: exit
+
+	if arrsize('$ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('$ARGS') = 2: $ARGS[2] = $region
+
+	if $ARGS[1] = $car['loc'] and $ARGS[2] = $car['region']:
+		result = 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'setloc':
+	if car['ID'] = 0: exit
+	if arrsize('$ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('$ARGS') = 2: $ARGS[2] = $loc_arg
+	if arrsize('$ARGS') = 3: $ARGS[3] = $region
+
+	$car['loc'] = $ARGS[1]
+	$car['loc_arg'] = $ARGS[2]
+	$car['region'] = $ARGS[3]
+end
+
+
+if $ARGS[0] = 'add_car':
+	gs 'car_attributes', ARGS[1]
+	car['ID'] = ARGS[1]
+	$car['name'] = $CarName
+	car['new_condition'] = CarCondition
+	car['current_condition'] = CarCondition
+	car['tank'] = CarTank
+	car['fuel'] = CarTank
+	car['wreck'] = 0
+end
+
+
+if $ARGS[0] = 'goto_car':
+	if car['ID'] = 0: exit
+	$region = $car['region']
+	gt $car['loc'], $car['loc_arg']
+end
+
+
+if $ARGS[0] = 'avtonorm':
+	if car['ID'] >= 1 and car['ID'] <= 8:
+		normhour = 20
+	elseif car['ID'] = 9:
+		normhour = 15
+	elseif car['ID'] = 10:
+		normhour = 18
+	elseif car['ID'] = 11 or car['ID'] = 12:
+		normhour = 15
+	elseif car['ID'] = 13 or car['ID'] >= 95:
+		normhour = 50
+	end
+
+	if car['wreck'] = 0:
+		normneed = 0 - (car['current_condition'] - car['new_condition'])
+		normrem = normneed * normhour
+	else
+		normneed = 0 - (car['current_condition'] - car['new_condition'])
+		normrem = (normneed * normhour) * 8
+	end
+
+
+	killvar 'normhour'
+	killvar 'normneed'
+end
+
+
+if $ARGS[0] = 'avt':
+	tehNT = car['potential_new_condition']
+	if tehNT = 0: tehNT = 200
+	tehT = rand(10, tehNT)
+
+	!! i could replace all tehT and tehNT with appropriate car[] variables but then the code gets even less readable
+	if tehT < tehNT * 25 / 100:
+		$tehT_desc = '你不知道这堆破铜烂铁是怎么被弄到这儿来的。'
+		bupay = 100 * iif(carT = 1, rand(150, 500), rand(150, 400))
+	elseif tehT < tehNT * 50 / 100:
+		$tehT_desc = '当你启动汽车时，发动机轰鸣冒烟。'
+		bupay = 100 * iif(carT = 1, rand(350, 650), rand(300, 600))
+	elseif tehT < tehNT * 75 / 100:
+		$tehT_desc = '当你启动汽车时，发动机发出一些声音。'
+		bupay = 100 * iif(carT = 1, rand(600, 1300), rand(500, 900))
+	else
+		$tehT_desc = '这辆车看起来车况极佳。'
+		bupay = 100 * iif(carT = 1, rand(1000, 1800), rand(800, 1000))
+	end
+
+	used_car['<<autotraidF_carnum>>_condition'] = tehT
+	$used_car['<<autotraidF_carnum>>_condition_desc'] = $tehT_desc
+	used_car['<<autotraidF_carnum>>_price'] = bupay
+
+	killvar 'bupay'
+	killvar 'tehNT'
+	killvar 'tehT'
+	killvar 'tehT_desc'
+	killvar 'carT'
+end
+
+
+if $ARGS[0] = 'avb':
+	if car['ID'] <= 0:
+		bupay = 0
+	elseif car['ID'] = 1:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(100, 200) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(100, 200) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(200, 400) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(400, 600) * 100
+		else
+			bupay = rand(500, 1000) * 100
+		end
+	elseif car['ID'] <= 5:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(100, 200) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 700) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(600, 900) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(800, 1200) * 100
+		else
+			bupay = rand(1000, 2000) * 100
+		end
+	elseif car['ID'] <= 10:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(100, 200) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 900) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(800, 1200) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(1000, 1600) * 100
+		else
+			bupay = rand(1500, 2200) * 100
+		end
+	elseif car['ID'] <= 13:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(100, 200) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(100, 300) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(400, 800) * 100
+		else
+			bupay = rand(700, 1000) * 100
+		end
+	elseif car['ID'] <= 94:
+		bupay = 0
+	elseif car['ID'] = 95:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 3000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(3000, 5000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(4000, 6000) * 100
+		else
+			bupay = rand(5000, 9000) * 100
+		end
+	elseif car['ID'] = 96:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 11600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(11500, 25500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(25400, 32000) * 100
+		else
+			bupay = rand(30000, 48000) * 100
+		end
+	elseif car['ID'] = 97:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 1600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(1500, 5500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(5400, 12000) * 100
+		else
+			bupay = rand(10000, 18000) * 100
+		end
+	elseif car['ID'] = 98:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 11600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(11500, 25500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(25400, 32000) * 100
+		else
+			bupay = rand(30000, 48000) * 100
+		end
+	elseif car['ID'] = 99:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 5600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(5500, 15500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(15400, 22000) * 100
+		else
+			bupay = rand(20000, 38000) * 100
+		end
+	elseif car['ID'] = 100:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 15600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(15500, 25500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(25400, 32000) * 100
+		else
+			bupay = rand(30000, 58000) * 100
+		end
+	elseif car['ID'] = 101:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 2400) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(2250, 8250) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(8100, 18000) * 100
+		else
+			bupay = rand(15000, 27000) * 100
+		end
+	elseif car['ID'] = 102:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 2100) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(2100, 3500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(2800, 4200) * 100
+		else
+			bupay = rand(3500, 6300) * 100
+		end
+	elseif car['ID'] = 103:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 3300) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(3300, 5500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(4400, 6600) * 100
+		else
+			bupay = rand(5500, 9900) * 100
+		end
+	elseif car['ID'] = 104:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 3000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(3000, 5000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(4000, 6000) * 100
+		else
+			bupay = rand(5000, 9000) * 100
+		end
+	elseif car['ID'] = 105:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 3600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(3600, 6000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(4800, 7200) * 100
+		else
+			bupay = rand(6000, 10800) * 100
+		end
+	elseif car['ID'] = 106:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 5500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(5500, 9000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(7000, 11000) * 100
+		else
+			bupay = rand(9000, 16000) * 100
+		end
+	elseif car['ID'] = 107:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 5600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(5500, 15500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(15400, 22000) * 100
+		else
+			bupay = rand(20000, 38000) * 100
+		end
+	elseif car['ID'] = 108:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 21000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(21000, 35000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(28000, 42000) * 100
+		else
+			bupay = rand(35000, 63000) * 100
+		end
+	elseif car['ID'] = 109:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 5500) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(5500, 9000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(7000, 11000) * 100
+		else
+			bupay = rand(9000, 16000) * 100
+		end
+	elseif car['ID'] = 110:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(200, 600) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(500, 2550) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(2550, 4250) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(3400, 5100) * 100
+		else
+			bupay = rand(4250, 7650) * 100
+		end
+	elseif car['ID'] = 111:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(500, 2000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(1500, 23000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(23000, 55000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(50000, 64000) * 100
+		else
+			bupay = rand(60000, 96000) * 100
+		end
+	elseif car['ID'] = 112:
+		if car['wreck'] = 1 or car['current_condition'] <= 0:
+			bupay = rand(1000, 4000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 25 / 100:
+			bupay = rand(3000, 46000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 50 / 100:
+			bupay = rand(46000, 110000) * 100
+		elseif car['current_condition'] < car['new_condition'] * 75 / 100:
+			bupay = rand(100000, 128000) * 100
+		else
+			bupay = rand(120000, 190000) * 100
+		end
+	end
+end
+
+
+--- car_funcs ---------------------------------

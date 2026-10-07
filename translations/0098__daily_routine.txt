@@ -1,0 +1,1268 @@
+# daily_routine
+
+
+!! gt daily_routine, start, phase  (morning|evening)
+!!   Initialises the active routine and jumps to the hub. Must be gt-called.
+if $ARGS[0] = 'start':
+	gs 'daily_routine', 'settings_defaults'
+	$droutine['phase']		= $ARGS[1]
+	$droutine['return_loc'] = $loc
+	$droutine['return_arg'] = $loc_arg
+	droutine['active']		= 1
+	droutine['active_slot'] = 0
+	droutine['quick_running'] = 0
+	droutine['day_anchor']	= func('daily_routine', 'logical_day', $ARGS[1])
+	killvar 'droutine_done'
+	gt 'daily_routine', 'hub'
+end
+
+
+!! gs daily_routine, finish_step, fallback_loc, fallback_arg
+!!   Drop-in replacement for  menu_off=0 & gt $loc,$loc_arg  at the end of
+!!   any chain action. If a routine is active, advances to the hub instead.
+if $ARGS[0] = 'finish_step':
+	droutine['quick_running'] = 0
+	if droutine['active'] = 1:
+		if droutine['active_slot'] > 0: droutine_done[droutine['active_slot']] = 1
+		droutine['active_slot'] = 0
+		gt 'daily_routine', 'hub'
+	else
+		menu_off = 0
+		gt $ARGS[1], $ARGS[2]
+	end
+end
+
+
+!! gt daily_routine, hub
+!!   Routine dashboard. Shows pending steps as acts; skipped steps listed at
+!!   the bottom. Returns here after each step completes.
+if $ARGS[0] = 'hub':
+	*clr & cla
+	menu_off = 0
+	droutine['active_slot'] = 0
+	droutine['quick_running'] = 0
+	if $droutine['phase'] = 'evening':
+		'<center><b>晚间日常</b></center>'
+	else
+		'<center><b>晨间日常</b></center>'
+	end
+	temp_drc = droutine['<<$droutine[''phase'']>>_count']
+	if temp_drc <= 0:
+		*nl
+		'这个日常还没有设置任何步骤。'
+		act '完成': gt 'daily_routine', 'finish'
+		killvar 'temp_drc'
+		exit
+	end
+	*nl
+	temp_dri = 0
+	dr_any = 0
+	$dr_unavail = ''
+	$dr_done = ''
+	:droutine_hub_loop
+	temp_dri += 1
+	if temp_dri <= temp_drc:
+		$droutine['current_label'] = $droutine['<<$droutine[''phase'']>>_step_<<temp_dri>>']
+		$droutine['current_runner'] = ''
+		$droutine['skip_reason'] = ''
+		droutine['can_run'] = 1
+		droutine['current_quick'] = 0
+		gs 'daily_routine', 'resolve', $droutine['<<$droutine[''phase'']>>_step_<<temp_dri>>']
+		if droutine_done[temp_dri] = 1:
+			$dr_done += '<li>' + $droutine['current_label'] + '.</li>'
+		else
+			if droutine['can_run'] ! 0 and $droutine['current_runner'] ! '':
+				if dr_any = 0 and droutine_settings['quick_routine'] = 1 and droutine['current_quick'] = 1:
+					droutine['active_slot'] = temp_dri
+					droutine['quick_running'] = 1
+					dynamic $droutine['current_runner']
+					exit
+				end
+				dr_any = 1
+				dynamic "act '<<$droutine['current_label']>>': droutine['active_slot'] = <<temp_dri>> & <<$droutine['current_runner']>>"
+			else
+				$dr_unavail += '<li>' + $droutine['current_label']
+				if $droutine['skip_reason'] ! '': $dr_unavail += ' (<<$droutine[''skip_reason'']>>)'
+				$dr_unavail += '.</li>'
+			end
+		end
+		jump 'droutine_hub_loop'
+	end
+	if dr_any = 0: '所有可用步骤都已完成。' & *nl
+	if $dr_unavail ! '':
+		'<b>不可用步骤</b>:<ul><<$dr_unavail>></ul>'
+	end
+	if $dr_done ! '':
+		'<b>已完成步骤</b>:<ol><<$dr_done>></ol>'
+	end
+	act '结束日常': gt 'daily_routine', 'finish'
+	killvar 'temp_drc' & killvar 'temp_dri' & killvar 'dr_any' & killvar 'dr_unavail' & killvar 'dr_done'
+end
+
+
+!! gt daily_routine, finish
+!!   Marks the phase done for the day, clears active state, returns to caller.
+if $ARGS[0] = 'finish':
+	droutine_settings['<<$droutine[''phase'']>>_done_day'] = droutine['day_anchor']
+	droutine['active'] = 0
+	droutine['active_slot'] = 0
+	killvar 'droutine_done'
+	menu_off = 0
+	gt $droutine['return_loc'], $droutine['return_arg']
+end
+
+
+!! gs daily_routine, abort
+!!   Clears active state when an external scene takes over (caller handles nav).
+if $ARGS[0] = 'abort':
+	droutine['active'] = 0
+	droutine['active_slot'] = 0
+	droutine['quick_running'] = 0
+	killvar 'droutine_done'
+	menu_off = 0
+end
+
+
+!! func(daily_routine, can_use_here)
+!!   1 if the player is at a home, 0 otherwise.
+if $ARGS[0] = 'can_use_here':
+	result = func('homes_properties', 'is_at_a_home', '')
+	exit
+end
+
+
+!! gs daily_routine, offer_here
+!!   Adds routine entry acts for any phase that is available right now.
+!!   Call from a home room; routine returns to that same room when done.
+if $ARGS[0] = 'offer_here':
+	if func('daily_routine', 'can_use_here') = 0: exit
+	gs 'daily_routine', 'settings_defaults'
+	if droutine_settings['disabled'] = 1: exit
+	if droutine['morning_count'] > 0 and func('daily_routine', 'phase_available', 'morning'):
+		act '开始你的晨间日常': gt 'daily_routine', 'start', 'morning'
+	end
+	if droutine['evening_count'] > 0 and func('daily_routine', 'phase_available', 'evening'):
+		act '开始你的晚间日常': gt 'daily_routine', 'start', 'evening'
+	end
+end
+
+
+!! ============================================================================
+!! Availability windows and settings
+!! ============================================================================
+
+!! gs daily_routine, settings_defaults
+!!   Seeds droutine_settings on first call (no-op after that).
+!!   Step lists are seeded by intro_initialization, not here.
+if $ARGS[0] = 'settings_defaults':
+	if droutine_settings['init'] = 1: exit
+	droutine_settings['init'] = 1
+	droutine_settings['disabled'] = 1
+	droutine_settings['morning_use_wake'] = 1
+	droutine_settings['morning_wake_min'] = 120
+	droutine_settings['morning_use_abs'] = 0
+	droutine_settings['morning_abs_start'] = 5
+	droutine_settings['morning_abs_end'] = 11
+	!! Evening uses only an absolute hour window (no after-waking window).
+	droutine_settings['evening_use_abs'] = 1
+	droutine_settings['evening_abs_start'] = 20
+	droutine_settings['evening_abs_end'] = 1
+	!! Appearance step settings (persist across sessions).
+	droutine_settings['makeup_level'] = 1
+	exit
+end
+
+
+!! func(daily_routine, in_hour_window, start_hour, end_hour)
+!!   1 if the current hour is in [start, end). Wraps midnight when end < start.
+if $ARGS[0] = 'in_hour_window':
+	result = 0
+	if ARGS[1] = ARGS[2]:
+		result = 0
+	elseif ARGS[1] < ARGS[2]:
+		if hour >= ARGS[1] and hour < ARGS[2]: result = 1
+	else
+		if hour >= ARGS[1] or hour < ARGS[2]: result = 1
+	end
+	exit
+end
+
+
+!! func(daily_routine, logical_day, phase)
+!!   The day this phase''s current fixed hour window belongs to. Equal to
+!!   daystart, except during the tail of a window that wraps past midnight
+!!   (e.g. evening 20-1), where it stays pinned to the day the window
+!!   started on so the whole wrapped window counts as a single occurrence.
+if $ARGS[0] = 'logical_day':
+	$dr_ld = $ARGS[1]
+	if $dr_ld ! 'evening': $dr_ld = 'morning'
+	result = daystart
+	if droutine_settings['<<$dr_ld>>_use_abs'] = 1 and droutine_settings['<<$dr_ld>>_abs_end'] < droutine_settings['<<$dr_ld>>_abs_start'] and hour < droutine_settings['<<$dr_ld>>_abs_end']:
+		result = daystart - 1
+	end
+	killvar 'dr_ld'
+	exit
+end
+
+
+!! func(daily_routine, phase_available, phase)
+!!   1 if the phase can be started now: either within the after-waking window
+!!   or inside the fixed hour range (whichever are enabled). 0 if already done.
+if $ARGS[0] = 'phase_available':
+	gs 'daily_routine', 'settings_defaults'
+	result = 0
+	$dr_pa = $ARGS[1]
+	if $dr_pa ! 'evening': $dr_pa = 'morning'
+	if droutine_settings['<<$dr_pa>>_done_day'] = func('daily_routine', 'logical_day', $dr_pa):
+		killvar 'dr_pa'
+		exit
+	end
+	if droutine_settings['<<$dr_pa>>_use_wake'] = 1 and droutine['woke_at_min'] > 0:
+		dr_pa_elapsed = totminut - droutine['woke_at_min']
+		if dr_pa_elapsed >= 0 and dr_pa_elapsed <= droutine_settings['<<$dr_pa>>_wake_min']: result = 1
+	end
+	if droutine_settings['<<$dr_pa>>_use_abs'] = 1:
+		if func('daily_routine', 'in_hour_window', droutine_settings['<<$dr_pa>>_abs_start'], droutine_settings['<<$dr_pa>>_abs_end']): result = 1
+	end
+	killvar 'dr_pa' & killvar 'dr_pa_elapsed'
+	exit
+end
+
+
+!! ============================================================================
+!! Step completion (instant workers)
+!! ============================================================================
+
+!! gs daily_routine, visit_item_done, step_id
+!!   Completion hook for visit-style steps (kit_din workers). If a routine is
+!!   active, marks the slot done and returns to hub; otherwise redraws the room.
+if $ARGS[0] = 'visit_item_done':
+	if droutine['active'] = 1:
+		if droutine['active_slot'] > 0: droutine_done[droutine['active_slot']] = 1
+		droutine['active_slot'] = 0
+		gt 'daily_routine', 'hub'
+	else
+		gt $loc, $loc_arg
+	end
+end
+
+
+!! ============================================================================
+!! Resolver dispatcher
+!! ============================================================================
+
+!! gs daily_routine, resolve, step_id
+!!   Dispatches to step_<id>. Each handler must set:
+!!     $droutine[current_label/category/style/room/runner]
+!!     droutine[can_run]  $droutine[skip_reason]
+if $ARGS[0] = 'resolve':
+	dynamic "gs 'daily_routine', 'step_<<$ARGS[1]>>'"
+end
+
+
+!! ============================================================================
+!! Step catalog
+!! ============================================================================
+!! One block per step, dispatched by resolve via step_<id>.
+
+
+!! ---- Other (livingroom, chain) ----
+
+if $ARGS[0] = 'step_kolka':
+	$droutine['current_label']		= '叫醒科尔卡'
+	$droutine['current_category']	= 'Other'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'livingroom'
+	$droutine['current_runner']		= "gt 'brother2', 'wakeup'"
+	droutine['can_run']				= (week < 6 and hour = 6 and kanikuli = 0 and brotherQW['last_sex_day_morning'] <> daystart and locat['Fam_inGad'] = 0 and brotherQW['sex_count_today'] > 0)
+	droutine['current_quick']		= 0
+	$droutine['skip_reason']		= ''
+end
+
+!! ---- Hygiene (bathroom, chain) ----
+
+if $ARGS[0] = 'step_teeth':
+	$droutine['current_label']		= '刷牙'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'bteeth_do'"
+	droutine['can_run']				= func('din_van', 'can_bteeth')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '口气已经很清新'
+end
+
+if $ARGS[0] = 'step_mouthwash':
+	$droutine['current_label']		= '使用漱口水'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_bad', 'd_mouthwash_do'"
+	droutine['can_run']				= func('din_bad', 'can_mouthwash')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '手边没有漱口水'
+end
+
+if $ARGS[0] = 'step_shower':
+	$droutine['current_label']		= '淋浴'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'shower_do'"
+	droutine['can_run']				= func('din_van', 'can_shower')
+	$droutine['skip_reason']		= ''
+end
+
+if $ARGS[0] = 'step_bath':
+	$droutine['current_label']		= '泡澡'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'bath_do'"
+	droutine['can_run']				= func('din_van', 'can_bath')
+	$droutine['skip_reason']		= ''
+end
+
+if $ARGS[0] = 'step_quickwash':
+	$droutine['current_label']		= '快速清洗'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'quickwash_do'"
+	droutine['can_run']				= func('din_van', 'can_quickwash')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没什么需要洗掉的'
+end
+
+if $ARGS[0] = 'step_deodorant':
+	$droutine['current_label']		= '使用除臭剂'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'deodorant_do'"
+	droutine['can_run']				= func('din_van', 'can_deodorant')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有除臭剂，或已使用'
+end
+
+if $ARGS[0] = 'step_skincare':
+	$droutine['current_label']		= '护肤'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'skincare_do'"
+	droutine['can_run']				= func('din_van', 'can_skincare')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有护肤品'
+end
+
+if $ARGS[0] = 'step_shave':
+	$droutine['current_label']		= '刮毛'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'brit'"
+	droutine['can_run']				= func('din_van', 'can_shave')
+	$droutine['skip_reason']		= '没什么可刮的'
+end
+
+if $ARGS[0] = 'step_enema':
+	$droutine['current_label']		= '灌肠'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'enema_do'"
+	droutine['can_run']				= func('din_van', 'can_enema')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有灌肠工具，或今天已做'
+end
+
+if $ARGS[0] = 'step_tampon':
+	$droutine['current_label']		= '更换卫生棉条或卫生巾'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'tampon_do'"
+	droutine['can_run']				= func('din_van', 'can_tampon')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '不需要经期用品'
+end
+
+if $ARGS[0] = 'step_peeprivate':
+	$droutine['current_label']		= '上厕所'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'prvt_pee_do'"
+	droutine['can_run']				= func('din_van', 'can_prvt_pee')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '还不需要'
+end
+
+if $ARGS[0] = 'step_removemakeup':
+	$droutine['current_label']		= '卸妆'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'removemakeup_do'"
+	droutine['can_run']				= func('din_van', 'can_removemakeup')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有化妆'
+end
+
+if $ARGS[0] = 'step_removelashes':
+	$droutine['current_label']		= '取下假睫毛'
+	$droutine['current_category']	= '卫生'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'removelashes_do'"
+	droutine['can_run']				= func('din_van', 'can_removelashes')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有假睫毛'
+end
+
+!! ---- Body / toys (bathroom, chain) ----
+
+if $ARGS[0] = 'step_buttplug_in':
+	$droutine['current_label']		= '插入肛塞'
+	$droutine['current_category']	= '身体'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'buttplug_in_do'"
+	droutine['can_run']				= func('din_van', 'can_buttplug_in')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有肛塞，或已插入'
+end
+
+if $ARGS[0] = 'step_buttplug_out':
+	$droutine['current_label']		= '取出肛塞'
+	$droutine['current_category']	= '身体'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'buttplug_out_do'"
+	droutine['can_run']				= func('din_van', 'can_buttplug_out')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没在戴着'
+end
+
+if $ARGS[0] = 'step_vibe_in':
+	$droutine['current_label']		= '插入按摩棒'
+	$droutine['current_category']	= '身体'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'vibe_in_do'"
+	droutine['can_run']				= func('din_van', 'can_vibe_in')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '不可用'
+end
+
+if $ARGS[0] = 'step_vibe_out':
+	$droutine['current_label']		= '取出按摩棒'
+	$droutine['current_category']	= '身体'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_van', 'vibe_out_do'"
+	droutine['can_run']				= func('din_van', 'can_vibe_out')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没在戴着'
+end
+
+!! ---- Appearance (bathroom, chain) ----
+!! Makeup level and lashes type persist in droutine_settings. Runners in mirror.qsrc.
+
+if $ARGS[0] = 'step_apply_makeup':
+	gs 'daily_routine', 'settings_defaults'
+	$droutine['current_label']		= '化妆'
+	$droutine['current_category']	= '外貌'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'mirror', 'apply_makeup_do'"
+	droutine['can_run']				= iif(droutine_settings['makeup_level'] = 4, (mc_inventory['cosmetics'] >= 3 and pcs_makeup ! 0), (droutine_settings['makeup_level'] > 0 and mc_inventory['cosmetics'] >= min(droutine_settings['makeup_level'], 3) and pcs_makeup < droutine_settings['makeup_level'] + 1))
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有化妆品，或已上妆'
+end
+
+if $ARGS[0] = 'step_brush_hair':
+	$droutine['current_label']		= '梳头'
+	$droutine['current_category']	= '外貌'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'mirror', 'brush_hair_do'"
+	droutine['can_run']				= 1
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= ''
+end
+
+if $ARGS[0] = 'step_lipbalm':
+	$droutine['current_label']		= '涂润唇膏'
+	$droutine['current_category']	= '外貌'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'mirror', 'lipbalm_do'"
+	droutine['can_run']				= (mc_inventory['lipbalm'] > 0 and pcs_lipbalm <= 0)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有润唇膏，或已涂抹'
+end
+
+if $ARGS[0] = 'step_apply_lashes':
+	gs 'daily_routine', 'settings_defaults'
+	$droutine['current_label']		= '贴上假睫毛'
+	$droutine['current_category']	= '外貌'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'mirror', 'apply_lashes_do'"
+	if droutine_settings['lashes_type'] = 1:
+		droutine['can_run']			= (mc_inventory['eyelash_fake'] >= 1 and lashextensionstyle <= 0 and pcs_lashes < 3)
+	elseif droutine_settings['lashes_type'] = 2:
+		droutine['can_run']			= (mc_inventory['eyelash_mink'] >= 1 and lashextensionstyle <= 0 and pcs_lashes < 4)
+	else
+		droutine['can_run']			= 0
+	end
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有可用的假睫毛，或已贴好'
+end
+
+!! ---- Health (bathroom, chain) ----
+
+if $ARGS[0] = 'step_birth_control':
+	$droutine['current_label']		= '服用避孕药'
+	$droutine['current_category']	= '健康'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bathroom'
+	$droutine['current_runner']		= "gt 'din_bad', 'quick_takepill_do'"
+	droutine['can_run']				= func('din_bad', 'can_quick_takepill')
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '今天不用服药'
+end
+
+!! ---- Clothing (bedroom, chain) ----
+!! school/sport wear handlers call finish_step themselves; gate on slot number.
+
+if $ARGS[0] = 'step_outfit_school':
+	$droutine['current_label']		= '穿上校服'
+	$droutine['current_category']	= 'Clothing'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bedroom'
+	$droutine['current_runner']		= "gt 'wardrobe', 'default_school_wear'"
+	!! Only on a school day for an enrolled, non-graduated, non-blocked student
+	!! (mirrors the home "put on school uniform" gate). week < 6 = Mon-Fri,
+	!! kanikuli = 0 = not on school holidays.
+	gs 'wardrobe', 'is_school'
+	droutine['can_run']				= (default_school_number ! 0 and week < 6 and kanikuli = 0 and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0 and default_school_number[2] < 5)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '不是上学日、未设置校服，或已穿着校服'
+end
+
+if $ARGS[0] = 'step_outfit_sport':
+	$droutine['current_label']		= '穿上运动服'
+	$droutine['current_category']	= 'Clothing'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bedroom'
+	$droutine['current_runner']		= "gt 'wardrobe', 'default_sport_wear'"
+	gs 'wardrobe', 'is_sport'
+	droutine['can_run']				= (default_sport_number ! 0 and default_sport_number[2] < 5)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '未设置默认运动服，或已穿着运动服'
+end
+
+!! Restores the bed-backup outfit (whatever was worn before sleep).
+if $ARGS[0] = 'step_outfit_restore':
+	$droutine['current_label']		= '穿好衣服'
+	$droutine['current_category']	= 'Clothing'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bedroom'
+	$droutine['current_runner']		= "gs 'outfit', 'restore', 'bed' & gs 'stat' & gs 'daily_routine', 'finish_step', $loc, $loc_arg"
+	droutine['can_run']				= 1
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= ''
+end
+
+!! outfit_wardrobe_N  - wears saved wardrobe slot N (1-60).
+if $mid($ARGS[0], 1, 21) = 'step_outfit_wardrobe_':
+	temp_wslot						= val($mid($ARGS[0], 22))
+	$droutine['current_label']		= iif($def_clothing_name[temp_wslot] ! '', $def_clothing_name[temp_wslot], '服装<<temp_wslot>>')
+	$droutine['current_category']	= 'Clothing'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'bedroom'
+	$droutine['current_runner']		= "gt 'wardrobe', 'default_wardrobe_wear', <<temp_wslot>>"
+	droutine['can_run']				= (defclothingnumber[temp_wslot] + defbranumber[temp_wslot] + defpantynumber[temp_wslot] + defshoenumber[temp_wslot] > 0)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '服装栏为空或不可用'
+	killvar 'temp_wslot'
+end
+
+!! ---- Kitchen (kitchen, visit) ----
+!! Visit steps end with visit_item_done rather than a Finish act.
+
+if $ARGS[0] = 'step_water':
+	$droutine['current_label']		= '喝水'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'driwater_do'"
+	droutine['can_run']				= 1
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= ''
+end
+
+if $ARGS[0] = 'step_tea':
+	$droutine['current_label']		= '喝茶'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'dritea_do'"
+	droutine['can_run']				= 1
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= ''
+end
+
+if $ARGS[0] = 'step_vitamin':
+	$droutine['current_label']		= '服用维生素'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'vitamin_do'"
+	droutine['can_run']				= (mc_inventory['vitamins'] > 0 and vitaminday <> daystart)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有维生素，或今天已服用'
+end
+
+if $ARGS[0] = 'step_fill_bottle':
+	$droutine['current_label']		= '装满水瓶'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'fill_bottle_do'"
+	droutine['can_run']				= (mc_inventory['refill_bottle'] >= 1)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有水瓶'
+end
+
+if $ARGS[0] = 'step_sandwich':
+	$droutine['current_label']		= '做三明治'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'sandwich_do'"
+	droutine['can_run']				= (bag > 0 and mc_inventory['food_sandwich'] = 0)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有包，或已经带了外带三明治'
+end
+
+if $ARGS[0] = 'step_snack':
+	$droutine['current_label']		= '拿零食'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'edasnack_do'"
+	droutine['can_run']				= 1
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= ''
+end
+
+if $ARGS[0] = 'step_leftovers':
+	$droutine['current_label']		= '吃减肥餐'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'edaD_do'"
+	droutine['can_run']				= (mc_inventory['food_diet'] > 0)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有减肥餐了'
+end
+
+if $ARGS[0] = 'step_medicine':
+	$droutine['current_label']		= '服用抗生素'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'visit'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'lekarstvo_do'"
+	droutine['can_run']				= (mc_inventory['antibiotics'] > 0 and sick > 0 and lekarday <> daystart)
+	droutine['current_quick']		= 1
+	$droutine['skip_reason']		= '没有抗生素，没生病，或今天已服用'
+end
+
+!! cook_meal: needs food in stock and no warm meal on the table (edahot = 0).
+!! Not quick-safe: presents a real choice of portion size before it can finish.
+if $ARGS[0] = 'step_cook_meal':
+	$droutine['current_label']		= '做饭'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'cook_meal_do'"
+	droutine['can_run']				= (mc_inventory['food_basic'] > 0 and edahot = 0)
+	$droutine['skip_reason']		= '没有食材，或已备好饭菜'
+end
+
+!! eat_meal: warm meal > food stock > diet food. Always available at family homes.
+!! Not quick-safe: presents a real choice of what/how much to eat, and at
+!! parents_home can pull in a full family meal scene (parents_meal_options).
+if $ARGS[0] = 'step_eat_meal':
+	$droutine['current_label']		= '吃饭'
+	$droutine['current_category']	= 'Kitchen'
+	$droutine['current_style']		= 'chain'
+	$droutine['current_room']		= 'kitchen'
+	$droutine['current_runner']		= "gt 'kit_din', 'eat_meal_do'"
+	droutine['can_run']				= (edahot > 0 or mc_inventory['food_basic'] > 0 or mc_inventory['food_diet'] > 0 or func('daily_routine', 'home_has_food'))
+	$droutine['skip_reason']		= '没有可吃的东西'
+end
+
+!! func(daily_routine, home_has_food)
+!!   1 at homes that always feed the player (parents, grandparents, Meynold).
+if $ARGS[0] = 'home_has_food':
+	result = ($home_name[$loc] = 'parents_home' or $home_name[$loc] = 'grandparents_house' or $home_name[$loc] = 'meynold_household')
+	exit
+end
+
+
+!! ============================================================================
+!! Catalog index (used by the add-step menu)
+!! ============================================================================
+
+!! gs daily_routine, catalog_build
+!!   Rebuilds droutine_catalog with all step ids in display order.
+if $ARGS[0] = 'catalog_build':
+	killvar 'droutine_catalog'
+	temp_dci = 0
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'teeth'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'mouthwash'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'shower'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'bath'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'quickwash'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'deodorant'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'skincare'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'shave'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'enema'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'tampon'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'peeprivate'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'removemakeup'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'removelashes'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'buttplug_in'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'buttplug_out'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'vibe_in'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'vibe_out'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'apply_makeup'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'brush_hair'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'lipbalm'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'apply_lashes'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'birth_control'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'outfit_school'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'outfit_sport'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'outfit_restore'
+	!! Add an entry for every named wardrobe outfit slot (slots 1-60).
+	!! Require both a name and at least one item set, so emptied slots do not
+	!! appear in the add-step menu.
+	temp_dci_ws = 1
+	:droutine_cat_wloop
+	if temp_dci_ws <= 60:
+		if $def_clothing_name[temp_dci_ws] ! '' and (defclothingnumber[temp_dci_ws] + defbranumber[temp_dci_ws] + defpantynumber[temp_dci_ws] + defshoenumber[temp_dci_ws] > 0):
+			temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'outfit_wardrobe_<<temp_dci_ws>>'
+		end
+		temp_dci_ws += 1
+		jump 'droutine_cat_wloop'
+	end
+	killvar 'temp_dci_ws'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'cook_meal'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'eat_meal'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'snack'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'leftovers'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'water'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'tea'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'vitamin'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'fill_bottle'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'sandwich'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'medicine'
+	temp_dci += 1 & $droutine_catalog['id_<<temp_dci>>'] = 'kolka'
+	droutine_catalog['count'] = temp_dci
+	killvar 'temp_dci'
+end
+
+
+!! ============================================================================
+!! Manager UI
+!! ============================================================================
+
+!! gt daily_routine, manage [, return_loc, return_arg]
+!!   Top config screen. Pass caller loc/arg so the Done act can return there.
+if $ARGS[0] = 'manage':
+	*clr & cla
+	menu_off = 0
+	gs 'daily_routine', 'settings_defaults'
+	if $ARGS[1] ! '':
+		$droutine['ui_return_loc'] = $ARGS[1]
+		$droutine['ui_return_arg'] = $ARGS[2]
+	else
+		$droutine['ui_return_loc'] = ''
+		$droutine['ui_return_arg'] = ''
+	end
+	'<center><b>日常安排</b></center>'
+	'按顺序设置每天早晨和晚上依次进行的步骤。当天条件不满足的步骤会自动跳过。'
+	*nl
+	'<b>早晨</b> (<<droutine[''morning_count'']>>个步骤）'
+	gs 'daily_routine', 'render_list_inline', 'morning'
+	*nl
+	'<b>晚上</b> (<<droutine[''evening_count'']>>个步骤）'
+	gs 'daily_routine', 'render_list_inline', 'evening'
+	*nl
+	if droutine_settings['quick_routine'] = 1:
+		'<b>快捷日常：</b>开启 - 简单步骤（没有选项、不会被打断）轮到它们时会自动完成。'
+		act '关闭快捷日常': droutine_settings['quick_routine'] = 0 & gt 'daily_routine', 'manage', $ARGS[1], $ARGS[2]
+	else
+		'<b>快捷日常：</b>关闭 - 每个步骤都会等你来选择。'
+		act '开启快捷日常': droutine_settings['quick_routine'] = 1 & gt 'daily_routine', 'manage', $ARGS[1], $ARGS[2]
+	end
+	*nl
+	act '编辑晨间日常': gt 'daily_routine', 'manage_phase', 'morning'
+	act '编辑晚间日常': gt 'daily_routine', 'manage_phase', 'evening'
+	act '可用时间设置': gt 'daily_routine', 'settings'
+	if $droutine['ui_return_loc'] ! '':
+		act '完成': gt $droutine['ui_return_loc'], $droutine['ui_return_arg']
+	else
+		act '完成': gt $loc, $loc_arg
+	end
+end
+
+
+!! gt daily_routine, settings
+!!   Timing config: morning supports after-waking window + fixed range; evening fixed only.
+if $ARGS[0] = 'settings':
+	*clr & cla
+	menu_off = 0
+	gs 'daily_routine', 'settings_defaults'
+	'<center><b>日常可用设置</b></center>'
+	*nl
+	'<b>早晨</b>'
+	if droutine_settings['morning_use_wake'] = 1:
+		'  醒来后：开  (<<droutine_settings[''morning_wake_min'']>>分钟时间窗）'
+	else
+		'  醒来后：关'
+	end
+	if droutine_settings['morning_use_abs'] = 1:
+		'  固定时间：开  (<<droutine_settings[''morning_abs_start'']>>:00 到<<droutine_settings[''morning_abs_end'']>>:00)'
+	else
+		'  固定时间：关'
+	end
+	*nl
+	'<b>晚上</b>'
+	if droutine_settings['evening_use_abs'] = 1:
+		'  固定时间：开  (<<droutine_settings[''evening_abs_start'']>>:00 到<<droutine_settings[''evening_abs_end'']>>:00)'
+	else
+		'  固定时间：关'
+	end
+	*nl
+
+	if droutine_settings['morning_use_wake'] = 1:
+		act '早晨醒来后：关闭': droutine_settings['morning_use_wake'] = 0 & gt 'daily_routine', 'settings'
+		act '醒来后窗口 +15 分钟': droutine_settings['morning_wake_min'] = min(240, droutine_settings['morning_wake_min'] + 15) & gt 'daily_routine', 'settings'
+		act '早晨醒来后窗口 -15 分钟': droutine_settings['morning_wake_min'] = max(15, droutine_settings['morning_wake_min'] - 15) & gt 'daily_routine', 'settings'
+	else
+		act '早晨醒来后：开启': droutine_settings['morning_use_wake'] = 1 & gt 'daily_routine', 'settings'
+	end
+	if droutine_settings['morning_use_abs'] = 1:
+		act '早晨固定时间：关闭': droutine_settings['morning_use_abs'] = 0 & gt 'daily_routine', 'settings'
+		act '早晨开始时间 +1小时': droutine_settings['morning_abs_start'] = (droutine_settings['morning_abs_start'] + 1) mod 24 & gt 'daily_routine', 'settings'
+		act '早晨开始 -1小时': droutine_settings['morning_abs_start'] = (droutine_settings['morning_abs_start'] + 23) mod 24 & gt 'daily_routine', 'settings'
+		act '早晨结束时间 +1小时': droutine_settings['morning_abs_end'] = (droutine_settings['morning_abs_end'] + 1) mod 24 & gt 'daily_routine', 'settings'
+		act '早晨结束 -1小时': droutine_settings['morning_abs_end'] = (droutine_settings['morning_abs_end'] + 23) mod 24 & gt 'daily_routine', 'settings'
+	else
+		act '早晨固定时间：开启': droutine_settings['morning_use_abs'] = 1 & gt 'daily_routine', 'settings'
+	end
+
+	if droutine_settings['evening_use_abs'] = 1:
+		act '晚上固定时间：关闭': droutine_settings['evening_use_abs'] = 0 & gt 'daily_routine', 'settings'
+		act '晚间开始时间 +1小时': droutine_settings['evening_abs_start'] = (droutine_settings['evening_abs_start'] + 1) mod 24 & gt 'daily_routine', 'settings'
+		act '晚间开始 -1小时': droutine_settings['evening_abs_start'] = (droutine_settings['evening_abs_start'] + 23) mod 24 & gt 'daily_routine', 'settings'
+		act '晚间结束时间 +1小时': droutine_settings['evening_abs_end'] = (droutine_settings['evening_abs_end'] + 1) mod 24 & gt 'daily_routine', 'settings'
+		act '晚间结束 -1小时': droutine_settings['evening_abs_end'] = (droutine_settings['evening_abs_end'] + 23) mod 24 & gt 'daily_routine', 'settings'
+	else
+		act '晚间固定时间：开启': droutine_settings['evening_use_abs'] = 1 & gt 'daily_routine', 'settings'
+	end
+
+	act '返回': gt 'daily_routine', 'manage'
+end
+
+
+!! ============================================================================
+!! Per-step list helpers  (used by manage_phase and set_* actions)
+!! ============================================================================
+
+!! func(daily_routine, step_pos, phase, step_id)  -> 1-based index or 0
+if $ARGS[0] = 'step_pos':
+	result = 0
+	temp_sp_n = droutine['<<$ARGS[1]>>_count']
+	temp_sp_i = 0
+	:step_pos_loop
+	temp_sp_i += 1
+	if temp_sp_i <= temp_sp_n:
+		if $droutine['<<$ARGS[1]>>_step_<<temp_sp_i>>'] = $ARGS[2]:
+			result = temp_sp_i
+		else
+			jump 'step_pos_loop'
+		end
+	end
+	killvar 'temp_sp_n' & killvar 'temp_sp_i'
+	exit
+end
+
+!! gs daily_routine, remove_step_core, phase, index
+!!   Shifts elements after index down and decrements count. No nav.
+if $ARGS[0] = 'remove_step_core':
+	temp_drc = droutine['<<$ARGS[1]>>_count']
+	temp_dri = ARGS[2]
+	:droutine_rsc_loop
+	if temp_dri < temp_drc:
+		$droutine['<<$ARGS[1]>>_step_<<temp_dri>>'] = $droutine['<<$ARGS[1]>>_step_<<temp_dri + 1>>']
+		temp_dri += 1
+		jump 'droutine_rsc_loop'
+	end
+	$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = ''
+	droutine['<<$ARGS[1]>>_count'] = temp_drc - 1
+	killvar 'temp_drc' & killvar 'temp_dri'
+end
+
+!! gs daily_routine, remove_step_id, phase, step_id  - no-op if not present, no nav
+if $ARGS[0] = 'remove_step_id':
+	temp_rsid = func('daily_routine', 'step_pos', $ARGS[1], $ARGS[2])
+	if temp_rsid > 0:
+		gs 'daily_routine', 'remove_step_core', $ARGS[1], temp_rsid
+	end
+	killvar 'temp_rsid'
+end
+
+!! gt daily_routine, toggle_step, phase, step_id  - appends if absent, removes if present
+if $ARGS[0] = 'toggle_step':
+	temp_tp = func('daily_routine', 'step_pos', $ARGS[1], $ARGS[2])
+	if temp_tp > 0:
+		gs 'daily_routine', 'remove_step_core', $ARGS[1], temp_tp
+	else
+		temp_drc = droutine['<<$ARGS[1]>>_count'] + 1
+		$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = $ARGS[2]
+		droutine['<<$ARGS[1]>>_count'] = temp_drc
+		killvar 'temp_drc'
+	end
+	killvar 'temp_tp'
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+!! gt daily_routine, set_bath, phase, bath_id  (shower|bath|quickwash|none)
+!!   Swaps the active bathing step in place, or appends if none was present.
+if $ARGS[0] = 'set_bath':
+	!! Remember where the old bathing step was (0 if none active).
+	temp_sb_pos = func('daily_routine', 'step_pos', $ARGS[1], 'shower')
+	if temp_sb_pos = 0: temp_sb_pos = func('daily_routine', 'step_pos', $ARGS[1], 'bath')
+	if temp_sb_pos = 0: temp_sb_pos = func('daily_routine', 'step_pos', $ARGS[1], 'quickwash')
+	gs 'daily_routine', 'remove_step_id', $ARGS[1], 'shower'
+	gs 'daily_routine', 'remove_step_id', $ARGS[1], 'bath'
+	gs 'daily_routine', 'remove_step_id', $ARGS[1], 'quickwash'
+	if $ARGS[2] ! 'none':
+		if temp_sb_pos > 0:
+			!! Insert at the preserved position: shift everything from that slot up.
+			temp_sb_n = droutine['<<$ARGS[1]>>_count'] + 1
+			droutine['<<$ARGS[1]>>_count'] = temp_sb_n
+			temp_sb_i = temp_sb_n
+			:set_bath_ins_loop
+			if temp_sb_i > temp_sb_pos:
+				$droutine['<<$ARGS[1]>>_step_<<temp_sb_i>>'] = $droutine['<<$ARGS[1]>>_step_<<temp_sb_i - 1>>']
+				temp_sb_i -= 1
+				jump 'set_bath_ins_loop'
+			end
+			$droutine['<<$ARGS[1]>>_step_<<temp_sb_pos>>'] = $ARGS[2]
+			killvar 'temp_sb_n' & killvar 'temp_sb_i'
+		else
+			!! No previous bathing step - append at the end.
+			temp_drc = droutine['<<$ARGS[1]>>_count'] + 1
+			$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = $ARGS[2]
+			droutine['<<$ARGS[1]>>_count'] = temp_drc
+			killvar 'temp_drc'
+		end
+	end
+	killvar 'temp_sb_pos'
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+!! gt daily_routine, set_makeup_opt, phase, level
+!!   Saves makeup level and adds/removes apply_makeup from the phase list.
+if $ARGS[0] = 'set_makeup_opt':
+	gs 'daily_routine', 'settings_defaults'
+	droutine_settings['makeup_level'] = ARGS[2]
+	if ARGS[2] = 0:
+		gs 'daily_routine', 'remove_step_id', $ARGS[1], 'apply_makeup'
+	else
+		if func('daily_routine', 'step_pos', $ARGS[1], 'apply_makeup') = 0:
+			temp_drc = droutine['<<$ARGS[1]>>_count'] + 1
+			$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = 'apply_makeup'
+			droutine['<<$ARGS[1]>>_count'] = temp_drc
+			killvar 'temp_drc'
+		end
+	end
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+!! gt daily_routine, set_lashes_opt, phase, type  (0=none 1=fake 2=mink)
+!!   Saves lashes type and adds/removes apply_lashes from the phase list.
+if $ARGS[0] = 'set_lashes_opt':
+	gs 'daily_routine', 'settings_defaults'
+	droutine_settings['lashes_type'] = ARGS[2]
+	if ARGS[2] = 0:
+		gs 'daily_routine', 'remove_step_id', $ARGS[1], 'apply_lashes'
+	else
+		if func('daily_routine', 'step_pos', $ARGS[1], 'apply_lashes') = 0:
+			temp_drc = droutine['<<$ARGS[1]>>_count'] + 1
+			$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = 'apply_lashes'
+			droutine['<<$ARGS[1]>>_count'] = temp_drc
+			killvar 'temp_drc'
+		end
+	end
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+
+!! gs daily_routine, bath_picker, phase  -> $dr_pick = bathing option radio HTML
+if $ARGS[0] = 'bath_picker':
+	$dr_bp = 'none'
+	if func('daily_routine', 'step_pos', $ARGS[1], 'shower') > 0: $dr_bp = 'shower'
+	if func('daily_routine', 'step_pos', $ARGS[1], 'bath') > 0: $dr_bp = 'bath'
+	if func('daily_routine', 'step_pos', $ARGS[1], 'quickwash') > 0: $dr_bp = 'quickwash'
+	$dr_pick = iif($dr_bp = 'none', '<b>无</b>', '<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$ARGS[1]>>'', ''none''">无</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif($dr_bp = 'shower', '<b>淋浴</b>', '<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$ARGS[1]>>'', ''shower''">淋浴</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif($dr_bp = 'bath', '<b>泡澡</b>', '<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$ARGS[1]>>'', ''bath''">泡澡</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif($dr_bp = 'quickwash', '<b>快速清洗</b>', '<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$ARGS[1]>>'', ''quickwash''">快速清洗</a>')
+	killvar 'dr_bp'
+end
+
+!! gs daily_routine, makeup_picker, phase  -> $dr_pick = makeup level radio HTML
+if $ARGS[0] = 'makeup_picker':
+	gs 'daily_routine', 'settings_defaults'
+	temp_mkl = droutine_settings['makeup_level']
+	$dr_pick = iif(temp_mkl = 0, '<b>无</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 0">无</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_mkl = 1, '<b>淡妆</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 1">淡妆</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_mkl = 2, '<b>鲜艳</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 2">鲜艳</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_mkl = 3, '<b>浓妆</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 3">浓妆</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_mkl = 4, '<b>烟熏</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 4">烟熏</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_mkl = 5, '<b>芭比</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 5">芭比</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_mkl = 6, '<b>哥特</b>', '<a href="exec:gt ''daily_routine'', ''set_makeup_opt'', ''<<$ARGS[1]>>'', 6">哥特</a>')
+	killvar 'temp_mkl'
+end
+
+!! gs daily_routine, lashes_picker, phase  -> $dr_pick = lashes type radio HTML
+if $ARGS[0] = 'lashes_picker':
+	gs 'daily_routine', 'settings_defaults'
+	temp_lt = droutine_settings['lashes_type']
+	$dr_pick = iif(temp_lt = 0, '<b>无</b>', '<a href="exec:gt ''daily_routine'', ''set_lashes_opt'', ''<<$ARGS[1]>>'', 0">无</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_lt = 1, '<b>仿真</b>', '<a href="exec:gt ''daily_routine'', ''set_lashes_opt'', ''<<$ARGS[1]>>'', 1">仿真</a>')
+	$dr_pick += '&nbsp;&nbsp;' + iif(temp_lt = 2, '<b>水貂</b>', '<a href="exec:gt ''daily_routine'', ''set_lashes_opt'', ''<<$ARGS[1]>>'', 2">水貂</a>')
+	killvar 'temp_lt'
+end
+
+!! gt daily_routine, add_makeup, phase  - adds apply_makeup at current/default level
+if $ARGS[0] = 'add_makeup':
+	gs 'daily_routine', 'settings_defaults'
+	if droutine_settings['makeup_level'] <= 0: droutine_settings['makeup_level'] = 1
+	gt 'daily_routine', 'set_makeup_opt', $ARGS[1], droutine_settings['makeup_level']
+end
+
+!! gt daily_routine, add_lashes, phase  - adds apply_lashes at current/default type
+if $ARGS[0] = 'add_lashes':
+	gs 'daily_routine', 'settings_defaults'
+	if droutine_settings['lashes_type'] <= 0: droutine_settings['lashes_type'] = 1
+	gt 'daily_routine', 'set_lashes_opt', $ARGS[1], droutine_settings['lashes_type']
+end
+
+
+!! gt daily_routine, manage_phase, phase
+!!   Phase editor. Two sections: current steps (reorderable, removable) and
+!!   catalog steps available to add, grouped by category.
+if $ARGS[0] = 'manage_phase':
+	*clr & cla
+	menu_off = 0
+	$dr_ph = $ARGS[1]
+	if $dr_ph ! 'evening': $dr_ph = 'morning'
+	if $dr_ph = 'evening':
+		*p '<center><b>晚间日常</b></center>'
+	else
+		*p '<center><b>晨间日常</b></center>'
+	end
+	gs 'daily_routine', 'settings_defaults'
+	gs 'daily_routine', 'catalog_build'
+
+	!! ---- Section 1: the routine, in execution order (no numbers) ----
+	*p '<b>你的日常</b> <i>（按顺序自上而下播放）</i>'
+	if droutine['<<$dr_ph>>_count'] <= 0:
+		*p '<i>还没有步骤 - 从下面的列表中添加一些。</i>'
+	else
+		*p '<table width=100% cellpadding=4 cellspacing=0>'
+		temp_dpi = 0
+		:droutine_mp_orderloop
+		temp_dpi += 1
+		if temp_dpi <= droutine['<<$dr_ph>>_count']:
+			$dr_sid = $droutine['<<$dr_ph>>_step_<<temp_dpi>>']
+			gs 'daily_routine', 'resolve', $dr_sid
+			$dr_col2 = ''
+			if temp_dpi > 1: $dr_col2 += '<a href="exec:gt ''daily_routine'', ''move_up'', ''<<$dr_ph>>'', <<temp_dpi>>">[↑]</a>&nbsp;'
+			if temp_dpi < droutine['<<$dr_ph>>_count']: $dr_col2 += '<a href="exec:gt ''daily_routine'', ''move_down'', ''<<$dr_ph>>'', <<temp_dpi>>">[↓]</a>&nbsp;'
+			$dr_col2 += '&nbsp;&nbsp;'
+			if $dr_sid = 'shower' or $dr_sid = 'bath' or $dr_sid = 'quickwash':
+				$dr_col1 = '<b>洗澡</b>'
+				gs 'daily_routine', 'bath_picker', $dr_ph
+				$dr_col2 += $dr_pick
+			elseif $dr_sid = 'apply_makeup':
+				$dr_col1 = '<b>化妆</b>'
+				gs 'daily_routine', 'makeup_picker', $dr_ph
+				$dr_col2 += $dr_pick
+			elseif $dr_sid = 'apply_lashes':
+				$dr_col1 = '<b>贴上假睫毛</b>'
+				gs 'daily_routine', 'lashes_picker', $dr_ph
+				$dr_col2 += $dr_pick
+			else
+				$dr_col1 = '<b><<$droutine[''current_label'']>></b>'
+				$dr_col2 += '<a href="exec:gt ''daily_routine'', ''toggle_step'', ''<<$dr_ph>>'', ''<<$dr_sid>>''">[remove]</a>'
+			end
+			*p '<tr><td width=35%><<$dr_col1>></td><td><<$dr_col2>></td></tr>'
+			killvar 'dr_col1' & killvar 'dr_col2'
+			jump 'droutine_mp_orderloop'
+		end
+		*p '</table>'
+	end
+	killvar 'dr_pick'
+	killvar 'temp_dpi'
+
+	*nl
+	!! ---- Section 2: steps available to add, grouped by category ----
+	*p '<b>添加步骤</b>'
+	*p '<table width=100% cellpadding=4 cellspacing=0>'
+	$dr_prevcat = ''
+	dr_bath_shown = 0
+	temp_dci = 0
+	:droutine_mp_addloop
+	temp_dci += 1
+	if temp_dci <= droutine_catalog['count']:
+		$dr_sid = $droutine_catalog['id_<<temp_dci>>']
+		!! Steps already in the routine are shown in section 1 above.
+		if func('daily_routine', 'step_pos', $dr_ph, $dr_sid) > 0: jump 'droutine_mp_addloop'
+		gs 'daily_routine', 'resolve', $dr_sid
+		dr_show = 1
+		$dr_col1 = ''
+		$dr_col2 = ''
+		if $dr_sid = 'shower' or $dr_sid = 'bath' or $dr_sid = 'quickwash':
+			!! One bathing chooser only, and only when no bathing step is active.
+			if func('daily_routine', 'step_pos', $dr_ph, 'shower') > 0 or func('daily_routine', 'step_pos', $dr_ph, 'bath') > 0 or func('daily_routine', 'step_pos', $dr_ph, 'quickwash') > 0:
+				dr_show = 0
+			elseif dr_bath_shown = 1:
+				dr_show = 0
+			else
+				dr_bath_shown = 1
+				$dr_col1 = '洗澡'
+				$dr_col2 = '<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$dr_ph>>'', ''shower''">淋浴</a>&nbsp;&nbsp;<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$dr_ph>>'', ''bath''">泡澡</a>&nbsp;&nbsp;<a href="exec:gt ''daily_routine'', ''set_bath'', ''<<$dr_ph>>'', ''quickwash''">快速清洗</a>'
+			end
+		elseif $dr_sid = 'apply_makeup':
+			$dr_col1 = '化妆'
+			$dr_col2 = '<a href="exec:gt ''daily_routine'', ''add_makeup'', ''<<$dr_ph>>''">[add]</a>'
+		elseif $dr_sid = 'apply_lashes':
+			$dr_col1 = '贴上假睫毛'
+			$dr_col2 = '<a href="exec:gt ''daily_routine'', ''add_lashes'', ''<<$dr_ph>>''">[add]</a>'
+		else
+			$dr_col1 = '<<$droutine[''current_label'']>>'
+			$dr_col2 = '<a href="exec:gt ''daily_routine'', ''toggle_step'', ''<<$dr_ph>>'', ''<<$dr_sid>>''">[add]</a>'
+		end
+		if dr_show = 1:
+			if $droutine['current_category'] ! $dr_prevcat:
+				$dr_prevcat = $droutine['current_category']
+				*p '<tr><td colspan=2 style="padding-top:10px;border-bottom:1px solid #555"><b><<$dr_prevcat>></b></td></tr>'
+			end
+			*p '<tr><td width=35%><font color="#888"><<$dr_col1>></font></td><td><<$dr_col2>></td></tr>'
+		end
+		killvar 'dr_col1' & killvar 'dr_col2'
+		jump 'droutine_mp_addloop'
+	end
+	*p '</table>'
+	killvar 'temp_dci' & killvar 'dr_sid' & killvar 'dr_prevcat' & killvar 'dr_bath_shown' & killvar 'dr_show'
+	*nl
+	act '返回': gt 'daily_routine', 'manage'
+end
+
+
+!! gt daily_routine, add_step, phase  (DEPRECATED — replaced by manage_phase toggle list)
+if $ARGS[0] = 'add_step':
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+
+!! gt daily_routine, add_commit, phase, step_id  - appends step to phase list
+if $ARGS[0] = 'add_commit':
+	temp_drc = droutine['<<$ARGS[1]>>_count'] + 1
+	$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = $ARGS[2]
+	droutine['<<$ARGS[1]>>_count'] = temp_drc
+	killvar 'temp_drc'
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+
+!! gt daily_routine, remove_step, phase, index  - removes by index, shifts down
+if $ARGS[0] = 'remove_step':
+	temp_drc = droutine['<<$ARGS[1]>>_count']
+	temp_dri = ARGS[2]
+	:droutine_remove_loop
+	if temp_dri < temp_drc:
+		$droutine['<<$ARGS[1]>>_step_<<temp_dri>>'] = $droutine['<<$ARGS[1]>>_step_<<temp_dri + 1>>']
+		temp_dri += 1
+		jump 'droutine_remove_loop'
+	end
+	!! Blank the now-duplicate last slot. The count drop below keeps it unread.
+	$droutine['<<$ARGS[1]>>_step_<<temp_drc>>'] = ''
+	droutine['<<$ARGS[1]>>_count'] = temp_drc - 1
+	killvar 'temp_drc' & killvar 'temp_dri'
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+
+!! gt daily_routine, move_up, phase, index
+if $ARGS[0] = 'move_up':
+	temp_dri = ARGS[2]
+	if temp_dri > 1:
+		$dr_tmp = $droutine['<<$ARGS[1]>>_step_<<temp_dri>>']
+		$droutine['<<$ARGS[1]>>_step_<<temp_dri>>'] = $droutine['<<$ARGS[1]>>_step_<<temp_dri - 1>>']
+		$droutine['<<$ARGS[1]>>_step_<<temp_dri - 1>>'] = $dr_tmp
+		killvar 'dr_tmp'
+	end
+	killvar 'temp_dri'
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+
+!! gt daily_routine, move_down, phase, index
+if $ARGS[0] = 'move_down':
+	temp_dri = ARGS[2]
+	temp_drc = droutine['<<$ARGS[1]>>_count']
+	if temp_dri < temp_drc:
+		$dr_tmp = $droutine['<<$ARGS[1]>>_step_<<temp_dri>>']
+		$droutine['<<$ARGS[1]>>_step_<<temp_dri>>'] = $droutine['<<$ARGS[1]>>_step_<<temp_dri + 1>>']
+		$droutine['<<$ARGS[1]>>_step_<<temp_dri + 1>>'] = $dr_tmp
+		killvar 'dr_tmp'
+	end
+	killvar 'temp_dri' & killvar 'temp_drc'
+	gt 'daily_routine', 'manage_phase', $ARGS[1]
+end
+
+
+!! gs daily_routine, render_list_inline, phase
+!!   Prints phase steps as a comma-joined line, or (none).
+if $ARGS[0] = 'render_list_inline':
+	temp_drc = droutine['<<$ARGS[1]>>_count']
+	$dr_line = ''
+	temp_dri = 0
+	:droutine_rli_loop
+	temp_dri += 1
+	if temp_dri <= temp_drc:
+		$droutine['current_label'] = $droutine['<<$ARGS[1]>>_step_<<temp_dri>>']
+		gs 'daily_routine', 'resolve', $droutine['<<$ARGS[1]>>_step_<<temp_dri>>']
+		if $dr_line ! '': $dr_line += ', '
+		$dr_line += $droutine['current_label']
+		jump 'droutine_rli_loop'
+	end
+	if $dr_line = '': $dr_line = '（无）'
+	'  <<$dr_line>>'
+	killvar 'temp_drc' & killvar 'temp_dri' & killvar 'dr_line'
+end
+
+
+--- daily_routine ---------------------------------

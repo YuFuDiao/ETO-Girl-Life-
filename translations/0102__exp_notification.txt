@@ -1,0 +1,75 @@
+# exp_notification
+!! Usages:
+!! 1. gs 'exp_notification', stat_name, exp_increase_value
+!! examples:
+!! gs 'exp_notification', 'intel', 5
+!! gs 'exp_notification', $ARGS[2], 7
+!!
+!! Important - The above should be called only by gs 'exp_gain' unless you add exp manually.
+!!
+!! 2. func('exp_notification', 'get_message')
+!! Returns accumulated gains in form of the following message: 'You gained xp in: Skill/Attribute(xp_gained), Skill/Attribute(xp_gained)…'
+!! Also clears tracked xp gains
+!!
+!! 3. func('exp_notification', 'is_empty')
+!! Return 1 if there are no accumulated gains 0 if there are gains in queue
+!!
+!! Ignore table - contains identifiers of skills and attributes that will be ignored in tracking exp
+
+
+
+$exp_ignored_stats[0] = 'magik'
+$exp_ignored_stats[1] = 'stren_plus'
+$exp_ignored_stats[2] = 'butt_tr'
+$exp_ignored_stats[3] = 'heels'
+
+if $ARGS[0] = 'track_exp':
+	!! Accumulation happens here (gs execution part)
+	if arrpos('$exp_ignored_stats', $ARGS[1]) < 0 and (arrpos('$att_name', $ARGS[1]) >= 0 or arrpos('$skl_name', $ARGS[1]) >= 0):
+		exp_tracked_values[$ARGS[1]] += ARGS[2]
+		if arrpos('$exp_tracked_names', $ARGS[1]) < 0:
+			$exp_tracked_names[] = $ARGS[1]
+		end
+	end
+end
+
+
+!! Gets xp gains message AND clears accumulation storage 'exp_tracked_values'
+if $ARGS[0] = 'get_message':
+	$result = ''
+	if func('exp_notification', 'is_empty'): exit
+
+	loop_counter = 0
+	tracked_values_size = arrsize('$exp_tracked_names')
+	:exp_notification_loop
+		$tracked_stat = $exp_tracked_names[loop_counter]
+		if $att_desc[$tracked_stat] ! '':
+			$tracked_stat_description = $att_desc[$tracked_stat]
+		else
+			$tracked_stat_description = $skl_desc[$tracked_stat]
+		end
+		if exp_tracked_values[$tracked_stat] > 0:
+			$result += iif($result <> '', '&ensp;', '') + '↑&nbsp;<<$tracked_stat_description>>&nbsp;[<<exp_tracked_values[$tracked_stat]>>]'
+		end
+		loop_counter += 1
+	if loop_counter < tracked_values_size: jump 'exp_notification_loop'
+
+	$result = '<span style="font-weight:normal">' + $result + '</span>'
+
+	killvar 'tracked_stat'
+	killvar 'tracked_stat_description'
+	killvar 'loop_counter'
+	killvar 'tracked_values_size'
+	killvar 'exp_tracked_values'
+	killvar 'exp_tracked_names'
+	exit
+end
+
+
+if $ARGS[0] = 'is_empty':
+	result = (arrsize('$exp_tracked_names') = 0)
+	exit
+end
+
+
+--- exp_notification ---------------------------------

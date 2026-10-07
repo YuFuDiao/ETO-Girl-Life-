@@ -1,0 +1,105 @@
+# sewing
+
+if $ARGS[0] = 'start':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/pc/activities/sewing/kit.jpg"></center>'
+	'你从床底下拿出你的缝纫包。'
+	*nl
+	if mc_inventory['sewing_fabric'] > 1:
+		'你还剩下<<mc_inventory[''sewing_fabric'']>>块缝纫布。'
+	elseif mc_inventory['sewing_fabric'] = 1:
+		'你只剩下 1 块缝纫布了。'
+	else
+		'你已经没有布料可用来做材料了。'
+	end
+	if pcs_sewng > 50 and mc_inventory['sewing_fabric'] >= 1: '在衣橱列表中查看物品时，你可以<a href="exec:gt ''clothing_view'', ''view_lists_list'', ''wardrobe''">在这里</a>调整自己衣服的尺寸。'
+	act '离开': gt $loc, $loc_arg
+	act '练习缝纫 (0:30)':
+		minut += 30
+		gs 'stat'
+		cla & *clr
+		'<center><img <<$set_imgh>> src="images/pc/activities/sewing/practice.jpg"></center>'
+		if pcs_sewng < 40:
+			gs 'exp_gain', 'sewng', 2
+			'你练习了你的缝纫技巧。'
+		else
+			'你花了一些时间练习针脚和其他缝纫技术，但你不觉得自己有任何进步。'
+			*nl
+			'你觉得要想提高技能，你需要真正的项目来做，无论是在课堂上还是自己动手。'
+		end
+		act '完成': gt 'sewing', 'start'
+	end
+
+
+	act '缝制小饰品 (0:30)':
+		minut += 30
+		gs 'stat'
+		cla & *clr
+		act '完成': gt 'sewing', 'start'
+		if mc_inventory['sewing_fabric'] < 1:
+			'你没有任何材料可以缝制东西。你应该从超市买一些。'
+		elseif mc_inventory['trinkets_home'] = 30 and (YouCanGar = 0 or mc_inventory['trinkets_garage'] = 100):
+			'你没有更多的储物空间，在缝更多的小饰品之前，你需要卖掉一些小饰品来腾出空间。'
+		else
+			sew_trinket_success = rand(1, 240)
+			mc_inventory['sewing_fabric'] -= 1
+			if pcs_sewng >= 40: gs 'exp_gain', 'sewng', rand(pcs_intel/20, pcs_intel/10)
+			if pcs_sewng < 40: gs 'exp_gain', 'sewng', rand(pcs_intel/25, pcs_intel/15)
+
+			if sew_trinket_success > pcs_sewng*4:
+				'<center><img <<$set_imgh>> src="images/pc/activities/sewing/practice.jpg"></center>'
+				'你尽了最大努力想缝出一个可以出售的小饰品，但不知在哪个环节出了差错，你把它搞砸了。材料毁了，你沮丧得要命，但至少你觉得学到了一些东西。'
+			else
+				if mc_inventory['trinkets_home'] >= 30 and (YouCanGar = 0 or mc_inventory['trinkets_garage'] >= 100):
+					'<center><img <<$set_imgh>> src="images/pc/activities/sewing/kit.jpg"></center>'
+					'你又制作了一件小饰品，但随即发现自己已经有太多小饰品了。 ' + iif(YouCanGar > 0, '就连你继父车库里的空间也满了。 ', '') + '带着深深的遗憾，你把它扔掉了，因为没有地方存放它。至少你对缝纫有了更多了解……'
+				else
+					'<center><img <<$set_imgh>> src="images/pc/activities/sewing/trinket.jpg"></center>'
+					*p '你花了一些时间试着把东西缝在一起。半小时后，你的努力得到了回报——你做出了一个质量其实相当不错的小饰品。 '
+					if mc_inventory['trinkets_home'] < 30:
+						mc_inventory['trinkets_home'] += 1
+						'把它收好后，你觉得自己 ' + iif(mc_inventory['trinkets_home'] < 30, '大约还能再放<<30 - mc_inventory[''trinkets_home'']>>件', '恐怕已经放不下任何东西了') + '。' + iif(mc_inventory['trinkets_home'] >= 30 and YouCanGar > 0, '如果你再做出更多，就需要开始把它们存放在你继父的车库里了。', '')
+						*nl
+						'你想知道能不能在什么地方把它们卖掉。'
+					else
+						mc_inventory['trinkets_garage'] += 1
+						'你房间里的储物空间已经满了，但你仍然可以把它存放在你继父的车库里，' + iif(mc_inventory['trinkets_garage'] < 100, '大概还能再放<<100 - mc_inventory[''trinkets_garage'']>>件。', '不过看起来那里也已经没有多余的空间了。')
+						*nl
+						'你想知道在火车站能卖掉多少个。'
+					end
+				end
+			end
+		end
+	end
+end
+if $ARGS[0] = 'tapestry':
+	if newgobelen = 0:
+		*clr & cla
+		menu_off = 1
+		mc_inventory['sewing_fabric'] -= 1
+		newgobelen = 1
+		minut += 15
+		gs 'stat'
+		'你花15分钟在绣花架上，准备布料，勾勒出挂毯的图案。'
+
+		act '把挂毯放到一边': gt $loc, $loc_arg
+	else
+		*clr & cla
+		menu_off = 1
+		minut += 60
+		'<center><img <<$set_imgh>> src="images/pc/activities/sewing/practice.jpg"></center>'
+		gs 'exp_gain', 'sewng', rand(pcs_intel/10, pcs_intel/5)
+		gobramax = (pcs_sewng - 70) * 6
+		gobramin = (pcs_sewng - 70) * 2
+		newgobelen += rand(gobramin, gobramax)
+		gs 'stat'
+		if newgobelen < 1000: '你花了一个小时制作挂毯，现在它已经完成了<<newgobelen/10>>%。'
+		if newgobelen >= 1000:
+			killvar 'newgobelen'
+			mc_inventory['tapestry'] += 1
+			'你的挂毯制作完成了。'
+		end
+		act '把挂毯放到一边': gt $loc, $loc_arg
+	end
+end
+--- sewing ---------------------------------

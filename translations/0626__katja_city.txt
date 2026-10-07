@@ -1,0 +1,800 @@
+# katja_city
+!! 2022/03/08
+
+!! This file governs Katja''s actions in the city center and park. For the variables controlling her content, see the documentation in katja_procedural.
+
+if $ARGS[0] = 'metro':
+	$location_type = 'public_indoors'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/waiting_metro.jpg"></center>'
+	gs 'katja_meynold_schedule'
+	'你走到地铁站， '+iif(func('money', 'can_afford', 16) = 1, '并付了车费。', '但你没钱，所以卡佳替你付了车费。')+' 然后你下到站台，在等车的时候聊天。'
+	if func('money', 'can_afford', 16) = 1: gs 'money', 'pay', 16
+	act '等地铁':
+		!! Here will be a check for random events as soon as some are written.
+		gt 'katja_city', 'metro_ride'
+	end
+end
+
+
+if $ARGS[0] = 'metro_ride':
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/riding_metro.jpg"></center>'
+	'列车进站，你上了车，在它驶离车站前找了个座位坐下。'
+	act '和卡佳聊天':
+		!! Here will be a check for random events as soon as some are written.
+		if katjaQW['drinks'] > rand(10, 14):
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/city/metro_drunk.jpg"></center>'
+			'卡佳醉得厉害，连座位都坐不到，直接躺在了地板上。'
+			'你想把她扶起来，但她坚持说自己没事，只想小睡一会儿。'
+			'就在列车到站时，你总算让她站了起来。'
+			act '离开地铁': gt 'katja_city', 'metro_destination'
+		else
+			gt 'katja_city', 'metro_get_off'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'metro_get_off':
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/riding_metro.jpg"></center>'
+	'列车穿过隧道时，你和卡佳聊着天。没过多久，你们就到了目的地。'
+	act '离开地铁':
+		!! Here will be a check for random events as soon as some are written.
+		gt 'katja_city', 'metro_destination'
+	end
+end
+
+
+if $ARGS[0] = 'metro_destination':
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/Leaving_metro.jpg"></center>'
+	if locat['katja'] = 44:
+		minut += 5
+		$loc = 'city_mall'
+		$loc_arg = ''
+		$location_type = 'public_indoors'
+		$menu_loc = 'city_mall'
+		$menu_arg = ''
+		gs 'stat'
+		'你走出地铁站，朝 加莱里亚 购物中心走去。'
+		act '开始购物': gt 'katja_chat', 'chat1'
+	elseif locat['katja'] = 53:
+		minut += 10
+		$loc = 'city_nightclub'
+		$loc_arg = 'start'
+		$menu_loc = 'city_nightclub'
+		$menu_arg = 'start'
+		menu_off = 1
+		$location_type = 'public_outdoors'
+		$sexloc = 'city_nightclub'
+		katjaQW['disco_arrival'] = totminut
+		gs 'stat'
+		gs 'themes', 'indoors'
+		'你走出地铁站，走向夜总会，然后在那里排队。'
+		if pcs_hotcat = 10:
+			'门口的保安几乎一眼就注意到了你们俩，放你们进去了，省去了长长的排队。你能听到几声抱怨，但也有些口哨声和下流的评论。'
+		elseif pcs_hotcat > 7:
+			minut += 5
+			'你们俩只排了一小会儿队，保安就把你们挑了出来，让你们插到了好几个人前面，惹得他们很不高兴。'
+		elseif pcs_hotcat > 5:
+			minut += 10
+			'你排了一会儿队，终于到了门口。'
+		else
+			minut += rand(15, 20)
+			'你在队伍里等了很久，好几个更漂亮的女孩被允许插到你们前面，不过最终你们还是被放进去了。'
+		end
+		if func('money', 'can_afford', 250) = 1:
+			gs 'money', 'pay', 250
+			'你付了 ' + $func('money', 'string_price', 250) + ' 入场费，然后走进俱乐部。'
+		else
+			'你的钱不够付入场费，所以卡佳替你付了。'
+			'"下次该你请我们了，"她略带不满地说道。'
+		end
+		if rand(0, 1) = 0:
+			'"先跳支舞吧，"终于进了俱乐部后，她说着便把你拖向舞池。'
+			act '去舞池':
+				$loc = 'city_nightclub'
+				$loc_arg = 'inside'
+				$menu_loc = 'city_nightclub'
+				$menu_arg = 'inside'
+				menu_off = 1
+				$location_type = 'public_indoors'
+				killvar 'locclass'
+				minut += 5
+				frost = 0
+				gs 'themes', 'indoors'
+				gt 'katja_nightclub', 'dance'
+			end
+		else
+			'"先喝一杯吧，"终于进了俱乐部后，她说着便把你拖向吧台。'
+			act '去酒吧':
+				$loc = 'city_nightclub'
+				$loc_arg = 'inside'
+				$menu_loc = 'city_nightclub'
+				$menu_arg = 'inside'
+				menu_off = 1
+				$location_type = 'public_indoors'
+				killvar 'locclass'
+				minut += 5
+				frost = 0
+				gs 'themes', 'indoors'
+				gt 'katja_nightclub', 'bar_arrive'
+			end
+		end
+	else
+		if katjaQW['on_date'] = 1:
+			katjaQW['on_date'] = 0
+			if katjaQW['drinks'] > rand(8, 12):
+				minut += 30
+				gs 'stat'
+				'卡佳醉得几乎走不动路了，所以你决定送她回家。这花了挺长时间，因为她好几次想坐下来、不肯再走，不过你最终还是把她送回了宿舍房间、弄上了床，她立刻就睡着了。你让她好好睡，然后悄悄离开了房间。'
+				act '离开': gt 'uni_dorm', 'second_floor'
+			else
+				if katjaQW['horny'] > rand(40, 80) and katjaQW['sex_clossedness'] < 2:
+					'你走出大学附近的地铁站，卡佳提议让你跟她一起去她的房间。'
+					act '跟她走': gt 'katja_uni_sex', 'coming_home_from_date'
+					act '离开她': gt 'city_island'
+				else
+					'你走出大学附近的地铁站，互相道别。'
+					act '继续': gt 'city_island'
+				end
+			end
+		else
+			'你走出大学附近的地铁站，互相道别。'
+			act '继续': gt 'city_island'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'clothes_start1':
+	katjaQW['shopping_day'] = daystart
+	gs 'npc_relationship', 'modify', 'A14', 'like'
+	!! This is just temporary so that only Pussy-Cats can be chosen until the others are added.
+	if rand(1, 5) = 0:
+		$store_choice = '时尚达人'
+	elseif rand(1, 4) = 0:
+		$store_choice = 'GM'
+	else
+		$store_choice = 'Pussy-Cats'
+	end
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'你提议既然来了就试穿一下衣服，卡佳几乎高兴得跳了起来。"好呀，我们试吧！一定特别好玩！"'
+	if rand(0, 1) =1:
+		'"我们去<<$store_choice>>吧，"卡佳说。'
+		act '去<<$store_choice>>': gt 'katja_city', $store_choice
+	else
+		killvar 'store_choice'
+		'"你想去哪儿？"卡佳问道。'
+		!! act 'Go to GM': gt 'katja_city', 'GM'
+		act '去猫咪小铺': gt 'katja_city', 'Pussy-Cats'
+		!! act 'Go to Fashionista': gt 'katja_city', 'Fashionista'
+	end
+end
+
+
+if $ARGS[0] = 'clothes_start2':
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'在你离开前，卡佳叫住了你。"你想和我一起试试衣服吗？"她问道。'
+	act '好':
+		*clr & cla
+		katjaQW['shopping_day'] = daystart
+		gs 'npc_relationship', 'modify', 'A14', 'like'
+		if rand(1, 5) = 0:
+			$store_choice = '时尚达人'
+		elseif rand(1, 4) = 0:
+			$store_choice = 'GM'
+		else
+			$store_choice = 'Pussy-Cats'
+		end
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你告诉她你很想试试衣服，她给了你一个大大的拥抱。"这一定会特别好玩！"她说。'
+		if rand(0, 1) = 1:
+			'"我们去<<$store_choice>>吧，"卡佳说。'
+			act '去<<$store_choice>>': gt 'katja_city', $store_choice
+		else
+			killvar 'store_choice'
+			'"你想去哪儿？"卡佳问道。'
+			!! act 'Go to GM': 'katja_city', 'GM'
+			act '去猫咪小铺': gt 'katja_city', 'Pussy-Cats'
+			!! act 'Go to Fashionista': 'katja_city', 'Fashionista'
+		end
+	end
+	act '说不':
+		*clr & cla
+		gs 'npc_relationship', 'modify', 'A14', 'dislike'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你向卡佳道了歉，说现在实在没有时间。她看起来有点失望，但道别时，她的脸上很快又露出了笑容。'
+		act '离开': gt $loc, $loc_arg
+	end
+end
+
+
+if $ARGS[0] = 'Pussy-Cats':
+	minut += 20
+	killvar 'store_choice'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/KWS1.jpg"></center>'
+	'你走进 猫咪俱乐部，这是酷孩子们常逛的时尚商店，但价格还算实惠，如果你真喜欢试穿的东西，说不定能买下来。'
+	'你开始在货架间浏览，看着各种新款潮流。过了一会儿，你决定你们俩应该各自挑一套觉得对方穿起来会很好看的衣服。'
+	'你很快就找到了想看到卡佳穿上的衣服。你回到她身边，发现她也给你挑了一些要试穿的衣服，于是你们走向试衣间，找了个够两个人一起用的。'
+	act '试穿衣服':
+		*clr & cla
+		gs 'stat'
+		loop_counter = 0
+		:tryclotheswithkatja_pussy_cats
+		loop_counter += 1
+		if loop_counter = 600:
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'你试着穿上卡佳给你挑的衣服，但它' + iif(pcs_bmi < 25, '实在太松了，会掉下来', '紧得你根本穿不进去') + '，所以你放弃了。"抱歉<<$pcs_nickname>>，看来我估错你的尺码了。让我再给你拿件别的，"她说。'
+			'她刚要跑出去，你拦住了她。"嘿，别道歉，这不是你的错。先试试我给你挑的吧。"'
+			act '卡佳试穿你挑的衣服': gt 'katja_city', 'pussy_cat_outfit<<rand(0,3)>>'
+		else
+			if rand(0, 1) = 1:
+				numrand = rand(1, 220)
+
+				gs 'clothing_attributes', 'cats_dress', numrand
+				if CloBimbo = 1: jump 'tryclotheswithkatja_pussy_cats'
+				if CloInhibit > pcs_inhib: jump 'tryclotheswithkatja_pussy_cats'
+				if CloQuality < 4: jump 'tryclotheswithkatja_pussy_cats'
+				if CloStyle = 4 or CloProstitute = 1: jump 'tryclotheswithkatja_pussy_cats'
+				if katjaQW['slut'] > 80 and CloThinness < 4:
+					jump 'tryclotheswithkatja_pussy_cats'
+				elseif katjaQW['slut'] > 60 and CloThinness = 1:
+					jump 'tryclotheswithkatja_pussy_cats'
+				elseif katjaQW['slut'] < 40 and CloThinness = 6:
+					jump 'tryclotheswithkatja_pussy_cats'
+				end
+				if katjaQW['slut'] < 80 and (CloSkirtShortness = 6 or CloBra = 2): jump 'tryclotheswithkatja_pussy_cats'
+
+				if cats_dress[numrand] = 0:
+					$func('wrap', 'header center b', '猫咪小铺')
+					'<center><img <<$set_imgh>> src="images/pc/items/cats/dress/<<numrand>>.jpg"></center>'
+					'你穿上卡佳给你挑的连衣裙，她在一旁兴奋地看着。她似乎很喜欢这件，但很明显，她在等你的反应，还没开口说话。'
+
+					price = func('clothing', 'get_price', 'cats_dress', numrand)
+
+					act '告诉她你喜欢它':
+						cla
+						gs 'npc_relationship', 'modify', 'A14', 'love'
+						'"这件真不错。和往常一样，你的时尚品味无可挑剔，"你说，她的脸像圣诞树一样亮了起来。'
+						'你看了看价格标签，看到它要 ' + $func('money', 'string_price', price) + '。'
+						if func('money', 'can_afford', price):
+							act '买下裙子':
+								cla
+								'"我买，但得等你先试穿我给你挑的衣服。"'
+								'"太好了！"她说，看起来真的很高兴。'
+								gs 'clothing', 'quick_buy', 'cats_dress', numrand
+								act '轮到卡佳了': gt 'katja_city', 'pussy_cat_outfit<<rand(1,2)>>'
+							end
+						end
+						act '这太贵了':
+							cla
+							'"我真希望能买得起，但我现在手头没钱，"你说。'
+							'"完全没关系。我们不是来买东西的，只是享受试穿新衣服的乐趣，"她回答道。'
+							act '轮到卡佳了': gt 'katja_city', 'pussy_cat_outfit<<rand(1,2)>>'
+						end
+					end
+					act '这不是你的风格':
+						cla
+						'"它很好看，但我觉得不太适合我，"你告诉她，尽量委婉地拒绝。'
+						'"好吧，我总得试试嘛，"她闷闷不乐地说。"你知道的，你应该偶尔尝试点新东西，不然会错过很多美好的事物。"'
+						act '轮到卡佳了': gt 'katja_city', 'pussy_cat_outfit<<rand(1,2)>>'
+					end
+				else
+					jump 'tryclotheswithkatja_pussy_cats'
+				end
+			else
+				numrand = rand(1, 200)
+
+				gs 'clothing_attributes', 'cats_dress', numrand
+				if CloBimbo = 1: jump 'tryclotheswithkatja_pussy_cats'
+				if CloInhibit > pcs_inhib: jump 'tryclotheswithkatja_pussy_cats'
+				if CloQuality < 4: jump 'tryclotheswithkatja_pussy_cats'
+				if CloStyle = 4 or CloProstitute = 1: jump 'tryclotheswithkatja_pussy_cats'
+				if katjaQW['slut'] > 80 and CloThinness < 4:
+					jump 'tryclotheswithkatja_pussy_cats'
+				elseif katjaQW['slut'] > 60 and CloThinness = 1:
+					jump 'tryclotheswithkatja_pussy_cats'
+				elseif katjaQW['slut'] < 40 and CloThinness = 6:
+					jump 'tryclotheswithkatja_pussy_cats'
+				end
+				if katjaQW['slut'] < 80 and (CloPantsShortness = 6 or CloBra = 2): jump 'tryclotheswithkatja_pussy_cats'
+
+				if cats_outfits[numrand] = 0:
+					$func('wrap', 'header center b', '猫咪小铺')
+					'<center><img <<$set_imgh>> src="images/pc/items/cats/outfits/<<numrand>>.jpg"></center>'
+					'你穿上卡佳给你挑的衣服，她在一旁兴奋地看着。她似乎很喜欢，但很明显，她在等你的反应，还没开口说话。'
+
+					price = func('clothing', 'get_price', 'cats_outfits', numrand)
+
+					act '告诉她你喜欢它':
+						cla
+						gs 'npc_relationship', 'modify', 'A14', 'love'
+						'"这件真不错。和往常一样，你的时尚品味无可挑剔，"你说，她的脸像圣诞树一样亮了起来。'
+						'你看了看价格标签，看到它要 ' + $func('money', 'string_price', price) + '。'
+						if func('money', 'can_afford', price):
+							act '买下衣服':
+								cla
+								'"我买，但得等你先试穿我给你挑的衣服。"'
+								'"太好了！"她说，看起来真的很高兴。'
+								gs 'clothing', 'quick_buy', 'cats_outfits', numrand
+								act '轮到卡佳了': gt 'katja_city', 'pussy_cat_outfit<<rand(1,2)>>'
+							end
+						end
+						act '这太贵了':
+							cla
+							'"我真希望能买得起，但我现在手头没钱，"你说。'
+							'"完全没关系。我们不是来买东西的，只是享受试穿新衣服的乐趣，"她回答道。'
+							act '轮到卡佳了': gt 'katja_city', 'pussy_cat_outfit<<rand(1,2)>>'
+						end
+					end
+					act '这不是你的风格':
+						cla
+						'"它很好看，但我觉得不太适合我，"你告诉她，尽量委婉地拒绝。'
+						'"好吧，我总得试试嘛，"她闷闷不乐地说。"你知道的，你应该偶尔尝试点新东西，不然会错过很多美好的事物。"'
+						act '轮到卡佳了': gt 'katja_city', 'pussy_cat_outfit<<rand(1,2)>>'
+					end
+				else
+					jump 'tryclotheswithkatja_pussy_cats'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit1':
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_1.jpg"></center>'
+	'你换回自己原来的衣服时，卡佳穿上了你为她挑的无袖上衣和超短裤。穿好后，她转过身来，让你好好看看她。'
+	if katjaQW['slut'] >= 100:
+		'"哇，这些太棒了！"她看着镜子里的自己说。"穿上这个，我绝对是校园里最性感的女孩。不过我得小心别让莉扎维塔看到我穿成这样，她可能会到处散布谣言，说我已经变成荡妇了，"她说着眨了眨眼。'
+	elseif katjaQW['slut'] >= 80:
+		'"天哪，我穿这个看起来太性感了！"她说。"也许太性感了。我觉得这只能留到特殊场合穿，不能穿着去上课。"'
+	elseif katjaQW['slut'] >= 60:
+		'"哇，我不知道……"她说。"我穿这个确实很性感，但我不确定哪里能穿出去。"'
+	elseif katjaQW['slut'] >= 40:
+		'"这太过了，"她说。"这不是我能穿出门的东西。"'
+		'"但你也得承认你看起来挺性感的吧？"你回答道。'
+		'"嗯，是啊，但我可想象不出自己穿着它走出这里，"她回答。'
+	elseif katjaQW['slut'] >= 20:
+		'"你到底在想什么啊，<<$pcs_nickname>>？！"她说。"这是荡妇穿的衣服！"'
+		'"别这样嘛，你穿起来超性感的！"你回答。'
+		'"也许吧，但你休想看到我穿着它们走出这间试衣间！"'
+	else
+		'"搞什么鬼？你是想把我变成妓女吗？！"她几乎喊了出来。'
+		'"别这样嘛，你穿起来超性感的！"你回答。'
+		'"我们别谈这个了！我现在就把它脱下来！"'
+	end
+	act '让她转过身去':
+		*clr & cla
+		minut += 2
+		gs 'stat'
+		if katjaQW['slut'] < 20:
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'"来嘛，转过身去，让我从后面看看你，"你说。'
+			'"不要，"她一边回答一边开始脱衣服。"我还是想不通你到底怎么想的，居然挑了这条短裤！"'
+			'你让她安静地换衣服。"嗯，不管怎么说，还是谢谢你。不过下次你得给我挑点正经衣服，"她换好后说。'
+			act '离开': minut += 3 & gt $loc, $loc_arg
+		else
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_2.jpg"></center>'
+			'"来嘛，转过身去，让我从后面看看你，"你说。'
+			iif(katjaQW['slut'] >= 80, '"当然，"她说。"我敢保证你会喜欢这个景色的！"', '"真的吗，<<$pcs_nickname>>？！"')
+			'"别这样，就只有我嘛，"你回答。'
+			'她犹豫了片刻，然后回答："好吧。"'
+			'她转过身，让你看到一幅几乎毫不留想象空间的景象——短裤已经勒进了她的臀缝里。"天哪，你穿这个真好看，"你说。"翘臀真棒！"'
+			iif(katjaQW['slut'] >= 80, '"谢谢！"她说。"这些真的能让我在派对上成为众人瞩目的焦点。"', '"别这么说！它们老是往我屁股上爬，真烦人！"')+' 她随后转过身来面对你。'
+			act '继续':
+				*clr & cla
+				minut += 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_3.jpg"></center>'
+				'"好吧，真好玩，但我该换回去了，"她一边说一边开始解开衬衫的扣子。'
+				if npc_had_sex['A14'] and katjaQW['slut'] > 60 and rand(0, 3) = 0 and katjaQW['sex_clossedness'] < 2:
+					'"要不我给你表演一个小节目？"她带着调皮的笑容说。'
+					act '欣赏脱衣舞': gt 'katja_city', 'pussy_cat_outfit1_strip'
+				else
+					if katjaQW['QWstage'] > 2 and katjaQW['sex_clossedness'] < 2:
+						if katjaQW['slut'] > 60:
+							act '让她表演一番': gt 'katja_city', 'pussy_cat_outfit1_strip'
+						else
+							gs 'willpower', 'misc', 'force', 'easy'
+							if pcs_willpwr < will_cost:
+								act '让她表演一番' + $func('willpower', 'get_willcost_string'): $noWillpower
+							else
+								act '让她表演一番' + $func('willpower', 'get_willcost_string'):
+									gs 'willpower', 'pay', 'force'
+									gs 'stat'
+									gt 'katja_city', 'pussy_cat_outfit1_strip'
+								end
+							end
+						end
+					end
+					act '让她安静地换衣服':
+						*clr & cla
+						minut += 3
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_3.jpg"></center>'
+						'卡佳换回自己原来的衣服，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+						act '离开': minut += 2 & gt $loc, $loc_arg
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit1_strip':
+	gs 'arousal', 'erotic_nudity', 5
+	katjaQW['horny'] += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_4.jpg"></center>'
+	'卡佳先是动作变得更加妖娆，慢慢解开衬衫的扣子，然后任由它滑落到一边，露出她裸露的乳房。接着她又解开裤子的扣子，双手叉腰。'
+	if npc_had_sex['A14'] = 0:
+		act '让她完成表演': gt 'katja_city', 'pussy_cat_outfit1_strip2'
+	else
+		if max(katjaQW['horny'], 100) > rand(50, 150) and katjaQW['slut'] >= 80:
+			act '卡佳让事情变得更有趣': gt 'katja_city', 'pussy_cat_outfit1_play'
+		else
+			gs 'willpower', 'mast', 'force'
+			if pcs_willpwr < will_cost:
+				act '让她抚摸自己' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '让她抚摸自己' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'force'
+					gs 'stat'
+					gt 'katja_city', 'pussy_cat_outfit1_play'
+				end
+			end
+			act '让她完成表演': gt 'katja_city', 'pussy_cat_outfit1_strip2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit1_strip2':
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+	katjaQW['horny'] += 5
+	katjaQW['slut'] += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_5a.jpg"></center>'
+	'卡佳慢慢把裤子拉到膝盖上方，然后松开手，把双臂交叠在身前，让胸部向前挺起。"看到什么喜欢的了吗？"她用挑逗的语气问道。'
+	'"非常令人印象深刻……"你说。'
+	'"好了，到此为止，"她笑着说，然后开始正常地换衣服。'
+	'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+	act '离开': minut += 2 & gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit1_play':
+	gs 'arousal', 'foreplay', 3
+	katjaQW['horny'] += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_5b.jpg"></center>'
+	'卡佳停下脱裤子的动作，一只手放在乳房上，另一只手伸进裤子里，开始抚摸自己。她看起来真的越来越投入了。'
+	act '观看':
+		*clr & cla
+		gs 'arousal', 'foreplay', 3
+		katjaQW['horny'] += 10
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_6.jpg"></center>'
+		'当她越来越接近高潮时，她把放在乳房上的手拿开，拉下裤子，好让另一只手更方便动作。'
+		if katjaQW['know_butt_plug'] = 0:
+			'你用余光注意到她的包敞开着，看到了一个让你惊讶的东西。你打开包，掏出了一个肛塞和一个按摩棒。'
+			'"哎呀哎呀，这是什么呀？"你把发现的东西拿给卡佳看，她立刻停下手中的动作，脸涨得通红。'
+			'"我……我刚搬进宿舍的时候，维姬给我的。这些东西我才不会用呢！"她结结巴巴地说。'
+			'"既然你不用，那它们为什么会出现在你包里？"你问道。'
+			'"因为我不想让索菲娅发现！那丫头总翻我的东西，要是被她找到了，她会没完没了地问我，"她回答。'
+			'"这么说你从来没用过它们？"你问道。'
+			if katjaQW['masturbates'] + npc_ass['A14'] = 0:
+				'"我一个都没用过，"她说。'
+				'"好吧，那你今天可要尝试好几样新东西了，"你说着把肛塞递给她。'
+			elseif katjaQW['masturbates'] + npc_ass['A14'] = 1:
+				'"我从来没用过 '+iif(katjaQW['masturbates'] = 1, '肛塞', '按摩棒')+'。"她说。'
+				'"这么说你用过 '+iif(katjaQW['masturbates'] = 1, '按摩棒', '肛塞')+'？那你今天要尝试点新东西了，"你说着把肛塞递给她。'
+			else
+				'她什么都没说，但脸比之前更红了。"这么说你<i>确实</i>用过它们，你这个坏女孩！"你笑着说。"让我看看你是怎么用的，"你说着把肛塞递给她。'
+			end
+		else
+			'你翻看卡佳的包，找到了她的肛塞和按摩棒。"用这些让表演更精彩吧，"你说着把肛塞递给她。'
+		end
+		act '看着她把肛塞放进去':
+			*clr & cla
+			gs 'arousal', 'foreplay', 5
+			katjaQW['horny'] += 10
+			gs 'stat'
+			if npc_ass['A14'] = 0:
+				npc_ass['A14'] = 1
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_7a.jpg"></center>'
+				'"我以前从来没往屁股里放过任何东西！"她抗议道。'
+				'"凡事都有第一次，"你回答。"先舔一舔，让它润滑一下。"'
+				'她照你说的做了，开始舔肛塞。"我觉得现在够湿了，你可以放进去了，"一分钟后你说。"躺到椅子上，那样更容易放进去。"'
+				'她走到椅子边，把肛塞对准自己的屁股。她开始往里推，但明显遇到了阻力。"慢慢来，"你说，但她似乎下定了决心，没过多久，她带着一声轻微的痛吟，把肛塞完全推了进去。'
+			else
+				if npc_ass['A14'] < 5: npc_ass['A14'] += 1
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_7b.jpg"></center>'
+				'卡佳拿起肛塞，开始舔它。大约一分钟后，她躺在椅子上，开始把肛塞推进自己的屁股。'+iif(npc_ass['A14'] <= 5, ' 你可以看到有些阻力，她强忍着几不可闻的痛吟。', '肛塞毫无阻力地滑了进去，她一边轻轻呻吟，一边来回抽动了一会儿。')
+			end
+			act '观察她的反应':
+				*clr & cla
+				gs 'arousal', 'foreplay', 2
+				katjaQW['horny'] += 10
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_8.jpg"></center>'
+				'卡佳大口大口地喘着气，睁开眼睛看着你，同时开始轻轻抚摸自己的小穴。'
+				act '把按摩棒递给她':
+					*clr & cla
+					gs 'arousal', 'foreplay', 2
+					katjaQW['horny'] += 10
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_9.jpg"></center>'
+					'"给。用这个，"你打开按摩棒的开关递给她。'+iif(katjaQW['masturbates'] = 1 or katjaQW['know_butt_plug'] = 1, '她显然很清楚该怎么做，把按摩棒贴上自己的阴蒂，开始呻吟起来。', '她有点紧张地看着它。你正要给她指点几句，她就把它贴上了阴蒂，发出一声响亮的呻吟。')
+					act '边看边自慰':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_10.jpg"></center>'
+						'你把一只手伸进自己的'+iif(CloSkirtShortness > 0, '裙子', '裤子')+'里，一边看着卡佳一边开始揉搓阴蒂。她开始越来越投入，似乎很难压低自己的声音。几分钟后，她开始抽搐，迎来了一次强烈的高潮。之后，她只是躺在椅子上，喘着气。'
+						gs 'arousal', 'foreplay', 3
+						gs 'arousal', 'clit_finger', -3, 'masturbate'
+						gs 'arousal', 'end'
+						if katjaQW['know_butt_plug'] = 0: katjaQW['know_butt_plug'] = 1
+						katjaQW['horny'] = 0
+						katjaQW['slut'] += 4
+						gs 'stat'
+						*nl
+						'等她缓过劲来，她说："哇，刚才太激烈了！"'
+						'"真是一场精彩的表演，"你告诉她。'
+						'"谢谢。也许吧，"她红着脸说。"我换回衣服吧，"她说着开始脱下剩下的衬衫。'
+						'她准备把肛塞取出来，但你拦住了她。"到家之前都别拿出来。这对你来说会是一次不错的体验，"你说。她红着脸，但还是让它留在里面，穿上了衣服。'
+						'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+						act '离开': minut += 2 & gt $loc, $loc_arg
+					end
+					act '就看着她':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_1_10.jpg"></center>'
+						'你目不转睛地看着卡佳。她开始越来越投入，似乎很难压低自己的声音。几分钟后，她开始抽搐，迎来了一次剧烈的性高潮。之后，她只是躺在椅子上，慢慢平复呼吸。'
+						gs 'arousal', 'foreplay', 3
+						gs 'arousal', 'end'
+						if katjaQW['know_butt_plug'] = 0: katjaQW['know_butt_plug'] = 1
+						katjaQW['horny'] = 0
+						katjaQW['slut'] += 4
+						gs 'stat'
+						*nl
+						'等她缓过劲来，她说："哇，刚才太激烈了！"'
+						'"真是一场精彩的表演，"你告诉她。'
+						'"谢谢。我想是吧，"她红着脸补充道。"我换回衣服吧，"她又说了一句，然后开始脱下剩下的衬衫。'
+						'她试图取出肛塞，但你拦住了她。"到家之前都别拿出来。这对你来说会是一次很棒的体验，"你说。她红着脸，但还是让它留在里面，开始穿上衣服。'
+						'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+						act '离开': minut += 2 & gt $loc, $loc_arg
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit2':
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_1.jpg"></center>'
+	'你换回自己原来的衣服时，卡佳穿上了你为她挑的白衬衫和短裙。穿好后，她转过身来，让你好好看看她。'
+	if katjaQW['slut'] >= 40:
+		'"这件看起来不错，"她看着镜子里的自己说。"很适合温暖的夏夜，"她继续说。"我可能会把它买下来。"'
+	else
+		'"这件看起来不错，"她看着镜子里的自己说。"但它有点短，还有点透。我不确定自己有没有勇气穿着它出门，"她继续说。'
+	end
+	act '她开始换衣服':
+		*clr & cla
+		minut += 2
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_2.jpg"></center>'
+		'卡佳正准备换衣服，她任由衬衫松松垮垮地垂着，落在胸罩周围，凸显出她的胸部。'
+		act '问她的内裤和胸罩配不配':
+			*clr & cla
+			minut += 3
+			gs 'stat'
+			if katjaQW['slut'] < 40:
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+				'"那你的内裤和胸罩配套吗？"你问道。'
+				'"什么？！"她倒吸一口气。"你为什么要问这个？！"'
+				'"没什么，"看出她对这个问题不太自在，你回答道，然后让她安静地换衣服。'
+				'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+				act '离开': minut += 2 & gt $loc, $loc_arg
+			else
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_3.jpg"></center>'
+				'"那你的内裤和胸罩配套吗？"你问道。'
+				iif(katjaQW['slut'] >= 80, '"你是在猜我穿没穿内裤吗？"她狡黠地问道。', '"真的吗，<<$pcs_nickname>>？！你可不会问一个好女孩这种问题！"她眨了眨眼说道。')
+				'"来嘛，做个真正的好女孩，让我看看，"你回答。'
+				'她犹豫了片刻，最终还是让步了。"好吧。"'
+				'她慢慢撩起裙子，露出剃得干干净净的小穴。'
+				if katjaQW['pantiesQWstage'] >= 5:
+					'"看到了吧？我的内裤总是和胸罩配套的，"她说。"什么都不穿的时候，自然就不用配套了。"'
+				else
+					if katjaQW['pantiesQWstage'] < 4: katjaQW['pantiesQWstage'] += 1
+					'从她涨红的脸上可以明显看出，没穿内裤的样子被你看到，让她很不好意思。'
+					'"什么都别说，"她说。"只是我的内裤全都拿去洗了，"她说，听起来不太像真话。"我平时都是穿着内裤的。"'
+					iif($pantyworntype = 'none', '"你该试试。不穿真的很解放，"你边说边让她瞥了一眼你裸露的小穴', '"我为什么不太相信你说的是真话呢？"你说')+'，她的脸变得更红了。'
+				end
+				'"好吧，真好玩，但我该换回去了，"她说。'
+				if npc_had_sex['A14'] and katjaQW['slut'] > 60 and rand(0, 3) = 0 and katjaQW['sex_clossedness'] < 2:
+					'"要不我给你表演一个小节目？"她带着调皮的笑容说。'
+					act '欣赏脱衣舞': gt 'katja_city', 'pussy_cat_outfit2_strip'
+				else
+					if katjaQW['QWstage'] > 2 and katjaQW['sex_clossedness'] < 2:
+						if katjaQW['slut'] > 60:
+							act '让她表演一番': gt 'katja_city', 'pussy_cat_outfit2_strip'
+						else
+							gs 'willpower', 'misc', 'force', 'easy'
+							if pcs_willpwr < will_cost:
+								act '让她表演一番' + $func('willpower', 'get_willcost_string'): $noWillpower
+							else
+								act '让她表演一番' + $func('willpower', 'get_willcost_string'):
+									gs 'willpower', 'pay'
+									gs 'stat'
+									gt 'katja_city', 'pussy_cat_outfit2_strip'
+								end
+							end
+						end
+					end
+					act '让她安静地换衣服':
+						*clr & cla
+						minut += 3
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_2.jpg"></center>'
+						'卡佳换好衣服，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+						act '离开': minut += 2 & gt $loc, $loc_arg
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit2_strip':
+	gs 'arousal', 'erotic_nudity', 5
+	katjaQW['horny'] += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_4.jpg"></center>'
+	'卡佳先是动作变得更加妖娆，慢慢让衬衫滑落，同时仍然撩着裙子，让你把小穴看得一览无余。'
+	if npc_had_sex['A14'] = 0:
+		act '让她完成表演': gt 'katja_city', 'pussy_cat_outfit2_strip2'
+	else
+		if max(katjaQW['horny'], 100) > rand(50, 150) and katjaQW['slut'] >= 80:
+			act '卡佳让事情变得更有趣': gt 'katja_city', 'pussy_cat_outfit2_play'
+		else
+			gs 'willpower', 'mast', 'force'
+			if pcs_willpwr < will_cost:
+				act '让她抚摸自己' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '让她抚摸自己' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'force'
+					gs 'stat'
+					gt 'katja_city', 'pussy_cat_outfit2_play'
+				end
+			end
+			act '让她完成表演': gt 'katja_city', 'pussy_cat_outfit2_strip2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit2_strip2':
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+	katjaQW['horny'] += 5
+	katjaQW['slut'] += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_5a.jpg"></center>'
+	'卡佳终于脱下衬衫，把它甩到肩上，一只手抓着衬衫，另一只手撩起裙子，同时直直地看着你。"看到什么喜欢的了吗？"她用挑逗的语气问道。'
+	'"非常不错，"你回答。'
+	'"好了，到此为止，"她笑着说，然后开始正常地换衣服。'
+	'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+	act '离开': minut += 2 & gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'pussy_cat_outfit2_play':
+	gs 'arousal', 'foreplay', 3
+	katjaQW['horny'] += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_5b.jpg"></center>'
+	'卡佳停下脱衬衫的动作，把手移到小穴上，开始慢慢抚摸起来。她看起来真的越来越投入了。'
+	if katjaQW['know_butt_plug'] = 0:
+		'你用余光注意到卡佳的包敞开着，看到了一个让你惊讶的东西。你打开包，掏出了一个肛塞和一个按摩棒。'
+		'"哎呀哎呀，这是什么呀？"你把发现的东西拿给卡佳看，她立刻停下手中的动作，脸涨得通红。'
+		'"我……我刚搬进宿舍的时候，维姬给我的。这些东西我才不会用呢！"她结结巴巴地说。'
+		'"既然你不用，那它们为什么会出现在你包里？"你问道。'
+		'"因为我不想让索菲娅发现！那丫头总翻我的东西，要是被她找到了，她会没完没了地问我，"她回答。'
+		'"这么说你从来没用过它们？"你问道。'
+		if katjaQW['masturbates'] + npc_ass['A14'] = 0:
+			'"我一个都没用过，"她回答。'
+			'"好吧，那你今天可要尝试好几样新东西了，"你说着把肛塞递给她。'
+		elseif katjaQW['masturbates'] + npc_ass['A14'] = 1:
+			'"我从来没用过 '+iif(katjaQW['masturbates'] = 1, '肛塞', '按摩棒')+'。"她说。'
+			'"这么说你用过 '+iif(katjaQW['masturbates'] = 1, '按摩棒', '肛塞')+'？那你今天要尝试点新东西了，"你说着把肛塞递给她。'
+		else
+			'她什么都没说，但脸比之前更红了。"这么说你<i>确实</i>用过它们，你这个坏女孩！"你笑着说。"让我看看你是怎么用的，"你说着把肛塞递给她。'
+		end
+	else
+		'你翻看卡佳的包，找到了她的肛塞和按摩棒。"用这些让表演更精彩吧，"你说着把肛塞递给她。'
+	end
+	act '看着她把肛塞放进去':
+		*clr & cla
+		gs 'arousal', 'foreplay', 5
+		katjaQW['horny'] += 10
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_6.jpg"></center>'
+		if npc_ass['A14'] = 0:
+			npc_ass['A14'] = 1
+			'"我以前从来没往屁股里放过任何东西！"她抗议道。'
+			'"凡事都有第一次，"你回答。"先舔一舔，让它润滑一下。"'
+			'卡佳照你说的做了，开始舔肛塞。"我觉得现在够湿了，你可以放进去了，"一分钟后你说。"躺到椅子上，这样会更容易放进去。"'
+			'她脱下除胸罩外的其余衣服，走到椅子边，然后把肛塞对准自己的屁股。她开始往里推，但明显遇到了阻力。"慢慢来，"你说，但她似乎下定了决心，没过多久，她带着一声轻微的痛吟，把肛塞完全推了进去。'
+		else
+			if npc_ass['A14'] < 5: npc_ass['A14'] += 1
+			'卡佳拿起肛塞，开始舔它。大约一分钟后，她脱下除胸罩外的其余衣服，躺在椅子上，然后把肛塞推入自己的肛门。'+iif(npc_ass['A14'] <= 5, ' 你可以看到有些阻力，她强忍着几不可闻的痛吟。', '肛塞毫无阻力地滑了进去，她一边轻轻呻吟，一边来回抽动了一会儿。')
+		end
+		act '观察她的反应':
+			*clr & cla
+			gs 'arousal', 'foreplay', 2
+			katjaQW['horny'] += 10
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_7.jpg"></center>'
+			'她大口大口地喘着气，睁开眼睛看着你，同时开始轻轻抚摸自己的小穴。'
+			act '把按摩棒递给她':
+				*clr & cla
+				gs 'arousal', 'foreplay', 2
+				katjaQW['horny'] += 10
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_8.jpg"></center>'
+				'"给。用这个，"你打开按摩棒的开关递给她。'+iif(katjaQW['masturbates'] = 1 or katjaQW['know_butt_plug'] = 1, '卡佳显然很清楚该怎么做，一只手拨开小穴的阴唇，另一只手把按摩棒贴上阴蒂，开始呻吟起来。', '卡佳有点紧张地看着它，然后开始把它凑到小穴附近。你正要给她指点几句，她终于用一只手拨开阴唇，另一只手把按摩棒贴上阴蒂，发出一声响亮的呻吟。')
+				act '边看边自慰':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_9.jpg"></center>'
+					'你把一只手伸进自己的'+iif(CloSkirtShortness > 0, '裙子', '裤子')+'里，一边看着卡佳一边开始揉搓阴蒂。她开始越来越投入，似乎很难压低自己的声音。几分钟后，她开始抽搐，迎来了一次强烈的高潮。之后，她只是躺在椅子上，喘着气。'
+					gs 'arousal', 'foreplay', 3
+					gs 'arousal', 'clit_finger', -3, 'masturbate'
+					gs 'arousal', 'end'
+					if katjaQW['know_butt_plug'] = 0: katjaQW['know_butt_plug'] = 1
+					katjaQW['horny'] = 0
+					katjaQW['slut'] += 4
+					gs 'stat'
+					*nl
+					'等她缓过劲来，她说："哇，刚才太激烈了！"'
+					'"真是一场精彩的表演，"你告诉她。'
+					'"谢谢。我想是吧，"她红着脸补充道。"我换回衣服吧，"她又说了一句，然后开始脱下剩下的衬衫。'
+					'她试图取出肛塞，但你拦住了她。"到家之前都别拿出来。这对你来说会是一次很棒的体验，"你说。她红着脸，但还是让它留在里面，开始穿上衣服。'
+					'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+					act '离开': minut += 2 & gt $loc, $loc_arg
+				end
+				act '就看着':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/uni/mall/cats_2_9.jpg"></center>'
+					'你目不转睛地看着卡佳，她开始越来越投入。她似乎很难压低自己的声音，几分钟后，她开始抽搐，迎来了一次强烈的高潮。之后，她只是躺在椅子上，慢慢平复呼吸。'
+					gs 'arousal', 'foreplay', 3
+					gs 'arousal', 'end'
+					if katjaQW['know_butt_plug'] = 0: katjaQW['know_butt_plug'] = 1
+					katjaQW['horny'] = 0
+					katjaQW['slut'] += 4
+					gs 'stat'
+					*nl
+					'等她缓过劲来，她说："哇，刚才太激烈了！"'
+					'"真是一场精彩的表演，"你告诉她。'
+					'"谢谢。我想是吧，"她红着脸补充道。"我换回衣服吧，"她又说了一句，然后开始脱下剩下的衬衫。'
+					'她试图取出肛塞，但你拦住了她。"到家之前都别拿出来。这对你来说会是一次很棒的体验，"你说。她红着脸，但还是让它留在里面，开始穿上衣服。'
+					'几分钟后，你们离开了商店。"真好玩，<<$pcs_nickname>>，"她说。"我们下次再来！"然后她挥手道别，留下你一个人在商场里。'
+					act '离开': minut += 2 & gt $loc, $loc_arg
+				end
+			end
+		end
+	end
+end
+
+
+--- katja_city ---------------------------------

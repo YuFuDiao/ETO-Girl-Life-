@@ -1,0 +1,1535 @@
+# date_movie
+
+if $ARGS[0] = 'start':
+	date_ev['ticket_cost'] = 100
+	gs 'date_movie', 'init'
+	*clr & cla
+	if $region = 'pav':
+		$date_ev['loc'] = 'pav_cinema'
+		$date_ev['cinema_pic'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/park/theater/kinoteatr.jpg"></center>'
+		gt 'date_movie', 'pav_cinema'
+	elseif $region = 'city':
+		$date_ev['loc'] = 'city_cinema'
+		$date_ev['cinema_pic'] = '<center><img <<$set_imgh>> src="images/locations/shared/cinema/theaterbuy.jpg"></center>'
+		gt 'date_movie', 'city_cinema'
+	end
+end
+
+
+if $ARGS[0] = 'init':
+	date_ev['at_home'] = 0
+	$date_ev['type'] = 'cinema_date'
+	!! above is to let the game know what the current date activity is
+	!! below is to track what activities have been done
+	$date_ev[''] = 'cinema_date'
+	date_ev['activity_count'] += 1
+	gs 'npcStat', $temp_npcID
+end
+
+
+if $ARGS[0] = 'pav_cinema':
+	!! this location is more likely to show "popular" movies since it only has one screen
+	$date_ev['cinema_pic']
+	'你和<<$npcdesc>>来到电影院，看看正在放什么。'
+	*nl
+	temp_rand = rand(0, 19)
+	if temp_rand < 10:
+		$date_ev['film_suggest'] = 'superhero'
+		'影院太小了，全天只有一块银幕放同一部电影。这次放的是最新的大众超级英雄片。'
+	elseif temp_rand < 15:
+		$date_ev['film_suggest'] = 'action'
+		'影院太小了，全天只有一块银幕放同一部电影。这次放的是最新的大片动作片。'
+	elseif temp_rand = 15:
+		$date_ev['film_suggest'] = 'comedy'
+		'影院太小了，全天只有一块银幕放同一部电影。意外的是，今天似乎放的是一部喜剧。'
+	elseif temp_rand = 16:
+		$date_ev['film_suggest'] = 'raunchy_comedy'
+		'影院太小了，全天只有一块银幕放同一部电影。意外的是，今天似乎放的是一部喜剧。不过看起来低俗粗鄙，是那种满是裸露和粗俗性笑话的电影。'
+	elseif temp_rand = 17:
+		$date_ev['film_suggest'] = 'horror'
+		'影院太小了，全天只有一块银幕放同一部电影。但今天放的不是常见的超级英雄片，看起来是一部恐怖片。'
+	elseif temp_rand = 18:
+		$date_ev['film_suggest'] = 'drama'
+		'影院太小了，全天只有一块银幕放同一部电影。今天似乎放的是一部获奖剧情片。'
+	else
+		$date_ev['film_suggest'] = 'romance'
+		'影院太小了，全天只有一块银幕放同一部电影。今天似乎放的是一部爱情片。'
+	end
+	killvar 'temp_rand'
+
+	xgt 'date_movie', 'what_to_watch_pav'
+end
+
+
+if $ARGS[0] = 'what_to_watch_pav':
+	act '问<<$npcdesc>>他怎么想':
+		cla & *nl
+		'“怎么样？”你转头看向<<$npcdesc>>问道。“想看那个吗？”'
+		if $npc_fav_date[$npcID] = 'movie_date':
+			'“我听说这部口碑很好，”<<$npcdesc>>说，眼里闪着兴奋的光。“我们去买票吧。”'
+			'跟着他的引领，你走到柜台前，一个百无聊赖的青少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+			act '继续': xgt 'date_movie', 'buy_tickets'
+		elseif $npc_fav_genre[$npcID] = $date_ev['film_suggest']:
+			'正在播放的电影是他喜欢的那种类型'
+			'“我们就看这个吧。”'
+			'跟着他的引领，你走到柜台前，一个百无聊赖的青少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+			act '买票': xgt 'date_movie', 'buy_tickets'
+		elseif npc_assertive[$npcID] = 1:
+			if rand(0, 0) = 0:
+				'“反正都来了，不如看看，”<<$npcdesc>>耸耸肩，上前去买票。你跟着他走到柜台前，一个百无聊赖的青少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+				act '继续': xgt 'date_movie', 'buy_tickets'
+			else
+				!! enable later when there are more dates and netflix and chill has been made/created
+				'“看起来有点无聊，”<<$npcdesc>>耸耸肩。“我们去做点别的吧。”'
+				'“那我们该做什么？”你问。'
+			end
+		else
+			!! 'Note: he''s indecisive.'
+			'他耸耸肩。“我不知道。你觉得呢？”'
+			act '听起来不错（看电影）':
+				cla & *nl
+				'“听起来挺好玩，”你笑着说。“我们就看这个吧！”'
+				'你们俩走到柜台前，一个无聊的少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+				gs 'date_movie', 'ticket_menu'
+			end
+
+			act '反正都来了（看电影）':
+				cla & *nl
+				'“反正都来了，”你叹了口气。“我想就看看这个吧。”'
+				'你们俩走到柜台前，一个无聊的少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+				gs 'date_movie', 'ticket_menu'
+			end
+
+			gs 'date_funcs', 'alternate_plans'
+		end
+	end
+	act '我想看这个！':
+		cla & *nl
+		'“我想看这个！”你说。'
+		if $npc_fav_date[$npcID] = 'movie_date':
+			'“当然，我什么都看，我喜欢电影。”'
+			'你们俩走到柜台前，一个无聊的少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+			gs 'date_movie', 'ticket_menu'
+		elseif $npc_fav_genre[$npcID] = $date_ev['film_suggest']:
+			!! 'The type of movie playing is the type he likes'
+			'“我也是。”'
+			'你们俩走到柜台前，一个无聊的少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+			gs 'date_movie', 'ticket_menu'
+		elseif npc_assertive[$npcID] = 1:
+			if rand(0, 0) = 0:
+				'“反正都来了，不如看看，”<<$npcdesc>>耸耸肩，上前去买票。你跟着他走到柜台前，一个百无聊赖的青少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+				act '继续': xgt 'date_movie', 'buy_tickets'
+			else
+				!! enable later when there are more dates and netflix and chill has been made/created
+				'“看起来有点无聊，”<<$npcdesc>>耸耸肩。“我们去做点别的吧。”'
+				'“那我们该做什么？”你问。'
+			end
+		else
+			'“好，我想这个也行，”他说。'
+			gs 'date_movie', 'ticket_menu'
+		end
+	end
+
+	act '听起来很无聊':
+		cla & *nl
+	!!	'Reaction based on what kind of film is playing'
+		*nl
+		if $date_ev['film_suggest'] = 'comedy':
+			'“呃，听起来好无聊，”你哼哼道。'
+		elseif $date_ev['film_suggest'] = 'raunchy_comedy':
+			'“呃，听起来好无聊，”你哼哼道。'
+		elseif $date_ev['film_suggest'] = 'horror':
+			'“呃，听起来好无聊，”你哼哼道。'
+		elseif $date_ev['film_suggest'] = 'drama':
+			'“呃，听起来好无聊，”你哼哼道。'
+		elseif $date_ev['film_suggest'] = 'romance':
+			'“呃，听起来好无聊，”你哼哼道。'
+		elseif $date_ev['film_suggest'] = 'superhero':
+			'“呃，听起来好无聊，”你哼哼道。'
+		elseif $date_ev['film_suggest'] = 'action':
+			'“呃，听起来好无聊，”你哼哼道。'
+		end
+		if npc_assertive[$npcID] = 1 and $npc_fav_genre[$npcID] = $date_ev['film_suggest']:
+			'“来吧，你会喜欢的，”他说，坚持无论如何都要看这部。'
+			act '跟他去售票柜台':
+				cla & *nl
+				'你跟着他走到柜台前，一个百无聊赖的青少年告诉你票价是<<$func(''money'', ''string_price'', date_ev[''ticket_cost''])>>一张。'
+				gs 'date_movie', 'ticket_menu'
+			end
+
+			gs 'willpower', 'misc', 'resist'
+			if pcs_willpwr < will_cost:
+				act '坚持做点别的' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '坚持做点别的' + $func('willpower', 'get_willcost_string'):
+					msg '占位内容：其他约会选项尚未实装。未减少意志力。'
+					!!{
+					*clr & cla
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+
+					'事件文本'
+
+					act '下一步': gt 'farawayistan' !}
+				end
+			end
+		else
+			'“好吧……那想做点别的吗？”'
+			act '太麻烦了（看电影）':
+				cla & *nl
+				'“反正都来了，”你叹了口气。“我想就看看这个吧。”'
+				gs 'date_movie', 'ticket_menu'
+			end
+
+			gs 'date_funcs', 'alternate_plans'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'city_cinema':
+	$date_ev['cinema_pic']
+	'你和<<$npcdesc>>来到电影院，看看正在放什么。'
+	'有各种不同类型题材的电影。'
+	act '问<<$npcdesc>>他想看什么':
+		cla & *nl
+		'“怎么样？”你转头看向<<$npcdesc>>问道。“你觉得我们该看哪部？”'
+		if $npc_fav_genre[$npcID] = 'action' or ($npc_fav_date[$npcID] ! 'movie_date' and npc_assertive[$npcID] > 0 and rand(1, 6) = 1):
+			$date_ev['film_suggest'] = 'action'
+			'“我们看动作片吧。”'
+		elseif $npc_fav_genre[$npcID] = 'horror' or ($npc_fav_date[$npcID] ! 'movie_date' and npc_assertive[$npcID] > 0 and rand(1, 5) = 1):
+			$date_ev['film_suggest'] = 'horror'
+			'“我们看恐怖片吧。”'
+		elseif $npc_fav_genre[$npcID] = 'raunchy_comedy' or ($npc_fav_date[$npcID] ! 'movie_date' and npc_assertive[$npcID] > 0 and rand(1, 4) = 1):
+			$date_ev['film_suggest'] = 'raunchy_comedy'
+			'“我们看喜剧片吧。”'
+		elseif $npc_fav_genre[$npcID] = 'comedy' or ($npc_fav_date[$npcID] ! 'movie_date' and npc_assertive[$npcID] > 0 and rand(1, 3) = 1):
+			$date_ev['film_suggest'] = 'comedy'
+			'“我们看喜剧片吧。”'
+		elseif $npc_fav_genre[$npcID] = 'drama' or ($npc_fav_date[$npcID] ! 'movie_date' and npc_assertive[$npcID] > 0 and rand(1, 2) = 1):
+			$date_ev['film_suggest'] = 'drama'
+			'“我们看剧情片吧。”'
+		elseif $npc_fav_genre[$npcID] = 'romance' or ($npc_fav_date[$npcID] ! 'movie_date' and npc_assertive[$npcID] > 0):
+			$date_ev['film_suggest'] = 'romance'
+			'“我们看爱情片吧。”'
+		else
+			!! 'Note: he''s indecisive.'
+			if npc_generous[$npcID] > 0:
+				'“你想看什么我就看什么。”'
+			else
+				'他耸耸肩。“我不知道。你觉得呢？”'
+			end
+		end
+
+		gs 'date_movie', 'boy_film_suggest_react '
+
+		if $date_ev['film_suggest'] ! '':
+			act '换一部':
+				cla & *nl
+				'你想看别的'
+				if $date_ev['film_suggest'] ! 'action':
+					act '我们看动作片吧':
+						cla & *nl
+						$date_ev['film_suggest2'] = 'action_movie'
+						'“那换那部怎么样？”你指着那部动作片说。'
+						gs 'date_movie', 'suggest_film3'
+					end
+				end
+
+				if $date_ev['film_suggest'] ! 'horror':
+					act '恐怖片':
+						$date_ev['film_suggest2'] = 'horror_movie'
+						'“那换那部怎么样？”你指着那部恐怖片说。'
+						gs 'date_movie', 'suggest_film3'
+					end
+				end
+
+				if $date_ev['film_suggest'] ! 'comedy':
+					act '喜剧片':
+						$date_ev['film_suggest2'] = 'comedy_movie'
+						'“那换那部怎么样？”你指着那部喜剧说。'
+						gs 'date_movie', 'suggest_film3'
+					end
+				end
+
+				if $date_ev['film_suggest'] ! 'raunchy_comedy':
+					act '低俗喜剧':
+						$date_ev['film_suggest2'] = 'raunchy_movie'
+						'“那换那部怎么样？”你指着那部看起来很下流的喜剧说。'
+						gs 'date_movie', 'suggest_film3'
+					end
+				end
+
+				if $date_ev['film_suggest'] ! 'drama':
+					act '剧情片':
+						$date_ev['film_suggest2'] = 'drama_movie'
+						'“那换那部怎么样？”你指着那部剧情片说。'
+						gs 'date_movie', 'suggest_film3'
+					end
+				end
+
+				if $date_ev['film_suggest'] ! 'romance':
+					act '爱情片':
+						$date_ev['film_suggest2'] = 'romance_movie'
+						'“那换那部怎么样？”你指着那部爱情片说。'
+						gs 'date_movie', 'suggest_film3'
+					end
+				end
+			end
+		end
+	end
+	gs 'date_movie', 'suggest_film1'
+	act '做点别的事':
+		cla & *nl
+		'现在你已经到了这里，把所有电影都看了一遍，你意识到自己实在不想在影院里坐两个小时看点什么。'
+		'“你想去做点别的吗？”你问<<$npcdesc>>。'
+		'“比如什么？”'
+		gs 'date_funcs', 'alternate_plans'
+	end
+end
+
+
+if $ARGS[0] = 'suggest_film1':
+	act '我们看动作片吧':
+		cla & *nl
+		$date_ev['film_suggest'] = 'action'
+		xgt 'date_movie', 'suggest_film2'
+	end
+
+	act '恐怖片':
+		$date_ev['film_suggest'] = 'horror'
+		'“我们看恐怖片吧。”'
+		xgt 'date_movie', 'suggest_film2'
+	end
+
+	act '喜剧片':
+		$date_ev['film_suggest'] = 'comedy'
+		'“我们看喜剧片吧。”'
+		xgt 'date_movie', 'suggest_film2'
+	end
+
+	act '低俗喜剧':
+		$date_ev['film_suggest'] = 'raunchy_comedy'
+		'“我们看喜剧片吧。”'
+		xgt 'date_movie', 'suggest_film2'
+	end
+
+	act '剧情片':
+		$date_ev['film_suggest'] = 'drama'
+		'“我们看剧情片吧。”'
+		xgt 'date_movie', 'suggest_film2'
+	end
+
+	act '爱情片':
+		$date_ev['film_suggest'] = 'romance'
+		'“我们看爱情片吧。”'
+		xgt 'date_movie', 'suggest_film2'
+	end
+end
+
+
+if $ARGS[0] = 'suggest_film2':
+	if $npc_fav_genre[$npcID] = $date_var['film_suggest']:
+		$date_ev['film_decide'] = $date_ev['film_suggest']
+		'正在播放的电影是他喜欢的那种类型'
+		'“我们就看这个吧。”'
+		gs 'date_movie', 'ticket_menu'
+	elseif npc_assertive[$npcID] > 0 and npc_selfish[$npcID] > 0 and $npc_fav_genre[$npcID] ! $date_var['film_suggest']:
+
+		'<<$npcdesc>>摇了摇头。'
+		if $npc_fav_genre[$npcID] = 'action':
+			'“那换那部怎么样？”他指着那部动作片说。'
+		elseif $npc_fav_genre[$npcID] = 'horror':
+			'“那换那部怎么样？”他指着那部恐怖片说。'
+		elseif $npc_fav_genre[$npcID] = 'comedy':
+			'“那换那部怎么样？”他指着一部喜剧说。'
+		elseif $npc_fav_genre[$npcID] = 'raunchy_comedy':
+			'“那换那部怎么样？”他指着一部看起来很下流的喜剧说。'
+		elseif $npc_fav_genre[$npcID] = 'drama':
+			'“那换那部怎么样？”他指着一部剧情片说。'
+		elseif $npc_fav_genre[$npcID] = 'romance':
+			'“那换那部怎么样？”他指着一部爱情片说。'
+		end
+		gs 'date_movie', 'boy_film_suggest_react '
+	else
+		$date_ev['film_decide'] = $date_ev['film_suggest']
+		'他无所谓你想看什么。'
+		'“我们就看这个吧。”'
+		gs 'date_movie', 'ticket_menu'
+	end
+end
+
+
+if $ARGS[0] = 'suggest_film3':
+	if npc_argumentative[$npcID] > 0 and npc_assertive[$npcID] < 1:
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		'“你既然自己想看那部，干嘛还问我？”<<$npcdesc>>嘟囔着，但还是跟着你去排队买票了。'
+	else
+		'“好啊，听起来也不错，”他说，于是你们俩一起去排队。'
+	end
+	$date_ev['film_decide'] = $date_ev['film_suggest2']
+	gs 'date_movie', 'ticket_menu'
+end
+
+
+if $ARGS[0] = 'boy_film_suggest_react ':
+	if $date_ev['film_suggest'] ! '':
+		act '你想看自己想看的电影':
+			cla & *nl
+			'“我不想看那部！”你哼哼道。“我们换另一部看吧！”'
+			if npc_argumentative[$npcID] > 0:
+				'他跟你争了起来。'
+				act '为这个吵一架':
+					date_ev['film_fight'] = 1
+					gs 'npc_relationship', 'modify', $npcID, 'dislike'
+					*clr & cla
+					$date_ev['cinema_pic']
+					'你们为了这个吵了起来。'
+					if npc_argumentative[$npcID] < 2 and rand(1, 100) < pcs_persuas:
+						'“<i>好吧！</i>”他没好气地说。“我们看你的电影！”'
+					else
+						act '屈服':
+							cla & *nl
+							'“行吧行吧，”你咕哝道。“我们看你的。”'
+							gs 'date_movie', 'ticket_menu'
+						end
+					end
+				end
+			else
+				!! add more variations later
+				gs 'npc_relationship', 'modify', $npcID, 'dislike'
+				'他让步，同意看你的电影。'
+				gs 'date_movie', 'ticket_menu'
+			end
+		end
+	else
+		act '好的':
+			$date_ev['film_decide'] = $date_ev['film_suggest']
+			cla & *nl
+			'“好，我们就看那个吧。”'
+			if npc_generous[$npcID] > 0:
+				date_ev['npc_ticket_buy'] = 1
+				'“我去买票，”他笑着说。'
+				act '跟他走': gt 'date_movie', 'buy_tickets'
+
+				act '那我来买零食':
+					date_ev['pc_snack_buy'] = 1
+					cla & *nl
+					'“那我去买爆米花，”你也笑着回。'
+					act '去小吃柜台': gt 'date_movie', 'snack_counter'
+				end
+
+				!! act 'No please, let me':
+			else
+				gs 'date_movie', 'ticket_menu'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'ticket_menu':
+	if date_ev['split_ticket'] = 1 or date_ev['npc_ticket_buy'] = 1 or date_ev['pc_ticket_buy'] = 1:
+		gt 'date_movie', 'buy_tickets'
+	elseif npc_selfish[$npcID] > 0 and rand(1, 2) = 1:
+		gs 'date_movie', 'asked_to_pay_start'
+	else
+		act '分摊费用': gt 'date_movie', 'split_cost'
+
+		act '提出买票': gt 'date_movie', 'split_cost'
+
+		act '让他去买票':
+			*clr & cla
+			'“你能去买票吗？”你问。'
+			if npc_selfish[$npcID] > 0 or npc_generous[$npcID] = 0 and rand(0, 1) = 0:
+				date_ev['split_ticket'] = 1
+				'“不行，自己付自己的。”'
+				act '买你自己的票': gt 'date_movie', 'buy_tickets'
+			else
+				date_ev['npc_ticket_buy'] = 1
+				'“当然。”'
+				act '去售票柜台': gt 'date_movie', 'buy_tickets'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'split_cost':
+	*clr & cla
+	$date_ev['cinema_pic']
+	'“我们分摊吧？”你问。'
+	!! insert variations here, but for now just the one
+	'“好啊。”'
+	date_ev['split_ticket'] = 1
+	act '买票': gt 'date_movie', 'buy_tickets'
+end
+
+
+if $ARGS[0] = 'offer_to_pay':
+	*clr & cla
+	$date_ev['cinema_pic']
+	'“我来付吧，”你笑着说。'
+	if npc_generous[$npcID] > 0:
+		date_ev['npc_ticket_buy'] = 1
+		'“不，让我来，”他坚持道。'
+	else
+		date_ev['pc_ticket_buy'] = 1
+		'“哇，你人真好，”他说。'
+	end
+	act '售票柜台': gt 'date_movie', 'buy_tickets'
+end
+
+
+if $ARGS[0] = 'asked_to_pay_start':
+	'他让你去买票。'
+
+	gs 'date_movie', 'asked_to_pay'
+	act '为什么是我？':
+		cla & *nl
+		'“为什么是我？”'
+		gs 'date_movie', 'asked_to_pay'
+		if npc_finance[$npcID] > 0:
+			'“我会还给你的，我保证！”'
+		else
+			'“我现在手头有点紧，”他带着愧疚的笑容说。“以后再还你？”'
+			if he_invited_pc = 1:
+				act '<i>你</i>约的<i>我</i>！':
+					cla & *nl
+					'“搞什么？”你皱起眉。“是你约<i>我</i>出来的！你居然没钱？”'
+					'他耸耸肩，笑容变成了咧嘴笑。'
+					gs 'date_movie', 'asked_to_pay'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'asked_to_pay':
+	date_ev['wants_pc_pay'] = 1
+	if func('money', 'can_afford', date_ev['ticket_cost']) = 1:
+		act '两个人都付':
+			date_ev['pc_ticket_buy'] = 1
+			if date_ev['wants_pc_pay'] = 1: npc_money_owed[$npcID] += date_ev['ticket_cost']
+			cla & *nl
+			'“好吧，”你坏笑。“这次算我请你。”'
+			act '买票': gt 'date_movie', 'buy_tickets'
+		end
+
+		act '两个人都付（恼火）':
+			date_ev['pc_ticket_buy'] = 1
+			if date_ev['wants_pc_pay'] = 1: npc_money_owed[$npcID] += date_ev['ticket_cost']
+			cla & *nl
+			'“呃，行吧。”'
+			act '买票': gt 'date_movie', 'buy_tickets'
+		end
+
+		act '没钱（撒谎）':
+			date_ev['no_money'] = 1
+			cla & *nl
+			'“不行。我一点钱都没有，”你说。'
+			act '买票': gt 'date_movie', 'buy_tickets'
+		end
+
+		if date_ev['wants_pc_pay'] = 1:
+			act '你请客':
+				date_ev['pc_ticket_buy'] = 1
+				cla & *nl
+				'“你不用还我任何东西，”你笑着说。“这次我请。”'
+				act '买票': gt 'date_movie', 'buy_tickets'
+			end
+		end
+	else
+		act '没钱':
+			date_ev['no_money'] = 1
+			cla & *nl
+			if date_ev['wants_pc_pay'] = 1 and npc_finance[$npcID] = 0:
+				'“那个，我也没钱，”你尴尬地说。'
+				'“那我们……该怎么办……？”'
+				gs 'date_funcs', 'alternate_plans'
+			else
+				'“不行。我一点钱都没有，”你说。'
+				'他抱怨了一通，最后还是同意买票。'
+				date_ev['npc_ticket_buy'] = 1 & gs 'date_movie', 'ticket_menu'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_tickets':
+	*clr & cla
+	$date_ev['cinema_pic']
+	$date_ev['film_decide'] = $date_ev['film_suggest']
+	if date_ev['split_ticket'] = 1:
+		!! split payment code
+		'你排队站在<<$npcdesc>>旁边，买了票。'
+		date_ev['pay_cost'] = date_ev['ticket_cost']
+		xgt 'date_movie', 'buy_tickets_payment'
+	elseif date_ev['npc_ticket_buy'] = 1:
+		!! he buys the tickets, no cost to player
+		'你排队站在<<$npcdesc>>旁边，他给你们俩买了票。'
+		xgt 'date_movie', 'buy_tickets_end'
+	elseif func('money', 'can_afford', date_ev['ticket_cost'] * 2) = 1:
+		date_ev['pc_ticket_buy'] = 1
+		'你买了电影票。'
+		!! insert cost here
+		date_ev['pay_cost'] = date_ev['ticket_cost'] * 2
+		xgt 'date_movie', 'buy_tickets_payment'
+	else
+		'你买了电影票。'
+		'抱歉，我买不起，我的钱只够买自己那张票。'
+		'你排队站在<<$npcdesc>>旁边，买了票。'
+		!! insert cost here
+		date_ev['pay_cost'] = date_ev['ticket_cost']
+		xgt 'date_movie', 'buy_tickets_payment'
+	end
+end
+
+
+if $ARGS[0] = 'buy_tickets_payment':
+	act '付钱' + $func('money', 'get_cost_string', date_ev['pay_cost']):
+		if func('money', 'can_afford', date_ev['pay_cost']) = 0:
+			$noMoney
+		else
+			cla & *nl
+			gs 'money', 'pay', date_ev['pay_cost']
+			date_ev['total_cost'] += date_ev['pay_cost']
+			date_ev['pay_cost'] = 0
+			'你付了电影票钱。'
+			xgt 'date_movie', 'buy_tickets_end'
+		end
+	end
+
+	if money < date_ev['pay_cost'] and karta < date_ev['pay_cost']:
+		act '哎呀，你付不起': gt 'date_movie', 'no_money_tickets'
+	end
+end
+
+
+if $ARGS[0] = 'no_money_tickets':
+	cla & *clr
+	$date_ev['cinema_pic']
+	'当你上前付票钱时，你意识到……你其实付不起。'
+	$func('wrap', 'neg', '你太穷了，买不起这个。')
+	if date_ev['pc_ticket_buy'] = 1:
+		'“呃……我知道我说过我来付，但……我现在有点付不出来……”'
+	else
+		'“呃……我刚发现我的钱不够买一张票……”'
+	end
+	if date_ev['wants_pc_pay'] = 1 and npc_finance[$npcID] = 0:
+		'“哦。呃。那个……我其实也没钱买票……”'
+		'你们之间陷入一阵尴尬的沉默。'
+		gs 'date_funcs', 'alternate_plans'
+	elseif npc_selfish[$npcID] > 0 and npc_finance[$npcID] = 0:
+		'“你他妈在逗我吗？我也没钱啊！那我们怎么办？”'
+		gs 'date_funcs', 'alternate_plans'
+	elseif npc_selfish[$npcID] > 0:
+		'<<$npcdesc>>朝你皱起脸。'
+		'“你他妈在逗我吗？”'
+		act '甜甜地求他付钱':
+			gs 'npc_relationship', 'modify', $npcID, 'dislike'
+			cla & *nl
+			'“你能帮我付吗？”你问，朝他眨着睫毛。“求你了求你了，好嘛好嘛？”'
+			'“我现在真是服了你，”他嘟囔着，但还是付了。'
+			xgt 'date_movie', 'no_money_tickets_selfish'
+		end
+	elseif npc_generous[$npcID] > 0:
+		'“别担心，”<<$npcdesc>>笑着说。“我来处理。”'
+	else
+
+	end
+end
+
+
+if $ARGS[0] = 'no_money_tickets_boy_pay':
+	act '谢谢他':
+		cla & *nl
+		'“你人真好！”'
+		if npc_selfish[$npcID] > 0:
+			'你无视他的抱怨，抓住他的胳膊，紧紧抱住，离开了柜台。'
+		else
+			'你挽住他的手臂紧紧抱住，一起离开了柜台。'
+		end
+		xgt 'date_movie', 'buy_tickets_end'
+	end
+
+	act '你会补偿他':
+		cla & *nl
+		if npc_selfish[$npcID] > 0:
+			'“你人真好！”你无视他的抱怨，挽住他的手臂紧紧抱住，一起离开柜台，还开心地叽叽喳喳：“我会补偿你的，我保证。”'
+		else
+			'“你人真好！”你挽住他的手臂紧紧抱住，一起离开柜台，还开心地叽叽喳喳：“我会补偿你的，我保证。”'
+		end
+		if $npc_humor[$npcID] = 'perverted' or npc_misogynist[$npcID] > 0 or $npc_rel_goal[$npcID] = 'sex' or npc_sexdrive[$npcID] > rand(5, 10):
+			if $npc_fav_pos[$npcID] = 'blowjob':
+				'“哦是吗？”<<$npcdesc>>的注意力似乎突然更集中在你身上，他邪恶地咧嘴笑。“你觉得可以……待会儿给我口交当作报酬吗？”'
+			elseif $npc_fav_pos[$npcID] = 'anal':
+				'“哦是吗？”<<$npcdesc>>的注意力似乎突然更集中在你身上，他邪恶地咧嘴笑。“不如这之后让我操你的屁股？”'
+			else
+				'“哦是吗？”<<$npcdesc>>的注意力似乎突然更集中在你身上，他邪恶地咧嘴笑。“不如我们回我那儿，让你好好‘补偿’我？”'
+			end
+
+			act '我不是那个意思！':
+
+				cla & *clr
+				$date_ev['cinema_pic']
+				'“我不是那个意思！”'
+				if npc_selfish[$npcID] > 0:
+					gs 'npc_relationship', 'modify', $npcID, 'dislike'
+					'<<$npcdesc>>又板起脸。“那还有什么意义？！”'
+				else
+					'“哦。那个，我们肯定能想到点别的办法……”'
+				end
+				xgt 'date_movie', 'buy_tickets_end'
+			end
+
+			act '没问题':
+				gs 'npc_relationship', 'modify', $npcID, 'like'
+				cla & *clr
+				$date_ev['cinema_pic']
+				'“当然可以，”你朝他笑。“只要能让我男人开心。”'
+				'“这才是我能享受的回报方式，”他也咧嘴笑，搂住了你。'
+				xgt 'date_movie', 'buy_tickets_end'
+			end
+
+			act '吊着他':
+				gs 'npc_relationship', 'modify', $npcID, 'like'
+				cla & *clr
+				$date_ev['cinema_pic']
+				'“当然可以，”你朝他笑。“只要能让我男人开心。”'
+				'“这才是我能享受的回报方式，”他也咧嘴笑，搂住了你。'
+				'<i>男人真好对付，</i>你心想，暗自翻了个白眼。'
+				xgt 'date_movie', 'buy_tickets_end'
+			end
+		else
+			if npc_selfish[$npcID] > 0:
+				'“哼。随便吧，”他不高兴地嘟囔。'
+			elseif npc_generous[$npcID] > 0:
+				'“真的，你什么都不用做。”'
+			else
+				'“也许下次你请吧，”他愉快地回答。'
+			end
+			xgt 'date_movie', 'buy_tickets_end'
+		end
+	end
+
+	act '你会补偿他（用性）':
+		cla & *nl
+		'“你人真好！”'
+		'你无视他的抱怨，抓住他的胳膊，紧紧抱住，离开了柜台。'
+		act '用口交':
+			gs 'npc_relationship', 'modify', $npcID, 'like'
+			cla & *nl
+			'“待会儿我会给你这辈子最好的口交，”你在他耳边低语。'
+			'“这才是我能享受的回报方式，”他也咧嘴笑，搂住了你。'
+			xgt 'date_movie', 'buy_tickets_end'
+		end
+
+		act '用性爱':
+			gs 'npc_relationship', 'modify', $npcID, 'like'
+			cla & *nl
+			'“待会儿你想对我做什么都行，”你在他耳边低语。'
+			'“<i>随便</i>我想做什么？”他也咧嘴笑，搂住了你。'
+			xgt 'date_movie', 'buy_tickets_end'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_tickets_end':
+	act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+	if date_ev['cinema_snacks'] = 0:
+		if rand(0, 1) = 0 and npc_selfish[$npcID] = 1 and date_ev['pc_ticket_buy'] = 1:
+			cla
+			'他还让你买零食。'
+			act '好的':
+				cla & *nl
+				'“好呀，”你甜甜地说。'
+				act '去小吃柜台': gt 'date_movie', 'snack_counter'
+			end
+
+			act '不敢相信':
+				cla & *nl
+				'“你认真的？！”'
+				act '没门':
+					cla & *nl
+					'“不可能。我们去看电影吧。”'
+					act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+				end
+
+				act '好吧':
+					cla & *nl
+					'“呃，行吧。”'
+					act '去小吃柜台': gt 'date_movie', 'snack_counter'
+				end
+			end
+		else
+			act '买点零食吧':
+				cla & *nl
+				'“我们也买点零食吧，”你建议道。'
+				act '去小吃柜台': gt 'date_movie', 'snack_counter'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'snack_counter':
+	date_ev['cinema_snacks'] = 1
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+	'这里是买爆米花和糖果的地方。'
+	gs 'date_movie', 'snack_menu'
+end
+
+
+if $ARGS[0] = 'snack_menu':
+	gs 'date_movie', 'buy_snacks'
+	if date_ev['popcorn_buy'] = 0:
+		act '爆米花' + $func('money', 'get_cost_string', date_ev['snack_cost'] + 200):
+			if func('money', 'can_afford', date_ev['snack_cost'] + 200) = 0:
+				$noMoney
+			else
+				cla & *nl
+				date_ev['popcorn_buy'] = 1
+				date_ev['snack_cost'] += 200
+				'你要了一份爆米花。'
+				gs 'date_movie', 'snack_menu'
+			end
+		end
+	end
+
+	if date_ev['soda_buy'] = 0:
+		act '汽水' + $func('money', 'get_cost_string', date_ev['snack_cost'] + 200):
+			if func('money', 'can_afford', date_ev['snack_cost'] + 200) = 0:
+				$noMoney
+			else
+				cla & *nl
+				date_ev['soda_buy'] = 1
+				date_ev['snack_cost'] += 200
+				'你要了一杯汽水。'
+				gs 'date_movie', 'snack_menu'
+			end
+		end
+	end
+
+	if date_ev['candy_buy'] = 0:
+		act '糖果' + $func('money', 'get_cost_string', date_ev['snack_cost'] + 200):
+			if func('money', 'can_afford', date_ev['snack_cost'] + 200) = 0:
+				$noMoney
+			else
+				cla & *nl
+				date_ev['candy_buy'] = 1
+				date_ev['snack_cost'] += 200
+				'你要了一份糖果。'
+				gs 'date_movie', 'snack_menu'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_snacks':
+	if date_ev['pc_snack_buy'] = 1:
+		gs 'date_movie', 'buy_snacks_payment'
+	else
+		act '让他付钱':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+			'“你能付钱吗？”你问。'
+			if npc_generous[$npcID] > 0 or (npc_caretaker[$npcID] > 0 and rand(1, 2) = 1):
+				date_ev['npc_snack_buy'] = 1
+				'“好啊，”他说。'
+				'他付了钱。'
+				act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+			elseif npc_selfish[$npcID] > 0:
+				date_ev['npc_snack_buy'] = 1
+				gs 'npc_relationship', 'modify', $npcID, 'dislike'
+				'他抱怨着付了钱。'
+				act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+			else
+				if npc_finance[$npcID] > 0:
+					date_ev['npc_snack_buy'] = 1
+					'“好啊，”他说着付了钱。'
+					act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+				else
+					temp_rand = rand(0, 2)
+					if temp_rand = 0:
+						date_ev['snack_cost'] /= 2
+						'“我们分摊好吗？”他问。“我手头现金有点紧。”'
+						xgt 'date_movie', 'buy_snacks_payment'
+					elseif temp_rand = 1:
+						'“我手头现金有点紧，”他不好意思地说。'
+						xgt 'date_movie', 'buy_snacks_payment'
+					else
+						date_ev['npc_snack_buy'] = 1
+						'“好，”他说。'
+						act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+					end
+					killvar 'temp_rand'
+				end
+				'“好，”他说。'
+				'他让你付钱。'
+				xgt 'date_movie', 'buy_snacks_payment'
+			end
+		end
+
+		if date_ev['no_money'] = 0:
+			act '主动付钱':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+				'“让我来付吧，”你说。'
+				if npc_generous[$npcID] > 0:
+					'他说不，坚持要他来付。'
+					act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+				elseif npc_caretaker[$npcID] > 0:
+					if rand(0, 1) = 0:
+						'“你真的不用这样，”他说。“让我付吧。”'
+						act '让他付钱':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+							!! insert date_ev['snack_cost'] cost here
+							'他付了钱。'
+							act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+						end
+					else
+						'“你真的不用这样，”他说。“我们分摊吧。”'
+						act '分摊费用':
+							*clr & cla
+							date_ev['snack_cost'] /= 2
+							'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+							'你们平摊零食的费用。'
+							xgt 'date_movie', 'buy_snacks_payment'
+						end
+					end
+
+					act '坚持要付钱':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+						!! insert date_ev['snack_cost'] cost here
+						'你坚持并付了餐费' + iif(date_ev['soda_buy'] > 0, '和饮料。', '。')
+						xgt 'date_movie', 'buy_snacks_payment'
+					end
+				else
+					'“好，”他说。'
+					'他让你付钱。'
+					xgt 'date_movie', 'buy_snacks_payment'
+				end
+			end
+
+			act '分摊费用':
+				cla & *nl
+				'“我们各付一半吧，”你建议道。'
+				if npc_generous[$npcID] > 0 or npc_caretaker[$npcID] <= 0 and rand(0, 1) = 0:
+					date_ev['npc_snack_buy'] = 1
+					'他说不，坚持要他来付。'
+					act '让他付钱':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+						!! insert date_ev['snack_cost'] cost here
+						'他付了钱。'
+						act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+					end
+				else
+					if rand(0, 1) = 0:
+						'“你真的不用这样，”他说。“让我付吧。”'
+						act '让他付钱':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+							!! insert date_ev['snack_cost'] cost here
+							'他付了钱。'
+							act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+						end
+					else
+						date_ev['snack_cost'] /= 2
+						'“好，听起来不错，”他说。'
+						'你们平摊零食的费用。'
+						xgt 'date_movie', 'buy_snacks_payment'
+					end
+
+					act '坚持要付钱':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/shared/cinema/snack_bar.jpg"></center>'
+						!! insert date_ev['snack_cost'] cost here
+						'你坚持并付了餐费' + iif(date_ev['soda_buy'] > 0, '和饮料。', '。')
+						xgt 'date_movie', 'buy_snacks_payment'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_snacks_payment':
+	act '付钱' + $func('money', 'get_cost_string', date_ev['snack_cost']):
+		if func('money', 'can_afford', date_ev['snack_cost']) = 0:
+			$noMoney
+		else
+			cla & *nl
+			gs 'money', 'pay', date_ev['snack_cost']
+			date_ev['total_cost'] += date_ev['snack_cost']
+			'你付了零食钱。'
+			act '去看电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie1'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'watch_action_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'动作片开始了。'
+	xgt 'date_movie', 'movie_interlude'
+end
+
+
+if $ARGS[0] = 'watch_superhero_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'超级英雄片开始了。'
+	xgt 'date_movie', 'movie_interlude'
+end
+
+
+if $ARGS[0] = 'watch_horror_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'恐怖片开始了。'
+	'突然惊吓'
+	act '尖叫':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'你尖叫起来。'
+		xgt 'date_movie', 'movie_interlude'
+	end
+
+	act '抓住<<$npcdesc>>':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'你尖叫着抓住<<$npcdesc>>的手臂。'
+		xgt 'date_movie', 'movie_interlude'
+	end
+end
+
+
+if $ARGS[0] = 'watch_raunchy_comedy_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	!! image is a placeholder until film clips can be added
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/cinema/enjoy<<rand(1,2)>>.jpg"></center>'
+	'低俗喜剧开始了。'
+	xgt 'date_movie', 'movie_interlude'
+end
+
+
+if $ARGS[0] = 'watch_comedy_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	!! image is a placeholder until film clips can be added
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/cinema/enjoy<<rand(1,2)>>.jpg"></center>'
+	'喜剧片开始了。'
+	xgt 'date_movie', 'movie_interlude'
+end
+
+
+if $ARGS[0] = 'watch_drama_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	!! image is a placeholder until film clips can be added
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/cinema/enjoy<<rand(1,2)>>.jpg"></center>'
+	'剧情片开始了。'
+	xgt 'date_movie', 'movie_interlude'
+end
+
+
+if $ARGS[0] = 'watch_romance_movie1':
+	*clr & cla
+	!! insert variations for different films later
+	!! image is a placeholder until film clips can be added
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/cinema/enjoy<<rand(1,2)>>.jpg"></center>'
+	'爱情片开始了。'
+	xgt 'date_movie', 'movie_interlude'
+end
+
+
+if $ARGS[0] = 'movie_interlude':
+	if $npc_fav_date[$npcID] ! 'movie_date' and rand(0, 10) < npc_sexdrive[$npcID]:
+		!!		if $npc_fav_pos[$npcID] ! 'blowjob' and rand(1,2) = 1:
+!!			placeholder for if he wants a handjob instead of a blowjob
+!!		else
+		'<<$npcdesc>>在你耳边低语。'
+		'"<i>嘿，<<$npc_pcspetname[$npcID]>>……</i>"你听到拉链拉开的声音，飞快地瞥了一眼，发现他已经把<<$npc_dick_desc[$npcID]>>鸡巴掏了出来。"<i>给我吸出来……</i>"'
+!!		end
+		act '让他闭嘴':
+			cla & *nl
+			'“<i>嘘！</i>”你嘶声道。“我在看电影呢！”'
+			if npc_assertive[$npcID] > 0 or npc_abusive[$npcID] > 0:
+				act '拒绝':
+					gs 'npc_relationship', 'modify', $npcID, 'dislike'
+					cla & *nl
+					'“住手！”'
+					'你拍开<<$npcdesc>>, 终于迫使他嘟囔着退开。'
+					act '继续观看': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie2'
+				end
+				!! if $npc_fav_pos[$npcID] = 'blowjob':
+				if cinema_bj_last_time[$npcID] = 1:
+					'"你上次可不是这么说的。"他嗤笑着，无视你的抱怨，试着把你的头按向他的胯间。'
+				else
+					'"来嘛！会很刺激的！"他说着，无视你的抱怨，试着把你的头按向他的胯间。'
+				end
+				act '默许':
+					$date_ev['theater_frisky'] = 'reluctant'
+					cla & *nl
+					'"唉，好吧。"你翻了个白眼，叹了口气，俯下身用嘴唇包住他的鸡巴。'
+					gs 'date_movie', 'theater_bj_menu'
+				end
+				!!{ placeholder for handjob
+				else
+					'“来嘛！”他说着，无视你的抱怨，试图把你的手拉向他的大腿。'
+					act '默许':
+						$date_ev['theater_frisky'] = 'reluctant'
+						cla & *nl
+						'“呃，好吧，”你叹着气翻了个白眼，弯下腰用嘴唇包住他的鸡巴。'
+						gs 'date_movie', 'theater_hj1'
+					end
+				end !}
+			else
+				gs 'npc_relationship', 'modify', $npcID, 'dislike'
+				cla & *nl
+				'“哼。行吧，”他嘟囔着，把他的肉棒塞回裤子里，拉上拉链。'
+				act '继续观看': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie2'
+			end
+		end
+
+		act '好主意':
+			cla & *nl
+			'你在黑暗中咧嘴一笑，急切地弯下腰用嘴唇包住他的鸡巴。'
+			xgt 'date_movie', 'theater_bj_menu'
+		end
+
+		act '叹气照做':
+			cla & *nl
+			$date_ev['theater_frisky'] = 'reluctant'
+			'你没能压住从体内涌起的那声叹息，但你不想为这事闹起来。你一言不发地弯下腰，照他想要的那样吸他的鸡巴。'
+			xgt 'date_movie', 'theater_bj_menu'
+		end
+	else
+		gs 'date_movie', 'keep_watching'
+		gs 'date_movie', 'bored_watching'
+		gs 'date_movie', 'reach_cock'
+	end
+end
+
+
+if $ARGS[0] = 'keep_watching':
+	act '继续观看':
+		cla & *nl
+		'你继续看着电影。'
+		act '下半场': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie2'
+	end
+end
+
+
+if $ARGS[0] = 'bored_watching':
+	act '你觉得无聊':
+		date_ev['movie_bored'] = 1
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/cinema/bored1.jpg"></center>'
+		'叹气。好无聊。'
+		act '下半场': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie2'
+		gs 'date_movie', 'reach_cock'
+	end
+end
+
+
+if $ARGS[0] = 'reach_cock':
+	act '伸手去摸他的鸡巴（给他口交）':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'你伸手过去拉开他的裤链。'
+		if $npc_fav_date[$npcID] = 'movie_date':
+			'“嘿！你在干什么？”他问，慌乱地在你和银幕之间来回看。'
+			if rand(0, 10) < npc_sexdrive[$npcID]:
+				'“你觉得我在干什么？”你问着，低下头凑到他大腿上方。猛地一拉，他的鸡巴弹了出来，你用嘴唇包住了它。'
+				'“我——唔嗯——！<i>哦，操</i>，”他喘着气。他的身体放松下来，你含着他的鸡巴微笑，开始上下摆动头部。'
+				gs 'date_movie', 'theater_bj_menu'
+			else
+				'“你觉得我在干什么？”你问着，低下头凑到他大腿上方。'
+				'“嘿，别这样，”他皱着眉把你推开。“我在看电影呢！”'
+				'你很失望。'
+				gs 'date_movie', 'movie_interlude_end'
+			end
+		else
+			if npc_risktaker[$npcID] > 0 or npc_indiscreet[$npcID] > 0:
+				'“嘿！你在干什么？”他问，眼里发亮，脸上的笑容越来越大。'
+			else
+				'“嘿！你在干什么？”他问，红着脸环顾影院里其他观众。'
+			end
+
+			'“你觉得我在干什么？”你问着，低下头凑到他大腿上方。猛地一拉，他的鸡巴弹了出来，你用嘴唇包住了它。'
+			'“我——唔嗯——！<i>哦，操</i>，”他喘着气。他的身体放松下来，你含着他的鸡巴微笑，开始上下摆动头部。'
+			gs 'date_movie', 'theater_bj_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'theater_bj_menu':
+	gs 'date_movie', 'theater_bj_distracted'
+	gs 'date_movie', 'theater_bj_enjoy'
+	gs 'date_movie', 'theater_bj_sloppy'
+end
+
+
+if $ARGS[0] = 'theater_bj_distracted':
+	act '被电影分心':
+		gs 'arousal', 'bj', -10
+		date_ev['cinema_bj'] = 1
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/public/theater_bj2.mp4"></video></center>'
+		if $date_ev['theater_frisky'] = 'reluctant':
+			'不管<<$npcdesc>>想要什么，你仍然也想看那部电影。你最后用一只眼睛斜视屏幕，一边心不在焉地含着<<$npcdesc>>的鸡巴上下起伏。'
+		else
+			'尽管开始时如此，你的注意力还是被那部电影吸引回去。你最后用一只眼睛斜视屏幕，一边心不在焉地含着<<$npcdesc>>的鸡巴。'
+		end
+
+		if npc_abusive[$npcID] > 0:
+			'“嘿，”他低吼着抓住你的头发，把你的嘴唇按到他的根部。“专心做你的事。”'
+			act '服从':
+				gs 'arousal', 'bj', -10, 'sub'
+				cla & *nl
+				if sub > 10 or func('fetish', 'get_exp', 'sub') > 10:
+					'你含着他的阴茎时，双腿间热意绽放，粗暴而羞辱的对待让你心口乱跳，嘴里开始分泌口水，几乎和你的小穴一样湿。'
+				else
+					'你内心嘟囔一声，把注意力从屏幕移开，转而开始吹<<$npcdesc>>. 你卖力地吸吮，双唇紧套住他的阴茎，尽可能地深入，还确保用上大量舌头。'
+					'<i>也许他快点射了我就能回去看电影，</i>你叹着气想。'
+				end
+				xgt 'date_movie', 'theater_bj_cum_pre'
+			end
+
+			act '操，这太刺激了':
+				gs 'arousal', 'bj', -10, 'sub'
+				cla & *nl
+				'你含着他的阴茎时，双腿间热意绽放，粗暴而羞辱的对待让你心口乱跳，嘴里开始分泌口水，几乎和你的小穴一样湿。'
+				*nl
+				'<i>操，这实在太刺激了，</i>你心想，眼珠在脑中翻白，他的鸡巴顶到了你喉咙深处。'
+				xgt 'date_movie', 'theater_bj_cum_pre'
+			end
+			!! act 'Fuck off! (storm out)':
+		else
+			gs 'date_movie', 'theater_bj_cum_pre'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'theater_bj_enjoy':
+	act '尽兴':
+		gs 'arousal', 'bj', -10
+		date_ev['cinema_bj'] = 1
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/public/theater_bj1.mp4"></video></center>'
+		if $npc_fav_date[$npcID] = 'movie_date':
+			'你吸他的鸡巴时，<<$npcdesc>>一直在看电影。'
+		elseif $date_ev['theater_frisky'] = 'reluctant':
+			'尽管起初如此，你很快发现自己越来越投入其中。电影渐渐淡入背景，你的口交成为焦点。那种质感<<$npcdesc>>的包皮在你的唇间上下滑动。他的气息充满你的鼻腔。舌尖上是他阴茎的咸味。'
+		else
+			'你们俩完全停止看电影，把全部注意力都集中在你的口交上。那种质感<<$npcdesc>>的包皮在你的唇间上下滑动。他的气息充满你的鼻腔。舌尖上是他阴茎的咸味。'
+		end
+		gs 'date_movie', 'theater_bj_cum_pre'
+	end
+end
+
+
+if $ARGS[0] = 'theater_bj_cum_pre':
+	if npc_caretaker[$npcID] > 0:
+		'他开始在你的唇间喘气扭动。他的胯部<i>顶</i>进你嘴里。没过多久，你感觉到他急促地拍你的头。'
+		'“<<$pcs_usedname[$npcID]>>——！我要射了——！”'
+		gs 'date_movie', 'theater_bj_cum_menu'
+	else
+		date_ev['surprise_throatpie'] = 1
+		'他开始在你的唇间喘气扭动。你又继续了几分钟，忽然他的鸡巴脉动起来，有东西毫无预警地喷进你嘴里。'
+		gs 'date_movie', 'theater_bj_cum_mouth_menu'
+	end
+end
+
+
+if $ARGS[0] = 'theater_bj_cum_menu':
+	act '让他在你嘴里射出来': gt 'date_movie', 'theater_bj_cum_mouth'
+	act '把他撸到地上': gt 'date_movie', 'theater_bj_cum_floor'
+	!! if date_ev['popcorn_buy'] = 1: act 'Jerk him into the popcorn': gt 'date_movie', 'theater_bj_cum_mouth'
+	!! act 'Blueball him': gt 'date_movie', 'theater_bj_blueball'
+end
+
+
+if $ARGS[0] = 'theater_bj_cum_mouth':
+	*clr & cla
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/mouth/cum12.mp4"></video></center>'
+	'<<$npcdesc>>射在你嘴里。'
+	gs 'date_movie', 'theater_bj_cum_mouth_menu'
+end
+
+
+if $ARGS[0] = 'theater_bj_cum_mouth_menu':
+	act '吐到地上':
+		gs 'cum_call', 'mouth', $npcID, 1
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'你把它吐到地上。'
+		gs 'date_movie', 'movie_interlude_end'
+	end
+
+	act '吐到纸巾里':
+		gs 'cum_call', 'mouth', $npcID, 1
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'你把它吐进一张纸巾里。'
+		gs 'date_movie', 'movie_interlude_end'
+	end
+
+	act '吞下去（性感）':
+		gs 'cum_call', 'mouth_swallow', $npcID, 1
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		gs 'date_movie', 'movie_interlude_end'
+	end
+
+	act '吞下去（没地方吐）':
+		gs 'cum_call', 'mouth_swallow', $npcID, 1
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'不知道还能怎么办，你只好把他的精液吞下去，然后继续看电影。'
+		gs 'date_movie', 'movie_interlude_end'
+	end
+
+	act '吐进他的饮料里':
+		gs 'cum_call', 'mouth', $npcID, 1
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+		'你把它吐进他的饮料里。'
+		gs 'date_movie', 'movie_interlude_end'
+	end
+	if date_ev['surprise_throatpie'] = 1:
+		act '惊讶地呛到':
+			gs 'cum_call', 'mouth', $npcID, 1
+			gs 'npc_relationship', 'modify', $npcID, 'dislike'
+			*clr & cla
+			!! IMAGE HERE
+			'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+			'你惊讶地呛住，结果把它咳到了地上。'
+			'周围的人都在看你。'
+			gs 'date_movie', 'movie_interlude_end'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'movie_interlude_end':
+	act '返回电影': gt 'date_movie', 'watch_<<$date_ev[''film_decide'']>>_movie2'
+
+	!!{
+	act '想离开这儿吗？':
+		'“想离开这里吗？”'
+		if $npc_fav_date[$npcID] ! 'movie_date':
+			'“嗯，这太无聊了。”'
+		else
+
+		end
+	end
+	!}
+
+	if date_ev['cinema_bj'] = 1:
+		act '跳过电影去做爱？':
+			cla & *nl
+			'“想离开这儿吗？”你低声说，用拇指抹过嘴唇，坏笑。“回家去做……点别的事……？”'
+			'“当然他妈想，”他也低声回，然后你们俩匆匆离开影院，连结局都懒得看。'
+
+			if ($region = 'pav' and $npc_residence[$npcID] = 'pav_residential') or ($region = 'city' and ($npc_residence[$npcID] = 'pav_residential' or $npc_residence[$npcID] = 'uni_grounds' or $npc_residence[$npcID] = 'city_residential' or $npc_residence[$npcID] = 'city_center')):
+				act '回他家去':
+					minut += 10
+					gs 'stat'
+					gt 'sex_ev_start', 'npc_home_start'
+				end
+			end
+
+			if $region = 'Sveta_home_region':
+				act '回你家去':
+					minut += 10
+					gs 'stat'
+					gt 'sex_ev_start', 'pc_home_start'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'watch_action_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'动作片下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'watch_superhero_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'超级英雄片下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'watch_horror_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'恐怖片下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'watch_raunchy_comedy_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'低俗喜剧下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'watch_comedy_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'喜剧片下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'watch_drama_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'剧情片下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'watch_romance_movie2':
+	*clr & cla
+	!! insert variations for different films later
+	'<center><img <<$set_imgh>> src="images/locations/shared/cinema/theater_hall.jpg"></center>'
+	'爱情片下半场。'
+	act '离开剧院': gt 'date_movie', 'walk_out'
+end
+
+
+if $ARGS[0] = 'walk_out':
+	*clr & cla
+	$date_ev['cinema_pic']
+	'你离开电影院，和<<$npcdesc>>.'
+	act '问他对这部电影的看法': gt 'date_movie', 'film_talk_boy'
+	gs 'date_movie', 'film_talk_pc'
+end
+
+
+if $ARGS[0] = 'film_talk_pc':
+	act '那感觉真好。':
+		cla & *nl
+		'“那感觉真好。”'
+		$date_ev['pc_opinion'] = 'nice'
+		gs 'date_movie', 'film_talk_boy'
+	end
+
+	act '那还行':
+		cla & *nl
+		'“那还行。”'
+		$date_ev['pc_opinion'] = 'okay'
+		gs 'date_movie', 'film_talk_boy'
+	end
+
+	act '那挺无聊的':
+		cla & *nl
+		'“那有点无聊。”'
+		$date_ev['pc_opinion'] = 'boring'
+		gs 'date_movie', 'film_talk_boy'
+	end
+end
+
+
+if $ARGS[0] = 'film_talk_boy':
+	*clr & cla
+	$date_ev['cinema_pic']
+	if $date_ev['npc_opinion'] ! '':
+		gs 'date_movie', 'date_end'
+	elseif $npc_fav_date[$npcID] = 'movie_date':
+		if $date_ev['pc_opinion'] = 'nice':
+			'他同意你的看法，详细地讲起他喜欢和不喜欢的地方。'
+		else
+			$date_ev['npc_opinion'] = 'fun'
+			'他详细地讲起他喜欢和不喜欢的地方。'
+		end
+		act '认真倾听':
+			cla & *nl
+			gs 'npc_relationship', 'modify', $npcID, 'like'
+			'你饶有兴致地听他说的一切。'
+			gs 'date_movie', 'date_end'
+		end
+
+		act '走神':
+			cla & *nl
+			'你听他絮絮叨叨听得无聊，最后完全走神了。'
+			gs 'date_movie', 'date_end'
+		end
+
+		act '半听半不听':
+			cla & *nl
+			'你饶有兴致地听他说的一切。'
+			gs 'date_movie', 'date_end'
+		end
+	else
+		if rand(1, 3) = 1:
+			$date_ev['npc_opinion'] = 'fun'
+			'“挺有意思的。”'
+		elseif rand (1, 2) = 1:
+			$date_ev['npc_opinion'] = 'okay'
+			'“还行吧。”'
+		else
+			$date_ev['npc_opinion'] = 'boring'
+			'“挺无聊的。”'
+		end
+		gs 'date_movie', 'date_end'
+	end
+end
+
+
+if $ARGS[0] = 'date_end':
+	act '继续':
+		gs 'date_movie', 'date_end_stats'
+		gt 'date_after', 'after_date'
+	end
+end
+
+
+if $ARGS[0] = 'date_end_stats':
+	date_count_cinema[$npcID] += 1
+	if date_ev['cinema_bj'] = 1:
+		cinema_bj[$npcID] += 1
+		cinema_bj_last_time[$npcID] = 1
+	else
+		cinema_bj_last_time[$npcID] = 0
+	end
+end
+
+
+--- date_movie ---------------------------------

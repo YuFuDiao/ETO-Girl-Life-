@@ -1,0 +1,904 @@
+# money
+
+!! ===================================================
+!! Money
+!! Functions:
+!!   - pay
+!!   - earn
+!!   - set
+!!   - bank_transfer       -- neutral cash↔bank transfer (no modifiers)
+!!   - desk_transfer       -- neutral cash↔desk transfer (no modifiers)
+!!   - price
+!!   - profit
+!!   - base_price (inverse of price)
+!!   - base_profit (inverse of profit)
+!!   - can_afford
+!!   - string_price
+!!   - string_profit
+!!   - format
+!!   - format_balance
+!!   - string_debt
+!!   - debt_add
+!!   - debt_pay
+!!   - can_afford_debt
+!! Rule of thumb: Apply the functions when the money is given to / taken from the player, and when it is being displayed.
+!! You generally don''t want to apply it at the source, or during calculations, to avoid double modification.
+!! ===================================================
+
+
+!! ===================================================
+!! OVERFLOW NORMALIZATION
+!! Keeps money, karta, and stolmoney in [0, 1B) by packing/unpacking
+!! millions into overflow variables.
+!!
+!! Overflow variables (each unit = 1,000,000 ₽):
+!!   money_overflow, karta_overflow, stolmoney_overflow
+!!
+!! Thresholds: >= 1,000,000,000 → drain to 950,000,000
+!!             <   900,000,000  → fill back to 950,000,000 (if overflow available)
+!! ===================================================
+
+!! Cash
+if money >= 1000000000:
+	norm_temp = (money - 950000000) / 1000000
+	money -= norm_temp * 1000000
+	money_overflow += norm_temp
+elseif money < 900000000 and money_overflow > 0:
+	norm_temp = min(money_overflow, (950000000 - money) / 1000000)
+	money += norm_temp * 1000000
+	money_overflow -= norm_temp
+end
+
+!! Bank (karta is offset: logical balance = karta - bankDebtLimit)
+if karta - bankDebtLimit >= 1000000000:
+	norm_temp = (karta - bankDebtLimit - 950000000) / 1000000
+	karta -= norm_temp * 1000000
+	karta_overflow += norm_temp
+elseif karta - bankDebtLimit < 900000000 and karta_overflow > 0:
+	norm_temp = min(karta_overflow, (950000000 - (karta - bankDebtLimit)) / 1000000)
+	karta += norm_temp * 1000000
+	karta_overflow -= norm_temp
+end
+
+!! Desk
+if stolmoney >= 1000000000:
+	norm_temp = (stolmoney - 950000000) / 1000000
+	stolmoney -= norm_temp * 1000000
+	stolmoney_overflow += norm_temp
+elseif stolmoney < 900000000 and stolmoney_overflow > 0:
+	norm_temp = min(stolmoney_overflow, (950000000 - stolmoney) / 1000000)
+	stolmoney += norm_temp * 1000000
+	stolmoney_overflow -= norm_temp
+end
+
+killvar 'norm_temp'
+
+!! ===================================================
+
+
+!! Neutral cash ↔ bank transfer (no game modifiers, no theft chance).
+!! Use this for deposits and withdrawals instead of pay/earn.
+!! Callers are responsible for validating the amount before calling.
+!! ARGS[1] = amount, $ARGS[2] = 'to_bank' or 'to_cash'
+if $ARGS[0] = 'bank_transfer':
+	if $ARGS[2] = 'to_bank':
+		money -= ARGS[1]
+		karta += ARGS[1]
+	elseif $ARGS[2] = 'to_cash':
+		karta -= ARGS[1]
+		money += ARGS[1]
+	end
+	gs 'money'
+end
+
+
+!! Neutral cash ↔ desk-drawer transfer (no game modifiers).
+!! Callers are responsible for validating the amount before calling.
+!! ARGS[1] = amount (ignored for 'all_*' variants)
+!! $ARGS[2] = 'to_desk', 'all_to_desk', 'from_desk', 'all_from_desk'
+if $ARGS[0] = 'desk_transfer':
+	if $ARGS[2] = 'to_desk':
+		money -= ARGS[1]
+		stolmoney += ARGS[1]
+	elseif $ARGS[2] = 'all_to_desk':
+		stolmoney += money
+		stolmoney_overflow += money_overflow
+		money = 0
+		money_overflow = 0
+	elseif $ARGS[2] = 'from_desk':
+		stolmoney -= ARGS[1]
+		money += ARGS[1]
+	elseif $ARGS[2] = 'all_from_desk':
+		money += stolmoney
+		money_overflow += stolmoney_overflow
+		stolmoney = 0
+		stolmoney_overflow = 0
+	end
+	gs 'money'
+end
+
+
+if $ARGS[0] = 'pay':
+	!! Have the player pay money
+	!! ARGS[1] = amount to pay
+	!! $ARGS[2] = 'cash', 'bank', 'desk', or 'both', default is 'both'
+	!! if $ARGS[2] = 'both', follow the player''s preferred payment method
+	!! if $ARGS[2] = 'desk', take money from the desk drawer, then pay cash
+	!! Use this to deduct money from the player instead of directly modifying money or karta
+	!! e.g. gs 'money', 'pay', item_cost, 'cash'
+
+	if ARGS[1] = 0: exit
+	temp_moneyVars['amount'] = func('money', '_apply_modifiers', ARGS[1], 'price')
+	if $ARGS[2] = 'cash':
+		if func('money', '_can_afford_inner', temp_moneyVars['amount'], 'cash'):
+			gs 'money', '_cash_payment', temp_moneyVars['amount'], 'pay'
+		else
+			msg '错误：现金不足，无法支付。如果正确使用了 can_afford，就不应该出现这种情况。请报告此问题。'
+		end
+	elseif $ARGS[2] = 'bank':
+		if func('money', '_can_afford_inner', temp_moneyVars['amount'], 'bank'):
+			gs 'money', '_bank_payment', temp_moneyVars['amount'], 'pay'
+		else
+			msg '错误：信用额度不足，无法支付。如果正确使用了 can_afford，就不应该出现这种情况。请报告此问题。'
+		end
+	elseif $ARGS[2] = 'desk':
+		if func('money', '_can_afford_inner', temp_moneyVars['amount'], 'cash'):
+				gs 'money', '_cash_payment', temp_moneyVars['amount'], 'pay'
+		elseif func('money', '_can_afford_inner', temp_moneyVars['amount'], 'desk'):
+				gs 'money', '_desk_payment', temp_moneyVars['amount'], 'pay'
+		else
+			msg '错误：桌屉和手上的现金都不足以支付。如果正确使用了 can_afford，就不应该出现这种情况。请报告此问题。'
+		end
+	else
+		gs 'money', '_payment_method', temp_moneyVars['amount'], 'pay'
+	end
+	killvar 'temp_moneyVars'
+	exit
+end
+
+
+if $ARGS[0] = 'earn':
+	!! Have the player earn money
+	!! ARGS[1] = amount to earn
+	!! $ARGS[2] = 'cash', 'bank', or 'both', default is 'both'
+	!! if $ARGS[2] = 'both', follow the player''s preferred payment method
+	!! Use this to add money to the player instead of directly modifying money or karta
+	!! e.g. gs 'money', 'earn', salary, 'bank'
+
+	if ARGS[1] = 0: exit
+	temp_moneyVars['amount'] = func('money', '_apply_modifiers', ARGS[1], 'profit')
+	if $ARGS[2] = 'cash':
+		gs 'money', '_cash_payment', temp_moneyVars['amount'], 'earn'
+	elseif $ARGS[2] = 'bank':
+		gs 'money', '_bank_payment', temp_moneyVars['amount'], 'earn'
+	else
+		gs 'money', '_payment_method', temp_moneyVars['amount'], 'earn'
+	end
+	killvar 'temp_moneyVars'
+	exit
+end
+
+
+if $ARGS[0] = 'set':
+	!! Set the player''s money to a specific amount, after applying modifiers
+	!! ARGS[1] = amount to set
+	!! $ARGS[2] = 'cash', 'bank', 'desk'. Default is 'cash'
+	!! $ARGS[3] = 'pay', 'earn'. Default is 'earn'. This determines whether to apply profit or price modifiers
+
+	$temp_modifier = iif($ARGS[3] = 'pay', 'price', 'profit')
+	if $ARGS[2] = 'bank':
+		karta = func('money', '_apply_modifiers', ARGS[1], $temp_modifier) + bankDebtLimit
+	elseif $ARGS[2] = 'desk':
+		stolmoney = func('money', '_apply_modifiers', ARGS[1], $temp_modifier)
+	else
+		money = func('money', '_apply_modifiers', ARGS[1], $temp_modifier)
+	end
+	killvar 'temp_modifier'
+	exit
+end
+
+
+if $ARGS[0] = 'price':
+	!! Get the price of something, with modifiers
+	!! ARGS[1] = base price
+	!! Use this when needing to apply modifiers to costs in some calculation
+	!! e.g. item_price = func('money', 'price', base_price)
+
+	result = func('money', '_apply_modifiers', ARGS[1], 'price')
+	exit
+end
+
+
+if $ARGS[0] = 'profit':
+	!! Get the profit of something, with modifiers
+	!! ARGS[1] = base profit
+	!! Use this when needing to apply modifiers to earnings in some calculation
+	!! e.g. salary = func('money', 'profit', base_salary)
+
+	result = func('money', '_apply_modifiers', ARGS[1], 'profit')
+	exit
+end
+
+
+if $ARGS[0] = 'base_price':
+	!! Get the base price from a modified price (inverse of price function)
+	!! ARGS[1] = modified price (what the player actually pays)
+	!! Use this when you have a modified amount and need to calculate the base
+	!! e.g. base_amount = func('money', 'base_price', cash_paid)
+	!! This is useful for partial payments where you need to deduct from a stored base amount
+
+	result = func('money', '_remove_modifiers', ARGS[1], 'price')
+	exit
+end
+
+
+if $ARGS[0] = 'base_profit':
+	!! Get the base profit from a modified profit (inverse of profit function)
+	!! ARGS[1] = modified profit (what the player actually receives)
+	!! Use this when you have a modified amount and need to calculate the base
+	!! e.g. base_amount = func('money', 'base_profit', cash_earned)
+
+	result = func('money', '_remove_modifiers', ARGS[1], 'profit')
+	exit
+end
+
+
+if $ARGS[0] = 'can_afford':
+	!! Check if the player can afford something, after applying modifiers
+	!! ARGS[1] = cost
+	!! $ARGS[2] = 'cash', 'bank', 'desk', or 'both', default is 'both'
+	!! $ARGS[2] = 'desk' checks cash + desk drawer
+	!! Use this before presenting the player with an option to buy something,
+	!! e.g. if func('money', 'can_afford', item_cost, 'both') = 1: act 'Buy this': …
+
+	result = func('money', '_can_afford_inner', func('money', '_apply_modifiers', ARGS[1], 'price'), $ARGS[2])
+	exit
+end
+
+
+if $ARGS[0] = 'get_cost_string':
+	!! Returns a "(Price - payment method)" suffix for an act label, mirroring func('willpower', 'get_willcost_string').
+	!! The payment method note (e.g. "Cash only") is always shown when it''s restrictive, not just when unaffordable,
+	!! so the player knows the requirement upfront. If the player can''t afford the cost, appends a red "(You can''t afford this)" note.
+	!! Pair with a check for func('money', 'can_afford', …) inside the act body that prints $noMoney, so the act stays visible either way.
+	!! ARGS[1] = cost
+	!! $ARGS[2] = 'cash', 'bank', 'desk', or 'both', default is 'both'
+	!! e.g. act 'Buy this' + $func('money', 'get_cost_string', cost, 'cash'): if func('money', 'can_afford', cost, 'cash') = 0: $noMoney else … end
+
+	if $ARGS[2] = '': $ARGS[2] = 'both'
+	if $ARGS[2] = 'cash':
+		$temp_method = ' - 仅现金'
+	elseif $ARGS[2] = 'bank':
+		$temp_method = ' - 仅银行'
+	elseif $ARGS[2] = 'desk':
+		$temp_method = ' - 仅现金和柜台'
+	else
+		$temp_method = ''
+	end
+	$result = ' (' + $func('money', 'string_price', ARGS[1]) + $temp_method + ')'
+	if func('money', 'can_afford', ARGS[1], $ARGS[2]) = 0:
+		$result += ' ' + $func('wrap', 'v_neg', '（你买不起这个）')
+	end
+	killvar 'temp_method'
+	exit
+end
+
+
+if $ARGS[0] = '_can_afford_inner':
+	!! Internal function to check if the player can afford something. Modifiers applied in the wrapper function 'can_afford'.
+	!! ARGS[1] = cost
+	!! $ARGS[2] = 'cash', 'bank', 'desk', or 'both', default is 'both'
+	!! $ARGS[2] = 'desk' checks cash + desk drawer
+	if $ARGS[2] = 'cash':
+		result = iif(money >= ARGS[1], 1, 0)
+	elseif $ARGS[2] = 'bank':
+		if cfg_vars['allow_overdraft'] = 1:
+			result = iif(karta >= ARGS[1], 1, 0)
+		else
+			result = iif(max(karta - bankDebtLimit, 0) >= ARGS[1], 1, 0)
+		end
+	elseif $ARGS[2] = 'desk':
+		result = iif((money + stolmoney) >= ARGS[1], 1, 0)
+	else
+		if cfg_vars['allow_overdraft'] = 1:
+			result = iif((money + karta) >= ARGS[1], 1, 0)
+		else
+			result = iif((money + max(karta - bankDebtLimit, 0)) >= ARGS[1], 1, 0)
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'string_price':
+	!! Get a formatted string of the cost of something, with modifiers applied
+	!! ARGS[1] = base cost
+	!! Use this inline, e.g. 'The cost is <<$func(''money'', ''string_price'', base_cost)>>.'
+
+	if ARGS[1] = 0:
+		$result = 'Free'
+	else
+		$result = $func('money', 'format', func('money', '_apply_modifiers', ARGS[1], 'price'))
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'string_profit':
+	!! Get a formatted string of the profit of something, with modifiers applied
+	!! ARGS[1] = base profit
+	!! Use this inline, e.g. 'You have earned <<$func(''money'', ''string_profit'', base_profit)>>.'
+
+	$result = $func('money', 'format', func('money', '_apply_modifiers', ARGS[1], 'profit'))
+	exit
+end
+
+
+if $ARGS[0] = 'format':
+	!! Format a money amount as a string with commas and a rouble sign
+	!! ARGS[1] = amount
+	!! ARGS[2] = 1 to hide rouble sign, default is 0
+	!! ARGS[3] = 1 to display number as text instead of digits, default is 0
+	!! ARGS[4] = 1 to color the string green if positive, red if negative, default is 0
+
+	if ARGS[3]:
+		$result = $func('string', 'parse_number', ARGS[1])
+		if ARGS[2] = 0: $result += ' 卢布' + iif(ARGS[1] <> 1, '', '')
+	else
+		$result = $func('money', '_format_price_string', ARGS[1])
+		if ARGS[2] = 0: $result += ' <b>₽</b>'
+	end
+
+	if ARGS[4]:
+		if ARGS[1] > 0:
+			$result = $func('wrap', 'v_pos', $result)
+		else
+			$result = $func('wrap', 'v_neg', $result)
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'format_balance':
+	!! Format a player balance as a string with commas, rouble sign, and overflow millions included
+	!! $ARGS[1] = 'cash', 'bank', or 'desk'
+	!! ARGS[2] = 1 to hide rouble sign, default is 0
+	!! ARGS[3] = 1 to color the string green if positive, red if negative, default is 0
+	!! e.g. $func('money', 'format_balance', 'cash') → "1,234,567,890 ₽" if overflow present
+
+	if $ARGS[1] = 'cash':
+		format_balance_temp['base'] = money
+		format_balance_temp['overflow'] = money_overflow
+	elseif $ARGS[1] = 'bank':
+		format_balance_temp['base'] = karta - bankDebtLimit
+		format_balance_temp['overflow'] = karta_overflow
+	elseif $ARGS[1] = 'desk':
+		format_balance_temp['base'] = stolmoney
+		format_balance_temp['overflow'] = stolmoney_overflow
+	end
+
+	if format_balance_temp['overflow'] > 0:
+		!! Combine: overflow millions + base remainder, display as one large number string
+		!! e.g. overflow=1, base=234567890 → "1,234,567,890"
+		$format_balance_temp['base_str'] = $func('money', '_format_price_string', format_balance_temp['base'])
+		!! Pad base to 9 digits so it reads correctly after the overflow prefix
+		format_balance_temp['pad'] = max(0, 9 - len(str(format_balance_temp['base'])))
+		$format_balance_temp['padding'] = ''
+		:format_balance_pad_loop
+		if format_balance_temp['pad'] > 0:
+			$format_balance_temp['padding'] += '0'
+			format_balance_temp['pad'] -= 1
+			jump 'format_balance_pad_loop'
+		end
+		$delim = iif(cheatVars['money_format'] = 1, '.', ',')
+		$result = $func('money', '_format_price_string', format_balance_temp['overflow']) + $delim + $format_balance_temp['padding'] + $func('money', '_format_price_string', format_balance_temp['base'])
+	else
+		$result = $func('money', 'format', format_balance_temp['base'], 1)
+	end
+
+	if ARGS[2] = 0: $result += ' <b>₽</b>'
+
+	if ARGS[3]:
+		if format_balance_temp['base'] > 0 or format_balance_temp['overflow'] > 0:
+			$result = $func('wrap', 'v_pos', $result)
+		elseif format_balance_temp['base'] < 0:
+			$result = $func('wrap', 'v_neg', $result)
+		end
+	end
+
+	killvar 'format_balance_temp'
+	exit
+end
+
+
+!! Call: $func('money', '_format_price_string', ARGS[1])!! ARGS[1] - the price (as a number)
+if $ARGS[0] = '_format_price_string':
+	$delim = iif(cheatVars['money_format'] = 1, '.', ',')
+	$result = ''
+	$shortgsVars['num'] = str(ARGS[1])
+	shortgsVars['len'] = len($shortgsVars['num'])
+	:format_price_string_loop
+	if shortgsVars['len'] > 3:
+		$result = $mid($shortgsVars['num'], shortgsVars['len']-2) + $delim + $result
+		$shortgsVars['num'] = $mid($shortgsVars['num'], 1, shortgsVars['len']-3)
+		shortgsVars['len'] -= 3
+		jump 'format_price_string_loop'
+	elseif $shortgsVars['num'] = '-':
+		$result = $shortgsVars['num'] + $result
+	else
+		$result = $shortgsVars['num'] + $delim + $result
+	end
+	$result = $mid($result, 1, len($result)-1)
+	killvar 'shortgsVars'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              HELPERS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '_apply_modifiers':
+	!! Apply money modifiers to a base amount
+	!! ARGS[1] = base amount
+	!! $ARGS[2] = 'price' or 'profit'
+	if $ARGS[2] = 'price':
+		result = func('_difficulty', 'get_multiplied', cfg_vars['neg_mult_opt'], ARGS[1], cfg_vars['neg_mult'])
+	else
+		result = func('_difficulty', 'get_multiplied', cfg_vars['pos_mult_opt'], ARGS[1], cfg_vars['pos_mult'])
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_remove_modifiers':
+	!! Remove money modifiers from a modified amount to get the base amount (inverse of _apply_modifiers)
+	!! ARGS[1] = modified amount
+	!! $ARGS[2] = 'price' or 'profit'
+	!!
+	!! Uses get_multiplied to find the forward multiplier, then inverts it.
+	if $ARGS[2] = 'price':
+		temp_moneyVars['fwd'] = func('_difficulty', 'get_multiplied', cfg_vars['neg_mult_opt'], 100, cfg_vars['neg_mult'])
+	else
+		temp_moneyVars['fwd'] = func('_difficulty', 'get_multiplied', cfg_vars['pos_mult_opt'], 100, cfg_vars['pos_mult'])
+	end
+	if temp_moneyVars['fwd'] ! 0:
+		result = (ARGS[1] * 100) / temp_moneyVars['fwd']
+	else
+		result = ARGS[1]
+		msg '错误：金钱乘数被解析为零，无法去除修正。请报告此问题。'
+	end
+	killvar 'temp_moneyVars'
+	exit
+end
+
+
+if $ARGS[0] = '_payment_method':
+	!! Interprets settings options to route payment, and optionally lets the player choose
+	!! ARGS[1] = amount to pay or earn
+	!! $ARGS[2] = 'pay' or 'earn'
+
+	if $ARGS[2] = 'pay':
+		if cfg_vars['pay_opt'] = 0:
+			!! Cash is the preferred payment method
+			if func('money', '_can_afford_inner', ARGS[1], 'cash') = 1:
+				gs 'money', '_cash_payment', ARGS[1], 'pay'
+			else
+				if cfg_vars['pay_opt_backup'] = 0:
+					!! Card is the backup payment method
+					if func('money', '_can_afford_inner', ARGS[1], 'bank') = 1:
+						gs 'money', '_bank_payment', ARGS[1], 'pay'
+					else
+						gs 'money', '_hybrid_payment', ARGS[1]
+					end
+				elseif cfg_vars['pay_opt_backup'] = 1:
+					!! Hybrid payment is the backup payment method
+					gs 'money', '_hybrid_payment', ARGS[1]
+				else
+					!! Choose every time is the backup payment method
+					gs 'money', '_choose_payment_method', ARGS[1], 'pay'
+				end
+			end
+		elseif cfg_vars['pay_opt'] = 1:
+			!! Card is the preferred payment method
+			if func('money', '_can_afford_inner', ARGS[1], 'bank') = 1:
+				gs 'money', '_bank_payment', ARGS[1], 'pay'
+			else
+				if cfg_vars['pay_opt_backup'] = 0:
+					!! Cash is the backup payment method
+					if func('money', '_can_afford_inner', ARGS[1], 'cash') = 1:
+						gs 'money', '_cash_payment', ARGS[1], 'pay'
+					else
+						gs 'money', '_hybrid_payment', ARGS[1]
+					end
+				elseif cfg_vars['pay_opt_backup'] = 1:
+					!! Hybrid payment is the backup payment method
+					gs 'money', '_hybrid_payment', ARGS[1]
+				else
+					!! Choose every time is the backup payment method
+					gs 'money', '_choose_payment_method', ARGS[1], 'pay'
+				end
+			end
+		else
+			!! Choose every time is the preferred payment method
+			gs 'money', '_choose_payment_method', ARGS[1], 'pay'
+		end
+	elseif $ARGS[2] = 'earn':
+		if cfg_vars['income_opt'] = 0:
+			!! Cash is the preferred income method
+			gs 'money', '_cash_payment', ARGS[1], 'earn'
+		elseif cfg_vars['income_opt'] = 1:
+			!! Card is the preferred income method
+			if bankAccount = 1:
+				gs 'money', '_bank_payment', ARGS[1], 'earn'
+			else
+				msg '你没有银行账户，但选择了通过银行收款。收到的钱将改为现金支付。'
+				gs 'money', '_cash_payment', ARGS[1], 'earn'
+			end
+		else
+			!! Choose every time is the preferred income method
+			gs 'money', '_choose_payment_method', ARGS[1], 'earn'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_cash_payment':
+	!! Helper function to perform a cash payment
+	!! ARGS[1] = amount
+	!! $ARGS[2] = 'pay' or 'earn'
+	if $ARGS[2] = 'pay':
+		money -= ARGS[1]
+	else
+		money += ARGS[1]
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_bank_payment':
+	!! Helper function to perform a bank payment
+	!! ARGS[1] = amount
+	!! $ARGS[2] = 'pay' or 'earn'
+	if $ARGS[2] = 'pay':
+		karta -= ARGS[1]
+	else
+		karta += ARGS[1]
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_desk_payment':
+	!! Helper function to perform a desk payment (take from cash first, then desk drawer)
+	!! ARGS[1] = amount
+	if money >= ARGS[1]:
+		gs 'money', '_cash_payment', ARGS[1], 'pay'
+	else
+		temp_moneyVars['cash_portion'] = money
+		gs 'money', '_cash_payment', temp_moneyVars['cash_portion'], 'pay'
+		stolmoney -= ARGS[1] - temp_moneyVars['cash_portion']
+		killvar 'temp_moneyVars'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_hybrid_payment':
+	!! Helper function to perform a hybrid payment
+	!! ARGS[1] = amount
+	if money >= ARGS[1]:
+		money -= ARGS[1]
+	elseif cfg_vars['allow_overdraft'] = 1 and money + karta >= ARGS[1]:
+		karta -= ARGS[1] - money
+		money = 0
+	elseif cfg_vars['allow_overdraft'] = 0 and money + max(karta - bankDebtLimit, 0) >= ARGS[1]:
+		karta -= ARGS[1] - money
+		money = 0
+	else
+		msg '混合支付：你付不起这笔钱。玩家本不应看到此消息，因为该选项本不应可用，但如果你看到了，请报告此问题以及你想买的东西。'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_choose_payment_method':
+	!! Helper function to present the player with a choice of payment method
+	!! ARGS[1] = amount
+	!! $ARGS[2] = 'pay' or 'earn'
+
+	killvar 'cpm_temp_moneyVars'
+
+	$cpm_temp_moneyVars['input_msg'] = '你想怎么' + iif($ARGS[2] = 'pay', '支付', '收款') + '？<br>'
+
+	if $ARGS[2] = 'pay':
+		if func('money', '_can_afford_inner', ARGS[1], 'cash') = 1:
+			cpm_temp_moneyVars['cash'] = 1
+			$cpm_temp_moneyVars['input_msg'] += '现金 [输入 ''1''，默认]<br>'
+		else
+			if func('money', '_can_afford_inner', ARGS[1] - money, 'bank') = 1:
+				cpm_temp_moneyVars['both'] = 1
+				$cpm_temp_moneyVars['input_msg'] += '混合支付 [输入 ''3'']<br>'
+			end
+		end
+		if func('money', '_can_afford_inner', ARGS[1], 'bank') = 1:
+			cpm_temp_moneyVars['bank'] = 1
+			$cpm_temp_moneyVars['input_msg'] += '银行卡 [输入 ''2'']<br>'
+		end
+		if cpm_temp_moneyVars['cash'] <> 1 and cpm_temp_moneyVars['bank'] <> 1 and cpm_temp_moneyVars['both'] <> 1:
+			msg '你付不起这笔钱。玩家本不应看到此消息，因为该选项本不应可用，但如果你看到了，请报告此问题以及你想买的东西。'
+		end
+	elseif $ARGS[2] = 'earn':
+		cpm_temp_moneyVars['cash'] = 1
+		$cpm_temp_moneyVars['input_msg'] += '现金 [输入 ''1''，默认]<br>'
+		if bankAccount = 1:
+			cpm_temp_moneyVars['bank'] = 1
+			$cpm_temp_moneyVars['input_msg'] += '银行卡 [输入 ''2'']<br>'
+		end
+	end
+
+	!! Handle the player exiting the input without making a choice
+	$cpm_temp_moneyVars['input_result'] = input($cpm_temp_moneyVars['input_msg'])
+	if $cpm_temp_moneyVars['input_result'] <> '' and isnum($cpm_temp_moneyVars['input_result']):
+		cpm_temp_moneyVars['choice'] = val($cpm_temp_moneyVars['input_result'])
+	end
+
+	if cpm_temp_moneyVars['choice'] < 1 or cpm_temp_moneyVars['choice'] >= 4:
+		if cpm_temp_moneyVars['cash'] = 1 or $ARGS[2] = 'earn':
+			cpm_temp_moneyVars['choice'] = 1
+		elseif cpm_temp_moneyVars['bank'] = 1:
+			cpm_temp_moneyVars['choice'] = 2
+		elseif cpm_temp_moneyVars['both'] = 1:
+			cpm_temp_moneyVars['choice'] = 3
+		end
+	end
+
+	!! Make the payment
+	if cpm_temp_moneyVars['choice'] = 1:
+		gs 'money', '_cash_payment', ARGS[1], $ARGS[2]
+	elseif cpm_temp_moneyVars['choice'] = 2:
+		gs 'money', '_bank_payment', ARGS[1], $ARGS[2]
+	elseif cpm_temp_moneyVars['choice'] = 3:
+		gs 'money', '_hybrid_payment', ARGS[1]
+	else
+		msg '无效的选择。请报告此问题。'
+	end
+
+	killvar 'cpm_temp_moneyVars'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          DEBT MANAGEMENT                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'debt_add':
+	!! Add to a debt variable with price modifiers applied
+	!! $ARGS[1] = debt variable name (e.g., 'workDolg', 'belgangPay')
+	!! ARGS[2] = base amount to add to debt
+	!! Usage: gs 'money', 'debt_add', 'workDolg', 750
+	!!        gs 'money', 'debt_add', 'belgangPay', 5000
+
+	if ARGS[2] = 0: exit
+
+	!! Apply price modifiers (debts are costs)
+	temp_moneyVars['amount'] = func('money', 'price', ARGS[2])
+
+	!! Add to the debt variable
+	dynamic "<<$ARGS[1]>> += <<temp_moneyVars['amount']>>"
+
+	killvar 'temp_moneyVars'
+	exit
+end
+
+
+if $ARGS[0] = 'debt_pay':
+	!! Pay down a debt from available funds
+	!! $ARGS[1] = debt variable name (e.g., 'workDolg', 'belgangPay')
+	!! ARGS[2] = amount to pay (if 0 or omitted, pays as much as possible from available funds)
+	!! $ARGS[3] = payment sources: 'cash', 'desk', 'all', 'none' (default is 'all')
+	!!           'cash' = only from money
+	!!           'desk' = from money + stolmoney
+	!!           'all' = from money + stolmoney + karta
+	!! 		 	 'none' = does not take money, just lowers the debt by the specified amount
+	!! Returns: actual amount paid in 'result'
+	!! Usage: gs 'money', 'debt_pay', 'workDolg'
+	!!        paid_amount = func('money', 'debt_pay', 'workDolg', 1000, 'cash')
+
+	!! Get current debt amount
+	dynamic "temp_moneyVars['debt'] = <<$ARGS[1]>>"
+
+	if temp_moneyVars['debt'] <= 0:
+		result = 0
+		killvar 'temp_moneyVars'
+		exit
+	end
+
+	!! Determine how much to try to pay
+	if ARGS[2] > 0:
+		temp_moneyVars['target'] = min(ARGS[2], temp_moneyVars['debt'])
+	else
+		temp_moneyVars['target'] = temp_moneyVars['debt']
+	end
+
+	temp_moneyVars['paid'] = 0
+
+	if $ARGS[3] = 'none':
+		!! Just reduce the debt without taking money
+		dynamic "<<$ARGS[1]>> -= <<temp_moneyVars['target']>>"
+		result = temp_moneyVars['target']
+		killvar 'temp_moneyVars'
+		exit
+	end
+
+	!! Try to pay from cash first
+	if money > 0:
+		temp_moneyVars['from_cash'] = min(money, temp_moneyVars['target'])
+		money -= temp_moneyVars['from_cash']
+		temp_moneyVars['paid'] += temp_moneyVars['from_cash']
+		temp_moneyVars['target'] -= temp_moneyVars['from_cash']
+	end
+
+	!! If payment source allows desk money and we still have debt to pay
+	if temp_moneyVars['target'] > 0 and ($ARGS[3] = 'desk' or $ARGS[3] = 'all'):
+		if stolmoney > 0:
+			temp_moneyVars['from_desk'] = min(stolmoney, temp_moneyVars['target'])
+			stolmoney -= temp_moneyVars['from_desk']
+			temp_moneyVars['paid'] += temp_moneyVars['from_desk']
+			temp_moneyVars['target'] -= temp_moneyVars['from_desk']
+		end
+	end
+
+	!! If payment source allows bank and we still have debt to pay
+	if temp_moneyVars['target'] > 0 and ($ARGS[3] = 'all' or $ARGS[3] = ''):
+		if (karta > 0 and (cfg_vars['allow_overdraft'] = 1) or max(karta - bankDebtLimit, 0) >= temp_moneyVars['target']):
+			temp_moneyVars['from_bank'] = min(karta, temp_moneyVars['target'])
+			karta -= temp_moneyVars['from_bank']
+			temp_moneyVars['paid'] += temp_moneyVars['from_bank']
+			temp_moneyVars['target'] -= temp_moneyVars['from_bank']
+		end
+	end
+
+	!! Reduce the debt by amount paid
+	dynamic "<<$ARGS[1]>> -= <<temp_moneyVars['paid']>>"
+
+	result = temp_moneyVars['paid']
+
+	killvar 'temp_moneyVars'
+	exit
+end
+
+
+if $ARGS[0] = 'string_debt':
+	!! Get a formatted string for displaying debt amounts
+	!! ARGS[1] = debt amount
+	!! ARGS[2] = 1 to display as text instead of digits, default is 0
+	!! ARGS[3] = 1 to color the string red, default is 0
+	!! Usage: 'Your debt is ' + $func('money', 'string_debt', workDolg)
+
+	if ARGS[1] <= 0:
+		$result = ''
+		exit
+	end
+
+	!! Format with color (red) by default
+	if ARGS[3] = 0:
+		$result = $func('money', 'format', ARGS[1], 0, ARGS[2])
+	else
+		$result = $func('wrap', 'v_neg', $func('money', 'format', ARGS[1], 0, ARGS[2]))
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'string_debt_reduction':
+	!! Get a formatted string for displaying debt reduction amounts (e.g., in payment options)
+	!! ARGS[1] = amount of debt reduction
+	!! ARGS[2] = 1 to display as text instead of digits, default is 0
+	!! Usage: 'Pay ' + $func('money', 'string_debt_reduction', payment_amount) + ' towards your debt.'
+
+	if ARGS[1] <= 0:
+		$result = ''
+	else
+		$result = $func('money', 'format', ARGS[1], 0, ARGS[2])
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'string_debt_addition':
+	!! Get a formatted string for displaying debt addition amounts (e.g., when incurring new debt)
+	!! ARGS[1] = amount of debt addition
+	!! Usage: 'You have incurred ' + $func('money', 'string_debt_addition', new_debt_amount) + ' in debt.'
+
+	if ARGS[1] <= 0:
+		$result = ''
+	else
+		$result = $func('money', 'string_price', ARGS[1])
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'can_afford_debt':
+	!! Check if the player can afford replaying a debt, after applying modifiers
+	!! ARGS[1] = debt amount
+	!! $ARGS[2] = 'cash', 'bank', 'desk', or 'both', default is 'both'
+	!! $ARGS[2] = 'desk' checks cash + desk drawer
+	!! Use this before presenting the player with an option to pay back a debt,
+	!! e.g. if func('money', 'can_afford_debt', debt amount, 'both') = 1: act 'pay back': …
+
+	if $ARGS[2] = 'cash':
+		result = money >= ARGS[1]
+	elseif $ARGS[2] = 'bank':
+		if cfg_vars['allow_overdraft'] = 1:
+			result = karta >= ARGS[1]
+		else
+			result = max(karta - bankDebtLimit, 0) >= ARGS[1]
+		end
+	elseif $ARGS[2] = 'desk':
+		result = (money + stolmoney) >= ARGS[1]
+	elseif $ARGS[2] = 'all':
+		if cfg_vars['allow_overdraft'] = 1:
+			result = (money + stolmoney + karta) >= ARGS[1]
+		else
+			result = (money + stolmoney + max(karta - bankDebtLimit, 0)) >= ARGS[1]
+		end
+	else
+		!! default: cash + bank (no desk)
+		if cfg_vars['allow_overdraft'] = 1:
+			result = (money + karta) >= ARGS[1]
+		else
+			result = (money + max(karta - bankDebtLimit, 0)) >= ARGS[1]
+		end
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'get_debt_cost_string':
+	!! Like get_cost_string, but for paying down a debt (e.g. policeQW['legal_fine']) instead of a price.
+	!! Debts are already modifier-adjusted at the time they''re incurred via debt_add, so this checks
+	!! affordability with can_afford_debt (no further modifiers applied) rather than can_afford.
+	!! ARGS[1] = debt amount
+	!! $ARGS[2] = 'cash', 'bank', 'desk', or 'all', default is cash + bank
+	!! e.g. act 'Pay it off' + $func('money', 'get_debt_cost_string', debt, 'cash'): if func('money', 'can_afford_debt', debt, 'cash') = 0: $noMoney else … end
+
+	if $ARGS[2] = 'cash':
+		$temp_method = ' - 仅现金'
+	elseif $ARGS[2] = 'bank':
+		$temp_method = ' - 仅银行卡'
+	elseif $ARGS[2] = 'desk':
+		$temp_method = ' - 仅现金与柜台'
+	elseif $ARGS[2] = 'all':
+		$temp_method = ' - 现金、银行或柜台'
+	else
+		$temp_method = ''
+	end
+	$result = ' (' + $func('money', 'string_debt', ARGS[1]) + $temp_method + ')'
+	if func('money', 'can_afford_debt', ARGS[1], $ARGS[2]) = 0:
+		$result += ' ' + $func('wrap', 'v_neg', '（你买不起这个）')
+	end
+	killvar 'temp_method'
+	exit
+end
+
+
+--- money ---------------------------------

@@ -1,0 +1,288 @@
+# pav_train_hall
+
+if $ARGS[0] = '':
+	*clr & cla
+	CLOSE ALL
+	if sound_settings['environment_off'] = 0: PLAY 'sound/vokzal.mp3', 30
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_train_hall', ''
+	$region = 'pav'
+	$location_type = 'public_indoors'
+	frost = 0
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	'<center><h2>巴甫洛夫斯克火车站</h2></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/vokzal.jpg"></center>'
+	'步入车站大楼，一个宽敞的候车室映入眼帘，乘客们在那里等候列车。角落里是<a href="exec: gt ''pav_train_hall_events'', ''manager''">站长办公室</a>。那个<a href="exec:minut += 1 & gt ''pav_train_hall'', ''toilet''">厕所</a>位于大楼的后部。'
+	'长途列车在站台上的时间介于 '+func('time', 'get_time_string', 11, 0)+'-'+func('time', 'get_time_string', 11, 30)+' 和 '+func('time', 'get_time_string', 18, 0)+'-'+func('time', 'get_time_string', 18, 30)+'。'
+	*nl
+	if rand(0, 2) = 0 and week < 5 and hour >= 8 and hour < 18:
+		if OluQW['met'] = 0:
+			'你看到一个非常高大的黑人坐在其中一张长椅上。当人们走向出口时，他会迅速起身问他们是否需要出租车。不过，看起来没有人理会他的提议。'
+		else
+			if week ! 1 or rand(0, 4) ! 0:
+				'你看到你姑姑的男朋友<a href="exec:minut += 1 & gt ''olutaxi'', ''station''">奥卢</a>坐在其中一张长椅上。当人们走向出口时，他会迅速起身问他们是否需要出租车，但看起来没有人理会他的提议。'
+			else
+				DjibrilQW['taxi'] = 1
+				if DjibrilQW['meet'] = 1:
+					'你看到你姑姑的男朋友<a href="exec:minut += 1 & gt ''olutaxi'', ''station''">奥卢</a>坐在其中一张长椅上。他的侄子吉布里尔坐在他旁边。当人们走向出口时，奥卢会迅速起身问他们是否需要出租车，但看起来没有人理会他的提议。'
+				else
+					'你看到你姑姑的男朋友<a href="exec:minut += 1 & gt ''olutaxi'', ''station''">奥卢</a>坐在其中一张长椅上。一个看起来和他很像、可能是亲戚的年轻男子坐在他旁边。当人们走向出口时，奥卢会迅速起身问他们是否需要出租车，但看起来没有人理会他的提议。'
+				end
+			end
+		end
+	end
+
+	if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and hour >= 18 and hour < 20 and week < 6:
+		if sunWeather = 0 or temper <= 0: '你看到你的同学<a href="exec: minut += 3 & gt ''gopskver''">维泰克、丹和瓦西里</a>在附近闲逛。'
+	end
+	*nl
+	if podbros = 0 and hour >= 8 and hour < 21 and rand(0, 1) = 0:
+		'当你穿过车站大楼时，你注意到一个男人的<a href="exec: gt ''pav_train_hall_events'', ''wallet1''">钱包</a>从他的口袋里掉了出来。'
+		*nl
+	end
+
+	act '步行到集市广场 (0:03)': minut += 3 & gt 'pav_market'
+	act '步行到商业区 (0:10)': minut += 10 & gt 'pav_commercial'
+	act '步行到居民区 (0:15)': minut += 15 & gt 'pav_residential'
+	act '步行到工业区 (0:15)': minut += 15 & gt 'pav_industrial'
+	act '步行到五八小区 (0:15)': minut += 15 & gt 'pav_complex', 'start'
+	act '步行到高速公路 (0:15)': minut += 15 & gt 'road', '20'
+	act '步行到普希金 (0:15)': minut += 15 & gt 'pushkin'
+	act '步行到汽车站 (0:02)': minut += 2 & gt 'bus', 'pavstation'
+
+	if daystart >= transportVars['trainpass_day']:
+		act '去售票处': gt 'pav_train_hall', 'ticket'
+	else
+		$func('transport_functions', 'display_trainpass_time')
+		act '去月台': gt 'pav_train_hall', 'platform'
+	end
+
+	if drugVars['pav_dropoff'] = 1 and drugVars['heroin_day'] ! daystart: act '找毒贩': gs 'events', 'pav_drug_dropoff'
+
+	if $job_status['pav_train_cleaner'] = 'employed':
+		if cleZalDay ! daystart or cleMTDay ! daystart or cleWTDay ! daystart:
+			act '工作': gt 'pav_train_hall', 'work'
+		else
+			if cleZarplatDay ! daystart:
+				gs 'jobs', 'clock', 'pav_train_cleaner'
+				gs 'jobs', 'paycheck', 'pav_train_cleaner'
+				gs 'mood', 'raise', 'tiny'
+				gs 'stat'
+				*nl
+				minut += 5
+				cleZarplatDay = daystart
+				'当你打扫完所有被要求打扫的地方后，你去经理办公室领取报酬。'
+			end
+		end
+	end
+
+	*nl
+	if (hour = 11 or hour = 18) and minut <= 30:
+		' ' + func('time', 'get_time_string', hour, 30) + ' 的长途列车目前正在' + iif(minut = 0, '靠近月台', iif(minut < 30, '月台等待', '离开月台')) + '。'
+
+		'月台上挤满了乘客，他们进进出出正在等待列车的到来，随身携带着沉重的行李。列车靠站前，几名警察正在月台上巡逻，密切注意着任何不法行为。'
+		if mc_inventory['trinkets_home'] > 0: '你可以试着向一些乘客<a href="exec:gt ''pav_train_hall_events'', ''trinkets''">出售一些小饰品</a>。'
+	end
+end
+
+
+if $ARGS[0] = 'platform':
+	*clr & cla
+	CLOSE ALL
+	if sound_settings['environment_off'] = 0:
+		if month >= 11 or month <= 3:
+			if hour >= 8:
+				PLAY 'sound/street2.mp3', 30 & PLAY 'sound/zima.mp3', 30
+			else
+				PLAY 'sound/street_night.mp3', 30 & PLAY 'sound/zima.mp3', 30
+			end
+		else
+			if hour >= 8:
+				PLAY 'sound/street2.mp3', 30 & PLAY 'sound/street_leto.mp3', 30
+			else
+				PLAY 'sound/street_night.mp3', 30
+			end
+		end
+	end
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_train_hall', 'platform'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	'<center><h2>巴甫洛夫斯克火车站站台</h2></center>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/train/pavplat.jpg"></center>'
+	'由于巴甫洛夫斯克吸引了不少游客，车站有时会很繁忙。站台上最繁忙的时间介于 '+func('time', 'get_time_string', 11, 0)+' 和 '+func('time', 'get_time_string', 11, 30)+', 以及介于 '+func('time', 'get_time_string', 18, 0)+' 和 '+func('time', 'get_time_string', 18, 30)+' 长途列车即将上客的时候。'
+	*nl
+	gs 'transport_functions', 'set_train_wait_time', 'pavlovsk'
+	'下一班去圣彼得堡的火车 ' + iif(transportVars['train_wait_center'] = 0, '正在离开！', '将于<<transportVars[''train_wait_center'']>>分钟后离开。')
+	*nl
+	if week >= 6 and hour >= 9 and hour <= 10: '你注意到<a href="exec:gt ''gschool_socialchg1'', ''tBella''">Bella</a>站在火车站月台上，看着时刻表。'
+
+	act '进入车站大楼': gt 'pav_train_hall'
+	act '步行到公交月台 (0:02)': minut += 2 & gt 'bus', 'pavstation'
+
+	act '查看火车时刻表':
+		*clr & cla
+		'<center><h1>火车时刻表</h1></center>'
+		gs 'transport_functions', 'display_train_schedule', 'pc'
+		act '别再盯着日程表了': gt 'pav_train_hall', 'platform'
+	end
+
+	if daystart < transportVars['trainpass_day']:
+		act '乘列车前往加杜基诺村 (<<func(''transport_functions'', ''display_train_timecost'', ''pavlovsk'', ''gadukino'', ''center'')>>)':	gt 'train', 'pavlovsk_gadukino'
+		act '乘列车前往集体农庄 (<<func(''transport_functions'', ''display_train_timecost'', ''pavlovsk'', ''communal'', ''center'')>>)':	gt 'train', 'pavlovsk_communal'
+		act '乘列车前往市工业区 (<<func(''transport_functions'', ''display_train_timecost'', ''pavlovsk'', ''industrial'', ''center'')>>)':	gt 'train', 'pavlovsk_industrial'
+		act '乘列车前往市中心 (<<func(''transport_functions'', ''display_train_timecost'', ''pavlovsk'', ''center'', ''center'')>>)':			gt 'train', 'pavlovsk_center'
+	end
+end
+
+
+if $ARGS[0] = 'ticket':
+	if daystart < transportVars['trainpass_day']: gt 'pav_train_hall'
+
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_train_hall', 'ticket'
+	gs 'stat'
+
+	'<center><h2>售票处</h2></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/ticketoffice.jpg"></center>'
+
+	*nl
+	gs 'transport_functions', 'set_train_wait_time', 'pavlovsk'
+	'下一班去圣彼得堡的火车 ' + iif(transportVars['train_wait_center'] = 0, '正在离开！', '将于<<transportVars[''train_wait_center'']>>分钟后离开。')
+
+	act '离开售票处': minut += 1 & gt 'pav_train_hall'
+
+	act '查看火车时刻表':
+		*clr & cla
+		'<center><h1>火车时刻表</h1></center>'
+		gs 'transport_functions', 'display_train_schedule', 'pc'
+		act '别再盯着日程表了': gt 'pav_train_hall', 'ticket'
+	end
+
+	gs 'transport_functions', 'buy_train_ticket', 'pavlovsk', 'pc'
+	gs 'transport_functions', 'buy_train_pass'
+end
+
+
+if $ARGS[0] = 'work':
+	menu_off = 1
+	*clr & cla
+	'<center><h2>巴甫洛夫斯克火车站内部</h2></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/vokzal.jpg"></center>'
+	if cleZalDay ! daystart:
+		act '拖候车室地板 (1:00)':
+			cls
+			cleZalDay = daystart
+			gs 'exercise', 'tier1', 60, 'stren', 'vital'
+			gs 'exp_gain', 'cleaning', rand(0, 2)
+			gs 'mood', 'lower', 'small'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener1.jpg"></center>'
+			'你从储物间拿出一些清洁用品，往桶里倒了些水和肥皂，然后拖起了候车室的地板。'
+
+			act '继续': minut += 1 & gt 'pav_train_hall', 'work'
+		end
+	end
+
+	if cleMTDay ! daystart:
+		act '清洁男洗手间 (0:30)':
+			cls
+			cleMTDay = daystart
+			gs 'exercise', 'tier1', 30, 'stren', 'vital'
+			gs 'exp_gain', 'cleaning', rand(0, 2)
+			gs 'mood', 'lower', 'small'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener1.jpg"></center>'
+			'你从储物间拿出一些清洁用品，往桶里倒了些水和肥皂，然后走进了男洗手间。'
+			'你擦洗了马桶和水槽，然后拖了地板。'
+			gs 'pav_train_hall_events', 'toilet_event'
+
+			act '离开洗手间': minut += 1 & gt 'pav_train_hall', 'work'
+		end
+	end
+
+	if cleWTDay ! daystart:
+		act '清洁女洗手间 (0:30)':
+			cls
+			cleWTDay = daystart
+			gs 'exercise', 'tier1', 30, 'stren', 'vital'
+			gs 'exp_gain', 'cleaning', rand(0, 2)
+			gs 'mood', 'lower', 'small'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener1.jpg"></center>'
+			'你从储物间拿出一些清洁用品，往桶里倒了些水和肥皂，然后走进了女洗手间。'
+			'你擦洗了马桶和水槽，然后拖了地板。'
+			gs 'pav_train_hall_events', 'vera'
+
+			act '离开洗手间': minut += 1 & gt 'pav_train_hall', 'work'
+		end
+	end
+	act '返回': gt 'pav_train_hall'
+end
+
+
+if $ARGS[0] = 'toilet':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_train_hall', 'toilet'
+	killvar 'locclass'
+	gs 'stat'
+
+	'<center><h2>巴甫洛夫斯克火车站内部</h2></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/vokzal.jpg"></center>'
+	*nl
+	'你站在车站的洗手间旁。你看到右边的<a href="exec:minut += 1 & gt ''pav_train_hall'', ''female''">女洗手间</a>和左边的<a href="exec:minut += 1 & gt ''pav_train_hall'', ''male''">男洗手间</a>，门上都有清晰的标志。'
+
+	act '返回火车站': minut += 1 & gt 'pav_train_hall'
+end
+
+
+if $ARGS[0] = 'female':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_train_hall', 'female'
+	$location_type = 'bathroom'
+	$locclass = 'restroom'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/bathroom/publictoilet.jpg"></center>'
+	'你打开女洗手间的门，走了进去。'
+
+	act '离开': minut += 1 & gt 'pav_train_hall', 'toilet'
+	act '照镜子': gt 'mirror', 'start'
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	gs 'din_van', 'publicpan'
+end
+
+
+if $ARGS[0] = 'male':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_train_hall', 'male'
+	$location_type = 'bathroom'
+	$locclass = 'restroom'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/bathroom/publictoilet.jpg"></center>'
+	'你打开男洗手间的门，走了进去。'
+
+	act '离开': minut += 1 & gt 'pav_train_hall', 'toilet'
+	if $arch_vars['main_active'] = 'bimbo':
+		act '等着看是否有人发现你': gt 'trainbimbo', 'pos1'
+		act '迅速走进隔间': gt 'trainbimbo', 'pos5'
+	end
+	act '照镜子': gt 'mirror', 'start'
+
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+end
+
+killvar 'temp_transportVars'
+
+
+--- pav_train_hall ---------------------------------

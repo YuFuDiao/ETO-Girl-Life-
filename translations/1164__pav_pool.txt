@@ -1,0 +1,837 @@
+# pav_pool
+
+!! 2023/09/13
+!! Based on the Mod Swimlessons by Darcanlos
+!! Rewritten by Vengeance
+!! Code updated by Anjuna
+!! 2025/02/04
+!! Lifeguard job added by Vengeance, coded by Anjuna
+
+
+if $ARGS[0] = 'building' or $ARGS[0] = '':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'building'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	act '离开': gt 'pav_residential'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/entrance.jpg"></center>'
+	if hour >= 21 or hour < 8:
+		'游泳池目前关闭。开放时间从 '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 21, 0)+'。'
+		exit
+	end
+
+	'巴甫洛夫斯克的公共游泳池相当老旧，但依然很好地发挥着它的作用。'
+	'门票价格是<<$func(''money'', ''string_price'', 100)>>全天，但学生有折扣，他们只需付<<$func(''money'', ''string_price'', 60)>>.'
+	if $job_status['pav_pool_lifeguard'] <> 'employed':
+		pav_swimpool['entrancefee'] = iif(gschoolVars['school_diploma'] <= 0, 60, 100)
+	end
+
+	if $job_status['pav_pool_lifeguard'] <> 'employed' and (job_hiring_step['pav_pool_lifeguard'] = 1 and week = 6 or job_hiring_step['pav_pool_lifeguard'] = 2 and week = 7):
+		if hour = 8:
+			'你走进大楼，首席救生员迎接了你，并立刻把你带到员工更衣室。'
+			act '继续': gt 'pav_pool_lifeguard', 'training'
+			exit
+		else
+			'你今天本应参加救生员训练于 ' + $func('time', 'get_time_string', 8, 0) + '！'
+		end
+	elseif $job_status['pav_pool_lifeguard'] = 'employed' and func('jobs', 'is_work_day', 'pav_pool_lifeguard', daystart) = 1 and job_last_work_day['pav_pool_lifeguard'] < daystart:
+		if hour = 11:
+			'人群开始排队入场，你走进去，前往员工更衣室为你的班次做准备。'
+			act '等待上班 (<<iif(minut=0, ''1:00'', ''0:<<60-minut>>'')>>)':
+				minut += (60 - minut)
+				gt 'pav_pool_lifeguard', 'start_shift'
+			end
+			exit
+		elseif hour = 12:
+			'人群已经到齐了，你匆匆走进去，前往员工更衣室为你的班次做准备。你希望没人介意你迟到了。'
+			act '去上班': gt 'pav_pool_lifeguard', 'start_shift'
+			exit
+		elseif hour > 12:
+			'你错过了救生员值班！你应该在 ' + $func('time', 'get_time_string', 12, 0) + '！'
+		end
+	end
+
+	if $job_status['pav_pool_lifeguard'] = 'employed':
+		'因为你在这里工作，休息日可以免费入场。'
+		act '进入': minut += 2 & gt 'pav_pool', 'entrance'
+	elseif pav_swimpool['entrancepaid'] = daystart:
+		'<b>你已经付过门票费，可以进去了。</b>'
+		act '进入': minut += 2 & gt 'pav_pool', 'entrance'
+	else
+		act '付款并进入' + $func('money', 'get_cost_string', pav_swimpool['entrancefee']):
+			if func('money', 'can_afford', pav_swimpool['entrancefee']) = 0:
+				$noMoney
+			else
+				minut += 2
+				gs 'money', 'pay', pav_swimpool['entrancefee']
+				pav_swimpool['entrancepaid'] = daystart
+				gs 'stat'
+				gt 'pav_pool', 'entrance'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'entrance':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'entrance'
+	$location_type = 'public_indoors'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/entrance.jpg"></center>'
+	'你现在正站在游泳池的入口大厅里。'
+	'从这里，你可以进入<a href="exec: minut += 1 & gt ''pav_pool'', ''lockerfemale''">女更衣室</a>，前往<a href="exec: minut += 1 & gt ''pav_pool'', ''cafeteria''">自助餐厅</a>，或逛逛泳池的<a href="exec: minut += 1 & gt ''pav_pool'', ''store''">商店</a>。'
+	*nl
+	'商店入口旁挂着一块告示牌，上面写着："如果关门了，我正在泳池里干活，很快就回来。"看来商店店员还兼任勤杂工。'
+	if job_hiring_step['pav_pool_lifeguard'] = 0 and (year = 2016 and month < 10):
+		'你还注意到一个告示说游泳池寻找一名额外的救生员，任何感兴趣的人应到主办公室申请在 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 18, 0)+'。'
+		if hour >= 9 and hour < 18:
+			act '申请救生员工作': gt 'pav_pool', 'lifeguard_apply'
+		end
+	end
+	if $job_status['pav_pool_lifeguard'] = 'employed':
+		act '辞去救生员工作': gt 'pav_pool', 'lifeguard_quit'
+	end
+	if $job_status['pav_pool_lifeguard'] = 'employed' and job_rank['pav_pool_lifeguard'] = 0 and (year = 2017 and month = 6) and rand(0, 1) = 0 and (hour >= 9 and hour < 18):
+		'你看到<a href="exec: minut += 1 & gt ''pav_pool'', ''lifeguard_offer''">玛丽亚</a>从办公室走过来，想引起你的注意。'
+	end
+
+	act '离开':
+		if PSwim = 1:
+			cla
+			$func('wrap', 'neg', '<br>如果你想离开，你需要换下泳衣！')
+			act '返回': minut += 2 & gt 'pav_pool', 'entrance'
+		else
+			minut += 2
+			gs 'stat'
+			gt 'pav_pool', 'building'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'store':
+	!! Outside of the first visit. Clerk has an 80% chance of being away in the busy times and a 30% in the down times.
+	menu_off = 0
+	minut += 1
+	gs 'core_library', 'setloc', 'pav_pool', 'store'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	if pav_swimpool['storeclerkvisit'] > 0 and (((hour >= 8 and hour <= 10) or hour >= 17) and rand(0, 9) < 8) or rand(0, 9) < 3:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/store.jpg"></center>'
+		'商店现在关门了。店员大概在别处干勤杂活。'
+	else
+		'<center><h3泳池商店</h3></center>'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/store.jpg"></center>'
+		'这家商店很小，几乎没什么陈列品，但也许会有一些泳衣出售。如果你想试穿，店里有个隔间，不过看起来私密性不怎么样。'
+
+		!! Buy one specific swimsuit
+		act '询问泳衣':
+			if func('clothing', 'is_owned', 'scandalicious_bikinis', 46) = 0:
+				gt 'pav_pool_events', 'store_swimsuit_buy'
+			end
+
+			*clr & cla
+			minut += 1
+			gs 'stat'
+			'<center><h3>泳池商店</h3></center>'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/storeclerk.jpg"></center>'
+			'你已经有一条和这里出售的款式相似的比基尼了。'
+			act '继续': minut += 1 & gt 'pav_pool', 'store'
+		end
+	end
+	act '离开': minut += 2 & gt 'pav_pool', 'entrance'
+end
+
+
+if $ARGS[0] = 'lockerfemale':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'lockerfemale'
+	$location_type = 'private'
+
+	!! Clothing change events
+	!! -------------------------------------------------------------------!!
+
+	if $temp_curclothes = 'nude':
+		killvar 'temp_curclothes'
+
+		if PSwim = 1:
+			!! Locker events nude -> swimwear
+			gt 'pav_pool_events', 'locker_nude_to_swim'
+
+		elseif $clothingworntype <> 'nude' or $pantyworntype <> 'none':
+			!! Locker events nude -> normal clothing
+			gt 'pav_pool_events', 'locker_nude_to_clothed'
+		end
+
+	elseif $temp_curclothes = 'swimwear':
+		killvar 'temp_curclothes'
+
+		if $clothingworntype = 'nude' and $pantyworntype = 'none':
+			!! Locker events swim -> nude
+			gt 'pav_pool_events', 'locker_swim_to_nude'
+		elseif PSwim <> 1:
+			!! Locker events swim -> clothing
+			gt 'pav_pool_events', 'locker_swim_to_clothed'
+		end
+
+	elseif $temp_curclothes = 'norm':
+		killvar 'temp_curclothes'
+
+		if $clothingworntype = 'nude' and $pantyworntype = 'none':
+			!! Locker events clothing -> nude
+			gt 'pav_pool_events', 'locker_clothed_to_nude'
+		elseif PSwim = 1:
+			!! Locker events clothing -> swim
+			gt 'pav_pool_events', 'locker_clothed_to_swim'
+		end
+	end
+	!! -------------------------------------------------------------------!!
+
+
+	!! ARGS[1] = 1 prevents this event from triggering repeatedly
+	if rand(0, 9) = 0 and $clothingworntype = 'nude' and $pantyworntype = 'none' and ARGS[1] = 0:
+		gt 'pav_pool_events', 'naked_locker'
+	end
+
+	minut += 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/lockers.jpg"></center>'
+	'更衣室老旧、昏暗，让人很不舒服，而且非常狭窄，你总是想尽快离开。一侧的小窗户也丝毫没能让你好受些。'
+	'从这里，你可以进入<a href="exec: minut += 1 & gt ''pav_pool'', ''showerfemale''">淋浴间</a>，或前往<a href="exec: minut += 1 & gt ''pav_pool'', ''mirror''">镜子</a>区域，那里在人多的时候竞争非常激烈。你还可以进入泳池，但前提是你穿着泳衣。'
+	'靠墙摆着一个小小的<a href="exec:minut += 1 & gt ''pav_pool'', ''locker_fountain''">饮水机</a>。'
+	if func('changingroom', 'count_swim_item') = 0 and $clothingworntype <> 'nude':
+		*nl
+		'如果你打算在泳池里待上一阵子，就该去买件泳衣。'
+		*nl
+	else
+		act '换衣服':
+			!! Remember current clothes for clothing change events
+			if $clothingworntype = 'nude' and $pantyworntype = 'none':
+				$temp_curclothes = 'nude'
+			elseif PSwim = 1:
+				$temp_curclothes = 'swimwear'
+			else
+				$temp_curclothes = 'norm'
+			end
+
+			$loc = 'pav_pool'
+			$loc_arg = 'lockerfemale'
+
+			!! Ignore Inhibition through willpower
+			gt 'changingroom', 1
+		end
+	end
+
+!!	act 'Go to the mirrors':
+!!		gt 'pav_pool', 'mirror'
+!!	end
+
+	if (pcs_makeup = 1 or cosmetic_tattoo > 0) and PSwim = 1:
+		act '进入泳池区域': minut += 1 & gt 'pav_pool', 'pool'
+	else
+		*nl
+		if PSwim = 0: '如果你想进入泳池，得先穿上泳衣。'
+		if pcs_makeup <> 1 and cosmetic_tattoo = 0: '如果你想进入泳池，得先把脸上的妆洗掉。'
+		*nl
+	end
+
+	if $clothingworntype <> 'nude':
+		act '脱掉所有衣物':
+			minut += 1
+			gs 'outfit', 'strip_all'
+			gt 'pav_pool', 'lockerfemale'
+		end
+	end
+
+	act '离开':
+		if $clothingworntype = 'nude':
+			cla
+			$func('wrap', 'neg', '<br>你得先穿好衣服！')
+			act '返回': minut += 1 & gt 'pav_pool', 'lockerfemale'
+		else
+			minut += 3
+			gs 'stat'
+			gt 'pav_pool', 'entrance'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'showerfemale':
+	menu_off = 1
+	$loc = 'pav_pool'
+	$loc_arg = 'showerfemale'
+	$location_type = 'private'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/showergirl.jpg"></center>'
+	'这些淋浴间已经风光不再。幸好淋浴的水非常温暖，淋在皮肤上感觉棒极了。'
+
+	if $clothingworntype <> 'nude':
+		'淋浴前你得先脱光衣服。'
+	else
+		act '淋浴':
+			*clr & cla
+			minut += 15
+			gs 'din_van', 'showerdin'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/gym/shower/watch.jpg"></center>'
+			if hour < 10:
+				'这么早的清晨几乎没人来这里，淋浴间里只有你一个人。'
+			elseif hour < 12:
+				'这个时候泳池相当繁忙，主要是带孩子的家庭和一些老人。现在有一位年长的女人正在淋浴，但除此之外都很安静。'
+			elseif hour < 18:
+				'泳池和淋浴间都很拥挤，你得等别人先洗完。'
+			elseif hour < 20:
+				'这么晚的傍晚没多少人去泳池，只有少数几个成年人下班后过来游个泳。淋浴间里只有你一个人。'
+			else
+				'天色已晚，泳池很快就要关门了。你觉得自己是楼里最后几个人之一，所以独自一人可以尽情享受淋浴。'
+			end
+
+			if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂在淋浴时被冲掉了。'
+
+			act '完成':
+				if rand(0, 2) = 0 and hour >= 18 and hour < 21:
+					gt 'pav_pool_events', 'shower_late'
+				else
+					minut += 1
+					gt 'pav_pool', 'showerfemale'
+				end
+			end
+		end
+	end
+
+	act '回到更衣室': minut += 1 & gt 'pav_pool', 'lockerfemale'
+end
+
+
+if $ARGS[0] = 'mirror':
+	!! ARGS[1] = 1 prevents the same event from triggering repeatedly.
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'mirror'
+	$location_type = 'private'
+	if rand(0, 9) = 0 and $clothingworntype = 'nude' and $pantyworntype = 'none' and ARGS[1] = 0:
+		gt 'pav_pool_events', 'naked_mirror'
+	end
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/mirrorsink.jpg"></center>'
+	'所在的区域<a href="exec: minut += 1 & gt ''mirror'', ''start''">镜子</a>和更衣室的其他地方一样阴暗。感觉就像老板根本不在乎这破败的外观。'
+	if $clothingworntype = 'nude':
+		*nl
+		'你全身赤裸。'
+	end
+
+	act '回到更衣室': minut += 1 & gt 'pav_pool', 'lockerfemale'
+	if cumloc[11] + cumloc[12] + cumloc[16] > 0:
+		act '清洗脸上的精液':
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			pcs_makeup = 1
+			gs 'cum_cleanup', 9
+			gs 'cum_cleanup', 13
+			if pcs_sweat > 19: pcs_sweat -= 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/washface.jpg"></center>'
+			'你在洗手池边仔细地洗掉脸上的精液。'
+			act '完成': minut += 1 & gt 'pav_pool', 'mirror'
+		end
+	end
+	if pcs_makeup <> 1 and cosmetic_tattoo = 0:
+		act '洗掉妆容':
+			*clr & cla
+			minut += 5
+			pcs_makeup = 1
+			if pcs_sweat > 19: pcs_sweat -= 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/washface.jpg"></center>'
+			'你在洗手池边仔细地洗掉妆容。'
+			act '完成': minut += 1 & gt 'pav_pool', 'mirror'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'locker_fountain':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/water_fountain.jpg"></center>'
+	'这个饮水机看起来比更衣室其他地方干净，但你仍然怀疑喝这里的水是否卫生。'
+
+	act '别喝':
+		cla
+		'你决定不喝饮水机的水。'
+		act '离开': minut += 1 & gt 'pav_pool', 'lockerfemale'
+	end
+
+	act '喝点水':
+		*clr & cla
+		minut += 2
+		gs 'beverage', 'water_stats'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/bathroom/waterfountain.jpg"></center>'
+		'你从饮水机喝了几口水，努力不去想周围阴暗的环境。'
+		act '喝完': gt 'pav_pool', 'lockerfemale'
+	end
+end
+
+
+if $ARGS[0]= 'cafeteria':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'cafeteria'
+	$location_type = 'public_indoors'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/cafeteria<<rand(1,2)>>.jpg"></center>'
+	'自助餐厅的菜单上种类不多，只提供一些基本的零食和饮料。一块告示牌写着所有零食价格为<<$func(''money'', ''string_price'', 100)>>，所有饮料价格为<<$func(''money'', ''string_price'', 80)>>，而且只接受现金付款。'
+	'两个穿着比基尼的女孩正在收银台点餐。'
+
+	act '顺序':
+		*clr & cla
+		minut += 1
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/cafeteriaturn.jpg"></center>'
+		'终于轮到你了，你在其中一张凳子上坐下。'
+
+		if $job_status['pav_pool_lifeguard'] = 'employed':
+			'因为你在这里工作，在自助餐厅可以享受小幅折扣。'
+		end
+
+		snack_price = iif($job_status['pav_pool_lifeguard'] = 'employed', 80, 100)
+		if func('money', 'can_afford', snack_price, 'cash') = 0:
+			if $job_status['pav_pool_lifeguard'] = 'employed':
+				'即使有折扣，你仍然没有足够的钱买一份零食。'
+			else
+				'你没有足够的钱买零食。'
+			end
+		else
+			act '买一份零食 (<<$func(''money'', ''string_price'', snack_price)>>) (0:05)':
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', snack_price, 'cash'
+				gs 'food', 'snack_stats'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/shared/food/food.jpg"></center>'
+				'你享用了一份小巧可口、但有点发胖的零食。'
+				act '返回': minut += 1 & gt 'pav_pool', 'cafeteria'
+			end
+		end
+
+		drink_price = iif($job_status['pav_pool_lifeguard'] = 'employed', 60, 80)
+		if func('money', 'can_afford', drink_price, 'cash') = 0:
+			if $job_status['pav_pool_lifeguard'] = 'employed':
+				'即使有折扣，你仍然没有足够的钱购买陈列中的任何饮料。'
+			else
+				'你没有足够的钱购买陈列中的任何饮料。'
+			end
+		else
+			act '买一杯果汁 (<<$func(''money'', ''string_price'', drink_price)>>) (0:05)':
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', drink_price, 'cash'
+				gs 'beverage', 'juice_stats'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/shared/drinks/juice.jpg"></center>'
+				'你买了一杯清爽的果汁，享受地喝了起来。'
+				act '返回': minut += 1 & gt 'pav_pool', 'cafeteria'
+			end
+
+			act '买一杯咖啡 (<<$func(''money'', ''string_price'', drink_price)>>) (0:05)':
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', drink_price, 'cash'
+				gs 'beverage', 'coffee_stats'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/shared/drinks/coffee.jpg"></center>'
+				'你买了一杯热咖啡，享受地喝了起来。'
+				act '返回': minut += 1 & gt 'pav_pool', 'cafeteria'
+			end
+
+			act '买一杯茶 (<<$func(''money'', ''string_price'', drink_price)>>) (0:05)':
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', drink_price, 'cash'
+				gs 'beverage', 'tea_stats'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/shared/drinks/tea.jpg"></center>'
+				'你买了一杯令人放松的茶，享受地喝了起来。'
+				act '返回': minut += 1 & gt 'pav_pool', 'cafeteria'
+			end
+
+			act '买一罐能量饮料 (<<$func(''money'', ''string_price'', drink_price)>>) (0:05)':
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', drink_price, 'cash'
+				gs 'beverage', 'energy_drink_stats'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/shared/drinks/energy_drink.jpg"></center>'
+				'你买了一罐能量饮料，享受地喝了起来。'
+				act '返回': minut += 1 & gt 'pav_pool', 'cafeteria'
+			end
+		end
+		act '喝点水 (0:05)':
+			*clr & cla
+			minut += 5
+			gs 'beverage', 'water_stats'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/brothel/barorderwater.jpg"></center>'
+			'你享受地喝了一杯水。'
+			act '返回': minut += 1 & gt 'pav_pool', 'cafeteria'
+		end
+		act '离开':
+			minut += 2
+			killvar 'snack_price'
+			killvar 'drink_price'
+			gt 'pav_pool', 'entrance'
+		end
+	end
+
+	act '离开':
+		minut += 2
+		killvar 'snack_price'
+		killvar 'drink_price'
+		gt 'pav_pool', 'entrance'
+	end
+end
+
+
+if $ARGS[0] = 'pool':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'pool'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	if hour < 10:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/pool1.jpg"></center>'
+		'这么早的清晨，泳池几乎是空的。你几乎可以独自享用整个泳池。'
+	elseif hour < 12:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/pool2.jpg"></center>'
+		'这个时候，泳池主要被带着孩子的家庭和老年人使用。'
+	elseif hour < 18:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/pool3.jpg"></center>'
+		'泳池里挤满了形形色色的人。这可算不上一次放松的游泳……'
+	elseif hour < 20:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/pool4.jpg"></center>'
+		'这么晚的傍晚没多少人去泳池，只有少数几个成年人下班后来游个泳。'
+	elseif hour < 21:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/pool5.jpg"></center>'
+		'天色已晚，泳池很快就要关门了，所以你几乎是一个人，可以独自享用整个泳池。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/pool5.jpg"></center>'
+		'天色已晚，泳池即将关闭。'
+	end
+
+	'这个泳池相当老旧，但仍有一种独特的魅力。整面墙的窗户在白天营造出宜人的氛围，上方还有一个阳台，人们常常从上面观看。'
+	'从这里，你可以进入女更衣室。'
+	if hour >= 8 and hour < 21:
+		act '爬进泳池':
+			*clr & cla
+			minut += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/ladder<<rand(1,2)>>.jpg"></center>'
+			'你顺着梯子慢慢爬进泳池，一边往下一边试探水温。'
+			act '继续': minut += 1 & gt 'pav_pool', 'poolwater'
+		end
+
+		act '跳入水中':
+			*clr & cla
+			minut += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/diving.jpg"></center>'
+
+			if pcs_agil < 45:
+				'你爬上跳板顶端，试着优雅地跳入水中，但入水的姿态实在谈不上优雅……'
+
+				if PCloOnePiece = 0:
+					temp_rand = rand(0, 99)
+					if temp_rand < 20:
+						act '继续':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/bareass.jpg"></center>'
+							'当你入水时，比基尼裤顺着腿滑落，屁股暴露了出来。幸好似乎没人注意到，你趁没人看见赶紧把它拉了上来。'
+							act '继续': minut += 1 & gt 'pav_pool', 'poolwater'
+						end
+					elseif temp_rand < 40:
+						act '继续':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/toploosen.jpg"></center>'
+							'当你入水时，比基尼上衣的结松开了，乳房弹了出来。幸好似乎没人注意到，你趁没人看见赶紧重新系好。'
+							act '继续': minut += 1 & gt 'pav_pool', 'poolwater'
+						end
+					elseif temp_rand < 50:
+						act '继续':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/losttop.jpg"></center>'
+							'你跳入泳池，从水中探出头来，正想着自己的跳水技术还有待提高，却听到一些男孩在偷笑并看着你。这时你才意识到，你的比基尼上衣不见了！'
+							'你捂住胸部，疯狂地寻找比基尼上衣。幸好你发现它漂浮在附近，一把抓起来赶紧穿回去。男孩们朝你笑了笑，然后离开了。'
+							gs 'mood', 'lower', 'tiny'
+							act '继续': minut += 1 & gt 'pav_pool', 'poolwater'
+						end
+					elseif temp_rand < 60:
+						act '继续':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/bottomlost2.jpg"></center>'
+							'你跳入泳池，从水中探出头来，正想着自己的跳水技术还有待提高，却感到水在搔弄裸露的小穴，这才意识到比基尼裤不见了！'
+							'你捂住下身，疯狂地寻找比基尼裤。幸好你发现它漂浮在附近，趁没人注意赶紧抓起来穿回去。'
+							gs 'mood', 'lower', 'tiny'
+							act '继续': minut += 1 & gt 'pav_pool', 'poolwater'
+						end
+					end
+					killvar 'temp_rand'
+				end
+			elseif pcs_agil < 70:
+				'你爬上跳板顶端跳了下去，结果痛苦地肚子拍在水面上。你需要多练习，提高自己的敏捷度。'
+			else
+				'你爬上跳板顶端，做出了一个非常优雅的跳跃，滑入水中，没有激起一丝水花。'
+			end
+			act '继续': minut += 1 & gt 'pav_pool', 'poolwater'
+		end
+
+		act '坐在池边把脚伸进水里': gt 'pav_pool_events', 'feetwater'
+	end
+	act '前往女更衣室': minut += 1 & gt 'pav_pool', 'lockerfemale'
+end
+
+
+if $ARGS[0]= 'poolwater':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'poolwater'
+	$location_type = 'public_indoors'
+	pcs_hairbsh = 0
+	gs 'cum_cleanup', 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/inwater.jpg"></center>'
+	'你泡在水里，感觉非常放松。'
+	if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被水冲掉了。'
+
+	if hour < 10:
+		'这么早的清晨，泳池几乎是空的，你几乎可以独自享用。'
+	elseif hour < 12:
+		'泳池里主要是带孩子的家庭和老年人在游泳。'
+	elseif hour < 18:
+		'泳池里挤满了形形色色的人。走动都很困难，锻炼更是不可能。'
+	elseif hour < 20:
+		'这么晚的傍晚没多少人去泳池，水里只有少数几个成年人。'
+	else
+		'天色已晚，泳池很快就要关门了。你是楼里最后几个人之一，可以独自享用整个泳池。'
+	end
+
+	if hour >= 10 and hour < 18:
+		'泳池相当热闹，但你可以试着游一会儿，或者潜下水找点乐子。你也可以就待在池边或水里放松一下。'
+	else
+		'泳池几乎是空的，所以你可以轻松地游一会儿，用更有力的泳姿锻炼一下，或者潜下水找点乐子。你也可以就待在池边或水里放松一下。'
+	end
+
+	if hour >= 8 and hour < 21:
+		act '放松地游泳': gt 'pav_pool_events', 'relaxedswim'
+
+		if hour < 12 or hour >= 18:
+			act '锻炼': gt 'pav_pool_events', 'exerciseswim'
+		end
+
+		act '潜水': gt 'pav_pool_events', 'dive'
+		act '在池边放松': gt 'pav_pool_events', 'edgepool'
+		act '在水中放松': gt 'pav_pool_events', 'relaxedwater'
+	end
+
+	act '离开泳池': minut += 1 & gt 'pav_pool', 'exitpool'
+end
+
+
+if $ARGS[0]= 'exitpool':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_pool', 'exitpool'
+	gs 'stat'
+	temp_rand = rand(0, 14)
+	if temp_rand < 4 and PCloOnePiece = 0 and hour >= 10 and hour < 18:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/exitloosebra.jpg"></center>'
+		'当你走出泳池时，你没有注意到上衣松了，乳房几乎完全暴露在众人眼前。直到上衣掉下来、乳房完全裸露时，你才终于发现。'
+
+		if pcs_inhib >= 40:
+			act '就在这里穿回去':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/losttop.jpg"></center>'
+				'你微微脸红，手忙脚乱地去抓上衣，乳房就这样暴露在泳池里一群坏笑的男孩面前。'
+				'"反正我们都看见了，你不如就让它们露着吧！"'
+				if tits >= 4: '"对，就让那对大奶子晃着吧！反正那件比基尼也没起多大支撑作用！"'
+				'你捡起比基尼上衣，尽量不再暴露别的地方，把它穿了回去，这让男孩们大为失望。'
+				act '继续': minut += 1 & gt 'pav_pool', 'pool'
+			end
+		end
+
+		act '跑去更衣室整理':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/losttop.jpg"></center>'
+			'你满脸通红，尽量遮掩，但一群男孩已经看到了你，似乎正乐在其中地欣赏这场表演。'
+			'"哦，别这样！反正我们已经看到了，让我们多看几眼嘛！"'
+			if tits >= 4: '"反正那件比基尼也没能好好托住那对大奶子！"'
+			'你捡起比基尼上衣，尽量不再暴露别的地方，一路跑向更衣室去把它穿回去。'
+			gs 'mood', 'lower', 'small'
+			act '继续': minut += 1 & gt 'pav_pool', 'lockerfemale'
+		end
+	elseif temp_rand = 4 and PCloOnePiece = 0 and hour >= 10 and hour < 18:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/exitloosebra.jpg"></center>'
+		'当你走出泳池时，你没有注意到比基尼上衣松了，乳房几乎完全暴露在众人眼前。'
+
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/bratkid.jpg"></center>'
+			'直到上衣掉下来、乳房完全暴露时，你才终于发现。你尽量捂住胸部，转身去找上衣，正好看到一个男孩带着不怀好意的笑容把它捡了起来。'
+			'"想要回去的话，就自己来拿啊！"他说完便跳进水里游走了。'
+
+			act '跑回更衣室':
+				cla
+				'你尴尬得满脸通红，跑回更衣室。到了那里，你脱得精光。既然这条裤子已经没用了，你可以把它扔掉。'
+				dynamic $clothingworntype + '[<<clothingwornnumber>>] = 0'
+				gs 'outfit', 'strip_all'
+				act '继续': minut += 1 & gt 'pav_pool', 'lockerfemale'
+			end
+
+			act '跳进水里追他':
+				pav_swimpool['boystole'] = 1
+				pav_swimpool['toplost'] = 1
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/losttop.jpg"></center>'
+				'你勇敢地跳进水里追他。他游向泳池的另一边，你试图跟上，但泳池里人很多，不少人注意到了你的狼狈模样。你突然反应过来，停下来遮住自己，这时好几个人正盯着你看。'
+				'你可以试着游到池边，但那样你就得离其他人非常近。你也可以等着，希望泳池里的人能少一些，而又不引起别人的注意。'
+				act '等待': gt 'pav_pool_events', 'watertoplost'
+				act '试着到达池边': gt 'pav_pool_events', 'tryreachedgenotop'
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/ladder<<rand(1,2)>>.jpg"></center>'
+		'你爬出了泳池。'
+		act '继续': minut += 1 & gt 'pav_pool', 'pool'
+	end
+	killvar 'temp_rand'
+end
+
+
+if $ARGS[0] = 'lifeguard_apply':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/lifeguard_office.jpg"></center>'
+	'你找到指定的办公室，敲了敲门走进去，看到一位穿着红色连体泳衣的中年妇女坐在办公桌前翻看文件。'
+	'"需要帮忙吗？"她抬头看着你问道。'
+	'"是的，"你回答。"我是来应聘救生员工作的？"'
+	'"啊，"她回应道。"请坐。"'
+	*nl
+	'她指了指面前的椅子，你坐了下来。'
+	'"问个蠢问题，但我得问一下。你会游泳，对吧？"'
+	'你点点头。"从我还是个小女孩的时候就会了。我想我其实就是在你这个泳池里学会游泳的。"'
+	*nl
+	'"那好吧。这工作很简单，"她说。"我们有一名救生员现在遇到了点麻烦，我需要有人在我们最忙的时段——中午12点到下午6点——周末替班。目前这只是临时工作，不过我们会看看情况，说不定会转正。听起来怎么样？"'
+	'"报酬是多少？"你问道。'
+	'女人笑了。"意料之中的问题。你每天能拿到<<$func(''money'', ''string_profit'', 250)>>，外加免费进入泳池，不当班时在自助餐厅还能享受折扣。还有兴趣吗？"'
+
+	act '接受这份工作':
+		cla
+		job_hiring_step['pav_pool_lifeguard'] = 1
+		gs 'stat'
+		!! daystart check to make sure this works as intended if it''s already a weekend?
+		'你点点头。"听起来不错。我什么时候开始？"'
+		'"我看你其实不需要做什么，只要确保游泳的人守规矩就行，但我需要你下周六我们8点开门时过来，我好给你做些培训。培训会分两天进行，总共要花几个小时，不过我没有权限为此付你薪水。"'
+		'你微微皱眉，但还是点了点头。'
+		'"太好了。那么失陪了，我得去泳池看看瓦迪姆是不是真的在干活。我发誓那小子管不住自己的裤裆，看到每个穿比基尼的漂亮姑娘经过都要去搭讪。"'
+		*nl
+		'她很快把你送出办公室，锁上门，然后匆匆离开。当她消失在走廊尽头时，你才意识到你们甚至没有互通姓名。'
+		act '返回入口处': minut += 2 & gt 'pav_pool', 'entrance'
+	end
+
+	act '拒绝这份工作':
+		cla
+		gs 'stat'
+		'你摇了摇头。"抱歉，但这工作听起来不太适合我。"'
+		'她点了点头。"可以理解。如果你改变主意，这个提议<i>或许</i>仍然有效。"'
+		'然后她从办公桌前站了起来。'
+		*nl
+		'"失陪了，我得去泳池看看瓦迪姆是不是真的在干活。我发誓那小子管不住自己的裤裆，看到每个穿比基尼的漂亮姑娘经过都要去搭讪。"'
+		'她很快把你送出办公室，锁上门，然后匆匆离开。'
+		act '返回入口处': minut += 2 & gt 'pav_pool', 'entrance'
+	end
+end
+
+
+if $ARGS[0] = 'lifeguard_quit':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/lifeguard_office.jpg"></center>'
+	'你来到玛丽亚的办公室，敲了敲门才走进去。'
+	'玛丽亚隔着办公桌对你微笑。"你好，<<$pcs_firstname>>。有什么可以帮你？"'
+	'"我在考虑辞掉这份工作，"你回答。'
+	'"我理解。这算不上最光鲜的工作，尤其对你这样年轻漂亮的姑娘来说，你大概有着超越这座小镇的抱负，对吧？"'
+	'她往电脑里输入着什么，你只是微笑着点了点头。'
+	'"你百分之百确定要辞职吗？"她问道。"一旦我把你从系统里移除，就没有回头路了。"'
+
+	act '是的':
+		cla
+		gs 'jobs', 'set_terminated', 'pav_pool_lifeguard'
+		'"是的，我确定，"你郑重地说。"我很喜欢在这里工作，但我想是时候离开了。"'
+		'"当然，"她回答。"和你共事很愉快。祝你有美好的一天。"'
+		'当你转身离开她的办公室时，她把注意力重新放回电脑上。'
+
+		act '离开': gt 'pav_pool', 'entrance'
+	end
+
+	act '改变主意':
+		cla
+		'"再想想，我可能会多留一阵子。等我弄清楚一些事情再说。"'
+		'"好吧……"她回答，看起来有点困惑。"只要你愿意，随时可以继续在这里工作。"'
+		'当你转身离开她的办公室时，她把注意力重新放回电脑上。'
+
+		act '离开': gt 'pav_pool', 'entrance'
+	end
+end
+
+
+if $ARGS[0] = 'lifeguard_offer':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/swim/lifeguard_office.jpg"></center>'
+	'"我需要和你谈谈，<<$pcs_firstname>>，"她走近你时说。"跟我去我的办公室。"'
+	'你跟着她来到她的办公室，她示意你坐下。'
+	'"我们需要谈谈你在这里的工作，"她说。她在你对面坐下，你的心开始怦怦直跳。'
+	*nl
+	'"你在我们这里工作的时间比我最初预期的长得多，而且证明了自己是一个非常可靠的员工，远比你顶替的那个女孩强，这也引出了我要说的下一点。"'
+	'她直视着你的眼睛。她是想开除你吗？'
+	'"那个蠢丫头在过去几个月里给自己惹了更多麻烦，所以如果你有兴趣，她的职位可以给你。"'
+	*nl
+	'你松了一口气。"我还以为你要解雇我，没想到是要给我一个正式职位！"'
+	'"就像我说的，你已经证明了自己是一名出色的员工，所以如果你想要，她的职位就是你的。你的工作时间仍然是中午12点到下午6点，但现在周四和周五也要上班，再加上周末。你觉得怎么样？"'
+
+	act '接受':
+		cla
+		gs 'jobs', 'set_rank', 'pav_pool_lifeguard', 1
+		gs 'jobs', 'change_schedule', 'pav_pool_lifeguard', 1
+		'"我接受，"你回答。"现在学校放假了，我正需要一份暑期工作。"'
+		'"太好了，"她笑着说。"如果你有上大学之类的计划，不用害怕辞职。"'
+		'当你转身离开她的办公室时，她把注意力重新放回电脑上。'
+
+		act '离开': gt 'pav_pool', 'entrance'
+	end
+
+	act '拒绝她':
+		cla
+		gs 'jobs', 'set_terminated', 'pav_pool_lifeguard'
+		'"抱歉，我没想过把这当成一份长期工作，"你回答。'
+		'"我理解。像你这样的姑娘大概有着超越这座小镇的抱负，比如去上大学？"'
+		'你只是微笑着点了点头。'
+		'"那么我需要你明白，这样的话我就不能留你了，因为我需要有人长期顶替那个没脑子的蠢货。很遗憾你要走了，但祝你的未来一切顺利。"'
+		'你们俩都站了起来，她握了握你的手，然后把你送到办公室门口。'
+
+		act '离开': gt 'pav_pool', 'entrance'
+	end
+end
+
+
+--- pav_pool ---------------------------------

@@ -1,0 +1,135 @@
+# city_experimental_trials
+
+!! 2023/09/20
+!! Content reused from the medical experiment mod by pchs and julzor.
+!! Inspiration taken from Clean Slate: https://tfgames.site/index.php?module=viewgame&id=2247
+
+
+
+$loc = 'city_experimental_trials'
+$location_type = 'private'
+$locM = 'city_experimental_trials'
+
+$doc1 = '索科尔尼科夫医生'
+$doc2 = '伊万诺夫医生'
+
+
+
+if $ARGS[0] = 'front_desk' or $ARGS[0] = '':
+	menu_off = 0
+	$menu_loc = 'city_experimental_trials'
+	$menu_arg = 'front_desk'
+	$loc_arg = 'front_desk'
+	minut += 2
+	gs 'stat'
+
+	temp_rand = rand(0, 3)
+	if temp_rand <= 1 or experimentQW['signed'] = 0:
+		'<center><img <<$set_imgh>> src="images\locations\city\residential\clinic\experiments\desk1.jpg"></center>'
+		*nl
+		'一位穿着职业装、戴着眼镜的年轻女子正坐在办公桌后面。'
+
+	elseif temp_rand <= 2:
+		'<center><img <<$set_imgh>> src="images\locations\city\residential\clinic\experiments\nurse1.jpg"></center>'
+		*nl
+		'一位年轻的护士正坐在办公桌后面。'
+
+	else
+		'<center><img <<$set_imgh>> src="images\locations\city\residential\clinic\experiments\nurse2.jpg"></center>'
+		*nl
+		'一位年长的护士正坐在办公桌后面。'
+	end
+
+	killvar 'temp_rand'
+
+	if experimentQW['signed'] ! 0:
+		'她抬头看到你走进来，热情地欢迎你。"你好，<<$pcs_lastname>>小姐，今天有什么可以帮你的吗？"'
+
+		act '离开': gt 'city_clinic', 'start'
+
+		if $experimentQW['trial_active'] = '':
+			act '询问有哪些临床试验': gt 'city_experimental_trials_list', 'see_trials'
+		else
+			if experimentQW['trial_duration'] > 0:
+				*nl
+				'你已经在参加一项临床试验了。'
+			else
+				act '汇报你的发现':
+					cla
+					*nl
+					if pcs_intel < 50:
+						'你尽可能详细地汇报了你的经历。'
+						'"感谢你的参与，这对我们的研究来说是无价的。"'
+					else
+						'你非常详细地汇报了你的经历，并提到了你注意到的各种副作用。'
+						'"非常感谢你的帮助！你极大地推动了我们的研究！"'
+						if rand(0, 2) = 0:
+							temp_tip = 10 * (pcs_intel * rand(1, 3) / 10)
+							'"我认为你的付出应该得到回报，" 她补充道，递给你几张钞票，共计<<$func(''money'', ''string_profit'', temp_tip)>>.'
+							gs 'money', 'earn', temp_tip
+							killvar 'temp_tip'
+						end
+					end
+
+					$experimentQW['trial_active'] = ''
+					act '继续': gt 'city_experimental_trials', 'front_desk'
+				end
+			end
+		end
+
+		if experimentQW['times_participated_0'] >= 2 or experimentQW['times_participated_1'] ! 0 or experimentQW['times_participated_2'] ! 0 or experimentQW['times_participated_3'] ! 0 or experimentQW['times_participated_4'] ! 0:
+			*nl
+			'你还注意到旁边有一个小型药品摊位。'
+			act '去实验药房': gt 'city_experimental_trials_pharmacy', 'counter'
+		end
+
+
+	else
+		'她抬头看到你走进来，热情地欢迎你。"你好，小姐，有什么可以帮你的吗？"'
+		'"我看到广告说你们在找人测试新疗法？而且你们会给受试者报酬？" 你回答道。'
+		'"我们处于医学研究的前沿，你可以帮助我们突破现代医学的界限。你的贡献将帮助挽救无数生命。如果你想申请，请阅读并填写这份表格。"'
+		'她递过来一块写字板。'
+		*nl
+
+		if pcs_intel < 10:
+			'表格里满是法律术语，但你相当确定你会因参与实验而获得报酬，而且这些试验不会伤害你的健康。'
+		elseif pcs_intel < 50:
+			'表格里有很多法律术语，但你设法抓住了重点。'
+			'诊所会付钱让你接受实验性治疗，任何后果都由你自己承担，但他们确实保证你的安全。'
+		elseif pcs_intel < 90:
+			'表格说明你会因参与测试实验性治疗而获得报酬。'
+			'诊所不对任何后果负责，但他们不会危害你的总体健康。'
+			'最后，你被禁止向任何与诊所无关的人透露治疗的方法和结果。'
+		else
+			'表格里满是意在迷惑读者的复杂法律术语，但你敏锐的头脑看穿了这层迷雾。'
+			'当你参加测试实验性治疗时你会获得报酬，而这些治疗可能会导致你的身心发生永久性改变。'
+			'你需独自承担处理这些后果的责任，并且不得透露治疗的内容或结果。如果这样做，你可能会被起诉并索赔巨额款项。'
+			'最后，从字里行间你还能看出，其中一些实验并不完全合乎道德。'
+		end
+
+		*nl
+
+		'文件底部有一个区域，你需要写下你的全名、年龄并签名。'
+
+		act '签署文件':
+			experimentQW['signed'] = 1
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images\locations\city\residential\clinic\experiments\desk1.jpg"></center>'
+			*nl
+			'你把签好的文件还给那位女士。'
+			'"谢谢你，<<$pcs_lastname>>小姐，" 她一边翻阅文件一边说。"我们会把你加入我们的数据库，你就可以参加我们的各种试验了。你签署的合同具有法律约束力，所以你不能与诊所外的任何人讨论你的经历。"'
+			'"这是为了保护我们的专有技术，" 她补充道，似乎注意到了你脸上的表情。"如果你谈论这里发生的事情，就可能会泄露我们的发现。只要你保密，一切都会没问题。"'
+
+			act '回到前台': gt 'city_experimental_trials', 'front_desk'
+		end
+
+		act '放下合同离开': gt 'city_clinic', 'start'
+	end
+end
+
+
+
+killvar 'doc1'
+killvar 'doc2'
+
+--- city_experimental_trials ---------------------------------

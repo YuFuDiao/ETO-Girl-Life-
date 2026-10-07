@@ -1,0 +1,58 @@
+# perf_profile
+
+!!  Usage: gt 'perf_profile'          (500,000 calls)
+!!         gt 'perf_profile', 10000   (custom iteration count)
+
+
+prof_iterations = iif(ARGS[0] > 0, ARGS[0], 500000)
+
+!! Enable gameover-preventing cheats so the run is not cut short by dying of
+prof_saved_gameover = cheatVars['gameover']
+prof_saved_hunger = cheatVars['hunger']
+prof_saved_thirst = cheatVars['thirst']
+prof_saved_inf_willpower = cheatVars['inf_willpower']
+cheatVars['gameover'] = 1
+cheatVars['hunger'] = 1
+cheatVars['thirst'] = 1
+cheatVars['inf_willpower'] = 1
+
+*clr & cla
+*pl '正在分析<<prof_iterations>>次对 gs ''stat'' 的调用……'
+
+prof_start = msecscount
+prof_i = 0
+:prof_loop
+	minut += 5
+	gs 'stat'
+	prof_i += 1
+if prof_i < prof_iterations: jump 'prof_loop'
+prof_end = msecscount
+
+!! Restore the cheat state from before the run
+cheatVars['gameover'] = prof_saved_gameover
+cheatVars['hunger'] = prof_saved_hunger
+cheatVars['thirst'] = prof_saved_thirst
+cheatVars['inf_willpower'] = prof_saved_inf_willpower
+killvar 'prof_saved_gameover' & killvar 'prof_saved_hunger'
+killvar 'prof_saved_thirst' & killvar 'prof_saved_inf_willpower'
+
+prof_total_ms = prof_end - prof_start
+prof_avg_ms = prof_total_ms / prof_iterations
+prof_per_sec = iif(prof_total_ms > 0, prof_iterations * 1000 / prof_total_ms, 0)
+
+*clr & cla
+*pl '<b>性能分析结果</b>'
+*pl '迭代次数：<<prof_iterations>>'
+*pl '总时间：<<prof_total_ms>> ms (<<prof_total_ms / 1000>> s)'
+*pl '每次调用平均：<<prof_avg_ms>>毫秒'
+*pl '调用/秒：<<prof_per_sec>>'
+*pl '原始毫秒计数 —开始：<<prof_start>>, 结束：<<prof_end>>'
+
+act '再次运行': gt 'perf_profile'
+
+killvar 'prof_iterations'
+killvar 'prof_start' & killvar 'prof_i' & killvar 'prof_end'
+killvar 'prof_total_ms' & killvar 'prof_avg_ms' & killvar 'prof_per_sec'
+
+
+--- perf_profile ---------------------------------

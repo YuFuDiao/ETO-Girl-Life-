@@ -1,0 +1,1652 @@
+# shop_utils
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                INIT                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'is_init':
+	result = (shop_display['init'] <> 0)
+	exit
+end
+
+
+if $ARGS[0] = 'init':
+	if $ARGS[1] = 'start':
+		!! $ARGS[2] = 'outfit file' (clothing, shoes, coats, tattoos, etc.)
+		!! $ARGS[3] = 'link_type' (shop, cheat, wardrobe, etc.)
+
+		killvar 'outfitfilter'
+		killvar 'shop_display'
+		killvar 'shop_display_exceptions'
+		!! killvar 'shop_display_types'
+		killvar 'shop_utils_view'
+		killvar 'shop_display_sorted'
+		killvar 'shop_display_sorted_titles'
+
+		gs 'shop_utils', 'init', 'set_defaults'
+		gs 'shop_utils', 'init', 'set_outfit_file', $ARGS[2]
+		gs 'shop_utils', 'init', 'set_link', $ARGS[3]
+		exit
+	end
+
+	if $ARGS[1] = 'set_defaults':
+		shop_display['type_max'] = 0
+		shop_display['step'] = 1
+		shop_display['offset'] = 0
+		shop_display['discount'] = 0
+		$shop_display['return_loc'] = $loc
+		$shop_display['return_arg0'] = $loc_arg
+		$shop_display['return_arg1'] = ''
+		$shop_display['link'] = ''
+		$shop_display['inclusion_check'] = "1"
+		$shop_display['bcolor'] = ''
+		gs 'shop_utils', 'filter', 'reset_sorting'
+		outfitfilter['number_sort'] = 1
+		exit
+	end
+
+	if $ARGS[1] = 'add_type':
+		!! $ARGS[2]: type to add
+
+		if arrpos('$shop_display_types', $ARGS[2]) < 0:
+			$shop_display_types[] = $ARGS[2]
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'add_item':
+		!! $ARGS[2]: item type to add
+		!! ARGS[3]: item number to add
+		if arrpos('$shop_display_items', $ARGS[2] + '-' + ARGS[3]) < 0:
+			$shop_display_items[] = $ARGS[2] + '-' + ARGS[3]
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'add_all_types':
+		if no loc($shop_display['view_file']):
+			msg 'shop_utils ERROR: shop_utils, init, add_all_types called with non-existing view_file: "<<$shop_display[''view_file'']>>"'
+			exit
+		end
+
+		gs $shop_display['view_file'], 'init', 'add_types', 'all'
+	end
+
+	if $ARGS[1] = 'set_outfit_file':
+		!! $ARGS[2]: item type (clothing, bras, panties, etc.)
+		!! If you pass a custom outfit type you also need to pass:
+		!!		$ARGS[3]: func_file
+		!!		$ARGS[4]: view_file
+		!!		$ARGS[5]: attr_file
+		!!		$ARGS[6]: type_suffix
+		!!		ARGS[7]: do_sorted
+
+		if instr($ARGS[2], 'clothing'):
+			$shop_display['outfit_type'] = 'clothing'
+			$shop_display['func_file'] = 'clothing'
+			$shop_display['view_file'] = 'clothing_view'
+			$shop_display['attr_file'] = 'clothing_attributes'
+			$shop_display['type_suffix'] = ''
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'bra'):
+			$shop_display['outfit_type'] = 'bra'
+			$shop_display['func_file'] = 'bras'
+			$shop_display['view_file'] = 'bra_view'
+			$shop_display['attr_file'] = 'underwear_attributes'
+			$shop_display['type_suffix'] = '_bras'
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'panty') or instr($ARGS[2], 'panties'):
+			$shop_display['outfit_type'] = 'panty'
+			$shop_display['func_file'] = 'panties'
+			$shop_display['view_file'] = 'panty_view'
+			$shop_display['attr_file'] = 'underwear_attributes'
+			$shop_display['type_suffix'] = '_panties'
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'bodysuit'):
+			$shop_display['outfit_type'] = 'bodysuit'
+			$shop_display['func_file'] = 'underwear_bodysuits'
+			$shop_display['view_file'] = 'underwear_bodysuit_view'
+			$shop_display['attr_file'] = 'underwear_attributes'
+			$shop_display['type_suffix'] = '_bodysuits'
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'shoe'):
+			$shop_display['outfit_type'] = 'shoe'
+			$shop_display['func_file'] = 'shoes'
+			$shop_display['view_file'] = 'shoe_view'
+			$shop_display['attr_file'] = 'shoe_attributes'
+			$shop_display['type_suffix'] = '_shoes'
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'coat'):
+			$shop_display['outfit_type'] = 'coat'
+			$shop_display['func_file'] = 'coats'
+			$shop_display['view_file'] = 'coat_view'
+			$shop_display['attr_file'] = 'coat_attributes'
+			$shop_display['type_suffix'] = '_coats'
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'purse'):
+			$shop_display['outfit_type'] = 'purse'
+			$shop_display['func_file'] = 'purses'
+			$shop_display['view_file'] = 'purse_view'
+			$shop_display['attr_file'] = 'purse_attributes'
+			$shop_display['type_suffix'] = '_purses'
+			shop_display['do_sorted'] = 1
+		elseif instr($ARGS[2], 'tattoo'):
+			$shop_display['outfit_type'] = 'tattoo'
+			$shop_display['func_file'] = 'tattoo_management'
+			$shop_display['view_file'] = 'tattoo_view'
+			$shop_display['attr_file'] = 'tattoo_attributes'
+			$shop_display['type_suffix'] = '_tattoos'
+			shop_display['do_sorted'] = 0
+		elseif instr($ARGS[2], 'piercing'):
+			$shop_display['outfit_type'] = 'piercing'
+			$shop_display['func_file'] = 'piercing_management'
+			$shop_display['view_file'] = 'piercing_view'
+			$shop_display['attr_file'] = 'piercing_attributes'
+			$shop_display['type_suffix'] = '_piercings'
+			shop_display['do_sorted'] = 0
+		else
+			$shop_display['outfit_type'] = $ARGS[2]
+			$shop_display['func_file'] = $ARGS[3]
+			$shop_display['view_file'] = $ARGS[4]
+			$shop_display['attr_file'] = $ARGS[5]
+			$shop_display['type_suffix'] = $ARGS[6]
+			shop_display['do_sorted'] = ARGS[7]
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'set_link':
+		$shop_display['link'] = $ARGS[2]
+
+		if $shop_display['link'] = 'shop':
+			$shop_display['inclusion_check'] = "func($ARGS[0], 'is_owned', $ARGS[1], ARGS[2]) = 0"
+		elseif $shop_display['link'] = 'cheat':
+			$shop_display['inclusion_check'] = "1"
+		elseif $shop_display['link'] = 'wardrobe':
+			$shop_display['inclusion_check'] = "func($ARGS[0], 'in_wardrobe', $ARGS[1], ARGS[2])"
+		elseif $shop_display['link'] = 'storage':
+			$shop_display['inclusion_check'] = "func($ARGS[0], 'in_storage', $ARGS[1], ARGS[2])"
+		elseif $shop_display['link'] = 'unwanted':
+			$shop_display['inclusion_check'] = "func($ARGS[0], 'in_unwanted', $ARGS[1], ARGS[2])"
+		else
+			$shop_display['inclusion_check'] = "func($ARGS[0], 'is_owned', $ARGS[1], ARGS[2])"
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'set_steps':
+		!! ARGS[2]: step size
+		!! ARGS[3]: offset
+
+		shop_display['step'] = max(1, ARGS[2])
+		shop_display['offset'] = max(0, ARGS[3])
+		exit
+	end
+
+	if $ARGS[1] = 'set_discount':
+		!! ARGS[2]: discount
+
+		shop_display['discount'] = min(max(0, ARGS[2]), 100)
+		exit
+	end
+
+	if $ARGS[1] = 'set_return':
+		!! $ARGS[2]: $loc
+		!! $ARGS[3]: $loc_arg -> $ARGS[0]
+		!! $ARGS[4]: $loc_arg1 -> $ARGS[1]
+
+		$shop_display['return_loc'] = $ARGS[2]
+		$shop_display['return_arg0'] = $ARGS[3]
+		$shop_display['return_arg1'] = $ARGS[4]
+		exit
+	end
+
+	if $ARGS[1] = 'set_bcolor':
+		!! $ARGS[2]: $temp_bcolor
+		$shop_display['bcolor'] = $ARGS[2]
+		exit
+	end
+
+	if $ARGS[1] = 'set_default_exceptions':
+		if loc($shop_display['view_file']):
+			gs $shop_display['view_file'], 'init', 'set_exceptions'
+		else
+			gs 'clothing_view', 'init', 'set_exceptions'
+			gs 'bra_view', 'init', 'set_exceptions'
+			gs 'panty_view', 'init', 'set_exceptions'
+			gs 'underwear_bodysuit_view', 'init', 'set_exceptions'
+			gs 'shoe_view', 'init', 'set_exceptions'
+			gs 'purse_view', 'init', 'set_exceptions'
+			gs 'coat_view', 'init', 'set_exceptions'
+			gs 'tattoo_management', 'set_shop_display_exceptions'
+			gs 'piercing_management', 'set_shop_display_exceptions'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'add_exception':
+		!! $ARGS[2]: item type
+		!! ARGS[3]: item number
+
+		shop_display_exceptions[$ARGS[2] + $shop_display['type_suffix'] + '-' + ARGS[3]] = 1
+		exit
+	end
+
+	if $ARGS[1] = 'end':
+		shop_display['init'] = 1
+		shop_display['type_max'] = arrsize('$shop_display_types')
+		gs 'shop_utils', 'sorted', 'main'
+		exit
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'sorted':
+	!! $ARGS[1]: function name
+
+	if $ARGS[1] = 'main':
+		if no loc($shop_display['func_file']):
+			msg 'shop_utils ERROR: shop_utils, sorted, main called with non-existing func_file: "<<$shop_display[''func_file'']>>"'
+			exit
+		end
+		if no loc($shop_display['view_file']):
+			msg 'shop_utils ERROR: shop_utils, sorted, main called with non-existing view_file: "<<$shop_display[''view_file'']>>"'
+			exit
+		end
+
+		killvar '$shop_display_sorted_titles'
+
+		shop_display['type_i'] = 0
+		:type_loop_sorted
+		if shop_display['type_i'] < arrsize('$shop_display_types'):
+			$shop_display['type'] = $shop_display_types[shop_display['type_i']]
+			gs $shop_display['func_file'], 'totals', $shop_display['type']
+
+			shop_display['number'] = 1 + shop_display['offset']
+			:main_loop_sorted
+			if shop_display['number'] <= total:
+				if shop_display_exceptions[$shop_display['type'] + $shop_display['type_suffix'] + '-' + shop_display['number']] = 0:
+					if dyneval('result = ' + $shop_display['inclusion_check'], $shop_display['func_file'], $shop_display['type'], shop_display['number']):
+						$shop_display['shop'] = $mid($shop_display['type'], 1, instr($shop_display['type'] + '_', '_') - 1)
+						if $shop_display['shop'] <> '':
+							if arrpos('$shop_display_sorted_titles', $shop_display['shop']) < 0:
+								$shop_display_sorted_titles[] = $shop_display['shop']
+								$shop_display_sorted['number_' + shop_display['type_i'] + '_title'] = $shop_display['shop']
+							end
+						end
+						if shop_display['do_sorted']:
+							gs $shop_display['view_file'], 'sorted', 'add', $shop_display['type'], shop_display['number'], shop_display['type_i']
+						else
+							gs 'shop_utils', 'sorted', 'add_to_number', $shop_display['type'], shop_display['number'], shop_display['type_i']
+						end
+					end
+				end
+
+				shop_display['number'] += shop_display['step']
+				jump 'main_loop_sorted'
+			end
+
+			shop_display['type_i'] += 1
+			jump 'type_loop_sorted'
+		end
+
+		shop_display['unused_type_i'] = shop_display['type_i']
+
+		shop_display['item_i'] = 0
+		:item_loop_sorted
+		if shop_display['item_i'] < arrsize('$shop_display_items'):
+			$shop_display['item_entry'] = $shop_display_items[shop_display['item_i']]
+			shop_display['sep_index'] = instr($shop_display['item_entry'], '-')
+
+			$shop_display['type'] = $mid($shop_display['item_entry'], 1, shop_display['sep_index'] - 1)
+			shop_display['number'] = val($mid($shop_display['item_entry'], shop_display['sep_index'] + 1))
+
+			if dyneval('result = ' + $shop_display['inclusion_check'], $shop_display['func_file'], $shop_display['type'], shop_display['number']):
+				$shop_display['shop'] = $mid($shop_display['type'] + '_', 1, instr($shop_display['type'] + '_', '_') - 1)
+				if arrpos('$shop_display_sorted_titles', $shop_display['shop']) < 0:
+					$shop_display_sorted_titles[] = $shop_display['shop']
+					$shop_display_sorted['number_' + shop_display['unused_type_i'] + '_title'] = $shop_display['shop']
+					shop_display['type_i'] = shop_display['unused_type_i']
+					shop_display['unused_type_i'] += 1
+				else
+					shop_display['type_i'] = arrpos('$shop_display_types', $shop_display['type'])
+					if shop_display['type_i'] < 0:
+						shop_display['type_i'] = arrsize('$shop_display_types')
+						$shop_display_types[] = $shop_display['type']
+					end
+				end
+				if shop_display['do_sorted']:
+					gs $shop_display['view_file'], 'sorted', 'add', $shop_display['type'], shop_display['number'], shop_display['type_i']
+				else
+					gs 'shop_utils', 'sorted', 'add_to_number', $shop_display['type'], shop_display['number'], shop_display['type_i']
+				end
+			end
+
+			shop_display['item_i'] += 1
+			jump 'item_loop_sorted'
+		end
+		killvar 'shop_display_sorted_titles'
+		exit
+	end
+
+	if $ARGS[1] = 'add_to_number':
+		!! $ARGS[2]: type
+		!! ARGS[3]: number
+		!! ARGS[4]: index
+
+		$shop_display_sorted['number_<<ARGS[4]>>_type_' + shop_display_sorted['number_<<ARGS[4]>>_index']] = $ARGS[2]
+		shop_display_sorted['number_<<ARGS[4]>>_number_' + shop_display_sorted['number_<<ARGS[4]>>_index']] = ARGS[3]
+		shop_display_sorted['number_<<ARGS[4]>>_index'] += 1
+		shop_display_sorted['max_number'] = max(shop_display_sorted['max_number'], ARGS[4])
+		exit
+	end
+
+	if $ARGS[1] = 'add_to_quality':
+		!! $ARGS[2]: type
+		!! ARGS[3]: number
+		!! ARGS[4]: quality
+
+		$shop_display_sorted['quality_<<ARGS[4]>>_type_' + shop_display_sorted['quality_<<ARGS[4]>>_index']] = $ARGS[2]
+		shop_display_sorted['quality_<<ARGS[4]>>_number_' + shop_display_sorted['quality_<<ARGS[4]>>_index']] = ARGS[3]
+		shop_display_sorted['quality_<<ARGS[4]>>_index'] += 1
+		shop_display_sorted['max_quality'] = max(shop_display_sorted['max_quality'], ARGS[4])
+		exit
+	end
+
+	if $ARGS[1] = 'add_to_inhibition':
+		!! $ARGS[2]: type
+		!! ARGS[3]: number
+		!! ARGS[4]: inhibition
+
+		ARGS[4] /= 5
+
+		$shop_display_sorted['inhibition_<<ARGS[4]>>_type_' + shop_display_sorted['inhibition_<<ARGS[4]>>_index']] = $ARGS[2]
+		shop_display_sorted['inhibition_<<ARGS[4]>>_number_' + shop_display_sorted['inhibition_<<ARGS[4]>>_index']] = ARGS[3]
+		shop_display_sorted['inhibition_<<ARGS[4]>>_index'] += 1
+		shop_display_sorted['max_inhibition'] = max(shop_display_sorted['max_inhibition'], ARGS[4])
+		exit
+	end
+
+	if $ARGS[1] = 'add_to_heelsize':
+		!! $ARGS[2]: type
+		!! ARGS[3]: number
+		!! ARGS[4]: heelsize
+
+		$shop_display_sorted['heelsize_<<ARGS[4]>>_type_' + shop_display_sorted['heelsize_<<ARGS[4]>>_index']] = $ARGS[2]
+		shop_display_sorted['heelsize_<<ARGS[4]>>_number_' + shop_display_sorted['heelsize_<<ARGS[4]>>_index']] = ARGS[3]
+		shop_display_sorted['heelsize_<<ARGS[4]>>_index'] += 1
+		shop_display_sorted['max_heelsize'] = max(shop_display_sorted['max_heelsize'], ARGS[4])
+		exit
+	end
+
+	if $ARGS[1] = 'add_to_price':
+		!! $ARGS[2]: type
+		!! ARGS[3]: number
+		!! ARGS[4]: price
+
+		ARGS[5] = func('shop_utils', 'get_discount', $ARGS[2], ARGS[3])
+		ARGS[4] = ARGS[4] * (100 - ARGS[5]) / 5000 * 50
+
+		$shop_display_sorted['price_<<ARGS[4]>>_type_' + shop_display_sorted['price_<<ARGS[4]>>_index']] = $ARGS[2]
+		shop_display_sorted['price_<<ARGS[4]>>_number_' + shop_display_sorted['price_<<ARGS[4]>>_index']] = ARGS[3]
+		$shop_display_sorted['discount_<<ARGS[5]>>_type_' + shop_display_sorted['discount_<<ARGS[5]>>_index']] = $ARGS[2]
+		shop_display_sorted['discount_<<ARGS[5]>>_number_' + shop_display_sorted['discount_<<ARGS[5]>>_index']] = ARGS[3]
+
+		shop_display_sorted['price_<<ARGS[4]>>_index'] += 1
+		shop_display_sorted['discount_<<ARGS[5]>>_index'] += 1
+
+		shop_display_sorted['max_price'] = max(shop_display_sorted['max_price'], ARGS[4])
+		shop_display_sorted['max_discount'] = max(shop_display_sorted['max_discount'], ARGS[5])
+		exit
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'display':
+	!! $ARGS[1]: function name
+
+	if no loc($shop_display['view_file']):
+		msg 'shop_utils ERROR: shop_utils, display called with non-existing view_file: "<<$shop_display[''view_file'']>>"'
+		exit
+	end
+	if no loc($shop_display['func_file']):
+		msg 'shop_utils ERROR: shop_utils, display called with non-existing func_file: "<<$shop_display[''func_file'']>>"'
+		exit
+	end
+
+	if $ARGS[1] = 'init':
+		$shop_display['display_func'] = $ARGS[2]
+		shop_display['do_shop_title'] = ARGS[3]
+		exit
+	end
+
+	if $ARGS[1] = 'main':
+		if outfitfilter['number_sort']:
+			$shop_display['sort_type'] = 'number'
+		elseif outfitfilter['quality_sort']:
+			$shop_display['sort_type'] = 'quality'
+		elseif outfitfilter['inhibition_sort']:
+			$shop_display['sort_type'] = 'inhibition'
+		elseif outfitfilter['heelsize_sort']:
+			$shop_display['sort_type'] = 'heelsize'
+		elseif outfitfilter['price_sort']:
+			$shop_display['sort_type'] = 'price'
+		elseif outfitfilter['discount_sort']:
+			$shop_display['sort_type'] = 'discount'
+		else
+			outfitfilter['number_sort'] = 1
+			$shop_display['sort_type'] = 'number'
+		end
+
+		gs $shop_display['view_file'], 'display', $shop_display['display_func'], 'header'
+
+		if outfitfilter['sort_direction'] = 0:
+			shop_display['j'] = 0
+			shop_display['j_inc'] = 1
+			shop_display['j_max'] = shop_display_sorted['max_' + $shop_display['sort_type']]
+		else
+			shop_display['j'] = shop_display_sorted['max_' + $shop_display['sort_type']]
+			shop_display['j_inc'] = -1
+			shop_display['j_max'] = 0
+		end
+		:display_filter_loop
+			if shop_display['do_shop_title'] and $shop_display['sort_type'] = 'number':
+				$shop_display['shop_header'] =  $shop_display_sorted['number_' + shop_display['j'] + '_title']
+				if $shop_display['shop_header'] <> '':
+					*nl
+					*pl '<center><img src="<<$func(''$shop_icon_image'', $shop_display[''shop_header''])>>"></center>'
+				end
+			end
+
+			shop_display['i'] = 0
+			:main_display_loop
+				$shop_display['type'] = $shop_display_sorted[$shop_display['sort_type'] + '_' + shop_display['j'] + '_type_' + shop_display['i']]
+				shop_display['number'] = shop_display_sorted[$shop_display['sort_type'] + '_' + shop_display['j'] + '_number_' + shop_display['i']]
+			if $shop_display['type'] <> '' and shop_display['number'] <> 0:
+				if dyneval('result = ' + $shop_display['inclusion_check'], $shop_display['func_file'], $shop_display['type'], shop_display['number']):
+					gs $shop_display['view_file'], 'display', $shop_display['display_func'], 'main', $shop_display['link'], $shop_display['type'], shop_display['number'], shop_display['discount']
+				end
+				shop_display['i'] += 1
+				jump 'main_display_loop'
+			end
+			shop_display['j'] += shop_display['j_inc']
+		if 0 <= shop_display['j'] and shop_display['j'] <= shop_display_sorted['max_' + $shop_display['sort_type']]:
+			jump 'display_filter_loop'
+		end
+
+		gs $shop_display['view_file'], 'display', $shop_display['display_func'], 'footer'
+		exit
+	end
+
+	if $ARGS[1] = 'wardrobe_storage_unwanted_header':
+		*p '<center><table border=1><tr>'
+		if $shop_display['link'] <> 'wardrobe':	*p '<th><a href="exec:gs ''shop_utils'', ''cleanup'' & gt ''<<$shop_display[''view_file'']>>'', ''<<$ARGS[2]>>'', ''wardrobe''">衣柜</a></th>'
+		if $shop_display['link'] <> 'storage':	*p '<th><a href="exec:gs ''shop_utils'', ''cleanup'' & gt ''<<$shop_display[''view_file'']>>'', ''<<$ARGS[2]>>'', ''storage''">储物</a></th>'
+		if $shop_display['link'] <> 'unwanted':	*p '<th><a href="exec:gs ''shop_utils'', ''cleanup'' & gt ''<<$shop_display[''view_file'']>>'', ''<<$ARGS[2]>>'', ''unwanted''">不想要的</a></th>'
+		*pl '</tr></table></center>'
+		exit
+	end
+
+	if $ARGS[1] = 'grid_shop':
+		gs 'shop_utils', 'display', 'init', 'grid_shop', 0
+		gs 'shop_utils', 'display', 'main'
+		exit
+	end
+
+
+	if $ARGS[1] = 'grid_wardrobe':
+		gs 'shop_utils', 'display', 'init', 'grid_wardrobe', 1
+		gs 'shop_utils', 'display', 'main'
+		exit
+	end
+
+
+	if $ARGS[1] = 'list_wardrobe':
+		gs 'shop_utils', 'display', 'init', 'list_wardrobe', 0
+		gs 'shop_utils', 'display', 'main'
+		exit
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'display_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+if $ARGS[0] = 'display_list_wardrobe':
+	gs 'shop_utils', 'display', 'list_wardrobe'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                CORE                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'return':
+	dynamic "
+		gs 'shop_utils', 'cleanup'
+		gt '<<$shop_display['return_loc']>>', '<<$shop_display['return_arg0']>>', '<<$shop_display['return_arg1']>>'
+	"
+end
+
+
+if $ARGS[0] = 'cleanup':
+	killvar 'outfitfilter'
+	killvar 'shop_display'
+	killvar 'shop_display_exceptions'
+	killvar 'shop_display_types'
+	killvar 'shop_display_items'
+	killvar 'shop_utils_view'
+	killvar 'shop_display_sorted'
+	killvar 'shop_display_sorted_titles'
+	killvar '$outfitfilter_check'
+end
+
+if $ARGS[0] = 'set_all_exceptions':
+	gs 'clothing_view', 'init', 'set_exceptions'
+	gs 'shoe_view', 'init', 'set_exceptions'
+	gs 'bra_view', 'init', 'set_exceptions'
+	gs 'panty_view', 'init', 'set_exceptions'
+	gs 'underwear_bodysuit_view', 'init', 'set_exceptions'
+	gs 'coat_view', 'init', 'set_exceptions'
+	gs 'purse_view', 'init', 'set_exceptions'
+	gs 'tattoo_management', 'set_shop_display_exceptions'
+	gs 'piercing_management', 'set_shop_display_exceptions'
+end
+
+if $ARGS[0] = 'get_discount':
+	!! $ARGS[1] = item type
+	!! ARGS[2] = item number
+
+	ARGS[1] = func('string', 'hash', $ARGS[1])
+
+	ARGS[3] = Clothingstock[1 + (293 + (ARGS[1] + ARGS[2]) mod 293) mod 293]
+	ARGS[4] = Clothingstock[1 + (419 + (3 * ARGS[1] + 5 * ARGS[2]) mod 293) mod 293]
+
+	result = (ARGS[3] - ARGS[4]) * (ARGS[3] - ARGS[4]) * 11 / 10000 * 5
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              FILTERS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'filter':
+	if $ARGS[1] = 'reset_sorting':
+		outfitfilter['number_sort'] = 0
+		outfitfilter['quality_sort'] = 0
+		outfitfilter['inhibition_sort'] = 0
+		outfitfilter['heelsize_sort'] = 0
+		outfitfilter['price_sort'] = 0
+		outfitfilter['discount_sort'] = 0
+		exit
+	end
+
+	if $ARGS[1] = 'set_pass':
+		outfitfilter['include'] = 1
+
+		!! DEPRECATED
+		clothingfilter['inc'] = 1
+		clothingfilter['only'] = 1
+		exit
+	end
+
+	if $ARGS[1] = 'set_block':
+		outfitfilter['include'] = 0
+
+		!! DEPRECATED
+		clothingfilter['inc'] = 0
+		clothingfilter['only'] = 0
+		exit
+	end
+
+
+		!!------------------------------------------------------------!!
+		!!                     INDIVIDUAL FILTER                      !!
+		!!------------------------------------------------------------!!
+
+	if $ARGS[1] = 'apply':
+		result = 0
+		outfitfilter['i'] = 0
+		outfitfilter['i_max'] = arrsize('$outfitfilter_check')
+		:apply_filter_loop
+		if outfitfilter['i'] < outfitfilter['i_max']:
+			if dyneval('result = ' + $outfitfilter_check[outfitfilter['i']]) = 0: exit
+			outfitfilter['i'] += 1
+			jump 'apply_filter_loop'
+		end
+		result = 1
+		exit
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           FILTER BUILDER                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'filter_builder':
+	if $ARGS[1] = 'init':
+		killvar '$outfitfilter_check'
+		$Headerstring['return_loc'] = $ARGS[2]
+		$Headerstring['return_arg0'] = $ARGS[3]
+		$Headerstring['return_arg1'] = $ARGS[4]
+		Headerstring['sorting_count'] = 0
+		Headerstring['filter_count'] = 0
+		$Headerstring['sorting'] = '<td>'
+		$Headerstring['filter'] = '<td>'
+		if cheatVars['shop_alt_color']:
+			$Headerstring['inc_alt'] = '_alt'
+			$Headerstring['inc_color'] = 'blue'
+		else
+			$Headerstring['inc_alt'] = ''
+			$Headerstring['inc_color'] = 'green'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'finish':
+		$Headerstring['sorting'] += '</td>'
+		$Headerstring['filter'] += '</td>'
+
+		$Headerstring['sorting'] = $mid($Headerstring['sorting'], 10)
+		$Headerstring['filter'] = $mid($Headerstring['filter'], 10)
+
+		if $ARGS[2] = 'mini':
+			*p '<center><table>'
+			if Headerstring['filter_count'] + Headerstring['sorting_count'] > 0:
+				*p '<tr>'
+				if Headerstring['filter_count'] > 0:
+					*p '<th colspan="<<Headerstring[''filter_count'']>>"><font color="<<$Headerstring[''inc_color'']>>">包含</font>/<font color="red">排除</font></th>'
+				end
+				if Headerstring['sorting_count'] > 0:
+					*p "<th colspan=""<<Headerstring['sorting_count']>>"">排序方式</th>"
+				end
+				*p '</tr><tr>'
+				if Headerstring['filter_count'] > 0: *p $Headerstring['filter']
+				if Headerstring['sorting_count'] > 0: *p $Headerstring['sorting']
+				*p '</tr>'
+			end
+			*pl '</table></center>'
+			killvar 'Headerstring'
+			exit
+		end
+
+		!! Filter string very long, split into two rows
+		gs 'shop_utils', 'filter_builder', '_set_headerstring_split_widths', 'sorting'
+		gs 'shop_utils', 'filter_builder', '_set_headerstring_split_widths', 'filter'
+
+		Headerstring['max_width'] = max(Headerstring['sorting_width'], Headerstring['filter_width'])
+
+		$Headerstring['sorting_indent'] = ''
+		if Headerstring['sorting_width'] / 2 < Headerstring['max_width'] / 2:
+			Headerstring['i'] = 0
+			:headerstring_sort_loop
+				$Headerstring['sorting_indent'] += '<td></td>'
+				Headerstring['i'] += 1
+			if Headerstring['i'] < Headerstring['max_width'] / 2  - Headerstring['sorting_width'] / 2: jump 'headerstring_sort_loop'
+		end
+
+		$Headerstring['filter_indent'] = ''
+		if Headerstring['filter_width'] / 2 < Headerstring['max_width'] / 2:
+			Headerstring['i'] = 0
+			:headerstring_filter_loop
+				$Headerstring['filter_indent'] += '<td></td>'
+				Headerstring['i'] += 1
+			if Headerstring['i'] < Headerstring['max_width'] / 2  - Headerstring['filter_width'] / 2: jump 'headerstring_filter_loop'
+		end
+
+		gs 'shop_utils', 'filter_builder', '_split_headerstring', 'sorting'
+		gs 'shop_utils', 'filter_builder', '_split_headerstring', 'filter'
+
+		*p '<center><table>'
+		if Headerstring['sorting_count'] > 0:
+			*p "<tr><th colspan=""<<Headerstring['max_width']>>"">排序方式</th></tr>"
+			*p $Headerstring['sorting']
+		end
+		if Headerstring['filter_count'] > 0:
+			*p '<tr><th colspan="<<Headerstring[''max_width'']>>"><font color="<<$Headerstring[''inc_color'']>>">Include</font>/<font color="red">Exclude</font></th></tr>'
+			*p $Headerstring['filter']
+		end
+		*pl '</table></center>'
+
+		killvar 'Headerstring'
+		exit
+	end
+
+
+	if $ARGS[1] = '_set_headerstring_split_widths':
+		if Headerstring[$ARGS[2] + '_count'] <= 10:
+			Headerstring[$ARGS[2] + '_width'] = Headerstring[$ARGS[2] + '_count']
+			Headerstring[$ARGS[2] + '_col_overshoot'] = 0
+			exit
+		end
+
+		temp_sh_hs_vars['count'] = Headerstring[$ARGS[2] + '_count']
+		temp_sh_hs_vars['cols'] = 2
+		:split_headerstring_loop_1
+		if temp_sh_hs_vars['count'] > temp_sh_hs_vars['cols'] * 10: temp_sh_hs_vars['cols'] += 1 & jump 'split_headerstring_loop_1'
+
+		temp_sh_hs_vars['width'] = temp_sh_hs_vars['count'] / temp_sh_hs_vars['cols']
+		temp_sh_hs_vars['cols_overshoot'] = temp_sh_hs_vars['count'] mod temp_sh_hs_vars['cols']
+
+		temp_sh_hs_vars['new_width'] = temp_sh_hs_vars['width'] + iif(temp_sh_hs_vars['cols_overshoot'] > 0, 1, 0)
+
+		Headerstring[$ARGS[2] + '_width'] = temp_sh_hs_vars['new_width']
+		Headerstring[$ARGS[2] + '_cols'] = temp_sh_hs_vars['cols']
+		Headerstring[$ARGS[2] + '_col_overshoot'] = temp_sh_hs_vars['cols_overshoot']
+		killvar 'temp_sh_hs_vars'
+		exit
+	end
+
+
+	if $ARGS[1] = '_split_headerstring':
+		if Headerstring[$ARGS[2] + '_count'] <= Headerstring[$ARGS[2] + '_width']:
+			$Headerstring[$ARGS[2]] = "<tr><<$Headerstring[$ARGS[2] + '_indent']>><<$Headerstring[$ARGS[2]]>></tr>"
+			exit
+		end
+
+		$temp_sh_hs_vars['cur_string'] = $Headerstring[$ARGS[2]]
+		$temp_sh_hs_vars['new_string'] = '<tr>' + $Headerstring[$ARGS[2] + '_indent']
+
+		temp_sh_hs_vars['i'] = 0
+		:split_headerstring_loop_2_outer
+		if temp_sh_hs_vars['i'] < Headerstring[$ARGS[2] + '_cols'] - 1:
+			temp_sh_hs_vars['temp_width'] = Headerstring[$ARGS[2] + '_width'] - iif(Headerstring[$ARGS[2] + '_col_overshoot'] > 0 and temp_sh_hs_vars['i'] >= Headerstring[$ARGS[2] + '_col_overshoot'], 1, 0)
+			temp_sh_hs_vars['j'] = 0
+			$temp_sh_hs_vars['new_string'] += $Headerstring[$ARGS[2] + '_indent']
+			:split_headerstring_loop_2_inner
+			if temp_sh_hs_vars['j'] < temp_sh_hs_vars['temp_width']:
+				temp_sh_hs_vars['td_index'] = 5 + instr($temp_sh_hs_vars['cur_string'], '</td><td>')
+
+				$temp_sh_hs_vars['head'] = $mid($temp_sh_hs_vars['cur_string'], 1, temp_sh_hs_vars['td_index'] - 1)
+				$temp_sh_hs_vars['tail'] = $mid($temp_sh_hs_vars['cur_string'], temp_sh_hs_vars['td_index'])
+
+				$temp_sh_hs_vars['new_string'] += $temp_sh_hs_vars['head']
+				$temp_sh_hs_vars['cur_string'] = $temp_sh_hs_vars['tail']
+
+				temp_sh_hs_vars['j'] += 1
+				jump 'split_headerstring_loop_2_inner'
+			end
+			$temp_sh_hs_vars['new_string'] += '</tr><tr>' + $Headerstring[$ARGS[2] + '_indent']
+			temp_sh_hs_vars['i'] += 1
+			jump 'split_headerstring_loop_2_outer'
+		end
+		$temp_sh_hs_vars['new_string'] += $temp_sh_hs_vars['cur_string'] + '</tr>'
+
+		$Headerstring[$ARGS[2]] = $temp_sh_hs_vars['new_string']
+		killvar 'temp_sh_hs_vars'
+		exit
+	end
+
+
+		!!------------------------------------------------------------!!
+		!!                          SORTING                           !!
+		!!------------------------------------------------------------!!
+
+
+	if $ARGS[1] = 'setup_number_sort':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['number_sort']:
+			gs 'shop_utils', 'filter', 'reset_sorting'
+			outfitfilter['number_sort'] = 1
+			$Headerstring['sorting'] += '<img src="images/system/icons/clothing/number_inc<<$Headerstring[''inc_alt'']>>.png">'
+		else
+			$Headerstring['sorting'] += '<a href="exec: gs ''shop_utils'', ''filter'', ''reset_sorting'' & outfitfilter[''number_sort''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/number_exc.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_quality_sort':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['quality_sort']:
+			gs 'shop_utils', 'filter', 'reset_sorting'
+			outfitfilter['quality_sort'] = 1
+			$Headerstring['sorting'] += '<img src="images/system/icons/clothing/quality_inc<<$Headerstring[''inc_alt'']>>.png">'
+		else
+			$Headerstring['sorting'] += '<a href="exec: gs ''shop_utils'', ''filter'', ''reset_sorting'' & outfitfilter[''quality_sort''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/quality_exc.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_inhibition_sort':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['inhibition_sort']:
+			gs 'shop_utils', 'filter', 'reset_sorting'
+			outfitfilter['inhibition_sort'] = 1
+			$Headerstring['sorting'] += '<img src="images/system/icons/clothing/inhibition_inc<<$Headerstring[''inc_alt'']>>.png">'
+		else
+			$Headerstring['sorting'] += '<a href="exec: gs ''shop_utils'', ''filter'', ''reset_sorting'' & outfitfilter[''inhibition_sort''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/inhibition_exc.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_heelsize_sort':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['heelsize_sort']:
+			gs 'shop_utils', 'filter', 'reset_sorting'
+			outfitfilter['heelsize_sort'] = 1
+			$Headerstring['sorting'] += '<img src="images/system/icons/clothing/heels_inc<<$Headerstring[''inc_alt'']>>.png">'
+		else
+			$Headerstring['sorting'] += '<a href="exec: gs ''shop_utils'', ''filter'', ''reset_sorting'' & outfitfilter[''heelsize_sort''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/heels_exc.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_price_sort':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['price_sort']:
+			gs 'shop_utils', 'filter', 'reset_sorting'
+			outfitfilter['price_sort'] = 1
+			$Headerstring['sorting'] += '<img src="images/system/icons/clothing/price_inc<<$Headerstring[''inc_alt'']>>.png">'
+		else
+			$Headerstring['sorting'] += '<a href="exec: gs ''shop_utils'', ''filter'', ''reset_sorting'' & outfitfilter[''price_sort''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/price_exc.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_discount_sort':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['discount_sort']:
+			gs 'shop_utils', 'filter', 'reset_sorting'
+			outfitfilter['discount_sort'] = 1
+			$Headerstring['sorting'] += '<img src="images/system/icons/clothing/discount_inc<<$Headerstring[''inc_alt'']>>.png">'
+		else
+			$Headerstring['sorting'] += '<a href="exec: gs ''shop_utils'', ''filter'', ''reset_sorting'' & outfitfilter[''discount_sort''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/discount_exc.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_sort_direction':
+		if arrsize('$ARGS') = 2: $ARGS[2] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg1']
+
+		Headerstring['sorting_count'] += 1
+		$Headerstring['sorting'] += '</td><td>'
+		if outfitfilter['sort_direction']:
+			outfitfilter['sort_direction'] = 1
+			$Headerstring['sorting'] += '<a href="exec: outfitfilter[''sort_direction''] = 0 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/high_low.png"></a>'
+		else
+			$Headerstring['sorting'] += '<a href="exec: outfitfilter[''sort_direction''] = 1 & gt ''<<$ARGS[2]>>'', ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>''"><img src="images/system/icons/clothing/low_high.png"></a>'
+		end
+		exit
+	end
+
+
+		!!------------------------------------------------------------!!
+		!!                         FILTERING                          !!
+		!!------------------------------------------------------------!!
+
+
+	!! outfitfilter[...] = 0: not filtered (equivalent to include)   (on, off)
+	!! outfitfilter[...] = 1: filtered, must contain (equivalent to only) (on, on)
+	!! outfitfilter[...] = -1: filtered, cannot include (equivalent to inc = 0) (off, off)
+
+
+	if $ARGS[1] = 'setup_prostitution_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['prostitution'] > 0:
+			$outfitfilter_check['prostitution'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''prostitution''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/prostitute_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['prostitution'] < 0:
+			$outfitfilter_check['prostitution'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''prostitution''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/prostitute_exc.png"></a>'
+		else
+			$outfitfilter_check['prostitution'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''prostitution''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/prostitute_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_stripper_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['stripper'] > 0:
+			$outfitfilter_check['stripper'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''stripper''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/stripper_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['stripper'] < 0:
+			$outfitfilter_check['stripper'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''stripper''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/stripper_exc.png"></a>'
+		else
+			$outfitfilter_check['stripper'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''stripper''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/stripper_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_bimbo_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['bimbo'] > 0:
+			$outfitfilter_check['bimbo'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''bimbo''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/bimbo_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['bimbo'] < 0:
+			$outfitfilter_check['bimbo'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''bimbo''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/bimbo_exc.png"></a>'
+		else
+			$outfitfilter_check['bimbo'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''bimbo''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/bimbo_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_goth_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['goth'] > 0:
+			$outfitfilter_check['goth'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''goth''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/goth_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['goth'] < 0:
+			$outfitfilter_check['goth'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''goth''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/goth_exc.png"></a>'
+		else
+			$outfitfilter_check['goth'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''goth''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/goth_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_preppy_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['preppy'] > 0:
+			$outfitfilter_check['preppy'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''preppy''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/preppy_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['preppy'] < 0:
+			$outfitfilter_check['preppy'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''preppy''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/preppy_exc.png"></a>'
+		else
+			$outfitfilter_check['preppy'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''preppy''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/preppy_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_prude_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['prude'] > 0:
+			$outfitfilter_check['prude'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''prude''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/prude_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['prude'] < 0:
+			$outfitfilter_check['prude'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''prude''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/prude_exc.png"></a>'
+		else
+			$outfitfilter_check['prude'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''prude''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/prude_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_punk_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['punk'] > 0:
+			$outfitfilter_check['punk'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''punk''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/punk_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['punk'] < 0:
+			$outfitfilter_check['punk'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''punk''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/punk_exc.png"></a>'
+		else
+			$outfitfilter_check['punk'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''punk''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/punk_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_alternative_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['alternative'] > 0:
+			$outfitfilter_check['alternative'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''alternative''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/alternative_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['alternative'] < 0:
+			$outfitfilter_check['alternative'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''alternative''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/alternative_exc.png"></a>'
+		else
+			$outfitfilter_check['alternative'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''alternative''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/alternative_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_conservative_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['conservative'] > 0:
+			$outfitfilter_check['conservative'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''conservative''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/conservative_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['conservative'] < 0:
+			$outfitfilter_check['conservative'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''conservative''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/conservative_exc.png"></a>'
+		else
+			$outfitfilter_check['conservative'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''conservative''] = 1 & outfitfilter[''risque''] = 0 & outfitfilter[''too_risque''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/conservative_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_risque_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['risque'] > 0:
+			$outfitfilter_check['risque'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''risque''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/risque_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['risque'] < 0:
+			$outfitfilter_check['risque'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''risque''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/risque_exc.png"></a>'
+		else
+			$outfitfilter_check['risque'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''risque''] = 1 & outfitfilter[''conservative''] = 0 & outfitfilter[''too_risque''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/risque_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_too_risque_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['too_risque'] > 0:
+			$outfitfilter_check['too_risque'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''too_risque''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/too_risque_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['too_risque'] < 0:
+			$outfitfilter_check['too_risque'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''too_risque''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/too_risque_exc.png"></a>'
+		else
+			$outfitfilter_check['too_risque'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''too_risque''] = 1 & outfitfilter[''conservative''] = 0 & outfitfilter[''risque''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/too_risque_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_loose_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['loose'] > 0:
+			$outfitfilter_check['loose'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''loose''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/loose_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['loose'] < 0:
+			$outfitfilter_check['loose'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''loose''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/loose_exc.png"></a>'
+		else
+			$outfitfilter_check['loose'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''loose''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/loose_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_sport_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['sport'] > 0:
+			$outfitfilter_check['sport'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''sport''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/sport_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['sport'] < 0:
+			$outfitfilter_check['sport'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''sport''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/sport_exc.png"></a>'
+		else
+			$outfitfilter_check['sport'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''sport''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/sport_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_school_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['school'] > 0:
+			$outfitfilter_check['school'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''school''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/school_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['school'] < 0:
+			$outfitfilter_check['school'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''school''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/school_exc.png"></a>'
+		else
+			$outfitfilter_check['school'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''school''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/school_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_maid_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['maid'] > 0:
+			$outfitfilter_check['maid'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''maid''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/maid_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['maid'] < 0:
+			$outfitfilter_check['maid'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''maid''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/maid_exc.png"></a>'
+		else
+			$outfitfilter_check['maid'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''maid''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/maid_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_server_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['server'] > 0:
+			$outfitfilter_check['server'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''server''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/server_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['server'] < 0:
+			$outfitfilter_check['server'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''server''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/server_exc.png"></a>'
+		else
+			$outfitfilter_check['server'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''server''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/server_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_swim_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['swim'] > 0:
+			$outfitfilter_check['swim'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''swim''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/swim_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['swim'] < 0:
+			$outfitfilter_check['swim'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''swim''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/swim_exc.png"></a>'
+		else
+			$outfitfilter_check['swim'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''swim''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/swim_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_heels_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['heels'] > 0:
+			$outfitfilter_check['heels'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''heels''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/heels_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['heels'] < 0:
+			$outfitfilter_check['heels'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/heels_exc.png"></a>'
+		else
+			$outfitfilter_check['heels'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''heels''] = 1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/heels_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_comfy_heels_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['comfy_heels'] > 0:
+			$outfitfilter_check['comfy_heels'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''comfy_heels''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/comfy_heels_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['comfy_heels'] < 0:
+			$outfitfilter_check['comfy_heels'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''comfy_heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/comfy_heels_exc.png"></a>'
+		else
+			$outfitfilter_check['comfy_heels'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''comfy_heels''] = 1 & outfitfilter[''uncomfy_heels''] = 0 & outfitfilter[''extreme_heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/comfy_heels_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_uncomfy_heels_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['uncomfy_heels'] > 0:
+			$outfitfilter_check['uncomfy_heels'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''uncomfy_heels''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/uncomfy_heels_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['uncomfy_heels'] < 0:
+			$outfitfilter_check['uncomfy_heels'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''uncomfy_heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/uncomfy_heels_exc.png"></a>'
+		else
+			$outfitfilter_check['uncomfy_heels'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''uncomfy_heels''] = 1 & outfitfilter[''comfy_heels''] = 0 & outfitfilter[''extreme_heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/uncomfy_heels_off.png"></a>'
+		end
+		exit
+	end
+
+	if $ARGS[1] = 'setup_extreme_heels_filter':
+		if arrsize('$ARGS') = 2: $ARGS[2] = '0'
+		if arrsize('$ARGS') = 3: $ARGS[3] = $Headerstring['return_loc']
+		if arrsize('$ARGS') = 4: $ARGS[4] = $Headerstring['return_arg0']
+		if arrsize('$ARGS') = 5: $ARGS[5] = $Headerstring['return_arg1']
+
+		Headerstring['filter_count'] += 1
+		$Headerstring['filter'] += '</td><td>'
+		if outfitfilter['extreme_heels'] > 0:
+			$outfitfilter_check['extreme_heels'] = '(<<$ARGS[2]>>)'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''extreme_heels''] = -1 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/extreme_heels_inc<<$Headerstring[''inc_alt'']>>.png"></a>'
+		elseif outfitfilter['extreme_heels'] < 0:
+			$outfitfilter_check['extreme_heels'] = '(<<$ARGS[2]>>) = 0'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''extreme_heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/extreme_heels_exc.png"></a>'
+		else
+			$outfitfilter_check['extreme_heels'] = '1'
+			$Headerstring['filter'] += '<a href="exec:outfitfilter[''extreme_heels''] = 1 & outfitfilter[''comfy_heels''] = 0 & outfitfilter[''uncomfy_heels''] = 0 & gt ''<<$ARGS[3]>>'', ''<<$ARGS[4]>>'', ''<<$ARGS[5]>>''"><img src="images/system/icons/clothing/extreme_heels_off.png"></a>'
+		end
+		exit
+	end
+	exit
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             OLD METHOD                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                          CLOTHING                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_clothing_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_clothing_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+if $ARGS[0] = 'display_clothing_list_wardrobe':
+	gs 'shop_utils', 'display', 'list_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                           SHOES                            !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_shoes_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_shoes_list_wardrobe':
+	gs 'shop_utils', 'display', 'list_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                            BRAS                            !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_bras_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_bras_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          PANTIES                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_panties_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_panties_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         BODYSUITS                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_bodysuits_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_bodysuits_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                           COATS                            !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_coats_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_coats_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                           PURSES                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_purses_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+if $ARGS[0] = 'display_purses_grid_wardrobe':
+	gs 'shop_utils', 'display', 'grid_wardrobe'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          TATTOOS                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_tattoos_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         PIERCINGS                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'display_piercings_grid_shop':
+	gs 'shop_utils', 'display', 'grid_shop'
+	exit
+end
+
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                      DEPRECATED TO BE REMOVED                      !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! DEPRECATED
+if $ARGS[0] = 'init_display':
+	!! $ARGS[1] - type - {*shop*_*type* or *shop*}
+	!! $ARGS[2] - link type - {shop, wardrobe, cheat}
+	!! ARGS[3] - loop step - {OPTIONAL, defaults to 1}
+	!! ARGS[4] - loop index start offset - {OPTIONAL, defaults to 0}
+	!! ARGS[5] - price modifier - {OPTIONAL, defaults to 0}
+	!! Populate the 'shop_display_exceptions[]' array with the index of the outfits you want excluded from the display.
+
+	gs 'shop_utils', 'init', 'start'
+		gs 'shop_utils', 'init', 'add_type', $ARGS[1]
+		gs 'shop_utils', 'init', 'set_link', $ARGS[2]
+		gs 'shop_utils', 'init', 'set_steps', ARGS[3], ARGS[4]
+		gs 'shop_utils', 'init', 'set_discount', ARGS[5]
+		if $shop_display['link'] = 'wardrobe' or $shop_display['link'] = 'storage' or $shop_display['link'] = 'unwanted':
+			gs 'shop_utils', 'init', 'set_return', 'wardrobe', 'main'
+		else
+			gs 'shop_utils', 'init', 'set_return', $loc, $loc_arg
+		end
+	gs 'shop_utils', 'init', 'end'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'init_display_multiple':
+	!! $ARGS[1] - link type - {shop, wardrode, cheat}
+	!! ARGS[2] - loop step - {OPTIONAL, defaults to 1}
+	!! ARGS[3] - loop index start offset - {OPTIONAL, defaults to 0}
+	!! ARGS[4] - price modifier - {OPTIONAL, defaults to 0}
+	!! Populate the '$shop_display_types[]' array with the *shop*_*type* you want displayed
+
+	shop_display['type_max'] = arrsize('$shop_display_types')
+	gs 'shop_utils', 'init', 'start'
+		gs 'shop_utils', 'init', 'set_link', $ARGS[1]
+		gs 'shop_utils', 'init', 'set_steps', ARGS[2], ARGS[3]
+		gs 'shop_utils', 'init', 'set_discount', ARGS[4]
+		if $shop_display['link'] = 'wardrobe' or $shop_display['link'] = 'storage' or $shop_display['link'] = 'unwanted':
+			gs 'shop_utils', 'init', 'set_return', 'wardrobe', 'main'
+		else
+			gs 'shop_utils', 'init', 'set_return', $loc, $loc_arg
+		end
+	gs 'shop_utils', 'init', 'end'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'init_add_types':
+	if $ARGS[1] = 'clothing':
+		gs 'clothing_view', 'init_add_types', $ARGS[2]
+	elseif $ARGS[1] = 'shoes':
+		gs 'shoe_view', 'init_add_types', $ARGS[2]
+	elseif $ARGS[1] = 'bras':
+		gs 'bra_view', 'init_add_types', $ARGS[2]
+	elseif $ARGS[1] = 'panties':
+		gs 'panty_view', 'init_add_types', $ARGS[2]
+	elseif $ARGS[1] = 'bodysuits':
+		gs 'underwear_bodysuit_view', 'init_add_types', $ARGS[2]
+	elseif $ARGS[1] = 'coats':
+		gs 'coat_view', 'init_add_types', $ARGS[2]
+	elseif $ARGS[1] = 'purses':
+		gs 'purse_view', 'init_add_types', $ARGS[2]
+	end
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'add_types':
+	gs 'shop_utils', 'init_add_types', $ARGS[1], $ARGS[2]
+	exit
+end
+
+--- shop_utils ---------------------------------

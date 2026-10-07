@@ -1,0 +1,1672 @@
+# bus
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                        Genereric Functions                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_bus_image':
+	if month >= 11 or month < 4:
+		if hour >= 9 and hour < 17:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/bus_day1.jpg" ></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/bus_night1.jpg" ></center>'
+		end
+	else
+		if hour >= 7 and hour < 19:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/bus_day1.jpg" ></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/bus_night1.jpg" ></center>'
+		end
+	end
+end
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            Bus Stations                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                         community                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'community':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'community'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '社区中心')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'社区中心的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'community'
+
+	act '步行前往社区中心 (0:01)': minut += 1 & gt 'pav_commcenter', ''
+	act '步行前往住宅区 (0:01)': minut += 1 & gt 'pav_residential', ''
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		act '别再盯着日程表了': gt 'bus', 'community'
+	end
+
+	if transportVars['bus_wait_gadukino'] > 60:
+		'现在坐公交车太晚了。下一班车要<<transportVars[''bus_wait_gadukino'']/60>>小时'
+	else
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'community_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往巴甫洛夫斯克火车站 (<<func(''transport_functions'', ''display_bus_timecost'', ''community'', ''pavstation'')>>)':	gt 'bus', 'community_pavstation'
+			act '乘坐公交车前往普希金老城区 (<<func(''transport_functions'', ''display_bus_timecost'', ''community'', ''pushkin'')>>)':	gt 'bus', 'community_pushkin'
+			act '乘坐公交车前往建筑工地 (<<func(''transport_functions'', ''display_bus_timecost'', ''community'', ''construction'')>>)':		gt 'bus', 'community_construction'
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''community'', ''gadukino'')>>)':			gt 'bus', 'community_gadukino'
+		end
+	end
+
+elseif $ARGS[0] = 'community_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'community'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'community_tickets'
+
+	$func('wrap', 'header center b', '公交站')
+	$func('wrap', 'header center b', '社区中心')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'社区中心的售票机'
+
+	act '离开售票处': gt 'bus', 'community'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		act '别再盯着日程表了': gt 'bus', 'community_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'community', 'pg'
+	gs 'transport_functions', 'buy_bus_pass'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         pavstation                         !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'pavstation':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'pavstation'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '巴甫洛夫斯克站')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'巴甫洛夫斯克火车站的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'pavstation'
+
+	act '步行前往火车站 (0:02)': minut += 2 & gt 'pav_train_hall', ''
+	if daystart < transportVars['trainpass_day']: act '步行前往火车月台 (0:02)': minut += 2 & gt 'pav_train_hall', 'platform'
+	act '步行前往市场 (0:04)': minut += 4 & gt 'pav_market'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		act '别再盯着日程表了': gt 'bus', 'pavstation'
+	end
+
+	if transportVars['bus_wait_pavlovsk'] > 60 and transportVars['bus_wait_gadukino'] > 60:
+		'现在坐公交车太晚了。下一班车要<<min(transportVars[''bus_wait_pavlovsk''], transportVars[''bus_wait_gadukino'']) / 60>>小时。'
+	else
+		'开往巴甫洛夫斯克社区中心方向的下一班公交 ' + iif(transportVars['bus_wait_pavlovsk'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_pavlovsk'']>>分钟。')
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'pavstation_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往巴甫洛夫斯克社区中心 (<<func(''transport_functions'', ''display_bus_timecost'', ''pavstation'', ''community'')>>)':		gt 'bus', 'pavstation_community'
+			act '乘坐公交车前往普希金老城区 (<<func(''transport_functions'', ''display_bus_timecost'', ''pavstation'', ''pushkin'')>>)':	gt 'bus', 'pavstation_pushkin'
+			act '乘坐公交车前往建筑工地 (<<func(''transport_functions'', ''display_bus_timecost'', ''pavstation'', ''construction'')>>)':			gt 'bus', 'pavstation_construction'
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''pavstation'', ''gadukino'')>>)':			gt 'bus', 'pavstation_gadukino'
+		end
+	end
+
+elseif $ARGS[0] = 'pavstation_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'pavstation'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'pavstation_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '巴甫洛夫斯克站')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'巴甫洛夫斯克火车站的售票机'
+
+	act '离开售票处': gt 'bus', 'pavstation'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		act '别再盯着日程表了': gt 'bus', 'pavstation_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'pavstation', 'pg'
+	gs 'transport_functions', 'buy_bus_pass'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          pushkin                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'pushkin':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'pushkin'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '普希金')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'普希金老城中心的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'pushkin'
+
+	act '步行前往普希金 (0:02)': minut += 2 & gt 'pushkin', ''
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		act '别再盯着日程表了': gt 'bus', 'pushkin'
+	end
+
+	if transportVars['bus_wait_pavlovsk'] > 60 and transportVars['bus_wait_gadukino'] > 60:
+		'现在坐公交车太晚了。下一班车要<<min(transportVars[''bus_wait_pavlovsk''], transportVars[''bus_wait_gadukino'']) / 60>>小时。'
+	else
+		'前往巴甫洛夫斯克的下一班巴士 ' + iif(transportVars['bus_wait_pavlovsk'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_pavlovsk'']>>分钟。')
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'pushkin_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往巴甫洛夫斯克社区中心 (<<func(''transport_functions'', ''display_bus_timecost'', ''pushkin'', ''community'')>>)':	gt 'bus', 'pushkin_community'
+			act '乘坐公交车前往巴甫洛夫斯克火车站 (<<func(''transport_functions'', ''display_bus_timecost'', ''pushkin'', ''pavstation'')>>)':		gt 'bus', 'pushkin_pavstation'
+			act '乘坐公交车前往建筑工地 (<<func(''transport_functions'', ''display_bus_timecost'', ''pushkin'', ''construction'')>>)':			gt 'bus', 'pushkin_construction'
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''pushkin'', ''gadukino'')>>)':			gt 'bus', 'pushkin_gadukino'
+		end
+	end
+
+elseif $ARGS[0] = 'pushkin_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'pushkin'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'pushkin_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '普希金')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'普希金老城中心的售票机'
+
+	act '离开售票处': gt 'bus', 'pushkin'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		act '别再盯着日程表了': gt 'bus', 'pushkin_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'pushkin', 'pg'
+	gs 'transport_functions', 'buy_bus_pass'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        construction                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'construction':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'construction'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '建筑工地')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'建筑工地附近的临时公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'construction'
+
+	act '步行前往公路 (0:05)': minut += 5 & gt 'road', '16'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		act '别再盯着日程表了': gt 'bus', 'construction'
+	end
+
+	if transportVars['bus_wait_pavlovsk'] > 60 and transportVars['bus_wait_gadukino'] > 60:
+		'现在坐公交车太晚了。下一班车要<<min(transportVars[''bus_wait_pavlovsk''], transportVars[''bus_wait_gadukino''])/60>>小时。'
+	else
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+		'前往巴甫洛夫斯克的下一班巴士 ' + iif(transportVars['bus_wait_pavlovsk'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_pavlovsk'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'construction_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''construction'', ''gadukino'')>>)':			gt 'bus', 'construction_gadukino'
+			act '乘坐公交车前往普希金老城区 (<<func(''transport_functions'', ''display_bus_timecost'', ''construction'', ''pushkin'')>>)':	gt 'bus', 'construction_pushkin'
+			act '乘坐公交车前往巴甫洛夫斯克火车站 (<<func(''transport_functions'', ''display_bus_timecost'', ''construction'', ''pavstation'')>>)':		gt 'bus', 'construction_pavstation'
+			act '乘坐公交车前往巴甫洛夫斯克社区中心 (<<func(''transport_functions'', ''display_bus_timecost'', ''construction'', ''community'')>>)':	gt 'bus', 'construction_community'
+		end
+	end
+
+elseif $ARGS[0] = 'construction_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'construction'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'construction_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '建筑工地')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'建筑工地附近的售票机'
+
+	act '离开售票处': gt 'bus', 'construction'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'pg'
+		act '别再盯着日程表了': gt 'bus', 'construction_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'construction', 'gp'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          gadukino                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'gadukino':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '加杜基诺')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'加杜基诺村林间公路旁的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+
+	act '步行前往加杜基诺 (0:01)': minut += 1 & gt 'gad_road', 'start'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gs'
+		act '别再盯着日程表了': gt 'bus', 'gadukino'
+	end
+
+	if transportVars['bus_wait_pavlovsk'] > 60 and transportVars['bus_wait_suburbs'] > 60:
+		'现在坐公交车太晚了。下一班车要<<min(transportVars[''bus_wait_pavlovsk''], transportVars[''bus_wait_suburbs''])/60>>小时。'
+	else
+		'前往巴甫洛夫斯克的下一班巴士 ' + iif(transportVars['bus_wait_pavlovsk'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_pavlovsk'']>>分钟。')
+		'前往圣彼得堡郊区的下一班巴士 ' + iif(transportVars['bus_wait_suburbs'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_suburbs'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'gadukino_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往建筑工地 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''construction'')>>)':			gt 'bus', 'gadukino_construction'
+			act '乘坐公交车前往普希金老城区 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''pushkin'')>>)':		gt 'bus', 'gadukino_pushkin'
+			act '乘坐公交车前往巴甫洛夫斯克火车站 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''pavstation'')>>)':			gt 'bus', 'gadukino_pavstation'
+			act '乘坐公交车前往巴甫洛夫斯克社区中心 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''community'')>>)':		gt 'bus', 'gadukino_community'
+
+			act '乘坐公交车前往公共村 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''communal'')>>)':					gt 'bus', 'gadukino_communal'
+			act '乘坐公交车前往圣彼得堡郊外的墓地 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''graveyard'')>>)':	gt 'bus', 'gadukino_graveyard'
+			act '乘坐公交车前往圣彼得堡郊区 (<<func(''transport_functions'', ''display_bus_timecost'', ''gadukino'', ''suburbs'')>>)':		gt 'bus', 'gadukino_suburbs'
+		end
+	end
+
+elseif $ARGS[0] = 'gadukino_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'gadukino'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'gadukino_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '加杜基诺')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'加杜基诺村林间公路旁的售票机'
+
+	act '离开售票处': gt 'bus', 'gadukino'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'gp'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gs'
+		act '别再盯着日程表了': gt 'bus', 'gadukino_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'gadukino', 'gp'
+	gs 'transport_functions', 'buy_bus_ticket', 'gadukino', 'gs'
+	gs 'transport_functions', 'buy_bus_pass'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          communal                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'communal':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'communal'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '公共村')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'公共村的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'communal'
+
+	act '步行前往公共村 (0:03)': minut += 3 & gt 'dachi', ''
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'gs'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'sg'
+		act '别再盯着日程表了': gt 'bus', 'communal'
+	end
+
+	if transportVars['bus_wait_gadukino'] > 60 and transportVars['bus_wait_suburbs'] > 60:
+		'现在坐公交车太晚了。下一班车要<<min(transportVars[''bus_wait_gadukino''], transportVars[''bus_wait_suburbs''])/60>>小时。'
+	else
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+		'前往圣彼得堡郊区的下一班巴士 ' + iif(transportVars['bus_wait_suburbs'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_suburbs'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'communal_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''communal'', ''gadukino'')>>)':					gt 'bus', 'communal_gadukino'
+			act '乘坐公交车前往圣彼得堡郊外的墓地 (<<func(''transport_functions'', ''display_bus_timecost'', ''communal'', ''graveyard'')>>)':		gt 'bus', 'communal_graveyard'
+			act '乘坐公交车前往圣彼得堡郊区 (<<func(''transport_functions'', ''display_bus_timecost'', ''communal'', ''suburbs'')>>)':				gt 'bus', 'communal_suburbs'
+		end
+	end
+
+elseif $ARGS[0] = 'communal_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'communal'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'communal_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '公共村')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'公共村的售票机'
+
+	act '离开售票处': gt 'bus', 'communal'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'gs'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'sg'
+		act '别再盯着日程表了': gt 'bus', 'communal_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'communal', 'gs'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         graveyard                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'graveyard':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'graveyard'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '墓地')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'墓地的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'graveyard'
+
+	act '步行前往公路 (0:01)': minut += 1 & gt 'road', '3'
+	act '步行前往墓地 (0:15)': minut += 15 & gt 'graveyard'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'sg'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gs'
+		act '别再盯着日程表了': gt 'bus', 'graveyard'
+	end
+
+	if transportVars['bus_wait_gadukino'] > 60 and transportVars['bus_wait_suburbs'] > 60:
+		'现在坐公交车太晚了。下一班车要<<min(transportVars[''bus_wait_gadukino'']/60, transportVars[''bus_wait_suburbs'']/60)>>小时。'
+	else
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+		'前往圣彼得堡郊区的下一班巴士 ' + iif(transportVars['bus_wait_suburbs'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_suburbs'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'graveyard_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往圣彼得堡郊区 (<<func(''transport_functions'', ''display_bus_timecost'', ''graveyard'', ''suburbs'')>>)':	gt 'bus', 'graveyard_suburbs'
+			act '乘坐公交车前往公共村 (<<func(''transport_functions'', ''display_bus_timecost'', ''graveyard'', ''communal'')>>)':			gt 'bus', 'graveyard_communal'
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''graveyard'', ''gadukino'')>>)':			gt 'bus', 'graveyard_gadukino'
+		end
+	end
+
+elseif $ARGS[0] = 'graveyard_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'graveyard'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'graveyard_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '墓地')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'墓地的售票机'
+
+	act '离开售票处': gt 'bus', 'graveyard'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'sg'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_bus_schedule', 'gs'
+		act '别再盯着日程表了': gt 'bus', 'graveyard_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'graveyard', 'sg'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          suburbs                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'suburbs':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'suburbs'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '郊区')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'圣彼得堡郊区附近的公交车站'
+	*nl
+	gs 'transport_functions', 'set_bus_wait_time', 'suburbs'
+
+	act '步行前往郊区 (0:05)': minut += 5 & gt 'city_suburbs', 'start'
+
+	if hour >= 4 and hour < 23: act '步行前往地铁站 (0:15)': minut += 15 & gt 'metro', 'suburbs'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		gs 'transport_functions', 'display_bus_schedule', 'sg'
+		act '别再盯着日程表了': gt 'bus', 'suburbs'
+	end
+
+	if transportVars['bus_wait_gadukino'] > 60:
+		'现在坐公交车太晚了。下一班车要<<transportVars[''bus_wait_gadukino''] / 60>>小时'
+	else
+		'开往加杜基诺方向的下一班公交车 ' + iif(transportVars['bus_wait_gadukino'] = 0, '正在离开！', '还有<<transportVars[''bus_wait_gadukino'']>>分钟。')
+
+		if daystart >= transportVars['buspass_day']:
+			act '走到售票机前': gt 'bus', 'suburbs_tickets'
+		else
+			*nl
+			$func('transport_functions', 'display_buspass_time')
+			act '乘坐公交车前往圣彼得堡郊外的墓地 (<<func(''transport_functions'', ''display_bus_timecost'', ''suburbs'', ''graveyard'')>>)':	gt 'bus', 'suburbs_graveyard'
+			act '乘坐公交车前往公共村 (<<func(''transport_functions'', ''display_bus_timecost'', ''suburbs'', ''communal'')>>)':					gt 'bus', 'suburbs_communal'
+			act '乘坐公交车前往加杜基诺村 (<<func(''transport_functions'', ''display_bus_timecost'', ''suburbs'', ''gadukino'')>>)':					gt 'bus', 'suburbs_gadukino'
+		end
+	end
+
+elseif $ARGS[0] = 'suburbs_tickets':
+	if daystart < transportVars['buspass_day']: gt 'bus', 'suburbs'
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bus', 'suburbs_tickets'
+
+	$func('wrap', 'header center b', '公交车站')
+	$func('wrap', 'header center b', '郊区')
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/winter_night<<rand(1, 3)>>.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/day<<rand(1, 3)>>.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/bus/night<<rand(1, 3)>>.jpg"></center>'
+		end
+	end
+
+	'圣彼得堡郊区附近的售票机'
+
+	act '离开售票处': gt 'bus', 'suburbs'
+
+	act '看看公交车时刻表':
+		*clr & cla
+		'<center><h1>公交车时刻表</h1></center>'
+		gs 'transport_functions', 'display_bus_schedule', 'sg'
+		act '别再盯着日程表了': gt 'bus', 'suburbs_tickets'
+	end
+
+	gs 'transport_functions', 'buy_bus_ticket', 'suburbs', 'sg'
+	gs 'transport_functions', 'buy_bus_pass'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Bus Transport                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                         community                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'community_pavstation':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pavstation'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'community'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'community', 'pavstation') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	!! '<center><img <<$set_imgh>> src="images/system/image_needed.png" ></center>'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克火车站的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'community_pushkin':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pushkin'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'community'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'community', 'pushkin') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在普希金公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'community_construction':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'construction'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'community'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'community', 'construction') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在建筑工地的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'community_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'community'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'community', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        pavstation                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'pavstation_community':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'community'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pavstation'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pavstation', 'community') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克社区中心的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'pavstation_pushkin':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pushkin'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pavstation'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pavstation', 'pushkin') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在普希金公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'pavstation_construction':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'construction'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pavstation'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pavstation', 'construction') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在建筑工地的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'pavstation_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pavstation'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pavstation', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          pushkin                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'pushkin_community':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'community'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pushkin'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pushkin', 'community') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克社区中心的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'pushkin_pavstation':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pavstation'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pushkin'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pushkin', 'pavstation') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克火车站的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'pushkin_construction':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'construction'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pushkin'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pushkin', 'construction') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在建筑工地的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'pushkin_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'pushkin'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'pushkin', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        construction                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'construction_community':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'construction'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'construction', 'community') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克社区中心的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'construction_pavstation':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pavstation'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'construction'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'construction', 'pavstation') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克火车站的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'construction_pushkin':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pushkin'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'construction'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'construction', 'pushkin') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在普希金公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'construction_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'construction'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'construction', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          gadukino                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'gadukino_community':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'community'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'community') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克社区中心的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'gadukino_pavstation':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pavstation'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'pavstation') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在巴甫洛夫斯克火车站的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'gadukino_pushkin':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'pushkin'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'pushkin') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在普希金公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'gadukino_construction':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'construction'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'construction') + transportVars['bus_wait_pavlovsk']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，公交车停靠在建筑工地的公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'gadukino_communal':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'communal'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'communal') + transportVars['bus_wait_suburbs']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在公共村公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'gadukino_graveyard':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'graveyard'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'graveyard') + transportVars['bus_wait_suburbs']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在墓地公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'gadukino_suburbs':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'suburbs'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'gadukino'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'gadukino', 'suburbs') + transportVars['bus_wait_suburbs']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在郊区公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          communal                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'communal_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'communal'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'communal', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'communal_graveyard':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'graveyard'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'communal'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'communal', 'graveyard') + transportVars['bus_wait_suburbs']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在墓地公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'communal_suburbs':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'suburbs'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'communal'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'communal', 'suburbs') + transportVars['bus_wait_suburbs']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在郊区公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         graveyard                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'graveyard_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'graveyard'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'graveyard', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'graveyard_communal':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'communal'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'graveyard'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'graveyard', 'communal') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在公共村公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'graveyard_suburbs':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'suburbs'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'graveyard'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'graveyard', 'suburbs') + transportVars['bus_wait_suburbs']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在郊区公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                                                            !!
+		!!                          suburbs                           !!
+		!!                                                            !!
+		!!------------------------------------------------------------!!
+
+if $ARGS[0] = 'suburbs_gadukino':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'gadukino'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'suburbs'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'suburbs', 'gadukino') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟，公交车在加杜基诺公交站停靠。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'suburbs_communal':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'communal'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'suburbs'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'suburbs', 'communal') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在公共村公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+
+elseif $ARGS[0] = 'suburbs_graveyard':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'bus', 'graveyard'
+	$location_type = 'public_indoors'
+
+	gs 'transport_functions', 'set_bus_wait_time', 'suburbs'
+	temp_transportVars['timecost'] = func('transport_functions', 'get_bus_timecost', 'suburbs', 'graveyard') + transportVars['bus_wait_gadukino']
+	minut += temp_transportVars['timecost']
+
+	temp_transportVars['rand'] = rand(0, 99)
+	if temp_transportVars['rand'] < 25:
+		gt 'bus_incidental', 'events'
+	elseif temp_transportVars['rand'] < 35:
+		if transportVars['bus_event_day'] ! daystart: gt 'bus_events', 'events'
+	end
+	gs 'stat'
+
+	gs 'bus', 'get_bus_image'
+	'之后<<temp_transportVars[''timecost'']>>分钟后，巴士停在墓地公交车站。'
+	act '下车':
+		if rand(0, 99) < 5: gt 'bus_incidental', 'end'
+		gt $loc, $loc_arg
+	end
+end
+
+
+
+
+if $ARGS[0] ! 'get_bus_image': killvar 'temp_transportVars'
+
+
+--- bus ---------------------------------

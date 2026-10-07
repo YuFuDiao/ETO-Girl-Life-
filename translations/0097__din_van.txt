@@ -1,0 +1,2539 @@
+# din_van
+!! 2021/04/26
+
+!! Dynamic code has been translated to static code for performance and savegame size reasons.
+!! Whenever possible, don''t use dynamic code.
+
+!! pcs_leghair = leg hair 0 - 3 for smooth <= 6 for stubble <= 9 for light after that hairy
+!! pcs_pubes = pubes 0 - 3 for smooth <= 10 for stubble <= 20 for light hair after that its hairy
+!! pubestyle = the style in which you have determined to shave your pubic hair
+!! shave_length = the length that your pubic hair will be shortened to after shaving/trimming
+!! shave_trigger = the length that your pubic hair needs to be to shave/trim it
+!! mc_inventory['razor'] = razor
+
+razors_to_use['all']	= min(3, max(1, (pcs_leghair*4 + max(0, pcs_pubes-shave_length))/20))
+razors_to_use['pussy']	= min(2, max(1, (max(0, pcs_pubes-shave_length))/20))
+razors_to_use['legs']	= min(3, max(1, (pcs_leghair*4)/20))
+
+if $ARGS[0] = 'showerdin':
+	if trait_vars['cum_addict'] = 0:
+		gs 'cum_cleanup', 1
+	else
+		gs 'cum_cleanup', 18
+	end
+	body_write = 0
+	face_write = 0
+	pcs_makeup = 1
+	pcs_hairbsh = 0
+	hscrunchw = 0
+	hpingripw = 0
+	hpigtail = 0
+	if frost > 0: frost = 0
+	lactation['lactmess'] = 0
+	gs 'sweat', 'shower'
+	if noshampoo = 0: mc_inventory['shampoo'] -= 1
+	if mc_inventory['shampoo'] < 0: mc_inventory['shampoo'] = 0
+	killvar 'noshampoo'
+
+	gs 'body', 'SkinGain', 'CleanSelf'
+	gs 'stat'
+
+	if false_lashes >= 1:
+		if rand(0, 4) < 3:
+			'你足够小心，所以你的假睫毛几乎完好无损地撑过了整个过程。'
+		else
+			'不幸的是，你的假睫毛没能撑过这次淋浴。'
+			false_lashes = 0
+			pcs_lashes = pcs_naturallashes
+			gs 'AppearanceSystem', 'UpdateBaseAppearance'
+		end
+	end
+end
+
+
+!! ╔════════════════════════════════════════════════════════════╗
+!! ║ DAILY ROUTINE INTEGRATION                                  ║
+!! ╚════════════════════════════════════════════════════════════╝
+!! Hygiene actions below split into up to three args so daily_routine
+!! can run them alongside the player:
+!!   <name>      presenter, registers the player-facing act(s)
+!!   can_<name>  precondition func, returns -1 yes or 0 no
+!!   <name>_do   worker body, exits via daily_routine.finish_step
+!! finish_step returns to the room when no routine is active.
+
+!! ┌─ TEETH ─────────────────────────────────────────────────────
+!! │ bteeth / can_bteeth / bteeth_do
+!! │ brush_teeth is the shared stat worker used by both.
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'bteeth':
+	if func('din_van', 'can_bteeth'):
+		act '刷牙 (0:03)': gt 'din_van', 'bteeth_do'
+	end
+end
+
+!! Precondition for the teeth-brushing step (used by the presenter above and
+!! by the daily_routine catalog). Returns -1/0.
+if $ARGS[0] = 'can_bteeth':
+	result = (pcs_breath ! 1 or cumloc[12] = 1)
+end
+
+!! Worker: brush teeth. Entry point for both the presenter act and the routine
+!! runner (gt 'din_van', 'bteeth_do'). Ends with the finish_step helper so it
+!! chains when a routine is active and behaves normally otherwise.
+if $ARGS[0] = 'bteeth_do':
+	menu_off = 1
+	*clr & cla
+	minut += 3
+	gs 'din_van', 'brush_teeth'
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		if $clothingworntype = 'nude' and $braworntype = 'none' and $pantyworntype = 'none':
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/brushteeth.mp4"></video></center>'
+			if sound_settings['environment_off'] = 0: PLAY 'sound/brushteeth.mp3', 100
+		else
+			'<center><img <<$set_imgh>> src="images/shared/home/bathroom/brushteeth.jpg"></center>'
+		end
+		*nl
+		'你刷了牙，现在牙齿干净清爽，带着薄荷的清香。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+
+if $ARGS[0] = 'brush_teeth':
+	gs 'cum_cleanup', 2
+	pcs_breath = 1
+	teeth['brushed'] += 1
+	gs 'stat'
+end
+
+
+!! ┌─ DRY OFF (shared shower/bath/shave exit) ───────────────────
+!! │ dryOff is the single exit act for shower, bath and shave,
+!! │ routed through finish_step. Also used by sauna and brothel.
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'dryOff':
+	mirror_steam = hour
+	act '出来擦干身体': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+!! ┌─ SHOWER ────────────────────────────────────────────────────
+!! │ shower / can_shower / shower_do
+!! │ shower_do registers its sub-acts and exits via dryOff.
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'shower':
+	act '洗个澡 (0:15)': gt 'din_van', 'shower_do'
+end
+
+!! Shower is always allowed at home. Returns -1/0.
+if $ARGS[0] = 'can_shower':
+	result = 1
+end
+
+!! Worker: take a shower. Shared by the presenter act and the routine runner
+!! (gt 'din_van', 'shower_do'). The body registers its own sub-acts and exits
+!! via gs 'din_van', 'dryOff', which routes through daily_routine.finish_step,
+!! so it chains when a routine is active and behaves normally otherwise.
+if $ARGS[0] = 'shower_do':
+	menu_off = 1
+	*clr & cla
+	minut += 15
+	if $loc = 'vanrPar' or $loc = 'tanvanr' or $loc = 'albinahome' or $loc = 'LariskaHome' or hotelmc_inventory['shampoo'] = 1: noshampoo = 1
+	noshampoo_tmp = noshampoo
+	deodorant_on_tmp = deodorant_on
+	gs 'din_van', 'showerdin'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+	*nl
+	'你脱下衣服，打开淋浴的水。当水温合适时，你走进淋浴间，让温暖的水像雨一样洒落下来。'
+	if daystart - daystart_start < 9 and $start_type['magic'] = 'tg':
+		pcs_horny += rand(6, 10)
+		'看到自己这具新身体——光滑的曲线、挺着大乳头的乳房、宽阔的臀部和光滑的双腿——实在令人兴奋。你开始给身体抹上肥皂泡，感受着它的柔软娇嫩。当你确定自己没有漏掉任何一处后，才开始冲洗身体，继续体验着新奇又陌生的感觉。'
+	elseif daystart - daystart_start < 29 and $start_type['magic'] = 'tg':
+		pcs_horny += rand(2, 6)
+		'你已经逐渐习惯了自己女性化的身体，它的柔软已不再让你那么惊讶，但在开始认真清洗之前，你还是会让双手在自己柔软的曲线上流连片刻。'
+	else
+		pcs_horny += rand(0, 2)
+		''+iif(noshampoo_tmp = 1, '这不是你的洗发水，所以你用得比平时多一些；带着一丝内疚，你 ', '使用你自己的洗发水，你小心地 ')+'给自己涂上泡沫，尽量不要漏掉任何地方，然后冲洗干净。'
+	end
+
+	if mc_inventory['shampoo'] = 0 and noshampoo_tmp = 1:
+		'你有空时，应该顺便去超市买些洗发水。'
+	elseif mc_inventory['shampoo'] <= 5:
+		'你的洗发水快用完了，只剩下 <<mc_inventory[''shampoo'']>> 了。等你有空时，应该去超市再买一些。'
+	end
+
+	if trait_vars['cum_addict'] > 0: '你没有理由这么做，但还是小心翼翼地避免清洗你的小穴和肛门。'
+
+	if deodorant_on_tmp = 1: '你的除臭剂被淋浴的水冲掉了。'
+
+	showerbaths_taken_today += 1
+	if showerbaths_taken_today >= 10:
+		pcs_skin -= 8
+		$func('wrap', 'neg b', '你的皮肤起皱得过于厉害，也许你不应该洗澡这么频繁')
+	elseif showerbaths_taken_today >= 5:
+		pcs_skin -= 2
+		$func('wrap', 'neg', '你的皮肤开始起皱，也许你不应该洗澡这么频繁')
+	end
+
+	if bodyVars['weight_warning'] > 0:
+		if bodyVars['weight_warning'] = 1: $weightwarn = '下降'
+		if bodyVars['weight_warning'] = 2: $weightwarn = '上升'
+		$func('wrap', 'neg b', '你的体重正在<<$weightwarn>>。')
+		killvar 'weightwarn' & bodyVars['weight_warning'] = 0
+	end
+	if normbuffpick = 1:
+		*nl
+		'<b>你注意到你的肌肉开始透过皮肤显现出来。</b>'
+		act '擦干身体并穿衣服时，更仔细地观察自己…': gt 'din_van', 'buffpick'
+	end
+
+	if lactation['active'] > 0 and pain['nipples'] < 60 and lactation['pc_aware'] <= 0:
+		if pcs_usedbreastpumponherself > 0 and pcs_massagedherbreasts <= 0:
+			'清洗乳房时，有样东西吸引了你的注意。有白色的液体从你的乳头上渗出来，那是乳汁。<br>经常使用吸奶器可能让你泌乳了！'
+			lactation['induced'] = 1
+		elseif pcs_usedbreastpumponherself <= 0 and pcs_massagedherbreasts > 0:
+			'清洗乳房时，有样东西吸引了你的注意。有白色的液体从你的乳头上渗出来，那是乳汁。经常按摩乳房很可能让你泌乳了！<br>'
+			lactation['induced'] = 1
+		elseif pcs_usedbreastpumponherself > 0 and pcs_massagedherbreasts > 0:
+			'清洗乳房时，有样东西吸引了你的注意。有白色的液体从你的乳头上渗出来，那是乳汁。所有那些吸奶和按摩乳房的行为很可能让你泌乳了！<br>'
+			lactation['induced'] = 1
+		else
+			'清洗乳房时，有样东西吸引了你的注意。有白色的液体从你的乳头上渗出来。你惊讶地发现，那是乳汁。你开始泌乳了！<br>'
+			if thinkpreg = 1 or knowpreg = 1:
+				'这可能是因为你怀孕了。'
+			else
+				'你应该找医生检查一下。你可能怀孕了。'
+			end
+			lactation['induced'] = 0
+		end
+		pcs_usedbreastpumponherself = 0
+		pcs_massagedherbreasts = 0
+		lactation['pc_aware'] = 1
+	end
+
+	gs 'din_van', 'dryOff'
+	if rape_day = daystart and rape_shower ! daystart:
+		act '哭泣（对强奸的反应）':
+			cla & *clr
+			menu_off = 1
+			rape_shower = daystart
+			minut += rand(10, 40)
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/shared/home/bathroom/cry.jpg"></center>'
+			'最后一层泡沫从你身上流走，但你仍然能<i>感觉到它</i>。'
+			*nl
+			'强奸犯的鸡巴还<i>插在</i>你体内。'
+			*nl
+			'他的精液正从你体内<i>渗漏</i>出来。'
+			*nl
+			'你再次拿起肥皂，重新搓洗自己的身体，但总觉得有某种东西还在那里，包裹着你的皮肤。你一遍又一遍地搓，可它怎么也洗不掉，直到你终于哭喊出声，把它扔到角落里。颤抖开始传遍你的身体，你慢慢滑坐到淋浴间的地板上，任水不断淋在身上，就那样坐在那里啜泣。'
+
+
+			gs 'din_van', 'dryOff'
+		end
+	elseif pcs_horny >= 40:
+		act '用淋浴喷头刺激你的小穴':
+			*clr & cla
+			menu_off = 1
+			if rand(0, 5) = 0 and $locM = 'uni_dorm': gt 'vann', 'v4'
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/wash2.mp4"></video></center>'
+			*nl
+			'你将淋浴喷头对准小穴，一股强劲的温水开始抚摸你。'
+
+			if pcs_inhib < 30: inhib_exp += rand(1, 3)
+			gs 'mood', 'raise', 'small'
+			$orgasm_or = 'no'
+			gs 'arousal', 'clit_vibe', -10, 'masturbate'
+			$orgasm_or = 'no'
+			gs 'arousal', 'clit_vibe', -10, 'masturbate'
+			$orgasm_or = 'yes'
+			gs 'arousal', 'clit_vibe', 10, 'masturbate'
+			gs 'arousal', 'end'
+			gs 'stat'
+
+			if trait_vars['cum_addict'] <> 0:
+				'你下意识地避免让水喷进阴道。'
+			else
+				cumspclnt = 8
+				gs 'cum_cleanup'
+			end
+
+			gs 'din_van', 'dryOff'
+		end
+	end
+
+	gs 'selfplay', 'shower_dildo_check'
+
+	act '拍张自拍':
+		gs 'telefon', 'Phone_selfie_image_bathing', 'shower'
+	end
+	gs 'din_van', 'brit'
+
+	if vanr_lock = 0 and $home_name[$loc] = 'parents_home':
+		*nl
+		'你心不在焉，忘了关门。'
+		'淋浴时，门没关这个念头一直占据着你的脑海。要是你的兄弟或继父在不巧的时候往里看，那就太尴尬了。'
+		if locat['Fam_inGad'] = 0: gs 'vanrPar', 'peek'
+	end
+	killvar 'noshampoo_tmp'
+	killvar 'deodorant_on_tmp'
+end
+
+
+!! ┌─ BATH ──────────────────────────────────────────────────────
+!! │ bath / can_bath / bath_do
+!! │ bath_do registers its sub-acts and exits via dryOff.
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'bath':
+	act '在浴缸里泡澡 (0:30)': gt 'din_van', 'bath_do'
+end
+
+!! Bath is always allowed at home. Returns -1/0.
+if $ARGS[0] = 'can_bath':
+	result = 1
+end
+
+!! Worker: soak in the bath. Shared by the presenter act and the routine runner.
+!! Exits via gs 'din_van', 'dryOff' (which routes through finish_step).
+if $ARGS[0] = 'bath_do':
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	pcs_sweat = 7 + rand(0, 4)
+	gs 'mood', 'raise', 'small'
+	if $loc = 'vanrPar' or $loc = 'tanvanr' or $loc = 'LariskaHome' or hotelmc_inventory['shampoo'] = 1: noshampoo = 1
+	noshampoo_tmp = noshampoo
+	deodorant_on_tmp = deodorant_on
+	gs 'din_van', 'showerdin'
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/shared/home/bathroom/wash4.jpg"></center>'
+	*nl
+	'在浴缸放水时，你脱下衣服，把一只脚趾探进水里试探。水温刚刚好，于是你爬进去，让自己沉入温暖的水中，感受着肌肉开始放松，不由得轻轻呻吟。'
+
+	if daystart - daystart_start < 9 and $start_type['magic'] = 'tg':
+		pcs_horny += rand(6, 10)
+		'你凝视着露出水面的光滑柔软的双腿。你还不习惯这具新身体，也不习惯所有这些圆润的模样。'
+		'当你开始往身上涂肥皂时，不知不觉把注意力转向了自己的乳房。它们是那么柔软丰满，当你触碰它们时，会感到一种陌生却愉悦的感觉。你慢慢熟悉着自己的新身体，然后开始认真地清洗起来。'
+	elseif daystart - daystart_start < 29 and $start_type['magic'] = 'tg':
+		pcs_horny += rand(2, 6)
+		'你已稍微适应了自己的女性身体，随随便便地给这些柔软的曲线抹上肥皂泡并冲洗干净，双手在女性化的身体上揉搓，确保自己没有漏掉任何地方。'
+	else
+		pcs_horny += rand(0, 2)
+		'你向后靠，放松了一会儿。 '+iif(noshampoo_tmp = 1, '这不是你的洗发水，所以你用得比平时多一些；带着一丝内疚，你 ', '使用你自己的洗发水，你小心地 ')+'开始给身体涂上泡沫，用柔软的手轻轻滑过你光滑的曲线，然后彻底清洗。'
+	end
+
+	if mc_inventory['shampoo'] = 0 and noshampoo_tmp = 1:
+		'你有空时，应该顺便去超市买些洗发水。'
+	elseif mc_inventory['shampoo'] <= 5:
+		'你的洗发水快用完了，只剩下 <<mc_inventory[''shampoo'']>> 了。等你有空时，应该去超市再买一些。'
+	end
+
+	if trait_vars['cum_addict'] > 0: '你没有理由这么做，但还是小心翼翼地避免清洗你的小穴和肛门。'
+
+	if deodorant_on_tmp = 1: '你的除臭剂被泡澡的水冲掉了。'
+
+	showerbaths_taken_today += 1
+	if showerbaths_taken_today >= 10:
+		pcs_skin -= 8
+		$func('wrap', 'neg b', '你的皮肤起皱得过于厉害，也许你不应该洗澡这么频繁')
+	elseif showerbaths_taken_today >= 5:
+		pcs_skin -= 2
+		$func('wrap', 'neg', '你的皮肤开始起皱，也许你不应该洗澡这么频繁')
+	end
+
+	if bodyVars['weight_warning'] > 0:
+		if bodyVars['weight_warning'] = 1: $weightwarn = '下降'
+		if bodyVars['weight_warning'] = 2: $weightwarn = '上升'
+		$func('wrap', 'neg b', '你的体重正在<<$weightwarn>>。')
+		killvar 'weightwarn' & bodyVars['weight_warning'] = 0
+	end
+	if normbuffpick = 1:
+		''
+		'<b>你注意到你的肌肉开始透过皮肤显现出来。</b>'
+		act '擦干身体并穿衣服时，更仔细地观察自己…': gt 'din_van', 'buffpick'
+	end
+
+	gs 'din_van', 'dryOff'
+
+	act '"清洗"你的小穴':
+		menu_off = 1
+		*clr & cla
+		if $locM = 'uni_dorm' and $loc ='vann' and rand(0, 5) = 1: gt 'vann', 'v4'
+		minut += 10
+
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/wash7.mp4"></video></center>'
+		*nl
+		'你打开水龙头，抬起双腿，把屁股挪过去，让小穴对准温水水流。这感觉非常舒服，很快一股暖意开始在小腹中升起。'
+
+		if pcs_inhib < 30: inhib_exp += rand(1, 3)
+		gs 'mood', 'raise', 'small'
+		$orgasm_or = 'no'
+		gs 'arousal', 'clit_vibe', -10, 'masturbate'
+		$orgasm_or = ''
+		gs 'arousal', 'clit_vibe', 10, 'masturbate'
+		gs 'arousal', 'end'
+		gs 'din_van', 'dryOff'
+	end
+
+	gs 'selfplay', 'bathtub_dildo_check'
+
+	act '拍张自拍':
+		gs 'telefon', 'Phone_selfie_image_bathing', 'bath'
+	end
+
+	gs 'din_van', 'brit'
+
+	if vanr_lock = 0 and $home_name[$loc] = 'parents_home':
+		*nl
+		'你心不在焉，忘了关门。'
+		'洗澡的时候，门还开着的念头一直萦绕在你脑中。要是你的兄弟或继父恰好在这时看进来，那就太尴尬了。'
+		if locat['Fam_inGad'] = 0: gs 'vanrPar', 'peek'
+	end
+	killvar 'noshampoo_tmp'
+	killvar 'deodorant_on_tmp'
+end
+
+
+!! ┌─ SKIN CARE ─────────────────────────────────────────────────
+!! │ SkinCare / can_skincare / skincare_do
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'SkinCare':
+	if func('din_van', 'can_skincare'):
+		act '涂抹润肤霜 (0:05)': gt 'din_van', 'skincare_do'
+	end
+end
+
+!! Precondition for the skincare step. Returns -1/0.
+if $ARGS[0] = 'can_skincare':
+	result = (mc_inventory['moisturiser'] > 0 and moisturiser_time <= totminut)
+end
+
+!! Worker: apply moisturiser. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'skincare_do':
+	*clr & cla
+	menu_off = 1
+	mc_inventory['moisturiser'] -= 1
+	!! Moisturiser wear-off timer, so you can only use twice a day. Cleared in cikl so always available in morning
+	moisturiser_time = totminut + 10 * 60
+	minut += 5
+	gs 'body', 'SkinGain', 'Moisturizer'
+	gs 'stat'
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bathroom/skincare.jpg"></center>'
+		'你拿出护肤品涂在身上，乳霜贴在皮肤上凉凉的，很舒服。你有时会怀疑花这么多心思和钱到底值不值，但照一眼镜子看看自己的皮肤，你就觉得值了。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+
+!! ┌─ SHAVING ───────────────────────────────────────────────────
+!! │ brit is a self-contained presenter: it registers the shave
+!! │ acts matching shave_menu, each exiting via dryOff. The routine
+!! │ runs brit directly; can_shave (below brit) is the gate.
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'brit':
+	if lashair = 1:
+		pcs_pubes = 0
+		pcs_leghair = 0
+		exit
+	end
+	if pcs_shave['free_razor'] + mc_inventory['razor'] <= 0:
+		exit
+	end
+
+	!! if shave_menu = 1: legs and pussy
+	$shave_act = ''
+	if shave_menu = 1 and mc_inventory['razor'] >= razors_to_use['all']:
+		if pcs_leghair < 4 or pubestyle <= 0 or pcs_pubes < shave_trigger:
+			'<br>你不需要刮毛。'
+		else
+			$shave_act = '剃掉腿毛和阴毛'
+			if daystart - daystart_start < 9 and $start_type['magic'] = 'tg':
+				$shave_txt11 = '你无法摆脱自己现在是个女孩的事实，所以决定最好把腿毛刮掉。你开始给双腿涂上剃须泡沫，仍然惊叹于它们如此柔软圆润。然后你拿起剃刀，开始刮腿毛。'
+				$shave_txt12 = '你感到非常尴尬，以前作为男人时从来没做过这种事。幸运的是，你刮脸的经验足够丰富，从技术上讲这和刮脸没什么两样。最后，你做得相当不错。'
+			elseif daystart - daystart_start < 29 and $start_type['magic'] = 'tg':
+				gs 'mood', 'raise', 'tiny'
+				$shave_txt11 = '带着新养成的习惯，你给双腿涂上泡沫开始刮毛，小心不要漏掉任何地方。冲掉泡沫后，你轻轻用手滑过光滑的双腿，为自己不必再把腿藏在裤子里而感到高兴。也许明天该穿裙子？'
+			elseif pubestyle = 1:
+				if pcs_pubes > 10:
+					$shave_txt11 = '你先刮腿，然后再给阴部涂上泡沫，用剃刀刮掉那丛杂毛。刮了几分钟后，你花时间检查自己，确保都刮干净了。'
+					$shave_txt12 = '确认连一根毛发都不剩后，你冲洗干净，享受着小穴重新变得光滑的感觉。'
+				else
+					$shave_txt11 = '你给腿和阴部涂上泡沫，拿起剃刀小心地刮掉长出来的胡茬。'
+					$shave_txt12 = '忙碌了几分钟后，你停下来检查自己，确保刮掉了最后一根阴毛，连一丁点胡茬都没留下。满意之后，你冲洗干净，如释重负地微笑，因为你的小穴再次变得丝般光滑。'
+				end
+			elseif (pubestyle >= 2 and pubestyle <= 8) or pubestyle >= 12:
+				if pcs_pubes >= shave_trigger + 5:
+					$shave_txt11 = '你给双腿涂上泡沫，仔细地刮干净。完成后，你又给胯部涂上泡沫，开始刮掉阴毛的边缘。几分钟后，你为自己的小穴打理出了完美的发型，冲洗掉剩余的泡沫，在决定接下来做什么之前，欣赏着自己新换的性感的造型。'
+				else
+					$shave_act = '刮腿毛并修剪阴毛'
+					$shave_txt11 = '你给双腿涂上泡沫，仔细地刮干净。完成后，你花些时间清理造型阴毛周围的区域，把胡茬和毛发修剪得再次整洁利落。'
+				end
+			elseif pubestyle = 9:
+				$shave_act = '刮腿毛并打理你的阴毛丛'
+				if pcs_pubes >= 26:
+					$shave_txt11 = '你给双腿涂上泡沫，仔细地刮干净。完成后，你花些时间打理阴毛丛和比基尼线，直到它变成一片整洁利落的毛发草坪。'
+				else
+					$shave_txt11 = '你给双腿涂上泡沫，仔细地刮干净。完成后，你花些时间打理阴毛丛，让它保持短而整洁。'
+				end
+			elseif pubestyle = 10:
+				$shave_act = '刮腿毛并修剪阴毛'
+				if pcs_pubes >= 40:
+					$shave_txt11 = '你给双腿涂上泡沫，仔细地刮干净。完成后，你花些时间修剪覆盖在胯部的那片狂野丛林。没过多久，你就打理出一丛精致整洁的毛发，整齐地铺盖在你的小穴上。'
+				else
+					$shave_txt11 = '你给双腿涂上泡沫，仔细地刮干净。完成后，你花些时间打理阴毛丛，让它保持整洁利落。'
+				end
+			elseif pubestyle = 11:
+				if pcs_pubes <= 10:
+					$shave_txt11 = '你先处理双腿，随后意识到小穴周围长出的胡茬开始变得恼人，再也拖不下去了。给自己涂上泡沫后，你拿起剃刀，小心地刮掉那些一直困扰着你、又粗又痒的毛发。'
+					$shave_txt12 = '经过几分钟的忙碌，你停下来检查自己，确保最后一根阴毛都除掉了，腿根褶皱处也没有任何残留的胡茬。满意之后，你冲洗干净，如释重负地微笑着，因为你的小穴又恢复光滑了。'
+				else
+					$shave_txt11 = '你先处理双腿，然后给胯部涂上泡沫，拿起剃刀处理那里长出的毛发。刮了几分钟后，你停下来检查自己，确保刮掉了最后一根阴毛，胯部的褶皱里也没有藏着一丁点胡茬。满意之后，你冲洗干净，享受着小穴重新变得光滑的感觉。'
+				end
+			else
+				$shave_act = ''
+			end
+		end
+	end
+
+	if $shave_act ! '':
+		act '<<$shave_act>> (0:15)':
+			menu_off = 1
+			*clr & cla
+			!! if $locM = 'uni_dorm' and $loc ='vann' and rand(0, 5) = 0:gt 'vann', 'brit1'
+			if shave_length < 2:
+				if pcs_pubes <= 10:
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shave_stubble.mp4"></video></center>'
+				else
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shave_bush.mp4"></video></center>'
+				end
+			else
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/trim_bush.mp4"></video></center>'
+			end
+			*nl
+			'<<$shave_txt11>>'
+			*nl
+			'<<$shave_txt12>>'
+			minut += 15
+			pcs_leghair = 0
+			stat['leg_hair_growth_timer'] = totminut
+			pcs_pubes = shave_length
+			stat['pube_growth_timer'] = totminut
+			pcs_horny += 5
+			if pcs_shave['free_razor'] = 1:
+				pcs_shave['free_razor'] = 0
+			else
+				mc_inventory['razor'] -= razors_to_use['all']
+			end
+			gs 'traits', 'body_hair_attitude', 'on_shave'
+			gs 'din_van', 'dryOff', 'shave'
+			gs 'selfplay', 'bathtub_dildo_check'
+			gs 'selfplay', 'shower_dildo_check'
+		end
+	end
+
+	$shave_act = ''
+	!! if shave_menu = 2: pussy only
+	if (shave_menu = 2 or shave_menu = 1) and mc_inventory['razor'] >= razors_to_use['pussy']:
+		if pubestyle > 0 and pcs_pubes >= shave_trigger:
+			$shave_act = '刮你的小穴'
+			if pubestyle = 1:
+				if pcs_pubes <= 10:
+					$shave_txt21 = '你给自己涂上泡沫，拿起剃刀，仔细地刮掉从胯部长出的胡茬。'
+					$shave_txt22 = '忙碌了几分钟后，你停下来检查自己，确保刮掉了最后一根阴毛，胯部的褶皱里也没有藏着一丁点胡茬。满意之后，你冲洗干净，如释重负地微笑，因为你的小穴再次变得丝般光滑。'
+				else
+					$shave_txt21 = '你给胯部涂上泡沫，拿起剃刀处理那里长出的毛发。刮了几分钟后，你停下来检查自己，确保刮掉了最后一根阴毛，胯部的褶皱里也没有藏着一丁点胡茬。满意之后，你冲洗干净，享受着小穴重新变得光滑的感觉。'
+				end
+			elseif (pubestyle >= 2 and pubestyle <= 8) or pubestyle >= 12:
+				if pcs_pubes >= shave_trigger + 5:
+					$shave_txt21 = '你给胯部涂上泡沫，开始刮掉阴毛的边缘。几分钟后，你为自己的小穴打理出了完美的发型，冲洗掉剩余的泡沫，欣赏着自己新的性感造型。'
+				else
+					$shave_act = '修剪你的阴毛'
+					$shave_txt21 = '你给胯部涂上泡沫，花些时间清理小穴周围的胡茬，直到你的阴毛丛重新变得整洁有型。'
+				end
+			elseif pubestyle = 9:
+				$shave_act = '修剪你的阴毛'
+				if pcs_pubes >= 26:
+					$shave_txt21 = '你花些时间修剪你那浓密的阴毛丛，直到它变成整洁的毛发草坪。'
+				else
+					$shave_txt21 = '你花些时间打理阴毛丛，保持它短而整洁。'
+				end
+			elseif pubestyle = 10:
+				if pcs_pubes >= 40:
+					$shave_act = '修剪你的阴毛丛'
+					$shave_txt21 = '你花些时间修剪覆盖在胯部的那片狂野丛林。没过多久，你就打理出一丛精致整洁的毛发，整齐地铺盖在你的小穴上。'
+				else
+					$shave_act = '修剪你的阴毛'
+					$shave_txt21 = '你花些时间打理阴毛丛，修剪边缘，保持整洁利落。'
+				end
+			elseif pubestyle = 11:
+				if pcs_pubes <= 10:
+					$shave_txt21 = '淋浴的水继续顺着你的身体流下时，你突然意识到，小穴周围长出的短茬开始变得恼人，你不能再拖延下去了。你涂上泡沫，抓起剃刀，仔细刮掉那些一直困扰着你的粗糙发痒的毛发。'
+					$shave_txt22 = '经过几分钟的忙碌，你停下来检查自己，确保最后一根阴毛都除掉了，腿根褶皱处也没有任何残留的胡茬。满意之后，你冲洗干净，如释重负地微笑着，因为你的小穴又恢复光滑了。'
+				else
+					$shave_txt21 = '你给自己身上涂好泡沫，拿起剃刀刮去胯部上生长的毛发。刮了几分钟后，你花点时间检查自己，确保最后一根阴毛都被刮掉，胯部的褶皱里也没有藏着哪怕一丁点短茬。满意之后，你冲洗干净，享受着小穴重新获得的光滑。'
+				end
+			else
+				$shave_act = ''
+			end
+		end
+	end
+	if $shave_act ! '':
+		act '<<$shave_act>> (0:10)':
+			menu_off = 1
+			*clr & cla
+			if shave_length < 2:
+				if pcs_pubes <= 10:
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shave_stubble.mp4"></video></center>'
+				else
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shave_bush.mp4"></video></center>'
+				end
+			else
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/trim_bush.mp4"></video></center>'
+			end
+			*nl
+			minut += 10
+			pcs_pubes = shave_length
+			stat['pube_growth_timer'] = totminut
+			pcs_horny += 5
+			if pcs_shave['free_razor'] = 1:
+				pcs_shave['free_razor'] = 0
+			else
+				mc_inventory['razor'] -= razors_to_use['pussy']
+			end
+			'<<$shave_txt21>>'
+			*nl
+			'<<$shave_txt22>>'
+			if pcs_pubes <= 3: gs 'traits', 'body_hair_attitude', 'on_shave'
+			gs 'din_van', 'dryOff', 'shave'
+			gs 'selfplay', 'bathtub_dildo_check'
+			gs 'selfplay', 'shower_dildo_check'
+		end
+	end
+
+	!! if shave_menu = 3: legs only
+	if (shave_menu = 3 or shave_menu = 1) and mc_inventory['razor'] >= razors_to_use['legs']:
+		if pcs_leghair >= 4:
+			act '刮腿毛 (0:05)':
+				menu_off = 1
+				*clr & cla
+				minut += 5
+				pcs_leghair = 0
+				stat['leg_hair_growth_timer'] = totminut
+				pcs_horny += 5
+				gs 'traits', 'body_hair_attitude', 'on_shave'
+
+				if pcs_shave['free_razor'] = 1:
+					pcs_shave['free_razor'] = 0
+				else
+					mc_inventory['razor'] -= razors_to_use['legs']
+				end
+				!! if $locM = 'uni_dorm' and rand(0, 5) = 5:gt 'vann', 'brit1'
+				'<center><img <<$set_imgh>> src="images/shared/home/bathroom/shave.jpg"></center>'
+				*nl
+				if daystart - daystart_start < 9 and $start_type['magic'] = 'tg':
+					'你无法摆脱自己现在是个女孩的事实，所以决定最好把腿毛刮掉。你开始给双腿涂上剃须泡沫，仍然惊叹于它们如此柔软圆润。然后你拿起剃刀，开始刮腿毛。'
+					'你感到非常尴尬，以前作为男人时从来没做过这种事。幸运的是，你刮脸的经验足够丰富，从技术上讲这和刮脸没什么两样。最后，你做得相当不错。'
+				elseif daystart - daystart_start < 29 and $start_type['magic'] = 'tg':
+					gs 'mood', 'raise', 'tiny'
+					'带着新养成的习惯，你给双腿涂上泡沫开始刮毛，小心不要漏掉任何地方。冲掉泡沫后，你轻轻用手滑过光滑的双腿，为自己不必再把腿藏在裤子里而感到高兴。也许明天该穿裙子？'
+				else
+					'你用肥皂水给双腿涂上泡沫，然后刮掉腿毛。几下干净利落的动作之后，你的双腿变得像丝绸一样光滑，光滑双腿的触感让你有点兴奋。'
+				end
+				gs 'din_van', 'dryOff', 'shave'
+				gs 'selfplay', 'bathtub_dildo_check'
+				gs 'selfplay', 'shower_dildo_check'
+			end
+		end
+	end
+end
+
+
+!! Gate for the shave step. Returns -1 when brit would show at least one
+!! shave act, 0 otherwise. Mirrors the brit act guards: not magically
+!! hairless, a razor on hand, and leg or pubic hair to do matching shave_menu.
+if $ARGS[0] = 'can_shave':
+	result = (lashair ! 1 and pcs_shave['free_razor'] + mc_inventory['razor'] > 0 and (((shave_menu = 1 or shave_menu = 3) and pcs_leghair >= 4 and mc_inventory['razor'] >= razors_to_use['legs']) or ((shave_menu = 1 or shave_menu = 2) and pubestyle > 0 and pcs_pubes >= shave_trigger and mc_inventory['razor'] >= razors_to_use['pussy'])))
+end
+
+
+!! ┌─ PERIOD PRODUCTS ───────────────────────────────────────────
+!! │ tampon presents both options. Gates: can_tampon_pad,
+!! │ can_tampon_tampon, can_tampon (either). Workers: tampon_pad_do,
+!! │ tampon_tampon_do, tampon_do (routine runner, prefers a tampon,
+!! │ falls back to a pad).
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'tampon':
+	if func('din_van', 'can_tampon_pad'):
+		act '使用卫生巾 (0:02)': gt 'din_van', 'tampon_pad_do'
+	end
+	if func('din_van', 'can_tampon_tampon'):
+		act '使用卫生棉条 (0:02)': gt 'din_van', 'tampon_tampon_do'
+	end
+end
+
+!! Preconditions for the two period-product options. Return -1/0.
+if $ARGS[0] = 'can_tampon_pad':
+	result = (mc_inventory['sanitary_pads'] > 0 and (mesec > 0 or (placebopart > 0 and pillcon < 40000)) and isprok = 0 and isprokp = 0 and knowpreg = 0 and $pantyworntype ! 'none')
+end
+
+if $ARGS[0] = 'can_tampon_tampon':
+	result = (mc_inventory['tampons'] > 0 and (mesec > 0 or (placebopart > 0 and pillcon < 40000)) and isprok = 0 and isprokp = 0 and knowpreg = 0)
+end
+
+!! Combined precondition for the routine tampon step (either product works).
+if $ARGS[0] = 'can_tampon':
+	result = (func('din_van', 'can_tampon_pad') or func('din_van', 'can_tampon_tampon'))
+end
+
+if $ARGS[0] = 'tampon_pad_do':
+	*clr & cla
+	menu_off = 1
+	mc_inventory['sanitary_pads'] -= 1
+	isprokp = 1
+	minut += 2
+	gs 'mood', 'lower', 'tiny'
+	gs 'stat'
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/pc/body/pee/period/pad/<<rand(2,3)>>.jpg"></center>'
+		*nl
+		'你用了一片卫生巾。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+if $ARGS[0] = 'tampon_tampon_do':
+	*clr & cla
+	menu_off = 1
+	mc_inventory['tampons'] -= 1
+	isprok = 1
+	minut += 2
+	gs 'mood', 'lower', 'tiny'
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/pc/body/pee/period/tampon/6.jpg"></center>'
+		*nl
+		'你用了一根卫生棉条。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+!! Routine runner: prefer a tampon, fall back to a pad.
+if $ARGS[0] = 'tampon_do':
+	if func('din_van', 'can_tampon_tampon'):
+		gt 'din_van', 'tampon_tampon_do'
+	else
+		gt 'din_van', 'tampon_pad_do'
+	end
+end
+
+
+!! ┌─ QUICK WASH ────────────────────────────────────────────────
+!! │ can_quickwash / quickwash_do / quickwash (presenter, also keeps
+!! │ the situational cum-drain variants).
+!! └──────────────────────────────────────────────────────────────
+!! Precondition: there is cum on the body (excluding vag/ass) to wash off.
+if $ARGS[0] = 'can_quickwash':
+	result = (cumsumbod-cumsumvag-cumsumass > 0)
+end
+
+!! Worker: quick catlick wash. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'quickwash_do':
+	*clr & cla
+	menu_off = 1
+	minut += 15
+
+	cumspclnt = 4
+	gs 'cum_cleanup'
+	if pcs_sweat < 30:
+		pcs_sweat = 15 + rand(0, 4)
+	else
+		pcs_sweat -= 10 + rand(0, 4)
+	end
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bathroom/wash5.jpg"></center>'
+		*nl
+		'你像猫一样把自己舔干净，清除了所有精液的痕迹。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+if $ARGS[0] = 'quickwash':
+	if func('din_van', 'can_quickwash'):
+		act '快速清洗 (0:15)': gt 'din_van', 'quickwash_do'
+	end
+
+	if cumloc[0]+cumloc[3] > 0:
+		if func('cum_manage', 'check_inner_overflow', -1) = 1:
+			if trait_vars['cum_addict'] = 0:
+				act '让精液从你体内流出 (0:10)':
+					*clr & cla
+					menu_off = 1
+					cumspclnt = 15
+					gs 'cum_cleanup'
+					minut += 10
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/no<<rand(3,4)>>.jpg"></center>'
+					'你花了几分钟，等着精液一阵阵涌出。'
+
+					act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+				end
+			else
+				if trait_vars['cum_addict'] = 2:
+					gs 'willpower', 'misc', 'self', 'hard'
+				else
+					gs 'willpower', 'misc', 'self', 'medium'
+				end
+				if pcs_willpwr < will_cost:
+					act '让精液从你体内流出' + $func('willpower', 'get_willcost_string'): $func('wrap', 'neg', '<br>你的一部分不想放手。你无法让自己这么做。')
+				else
+					act '让精液从你体内流出' + $func('willpower', 'get_willcost_string'):
+						*clr & cla
+						menu_off = 1
+						if trait_vars['cum_addict'] = 2:
+							gs 'willpower', 'misc', 'self', 'hard'
+						else
+							gs 'willpower', 'misc', 'self', 'medium'
+						end
+						gs 'willpower', 'pay', 'self'
+						cumspclnt = 15
+						gs 'cum_cleanup'
+						minut += 10
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/no<<rand(3,4)>>.jpg"></center>'
+						'你克制住想让它留在体内的非理性冲动，花了几分钟等待精液一阵阵流出。'
+
+						act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+					end
+				end
+			end
+		end
+	end
+	gs 'din_van', 'pblc_pee'
+end
+
+
+if $ARGS[0] = 'wearpan':
+	if $pantyworntype = 'none':
+		act '穿上内裤 (0:02)':
+			minut += 2
+			gs 'stat'
+			gt 'panty_view', 'view_grid', 'bathroom'
+		end
+	end
+
+	if $braworntype = 'none':
+		act '穿上胸罩 (0:02)':
+			minut += 2
+			gs 'stat'
+			gt 'bra_view', 'view_grid', 'bathroom'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'removepan':
+	if $pantyworntype ! 'none' and $braworntype ! 'none':
+		act '脱掉内衣 (0:02)':
+			minut += 2
+			gs 'stat'
+			gs 'underwear', 'remove'
+			gt $loc, $loc_arg
+		end
+	end
+
+	if $pantyworntype ! 'none':
+		act '脱掉内裤 (0:02)':
+			minut += 2
+			gs 'stat'
+			gs 'panties', 'remove'
+			gt $loc, $loc_arg
+		end
+	end
+
+	if $braworntype ! 'none':
+		act '脱掉胸罩 (0:02)':
+			minut += 2
+			gs 'stat'
+			gs 'bras', 'remove'
+			gt $loc, $loc_arg
+		end
+	end
+end
+
+!! Meant for non-home bathrooms. If you have a bag stashes the underwear in there and enables putting it back on later.
+!! purse_____ variables get wiped in ''wardrobe'', ''clothing'', ''panties'' and ''bra'' so there isn''t a chance of duplication
+
+
+if $ARGS[0] = 'publicpan':
+	if $pantyworntype ! 'none' and $braworntype ! 'none':
+		act '脱掉内裤'+iif(bag = 1, '并放进你的手提包', ' ') + '(0:02)':
+			minut += 2
+			gs 'stat'
+			if bag = 1:
+				$pursepantytype = $pantyworntype
+				pursepantynumber = pantywornnumber
+				$pursebratype = $braworntype
+				pursebranumber = brawornnumber
+			end
+			gs 'underwear', 'remove'
+			gt $loc, $loc_arg
+		end
+	elseif bag = 1 and $pantyworntype = 'none' and $braworntype = 'none' and $pursepantytype ! '' and $pursebratype ! '':
+		act '重新穿上内衣 (0:02)':
+			minut += 2
+			gs 'stat'
+			gs 'panties', 'wear', $pursepantytype, pursepantynumber
+			gs 'bras', 'wear', $pursebratype, pursebranumber
+			killvar 'pursepantytype' & killvar 'pursepantynumber'
+			killvar 'pursebratype' & killvar 'pursebranumber'
+			gt $loc, $loc_arg
+		end
+	end
+
+	if $pantyworntype ! 'none':
+		act '脱下内裤'+iif(bag = 1, '并把它们放进你的手提包', ' ') + '(0:02)':
+			minut += 2
+			gs 'stat'
+			if bag = 1:
+				$pursepantytype = $pantyworntype
+				pursepantynumber = pantywornnumber
+			end
+			gs 'panties', 'remove'
+			gt $loc, $loc_arg
+		end
+	elseif bag = 1 and $pantyworntype = 'none' and $pursepantytype ! '':
+		act '重新穿上内裤 (0:02)':
+			minut += 2
+			gs 'stat'
+			gs 'panties', 'wear', $pursepantytype, pursepantynumber
+			killvar 'pursepantytype' & killvar 'pursepantynumber'
+			gt $loc, $loc_arg
+		end
+	end
+
+	if $braworntype ! 'none':
+		act '脱掉胸罩'+iif(bag = 1, '并放进你的手提包', ' ') + '(0:02)':
+			minut += 2
+			gs 'stat'
+			if bag = 1:
+				$pursebratype = $braworntype
+				pursebranumber = brawornnumber
+			end
+			gs 'bras', 'remove'
+			gt $loc, $loc_arg
+		end
+	elseif bag = 1 and $braworntype = 'none' and $pursebratype ! '':
+		act '重新穿上胸罩 (0:02)':
+			minut += 2
+			gs 'stat'
+			gs 'bras', 'wear', $pursebratype, pursebranumber
+			killvar 'pursebratype' & killvar 'pursebranumber'
+			gt $loc, $loc_arg
+		end
+	end
+
+	!! Changing into a different outfit for prostitution
+	if prostitute['active'] = 1 and $ARGS[1] ! 'no_prost' and $loc ! 'gschool_break':
+		gs 'prostitution_functions', 'work_clothes'
+		if prostitute['work_clothes'] = 0 and prostitute['outfit_is_set']:
+			act '换上妓女服装': gt 'prostitution_functions', 'change_to_work', 'restroom'
+		elseif prostitute['work_clothes'] and prostitute['changed_for_work']:
+			act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'restroom'
+		end
+	end
+end
+
+
+!! ┌─ BASIN (cum cleanup + personal care) ───────────────────────
+!! │ basin presents the situational cum-rinse acts plus three
+!! │ routine-targetable personal-care buttons. Their gates and
+!! │ workers are below the basin block (see BASIN PERSONAL-CARE).
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'basin':
+	if cumloc[12] = 1:
+		act '漱口 (0:05)':
+			cla
+			menu_off = 1
+			gs 'cum_cleanup', 2
+			minut += 5
+			gs 'stat'
+			*nl
+			'你漱了漱口，清除了嘴里的精液味道。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+
+	if cumloc[13] = 1:
+		act '洗掉手上的精液 (0:05)':
+			cla
+			menu_off = 1
+			cumspclnt = 9
+			gs 'cum_cleanup'
+			minut += 5
+			gs 'stat'
+			*nl
+			'你洗了洗手，清除了手上所有精液的痕迹。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+
+	if cumloc[11] = 1 and cumloc[16] = 1:
+		act '洗掉脸上和头发上的精液 (0:10)':
+			*clr & cla
+			menu_off = 1
+			pcs_makeup = 1
+			cumspclnt = 9
+			gs 'cum_cleanup'
+			cumspclnt = 12
+			gs 'cum_cleanup'
+			pcs_hairbsh = 0
+			if pcs_sweat > 19 : pcs_sweat -= 5
+			minut += 10
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/activities/facewash.jpg"></center>'
+			*nl
+			'你清洗了脸和头发，清除了上面所有精液的痕迹。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	elseif cumloc[11] = 1 and cumloc[16] = 0:
+		act '洗掉脸上的精液 (0:05)':
+			*clr & cla
+			menu_off = 1
+			pcs_makeup = 1
+			cumspclnt = 9
+			gs 'cum_cleanup'
+			cumspclnt = 11
+			gs 'cum_cleanup'
+			if pcs_sweat > 19 : pcs_sweat -= 5
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/activities/facewash.jpg"></center>'
+			*nl
+			'你擦干净脸，清除所有精液的痕迹。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	elseif cumloc[11] = 0 and cumloc[16] = 1:
+		act '洗掉头发上的精液 (0:10)':
+			cla
+			menu_off = 1
+			cumspclnt = 9
+			gs 'cum_cleanup'
+			cumspclnt = 5
+			gs 'cum_cleanup'
+			pcs_hairbsh = 0
+			if pcs_sweat > 19 : pcs_sweat -= 5
+			minut += 10
+			gs 'stat'
+			*nl
+			'你清洗了头发，清除了上面所有精液的痕迹。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+
+	if cumloc[2] = 1 or cumloc[5] = 1 or cumloc[6] = 1 or cumloc[7] = 1:
+		act '洗掉衣服上的精液 (0:10)':
+			*clr & cla
+			menu_off = 1
+			cumspclnt = 9
+			gs 'cum_cleanup'
+			cumspclnt = 6
+			gs 'cum_cleanup'
+			minut += 10
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/shared/sex/cum/frotsp.jpg"></center>'
+			'你花了十分钟擦拭并冲洗掉衣服上的精液污渍。最后只剩下一些潮湿的斑点，几分钟后应该就会干透。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+
+	if cumloc[0]+cumloc[3] > 0:
+		if func('cum_manage', 'check_inner_overflow', -1) = 1:
+			if trait_vars['cum_addict'] = 0:
+				act '让精液从你体内流出 (0:10)':
+					*clr & cla
+					menu_off = 1
+					cumspclnt = 15 & gs 'cum_cleanup'
+					minut += 10
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/no<<rand(3,4)>>.jpg"></center>'
+					'你花了几分钟等待着一阵阵精液涌出。'
+
+					act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+				end
+			else
+				if trait_vars['cum_addict'] = 2:
+					gs 'willpower', 'misc', 'self', 'hard'
+				else
+					gs 'willpower', 'misc', 'self', 'medium'
+				end
+				if pcs_willpwr < will_cost:
+					act '让精液从你体内流出' + $func('willpower', 'get_willcost_string'): $func('wrap', 'neg', '<br>你的一部分不想放手。你无法让自己这么做。')
+				else
+					act '让精液从你体内流出' + $func('willpower', 'get_willcost_string'):
+						*clr & cla
+						menu_off = 1
+						if trait_vars['cum_addict'] = 2:
+							gs 'willpower', 'misc', 'self', 'hard'
+						else
+							gs 'willpower', 'misc', 'self', 'medium'
+						end
+						gs 'willpower', 'pay', 'self'
+						cumspclnt = 15 & gs 'cum_cleanup'
+						minut += 10
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/no<<rand(3,4)>>.jpg"></center>'
+						'你克制住想让它留在体内的非理性冲动，花了几分钟等待精液一阵阵流出。'
+
+						act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+					end
+				end
+			end
+		end
+	end
+
+	if body_write > 0 or face_write > 0:
+		act '洗掉身上的字迹 (0:10)':
+			*clr & cla
+			menu_off = 1
+			body_write = 0
+			face_write = 0
+			minut += 10
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/shared/home/bathroom/wash1.jpg"></center>'
+			*nl
+			'你洗掉了身上那些不雅的字迹。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+
+	if func('din_van', 'can_removemakeup'):
+		act '卸妆 (0:05)': gt 'din_van', 'removemakeup_do'
+	end
+
+	if func('din_van', 'can_removelashes'):
+		act '取下假睫毛 (0:05)': gt 'din_van', 'removelashes_do'
+	end
+
+	if func('din_van', 'can_deodorant'):
+		act '涂抹除臭剂 (0:01)': gt 'din_van', 'deodorant_do'
+	end
+
+
+	if KandidozOnce = 1 and KandidNapr > 0:
+		act '使用抗真菌药物':
+			*clr & cla
+			menu_off = 1
+			minut += 1
+			KandidNapr -= 1
+			Kandidoz -= 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/shared/home/kitchen/lekr2.jpg"></center>'
+			'你用水服下这粒大药丸，这应该能帮你对抗感染。'
+			act '继续': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+end
+
+
+!! ┌─ BASIN PERSONAL-CARE WORKERS ───────────────────────────────
+!! │ can_removemakeup / removemakeup_do
+!! │ can_removelashes / removelashes_do
+!! │ can_deodorant    / deodorant_do
+!! └──────────────────────────────────────────────────────────────
+!! Precondition: makeup is on and not a permanent cosmetic tattoo.
+if $ARGS[0] = 'can_removemakeup':
+	result = (pcs_makeup ! 1 and cosmetic_tattoo = 0)
+end
+
+!! Worker: wash off makeup. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'removemakeup_do':
+	cla
+	menu_off = 1
+	pcs_makeup = 1
+	cumspclnt = 9
+	gs 'cum_cleanup'
+	cumspclnt = 11
+	gs 'cum_cleanup'
+	minut += 5
+	gs 'stat'
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		*nl
+		'你卸掉了脸上的妆。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+!! Precondition: false lashes are currently applied.
+if $ARGS[0] = 'can_removelashes':
+	result = (false_lashes >= 1)
+end
+
+!! Worker: remove false lashes. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'removelashes_do':
+	cla
+	menu_off = 1
+	temp_quick_droutine = (droutine['active'] = 1 and droutine['quick_running'] = 1)
+	if temp_quick_droutine = 0: '你小心地撕下粘上去的假睫毛，注意保护自己的真睫毛。'
+	lashsavechance = rand(0, 4)
+	if lashsavechance = 4:
+		if temp_quick_droutine = 0: '这些假睫毛看起来状态还相当好，也许还能再用一次。'
+		if pcs_lashes = 4: fakelashesmink += 1
+		if pcs_lashes = 3: fakelashesplain += 1
+	end
+	pcs_lashes = pcs_naturallashes
+	false_lashes = 0
+	minut += 5
+	gs 'stat'
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	if temp_quick_droutine = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+!! Precondition: deodorant owned and not currently applied.
+if $ARGS[0] = 'can_deodorant':
+	result = (mc_inventory['deodorant'] > 0 and deodorant_on = 0)
+end
+
+!! Worker: apply deodorant. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'deodorant_do':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	mc_inventory['deodorant'] -= 1
+	gs 'sweat', 'deo'
+	gs 'stat'
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		iif(func('body_din', 'pregnancyVisibility') = 1, '<center><img <<$set_imgh>> src="images/shared/home/bathroom/deodorant_preg.jpg"></center>', '<center><img <<$set_imgh>> src="images/shared/home/bathroom/deodorant.jpg"></center>')
+		'你在腋下涂了除臭剂。它能让你更持久地保持清爽干净。'
+		act '继续': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+
+!! ┌─ ENEMA ─────────────────────────────────────────────────────
+!! │ can_enema / enema_do / enema (presenter, also keeps the
+!! │ situational cum-addict wash-up variant).
+!! └──────────────────────────────────────────────────────────────
+!! Precondition: enema kit owned and not yet done today (or relevant sparrloc).
+if $ARGS[0] = 'can_enema':
+	result = (mc_inventory['enema_kit'] = 1 and (klismaday ! daystart or arrpos('sparrloc', 3) > 0))
+end
+
+!! Worker: routine enema. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'enema_do':
+	*clr & cla
+	menu_off = 1
+	cumspclnt = 7
+	gs 'cum_cleanup'
+	minut += 5
+	klismaday = daystart
+	klismaday1 = 1
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bathroom/klisma.jpg"></center>'
+		*nl
+		'你给自己灌肠，感觉下面很干净。你的屁股现在已经准备好接受肛交，不会再有尴尬的意外了。'
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+if $ARGS[0] = 'enema':
+	if func('din_van', 'can_enema'):
+		act '给自己灌肠 (0:05)': gt 'din_van', 'enema_do'
+	end
+	if cumloc[0]+cumloc[3] > 0:
+		if mc_inventory['enema_kit'] = 1:
+			if trait_vars['cum_addict'] = 0:
+				act '清洗体内的精液 (0:05)':
+					*clr & cla
+					menu_off = 1
+					cumspclnt = 15
+					gs 'cum_cleanup'
+					cumspclnt = 3
+					gs 'cum_cleanup'
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/shared/home/bathroom/klisma.jpg"></center>'
+					'你快速给自己灌肠，感觉下面干净了。'
+
+					act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+				end
+			else
+				if trait_vars['cum_addict'] = 2:
+					gs 'willpower', 'misc', 'self', 'hard'
+				else
+					gs 'willpower', 'misc', 'self', 'medium'
+				end
+				if pcs_willpwr < will_cost:
+					act '清洗体内的精液' + $func('willpower', 'get_willcost_string'): $func('wrap', 'neg', '<br>你的一部分不想放手。你无法让自己这么做。')
+				else
+					act '清洗体内的精液' + $func('willpower', 'get_willcost_string'):
+						*clr & cla
+						menu_off = 1
+						if trait_vars['cum_addict'] = 2:
+							gs 'willpower', 'misc', 'self', 'hard'
+						else
+							gs 'willpower', 'misc', 'self', 'medium'
+						end
+						gs 'willpower', 'pay', 'self'
+						cumspclnt = 15
+						gs 'cum_cleanup'
+						cumspclnt = 3
+						gs 'cum_cleanup'
+						minut += 5
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/shared/home/bathroom/klisma.jpg"></center>'
+						'你克制住把精液留在体内的不理智冲动，给自己快速灌肠，感觉下面干净了。'
+
+						act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+					end
+				end
+			end
+		end
+	end
+end
+
+
+!! ┌─ SEX TOYS ──────────────────────────────────────────────────
+!! │ toymanage presents four toy acts, each with its own gate and
+!! │ worker so the routine can target one:
+!! │   can_buttplug_out / buttplug_out_do
+!! │   can_buttplug_in  / buttplug_in_do
+!! │   can_vibe_out     / vibe_out_do
+!! │   can_vibe_in      / vibe_in_do
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'toymanage':
+	if func('din_van', 'can_buttplug_out'):
+		act '取出你的肛门塞 (0:05)': gt 'din_van', 'buttplug_out_do'
+	elseif func('din_van', 'can_buttplug_in'):
+		act '插入你的肛门塞 (0:05)': gt 'din_van', 'buttplug_in_do'
+	end
+
+	if func('din_van', 'can_vibe_out'):
+		act '取出振动器 (0:05)': gt 'din_van', 'vibe_out_do'
+	elseif func('din_van', 'can_vibe_in'):
+		act '将振动器插入你的阴道 (0:05)': gt 'din_van', 'vibe_in_do'
+	end
+end
+
+!! Precondition: butt plug owned and currently inserted.
+if $ARGS[0] = 'can_buttplug_out':
+	result = (mc_inventory['buttplug'] = 1 and analPlugIn = 1)
+end
+
+!! Worker: remove butt plug. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'buttplug_out_do':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	analPlugIn = 0 & analPlugOut = 0
+	if pcs_ass < 30: gs 'arousal_funcs', 'stretch', 'anal', 1
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/pc/body/analplug.jpg"></center>'
+		*nl
+		'你蹲下，轻轻拽着肛塞，把它推出时不禁倒吸一口气。它一出来，你忍不住觉得有点空落落的。'
+
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+!! Precondition: butt plug owned and not currently inserted.
+if $ARGS[0] = 'can_buttplug_in':
+	result = (mc_inventory['buttplug'] = 1 and analPlugIn = 0)
+end
+
+!! Worker: insert butt plug. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'buttplug_in_do':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	analPlugIn = 1 & analPlugOut = 0
+	if pcs_ass < 10: gs 'arousal_funcs', 'stretch', 'anal', 5
+	if pcs_ass >= 10 and pcs_ass < 20: gs 'arousal_funcs', 'stretch', 'anal', rand(1, 2)
+	if pcs_ass >= 20 and pcs_ass < 30: gs 'arousal_funcs', 'stretch', 'anal', rand(0, 1)
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		butpluguse = 1
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/pc/body/analplug.jpg"></center>'
+		*nl
+		if butpluguse = 0:
+			butpluguse = 1
+			'"既然我不用它，那当初为什么还要买它？"你问自己。你盯着肛塞看了好一会儿，心想："得开始开发我的屁股了，这样将来才能经历精彩的冒险……甚至可以说是又粗又大、顶着深红色龟头的冒险……"想到这里，你有一瞬间的不好意思，但随即被自己的淫荡幻想吞没。你下定决心要把肛塞整根塞进去，于是用唾液润滑了肛门，把肛塞抵了上去。一开始有点疼，但最粗的部分进去之后，剩下的就相当容易了。塞好之后你拍了拍自己的屁股，想着会不会有人注意到你戴着它，随即又因为自己居然这么想而感到羞臊。'
+		else
+			'你蹲下，用一点唾液润滑后，把肛塞轻轻抵在肛门口摩擦。几分钟后，你放松下来，已经能把它推进去了。塞进去之后，你轻轻拽了几下，心里想着今天会不会有人发现你戴着它。'
+		end
+
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+!! Precondition: vibrator owned and currently inserted.
+if $ARGS[0] = 'can_vibe_out':
+	result = (mc_inventory['vibe'] = 1 and vibratorIN = 1)
+end
+
+!! Worker: remove vibrator. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'vibe_out_do':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	vibratorIN = 0
+	if pcs_vag < 30: gs 'arousal_funcs', 'stretch', 'vaginal'
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/pc/items/sextoys/vibrator.jpg"></center>'
+		*nl
+		'你张开双腿，把振动棒从小穴里抽出来，抽的时候轻轻呻吟了一声。现在你觉得有些空虚。'
+
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+!! Precondition: vibrator owned, not inserted, and not a virgin.
+if $ARGS[0] = 'can_vibe_in':
+	result = (mc_inventory['vibe'] = 1 and vibratorIN = 0 and func('pcs_has_attr', 'sex_virgin') = 0)
+end
+
+!! Worker: insert vibrator. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'vibe_in_do':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	vibratorIN = 1
+	if pcs_vag < 30: gs 'arousal_funcs', 'stretch', 'vaginal', 2
+	gs 'stat'
+
+	if droutine['active'] = 1 and droutine['quick_running'] = 1:
+		gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/pc/items/sextoys/vibrator.jpg"></center>'
+		*nl
+		'你张开双腿，把振动棒慢慢插进小穴里，心里想着今天会不会有人注意到你戴着它。'
+
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+
+if $ARGS[0] = 'palelady':
+	if mc_inventory['cocaine'] > 0: '你的可卡因足够吸<<mc_inventory[''cocaine'']>> ' + iif(mc_inventory['cocaine'] = 1, '管。', '管。')
+
+	if mc_inventory['cocaine'] > 0 and drugVars['cocaine_day'] ! daystart:
+		act '吸一管可卡因 (0:05)':
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			gs 'drugs', 'cocaine'
+			gs 'stat'
+			if $locclass = 'restroom' or $location_type = 'restroom':
+				'<center><img <<$set_imgh>> src="images/shared/drugs/public_rr_coke.jpg"></center>'
+				'你走进一个隔间坐下，吸食了一些可卡因，只眩晕了一小会儿。之后你感觉棒极了，而且欲火难耐。'
+			else
+				'<center><img <<$set_imgh>> src="images/shared/drugs/dur.jpg"></center>'
+				'你吸食了一些可卡因，只眩晕了一小会儿。之后你感觉棒极了，而且欲火难耐。'
+			end
+
+			act '继续': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'private':
+	if lashair ! 1 and mc_inventory['razor'] > 0:
+		'你的一次性剃刀还能用<b><<mc_inventory[''razor'']>></b>次。 <a href="exec:gs ''din_van'', ''shave_options''">剃毛选项</a>'
+		if mc_inventory['razor'] <= 2 and razor['warning'] < daystart:
+			razor['warning'] = daystart + 5
+			msg '	你的剃刀快要用完了！'
+			!! '	You''re about to run out of razors!'
+		end
+	end
+
+	if mc_inventory['chafing_cream'] > 0: '架子上有一管防治摩擦的药膏，够用<b><<mc_inventory[''chafing_cream'']>></b>次。'
+	if mc_inventory['moisturiser'] > 0:
+		'你的润肤霜大概还能用<b><<mc_inventory[''moisturiser'']>></b>次。'
+	end
+	if mc_inventory['tampons'] = 0 and mc_inventory['sanitary_pads'] = 0:
+		$func('wrap', 'v_neg b', '你已经没有女性卫生用品了。')
+	else
+		if tampon['warning'] ! daystart:
+			if mc_inventory['tampons'] = 1 and mc_inventory['sanitary_pads'] = 1:
+				tampon['warning'] = daystart
+				$temp_tamp_text
+				msg $func('wrap', 'neg', '你只有<b>1</b>个卫生棉条和<b>1</b>片卫生巾剩余！')
+			elseif mc_inventory['tampons'] = 1:
+				tampon['warning'] = daystart
+				msg $func('wrap', 'neg', '你只有<b>1</b>个卫生棉条剩余！')
+			elseif mc_inventory['sanitary_pads'] = 1:
+				tampon['warning'] = daystart
+				msg $func('wrap', 'neg', '你只有<b>1</b>片卫生巾剩余！')
+			end
+		end
+
+		if mc_inventory['tampons'] = 0:
+			$func('wrap', 'neg', '你的卫生棉条<b>用完了</b>。')
+		elseif mc_inventory['tampons'] = 1:
+			$func('wrap', 'neg', '你只剩<b>1</b>个卫生棉条了。')
+		else
+			'你有<b><<mc_inventory[''tampons'']>></b>个卫生棉条。'
+		end
+
+		if mc_inventory['sanitary_pads'] = 0:
+			$func('wrap', 'neg', '你的卫生巾<b>用完了</b>。')
+		elseif mc_inventory['sanitary_pads'] = 1:
+			$func('wrap', 'neg', '你只剩<b>1</b>片卫生巾了。')
+		else
+			'你有<b><<mc_inventory[''sanitary_pads'']>></b>片卫生巾。'
+		end
+	end
+
+	'你的除臭剂还能用<b><<mc_inventory[''deodorant'']>></b> ' + iif(mc_inventory['deodorant'] = 1, '次。', '次。')
+
+
+	if $ARGS[1] = 'HotelRoom':
+		gs 'din_van', 'shower'
+		if $ARGS[2] = 'bath': gs 'din_van', 'bath'
+	elseif $loc = 'vanrPar':
+		'你可以用你父母的洗发水。'
+		gs 'din_van', 'shower'
+		gs 'din_van', 'bath'
+	elseif $loc = 'LariskaHome':
+		'你可以用拉里斯卡的洗发水。'
+		gs 'din_van', 'shower'
+		gs 'din_van', 'bath'
+	elseif $loc = 'tanvanr':
+		'你可以用塔尼娅的洗发水。'
+		gs 'din_van', 'shower'
+		gs 'din_van', 'bath'
+	elseif $loc = 'uni_dorm' and mc_inventory['shampoo'] > 0:
+		'你的洗发水够用<b><<mc_inventory[''shampoo'']>></b>次。'
+		gs 'din_van', 'shower'
+	elseif $loc = 'gad_gpbath':
+
+	elseif mc_inventory['shampoo'] > 0:
+		'你的洗发水够用<b><<mc_inventory[''shampoo'']>></b>次。'
+		gs 'din_van', 'shower'
+		gs 'din_van', 'bath'
+	else
+		$func('wrap', 'neg', '你的洗发水用完了，得再买一些才能洗澡。')
+	end
+
+	gs 'din_van', 'SkinCare'
+
+	if mc_inventory['painkillers'] > 0:
+		'你有<b><<mc_inventory[''painkillers'']>></b>片止痛药' + iif(mc_inventory['painkillers'] > 1, '。', '。')
+		if pain['total'] > 0:
+			act $func('drugs', 'painkiller_act_str'):
+				cla
+				gs 'drugs', 'painkiller'
+				gs 'beverage', 'water_stats'
+
+				*nl
+				'你拿了一片止痛药，用一杯水吞了下去。'
+
+				act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+	end
+
+	if mc_inventory['hair_extensioncream'] > 0:
+		'<a href="exec:gs ''drugs'', ''hair_extensioncream''">使用接发洗发水。</a>剩余使用次数：<<mc_inventory[''hair_extensioncream'']>>.'
+	end
+	if mc_inventory['butt_injection'] > 0:
+		'<a href="exec:gs ''drugs'', ''butt_injection''">注射KBI臀部增大针。</a>剩余使用次数：<<mc_inventory[''butt_injection'']>>.'
+	end
+
+	if mc_inventory['breastcream'] > 0:
+		'<a href="exec:gs ''drugs'', ''breastcream''">涂抹胸部乳霜。</a>剩余使用次数：<<mc_inventory[''breastcream'']>>.'
+	end
+
+	gs 'piercing_management', 'set_manage_string'
+
+	if fillimplant = 1:
+		if siliconeBag >= 1:
+			'<a href="exec:cls & siliconeBag -= 1 & bodyVars[''bust_silicone''] += 10 & gt $loc, $loc_arg">向你的乳房假体注入硅胶。</a>'
+		end
+
+		if bodyVars['bust_silicone'] >= 20:
+			'<a href="exec:cls & bodyVars[''bust_silicone''] -= 10 & gt $loc, $loc_arg">从你的乳房假体中抽出硅胶。</a>'
+		end
+	end
+	gs 'din_van', 'bteeth'
+
+	gs 'din_van', 'tampon'
+
+	act '更换衣物和玩具':
+		cla
+
+		act '返回': menu_off = 0 & gt $loc, $loc_arg
+
+		gs 'din_van', 'wearpan'
+		gs 'din_van', 'removepan'
+
+		if $curloc = 'vanrPar' and $clothingworntype = 'nude':
+			act '穿上衣服 (0:05)':
+				*clr & cla
+				minut += 5
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_1.mp4"></video></center>'
+				'你穿好了衣服。'
+				gs 'outfit', 'wear_last_worn'
+				gs 'stat'
+				act '返回': menu_off = 0 & gt $loc, $loc_arg
+			end
+		elseif $curloc = 'vanrPar' and $clothingworntype ! 'nude':
+			act '脱掉衣服 (0:05)':
+				*clr & cla
+				minut += 5
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/items/accessories/computer/webcam/undress1.mp4"></video></center>'
+				'你脱掉了身上的衣服。'
+				gs 'clothing', 'strip'
+				gs 'stat'
+				act '返回': menu_off = 0 & gt $loc, $loc_arg
+			end
+		end
+		gs 'din_van', 'toymanage'
+	end
+
+	'<a href="exec:msg ''<center>你的体重是<<pcs_weight[0]>>.<<pcs_weight[1]>> kg<br>你的身体质量指数 (BMI) 是<<pcs_bmi[0]>>.<<pcs_bmi[1]>>.<br><<$bodyVars[''bmi_desc'']>></center>''">在体重秤上称重。</a>'
+
+	gs 'din_van', 'prvt_pee'
+
+	gs 'din_van', 'basin'
+
+	gs 'din_van', 'brit'
+
+	gs 'din_van', 'enema'
+
+
+	gs 'din_van', 'palelady'
+
+
+	if mc_inventory['chafing_cream'] > 0 and mosol > 0 and mosal_time <= totminut:
+		act '把药膏涂到发痒的外阴上 (0:05)':
+			cla
+			menu_off = 1
+			mosal_time = totminut + 600
+			minut += 5
+			mc_inventory['chafing_cream'] -= 1
+			mosol -= 5
+			gs 'stat'
+			'你拿出一管药膏，涂抹在发痒的外阴上。'
+
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+		end
+	end
+	!! KL: Since the new fetish system has a 'pregnant' fetish, I adjusted it here
+	!! For now, the pregnancy reactions use func('archetypes', 'get_lvl', 'bimbo') as a check. Once the pregnancy fetish is added to the game, the check will likely change to that.
+	if knowpreg ! 1 and mc_inventory['pregnancy_test'] > 0 and (abortionbirthdate = 0 or daystart - abortionbirthdate > 100) and last_pee + 59 < totminut:
+		act '做一次怀孕测试 (0:05)':
+			*clr & cla
+			last_pee = totminut
+			minut += 5
+			mc_inventory['pregnancy_test'] -= 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/preg_test.jpg"></center>'
+			'你坐到马桶上，把试纸夹在两腿之间，小心地从你的小穴放出尿流到试纸顶端。按照说明，你重新盖上盖子，把它平放在洗手台上，接下来的五分钟你紧张地坐立不安，焦急地等待建议的时间过去……'
+			'时间一到，你急切地抓起试纸，猛地取下盖子看结果。'
+			act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			if pregChem <= 120:
+				knowpreg = 0
+				*nl
+				'试纸显示一条杠。你没有怀孕。'
+				act '如释重负地叹了口气。': gt 'din_van', 'ReliefReact'
+				act '失望地叹了口气': gt 'din_van', 'DisappointedReact'
+			elseif hypnoTime >= 10:
+				knowpreg = 0
+				*nl
+				'试纸显示一条杠。你没有怀孕。'
+				act '开心': gt 'din_van', 'HappyReact'
+				act '如释重负地叹了口气。': gt 'din_van', 'ReliefReact'
+			elseif pcs_pregtalk = 1:
+				*nl
+				knowpreg = 1
+				thinkpreg = 1
+				'试纸显示两条杠。你怀孕了。'
+			else
+				knowpreg = 1
+				thinkpreg = 1
+				if $husID <> '':
+					if kid = 0:
+						gt 'din_van', 'WifeReact1'
+					else
+						gt 'din_van', 'WifeReact2'
+					end
+				else
+					cla & *nl
+					'试纸显示两条杠。你怀孕了。看着手中的试纸，你……'
+					if func('archetypes', 'get_lvl', 'bimbo') < 3 and hypnoTime < 10:
+						act '惊恐': gt 'din_van', 'HorrifiedReact1'
+						act '担忧': gt 'din_van', 'ConcernedReact1'
+						act '兴奋': gt 'din_van', 'ExcitedReact1'
+					else
+						act '兴奋': gt 'din_van', 'ExcitedReact1'
+						if pcs_horny >= 50 or func('archetypes', 'get_lvl', 'bimbo') = 3: act '亢奋': gt 'din_van', 'ArousedReact1'
+					end
+				end
+			end
+		end
+	end
+
+	!! breast pump is now in the menu, not on the screen
+	if mc_inventory['breast_pump'] > 0 and bp_unbox >= 1:
+		act '使用吸奶器':
+			gt 'lact_bp', 'bp_milking'
+		end
+	elseif mc_inventory['breast_pump'] > 0 and bp_unbox <= 0:
+		'<a href="exec: gt ''lact_bp'', ''bp_unbox_event''">开箱</a>你的吸奶器'
+	elseif mc_inventory['breast_pump'] <= 0:
+		gs 'lact_bp', 'massage'
+	end
+end
+
+
+if $ARGS[0] = 'misery':
+	if mc_inventory['tech_washing_machine'] > 0:
+		if mc_inventory['laundry_soap'] < 1:
+			'你的洗衣机没有洗衣粉了。'
+		elseif $husID <> '':
+			if daystart > spouseVars['wash_day']:
+				gs 'npc_relationship', 'modify', $husID, 5
+				mc_inventory['laundry_soap'] -= 1
+				spouseVars['wash_day'] = daystart
+				'洗衣机洗了你丈夫的脏衣服。'
+			end
+		elseif $wifID <> '':
+			if daystart > spouseVars['wash_day']:
+				gs 'npc_relationship', 'modify', $wifID, 5
+				mc_inventory['laundry_soap'] -= 1
+				spouseVars['wash_day'] = daystart
+				'洗衣机洗了你妻子的脏衣服。'
+			end
+		end
+	end
+
+	if $husID <> '':
+		if daystart > spouseVars['wash_day'] and mc_inventory['laundry_soap'] >= 2:
+			act '洗你丈夫的脏衣服（2份洗衣粉）（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $husID, 5
+				spouseVars['wash_day'] = daystart
+				mc_inventory['laundry_soap'] -= 2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stir.jpg"></center>'
+				*nl
+				'你花了一个小时洗你丈夫的脏衣服。'
+
+				act '离开浴室': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+
+		if daystart > spouseVars['clean_day']:
+			act '打扫公寓（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $husID, 5
+				spouseVars['clean_day'] = daystart
+				gs 'stat'
+				!! '<center><img <<$set_imgh>> src="images/shared/home/kitchen/cook.jpg"></center>'
+				*nl
+				'你拿起一块抹布，开始打扫公寓。'
+
+				act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+	elseif $wifID <> '':
+		if daystart > spouseVars['wash_day'] and mc_inventory['laundry_soap'] >= 2:
+			act '洗你妻子的脏衣服（2份洗衣粉）（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $wifID, 5
+				spouseVars['wash_day'] = daystart
+				mc_inventory['laundry_soap'] -= 2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stir.jpg"></center>'
+				*nl
+				'你花了一个小时洗你妻子的脏衣服。'
+
+				act '离开浴室': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+
+		if daystart > spouseVars['clean_day']:
+			act '打扫公寓（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $wifID, 5
+				spouseVars['clean_day'] = daystart
+				gs 'stat'
+				!! '<center><img <<$set_imgh>> src="images/shared/home/kitchen/cook.jpg"></center>'
+				*nl
+				'你拿起一块抹布，开始打扫公寓。'
+
+				act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'misery_2':
+	if mc_inventory['tech_washing_machine'] > 0:
+		if mc_inventory['laundry_soap'] < 1:
+			'你的洗衣机没有洗衣粉了。'
+		elseif $husID <> '':
+			if daystart > spouseVars['wash_day']:
+				gs 'npc_relationship', 'modify', $husID, 5
+				mc_inventory['laundry_soap'] -= 1
+				spouseVars['wash_day'] = daystart
+				'洗衣机洗了你丈夫的脏衣服。'
+			end
+		elseif $wifID <> '':
+			if daystart > spouseVars['wash_day']:
+				gs 'npc_relationship', 'modify', $wifID, 5
+				mc_inventory['laundry_soap'] -= 1
+				spouseVars['wash_day'] = daystart
+				'洗衣机洗了你妻子的脏衣服。'
+			end
+
+		end
+	end
+
+	if $husID <> '':
+		if daystart > spouseVars['wash_day'] and mc_inventory['laundry_soap'] >= 2:
+			act '洗你丈夫的脏衣服（2份洗衣粉）（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $husID, 5
+				mc_inventory['laundry_soap'] -= 2
+				spouseVars['wash_day'] = daystart
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stir.jpg"></center>'
+				*nl
+				'你花了一个小时洗你丈夫的脏衣服。'
+
+				act '离开浴室': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+
+		if daystart > spouseVars['clean_day']:
+			act '打扫公寓（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $husID, 5
+				spouseVars['clean_day'] = daystart
+				gs 'stat'
+				!! '<center><img <<$set_imgh>> src="images/shared/home/kitchen/cook.jpg"></center>'
+				*nl
+				'你拿起一块抹布，开始打扫公寓。'
+
+				act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+	elseif $wifID <> '':
+		if daystart > spouseVars['wash_day'] and mc_inventory['laundry_soap'] >= 2:
+			act '洗你妻子的脏衣服（2份洗衣粉）（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $wifID, 5
+				mc_inventory['laundry_soap'] -= 2
+				spouseVars['wash_day'] = daystart
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stir.jpg"></center>'
+				*nl
+				'你花了一个小时洗你妻子的脏衣服。'
+
+				act '离开浴室': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+
+		if daystart > spouseVars['clean_day']:
+			act '打扫公寓（1:00）':
+				*clr & cla
+				menu_off = 1
+				minut += 60
+				gs 'mood', 'lower', 'medium'
+				gs 'npc_relationship', 'modify', $wifID, 5
+				spouseVars['clean_day'] = daystart
+				gs 'stat'
+				!! '<center><img <<$set_imgh>> src="images/shared/home/kitchen/cook.jpg"></center>'
+				*nl
+				'你拿起一块抹布，开始打扫公寓。'
+
+				act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buffpick':
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/pc/activities/exercises/gym/fit2.jpg"></center>'
+	*nl
+	'在擦干身体、穿上衣服时，你打量着透过皮肤显现出的匀称肌肉。'
+	'你一边这样做，一边想着自己的模样，然后做出决定：'
+	act '你喜欢自己现在的样子。': normbuffpick = 2 & mirror_steam = hour & menu_off = 0 & gt $loc, $loc_arg
+	act '你不喜欢自己现在的样子。': nrmbfpckct += 1 & normbuffpick = 0 & mirror_steam = hour & menu_off = 0 & gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'ReliefReact':
+	cla & *clr
+	menu_off = 1
+	gs 'fetish', 'add_pref', 'pregnant', -5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/preg_test.jpg"></center>'
+	'阴性。'
+	*nl
+	'你如释重负地叹了口气，呼出一口仿佛憋了好几天的气。你把用过的验孕棒扔进垃圾桶，愉快地继续过着这个没有怀孕的日子。'
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+!! This is only called if hypnoAddict = 2
+if $ARGS[0] = 'HappyReact':
+	cla & *clr
+	menu_off = 1
+	gs 'mood', 'raise', 'tiny'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/preg_test.jpg"></center>'
+	'阴性。'
+	*nl
+	'你满心欢喜地笑着，呼出一口仿佛憋了好几天的气。你调皮地把用过的验孕棒扔进垃圾桶，愉快地继续过着这个没有怀孕的日子。'
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'DisappointedReact':
+	cla & *clr
+	menu_off = 1
+	gs 'fetish', 'add_pref', 'pregnant', 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/preg_test.jpg"></center>'
+	'阴性。'
+	*nl
+	'你叹了口气，失望地闭上了眼睛。你真心希望今天能是发现自己怀孕的那一天。但今天不是。怀着不小的懊恼，你把用过的验孕棒扔进垃圾桶，继续过着自己的日子。'
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'HorrifiedReact1':
+	menu_off = 1
+	pcs_pregtalk = 1
+	minut += 10
+	gs 'fetish', 'add_pref', 'pregnant', -10
+	gs 'stat'
+	*nl
+	'你难以置信地盯着手中的验孕棒。那两条杠只能意味着一件事：你怀孕了。你瘫坐到地板上，脑中一片混乱。泪水在眼眶里打转。这怎么可能发生？'
+	if stat['hidden_vaginal'] > 0 and stat['vaginal'] = 0:
+		'你甚至不知道这怎么可能。你从来都没有跟任何人发生过性关系。'
+		'你做了什么才落得这般下场？大家会怎么看你？你的人生完了。'
+		'在啜泣了好几分钟、努力理清自己的处境之后，你终于从地板上爬起来。你整理好衣服，洗了把脸，开始接受自己不得不面对的处境。'
+	elseif stat['rape_count'] > 0 and stat['vaginal'] >= 1:
+		gs 'fetish', 'add_pref', 'pregnant', -10
+		'被强奸已经够糟糕了，还很可能因此怀孕？这实在太不公平了！'
+		'你做了什么才落得这般下场？大家会怎么看你？你的人生完了。'
+		'在啜泣了好几分钟、努力理清自己的处境之后，你终于从地板上爬起来。你整理好衣服，洗了把脸，开始接受自己不得不面对的处境。'
+	else
+		'这是可能发生在你身上的最糟糕的事。压力大得让你觉得自己快要吐了。'
+		'你做了什么才落得这般下场？大家会怎么看你？你的人生完了。'
+		'在啜泣了好几分钟、努力理清自己的处境之后，你终于从地板上爬起来。你整理好衣服，洗了把脸，开始接受自己不得不面对的处境。'
+	end
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'ConcernedReact1':
+	menu_off = 1
+	pcs_pregtalk = 1
+	minut += 10
+	gs 'fetish', 'add_pref', 'pregnant', -5
+	gs 'stat'
+	*nl
+	'你凝视着手中的验孕棒，思绪飞速转动。那两条杠清楚地表明你怀孕了。你知道这不是可能发生在你身上最糟糕的事，但你的人生肯定会改变。你真的准备好迎接这种改变了吗？'
+	if stat['hidden_vaginal'] > 0 and stat['vaginal'] = 0:
+		'这整件事最糟糕的地方在于，你甚至不知道这是怎么发生的。没发生过性关系怎么可能会怀孕？'
+		'在花了几分钟权衡选择后，你决定继续过你的日子。在你决定如何应对这次怀孕之前，你还有很多事情要考虑，但你总不能整天待在浴室里而引人怀疑。'
+	elseif stat['rape_count'] > 0 and stat['vaginal'] > 1:
+		gs 'fetish', 'add_pref', 'pregnant', -10
+		'这整件事最糟糕的地方在于，这甚至不是你的错。这是强加在你身上的。'
+		'在花了几分钟权衡选择后，你决定继续过你的日子。在你决定如何应对这次怀孕之前，你还有很多事情要考虑，但你总不能整天待在浴室里而引人怀疑。'
+	else
+		'在某种程度上，你清楚这是你自己行为所带来的后果，但你还没完全准备好接受这个事实。'
+		'在花了几分钟权衡选择后，你决定继续过你的日子。在你决定如何应对这次怀孕之前，你还有很多事情要考虑，但你总不能整天待在浴室里而引人怀疑。'
+	end
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'ExcitedReact1':
+	menu_off = 1
+	pcs_pregtalk = 1
+	minut += 10
+	gs 'fetish', 'add_pref', 'pregnant', 5
+	gs 'stat'
+	*nl
+	'看着手中的验孕棒，你欣喜若狂。那两条杠证实了你的愿望实现了：你怀孕了。你紧握着验孕棒咯咯地笑，迫不及待地想把这个消息告诉所有认识的人。'
+	if stat['hidden_vaginal'] > 0 and stat['vaginal'] = 0:
+		'你不确定这是怎么发生的，但你不会抱怨。就算是个奇迹促成了这件事，又有什么好在意的？'
+		'你花了几分钟幻想自己为人父母后的情景，然后才想起你还有地方要去。你终于起身，仍带着兴奋继续过你的日子。'
+	elseif stat['rape_count'] > 0 and stat['vaginal'] > 1:
+		'你甚至不在乎让自己怀孕的那些遭遇。为了此刻的喜悦，这一切完全值得。'
+		'你花了几分钟幻想自己为人父母后的情景，然后才想起你还有地方要去。你终于起身，仍带着兴奋继续过你的日子。'
+	else
+		gs 'fetish', 'add_pref', 'pregnant', 5
+		'每次发生性关系时，你都盼望着那能让你成为一位母亲。'
+		'你花了几分钟幻想自己为人父母后的情景，然后才想起你还有地方要去。你终于起身，仍带着兴奋继续过你的日子。'
+	end
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'ArousedReact1':
+	menu_off = 1
+	pcs_pregtalk = 1
+	minut += 10
+	gs 'fetish', 'add_pref', 'pregnant', 10
+	gs 'stat'
+	*nl
+	'你盯着手中的验孕棒，双腿来回蹭着。那两条杠证实了你已经中招怀孕。你兴奋地回想每一股射进你肥沃子宫里的精液，猜测是哪一次正中靶心。你用手指轻柔地画着圈抚摸阴蒂，一想到几个月后，所有看到你那高高隆起的孕肚的人都会知道你是个多么淫荡的骚货，你就越发兴奋。'
+	if stat['rape_count'] > 0 and stat['vaginal'] > 1 and func('fetish', 'get_exp', 'incest') = 0:
+		gs 'fetish', 'add_pref', 'rape', 5
+		'你加快了速度，回忆起那个强奸犯丝毫不顾及你的意愿，用力地用他那美妙的精液把你灌得满满的。当一个完全陌生的男人决定让你成为母亲、你的尊严被尽数剥离时，你竟十分享受。'
+	elseif pcs_cp_risk_daylastincest ! 0 and (daystart - pcs_cp_risk_daylastincest <= 275) and (abortionbirthdate < pcs_cp_risk_daylastincest):
+		gs 'fetish', 'add_pref', 'incest', 5
+		'你加快了速度，回忆起你曾心甘情愿地让那美妙的精液灌满全身。每当有人将一股又一股的子孙液射进你体内，想到自己会怀孕，你就充满喜悦。'
+		'一想到自己竟可能是因乱伦而怀孕这个禁忌的事实，你就愈发兴奋。'
+	else
+		'你加快了速度，回忆起你曾心甘情愿地让那美妙的精液灌满全身。每当有人将一股又一股的子孙液射进你体内，想到自己会怀孕，你就充满喜悦。'
+	end
+	*nl
+	'就这样过了几分钟，你剧烈地高潮了。你喘息了片刻，随后清理身体、整理好衣服。梳洗完毕后，你仍带着未褪的兴奋继续过自己的日子。'
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'WifeReact1':
+	menu_off = 1
+	pcs_pregtalk = 1
+	minut += 10
+	gs 'fetish', 'add_pref', 'pregnant', 10
+	gs 'stat'
+	*nl
+	'低头看着手中的验孕棒，你脸上漾开了灿烂的笑容。那两条杠宣告着你终于要组建家庭了。想到要怎么告诉丈夫，你激动得浑身发抖。是该一见到他就直说，还是想让这成为更特别的时刻，在一顿讲究的晚餐上告诉他？也许你该若无其事地把验孕棒扔到他面前，看看他的反应。无论决定用哪种方式，你都再也藏不住这份激动了。你稍微整理了一下仪容，才离开房间。 '
+	*nl
+	'在丈夫回家之前你还有些时间，而婴儿房可不会自己设计好。'
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'WifeReact2':
+	menu_off = 1
+	pcs_pregtalk = 1
+	minut += 10
+	gs 'fetish', 'add_pref', 'pregnant', 10
+	gs 'stat'
+	*nl
+	'你对着手中的验孕棒温柔地微笑。你确实又怀孕了。想到自己那美满的家庭就要添上新的一员，你心中涌起满满的喜悦。想象着肚子再次隆起、向全世界宣告你已是母亲，你满足地叹了口气。养育孩子是你这辈子经历过最美好的事，能再次体验这份喜悦让你欣喜万分。你再也等不及要告诉丈夫了。你迅速把自己拾掇精神，前去和爱人分享这个绝妙的好消息。'
+	act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+end
+
+!! ------------------------------------------------------------------------------------------------------------------------------------------------------
+
+!! Peeing text
+
+!! I''m separating the following text into two versions, some for private bathrooms like those found in homes, and one set for public bathrooms, like those at the school.
+
+
+!! Private bathrooms: One of these text should be randomly selected if using a private restroom, such as one in a home.
+!! ┌─ TOILET ────────────────────────────────────────────────────
+!! │ prvt_pee / can_prvt_pee / prvt_pee_do
+!! │ prvt_pee_do also offers the tampon/pad change sub-acts and
+!! │ exits through the shared prvt_pee_end screen.
+!! └──────────────────────────────────────────────────────────────
+if $ARGS[0] = 'prvt_pee':
+	if func('din_van', 'can_prvt_pee'):
+		act '上厕所（0:04）': gt 'din_van', 'prvt_pee_do'
+	end
+end
+
+!! Precondition: enough time has passed since the last pee and the cheat is off.
+if $ARGS[0] = 'can_prvt_pee':
+	result = (last_pee + 59 < totminut and cheatVars['pee'] = 0)
+end
+
+!! Worker: go pee. Shared by the presenter and the routine runner.
+if $ARGS[0] = 'prvt_pee_do':
+	*clr & cla
+	menu_off = 1
+	last_pee = totminut
+	minut += 4
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/pc/body/pee/private/' + rand(1, 19) + '.jpg"></center>'
+	!! Get random private peeing picture
+	rand_pee = rand(0, 7)
+	if rand_pee = 0:
+		'你坐到马桶上开始小便，为压力得到释放而舒了一口气。'
+	elseif rand_pee = 1:
+		'在马桶上坐好后，你终于释放了膀胱。随着尿液流出身体，一阵颤栗顺着你的脊背蔓延。"哇。"你心想，"我竟然比想象中憋得更急。"'
+	elseif rand_pee = 2:
+		'你坐到马桶上，掏出手机，开始查看消息，做些别的事情来打发时间，直到尿流渐渐变细，最终停止。'
+	elseif rand_pee = 3:
+		'你一屁股坐到陶瓷马桶上，开始向便池里倾泻出一股洪流般的尿液。在等着"自然"结束的同时，你的思绪渐渐飘远，做起白日梦来。'
+	elseif rand_pee = 4:
+		'放松膀胱开始小便时，你决定回想一下近来与生活中人们的往来。"他们怎么看我？会不会在背后说我坏话？"你一直思忖着，直到身体示意尿流已经结束。'
+	elseif rand_pee = 5:
+		'你急急忙忙冲过去坐到马桶上，差点就尿裤子了。再也憋不住这股洪流，身体释放出一股仿佛无穷无尽的尿流，你如释重负地低声呻吟着，庆幸自己及时赶上了。'
+	elseif rand_pee = 6:
+		'在马桶上坐定之后，你放松下来开始小便。尿液从你体内喷涌进便池，冲刷得阴唇痒痒的。'
+	else
+		'刚往下坐，冰冷刺人的马桶圈就硌得你光溜溜的屁股一激灵，你几乎要惊跳起来。你摇了摇头叹了口气，重新坐回冰冷的座圈上把事办完。'
+	end
+
+	!! If PC is on her period and using tampon, then the following options should appear as well as the standard "Finish and wipe" act:
+	!! This may require an addition check to see if the PC has a purse since I think they need that to carry tampons with them.
+	if mc_inventory['tampons'] > 0 and (mesec > 0 or (placebopart > 0 and pillcon < 40000)) and (isprok = 1 or (isprok = 0 and isprokp = 0)) and knowpreg = 0:
+		act '更换卫生棉条（0:02）':
+			*clr & cla
+			mc_inventory['tampons'] -= 1
+			isprok = 1
+			minut += 2
+			gs 'mood', 'lower', 'tiny'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/body/pee/period/tampon/' + rand(1, 12) + '.jpg"></center>'
+			'你俯身用手指捏住棉线，慢慢把用过的卫生棉条从阴道里拉出来。你用卫生纸把它包好，准备扔进垃圾桶。打开手提包取出一支新的，拆开包装，小心翼翼地塞入体内。'
+
+			gs 'din_van', 'prvt_pee_end'
+		end
+	end
+	!! If PC is on her period and using pad, then the following options should appear as well as the standard "Finish and wipe" act:
+	!! This may require an addition check to see if the PC has a purse since I think they need that to carry pads with them.
+	if isprokp = 1 and mc_inventory['sanitary_pads'] > 0 and $pantyworntype ! 'none':
+		act '更换卫生巾（0:02）':
+			*clr & cla
+			mc_inventory['sanitary_pads'] -= 1
+			isprokp = 1
+			minut += 2
+			gs 'mood', 'lower', 'tiny'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/body/pee/period/pad/' + rand(1, 6) + '.jpg"></center>'
+			'检查了一下你的卫生巾，你决定该换新的了。你小心地把它从内裤上撕下来，折成三折，放在一边准备扔掉。你翻找包包，拿出一片新卫生巾，拆开包装，撕下背胶条，放入内裤中。最后，你把护翼包在裆部两侧，确保它稳固服帖。'
+
+			gs 'din_van', 'prvt_pee_end'
+		end
+	end
+	gs 'din_van', 'prvt_pee_end'
+end
+
+
+if $ARGS[0] = 'prvt_pee_end':
+	act '完成并擦拭':
+		*clr & cla
+		cumspclnt = 15 & gs 'cum_cleanup'
+		if pcs_willpwr < 150: pcs_willpwr += 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/' + rand(1, 9) + '.jpg"></center>'
+		rand_pee = rand(0, 2)
+		if rand_pee = 0:
+			'从卷筒上抽了些卫生纸，你伸手向下擦拭阴道，擦去残留的几滴尿液，然后把纸丢进马桶。'
+		elseif rand_pee = 1:
+			'你把卫生纸缠在手上，伸到身后快速擦拭阴部和肛门，然后让纸掉进马桶。'
+		else
+			'你抓了一把卫生纸握在拳里，轻轻地把阴道拍干。随后把用过的纸扔进马桶冲掉。'
+		end
+
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+
+!! Public bathrooms: These texts should be randomly selected if using a public restroom
+if $ARGS[0] = 'pblc_pee':
+	if last_pee + 59 < totminut and cheatVars['pee'] = 0:
+		act '上厕所（0:04）':
+			*clr & cla
+			menu_off = 1
+			last_pee = totminut
+			minut += 4
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/body/pee/public/' + rand(1, 11) + '.jpg"></center>'
+			rand_pee = rand(0, 7)
+			if rand_pee = 0:
+				'你坐到马桶上，掏出手机，开始查看消息，做些别的事情来打发时间，直到尿流渐渐变细，最终停止。'
+			elseif rand_pee = 1:
+				'放松膀胱开始小便时，你决定回想一下近来与生活中人们的往来。"他们怎么看我？会不会在背后说我坏话？"你一直思忖着，直到身体示意尿流已经结束。'
+			elseif rand_pee = 2:
+				'你急急忙忙冲过去坐到马桶上，差点就尿裤子了。再也憋不住这股洪流，身体释放出一股仿佛无穷无尽的尿流，你如释重负地低声呻吟着，庆幸自己及时赶上了。'
+			elseif rand_pee = 3:
+				'一走进洗手间，你的鼻孔就被一股极其恶臭的气味冲击。你清楚自己别无选择，只得强忍住作呕的冲动，在隔间里坐下办完事。'
+			elseif rand_pee = 4:
+				*clr
+				'<center><img <<$set_imgh>> src="images/pc/body/pee/public/hovercraft' + rand(1, 2) + '.jpg"></center>'
+				'你走进隔间，看到这恶心透顶的设施，厌恶地哼了一声。意识到别无选择，你决定来个"凌空悬停"。你没有坐下去，而是把屁股悬在便池上方，松开憋了许久的尿，也不在乎尿流是不是都进了马桶。'
+			else
+				!! Graffiti trigger text
+				rand_pee = rand(0, 21)
+				'你坐下放松膀胱解手时，被隔间墙上的涂鸦分了神，看了起来。'
+				$rand_girl = func('gschool_randperson', 1, '', 1, 1, 1, 1, 1, 0)
+				if rand_pee = 0:
+					'阿尔比娜和她那帮小明星都是一群肮脏的骚货！'
+				elseif rand_pee = 1:
+					'<<$rand_girl>>的小穴闻起来像呕吐物！'
+				elseif rand_pee = 2:
+					'小心迪姆卡！他并不像看上去那么和善！'
+				elseif rand_pee = 3:
+					'如果你来大姨妈了，起身时检查一下座位，把它擦干净！！！没人想坐脏兮兮的座位！'
+				elseif rand_pee = 4:
+					'如果你闻到鱼腥味，那多半是你那条脏骚穴！哈哈哈！'
+				elseif rand_pee = 5:
+					'婊子们，把阴毛剃干净吧！没人喜欢在灌木丛里扒拉着找。哈哈。'
+				elseif rand_pee = 6:
+					'剃过毛的小穴会发臭，还容易感染！别信那些鬼话！'
+				elseif rand_pee = 7:
+					'反抗父权！'
+				elseif rand_pee = 8:
+					'卫生棉条还是卫生巾，投出你的一票！这行字下面是代表各个女生偏好的计数记号。还有人写了句"终身不用棉条！"呃。'
+				elseif rand_pee = 9:
+					'佩特卡的鸡巴比我的口红管还小，哈哈哈！'
+				elseif rand_pee = 10:
+					'你很美！要相信自己！'
+				elseif rand_pee = 11:
+					'普京 是个大男子主义的蠢猪！'
+				elseif rand_pee = 12:
+					'去吃鸡巴！对你身体有好处！'
+				elseif rand_pee = 13:
+					'"我保证会拔出来！"是你能相信的最危险的谎言。这句话下面还跟着一幅粗劣的孕妇涂鸦。'
+				elseif rand_pee = 14:
+					'女士们，香水少喷点吧。这儿闻起来像有只独角兽放了个屁。'
+				elseif rand_pee = 15:
+					'<<$rand_girl>>是个骚货，所有人都知道！'
+				elseif rand_pee = 16:
+					'男人就像连裤袜：要么抽丝，要么贴身，要么在裆部不合身！'
+				elseif rand_pee = 17:
+					'那些街头小痞子简直帅爆了！！！'
+				elseif rand_pee = 18:
+					'关于黑人的那个传言是真的！不信去问问马库斯，让他给你开开眼。'
+				elseif rand_pee = 19:
+					'屁股才是最好的性爱！'
+				elseif rand_pee = 20:
+					'我刚在墙上写了字。去你的吧，社会！'
+				else
+					'永远别停止爱抚你的阴蒂。'
+				end
+			end
+
+			if mc_inventory['tampons'] > 0 and (mesec > 0 or (placebopart > 0 and pillcon < 40000)) and (isprok = 1 or (isprok = 0 and isprokp = 0)) and knowpreg = 0:
+				act '更换卫生棉条（0:02）':
+					*clr & cla
+					mc_inventory['tampons'] -= 1
+					isprok = 1
+					minut += 2
+					gs 'mood', 'lower', 'tiny'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/pc/body/pee/period/tampon/' + rand(1, 12) + '.jpg"></center>'
+					'你俯身用手指捏住棉线，慢慢把用过的卫生棉条从阴道里拉出来。你用卫生纸把它包好，准备扔进垃圾桶。打开手提包取出一支新的，拆开包装，小心翼翼地塞入体内。'
+
+					gs 'din_van', 'pblc_pee_end'
+				end
+			end
+
+			if mesec > 0 and (isprokp = 1 or (isprok = 0 and isprokp = 0)) and mc_inventory['sanitary_pads'] > 0 and bag = 1 and $pantyworntype ! 'none':
+				act '更换卫生巾 (0:02)':
+					*clr & cla
+					mc_inventory['sanitary_pads'] -= 1
+					isprokp = 1
+					minut += 2
+					gs 'mood', 'lower', 'tiny'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/pc/body/pee/period/pad/' + rand(1, 6) + '.jpg"></center>'
+					'检查了一下你的卫生巾，你决定该换新的了。你小心地把它从内裤上撕下来，折成三折，放在一边准备扔掉。你翻找包包，拿出一片新卫生巾，拆开包装，撕下背胶条，放入内裤中。最后，你把护翼包在裆部两侧，确保它稳固服帖。'
+
+					gs 'din_van', 'pblc_pee_end'
+				end
+			end
+
+			gs 'din_van', 'pblc_pee_end'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pblc_pee_end':
+	act '完成并擦拭':
+		*clr & cla
+		cumspclnt = 15 & gs 'cum_cleanup'
+		if pcs_willpwr < 150: pcs_willpwr += 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/' + rand(1, 9) + '.jpg"></center>'
+		rand_pee = rand(0, 6)
+		if rand_pee = 0:
+			'从卷筒上抽了些卫生纸，你伸手向下擦拭阴道，擦去残留的几滴尿液，然后把纸丢进马桶。'
+		elseif rand_pee = 1:
+			'你把卫生纸缠在手上，伸到身后快速擦拭阴部和肛门，然后让纸掉进马桶。'
+		elseif rand_pee = 2:
+			'你抓了一把卫生纸握在手里，用它轻轻把阴道拍干。你把用过的纸扔进马桶，冲了下去。'
+		elseif rand_pee = 3:
+			'你抓起一些粗糙廉价的卫生纸，轻轻擦拭自己，以免刺激娇嫩的皮肤。你把纸扔进脏马桶里，用脚踩下冲水把手。'
+		elseif rand_pee = 4:
+			'你去找卷筒卫生纸，却沮丧地发现纸已经用完了。你注意到旁边的隔间似乎有人，便礼貌地请那位陌生人帮个忙。对方轻笑一声，好心从隔板下递给你一卷纸，你高兴地用了起来。'
+		else
+			*clr
+			'<center><img <<$set_imgh>> src="images/pc/body/pee/wiping/no' + rand(1, 6) + '.jpg"></center>'
+			'你伸手去拿卫生纸，却叹了口气——卷筒已经空了。你不耐烦地扭动屁股抖掉最后几滴，然后提起内裤走出隔间。'
+		end
+
+		act '完成': gs 'daily_routine', 'finish_step', $loc, $loc_arg
+	end
+end
+
+
+if $ARGS[0] = 'shave_options':
+	menu_off = 1
+	*clr & cla
+	if shave_img_hgt = 0: shave_img_hgt = 100
+	*p '<center><h3><b>剃毛选项</b></h3>'
+	'在这里你可以选择阴毛的样式，以及想剃掉哪些部位的毛发。'
+	*nl
+	'你的剃刀还能再用&nbsp;<b><<mc_inventory[''razor'']>></b>&nbsp；次。'
+	*nl
+	'<b>更改你的剃毛方式：'
+	*nl
+	'注意：选择永不剃毛，或只剃腿部，将清除你已选定的剃毛样式。'
+	'你只有在毛发目前足够支撑该样式时才能选择它。</b>'
+	*nl
+	!! if shave_menu = 0:nothing
+	!! if shave_menu = 1:legs and pussy
+	!! if shave_menu = 2:pussy only
+	!! if shave_menu = 3:legs only
+	if pubestyle = 0:
+		*p iif(shave_menu = 1, '全部&nbsp;|&nbsp;', '<a href="exec: msg ''你必须先选择一种剃毛方式，才能选择剃光全部。''">全部</a>&nbsp;|&nbsp;')
+		*p iif(shave_menu = 2, '仅小穴&nbsp;|&nbsp;', '<a href="exec: msg ''你必须先选择一种剃毛方式，才能选择只剃小穴。''">仅小穴</a>&nbsp;|&nbsp;')
+		*p iif(shave_menu = 3, '仅腿部&nbsp;|&nbsp;', '<a href="exec:shave_menu = 3 & pubestyle = 0 & gs ''din_van'', ''shave_options''">仅腿部</a>&nbsp;|&nbsp;')
+		*p iif(shave_menu = 0, '从不刮毛', '<a href="exec:shave_menu = 0 & pubestyle = 0 & gs ''din_van'', ''shave_options''">从不刮毛</a>')
+	else
+		*p iif(shave_menu = 1, '全部&nbsp;|&nbsp;', '<a href="exec:shave_menu = 1 & gs ''din_van'', ''shave_options''">全部</a>&nbsp;|&nbsp;')
+		*p iif(shave_menu = 2, '仅小穴&nbsp;|&nbsp;', '<a href="exec:shave_menu = 2 & gs ''din_van'', ''shave_options''">仅小穴</a>&nbsp;|&nbsp;')
+		*p iif(shave_menu = 3, '仅腿部&nbsp;|&nbsp;', '<a href="exec:shave_menu = 3 & pubestyle = 0 & gs ''din_van'', ''shave_options''">仅腿部</a>&nbsp;|&nbsp;')
+		*p iif(shave_menu = 0, '从不刮毛', '<a href="exec:shave_menu = 0 & pubestyle = 0 & gs ''din_van'', ''shave_options''">从不刮毛</a>')
+	end
+	*nl
+	*nl
+	if shave_menu = 0:
+		'你当前的例行流程不包括任何剃毛选项。'
+		$temp_toggle = 'shave_menu = 2'
+	elseif shave_menu = 1:
+		'你当前的例行流程是剃除腿毛，并保持你现有的阴毛样式。'
+		'完成这套流程需要15分钟。'
+		$temp_toggle = 'shave_menu = 1'
+	elseif shave_menu = 2:
+		'你当前的例行流程是不剃腿毛，并保持你现有的阴毛样式。'
+		'完成这套流程需要10分钟。'
+		$temp_toggle = 'shave_menu = 2'
+	elseif shave_menu = 3:
+		'你当前的例行流程是剃除腿毛，不保持任何所选阴毛样式。'
+		'完成这套流程需要5分钟。'
+		$temp_toggle = 'shave_menu = 1'
+	end
+	*nl
+	*p '<table border=0 cellspacing=<<shave_img_hgt/25>> cellpadding=5>'
+
+	!! ROW 1: IMAGES
+	*p '<tr><td><center><a href="exec:view''images/pc/body/pussy/hair/pussy.jpg''"><img Height = <<shave_img_hgt>> src="images/pc/body/pussy/hair/pussy.jpg"></a></center></td>'
+
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 2)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 3)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 4)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 5)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td></tr>'
+
+	!! ROW 1: TEXT
+	*p '<tr><td><center>'
+	if pubestyle ! 1:
+		*p '<a href="exec:pubestyle = 1 & shave_length = 0 & shave_trigger = 3 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">完全剃光</a>'
+	else
+		*p '完全剃光'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 2 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 2 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">V字形</a>'
+	else
+		*p 'V字形'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 3 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 3 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">三角形</a>'
+	else
+		*p '三角形'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 4 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 4 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">跑道形</a>'
+	else
+		*p '跑道形'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 5 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 5 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">心形</a>'
+	else
+		*p '心形'
+	end
+	*p '</center></td></tr>'
+
+!! ROW 2: IMAGES
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 6)
+	*p '<tr><td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 7)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 8)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 9)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 26, pcs_pubecol[2], 10)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td></tr>'
+
+
+	!! ROW 2: TEXT
+	*p '<tr><td><center>'
+	if pubestyle ! 6 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 6 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">火焰形</a>'
+	else
+		*p '火焰形'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 7 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 7 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">十字形</a>'
+	else
+		*p '十字形'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 8 and pcs_pubes > 16:
+		*p '<a href="exec:pubestyle = 8 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">修剪整齐</a>'
+	else
+		*p '修剪整齐'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 9 and pcs_pubes > 20:
+		*p '<a href="exec:pubestyle = 9 & shave_length = 20 & shave_trigger = 26 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">小丛</a>'
+	else
+		*p '小丛'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 10:
+		*p '<a href="exec:pubestyle = 10 & shave_length = 26 & shave_trigger = 31 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">浓密阴毛</a>'
+	else
+		*p '浓密阴毛'
+	end
+	*p '</center></td></tr>'
+
+!! ROW 3: IMAGES
+	$temp_pube_image = func('$body_image', 'pubes', 5, pcs_pubecol[2], 11)
+	*p '<tr><td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td>'
+
+	$temp_pube_image = func('$body_image', 'pubes', 16, pcs_pubecol[2], 12)
+	*p '<td><center><a href="exec:view''<<$temp_pube_image>>''"><img Height = <<shave_img_hgt>> src="<<$temp_pube_image>>"></a></center></td></tr>'
+
+!! ROW 3: TEXT
+	*p '<tr><td><center>'
+	if pubestyle ! 11 and pcs_pubes > 10:
+		*p '<a href="exec:pubestyle = 11 & shave_length = 0 & shave_trigger = 8 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">随意</a>'
+	else
+		*p '随意'
+	end
+	*p '</center></td><td><center>'
+	if pubestyle ! 12 and pcs_pubes > 15:
+		*p '<a href="exec:pubestyle = 12 & shave_length = 16 & shave_trigger = 21 & <<$temp_toggle>> & gt ''din_van'', ''shave_options''">迷你草丛</a>'
+	else
+		*p '迷你草丛'
+	end
+
+	*p '</center></td></tr></table>'
+	*p '<sub><small>懒人模式 -（不立即刮掉新生胡茬）</small></sub></center>'
+
+	killvar 'temp_pube_image'
+	killvar 'temp_toggle'
+
+	act '返回': menu_off = 0 & gt $loc, $loc_arg
+	act '设置此页面的图片高度':
+		shave_img_hgt = input("输入你希望此页面图片使用的高度（像素）<br>（默认100，最小50，最大500）")
+		if shave_img_hgt < 50:
+			shave_img_hgt = 50
+		elseif shave_img_hgt > 500:
+			shave_img_hgt = 500
+		end
+		gt 'din_van', 'shave_options'
+	end
+end
+
+
+--- din_van ---------------------------------

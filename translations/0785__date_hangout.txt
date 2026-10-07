@@ -1,0 +1,620 @@
+# date_hangout
+
+if $ARGS[0] = 'start':
+	'<center><<$npc_apt_hall[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	if $ARGS[1] = 'knock':
+		'你敲了敲门，<<$npcdesc>>打开了门。'
+		'"嘿，进来吧。"'
+	elseif $ARGS[1] = 'together':
+		'你和<<$npcdesc>>一起漫步到他的门前，他打开门领你们进去。'
+	elseif $ARGS[1] = 'disco':
+		'你漫步离开迪斯科舞厅，来到<<$npcdesc>>的公寓和他一起，他打开门带你进去。'
+	elseif $ARGS[1] = 'club':
+		'你离开夜店，打车前往<<$npcdesc>>的公寓和他一起，他打开门带你进去。'
+	else
+		msg '错误：$ARGS[1] 未设置。保险方案生效。剧情可能不连贯。'
+		'你和<<$npcdesc>>一起漫步到他的门前，他打开门领你们进去。'
+	end
+	gs 'date_hangout', 'init', $ARGS[2]
+	'<center><<$npc_apt_hall[$npcID]>></center>'
+	gs 'date_hangout', 'settle_in'
+end
+
+if $ARGS[0] = 'init':
+	if date_ev['init'] < totminut - 60:
+		date_ev['init'] = totminut
+		date_ev['at_home'] = 1
+		$date_ev['locat'] = 'npc_home'
+		$date_ev['type'] = 'home_date'
+		!! above is to let the game know what the current date activity is
+		!! below is to track what activities have been done
+		$date_ev['loc'] = 'date_hangout'
+		$date_ev['loc_img'] = 'loc_img'
+
+		$date_ev['talk_img'] = 'talk_img'
+
+		date_ev['activity_count'] += 1
+	end
+!!{	if $npc_rel_type[$npcID] = '':
+		if
+	end}
+end
+
+if $ARGS[0] = 'loc_img':
+	cla & *clr
+	'<center><<$npc_apt_livingroom[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+end
+
+if $ARGS[0] = 'talk_img':
+	cla & *clr
+	!! if $date_ev['hangout_loc'] = 'living_couch'
+	if date_ev['cuddle_active'] = 0:
+		if ARGS[1] <> 0:
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/couch_talk<<ARGS[1]>>.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/couch_talk<<rand(1,2)>>.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		end
+	else
+		!! add real cuddling images later
+		if ARGS[1] <> 0:
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/couch_talk<<ARGS[1]>>.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/couch_talk<<rand(1,2)>>.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		end
+	end
+end
+
+if $ARGS[0] = 'watching_image':
+	cla & *clr
+	if npc_finance[$npcID] = 0:
+		!! too poor to own a real TV, you just watch on a laptop or phone
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/laptop_watch1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	else
+		if date_ev['get_snacks'] > 0:
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/tv_snacks1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/tv_watch1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		end
+	end
+end
+
+if $ARGS[0] = 'settle_in':
+	act '坐在沙发上':
+		cla & *clr
+		$date_ev['hangout_loc'] = 'living_couch'
+		!! $date_ev['hangout_loc_img'] = $npc_apt_livingroom[$npcID]
+		!! $date_ev['talk_img'] = '<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/couch_talk<<rand(1,2)>>.jpg"></center>'
+		gs 'date_hangout', 'loc_img'
+		if $coatworntype ! 'none':
+			if npc_caretaker[$npcID] > 0:
+				'当你走进去时，<<$npcdesc>>帮你脱下外套，挂在门边。他做这些的时候，你走到他的沙发前，一屁股坐了下来。'
+			else
+				'当你走进去时，自己脱下外套，搭在椅背上。做完这些，你慢悠悠地走到<<$npcdesc>>的沙发前，一屁股坐了下来。'
+			end
+		else
+			'当你走进去时，你打量着<<$npcdesc>>的公寓，片刻之后，慢悠悠地走到他的沙发前，一屁股坐了下来。'
+		end
+		if $npc_rel_goal[$npcID] = 'sex':
+			if npc_assertive[$npcID] > 0:
+				'"要不要我去弄点喝的？" 从他的语气你就能听出，他说的绝对不是任何"软"饮料。'
+				'"呃-"'
+				'"我去拿点伏特加来。"'
+				'你还没来得及发表意见，他已经拿出一瓶酒，往两个杯子里倒了大半杯，递了一杯给你。'
+				xgt 'date_hangout', 'vodka_deliver'
+			else
+				'"要不要我去弄点喝的？" 从他的语气你就能听出，他说的绝对不是任何"软"饮料。'
+				act '来杯茶怎么样？':
+					cla & *nl
+					'你犹豫了一下。'
+					if alko > 0:
+						'"我不知道……我觉得我今晚已经喝得够多了……我能改喝茶吗？"'
+					else
+						'"我不知道我还能不能喝……我能改喝一杯茶吗？"'
+					end
+					if npc_pushy > 0:
+						'"别这样，你喝一两杯没问题的。别担心。"'
+						gs 'willpower', 'resist', 'drink'
+						if pcs_willpwr < will_cost:
+							act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+						else
+							act '拒绝' + $func('willpower', 'get_willcost_string'):
+								cla & *nl
+								gs 'willpower', 'pay', 'self'
+								gs 'stat'
+								'"不，" 你坚定地说。"我真的不想喝任何含酒精的东西。"'
+								'"好吧，如果你坚持，" 他叹了口气。'
+								'他花了几分钟，但最终端着一杯茶回来了。'
+								xgt 'date_hangout', 'tea_deliver'
+							end
+						end
+					else
+						'"当然，" 他微笑着说。'
+						'他花了几分钟，但最终端着一杯茶回来了。'
+						xgt 'date_hangout', 'tea_deliver'
+					end
+				end
+
+				act '接受饮料':
+					cla & *nl
+					'"好吧，" 你点点头，他也回以微笑。'
+					'"马上就来。"'
+					'你听到玻璃杯碰撞的声音，他端着一杯清澈的液体回来了。'
+					xgt 'date_hangout', 'vodka_deliver'
+				end
+			end
+		!!elseif npc_caretaker[$npcID] > 0:
+		elseif npc_caretaker[$npcID] > 0:
+			'"要我帮你拿点什么喝的吗？" <<$npcdesc>>说。"你想要什么都行。"'
+			act '不用了，谢谢':
+				cla & *nl
+				'"没事，" 你礼貌地说。"我什么都不需要。"'
+				if npc_pushy[$npcID] > 0:
+					'"不，真的。让我给你拿点东西，" 他说。'
+					'"不，我真的-" 你开口道。'
+					'"我去给你泡杯茶，" 他微笑着，在你来得及阻止他之前就在厨房里忙活起来。'
+					'他花了几分钟，但最终端着一杯茶回来了。'
+					xgt 'date_hangout', 'tea_deliver'
+				else
+					'"好吧，" 他微笑着走过来和你坐在一起。'
+					xgt 'date_hangout', 'activity_menu'
+				end
+			end
+			act '茶？':
+				cla & *nl
+				'"来点茶怎么样？"'
+				'"当然，" 他微笑着说。'
+				'他花了几分钟，但最终端着一杯茶回来了。'
+				xgt 'date_hangout', 'tea_deliver'
+			end
+
+			act '伏特加？':
+				cla & *nl
+				'"如果你们有伏特加的话，我很想喝一点。"'
+				'"马上就来，" 他微笑着说。'
+				'你听到玻璃杯碰撞的声音，他端着一杯清澈的液体回来了。'
+				xgt 'date_hangout', 'vodka_deliver'
+			end
+		else
+			'"随便点，当自己家就行，" 他说着，含糊地做了个手势，然后和你一起坐下。'
+			xgt 'date_hangout', 'activity_menu'
+		end
+	end
+
+	!!{
+	act '坐在厨房里':
+
+	end}
+end
+
+if $ARGS[0] = 'tea_deliver':
+	act '喝一小口':
+		cla & *clr
+		'<center><img <<$set_imgh>> src="images/shared/drinks/tea.jpg"></center>'
+		gs 'beverage', 'tea_stats'
+		gs 'stat'
+		if $date_ev['hangout_loc'] = 'living_couch':
+			'接过马克杯，你抿了一口，一股暖流流过胃部。你叹了口气，在沙发上安顿下来。'
+		elseif $date_ev['hangout_loc'] = 'kitchen_table':
+			'接过杯子，你抿了一口，一阵暖流流过胃部你叹了口气，坐回座位上。'
+		else
+			'接过杯子，你抿了一口，一阵暖流流过胃部你叹了口气，坐回座位上。'
+		end
+		xgt 'date_hangout', 'activity_menu'
+	end
+end
+
+if $ARGS[0] = 'vodka_deliver':
+	act '喝一小口':
+		cla & *clr
+		!! IMAGE HERE
+		gs 'beverage', 'vodka_stats'
+		gs 'stat'
+		if $date_ev['hangout_loc'] = 'living_couch':
+			'接过玻璃杯，你抿了一口，一股灼热的冰凉流过胃部，让你觉得暖洋洋的。你叹了口气，在沙发上安顿下来。'
+		elseif $date_ev['hangout_loc'] = 'kitchen_table':
+			'接过玻璃杯，你抿了一口，一股灼热的冰凉流过胃部，让你觉得暖洋洋的。你叹了口气，坐回座位上。'
+		else
+			'接过玻璃杯，你抿了一口，一股灼热的冰凉流过胃部，让你觉得暖洋洋的。你叹了口气，坐回座位上。'
+		end
+		xgt 'date_hangout', 'activity_menu'
+	end
+end
+
+if $ARGS[0] = 'activity_menu':
+	if hour >= 20 or hour <= 3:
+		act '说晚安': gt 'date_after', 'apartment_date_end'
+	else
+		act '说再见': gt 'date_after', 'apartment_date_end'
+	end
+
+	if $date_ev['last_active'] = 'chatting':
+		act '继续聊天': gt 'date_hangout', 'chat_top'
+	else
+		act '聊聊天': gt 'date_hangout', 'chat_top'
+	end
+
+	if date_ev['cuddle_active'] = 0:
+		act '依偎在一起': gt 'date_hangout', 'cuddle_up'
+	else
+		act '分开': gt 'date_hangout', 'cuddle_stop'
+	end
+end
+
+if $ARGS[0] = 'chat_top':
+	date_ev['chat_count'] += 1
+	$date_ev['last_active'] = 'chatting'
+	gs 'date_hangout', 'loc_img'
+	gs 'date_funcs', 'set_continue', 'date_hangout', 'chat_top'
+	gs 'date_hangout', 'activity_menu'
+	if npc_sexdrive[$npcID] >= rand(1,10) and date_ev['make_move_lock'] = 0:
+		xgt 'date_hangout', 'boy_making_moves', 'chat'
+	else
+		xgt 'date_talk', 'talk_menu'
+	end
+end
+
+if $ARGS[0] = 'flirt_top':
+	date_ev['chat_count'] += 1
+	$date_ev['last_active'] = 'flirting'
+	gs 'date_hangout', 'loc_img'
+	gs 'date_funcs', 'set_continue', 'date_hangout', 'flirt_top'
+	'你正在和<<$npcdesc>>调情'
+	act '浪漫地调情':
+		gs 'date_hangout', 'talk_img'
+
+		gs 'date_hangout', 'activity_menu'
+		gs 'date_talk', 'flirt_arg', 'romantically'
+	end
+end
+
+if $ARGS[0] = 'watch_hang_top':
+
+	act '挑点什么': xgt 'date_hangout', 'watch_hang_menu'
+end
+
+if $ARGS[0] = 'watch_hang_menu':
+	act '浪漫一点的东西':
+		cla & *nl
+		'"我们能看点浪漫的东西吗？"'
+		if npc_caretaker[$npcID] > 0:
+			'"好吧，如果你想看的话。"'
+		else
+			'"我想是吧。"'
+		end
+		act '观看': xgt 'date_hangout', 'watch_part1', 'romantic'
+	end
+end
+
+if $ARGS[0] = 'watch_part1':
+	$date_ev['cont_arg'] = 'watch_part2'
+	gs 'date_hangout', 'watching_image'
+	if $ARGS[1] = 'romantic':
+		'你们看了一些浪漫的东西。'
+	else
+		'你们一起看了一些东西。'
+	end
+end
+
+if $ARGS[0] = 'watch_sex_scene':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/vag/cowgirl/phone_ignore.mp4"></video></center>'
+	if $ARGS[1] = 'romantic':
+		'一段火辣、性感的性爱场面开始了。'
+	else
+		'随着电影的推进和场景的转换，角色们被卷入了一场亲密的性爱场面。女主角的手机在前景嗡嗡作响，而她正热情地骑在另一个男人身上，臀部像波浪一样起伏，每次弓起背，乳房都随之晃动。'
+	end
+
+	act '这让你兴奋起来……': xgt 'date_hangout', 'watch_turnon'
+end
+
+if $ARGS[0] = 'turnon_bottom_desc':
+	if $pantyworntype <> 'none':
+		$temp['turnon_desc'] = '渗进你的内裤里。'
+	elseif PCloPantsShortness >= 3:
+		$temp['turnon_desc'] = '渗进裤裆里。'
+	elseif PCloPantsShortness > 0:
+		$temp['turnon_desc'] = '渗进短裤的裤裆里。'
+	elseif PCloSkirtShortness > 0:
+		$temp['turnon_desc'] = '打湿了裙子下面的双腿。'
+	else
+		$temp['turnon_desc'] = '打湿了你的双腿。'
+	end
+end
+
+if $ARGS[0] = 'watch_turnon':
+	gs 'date_hangout', 'turnon_bottom_desc'
+	cla & *nl
+	if $ARGS[1] = 'romantic':
+		'屏幕上的角色不断摩擦着身体，一团翻滚的性感肉体，你体内涌起一阵热意。你的理智知道那是假的，但你的身体却分辨不出来。你猛然意识到自己正在座位上扭来扭去。你的乳头硬了，你正摩擦着双腿，一股湿热正在<<$temp[''turnon_desc'']>>'
+	else
+		'屏幕上的角色不断摩擦着身体，一团翻滚的性感肉体，你体内涌起一阵热意。你的理智知道那是假的，但你的身体却分辨不出来。你猛然意识到自己正在座位上扭来扭去。你的乳头硬了，你正摩擦着双腿，一股湿热正在<<$temp[''turnon_desc'']>>'
+	end
+	if rand(1,5) <= npc_sexdrive[$npcID]:
+		date_ev['boy_turned_on'] = 1
+		if date_ev['cuddle_active'] = 1:
+			'<<$npcdesc>>也好不到哪去，你能感觉到他的<<$npc_dick_desc[$npcID]>>阴茎抵着你的臀部变硬，有意无意地微微用胯部磨蹭着你的身体。'
+		else
+			'瞥了一眼，发现<<$npcdesc>>. 你已经能看到他的<<$npc_dick_desc[$npcID]>>阴茎，鼓在裤子里。'
+		end
+	else
+		'你迅速瞥了一眼<<$npcdesc>>, 想看看他是否注意到了，但他仍然沉浸在电影里。或者也许只是沉浸在场景和其中的性爱中。无论如何，他都没有注意到你的欲望。'
+	end
+	act '无视它':
+		cla & *nl
+		'虽然很难，你还是强迫自己试着无视自己的欲火，专注于电影。不幸的是，这确实也让你一直看着那场性爱场面。但最终它结束了，你设法恢复到更正常的状态，尽管大腿黏糊糊的。'
+		act '继续': xgt 'date_hangout', 'watch_part2'
+	end
+	act '采取行动': xgt 'date_hangout', 'pc_making_moves', 'watching'
+end
+
+if $ARGS[0] = 'watch_part2':
+	gs 'date_hangout', 'loc_img'
+	'最后，电影结束了，片尾字幕在屏幕上滚动。你瞥了一眼时钟。'
+	'<b>' + $func('time', 'get_time_string') + '</b>'
+	if date_ev['boy_turned_on'] = 1:
+		act '<<$npcdesc>>在说些什么……': date_ev['boy_turned_on'] = 0 & gt 'date_hangout', 'boy_making_moves', 'watch_end'
+	else
+		act '做点别的事':
+			cla & *clr
+			gs 'date_hangout', 'loc_img'
+			'你决定现在还不想结束，但也许想做点看电视以外的事。'
+			xgt 'date_hangout', 'activity_menu'
+		end
+	end
+end
+
+if $ARGS[0] = 'pc_making_moves':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/system/image_needed.png"></center>'
+	if date_ev['cuddle_active'] = 0:
+		if $ARGS[1] = 'watching':
+			if date_ev['boy_turned_on'] = 1:
+				'心在胸腔里怦怦直跳，你挪到<<$npcdesc>>. 你的手轻轻沿着他的大腿内侧向上滑，直到碰到他硬邦邦的<<$npc_dick_desc[$npcID]>>阴茎在他裤子里。你用指尖描摹着它的轮廓，几乎要把它整个握住，目光牢牢锁在他身上，背景里的电影已被遗忘。他眼中燃烧着与你相同的欲望。'
+				if rand(1,2) = 1:
+					if PCloSkirtShortness > 0:
+						'突然你感到<i>他的</i>手，探到你的裙下……'
+					else
+						'突然你感到<i>他的</i>手，滑进你的裤子前面……'
+					end
+					act '继续': gt 'date_hangout', 'hand_down_pants'
+				else
+					act '吻他': gt 'date_hangout', 'kiss_to_sex'
+				end
+			else
+				'心在胸腔里怦怦直跳，你挪到<<$npcdesc>>. 你的手轻轻沿着他的大腿内侧向上滑，直到碰到他那柔软的<<$npc_dick_desc[$npcID]>>阴茎在他裤子里。你用指尖描摹着它的轮廓，几乎要把它整个握住，目光牢牢锁在他身上，背景里的电影已被遗忘。'
+				if $npc_rel_goal[$npcID] = 'sex' or rand(1,10) <= npc_sexdrive[$npcID]:
+					'你的注视惊到了<<$npcdesc>>, 但他的阴茎在你的触碰下还是硬了起来。'
+					if rand(1,2) = 1:
+						if PCloSkirtShortness > 0:
+							'突然你感到<i>他的</i>手，探到你的裙下……'
+						else
+							'突然你感到<i>他的</i>手，滑进你的裤子前面……'
+						end
+						act '继续': gt 'date_hangout', 'hand_down_pants'
+					else
+						act '吻他': gt 'date_hangout', 'kiss_to_sex'
+					end
+				else
+					'你的注视惊到了<<$npcdesc>>, 他一脸茫然地看着你。'
+					'"呃，<<$pcs_nickname>>……你在干什么？"'
+					act '退回去':
+						gs 'date_hangout', 'loc_img'
+						'一阵尴尬的浪潮席卷而来，你脖子和背部的肌肉都绷紧了。'
+						'"哦。呃，嗯……我只是……" <<$npcdesc>>看起来和你一样尴尬，如果这真的可能的话。'
+						'"我们能就，嗯，继续看吗？"'
+						'"当然。" 你安顿下来，希望他看不出你的脸有多红。结果，出于一个完全不同的原因，你很难集中精力看正在看的东西。'
+						act '继续': gt 'date_hangout', $date_ev['cont_arg']
+					end
+				end
+			end
+		else
+
+		end
+	else
+		if $ARGS[1] = 'watching':
+
+		else
+
+		end
+	end
+end
+
+if $ARGS[0] = 'boy_making_moves':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/foreplay/necking1.mp4"></video></center>'
+	if $ARGS[1] = 'chat':
+		if date_ev['chat_count'] = 1:
+			'<<$npcdesc>>和你在聊一些无关紧要的事。但不到一分钟，他就向你靠近了。然后他坐到了你旁边。然后他开始抚摸你的脸，在你的脖子上落下细碎的吻。如果你不阻止他，你很清楚接下来会发生什么……'
+		else
+			'<<$npcdesc>>和你在聊一些无关紧要的事，这时他向你靠近了。然后他坐到了你旁边。然后他开始抚摸你的脸，在你的脖子上落下细碎的吻。如果你不阻止他，你很清楚接下来会发生什么……'
+		end
+	elseif $ARGS[1] = 'watch_end':
+		'"刚才不错吧？" 他低声说着，吻了吻你的脖子。'
+		'"嗯。" 直到你说出口，你才意识到他的胳膊正环上你的腰。而他的手正在拨弄你的衣服……他现在想要什么再清楚不过了……'
+	else
+		'<<$npcdesc>>向你靠近了。然后他坐到了你旁边。然后他开始抚摸你的脸，在你的脖子上落下细碎的吻。如果你不阻止他，你很清楚接下来会发生什么……'
+	end
+	act '阻止他':
+		if npc_pushy[$npcID] > 0:
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/foreplay/necking1.mp4"></video></center>'
+			xgt 'date_hangout', 'boy_making_moves_press'
+		else
+			cla & *nl
+			'"<<$npcdesc>>! <<$npcdesc>>, 停下-!" 你说着，把脸从他的吻中转开。'
+			xgt 'date_hangout', 'boy_making_moves_stop'
+		end
+	end
+
+	act '回吻他':
+		cla & *clr
+		gs 'arousal', 'kiss', 5
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/kiss/makeout.mp4"></video></center>'
+		'你被气氛感染，任由他的吻沿着你的脖颈一路向上，找到你的嘴唇。一个吻变成两个，很快你们就一起投入了一场热烈的舌吻。如果你不尽快停下，它就要升级成更进一步的什么了……'
+		act '停止':
+			if npc_pushy[$npcID] > 0:
+				xgt 'date_hangout', 'boy_making_moves_press'
+			else
+				cla & *clr
+				gs 'date_hangout', 'loc_img'
+				'你猛地中断一个吻，喘着粗气。'
+				if npc_last_sex[$npcID] = 0:
+					'"对不起，" 你害羞地说。"只是现在进展得有点太快了。我们能……放慢一点吗？"'
+					'"嗯，" 他说着，自己也懊恼地咧嘴一笑。"我想我是有点得意忘形了。"'
+				else
+					'"对不起，" 你害羞地说。"我只是……现在什么都不想做……可以吗？"'
+					'"我想……" 他说着，自己也懊恼地咧嘴一笑。'
+				end
+				xgt 'date_hangout', 'activity_menu'
+			end
+		end
+
+		act '让它继续升级（性爱）':
+			cla & *nl
+			gs 'arousal', 'foreplay', 5
+			gs 'stat'
+			'……而<<$npcdesc>>的舌头在你嘴里，让你根本无法在乎。你含着他的舌头呻吟着，他的手开始摸索你身上敏感的部位，而你想……'
+			act '豁出去了':
+				cla & *nl
+				'<i>哦管他呢，我已经不在乎了……</i>'
+				act '继续': xgt 'date_hangout', 'go_to_sex'
+			end
+
+			act '馊主意':
+				cla & *nl
+				'<i>哦哦哦哦这真是个糟糕的主意……</i>你的眼睛因为快感而翻向脑后。'
+				act '继续': xgt 'date_hangout', 'go_to_sex'
+			end
+
+			act '好兴奋！':
+				cla & *nl
+				$sex_ev['starting_mood'] = 'excited'
+				if pcs_think['think_virgin'] = 0:
+					'<i>哦，这一定会感觉太————爽————了……</i>你的眼睛因为快感而翻向脑后。'
+				else
+					'<i>不知道今晚我是不是会失去我的处女之身……</i>你的心在胸腔里怦怦直跳。'
+				end
+				act '继续': xgt 'date_hangout', 'go_to_sex'
+			end
+		end
+
+		act '让它继续升级（半推半就的性爱）':
+			cla & *nl
+			gs 'arousal', 'foreplay', 5
+			$sex_ev['starting_mood'] = 'reluctant'
+			'你脊背一阵发痒，因为你意识到你不喜欢这件事的走向。但压力太大，你无法说不，你觉得自己没法说服他停下来。而如果你不能说"不", 那他就只会想做什么就做什么……'
+			act '继续': xgt 'date_hangout', 'go_to_sex'
+		end
+	end
+end
+
+if $ARGS[0] = 'boy_making_moves_press':
+	cla & *nl
+	'"<<$npcdesc>>-, <<$npcdesc>>停下-" 你试图说出口，但他似乎根本没听见。'
+	act '坚决制止他':
+		gs 'date_hangout', 'loc_img'
+		'"<<$npcdesc>>!"'
+		'你几乎是一把把他从你身边推开。'
+		xgt 'date_hangout', 'boy_making_moves_stop'
+	end
+
+	act '顺其自然':
+		cla & *clr
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/foreplay/necking2.mp4"></video></center>'
+		'他对你的恳求充耳不闻，现在开始拨弄你的衣服，你不情愿地意识到，你只能任由他这么做……'
+		$sex_ev['starting_mood'] = 'reluctant'
+		act '继续': xgt 'date_hangout', 'go_to_sex'
+	end
+
+	act '沉醉其中':
+		cla & *clr
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/kiss/makeout2.mp4"></video></center>'
+		gs 'arousal', 'kiss', 5, 'no_orgasm_msg'
+		'<i>嗯——————……</i>'
+		'<<$npcdesc>>的嘴唇在你身上感觉<i>太————好————了</i>, 你让自己融化在他的爱抚中。很快他不再亲吻你的脖子，而是<i>你</i>亲吻着他的嘴唇，房间里充满了津液交换的湿润声音，他的手开始滑向 ' + iif(PCloSkirtShortness > 0, '你的裙子下面。', '你的裤子前面。')
+		act '被手指插': xgt 'date_hangout', 'hand_down_pants'
+	end
+end
+
+if $ARGS[0] = 'boy_making_moves_stop':
+	if npc_dirty_lover[$npcID] > 0:
+		'"对不起，" 他咧嘴一笑。"我忍不住，你实在太辣了。"'
+	elseif npc_sensual_lover[$npcID] > 0:
+		'"对不起，" 他说着，带着羞怯的微笑退了回去。'
+	else
+		'"对不起，" 他说着，带着羞怯的微笑退了回去。'
+	end
+	gs 'date_hangout', 'activity_menu'
+end
+
+if $ARGS[0] = 'cuddle_up':
+	gs 'date_hangout', 'talk_img'
+	if $npc_rel_goal[$npcID] <> 'sex' and $npc_rel_type[$npcID] <> 'boyfriend' and $npc_rel_type[$npcID] <> 'husband' and npc_rel[$npcID] < 50:
+		if npc_rel[$npcID] < 25:
+			'你感到和<<$npcdesc>>越来越亲近，想要靠得更近，开始依偎着他。不幸的是，他似乎并不这么想，明显地僵住了，退回到家具的另一边。'
+		else
+			date_ev['cuddle_active'] = 1
+			'你感到和<<$npcdesc>>越来越亲近，想要靠得更近，开始依偎着他。你感到他尴尬地僵住了，但他没有躲开。也许他并没有和你一样的感觉……'
+		end
+	else
+		date_ev['cuddle_active'] = 1
+		'感到和<<$npcdesc>>, 你想靠得更近，开始依偎着他。他微笑着也这么做，用胳膊环住你，把你搂进他的温暖中。'
+	end
+	xgt 'date_hangout', 'activity_menu'
+end
+
+if $ARGS[0] = 'cuddle_stop':
+	date_ev['cuddle_active'] = 0
+	xgt 'date_hangout', 'activity_menu'
+end
+
+!! ---------------------------- explicit sex stuff ---------------------------------
+
+if $ARGS[0] = 'hand_down_pants':
+	gs 'arousal', 'vaginal_finger', 5, 'no_orgasm_msg'
+	cla & *clr
+	if PCloSkirtShortness > 0:
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/foreplay/fingering_skirt2.mp4"></video></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/sex/foreplay/fingering_pants1.jpg"></center>'
+	end
+	'当<<$npcdesc>>的手找到你湿润的缝隙，滑入一根手指时，你发出了一声喘息。他的嘴唇从未离开过你的嘴唇，当他出声地用手指玩弄你时，你不得不在他的舌头边呻吟。'
+	*nl
+	if npc_apt_type[$npcID] > 2:
+		if npc_dirty_lover[$npcID] > 0:
+			'他在你耳边低吼，"我们到床上去吧……"'
+		else
+			'他在你耳边低语，"我们到床上去吧……"'
+		end
+	else
+		if npc_dirty_lover[$npcID] > 0:
+			'他在你耳边低吼，"让我们把你脱光吧……"'
+		else
+			'他在你耳边低语，"我们把衣服脱了吧……"'
+		end
+		act '继续': gt 'date_hangout', 'go_to_sex'
+	end
+end
+
+if $ARGS[0] = 'kiss_to_sex':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/kiss/kotovpre30.mp4"></video></center>'
+	'你抓住他，把他拉<<$npcdesc>>到你身上，让他的嘴唇在热吻中找到你的嘴唇。当你的舌尖滑入他的双唇之间，他的舌头热切地迎上来，双手在你的身上游走，挑弄着你的衣服。'
+	*nl
+	'好吧，现在没有回头路了。'
+	act '继续': gt 'date_hangout', 'go_to_sex'
+end
+
+if $ARGS[0] = 'go_to_sex':
+	gs 'date_hangout', 'date_end_stats'
+	date_ev['npc_home_sex'] = 1
+	xgt 'sex_ev_start', 'npc_home_start'
+end
+
+if $ARGS[0] = 'date_end_stats':
+	date_count_hangout[$npcID] += 1
+end
+
+
+--- date_hangout ---------------------------------

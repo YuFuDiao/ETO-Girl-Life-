@@ -1,0 +1,100 @@
+# array
+
+
+
+!! this function returns the numeric index of the array element which is indexed by string value.
+!! call func('array', 'get_me_index', 'name of array','string index')
+!! the array can be both numeric or string: Be aware, for the search is used the value 'SearchTag' for string arrays and -2147483647 for numeric arrays.
+!! if the array consists such value, the fuction can mess the array content and return wrong value
+!! changed the value for detecting numeric element from -999 to -2147483648 (November 2020)
+!! changed the value for detecting numeric element from -2147483648 to -2147483647 (February 2026)
+if $ARGS[0] = 'get_me_index':
+	$test = '<<$ARGS[1]>>[''<<$ARGS[2]>>'']'
+	testas0 = arrsize($ARGS[1])
+	if $mid($test, 1, 1) = '$':
+		$temp_arrayVars['backup'] = $dyneval('$result = <<$test>>')
+		dynamic "<<$test>> = 'SearchTag'"
+		testas1 = arrsize($ARGS[1])
+		if testas0 = testas1:
+			result = arrpos($ARGS[1], 'SearchTag')
+			dynamic "<<$test>> = $temp_arrayVars['backup']"
+		else
+			result = -1
+			killvar $ARGS[1], testas0
+		end
+	else
+		temp_arrayVars['backup'] = dyneval('result = <<$test>>')
+		dynamic '<<$test>> = -2147483647'
+		testas1 = arrsize('<<$ARGS[1]>>')
+		if testas0 = testas1:
+			result = arrpos($ARGS[1], -2147483647)
+			dynamic "<<$test>> = temp_arrayVars['backup']"
+		else
+			result = -1
+			killvar $ARGS[1], testas0
+		end
+	end
+	exit
+end
+
+
+!! call gs 'array', 'remove_element', 'name of array','string index'
+if $ARGS[0] = 'remove_element':
+	killvar $ARGS[1], func('array', 'get_me_index', $ARGS[1], $ARGS[2])
+	exit
+end
+
+
+!! Takes multiple arrays and sorts them based on the first one.
+!! Sorts the key_array (which must only have value entries) in ascending order.
+!! gs 'array', 'coupled_sort'. 'key_array', 'array1', 'array2', 'array3', ...
+!!
+!! String arrays must start with a $ otherwise the numeric values will be copied instead.
+!!
+!! examples:
+!!		example 1: we want to sort a single array with values called values_array
+!!				gs 'array', 'coupled_sort', 'values_array'
+!!		example 2: we have an array filled with days (called trigger_days), and a coupled array filled with npc_codes (called $trigger_npc_codes)
+!!				gs 'array', 'coupled_sort', 'trigger_days', '$trigger_npc_codes'
+if $ARGS[0] = 'coupled_sort':
+	:coupled_sort_loop_start
+	if arrsize($ARGS[1]) > 0:
+		temp_arrayVars['pos'] = arrpos($ARGS[1], min($ARGS[1]))
+
+		temp_arrayVars['i'] = 1
+		:coupled_sort_inner_start
+		if $ARGS[temp_arrayVars['i']] <> '':
+			if arrsize($ARGS[temp_arrayVars['i']]) > 0:
+				if $mid($ARGS[temp_arrayVars['i']], 1, 1) = '$':
+					dynamic "$temp_array_coupled_sort<<temp_arrayVars['i']>>[] = <<$ARGS[temp_arrayVars['i']]>>[temp_arrayVars['pos']]"
+				else
+					dynamic "temp_array_coupled_sort<<temp_arrayVars['i']>>[] = <<$ARGS[temp_arrayVars['i']]>>[temp_arrayVars['pos']]"
+				end
+				killvar $ARGS[temp_arrayVars['i']], temp_arrayVars['pos']
+
+				temp_arrayVars['i'] += 1
+				jump 'coupled_sort_inner_start'
+			end
+		end
+		jump 'coupled_sort_loop_start'
+	end
+
+	temp_arrayVars['i_max'] = temp_arrayVars['i']
+
+	temp_arrayVars['i'] = 1
+	:coupled_sort_outer_start
+	if temp_arrayVars['i'] < temp_arrayVars['i_max']:
+		dynamic "copyarr('<<$ARGS[temp_arrayVars['i']]>>', 'temp_array_coupled_sort<<temp_arrayVars['i']>>')"
+		dynamic "killvar 'temp_array_coupled_sort<<temp_arrayVars['i']>>'"
+
+		temp_arrayVars['i'] += 1
+		jump 'coupled_sort_outer_start'
+	end
+
+	killvar 'temp_arrayVars'
+	exit
+end
+
+
+
+--- array ---------------------------------

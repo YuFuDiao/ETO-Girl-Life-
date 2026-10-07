@@ -1,0 +1,1287 @@
+# pav_shared_apt
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                               FUNCTIONS                                ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'update':
+	shared_apt['rentWeekly'] = 2000
+	if shared_apt['rentLeft'] <= 0: shared_apt['rentLeft'] = 0
+
+	if daystart - shared_apt['intro_daystart'] >= 7:
+		shared_apt['weekNum'] = (daystart - shared_apt['intro_daystart']) / 7
+	else
+		shared_apt['weekNum'] = 0
+	end
+	!! how much of the unpaid weekly rent is left
+	if orgB > 100: orgB = 100
+
+	shared_apt['price_cook'] = 50
+	shared_apt['price_clean'] = 50
+	shared_apt['price_handjob'] = 50
+	shared_apt['price_blowjob'] = 100
+	shared_apt['price_vaginal'] = 150
+	shared_apt['price_anal'] = 200
+	shared_apt['price_special'] = 250
+
+	!! pcs setup
+	$pcs_font = '990099'
+		!! pink
+
+	!! shared_apt['servitudeLvl'] = 0 - no service, pays rent
+	!! shared_apt['servitudeLvl'] = 1 - nonsexual service
+	!! shared_apt['servitudeLvl'] = 2 - sexual and nonsexual service
+
+
+	$Oleg['font'] = '007bff'		& !! blue
+	Oleg['leaves'] = 9
+	Oleg['comes'] = 18
+	Oleg['sleeps'] = 23
+	Oleg['wakes'] = 8
+
+
+	$Nestor['font'] = '8a0000'		& !! red
+	Nestor['leaves'] = 11
+	Nestor['comes'] = 19
+	Nestor['sleeps'] = 23
+	Nestor['wakes'] = 9
+
+
+	$Yakov['font'] = '017a01'		& !! green
+	Yakov['leaves'] = 7
+	Yakov['comes'] = 16
+	Yakov['sleeps'] = 22
+	Yakov['wakes'] = 5
+		!! flag if there was already a sex between him and Sveta
+		!! Yakov['bj'] ; Yakov['bjDeep'] ; Yakov['swall'] ; Yakov['vag'] ; Yakov['vagCumInside'] ; Yakov['vagCumInsideUnwanted'] ; Yakov['anal'] ; Yakov['analCumInside'] ; Yakov['analCumInsideUnwanted']
+
+	!! mood setup
+	$Oleg['mood_txt'] = iif(Oleg['mood'] = 1, '极好', '') + iif(Oleg['mood'] = 2, '很好', '') + iif(Oleg['mood'] = 3, '不错', '') + iif(Oleg['mood'] = 4, '还好', '') + iif(Oleg['mood'] = 5, '平静', '') + iif(Oleg['mood'] = 6, '一般', '') + iif(Oleg['mood'] = 7, '差', '') + iif(Oleg['mood'] = 8, '很差', '') + iif(Oleg['mood'] = 9, '糟透了', '') + iif(Oleg['mood'] = 10, '糟得不行', '')
+	$Nestor['mood_txt'] = iif(Nestor['mood'] = 1, '极好', '') + iif(Nestor['mood'] = 2, '很好', '') + iif(Nestor['mood'] = 3, '不错', '') + iif(Nestor['mood'] = 4, '还好', '') + iif(Nestor['mood'] = 5, '平静', '') + iif(Nestor['mood'] = 6, '一般', '') + iif(Nestor['mood'] = 7, '差', '') + iif(Nestor['mood'] = 8, '很差', '') + iif(Nestor['mood'] = 9, '糟透了', '') + iif(Nestor['mood'] = 10, '糟得不行', '')
+	$Yakov['mood_txt'] = iif(Yakov['mood'] = 1, '极好', '') + iif(Yakov['mood'] = 2, '很好', '') + iif(Yakov['mood'] = 3, '不错', '') + iif(Yakov['mood'] = 4, '还好', '') + iif(Yakov['mood'] = 5, '平静', '') + iif(Yakov['mood'] = 6, '一般', '') + iif(Yakov['mood'] = 7, '差', '') + iif(Yakov['mood'] = 8, '很差', '') + iif(Yakov['mood'] = 9, '糟透了', '') + iif(Yakov['mood'] = 10, '糟得不行', '')
+
+
+	!! Track when child warning was given
+	if shared_apt['childWarning'] = 1 and shared_apt['childWarningDay'] = 0:
+		shared_apt['childWarningDay'] = daystart
+	end
+
+	gs 'stat'
+
+	if shared_apt['debug'] = 1:
+		'<a href="exec:shared_apt[''debug'']=2">调试</a>'
+	elseif shared_apt['debug'] = 2:
+		act '调试': gs 'pav_shared_apt', 'debug'
+	end
+	exit
+end
+
+
+
+if $ARGS[0] = 'daily_update':
+	if shared_apt['enabled'] = 1:
+		if shared_apt['alreadyProcessed'] ! daystart:
+			if daystart - shared_apt['intro_daystart'] >= 7:
+				shared_apt['weekNum'] = (daystart - shared_apt['intro_daystart']) / 7
+			else
+				shared_apt['weekNum'] = 0
+			end
+
+			if shared_apt['weekNum'] >= shared_apt['rentWeekNum']:
+				if shared_apt['rentLeft'] > 0:
+					shared_apt['rentLeft'] += shared_apt['rentWeekly']
+					shared_apt['missedWeeks'] += 1
+					shared_apt['Lockrent'] = 1
+					shared_apt['rentPaid'] = 0
+				else
+					shared_apt['rentLeft'] = shared_apt['rentWeekly']
+					shared_apt['missedWeeks'] = 0
+					shared_apt['rentPaid'] = 1
+				end
+				shared_apt['rentWeekNum'] = shared_apt['weekNum'] + 1
+
+				if shared_apt['missedWeeks'] >= 2:
+					gs 'pav_shared_apt', 'block_apt', 1
+					gs 'notification', 'add', $func('wrap', 'neg', '由于连续数周没交租金，你被赶出了合租公寓！')
+				elseif shared_apt['missedWeeks'] > 0:
+					gs 'notification', 'add', $func('wrap', 'neg', '你的租金已经逾期！你欠合租公寓<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>，共<<shared_apt[''missedWeeks'']>>周<<iif(shared_apt[''missedWeeks''] > 1, "", "")>>。')
+				else
+					gs 'notification', 'add', $func('wrap', 'accent', '合租公寓每周<<$func(''money'', ''string_price'', shared_apt[''rentWeekly''])>>的租金该交了。')
+				end
+			end
+
+			shared_apt['alreadyProcessed'] = daystart
+		end
+	end
+end
+
+
+if $ARGS[0] = 'get_rent_status':
+	if shared_apt['rentLeft'] > 0:
+		if shared_apt['missedWeeks'] > 1:
+			$result = '<font color=red>你已拖欠<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>的租金，共<<$func(''string'', ''parse_number'', shared_apt[''missedWeeks''] )>>周<<iif(shared_apt[''missedWeeks''] > 1, "", "")>>。</font>'
+		elseif shared_apt['missedWeeks'] = 1:
+			$result = '<font color=red>你有<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>的欠租需要支付。</font>'
+		else
+			$result = '你下周还需支付<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>的租金。'
+		end
+
+		if func('money', 'can_afford', shared_apt['rentLeft']):
+			$result += '<br>你可以用<a href="exec:gt ''pav_shared_apt'', ''payCash''">现金</a>立即支付。'
+		else
+			$result += '<br>当你有足够的钱时，你可以用现金支付。'
+		end
+	else
+		$result = '你已经付清了下周的全部房租。'
+	end
+end
+
+
+!! kicked out: gs 'pav_shared_apt', 'block_apt', 1
+!! left: gs 'pav_shared_apt', 'block_apt', 0
+if $ARGS[0] = 'block_apt':
+
+	gs 'homes_properties', 'block_access', 'shared_apartment', 0
+	servitudelvl_bak = shared_apt['servitudeLvl']
+	killvar 'shared_apt'
+	shared_apt['seenAd'] = 1
+	if ARGS[1] = 1: shared_apt['evicted'] = 1
+	shared_apt['previousTenant'] = 1
+	shared_apt['servitudeLvl'] = servitudelvl_bak
+	killvar 'servitudelvl_bak'
+end
+
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                               LOCATIONS                                ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!! apt hall
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 0
+	$location_type = 'private'
+	gs 'themes', 'indoors'
+	CLOSE ALL
+	killvar 'locclass'
+
+	if shared_apt['introDone'] = 0: gt 'pav_shared_apt', 'intro'
+	minut += 2
+	gs 'stat'
+
+	gs 'courtletter'
+
+	gs 'pav_shared_apt', 'weeklyReset'
+	!! do this once a day
+	if daystart >= tomorrow:
+		tomorrow = daystart + 1
+
+		Oleg['mood'] = rand(1, 10)
+		Oleg['cleaned'] = 0
+
+		Nestor['mood'] = rand(1, 10)
+		Nestor['cleaned'] = 0
+
+		Yakov['mood'] = rand(1, 10)
+		Yakov['cleaned'] = 0
+	end
+	gs 'pav_shared_apt', 'update'
+
+	'<center><h3>走廊</h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/hallway.jpg"></center>'
+
+	'你搬进来已经<<shared_apt[''weekNum'']>>周了。'
+
+	*pl $func('pav_shared_apt', 'get_rent_status')
+
+	act '<b>离开，到外面去</b>':
+		if $clothingworntype ! 'nude':
+			gt 'pav_complex', 'start'
+		else
+			msg '<b><font color = red>你需要穿好衣服。</font></b>'
+			gt 'pav_shared_apt', 'start'
+		end
+	end
+
+	if NatbelQW['QWstage'] >= 4 and week < 6 and hour = 7 and kanikuli = 0 and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0 and (PSchool = 1 or cheatVars['school_clothing'] = 1):
+		act '上学前去接娜塔莎': gt 'natbelEv', 'carrybooks'
+	end
+
+	'一间大公寓目前用作合租住所。除了正常的居住空间外，还有四间卧室，一间由你租用，另外三间由<a href="exec: gt ''pav_shared_oleg'', ''oleg_dick''"><font color=#<<$Oleg[''font'']>>><<$npc_firstname[''A266'']>></font></a>, <a href="exec: gt ''pav_shared_nestor'', ''nestor_dick''"><font color=#<<$Nestor[''font'']>>><<$npc_firstname[''A265'']>></font></a>, <a href="exec: gt ''pav_shared_yakov'', ''yakov_dick''"><font color=#<<$Yakov[''font'']>>><<$npc_firstname[''A264'']>></font></a>.'
+	'你站在走廊里。'
+	*nl
+	if shared_apt['rentPaid'] = 1:
+		'从走廊，有几扇门通向<a href="exec:gt ''pav_shared_apt'', ''Oleg_Room''"><<$npc_firstname[''A266'']>>的房间</a>、<a href="exec:gt ''pav_shared_apt'', ''Nestor_Room''"><<$npc_firstname[''A265'']>>的房间</a>，以及<a href="exec:gt ''pav_shared_apt'', ''Yakov_Room''"><<$npc_firstname[''A264'']>>的房间</a>。'
+		'最后几扇门通向<a href="exec:gt ''pav_shared_apt'', ''pcsRoom''">你租的房间</a>。'
+		*nl
+	end
+	!! Wardrobe is here because Sveta''s bedroom is actually the unused living room, with no wardrobe, so she is using the hall cupboard.
+	if shared_apt['rentPaid'] = 1 or $clothingworntype = 'nude': '你的卧室没有任何储物柜，不过走廊里有几个<a href="exec:gt ''wardrobe'', ''start''">壁橱</a>可以用来存放你的衣服。其中一扇上还装着一面又大又高的<a href="exec:gt ''mirror'', ''start''">镜子</a>。'
+	*nl
+	if shared_apt['rentPaid'] = 1:
+		if shared_apt['servitudeLvl'] >= 1: '一张电脑打印的<a href="exec:gt ''pav_shared_apt'', ''list''">清单</a>挂在出口门上。' & *nl
+		act '回你的房间': gt 'pav_shared_apt', 'pcsRoom'
+		act '去卫生间': gt 'pav_shared_apt', 'bathroom'
+		act '去厨房': gt 'pav_shared_apt', 'kitchen'
+		act '<font color=#<<$Oleg[''font'']>>><<$npc_firstname[''A266'']>>的房间</font>': gt 'pav_shared_apt', 'Oleg_Room'
+		act '<font color=#<<$Nestor[''font'']>>><<$npc_firstname[''A265'']>>的房间</font>': gt 'pav_shared_apt', 'Nestor_Room'
+		act '<font color=#<<$Yakov[''font'']>>><<$npc_firstname[''A264'']>>的房间</font>': gt 'pav_shared_apt', 'Yakov_Room'
+	end
+	gs 'wardrobe', 'default_clothing_options'
+	act '<font color=red>终止你的租赁协议并搬出去</font>': gt 'pav_shared_apt', 'eoleg_agreement'
+	if shared_apt['rentPaid'] = 1:
+		if func('homes_properties', 'is_current_home') = 0:
+			act '将此公寓设为主居所': gs 'homes_properties', 'set_home' & gt 'pav_shared_apt', 'start'
+		end
+	end
+
+	!! NOTE:If Sveta has access to her parents home then she leaves the kids there
+	if func('homes_properties', 'has_access', 'parents_home') = 0 and kid > 0:
+		!! Check if this is the first time dealing with children
+		if shared_apt['childWarning'] = 0:
+			*clr & cla
+			shared_apt['childWarning'] = 1
+			shared_apt['childWarningDay'] = daystart
+			minut += 5
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/dimka/revenge/crying.jpg"></center>'
+			'小伙子们叫你去开个家庭会议。他们看起来很不自在。'
+			'<font color=#<<$Oleg[''font'']>>>“<<$pcs_firstname>>，我们得谈谈你孩子的事。我们的约定写得很清楚，公寓里不能有孩子。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“你有一周时间另作安排，否则我们只能请你搬走。”</font>'
+			act '明白': gt 'pav_shared_apt', 'start'
+		elseif daystart >= shared_apt['childWarningDay'] + 7:
+			!! Child warning period has passed, time for eviction
+			*clr & cla
+			shared_apt['pavIntroStep'] = 0
+			shared_apt['introDone'] = 0
+			minut += 5
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/dimka/revenge/crying.jpg"></center>'
+			'由于你违反公寓规定养了孩子，你被要求搬离公寓。'
+			gs 'pav_shared_apt', 'block_apt', 1
+			act '离开': gt 'pav_complex', 'start'
+		end
+	else
+		!! Reset warning if child situation resolved
+		shared_apt['childWarning'] = 0
+		shared_apt['childWarningDay'] = 0
+	end
+
+	if $clothingworntype = 'nude' and shared_apt['enabled'] = 0: gs 'outfit', 'wear_last_worn' & gs 'stat'
+end
+
+
+!! the pricelist
+if $ARGS[0] = 'list':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	minut += 2
+	'<center><h3><<$pcs_firstname>>的价目表</h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/list.jpg"></center>'
+	*nl
+	'每周基本租金是<<$func(''money'', ''string_price'', shared_apt[''rentWeekly''])>>.'
+	'你可以用现金支付，也可以用服务抵偿。价格如下：'
+	*nl
+	'---------------------'
+	*nl
+	'做一顿热饭：'	+shared_apt['price_cook']
+	'打扫公寓：'	+shared_apt['price_clean']
+	if shared_apt['servitudeLvl'] >= 2:
+		*nl
+		'---------------------'
+		*nl
+		'纸上用马克笔写着，你还可以提供性服务。'
+		*nl
+		'---------------------'
+		'荡妇的租金折扣： '
+		'手交：'			+shared_apt['price_handjob']
+		'口交：'			+shared_apt['price_blowjob']
+		'性交：'				+shared_apt['price_vaginal']
+		'肛交：'		+shared_apt['price_anal']
+		'特别待遇：'	+shared_apt['price_special']
+	end
+	*nl
+	'---------------------'
+	*nl
+	'如果在新的一周开始时没有付清全部周租，住宿服务将被终止。'
+	'签名：<a href="exec: gt ''pav_shared_oleg'', ''oleg_dick''"><font color=#<<$Oleg[''font'']>>><<$npc_firstname[''A266'']>></font></a>, <a href="exec: gt ''pav_shared_nestor'', ''nestor_dick''"><font color=#<<$Nestor[''font'']>>><<$npc_firstname[''A265'']>></font></a>, <a href="exec: gt ''pav_shared_yakov'', ''yakov_dick''"><font color=#<<$Yakov[''font'']>>><<$npc_firstname[''A264'']>></font></a>, <<$pcs_firstname>>.'
+	*nl
+	'---------------------'
+	act '继续': gt 'pav_shared_apt', 'start'
+end
+
+
+if $ARGS[0] = 'bathroom':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_shared_apt', 'bathroom'
+	$location_type = 'bathroom'
+	minut += 1
+	gs 'stat'
+
+	act '离开': gt 'pav_shared_apt', 'start'
+
+	'<center><h3>浴室</h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/vanrpar.jpg"></center>'
+	*nl
+	'这是一间简朴的浴室，年轻人日常生活所需的东西一应俱全，比如：'
+	'淋浴，厕所，<a href="exec:gt ''mirror'',''start''">镜子</a>, 你可以 ' + iif(pcs_hairbsh < 1, '<a href="exec:gt ''mirror'',''brush''">梳子</a>', '梳子') + ' 你的头发，一个水槽甚至还有一个浴缸。'
+	*nl
+	gs 'din_van', 'private'
+	gs 'home_events', 'bathroom'
+end
+
+
+if $ARGS[0] = 'kitchen':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_shared_apt', 'kitchen'
+	minut += 2
+	$location_type = 'private'
+	$locclass = 'kitr'
+	gs 'stat'
+	gs 'kit_din'
+
+	'<center><h3>厨房</h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/kuhrpar.jpg"></center>'
+	'这是一间简朴的厨房，但该有的都有。'
+	'你可以在 '+func('time', 'get_time_string', 6, 0)+' 到 '+func('time', 'get_time_string', 7, 0)+' 之间为男人们做早餐，晚餐供应时间是 '+func('time', 'get_time_string', 18, 0)+' 到 '+func('time', 'get_time_string', 19, 0)+''
+
+	!! dishes
+	if mc_inventory['dish_plates'] > 0:
+		'水槽上方有<b><<mc_inventory[''dish_plates'']>></b>个干净的盘子'
+	else
+		'<b><font color = red>你没有干净的餐具了。</font></b>'
+	end
+	if dirttarelka > 0: '水槽里有<b><<dirttarelka>></b>个脏盘子。 <a href="exec: gs ''kit_din'', ''dirtarm''">需要洗掉</a>。'
+	if mc_inventory['dish_soap'] > 0:
+		'水槽上方有一些用来洗碗的洗洁精。足够<b><<mc_inventory[''dish_soap'']>></b>次使用。'
+	else
+		'<b><font color = red>你的洗洁精不够了，该去超市买一些。</font></b>'
+	end
+
+	!! food
+	if mc_inventory['food_basic'] > 0:
+		if mc_inventory['dish_plates'] = 0 or edahot > 0: $edagot = ''
+		if mc_inventory['dish_plates'] > 0 and edahot = 0:
+			$edagot = '<a href="exec:gt ''kit_din'', ''edagotd''">给自己做一顿饭 (0:30)</a>'
+		end
+		'冰箱里有足够的（你自己的）食物，够吃<b><<mc_inventory[''food_basic'']>></b>份。<<$edagot>>'
+	end
+	gs 'kit_din', 'edahota'
+	if mc_inventory['food_diet'] = 0 and mc_inventory['food_basic'] = 0: $func('wrap', 'v_neg b', '你没东西吃了，冰箱是空的！')
+
+	if hour = 6 or hour = 18: '<a href="exec: gt ''pav_shared_apt'', ''cookForGuys''">给男人们做饭 (1:30)</a>'
+
+	gs 'core_library', 'kitchen', 'full'
+
+	act '离开': gt 'pav_shared_apt', 'start'
+end
+
+
+!! living room & pc bedroom
+if $ARGS[0] = 'pcsRoom':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	$location_type = 'private'
+	$locclass = 'bedr'
+	minut += 2
+	gs 'stat'
+	gs 'pav_shared_apt', 'update'
+	gs 'music_actions', 'clear_restrictions'
+
+	if pcs_magik >= 6 and spellbefshild = 1 and tobiQW = 0: gt 'tobiQW', 'start'
+
+	$func('wrap', 'header center b', '客厅')
+	'<center><img <<$set_imgh>> src="images/shared/home/bedroom/sofabed.jpg"></center>'
+	*nl
+	'客厅从来没有被公寓的其他住户用过，所以现在被租出去当卧室。房间布置得很简单，有一张<a href="exec:gt ''bed'', ''start''">沙发床</a>，靠着后墙。'
+	*nl
+	'沙发床旁边是一个旧柜子，里面有你的<a href="exec:gt ''alarmclock'', ''start''">闹钟</a>放在上面。'
+	*nl
+	*pl $func('alarmclock', 'base_alarmclock_text')
+	*nl
+	if $ml_guitar['location'] = $loc: '你的吉他放在床边的架子上。'
+	*nl
+	if mc_inventory['tech_tv'] = 0 and mc_inventory['plasma_tv'] = 0: $temp_TV_text = '如果你有电视的话，这里是个放电视的好地方'
+	if mc_inventory['tech_tv'] >= 1: $temp_TV_text = '一台老式显像管<a href="exec:gt ''TV'', ''start''">电视</a>放在架子上'
+	'房间的另一侧有一个壁柜，<<$temp_TV_text>>. 家里的每个人都待在自己的房间里，所以从来没有理由按原用途使用客厅。'
+	*nl
+	*nl
+	'角落里有一个旧的有划痕的<a href="exec:gt ''stol'', ''start''">桌子</a>.'
+	*nl
+	'客厅没有门，取而代之的是<a href="exec:view''images/shared/home/bedroom/curtain.jpg''">窗帘</a>覆盖着房间的入口，这给你一点隐私；并不比那不存在的窗帘好多少。'
+
+	act '<b>离开房间</b>': gt 'pav_shared_apt', 'start'
+
+	act '坐在沙发床上': gt 'pav_shared_apt', 'sofabed'
+
+	if mc_inventory['hula_hoop'] > 0: '<br>房间角落里放着一个呼啦圈。 '
+	if mc_inventory['skipping_rope'] > 0: '架子上放着一条跳绳。 '
+	if mc_inventory['book_yoga'] > 0: '角落里卷着一张瑜伽垫。 '
+	gs 'exercise', 'start'
+	*nl
+
+	if mc_inventory['tech_computer'] = 1:
+		!! Sveta can''t do camshows unless she is blowing the guys for rent.
+		gs 'internet_mobile', 'get_access', 'free', 'nocamshow'
+		if shared_apt['servitudeLvl'] = 2: gs 'internet_mobile', 'remove_limitation', 'nocamshow'
+		'你的<a href="exec:gorodokKomp = 1 & gt ''komp'',''start''">电脑</a>放在小桌子上。'
+	end
+
+	if mc_inventory['vintage_card'] > 0: act '查看你的复古色情卡牌': card_deck = 0 & gt 'card'
+	if mc_inventory['card'] > 0: act '查看你的新色情卡牌': card_deck = 1 & gt 'card'
+
+	if mc_inventory['cocaine'] > 0: '你有<<mc_inventory[''cocaine'']>>剂苍白淑女，藏得没让其他室友发现。'
+
+	if mc_inventory['cocaine'] > 0 and drugVars['cocaine_day'] ! daystart:
+		act '吸一些苍白淑女 (0:05)':
+			*clr & cla
+			minut += 5
+			gs 'drugs', 'cocaine'
+
+			'<center><img <<$set_imgh>> src="images/shared/drugs/dur.jpg"></center>'
+			'你吸了一些苍白淑女，只晕眩了一小会儿。之后你感觉棒极了，而且欲火焚身。'
+
+			act '继续': gt 'pav_shared_apt', 'pcsRoom'
+		end
+	end
+
+	if mc_inventory['tapestry'] > 0: '你有<<mc_inventory[''tapestry'']>>幅已完成的挂毯。'
+	if pcs_sewng >= 40 and mc_inventory['sewing_fabric'] > 0: '你的布料够上<<mc_inventory[''sewing_fabric'']>>节课。'
+	if pcs_sewng >= 40 and mc_inventory['sewing_fabric'] <= 0: '你没有布料。'
+	if pcs_sewng >= 80 and mc_inventory['sewing_kit'] = 1:
+		*nl
+		if newgobelen = 0 and mc_inventory['sewing_fabric'] > 0:
+			act '开始一幅新的挂毯': gt 'sewing', 'tapestry'
+		end
+
+		if newgobelen>=1:
+			'你的挂毯完成了<<newgobelen/10>>%。'
+			act '织挂毯': gt 'sewing', 'tapestry'
+		end
+	end
+
+	if mc_inventory['contraceptive_pill'] > 0 and mc_inventory['equipped_condoms'] + mc_inventory['normal_condoms'] + mc_inventory['sabotaged_condoms'] > 0:
+		'你的<a href="exec:gt ''stol'', ''bc''">避孕药</a>放在床边的柜子里，旁边还有一些<a href="exec:gt ''stol'', ''bc''">避孕套</a>。'
+	elseif mc_inventory['contraceptive_pill'] > 0:
+		'你的<a href="exec:gt ''stol'', ''bc''">避孕药</a>放在床边的柜子里。'
+	elseif mc_inventory['equipped_condoms'] + mc_inventory['normal_condoms'] + mc_inventory['sabotaged_condoms'] > 0:
+		'你的<a href="exec:gt ''stol'', ''bc''">避孕套</a>放在床边的柜子里。'
+	end
+	*nl
+	if mc_inventory['sewing_kit'] = 1:
+		'你的<a href="exec:gt ''sewing'',''start''">针线包</a>放在架子上。'
+	end
+
+	if mc_inventory['trinkets_home'] > 0: '你现在有<<mc_inventory[''trinkets_home'']>>件小饰品可以在车站卖掉。你最多能随身携带 30 件。'
+
+	gs 'din_van', 'wearpan'
+	gs 'din_van', 'removepan'
+	!! gs 'subkid'
+
+	act '在床上放松': gt 'bed', 'start'
+	gs 'daily_routine', 'offer_here'
+	gs 'prostitution_functions', 'prostitute_outfit_at_home'
+	gs 'music_actions', 'start'
+
+	killvar 'temp_TV_text'
+end
+
+
+if $ARGS[0] = 'sofabed':
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/shared/home/bedroom/sofabed.jpg"></center>'
+	'<center>一张小沙发床，不展开的时候刚好够你蜷在上面小睡一会儿。</center>'
+
+	if mc_inventory['tech_tv'] = 1:
+		act '看看电视': gt 'TV', 'start'
+	end
+
+	if mc_inventory['mag_porn'] > 0:
+		'<br>沙发垫子下面有一本色情杂志'
+		gs 'library_functions', 'set_read_porn_act'
+	end
+
+	gs 'library_functions', 'set_home_read_acts'
+
+	if pcs_horny >= 50:
+		act '自慰': gt 'selfplay', 'start'
+	end
+
+	act '小睡一会儿 (1:00)': gs 'sleep_simple', 'nap'
+	act '站起来': gt 'pav_shared_apt', 'pcsRoom'
+end
+
+
+if $ARGS[0] = 'Oleg_Room':
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 0
+	gs 'boyStat', 'A266'
+	minut += 2
+	'<center><h3><font color=#<<$Oleg[''font'']>>><<$npc_firstname[''A266'']>>的房间</font></h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/nd/room.jpg"></center>'
+	*nl
+	'考虑到<<$npc_firstname[''A266'']>>是个IT男，这房间其实没有想象中那么乱。'
+	'有一扇大窗户，窗下放着一张床，但整个房间最显眼的是那张大桌子，上面摆着好几台电脑和显示器。'
+	'乍一看，这房间简直像是黑客的老巢。'
+
+	if hour >= Oleg['sleeps'] and hour < Oleg['comes']:
+		'<<$npc_firstname[''A266'']>>正在床上熟睡。'
+	elseif hour >= Oleg['wakes'] and hour < Oleg['leaves']:
+		'<<$npc_firstname[''A266'']>>已经醒了，正准备出门。'
+		act '走近他': gt 'pav_shared_oleg', 'Oleg'
+	elseif hour >= Oleg['leaves'] and hour < Oleg['comes']:
+		'<<$npc_firstname[''A266'']>>现在不在家。'
+	elseif hour >= Oleg['comes'] and hour < Oleg['sleeps']:
+		'<<$npc_firstname[''A266'']>>正坐在他的书桌后面，全神贯注地用一门晦涩的语言编程。'
+		act '走近他': gt 'pav_shared_oleg', 'Oleg'
+	end
+
+	if shared_apt['servitudeLvl'] >= 1 and Oleg['cleaned'] = 0:
+		if mc_inventory['laundry_soap'] >= 1:
+			act '打扫房间': Oleg['cleaned'] = 1 & gt 'pav_shared_apt', 'cleanForGuys'
+		else
+			'你没有足够的洗衣粉来打扫房间。'
+		end
+	end
+	act '离开': gt 'pav_shared_apt', 'start'
+end
+
+
+if $ARGS[0] = 'Nestor_Room':
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 0
+	gs 'boyStat', 'A265'
+	minut += 2
+	'<center><h3><font color=#<<$Nestor[''font'']>>><<$npc_firstname[''A265'']>>的房间</font></h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/gp/room.jpg"></center>'
+	*nl
+	'这房间乱得一塌糊涂，衣服扔得满地都是。'
+
+	if hour >= Nestor['wakes'] and hour < Nestor['leaves']:
+		'<<$npc_firstname[''A265'']>>已经醒了，正准备离开。'
+		act '走近他': gt 'pav_shared_nestor', 'Nestor'
+	elseif hour >= Nestor['leaves'] and hour < Nestor['comes']:
+		'<<$npc_firstname[''A265'']>>现在不在家。'
+	elseif hour >= Nestor['comes'] and hour < Nestor['sleeps']:
+		'<<$npc_firstname[''A265'']>>现在正躺在床上，浏览着一些杂志。'
+		act '走近他': gt 'pav_shared_nestor', 'Nestor'
+	elseif hour >= Nestor['sleeps'] or hour < Nestor['wakes']:
+		'<<$npc_firstname[''A265'']>>正在床上睡觉。'
+	end
+	if shared_apt['servitudeLvl'] >= 1 and Nestor['cleaned'] = 0:
+		if mc_inventory['laundry_soap'] >= 1:
+			act '打扫房间': Nestor['cleaned'] = 1 & gt 'pav_shared_apt', 'cleanForGuys'
+		else
+			'你没有足够的洗衣粉来打扫房间。'
+		end
+	end
+	act '离开': gt 'pav_shared_apt', 'start'
+end
+
+
+if $ARGS[0] = 'Yakov_Room':
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 0
+	gs 'boyStat', 'A264'
+	minut += 2
+	'<center><h3><font color=#<<$Yakov[''font'']>>><<$npc_firstname[''A264'']>>的房间</font></h3></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/sp/room.jpg"></center>'
+	*nl
+	'这房间非常整洁有条理，摆满了运动装备，比如运动服、器材和奖杯。墙上还挂着几张著名运动员和运动队的海报。'
+
+	if hour >= Yakov['wakes'] and hour < Yakov['leaves']:
+		'<<$npc_firstname[''A264'']>>已经醒了，收拾着他的健身包准备离开。'
+		act '走近他': gt 'pav_shared_yakov', 'Yakov'
+	elseif hour >= Yakov['leaves'] and hour < Yakov['comes']:
+		'<<$npc_firstname[''A264'']>>现在不在家。'
+	elseif hour >= Yakov['comes'] and hour < Yakov['sleeps']:
+		doesStuff = rand(0, 100)
+		if doesStuff < 50: '<<$npc_firstname[''A264'']>>现在正躺在床上翻看足球杂志。'
+		if doesStuff >= 50: '<<$npc_firstname[''A264'']>>正在地板上锻炼身体。'
+		act '走近他': gt 'pav_shared_yakov', 'Yakov'
+	elseif hour >= Yakov['sleeps'] or hour < Yakov['wakes']:
+		'<<$npc_firstname[''A264'']>>正在床上睡觉。'
+	end
+	if shared_apt['servitudeLvl'] >= 1 and Yakov['cleaned'] = 0:
+		if mc_inventory['laundry_soap'] >= 1:
+			act '打扫房间': Yakov['cleaned'] = 1 & gt 'pav_shared_apt', 'cleanForGuys'
+		else
+			'你没有足够的洗衣粉来打扫房间。'
+		end
+	end
+	act '离开': gt 'pav_shared_apt', 'start'
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                                 EVENTS                                 ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                              RENT                              │
+	!! └────────────────────────────────────────────────────────────────┘
+
+
+if $ARGS[0] = 'cookForGuys':
+	*clr & cla
+	menu_off = 1
+	$loc = 'pav_shared_apt'
+	$loc_arg = 'kitchen'
+	minut += 90
+	gs 'mood', 'lower', 'small'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/shared/home/kitchen/cook.jpg"></center>'
+	'你用小伙子们现有的食材凑合着做了三顿饭。虽然不太健康，但你也没打算连他们的采购都一起包了。'
+	shared_apt['price'] = shared_apt['price_cook']
+
+	act '剩下饭菜': gt 'pav_shared_apt', 'payService'
+end
+
+
+if $ARGS[0] = 'cleanForGuys':
+	*clr & cla
+	menu_off = 1
+	minut += 60
+	mc_inventory['laundry_soap'] -= 1
+	gs 'mood', 'lower', 'small'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stir.jpg"></center>'
+
+	shared_apt['price'] = shared_apt['price_clean']
+	*nl
+	'你把房间里成堆的脏衣服收起来，抱进浴室放进盆里，然后撒上洗衣粉。你一直搓洗，直到它们终于变干净。'
+	if shared_apt['servitudeLvl'] = 2 and rand(0, 100) <= 50: '<i>你注意到床单上有些像是干掉的精液。大概是某次“服务”留下的。也许每次都吞下去确实更好……</i>'
+	killvar 'cumStainCh'
+	act '把衣服晾起来然后离开': gt 'pav_shared_apt', 'payService'
+end
+
+
+if $ARGS[0] = 'eoleg_agreement':
+	menu_off = 1
+	'<center><img border="5" bordercolor="<<$Yakov[''font'']>>" height="150" src="images/locations/pavlovsk/resident/sharedapt/sp/sp.jpg"> <img height="150" src="images/locations/pavlovsk/resident/sharedapt/gp/gp.jpg"> <img height="150" src="images/locations/pavlovsk/resident/sharedapt/nd/nd.jpg"></center>'
+	*nl
+
+	'你把小伙子们叫到一起，告诉他们你想搬出去。'
+	'<font color=#<<$Yakov[''font'']>>><<$npc_firstname[''A264'']>>看起来有些失望，他对你说：“太可惜了，<<$pcs_firstname>>，我们非常喜欢你和我们住在一起。你确定这是你想要的吗？”</font>'
+	act '“是的。”结束协议':
+		gs 'pav_shared_apt', 'block_apt', 0
+		gt 'pav_complex', 'start'
+	end
+	act '“也许你说得对，我就继续和你们住在一起吧”': gt 'pav_shared_apt', 'start'
+end
+
+
+if $ARGS[0] = 'weeklyReset':
+	gs 'core_library', 'setloc', 'pav_shared_apt', 'start'
+
+	if shared_apt['rentLeft'] > 0 and shared_apt['missedWeeks'] > 0:
+		*clr & cla
+
+		if shared_apt['missedWeeks'] >= 2:
+			gs 'pav_shared_apt', 'block_apt', 1
+			'<font color=red>你因为没交房租，被赶出了合租公寓！</font>'
+			act '带着你的东西离开': gt 'pav_complex', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'payCash':
+	menu_off = 1
+	minut += 2
+	*clr & cla
+
+	if func('money', 'can_afford', shared_apt['rentLeft'], 'cash'):
+		if shared_apt['missedWeeks'] > 0:
+			'你支付了<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>现金，用来付清<<$func(''string'', ''parse_number'', shared_apt[''missedWeeks''] )>>周的逾期房租。'
+			'<font color=green>小伙子们松了口气，你终于把房租交上了。</font>'
+		else
+			'你支付了<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>现金，作为下周的房租。'
+		end
+
+		gs 'money', 'pay', shared_apt['rentLeft'], 'cash'
+		shared_apt['cashPaid'] += shared_apt['rentLeft']
+		shared_apt['rentLeft'] = 0
+		shared_apt['Lockrent'] = 0
+		shared_apt['rentPaid'] = 1
+		shared_apt['missedWeeks'] = 0
+		shared_apt['rentWeekNum'] = shared_apt['weekNum'] + 1
+		gs 'homes_properties', 'give_access'
+	else
+		'你的钱不够付房租。'
+	end
+	act '继续': gt 'pav_shared_apt', 'start'
+end
+
+
+if $ARGS[0] = 'payService':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	shared_apt['servicePaid'] += shared_apt['price']
+	shared_apt['rentLeft'] -= shared_apt['price']
+
+	'你提供的服务价值<<$func(''money'', ''string_price'', shared_apt[''price''])>>。'
+
+	if shared_apt['rentLeft'] <= 0:
+		shared_apt['rentLeft'] = 0
+		shared_apt['rentPaid'] = 1
+		shared_apt['missedWeeks'] = 0
+		shared_apt['Lockrent'] = 0
+		shared_apt['rentWeekNum'] = shared_apt['weekNum'] + 1
+		'你下周的房租现在已经全部付清了！'
+		gs 'homes_properties', 'give_access'
+	else
+		'你还欠<<$func(''money'', ''string_price'', shared_apt[''rentLeft''])>>的房租。'
+	end
+
+	shared_apt['price'] = 0
+	act '继续': gt 'pav_shared_apt', 'start'
+end
+
+
+
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                             INTRO                              │
+	!! └────────────────────────────────────────────────────────────────┘
+
+
+!! accommodation advert
+if $ARGS[0] = 'advertNo30':
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 1
+	minut += 2
+	shared_apt['seenAd'] = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/pod_ob'+rand(1, 2)+'.jpg"></center>'
+	'<br>路过那些广告时，你注意到一则招牌——“сдаeтся в аренду комната”（房间出租！）。有几个小伙子正在找室友。他们住在公寓楼群里另一栋楼的一套公寓里。'
+	act '继续': gt 'pod_ezd', 'etaj_1'
+	exit
+end
+
+
+!! door No 3 - shared
+if $ARGS[0] = 'doorNo30':
+	CLOSE ALL
+	gs 'core_library', 'setloc', 'pav_shared_apt', $ARGS[0]
+	menu_off = 1
+	act '回到外面': gt 'pav_complex', 'start'
+	if shared_apt['enabled'] = 1:
+		'<center><img <<$set_imgh>> src="images/locations/shared/apartment/podezdhr.jpg"></center>'
+		'<br>你站在30号公寓的入户门前，这是你和另外三个人合住的公寓'
+		act '走进去': gt 'pav_shared_apt', 'start'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/aptno3door.jpg"></center>'
+		'<br>你站在30号公寓的入户门前。门上挂着一条招牌——“сдаeтся в аренду комната”（房间出租）。'
+		act '敲门': gt 'pav_shared_apt', 'intro'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'intro':
+	menu_off = 1
+	gs 'pav_shared_apt', 'update'
+
+	if shared_apt['previousTenant'] = 1 and shared_apt['enabled'] = 0:
+
+		if shared_apt['step'] > 0:
+			'<center><img border="5" bordercolor="<<$Yakov[''font'']>>" height="150" src="images/locations/pavlovsk/resident/sharedapt/sp/sp.jpg"> <img height="150" src="images/locations/pavlovsk/resident/sharedapt/gp/gp.jpg"> <img height="150" src="images/locations/pavlovsk/resident/sharedapt/nd/nd.jpg"></center>'
+			*nl
+		end
+
+		minut += 2
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/sp/sp.jpg"></center>'
+		*nl
+		'<font color=#<<$Yakov[''font'']>>><<$npc_firstname[''A264'']>>打开门，看到你显得很惊讶。“<<$pcs_firstname>>！没想到你还会回到这儿来。”</font>'
+
+		if shared_apt['evicted'] = 1:
+			!! Player was evicted for non-payment - guys will be more cautious
+			'<font color=#<<$Oleg[''font'']>>><<$npc_firstname[''A266'']>>出现在他身后。“哦，是你啊。上次房租那事之后，还想再试一次吗？”</font>'
+
+			'<font color=#<<$pcs_font>>>“是的，如果房间还空着，我想再租一次。我保证这次会按时交房租。”</font>'
+
+			'<font color=#<<$Nestor[''font'']>>><<$npc_firstname[''A265'']>>挤到门口。“哟，哟，看看谁回来了。我说这次得让她交双倍押金！”</font>'
+
+			'<font color=#<<$Oleg[''font'']>>>“别理他。房间还空着，不过这次得先交第一周的房租。”</font>'
+
+			if func('money', 'can_afford', shared_apt['rentWeekly'], 'cash'):
+				act '支付第一周的房租 (<<$func(''money'', ''string_price'', shared_apt[''rentWeekly''])>>)':
+					gs 'money', 'pay', shared_apt['rentWeekly'], 'cash'
+					shared_apt['cashPaid'] += shared_apt['rentWeekly']
+					shared_apt['enabled'] = 1
+					shared_apt['rentPaid'] = 1
+					shared_apt['evicted'] = 0
+					shared_apt['missedWeeks'] = 0
+					shared_apt['rentLeft'] = 0
+					shared_apt['intro_daystart'] = daystart
+					shared_apt['weekNum'] = 0
+					shared_apt['rentWeekNum'] = 1
+					gs 'homes_properties', 'give_access', 'shared_apartment'
+
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/hallway.jpg"></center>'
+					'<font color=#<<$Yakov[''font'']>>>“好吧，那就欢迎回来。规矩和以前一样。”</font>'
+
+					if shared_apt['servitudeLvl'] = 0:
+						'<font color=#<<$Oleg[''font'']>>>“只要按时交房租，我们就能相安无事。”</font>'
+					elseif shared_apt['servitudeLvl'] = 1:
+						'<font color=#<<$Oleg[''font'']>>>“记住，如果你愿意，也可以用打扫和做饭的服务来抵房租。”</font>'
+					else
+						'<font color=#<<$Nestor[''font'']>>>“期待你…再次提供特殊服务。”</font>'
+						'<font color=#<<$Oleg[''font'']>>>“闭嘴，<<$npc_firstname[''A265'']>>。”</font>'
+					end
+
+					'<font color=#<<$pcs_font>>>“谢谢你们。这次我会当个更好的室友。”</font>'
+					act '回你的房间': gt 'pav_shared_apt', 'pcsRoom'
+				end
+			else
+				'<font color=#<<$pcs_font>>>“我现在不够付第一周的房租…”</font>'
+				'<font color=#<<$Oleg[''font'']>>>“抱歉，但经过上次的事，我们得先收钱。凑够了再来吧。”</font>'
+				act '离开': gt 'pav_complex', 'start'
+			end
+		else
+			'<font color=#<<$Yakov[''font'']>>>“你改变主意，想和我们一起住了吗？”</font>'
+
+			'<font color=#<<$pcs_font>>>“是的，如果房间还空着，我想搬回来。”</font>'
+
+			'<font color=#<<$Oleg[''font'']>>>“还空着。条件跟以前一样？”</font>'
+
+			if shared_apt['servitudeLvl'] = 0:
+				'<font color=#<<$Nestor[''font'']>>>“还是只付现金？真没意思。”</font>'
+			elseif shared_apt['servitudeLvl'] = 1:
+				'<font color=#<<$Nestor[''font'']>>>“还是打扫和做饭？还是说这次想多做点什么？”</font>'
+			else
+				'<font color=#<<$Nestor[''font'']>>>“哦，太好了，我们的特殊安排可以继续了。”</font>'
+			end
+
+			act '按同样的安排继续':
+				shared_apt['enabled'] = 1
+				shared_apt['rentLeft'] = shared_apt['rentWeekly']
+				shared_apt['intro_daystart'] = daystart
+				shared_apt['weekNum'] = 0
+				shared_apt['rentWeekNum'] = 1
+				gs 'homes_properties', 'give_access', 'shared_apartment'
+
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/hallway.jpg"></center>'
+				'<font color=#<<$Yakov[''font'']>>>“好吧，那就欢迎回来。你房间里的东西我们都没动。”</font>'
+				'<font color=#<<$pcs_font>>>“谢谢！回来真好。”</font>'
+				act '继续': gt 'pav_shared_apt', 'rentSetup'
+			end
+
+			if shared_apt['servitudeLvl'] = 0:
+				act '询问家务服务':
+					*clr & cla
+					'<font color=#<<$pcs_font>>>“我在想这次可以帮忙做饭和打扫，好减少我的房租开销。”</font>'
+					'<font color=#<<$Yakov[''font'']>>>“那太好了！我们再整理一份服务收费清单。”</font>'
+					shared_apt['enabled'] = 1
+					shared_apt['servitudeLvl'] = 1
+					shared_apt['rentLeft'] = shared_apt['rentWeekly']
+					shared_apt['intro_daystart'] = daystart
+					shared_apt['weekNum'] = 0
+					shared_apt['rentWeekNum'] = 1
+					gs 'homes_properties', 'give_access', 'shared_apartment'
+
+					'<font color=#<<$Oleg[''font'']>>>“房间归你了。欢迎回来。”</font>'
+					act '继续': gt 'pav_shared_apt', 'rentSetup'
+				end
+			end
+
+			if shared_apt['servitudeLvl'] <= 1:
+				act '提供“特殊”服务':
+					*clr & cla
+					'<font color=#<<$pcs_font>>>“我在想，这次我们的安排里也许可以加上一些…更私人的服务。”</font>'
+
+					'<font color=#<<$Nestor[''font'']>>>“这才像话！”</font>'
+					'<font color=#<<$Oleg[''font'']>>>“你确定要这样吗，<<$pcs_firstname>>？”</font>'
+					'<font color=#<<$Yakov[''font'']>>>“我们也会把那些项目加进服务清单里。”</font>'
+
+					shared_apt['enabled'] = 1
+					shared_apt['servitudeLvl'] = 2
+					shared_apt['rentLeft'] = shared_apt['rentWeekly']
+					shared_apt['intro_daystart'] = daystart
+					shared_apt['weekNum'] = 0
+					shared_apt['rentWeekNum'] = 1
+					gs 'homes_properties', 'give_access', 'shared_apartment'
+
+					'<font color=#<<$Nestor[''font'']>>>“这会很好玩的。”</font>'
+					'<font color=#<<$pcs_font>>>“别太兴奋了。这只是笔交易。”</font>'
+					act '继续': gt 'pav_shared_apt', 'rentSetup'
+				end
+			end
+		end
+	else
+		if shared_apt['pavIntroStep'] = 0:
+			minut += 2
+			shared_apt['pavIntroStep'] = 1
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/sharedapt/sp/sp.jpg"></center>'
+			*nl
+			'开门的是一个年轻英俊、体格健壮的男人。'
+			'<font color=#<<$Yakov[''font'']>>>“嗨，小可爱！你有什么事吗？”</font>'
+			'<font color=#<<$pcs_font>>>“你好，我叫<<$pcs_firstname>> <<$pcs_lastname>>。我看到广告说这里有人有间空房要出租？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“是的，没错。进来吧，我叫其他人过来，我们聊聊。顺便说一句，我叫<<$npc_firstname[''A264'']>>。”</font>'
+			act '进去': gt 'pav_shared_apt', 'intro'
+		elseif shared_apt['pavIntroStep'] = 1:
+			minut += 3
+			shared_apt['pavIntroStep'] = 2
+			'你走进一条挂满外套、堆满鞋子的走廊，看得出这里住着 3 到 4 个人。'
+			'那个小伙子走进其中一个房间，你听见他在跟人说话。'
+			'他们试图压低声音，但你还是听到了一两句话…：'
+			*nl
+			'“…是个姑娘，我跟你说…” “…不错，真的，身材挺丰满的，哥们…” “…总比再来个男的强，白痴…” “…行行行，赶紧搞定吧…”'
+			*nl
+			'过了一会儿，三个年轻男人出现在走廊里。'
+			'<font color=#<<$Yakov[''font'']>>>“各位，就是她了。<<$pcs_firstname>>，你能向这几位介绍一下自己吗？”</font>'
+			'<font color=#<<$pcs_font>>>“你们好，我是<<$pcs_firstname>> <<$pcs_lastname>>。我想租你们公寓里那间空房。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“好，这才是我喜欢的！总算不会那么无聊了！”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“<<$pcs_firstname>>，请原谅我的朋友， <<$npc_firstname[''A265'']>>。他有时很粗鲁。我叫<<$npc_firstname[''A266'']>>。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“对，我就是<<$npc_firstname[''A265'']>>。”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“所以，你想和我们一起住在这儿？”</font>'
+			'<font color=#<<$pcs_font>>>“是的，我需要一个新的住处。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“姑娘，你多大了？”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“<<$npc_firstname[''A265'']>>，别又来了！”</font>'
+			'<font color=#<<$pcs_font>>>“没关系。我其实<<age>>岁了。你为什么这么问？”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“他就是个白痴，别听他的。”</font>'
+
+			if age < 18:
+				'（你能看到<<$npc_firstname[''A265'']>>在你告诉他年龄后短短一瞬间揉了一下裆部。他想干什么？）'
+			end
+			if knowpreg = 1:
+				act '询问孩子的事':
+					cla
+					shared_apt['pavIntroStep'] = 50
+					'<font color=#<<$pcs_font>>>“我觉得应该告诉你们，我现在怀孕了。你们介意公寓里有孩子吗，会有问题吗？”</font>'
+					act '继续': gt 'pav_shared_apt', 'intro'
+				end
+			elseif kid > 0:
+				act '询问孩子的事':
+					cla
+					shared_apt['pavIntroStep'] = 50
+					'<font color=#<<$pcs_font>>>“我觉得应该告诉你们，我是个母亲。你们介意公寓里有孩子吗，会有问题吗？”</font>'
+					act '继续': gt 'pav_shared_apt', 'intro'
+				end
+			else
+				act '继续': gt 'pav_shared_apt', 'intro'
+			end
+		elseif shared_apt['pavIntroStep'] = 2:
+			minut += 3
+			shared_apt['pavIntroStep'] = 3
+			'<font color=#<<$pcs_font>>>“那你们怎么说，愿意收留我吗？”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“也许吧。但首先，你有钱付房租吗？”</font>'
+			'<font color=#<<$pcs_font>>>“嗯，我当然没指望白住在这儿。但我希望房租能合理一些…”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“确实合理。”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“<<$func(''money'', ''string_price'', shared_apt[''rentWeekly''])>>。每周。”</font>'
+			'<font color=#<<$pcs_font>>>“呃。这可不少。我不确定自己能不能负担得起…”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“如果你愿意，也可以用别的方式付！”</font>'
+			'<font color=#<<$Oleg[''font'']>>>"<<$npc_firstname[''A265'']>>!"</font>'
+			'<font color=#<<$pcs_font>>>“别的方式是什么意思？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“这个嘛，<<$pcs_firstname>>，既然我们这儿都是男人，而且这些事我们又做不好，我们需要一个像你这样的人——我是说，一个姑娘——来当我们的，怎么说呢，女佣。你明白我的意思吧。”</font>'
+			'<font color=#<<$pcs_font>>>“比如做饭和打扫？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“对，正是如此。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“还有更多。”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“天哪…我放弃了。”</font>'
+			act '还有什么？': gt 'pav_shared_apt', 'intro'
+		elseif shared_apt['pavIntroStep'] = 3:
+			minut += 3
+			'<font color=#<<$Nestor[''font'']>>>“更多服务。”</font>'
+			'<font color=#<<$pcs_font>>>“什么样的‘服务’？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“成年人那种服务。”</font>'
+			'<font color=#<<$pcs_font>>>“你是说让我们拿你当妓女？用来抵房租？？？”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“求你了，<<$pcs_firstname>>，别生气。<<$npc_firstname[''A265'']>>不只是个白痴，他还是个粗鲁的白痴。我们绝对不是要你当我们的妓女或者类似的东西。”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“就像<<$npc_firstname[''A264'']>>跟你说的，如果你愿意做一些我们实在做不来的家务，我们可以给你减房租。当然，前提是你愿意。”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“那你意下如何，<<$pcs_firstname>>？”</font>'
+			if start_location = 3:
+				gs 'homes_properties', 'set_home', 'shared_apartment'
+			else
+				act '说你对这件事改变了主意': shared_apt['pavIntroStep'] = 40 & gt 'pav_shared_apt', 'intro'
+			end
+			act '说你会按正常方式付房租': shared_apt['enabled'] = 1 & gs 'homes_properties', 'give_access', 'shared_apartment' & shared_apt['pavIntroStep'] = 10 & gt 'pav_shared_apt', 'intro'
+			act '说你不介意做些家务': shared_apt['enabled'] = 1 & gs 'homes_properties', 'give_access', 'shared_apartment' & shared_apt['pavIntroStep'] = 20 & gt 'pav_shared_apt', 'intro'
+			act '说这些你都无所谓': shared_apt['enabled'] = 1 & gs 'homes_properties', 'give_access', 'shared_apartment' & shared_apt['pavIntroStep'] = 30 & gt 'pav_shared_apt', 'intro'
+		elseif shared_apt['pavIntroStep'] = 10:
+			minut += 2
+			'<font color=#<<$Yakov[''font'']>>>“行。这周剩下的时间你免费住，但下周需要预付。可以吗？”</font>'
+			'<font color=#<<$pcs_font>>>“好的，我明白。”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“房间就在那边。</font>'
+			'<font color=#<<$pcs_font>>>“等等，那不是客厅吗？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“是的，它空着，但我们不用，所以就租出去。里面家具齐全，有一张床、一张桌子和一把椅子。我们甚至加了道帘子把空间隔开。你想什么时候搬进来都行。回头见，<<$pcs_firstname>>！”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“祝你今天愉快，<<$pcs_firstname>>。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“回头见啦，小妞……”</font>'
+			'<font color=#<<$pcs_font>>>“回见，伙计们！”</font>'
+			shared_apt['servitudeLvl'] = 0
+			act '继续': gt 'pav_shared_apt', 'rentSetup'
+		elseif shared_apt['pavIntroStep'] = 20:
+			minut += 2
+			'<font color=#<<$Yakov[''font'']>>>“行。这周剩下的时间你免费住，但下周需要预付。可以吗？”</font>'
+			'<font color=#<<$pcs_font>>>“好的，我明白。”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“我们会准备一份家务服务的收费清单，你想做哪些都行，这样就能清楚知道能从房租里扣掉多少。”</font>'
+			'<font color=#<<$pcs_font>>>“酷！”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“房间就在那边。”</font>'
+			'<font color=#<<$pcs_font>>>“等等，那不是客厅吗？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“是的，它空着，但我们不用，所以就租出去。里面家具齐全，有一张床、一张桌子和一把椅子。我们甚至加了道帘子把空间隔开。你想什么时候搬进来都行。回头见，<<$pcs_firstname>>！”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“祝你今天愉快，<<$pcs_firstname>>。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“回头见啦，小妞……”</font>'
+			'<font color=#<<$pcs_font>>>“回见，伙计们！”</font>'
+
+			shared_apt['servitudeLvl'] = 1
+			act '继续': gt 'pav_shared_apt', 'rentSetup'
+		elseif shared_apt['pavIntroStep'] = 30:
+			minut += 2
+			'<font color=#<<$Yakov[''font'']>>>“行。那这周剩下的时间你免费住，但下周需要预付。可以吗？”</font>'
+			'<font color=#<<$pcs_font>>>“好的，我明白。”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“我们会准备一份家务服务的收费清单，你想做哪些都行，这样就能清楚知道能从房租里扣掉多少。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“那些额外服务也会列在上面，姑娘。”</font>'
+			'<font color=#<<$pcs_font>>>“好吧……”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“那么，房间就在那边。”</font>'
+			'<font color=#<<$pcs_font>>>“等等，那不是客厅吗？”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“是的，但反正我们不用，所以就租出去。里面该有的都有，一张床、一张带椅子的桌子，就是这些东西。你想搬进来就搬进来，我们甚至在门口挂了道帘子。回头见，<<$pcs_firstname>>！”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“祝你今天愉快，<<$pcs_firstname>>。”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“回头见啦，小妞……”</font>'
+			'<font color=#<<$pcs_font>>>“回见，伙计们！”</font>'
+			shared_apt['servitudeLvl'] = 2
+			act '继续': gt 'pav_shared_apt', 'rentSetup'
+		elseif shared_apt['pavIntroStep'] = 40:
+			minut += 2
+			'<font color=#<<$Oleg[''font'']>>>“我跟你说过了，白痴，别把她吓跑！”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“抱歉，老兄！我们还是可以照我一开始建议的，把她锁在暖气片上……”</font>'
+			'<font color=#<<$Oleg[''font'']>>>“你给我闭嘴吧！”</font>'
+			*nl
+			'<font color=#<<$Yakov[''font'']>>>“抱歉，<<$pcs_firstname>>。我们尊重你的决定。如果你改变主意，而房间还空着，就告诉我们，我们可以再谈谈。再见！”</font>'
+			act '向他们道别然后离开': gt 'pav_complex', 'start'
+			act '改变主意，再问问他们那些服务': shared_apt['pavIntroStep'] = 3 & gt 'pav_shared_apt', 'intro'
+		elseif shared_apt['pavIntroStep'] = 50:
+			minut += 2
+			!! add dialogue for returning after being previously expelled from apartment
+			'<font color=#<<$Oleg[''font'']>>>“抱歉，<<$pcs_firstname>>，但我们不想让小孩或宠物住进公寓！”</font>'
+			'<font color=#<<$Nestor[''font'']>>>“如果你把小孩处理掉，就回来找我们。”</font>'
+			'<font color=#<<$Yakov[''font'']>>>“别理他。地方实在不够住 4 个人，再加上小孩或宠物就更不行了。希望你能理解。”</font>'
+			if func('homes_properties', 'has_access', 'parents_home'):
+				act '建议一个折中方案':
+					cla
+					shared_apt['pavIntroStep'] = 2
+					'<font color=#<<$pcs_font>>>“我可以暂时把他们留在我父母家，不让他们进公寓，这样行吗？'
+					'<font color=#<<$Yakov[''font'']>>>“你确定要这么做吗？”</font>'
+					'<font color=#<<$Nestor[''font'']>>>“我觉得挺好！”</font>'
+					'<font color=#<<$Oleg[''font'']>>>“唔……”</font>'
+					act '继续': gt 'pav_shared_apt', 'intro'
+				end
+				act '我不会丢下我的孩子':
+					cla
+					shared_apt['pavIntroStep'] = 0
+					'<font color=#<<$pcs_font>>>“好吧，我就将就住在现在的地方。'
+					'<font color=#<<$Yakov[''font'']>>>“我们理解”</font>'
+					'<font color=#<<$Nestor[''font'']>>>“该死”</font>'
+					'<font color=#<<$Oleg[''font'']>>>“没问题，<<$pcs_firstname>>”</font>'
+					act '继续': gt 'pav_complex', 'start'
+				end
+			else
+				'<font color=#<<$pcs_font>>>好吧，我明白了。</font>'
+				act '道谢后离开': shared_apt['pavIntroStep'] = 0 & gt 'pav_complex', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'rentSetup':
+	menu_off = 1
+	minut += 2
+	'你签署了一份租赁协议。每周租金是<<$func(''money'', ''string_price'', shared_apt[''rentWeekly''])>>.'
+
+	shared_apt['rentPaid'] = 1
+	shared_apt['cashPaid'] = 0
+	shared_apt['rentLeft'] = shared_apt['rentWeekly']
+	shared_apt['introDone'] = 1
+	shared_apt['intro_daystart'] = daystart
+	shared_apt['pavIntroStep'] = 0
+	shared_apt['missedWeeks'] = 0
+	shared_apt['Lockrent'] = 0
+
+	shared_apt['weekNum'] = 0
+	shared_apt['rentWeekNum'] = 1
+
+	act '继续': gt 'pav_shared_apt', 'start'
+end
+
+
+if $ARGS[0] = 'quick_start':
+	gs 'pav_shared_apt', 'update'
+
+	minut += 7
+	if knowpreg = 1 or kid > 0:
+		shared_apt['pavIntroStep'] = 50
+		msg '你在怀孕期间，或者有一个或多个孩子时，不能住在合租公寓里'
+		gt 'pav_complex', 'start'
+	end
+
+	minut += 8
+	shared_apt['enabled'] = 1
+	shared_apt['servitudeLvl'] = 0
+	gs 'homes_properties', 'set_home', 'shared_apartment'
+
+	shared_apt['rentPaid'] = 1
+	shared_apt['cashPaid'] = 0
+	shared_apt['rentLeft'] = shared_apt['rentWeekly']
+	shared_apt['introDone'] = 1
+	shared_apt['intro_daystart'] = daystart
+	shared_apt['pavIntroStep'] = 0
+	shared_apt['missedWeeks'] = 0
+	shared_apt['Lockrent'] = 0
+
+	shared_apt['weekNum'] = 0
+	shared_apt['rentWeekNum'] = 1
+	gt 'pav_shared_apt', 'start'
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                                 DEBUG                                  ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'debug':
+	*clr & cla
+	$pav_shared_apt_debug += '<h4>调试控制</h4>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''debug'']=1">关闭调试</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''debug'']=0">禁用调试</a>'
+
+	!! Rent Controls section
+	$pav_shared_apt_debug += '<h4>租金控制</h4>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''rentLeft'']=0 & shared_apt[''missedWeeks'']=0 & shared_apt[''Lockrent'']=0">Set Rent Paid</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''rentLeft'']=shared_apt[''rentWeekly'']">重置租金到期</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''rentLeft'']+=500">增加500₽租金</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''rentLeft'']-=500">减少500₽租金</a>'
+
+	!! Time & Status Controls section
+	$pav_shared_apt_debug += '<h4>时间与状态控制</h4>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''weekNum'']+=1 & gs ''pav_shared_apt'', ''daily_update''">推进一周 + 运行更新</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''missedWeeks'']+=+1">增加漏付周数</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''missedWeeks'']=0">重置漏付周数</a>'
+
+	!! Service Controls section
+	$pav_shared_apt_debug += '<h4>服务控制</h4>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''servitudeLvl'']=0">设置服务义务：无</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''servitudeLvl'']=1">设置服务义务：非性</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''servitudeLvl'']=2">设置服务义务：全套服务</a>'
+
+	!! Reset & Force Events section
+	$pav_shared_apt_debug += '<h4>重置与强制事件</h4>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''alreadyProcessed'']=0">启用今日处理</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''Lockrent'']=1">锁定租金（卧室空置）</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''Lockrent'']=0">解锁租金（正常访问）</a> | '
+	$pav_shared_apt_debug += '<a href="exec:gs ''homes_properties'', ''give_access'', ''shared_apartment''">恢复访问</a>'
+
+	!! NPC Relationships & Moods section
+	$pav_shared_apt_debug += '<h4>NPC关系与心情</h4>'
+	$pav_shared_apt_debug += '<a href="exec:Oleg[''mood'']=1 & Nestor[''mood'']=1 & Yakov[''mood'']=1">将所有心情设为良好</a> | '
+	$pav_shared_apt_debug += '<a href="exec:Oleg[''mood'']=10 & Nestor[''mood'']=10 & Yakov[''mood'']=10">将所有心情设为糟糕</a>'
+	$pav_shared_apt_debug += '<br>'
+	$pav_shared_apt_debug += '<b><<$npc_firstname[''A266'']>>关系：</b> <<npc_rel[''A266'']>><br>'
+	$pav_shared_apt_debug += '<b><<$npc_firstname[''A265'']>>关系：</b> <<npc_rel[''A265'']>><br>'
+	$pav_shared_apt_debug += '<b><<$npc_firstname[''A264'']>>关系：</b> <<npc_rel[''A264'']>>'
+
+	!! Variable Status table
+	$pav_shared_apt_debug += '<h4>变量状态</h4>'
+	$pav_shared_apt_debug += '<table border="1" cellpadding="3" cellspacing="0">'
+	$pav_shared_apt_debug += '<tr><th>变量</th><th>值</th></tr>'
+	$pav_shared_apt_debug += '<tr><td>rentLeft</td><td><<shared_apt[''rentLeft'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>weekNum</td><td><<shared_apt[''weekNum'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>rentWeekNum</td><td><<shared_apt[''rentWeekNum'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>missedWeeks</td><td><<shared_apt[''missedWeeks'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>servitudeLvl</td><td><<shared_apt[''servitudeLvl'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>servicePaid</td><td><<shared_apt[''servicePaid'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>cashPaid</td><td><<shared_apt[''cashPaid'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>step</td><td><<shared_apt[''step'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>subStep</td><td><<shared_apt[''subStep'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>Lockrent</td><td><<shared_apt[''Lockrent'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>alreadyProcessed</td><td><<shared_apt[''alreadyProcessed'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>today (daystart)</td><td><<daystart>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td>intro_daystart</td><td><<shared_apt[''intro_daystart'']>></td></tr>'
+	$pav_shared_apt_debug += '</table>'
+
+	!! NPC Status table
+	$pav_shared_apt_debug += '<h4>NPC状态</h4>'
+	$pav_shared_apt_debug += '<table border="1" cellpadding="3" cellspacing="0">'
+	$pav_shared_apt_debug += '<tr><th>NPC</th><th>心情</th><th>已服务</th><th>已清洁</th></tr>'
+	$pav_shared_apt_debug += '<tr><td><<$npc_firstname[''A266'']>></td><td><<Oleg[''mood'']>> (<<$Oleg[''mood_txt'']>>)</td><td><<Oleg[''served'']>></td><td><<Oleg[''cleaned'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td><<$npc_firstname[''A265'']>></td><td><<Nestor[''mood'']>> (<<$Nestor[''mood_txt'']>>)</td><td><<Nestor[''served'']>></td><td><<Nestor[''cleaned'']>></td></tr>'
+	$pav_shared_apt_debug += '<tr><td><<$npc_firstname[''A264'']>></td><td><<Yakov[''mood'']>> (<<$Yakov[''mood_txt'']>>)</td><td><<Yakov[''served'']>></td><td><<Yakov[''cleaned'']>></td></tr>'
+	$pav_shared_apt_debug += '</table>'
+
+	!! Force NPC Reset section
+	$pav_shared_apt_debug += '<h4>强制重置NPC</h4>'
+	$pav_shared_apt_debug += '<a href="exec:Oleg[''served'']=0 & Oleg[''mood'']=1 & Oleg[''cleaned'']=0 & Nestor[''served'']=0 & Nestor[''mood'']=1 & Nestor[''cleaned'']=0 & Yakov[''mood'']=1 & Yakov[''served'']=0 & Yakov[''cleaned'']=0">重置所有NPC</a>'
+
+	!! Rent Prices table
+	$pav_shared_apt_debug += '<h4>租金价格</h4>'
+	$pav_shared_apt_debug += '<table border="1" cellpadding="3" cellspacing="0">'
+	$pav_shared_apt_debug += '<tr><th>服务</th><th>价格</th><th>操作</th></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>每周租金</td><td><<shared_apt[''rentWeekly'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''rentWeekly'']+=500">+500</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''rentWeekly'']-=500">-500</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>做饭</td><td><<shared_apt[''price_cook'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_cook'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_cook'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>打扫公寓</td><td><<shared_apt[''price_clean'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_clean'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_clean'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>手交</td><td><<shared_apt[''price_handjob'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_handjob'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_handjob'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>口交</td><td><<shared_apt[''price_blowjob'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_blowjob'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_blowjob'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>阴道性交</td><td><<shared_apt[''price_vaginal'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_vaginal'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_vaginal'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>肛交</td><td><<shared_apt[''price_anal'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_anal'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_anal'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '<tr><td>特殊待遇</td><td><<shared_apt[''price_special'']>></td><td>'
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_special'']+=10">+10</a> | '
+	$pav_shared_apt_debug += '<a href="exec:shared_apt[''price_special'']-=10">-10</a></td></tr>'
+
+	$pav_shared_apt_debug += '</table>'
+
+	!! Test Notifications section
+	$pav_shared_apt_debug += '<h4>测试通知</h4>'
+	$pav_shared_apt_debug += '<a href="exec:gs ''notification'', ''add'', ''<font color=red>测试：租金已逾期！</font>''">测试租金通知</a> | '
+	$pav_shared_apt_debug += '<a href="exec:gs ''notification'', ''add'', ''<font color=green>测试：租金已付清。</font>''">测试付款通知</a>'
+
+	func('cleanHTML', $pav_shared_apt_debug)
+	killvar 'pav_shared_apt_debug'
+	act '离开': gt $loc, $loc_arg
+end
+
+
+--- pav_shared_apt ---------------------------------

@@ -1,0 +1,236 @@
+# KGDgame
+minut += 5
+gs 'stat'
+gs 'KGDexp'
+
+if KGD['totminut'] = 0: KGD['totminut'] = totminut
+KGD['totminut'] += 10
+if KGD['totminut'] - 180 >= totminut:
+	*clr & cla
+	KGD['blocked'] = 1
+	KGD['totminut'] = totminut
+	'你已经玩了3个小时，电脑已经发烫了。是时候休息一下了。'
+	act '返回主菜单': gt 'KGDgame', 'exit'
+elseif KGD['blocked'] = 1 and KGD['totminut'] + 60 > totminut:
+	*clr & cla
+	KGD['totminut'] -= 10
+	'你的电脑仍然太烫，没法继续玩。'
+	act '返回主菜单': gt 'KGDgame', 'exit'
+elseif KGD['blocked'] = 1 and KGD['totminut'] + 60 <= totminut:
+	KGD['blocked'] = 0
+	KGD['totminut'] = totminut
+end
+
+*clr & cla
+'<center><b>日期<<KGD[''day'']>></b></center>'
+'<center><b>你的城镇</b></center>'
+*nl
+$KGD['table'] = '<center><table border="0" align="center">'
+$KGD['table'] += '<tr><td colspan="2" align="center">建筑</td></tr>'
+$KGD['table'] += '<tr><td align="center">仓库：</td><td align="left">拥有 ' + KGD['money'] + ' 资源</td></tr>'
+$KGD['table'] += '<tr><td align="right">农场：</td><td align="left">你拥有 ' + KGD['farm_owned'] + ' 个农场</td></tr>'
+$KGD['table'] += '<tr><td align="right">营地：</td><td align="left">' + KGD['Cavalry']+KGD['Archers']+KGD['Infantrie'] + ' 名士兵</td></tr>'
+$KGD['table'] += '</table></center>'
+$KGD['table']
+*nl
+if KGD['sput_2'] > 0:
+	'<center><b>列出队伍英雄（最多6名）</b></center>'
+
+	!! Display Heroes dynamically
+	i = 2
+	$KGD['table'] = '<center><table border="0"><tr><th>名字</th><th>等级</th><th>HP</th><th>伤害</th></tr>'
+		:kgdparty_loop
+		if KGD['sput_<<i>>'] > 0:
+			$KGD['table'] += '<tr><td><<$KGD[''name_<<i>>'']>></td><td><<KGD[''lvl_<<i>>'']>></td><td><<KGD[''HP_<<i>>'']>></td><td><<KGD[''damage_<<i>>'']>></td></tr>'
+		end
+		i += 1
+	if i <= 6: jump 'kgdparty_loop'
+	$KGD['table'] += '</table></center>'
+	$KGD['table']
+else
+	'<center>你的队伍中没有任何英雄。 </center>'
+end
+
+
+act '下一天':
+	*clr & cla
+	KGD['brod'] = 0
+	KGD['day'] += 1
+	i = 1
+	:kgdnextday_loop
+	if KGD['farm_<<i>>'] = 0: i = 10
+	if KGD['farm_<<i>>'] = 1:
+		KGD['farm'] += KGD['farm_rate_<<i>>'] * KGD['farm_level_<<i>>']
+	end
+	if i < 10: i += 1 & jump 'kgdnextday_loop'
+
+	KGD['money'] += KGD['farm']
+	KGD['farm'] = 0
+	gt $curloc
+end
+
+if KGD['money'] >= 150 and KGD['farm_10'] = 0:
+	act '建造农场（150资源）':
+		*clr & cla
+		i = 1
+		:farm_loop
+		if KGD['farm_<<i>>'] = 0:
+			KGD['money'] -= 150
+			KGD['farm_<<i>>'] = 1
+			KGD['farm_level_<<i>>'] = 1
+			KGD['farm_rate_<<i>>'] = 5
+			KGD['farm_owned'] += 1
+			i = 10
+			gt $curloc
+		end
+		i += 1
+		if i <= 10: jump 'farm_loop'
+	end
+end
+if KGD['farm_1'] = 1:
+	act '管理农场': gt 'KGDgame', 'MngFarm'
+end
+
+act '安排士兵':
+	*clr & cla
+	i = 1
+
+	KGD['partyCreate'] = 1
+	:kgdplace_loop
+	if i = 1:
+		$temp_suffix = 'st'
+	elseif i = 2:
+		$temp_suffix = 'nd'
+	elseif i = 3:
+		$temp_suffix = 'rd'
+	else
+		$temp_suffix = 'th'
+	end
+	$KGD['place_<<i>>'] = '<<i>><<$temp_suffix>>位置为空'
+	KGD['place_<<i>>_rank'] = 0
+	i += 1
+	if i < 6: jump 'kgdplace_loop'
+	gt 'KGDparty'
+end
+
+if KGD['brod'] = 0 and KGD['partyCreate'] > 0:
+	act '赢得领土':
+		*clr & cla
+		KGD['brod'] = 1
+		gt 'KGDbefore'
+	end
+end
+
+if KGD['sput_6'] = 0 and KGD['money'] >= 250:
+	act '雇佣英雄（250资源）':
+		*clr & cla
+		KGD['money'] -= 250
+		KGD['partyCreate'] = 0
+
+		act '战士': gs 'KGDgame', 'KGDhire', '战士', 100, 10
+		act '魔法师': gs 'KGDgame', 'KGDhire', '魔法师', 60, 20
+		act '弓箭手': gs 'KGDgame', 'KGDhire', '弓箭手', 80, 15
+		act '牧师': gs 'KGDgame', 'KGDhire', '牧师', 40, 20
+	end
+end
+
+if KGD['money'] >= 100:
+	act '训练部队（100资源）':
+		*clr & cla
+		act '训练步兵':
+			*clr & cla
+			KGD['money'] -= 100
+			KGD['Infantrie'] += 10
+			gt $curloc
+		end
+		act '训练骑兵':
+			*clr & cla
+			KGD['money'] -= 100
+			KGD['Cavalry'] += 10
+			gt $curloc
+		end
+		act '训练弓箭手':
+			*clr & cla
+			KGD['money'] -= 100
+			KGD['Archers'] += 10
+			gt $curloc
+		end
+	end
+end
+
+act '退出游戏': gt 'KGDgame', 'exit'
+
+!! Subroutine to hire heroes
+if $ARGS[0] = 'KGDhire':
+	$type = $ARGS[1]
+	baseHP = ARGS[2]
+	baseDam = ARGS[3]
+	i = 2
+
+	:kgdhire_loop
+		if KGD['sput_<<i>>'] = 1: i = 6
+		if KGD['sput_<<i>>'] = 0:
+			$KGD['name_<<i>>'] = $type
+			KGD['lvl_<<i>>'] = 1
+			KGD['HP_<<i>>'] = baseHP
+			KGD['damage_<<i>>'] = baseDam
+			KGD['sput_<<i>>'] = 1
+			KGD['exp_<<i>>'] = 0
+			i = 6
+		end
+		i += 1
+	if i <= 6: jump 'kgdhire_loop'
+	killvar 'type'
+	killvar 'baseHP'
+	killvar 'baseDam'
+	killvar 'i'
+end
+
+
+if $ARGS[0] = 'MngFarm':
+	*clr & cla
+	$KGD['table'] = '<center><table border="0">'
+	$KGD['table'] += '<tr><td colspan="2" align="center">农场经理</td></tr>'
+	i = 1
+	:farmmanage_loop
+	if KGD['farm_<<i>>'] = 0: i = 10
+	if KGD['farm_<<i>>'] = 1:
+		$KGD['table'] += '<tr><td>农场<<i>></td><td>等级：'+KGD['farm_level_<<i>>']+'</td><td>生产：'+KGD['farm_rate_<<i>>']*KGD['farm_level_<<i>>']+' R/D</td></tr>'
+		if KGD['farm_level_<<i>>'] < 5 and KGD['money'] >= 100*KGD['farm_level_<<i>>']:
+			$KGD['table'] += '<tr><td colspan="2"><a href="exec:KGD[''farm_level_<<i>>''] += 1 & KGD[''farm_rate_<<i>>''] += 2 & KGD[''money''] -= 100*KGD[''farm_level_<<i>>''] & gt ''KGDgame'', ''MngFarm''">升级农场（<<100*KGD[''farm_level_<<i>>'']>>资源）</a></td></tr>'
+		else
+			$KGD['table'] += '<tr><td colspan="2">' + $func('wrap', 'neg', '升级农田（<<100*KGD[''farm_level_<<i>>'']>>资源）') + '</td></tr>'
+		end
+	end
+	if i < 10: i += 1 & jump 'farmmanage_loop'
+	$KGD['table'] += '</table></center>'
+	$KGD['table']
+	act '返回': gt $curloc
+end
+
+
+if $ARGS[0] = 'exit':
+	*clr & cla
+	if KGDsavegame = 0:
+		if KGD1['save'] = 0:
+			KGDsavegame = 1
+		elseif KGD2['save'] > 0:
+			KGDsavegame = 2
+		elseif KGD3['save'] > 0:
+			KGDsavegame = 3
+		elseif KGD4['save'] > 0:
+			KGDsavegame = 4
+		elseif KGD5['save'] > 0:
+			KGDsavegame = 5
+		elseif KGD6['save'] > 0:
+			KGDsavegame = 6
+		end
+	end
+
+	copyarr 'KGD<<KGDsavegame>>', 'KGD'
+	killvar 'KGD'
+	act '返回主菜单': gt 'komp', 'start'
+end
+
+
+--- KGDgame ---------------------------------

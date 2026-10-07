@@ -1,0 +1,2101 @@
+# KatjaHomeTalk
+!! 2022/08/02
+
+!! This files governs Katjas interactions in ther room. For the variable controlling her content see the documentation in katja_procedural.
+
+if $ARGS[0] = '':
+	CLOSE ALL
+	menu_off = 1
+	gs 'core_library', 'setloc', 'mey_home', 'katja_bedroom'
+	$location_type = 'public_indoors'
+	$locclass = 'livingr'
+	gs 'vicky_meynold_schedule'
+	gs 'katja_meynold_schedule'
+	gs 'stat'
+	$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+
+	if katjaQW['QWstage'] > 2:
+		if katjaQW['horny'] < 20:
+			'卡佳看上去很淡定，不动声色。'
+		elseif katjaQW['horny'] < 40:
+			'卡佳看着你，眼里闪着调皮的光。'
+		elseif katjaQW['horny'] < 60:
+			'卡佳看着你，脸颊微微泛红，调皮地朝你笑了笑。'
+		elseif katjaQW['horny'] < 80:
+			'卡佳的脸明显红了，眼神里满是渴望。'
+		else
+			'卡佳满脸通红，胸口随着粗重的呼吸起伏。她两腿不自觉地蹭着。'
+		end
+	else
+		'卡佳微笑着看着你。'
+	end
+
+	if locat['katja'] = 10:
+		!! When the weather is good the coolkids and the jock meet at the beach sometime and Katja goes to tther to join them, if the player is talking to when this happens she asks them to go with. Alternatively the can just leave.
+		'"其他人都在海滩碰面呢。走吧，我们也过去，"她说。'
+		act '和卡佳一起去海滩': minut += 15 & gt 'pav_lake', 'school_mates'
+	elseif locat['katja'] = 8:
+		!! Friday and Sturday evening Katja goes to the disco, if the player is talking to when this happens she asks them to go with. Alternatively the can just leave.
+		'"我们去迪厅吧！"卡佳笑着提议。'
+		act '去迪斯科舞厅' + $func('money', 'get_cost_string', 25):
+			if func('money', 'can_afford', 25) = 0:
+				$noMoney
+			else
+				gs 'money', 'pay', 25
+				minut += 10
+				gt 'pav_disco'
+			end
+		end
+	elseif locat['katja'] = 9:
+		'卡佳发现时间不早了，客气地送你出门。'
+	else
+		if pcs_sweat >= 20:
+			!! katja doesn''t like stinky people so if the player is sveaty she will ask the player to take a bath. The player can leave instead.
+			'卡佳皱了皱鼻子。"<<$pcs_nickname>>，你浑身都是汗！要不要用我的淋浴？"'
+
+			act '洗个澡': gt 'katjaEvDin', 'shower'
+		else
+			!! not sweaty
+
+			if katjaQW['know_katja_uni'] = 0 and gschoolVars['school_diploma'] = 1 and (month > 6 or (month = 6 and day > 15)):
+				!! Katja tells you that she has enrolled in the university.
+				gt 'KatjaHomeTalk', 'katja_uni_tell'
+
+			else
+				if katjaQW['knows_artem_is_boyfreind'] = 0 and artemQW['bf'] = 1:
+					!! Katja have heard that Artem is the boyfriend of the player character and wants to discuss that
+					gt 'KatjaHomeTalk', 'Artem_talk'
+
+				elseif katjaQW['knows_artem_is_boyfreind'] = 1 and artemQW['artembrokenheart'] = 1:
+					!! Katja have heard that Artem and the player character have broke up
+					gt 'KatjaHomeTalk', 'Artem_break_up_talk'
+
+				else
+					if katjaQW['QWstage'] = 6 and katjaQW['anal_quest'] >= 3 and katjaQW['slut'] > 100 and katjaQW['horny'] > 60 and katjaQW['sex_clossedness'] = 0:
+						!! If Katja have had sex with both marcus and Ivan and have been corrupted enough. Then she will when she is horny ask about trying sex with other boys.
+						gt 'KatjaHomeTalk', 'random_park_sex_talk'
+
+					elseif katjaQW['QWstage'] = 5 and katjaQW['pussy_sex'] = 0 and katjaQW['Artem_pussy'] + katjaQW['marcus_pussy'] > 0:
+						if katjaQW['Artem_pussy'] > 0:
+							!! If Katja have has had her first time with Artem she will discuss this the next time the player talks to her at home
+							gt 'KatjaHomeTalk', 'first_boy_sex_Artem_follow_up'
+						elseif katjaQW['marcus_pussy'] > 0:
+							!! If Katja have has had her first time with Marcus she will discuss this the next time the player talks to her at home
+							gt 'KatjaHomeTalk', 'first_boy_sex_follow_up'
+						end
+
+					elseif katjaQW['marcus_pussy'] = 0 and yearstart = 1 and katjaQW['sex_clossedness'] < 2 and katjaQW['boy_block'] = 0 and katjaQW['QWstage'] >= 6 and katjaQW['marcus_asked'] = 0 and rand(50, 150) < min(katjaQW['horny'], 100):
+						!! If Katja had sex with a boy that isn''t Marcus (Artem for example) and not Marcus yet, she might bring it up
+						gt 'KatjaHomeTalk', 'Marcus_discussion'
+
+					elseif katjaQW['marcus_pussy'] = 0 and katjaQW['marcus_asked'] = 1 and katjaQW['sex_clossedness'] < 2:
+						!! If Marcus have agreed to be katja''s first or have a threesome if Artem was Katja''s first, the player will tell this to Katja the next time the talk at home
+						gt 'KatjaHomeTalk', 'Marcus_answer_talk'
+
+					elseif katjaQW['QWstage'] < 4 and katjaQW['slut'] >= 50 and katjaQW['horny'] >= 40 and (katjaQW['knows_BJ'] + katjaQW['knows_sex']) >= 2 and npc_had_sex['A14'] and katjaQW['boy_block'] = 0 and katjaQW['anal_quest'] ! 1 and katjaQW['sex_clossedness'] = 0 and katjaQW['pussy_sex'] = 0:
+						!! If Katja have been corrupted enough, have had sex with the player and know that the player have both given blow jobs and have had vaginal sex with a boy. She will if she is horny ask the player to help her arrange her first time with a boy.
+						gt 'KatjaHomeTalk', 'sex_with_boy_ask'
+					elseif katjaQW['QWstage'] < 4 and katjaQW['knows_artem_is_boyfreind'] = 1 and katjaQW['slut'] >= 50 and npc_had_sex['A14'] and katjaQW['horny'] >= 40 and katjaQW['sex_clossedness'] = 0 and katjaQW['pussy_sex'] = 0:
+						!! if Katja have been corrupted enough and knows Artem is the player characters boyfriend she will ask for a threesome with him
+						gt 'KatjaHomeTalk', 'sex_with_Artem_ask'
+
+					else
+						if katjaQW['slut'] >= 60 and katjaQW['horny'] >= 40 and (katjaQW['knows_BJ'] + katjaQW['knows_anal']) >= 2 and npc_had_sex['A14'] and katjaQW['boy_block'] = 0 and katjaQW['anal_quest'] = 0 and katjaQW['QWstage'] ! 4 and katjaQW['sex_clossedness'] = 0 and katjaQW['anal_sex'] = 0:
+							!! If Katja have been corrupted enough, have had sex with the player and know that the player have both given blow jobs and have had vaginal sex with a boy. She will if she is horny ask the player to help her arrange her first time with a boy.
+							gt 'KatjaHomeTalk', 'anal_sex_with_boy_ask'
+
+						else
+							if min(katjaQW['horny'], 100) > rand(40, 400) or (katjaQW['QWstage'] = 2 and min(katjaQW['horny'], 100) > rand(40, 160)) and katjaQW['sex_clossedness'] < 2:
+								if katjaQW['QWstage'] >= 6 and week < 6 and katjaQW['boy_block'] = 0 and (locat['Vicky'] ! 8 and locat['Vicky'] ! 9 and locat['Vicky'] ! 12 and locat['Vicky'] ! 13) and rand(0, 6) =0 and katjaQW['Marcus_day'] ! daystart and katjaQW['sex_clossedness'] = 0 and katjaQW['marcus_pussy'] > 0:
+									!! Katja will only have Marcus come over when Vicky is in the park with Vanya and Tamara is not home. She will also only ask for a threesoem 1 out of 7 time she ask you for sex.
+									katjaQW['Marcus_day'] = daystart
+									gt 'katjaHomeTalk', 'marcus_kiss'
+
+								elseif katjaQW['QWstage'] > 2:
+									!! The standard start of her sex scenes at home. Happens if the marcus ask do not trigger and Katja have kissed the player.
+									gt 'KatjaHomeTalk', 'hornykiss'
+
+								else
+									!! This only triggers if the player have never kissed Katja.
+									gt 'KatjaHomeTalk', 'tender_kiss'
+								end
+
+							else
+								if npc_pregtalk['A14'] = 0 and (KatjaConflict = 0 or KatjaConflict = 2) and func('body_din', 'pregnancyVisibility') = 1:
+									!! If Katja can see you are pregant and you haven''t already told her this will create a conflict with to different responses depending on if Katja is pregnant or not.
+									if kid > 0:
+										cla
+										gs 'stat'
+										minut += 5
+										KatjaConflict = 1
+										KatConCheck = daystart
+										'"你又怀孕了？"她脸涨得通红，你从没见过她这么生气。"都经历了这么多，你还是不肯信我，不肯告诉我？"她冲你吼道。"我还以为我们之间是不一样的。"'
+										'泪水顺着她的脸颊滚落。"让我一个人静静，我现在连见都不想见你。"'
+
+									elseif knowKatjaPreg = 1:
+										cla
+										gs 'stat'
+										minut += 5
+										KatjaConflict = 1
+										KatConCheck = daystart
+										'"你怀孕了？为什么不告诉我？我以为我们之间比这更亲近。我怀孕的时候可是告诉你了。我得想一想。这事我们晚点再谈。"'
+
+									else
+										cla
+										*nl
+										minut += 5
+										KatjaConflict = 1
+										KatConCheck = daystart
+										'"你怀孕了？怎么不告诉我？我还以为我们之间比这更亲近。我得想想。这事我们晚点再谈。"'
+									end
+
+								else
+									!! If no events triggers they you go to the part where the player can choose things to do with Katja.
+									gt 'katjaHomeTalk', 'chat'
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	act '离开房间': gt 'mey_home', 'start'
+end
+
+if $ARGS[0] = 'chat':
+	!! This is what gives the different option for the player to talk with Katja about.
+	$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+
+	if katjaQW['QWstage'] > 2:
+		if katjaQW['horny'] < 20:
+			'卡佳看上去很淡定，不动声色。'
+		elseif katjaQW['horny'] < 40:
+			'卡佳看着你，眼里闪着调皮的光。'
+		elseif katjaQW['horny'] < 60:
+			'卡佳看着你，脸颊微微泛红，调皮地朝你笑了笑。'
+		elseif katjaQW['horny'] < 80:
+			'卡佳的脸明显红了，眼神里满是渴望。'
+		else
+			'卡佳满脸通红，胸口随着粗重的呼吸起伏。她两腿不自觉地蹭着。'
+		end
+	else
+		'卡佳微笑着看着你。'
+	end
+
+	$func('npc_reactions', 'general', 'A14')
+
+	if lernHome > 0 and katjaQW['QWstage'] >= 2:
+		!! If you have homework you can do it with Katja.
+		act '一起做作业':
+			minut += 5
+			gt 'KatjaHomeTalk', 'homework'
+		end
+	end
+
+	if university['student'] = 1 and katjaQW['know_going_to_teaching_degree'] = 0 and $university['enrolled_in'] = 'teaching_studies':
+		act '告诉卡佳你要去大学': gt 'KatjaHomeTalk', 'uni_tell'
+	end
+
+	act '和卡佳聊天':
+		!! The generic chat option.
+		*clr & cla
+		katjaQW['horny'] += 1
+		minut += 15
+		gs 'stat'
+		$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	!!	if flag_KissEV >= 3:
+	!!		act 'To continue the dispute':
+	!!		cla
+	!!		'- Well will continue our dispute, - asked you '
+	!!		'- continue, - Katya readily agreed'
+	!!
+	!!		act 'Continue': gt 'katja_sex','park'
+	!!		end
+	!!	end
+		if flag_KissEV = 2:
+			'"你觉得咱俩谁亲过的男孩更多？"她问。'
+			act '一样多':
+				*clr & cla
+				flag_KissEV = 0
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/katja_kiss.jpg"></center>'
+				'"我们亲过的男孩应该差不多，"你笑着回答。'
+				'她松了口气。"反正我也不该问的，"她说着，感激地亲了你一下。'
+				act '换个话题': gt 'KatjaHomeTalk'
+			end
+			act '宣称胜利':
+				cla
+				flag_KissEV = 3
+				'"我赢定了！"你调皮地笑着说。'
+				'"我是看你被我甩得太远，才故意放慢的！"她说着朝你吐了吐舌头。'
+				'"是啊是啊。我看他们就是更愿意亲我，不愿意亲你。"'
+				'"哦，是吗？那我们就去试试。走，去公园，看谁能亲到更多男孩，"她话里带着一丝火气。'
+				act '去公园': gt 'katja_sex', 'park'
+			end
+		else
+			if KatjaPreg ! 0 and knowKatjaPreg = 0:
+				'卡佳咬着嘴唇，不敢看你的眼睛，终于鼓起勇气说"<<$pcs_nickname>>，我怀孕了……"'
+
+				act '孩子的父亲是谁？':
+					cla
+					minut += 5
+					knowKatjaPreg = 1
+					gs 'stat'
+					'"等等，什么？是谁？"你目瞪口呆地问。'
+					'她皱了皱鼻子。"斯维亚托斯拉夫……我在新年派对上跟他搞上了，然后……呃……天哪，我现在该怎么办？！"'
+
+					act '表示同情':
+						cla
+						'你一时说不出话，只是上前抱住了她。'
+						act '继续交谈': gt 'KatjaHomeTalk'
+					end
+				end
+
+			else
+				if (rand(0, 100) > katjaQW['horny'] + min(katjaQW['slut']/2, 50)) or katjaQW['sex_clossedness'] = 2:
+					!! If Katja is horny she will talk about sex, else she will talk about normal stuff. The more corrupted she is the less horny she need to be to talk about sex.
+					'卡佳聊着学校的课程、化妆品、最新的时尚潮流，还有各种她觉得特别重要的事。'
+				else
+					gs 'katja_sex_talk', 'Sextalk'
+				end
+				act '继续': gt 'KatjaHomeTalk'
+
+			end
+		end
+	end
+
+	if katjaQW['boy_lie'] = 1:
+		!! If Katja told you that she was interested in a boy and wanted to try kissing because of that you can ask her who it is. Won''t get an answer before she is somehow corrupted and have started a sexual relationship.
+		act '问卡佳她喜欢谁':
+			*clr & cla
+			katjaQW['horny'] += 1
+			minut += 15
+			gs 'stat'
+			$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'"那你之前说的那个感兴趣的男孩是谁？"你好奇地问。'
+			if katjaQW['slut'] >= 60 and npc_had_sex['A14'] and katjaQW['horny'] > 40:
+				'"没有谁啦，你这个傻瓜！那只是我让你亲我的借口而已！"她笑着回答。'
+				katjaQW['boy_lie'] = 2
+				act '继续': gt 'KatjaHomeTalk', 'hornykiss'
+			else
+				'"那是我的秘密，我才不告诉你呢！"她眨着眼说。'
+				act '继续': gt 'KatjaHomeTalk'
+			end
+		end
+	end
+
+	if katjaQW['QWstage'] = 4 and katjaQW['marcus_pussy'] = 0 and katjaQW['sex_clossedness'] = 0:
+		!! If Katja asked your help in finding a boy to try sex with and you said no. You have the choice to reverse that decision.
+		if katjaQW['knows_artem_is_boyfreind'] = 1 and katjaQW['boy_block'] = 1:
+			act '告诉她你想让她和阿尔乔姆上床': gt 'KatjaHomeTalk', 'artem_sex_discussion'
+		else
+			act '告诉她你会帮她找一个可以上床的男孩': gt 'KatjaHomeTalk', 'boy_discussion'
+		end
+	end
+
+	if katjaQW['QWstage'] >= 6 and katjaQW['Artem_pussy'] = 0 and katjaQW['knows_artem_is_boyfreind'] = 1 and katjaQW['boy_block'] = 1 and katjaQW['sex_clossedness'] = 0:
+		!! A sexual active Katja has asked the player for having sex with Artem, but player did not agree originally
+		act '告诉她你想让她和阿尔乔姆上床': gt 'KatjaHomeTalk', 'artem_sex_discussion'
+	end
+
+	if katjaQW['anal_quest'] = 1 and katjaQW['sex_clossedness'] = 0 and katjaQW['boy_block'] = 0: act '告诉她你会帮她找一个可以尝试肛交的男孩': gt 'KatjaHomeTalk', 'anal_discussion'
+	!! If Katja asked your help in finding a boy to try anal sex with and you said no. You have the choice to reverse that decision.
+
+	if katjaQW['slut'] >= 50 and katjaQW['horny'] >= 80 and npc_had_sex['A14'] and katjaQW['sex_clossedness'] < 2:
+		!! If you are in a sexual relationship and you can see that Katja is very horny, then you have the possibility to start sex.
+		act '舔卡佳': gt 'KatjaEvDin', 'kuni_dom'
+	end
+
+	if katjaQW['QWstage'] >= 7 and katjaQW['birth_control_start_day'] < daystart and katjaQW['birth_control_start_day'] > 0 and katjaQW['horny'] > 60 and katjaQW['sex_clossedness'] = 0 and katjaQW['boy_block'] = 0:
+		!! If you have gotten to the last stage of Katja''s questline, you can suggest to go to the park to look for boys if Katja is horny.
+		act '去公园找男孩':
+			gt 'KatjaHomeTalk', 'go_to_park'
+		end
+	end
+
+
+	if katjaQW['QWstage'] = 5 and katjaQW['marcus_asked'] = 2 and week < 6 and (locat['Vicky'] ! 8 and locat['Vicky'] ! 9 and locat['Vicky'] ! 12 and locat['Vicky'] ! 13) and (katjaQW['horny']+katjaQW['slut']) > 100 and katjaQW['sex_clossedness'] = 0 and katjaQW['boy_block'] = 0:
+	!! Katja will only have Marcus come over when Vicky is in the park with Vanya and Tamara is not home. This is the lead in to the Marcus threesome if it is the first time.
+		act '提议给马库斯打电话':
+			*clr & cla
+			katjaQW['Marcus_day'] = daystart
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'卡佳看上去欲火难耐，于是你提议给马库斯打个电话，让她终于能尝尝跟男孩做爱是什么滋味。'
+			'"好吧。那我们给他打个电话吧。趁维姬回家之前应该还有时间，"她说着，看上去又兴奋又紧张。'
+			act '给马库斯打电话': gt 'katja_sex', 'marcus_wait'
+		end
+	end
+
+	if katjaQW['QWstage'] >= 6 and week < 6 and (locat['Vicky'] ! 8 and locat['Vicky'] ! 9 and locat['Vicky'] ! 12 and locat['Vicky'] ! 13) and katjaQW['horny'] > 80 and katjaQW['Marcus_day'] ! daystart and katjaQW['sex_clossedness'] = 0 and katjaQW['boy_block'] = 0 and katjaQW['marcus_pussy'] > 0:
+	!! Katja will only have Marcus come over when Vicky is in the park with Vanya and Tamara is not home. This is the lead in to the Marcus threesome if it have allready been fone at least one time.
+		act '提议给马库斯打电话':
+			*clr & cla
+			katjaQW['Marcus_day'] = daystart
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'卡佳看上去欲火难耐，于是你提议给马库斯打个电话，问他想不想过来一起找点乐子。'
+			'"好吧。那我们给他打个电话吧。趁维姬回家之前应该还有时间，"她看上去特别兴奋地说。'
+			act '给马库斯打电话': gt 'katja_sex', 'marcus_wait'
+		end
+	end
+
+	if katjaQW['birth_control_start_day'] = 0 and katjaQW['QWstage'] >= 6 and katjaQW['sex_clossedness'] < 2:
+		!! If you haven''t already told katja to use birthcontrol you can do so. This will prevent her from getting pregnant, and is necessary for taking to the park to have sex with random boys.
+		act '告诉卡佳她应该使用避孕措施': gt 'KatjaHomeTalk', 'preventation_talk'
+	end
+
+	act '"我们出去玩吧"':
+		!! This starts the option to go out and do stuff. The same option are availeble her as if you have choosen to hang out after school.
+		cla
+		gs 'stat'
+		if katjaQW['QWstage'] > 1 and pcs_makeup <= 1:
+			'"嘿！等一下，<<$pcs_nickname>>！我敢打赌你化点妆肯定好看！要不要试试？"'
+			act '让她给你化妆':
+				*clr & cla
+				pcs_hairbsh = 1
+				minut += 10
+				gs 'stat'
+				$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+				'卡佳开心地咧嘴一笑，三下两下帮你理了理头发。"你想要哪种？淡妆、普通妆，还是我直接给你糊上一层？"'
+
+				act '淡妆修饰':
+					cla
+					pcs_makeup = 2
+					'卡佳巧妙地涂上一些中性色调，轻轻上妆，展现出你的自然美。'
+					if katjaQW['QWstage'] > 2: katjaQW['horny'] += 5*(1 + npc_had_sex['A14']) & '卡佳忽然意识到自己正盯着你的眼睛看，脸一下子红了。'
+
+					act '"我们出去玩吧"': gt 'katjaEv', 'kathan'
+				end
+
+				act '普通妆容':
+					cla
+					pcs_makeup = 3
+					'卡佳涂上一些明快活泼的颜色，遮住你的小瑕疵，突出你最好看的地方。'
+					if katjaQW['QWstage'] > 2: katjaQW['horny'] += 5*(1 + npc_had_sex['A14']) & '卡佳忽然意识到自己正盯着你的眼睛看，脸一下子红了。'
+
+					act '"我们出去玩吧"': gt 'katjaEv', 'kathan'
+				end
+
+				act '浓妆':
+					cla
+					pcs_makeup = 4
+					'卡佳涂上更深、更浓郁的色调，厚到足以盖住大部分瑕疵，同时把你的眼睛和嘴唇衬得更勾人。'
+					if katjaQW['QWstage'] > 2: katjaQW['horny'] += 5*(1 + npc_had_sex['A14']) & '卡佳忽然意识到自己正盯着你的眼睛看，脸一下子红了。'
+
+					act '"我们出去玩吧"': gt 'katjaEv', 'kathan'
+				end
+			end
+
+			act '你真的不需要': gt 'katjaEv', 'kathan'
+		else
+			gt 'katjaEv', 'kathan'
+		end
+	end
+
+	if npc_pregtalk['A14'] = 0 and (KatjaConflict = 0 or KatjaConflict = 2) and knowpreg = 1 and pregChem > 0 and func('body_din', 'pregnancyVisibility') = 0:
+	!! If you are pregnant you can tell Katja that you are. Diferent versions depending on if she is pregnant or not and if you already have kids.
+		if kid > 0:
+			act '告诉她你怀孕了':
+				*clr & cla
+				gs 'stat'
+				$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+				'卡佳眼睛一亮。"恭喜！这次比上次还让人兴奋！每次你告诉我你怀孕了，我都觉得自己的孕事也没那么糟。天哪，这大概就是你老是怀孕的原因吧，不是吗？"'
+				'她含情脉脉地看着你，咯咯地笑。'
+				act '下一步': gt 'KatjaHomeTalk', 'katjaknows1'
+			end
+
+		elseif knowKatjaPreg = 1:
+			act '告诉她你怀孕了':
+				*clr & cla
+				$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+				'"什么？！太让人兴奋了！你该不会是为了学我才怀孕的吧？"她调皮地问。'
+				act '下一步': gt 'KatjaHomeTalk', 'katjaknows'
+			end
+
+		elseif KatjaPreg = 0:
+			act '告诉她你怀孕了':
+				*clr & cla
+				$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+				'"什么？这也太让人兴奋了！"'
+				act '下一步': gt 'KatjaHomeTalk', 'katjaknows'
+			end
+		end
+	end
+
+	if npc_pregtalk['A14'] = 0 and KatjaConflict = 1 and KatConCheck ! daystart :
+	!! If you did not tell katja that you are pregnant and she found out anyway. You can try to apologize. Different version if it is your first child or not.
+		if kid = 0:
+			act '道歉':
+				*clr & cla
+				gs 'stat'
+				KatjaConflict = 2
+				'"真的很抱歉没早点告诉你。我只是太难为情了。"'
+				'卡佳叹了口气。"我明白。我只是想让你知道你可以信任我，结果发现你并不信任我，这让我很难受。"'
+				'"我确实信任你。我保证以后再也不瞒你这种事了。"'
+				'"很好。那现在说正事吧。"'
+				act '下一步': gt 'KatjaHomeTalk', 'katjaknows'
+			end
+
+		else
+			act '道歉':
+				*clr & cla
+				gs 'stat'
+				KatjaConflict = 2
+				'"真的很抱歉没早点告诉你。只是这种事又发生一次，我实在太难为情了。"'
+				'卡佳叹了口气。"我明白。我只是想让你知道你可以信任我，结果发现你并不信任我，这让我很难受。"'
+				'"我确实信任你。我保证以后再也不瞒你任何类似的事了。"'
+				'"很好。那现在说正事吧。"'
+				act '下一步': gt 'KatjaHomeTalk', 'katjaknows1'
+			end
+		end
+	end
+
+	if katjaQW['boy_block'] = 1 and katjaQW['knows_artem_is_boyfreind'] ! 1:
+		act '告诉卡佳，你最终还是觉得男生有意思<br>' + $func('wrap', 'neg', '（卡佳将重新开始向你打听关于和男孩做爱的事）'): gt 'KatjaHomeTalk', 'boy_yes'
+	end
+
+	if artemQW['artem_open_relationship'] = 1 and  katjaQW['boy_block'] = 1 and katjaQW['knows_artem_is_boyfreind'] = 1:
+		act '告诉卡佳你和阿尔乔姆是开放式关系': gt 'KatjaHomeTalk', 'artem_opne_relationship'
+	end
+
+	act '离开房间': gt 'mey_home', 'start'
+end
+
+if $ARGS[0] = 'katjaknows':
+	cla
+	npc_pregtalk['A14'] = 1
+	*nl
+	if katjaQW['slut'] < 60 and $wombthfathID = 'A34':
+		minut += 10
+		'"那，孩子的爸爸是谁？"卡佳打趣道。'
+		*nl
+		'你告诉卡佳，你怀的是科尔卡的孩子。'
+		'"你被你弟弟搞大了肚子？！太疯狂了！他床上功夫总该还行吧？"'
+		'"要是他不行，我也不会怀孕。"你笑着说，"我只让最棒的那根鸡巴进过我的身体。"'
+		'卡佳脸红了，你趁她反应过来之前飞快地亲了她一下。'
+	elseif katjaQW['slut'] < 60 and $wombthfathID = 'A28':
+		minut += 10
+		'"那，孩子的爸爸是谁？"她打趣道。'
+		*nl
+		'你告诉卡佳，你怀的是你继父的孩子。'
+		'"你被你继父搞大了肚子？！这也太疯狂了！"'
+		'卡佳脸红了，你趁她反应过来之前飞快地亲了她一下。'
+	elseif katjaQW['slut'] < 60 and $wombthfathID = 'A35':
+		minut += 10
+		'"那，孩子的爸爸是谁？"她打趣道。'
+		*nl
+		'你告诉卡佳，你怀的是你亲生父亲的孩子。'
+		'"你被你亲生父亲搞大了肚子？！这也太疯狂了！"'
+		'卡佳脸红了，你趁她反应过来之前飞快地亲了她一下。'
+	elseif katjaQW['slut'] < 60 and ($wombthfath = '' or $wombthfathID = 'unknown'):
+		minut += 10
+		'"那，孩子的爸爸是谁？"她打趣道。'
+		*nl
+		'你告诉她，你其实不知道肚子里这个孩子到底是谁的。'
+		'"不会吧！真的假的？"她完全惊呆了。'
+		'"是啊，我有时候觉得自己的生活快失控了。"'
+		'卡佳把手放在你肩上"<<$pcs_nickname>>，要是有什么我能帮上忙的，一定要告诉我。"'
+		'你脸一红，向她道谢，然后在她脸颊上飞快地亲了一下。'
+	elseif katjaQW['slut'] >= 60 and $wombthfathID = 'A34':
+		minut += 10
+		'"你让谁往你这具美妙的身体里灌了货？"卡佳咬着下唇问。'
+		*nl
+		'你告诉卡佳，你怀的是科尔卡的孩子。'
+		'"你被你弟弟搞大了肚子？！太性感了！"她呻吟着，随即给了你一个热吻。'
+		'当你的<<$pc_desc[''lips'']>>和她的双唇分开时，你看着她的眼睛。"我没想到承认乱伦还有奖赏。"'
+		'她轻笑道。"我喜欢坦诚，而且我觉得每个人都该自由地探索自己的欲望。哪怕这欲望是骑在你弟弟的鸡巴上。"'
+		'你不禁问自己，你上辈子做了什么，才配得上生命中这样一个出色的女人。'
+	elseif katjaQW['slut'] >= 60 and $wombthfathID = 'A28':
+		minut += 10
+		'"你让谁往你这具美妙的身体里灌了货？"卡佳咬着下唇问。'
+		*nl
+		'你告诉卡佳，你怀的是你继父的孩子。'
+		'"你被你继父搞大了肚子？！太性感了！"她呻吟着，随即给了你一个热吻。'
+		'当你的<<$pc_desc[''lips'']>>和她的双唇分开时，你看着她的眼睛。"我没想到承认乱伦还有奖赏。"'
+		'她轻笑道。"我喜欢坦诚，而且我觉得每个人都该自由地探索自己的欲望。哪怕这欲望是恋父情结的一部分。"'
+		'你不禁问自己，你上辈子做了什么，才配得上生命中这样一个出色的女人。'
+	elseif katjaQW['slut'] >= 60 and $wombthfathID = 'A35':
+		minut += 10
+		'"你让谁往你这具美妙的身体里灌了货？"卡佳咬着下唇问。'
+		*nl
+		'你告诉卡佳，你怀的是你亲生父亲的孩子。'
+		'"你被你亲生父亲搞大了肚子？！太性感了！"她呻吟着，随即给了你一个热吻。'
+		'当你的<<$pc_desc[''lips'']>>和她的双唇分开时，你看着她的眼睛。"我没想到承认乱伦还有奖赏。"'
+		'她轻笑道。"我喜欢坦诚，而且我觉得每个人都该自由地探索自己的欲望。哪怕这欲望是恋父情结的一部分。"'
+		'你不禁问自己，你上辈子做了什么，才配得上生命中这样一个出色的女人。'
+	elseif katjaQW['slut'] >= 60 and ($wombthfath = '' or $wombthfathID = 'unknown'):
+		minut += 10
+		'"你让谁往你这具美妙的身体里灌了货？"卡佳咬着下唇问。'
+		*nl
+		'你告诉她，你其实不知道肚子里这个孩子到底是谁的。'
+		'"你真是个性感的小骚货！"她呻吟着，随即给了你一个热吻。'
+		'当你的<<$pc_desc[''lips'']>>和她的双唇分开时，你看着她的眼睛。"我很高兴你没像其他很多人那样对我指指点点。"'
+		'"<<$pcs_nickname>>，我永远不会评判你。而且说实话，我还有点嫉妒。我希望我也能像你一样放得开。"'
+		'你不禁问自己，你上辈子做了什么，才配得上生命中这样一个出色的女人。'
+	else
+		minut += 10
+		'"那，孩子的爸爸是谁？"她打趣道。'
+		*nl
+		iif( ($wombthfath = '' or $wombthfathID = 'unknown'), '"我真不知道孩子的父亲是谁"', '"看样子，我是被<<$wombthfath>>搞大的"')
+		'"我希望他知道自己有多走运，"她说话时明显红着脸。'
+	end
+	act '继续':
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+end
+
+if $ARGS[0] = 'katjaknows1':
+	cla
+	npc_pregtalk['A14'] = 1
+	if katjaQW['slut'] < 60:
+		'"那么，美人儿。还是上次那个爹吗？"'
+	else
+		'"妈的，我真喜欢看你怀孕的样子。希望你准备好生很多很多孩子。"她红透了脸，亲了你一下。"那么，这次是谁放的种？"'
+	end
+	*nl
+	!! The family reactions
+	if ($wombthfathID = 'A34' and npc_rel['A34'] > 50) or ($wombthfathID = 'A28' and npc_rel['A28'] > 50) or ($wombthfathID = 'A29' and npc_rel['A29'] > 50):
+		if $wombthfathID = $ChildThFath[kid-1]:
+			if katjaQW['slut'] >= 60:
+				'你告诉卡佳，<<$wombthfath>>又把你搞怀孕了。'
+				'"该死，我从没想过会碰上一个想当乱伦造娃工厂的人。"'
+				'"天哪，你是我认识的最火辣的妞。我以为我不可能更爱你了。"她意识到自己刚承认了爱你，眼睛瞪大，脸颊泛红。还没等你回应，就被她一个热吻堵了回去。'
+				'几分钟后，她结束了这个吻，双唇离你的嘴唇只有几英寸。"别让这个分了你的心，我要你当他的生育母狗。我要他一直让你怀孕。你不在我身边的时候，我得有点东西来慰藉自己。"'
+				'她话音刚落，嘴唇就像被磁铁吸住一样，又贴上了你的嘴唇。'
+			else
+				'你告诉卡佳，<<$wombthfath>>又把你搞怀孕了。'
+				'"该死，我从没想过会遇到一个想当乱伦造娃工厂的人。"'
+				'"我只希望他能让你幸福。有时候我很难相信你就是我爱上的那个女人。"她意识到自己刚才承认了爱你，眼睛瞪大，脸颊泛红。'
+				'你还没来得及回答，她就是一个热情的吻把你打断了。'
+			end
+		else
+			if katjaQW['slut'] >= 60:
+				'你红着脸告诉卡佳，你家的一个成员让你怀了孕，但这次是<<$wombthfath>>.'
+				'她瞪大了眼睛。"哇，你们家一定非常亲密，"她咯咯地笑。'
+				'"该死，''你最喜欢被家里哪个成员搞大肚子？''这大概是我被问过的最火辣的问题。就在我以为自己不能更爱你的时候。"她意识到自己刚才承认了爱你，眼睛瞪大，脸颊泛红。还没等你回应，她就是一个热情似火的吻把你打断。'
+				'几分钟后，她结束了这个吻，双唇离你的嘴唇只有几英寸远。"别以为我会忘记你像个小荡妇一样在家人之间被传来传去的画面。你不在身边的时候，我需要点东西来慰藉自己。"'
+				'她话音刚落，她的嘴唇就像被磁力吸引一样重新贴上了你的嘴唇。'
+			else
+				'你红着脸告诉卡佳，你家的一个成员让你怀了孕，但这次是<<$wombthfath>>.'
+				'她瞪大了眼睛。"哇，你们家一定非常亲密，"她咯咯地笑。'
+				'"真没想到我会爱上一个让自己家里多个成员搞大肚子的女人。"她意识到自己刚才承认了爱你，眼睛瞪大，脸颊泛红。'
+				'你还没来得及回答，她就是一个热情的吻把你打断了。'
+			end
+		end
+	!! The non-family reactions
+	else
+		if $wombthfathID = $ChildThFath[kid-1]:
+			'你告诉卡佳，<<$wombthfath>>又是孩子的父亲。'
+			'"我希望他能让你幸福。也希望他不介意和我分享你，"她红着脸说。"我可不想彻底失去我爱的女人。"她意识到自己刚才承认了爱你，眼睛瞪大，脸颊泛红。'
+			'你还没来得及回答，她就是一个热情的吻把你打断了。'
+		elseif $wombthfath = '' or $wombthfathID = 'unknown':
+			if katjaQW['slut'] >= 60:
+				'你告诉卡佳，你不知道孩子的父亲是谁。'
+				'"那看来你是玩得太尽兴了，"她轻笑道。'
+				'"希望下次你能算上我。"'
+			else
+				if npc_rel['A14'] >= 40:
+					'你告诉卡佳，你不知道孩子的父亲是谁。'
+					'"那看来你是玩得太尽兴了，"她轻笑道。'
+				else
+					'你告诉卡佳，你不想说出孩子的父亲是谁。'
+					'"那看来你是玩得太尽兴了，"她轻笑道。'
+				end
+			end
+		else
+			'你告诉卡佳，孩子的父亲是<<$wombthfath>>。'
+			'"我很高兴你意识到自己太特别了，不该把自己局限在一个男人身上。我太爱你了，不会让你委屈自己。"她意识到自己刚才承认了爱你，眼睛瞪大，脸颊泛红。'
+			'你还没来得及回答，她就是一个热情的吻把你打断了。'
+		end
+	end
+
+	act '继续':
+		minut += 10
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+end
+
+if $ARGS[0] = 'shower_kiss_home':
+	*clr & cla
+	gs 'npcStat', 'A14'
+	katjaQW['slut'] += 1
+	katjaQW['horny'] += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/sex/school/showerkiss.jpg"></center>'
+	'卡佳用一只手温柔地搂着你，亲吻你的嘴唇。你感觉到她柔软的手掌贴在你赤裸的下体上，她的手指找到了你的阴蒂，开始揉搓起来。'
+	gs 'arousal', 'kiss', 10, 'dom', 'lesbian'
+	gs 'arousal', 'vaginal_finger', -10, 'dom', 'lesbian'
+	gs 'stat'
+
+	if katjaQW['slut'] >= 50:
+		'卡佳温柔而坚定地把你放到浴缸边上。'
+	else
+		'卡佳用手指轻柔地爱抚着你的阴蒂，双唇开始亲吻你的脖颈，慢慢地向下移去。'
+	end
+
+	act '坐到浴缸边上':
+		*clr & cla
+		katjaQW['horny'] -= 10
+		katjaQW['slut'] += 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/sex/school/showersex.jpg"></center>'
+		'你坐在浴缸边上，张开双腿露出湿漉漉的下体。卡佳在你面前跪下，轻轻舔舐着你红肿的花瓣。'
+		'她的舌头开始轻快地爱抚你的下体，也没有忘记你的阴蒂。快感很快便笼罩了你的全身。'
+		'你注意到卡佳的手伸到了她的双腿之间，看着她一边取悦你一边自慰，你变得更加兴奋。'
+		$orgasm_txt = '一阵强烈的高潮突然袭来，你感觉仿佛要失去意识，全身弯曲抽搐，一股热浪席卷全身。'
+		$orgasm_or = 'yes'
+		gs 'arousal', 'cuni', 10, 'dom', 'lesbian'
+		gs 'stat'
+
+		act '走出淋浴间':
+			gs 'arousal', 'end'
+			gt 'KatjaHomeTalk'
+		end
+	end
+
+	gs 'willpower', 'cuni', 'resist', 'hard'
+	if pcs_willpwr < will_cost:
+		act '移开她的手' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '移开她的手' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			minut += 5
+			pcs_horny += 10
+			katjaQW['dom'] -= 1
+			katjaQW['horny'] -= 10
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'你移开她的手，对她笑了笑。你打发她离开，她羞涩地看着地板，然后走出了浴室。'
+
+			act '走出淋浴间':
+				gs 'arousal', 'end'
+				gt 'KatjaHomeTalk'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'homework':
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	gs 'npc_relationship', 'modify', 'A14', 2
+	gs 'grades', 'homework', 'school', 'yes', 1, 1, 'A14'
+	lern += rand(2, 4)
+	gs 'exp_gain', 'intel', rand(0, 1)
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'你和卡佳埋头苦读了半个小时的书。到最后，你觉得自己已经完全理解了这些内容。'
+
+	act '完成': gt 'KatjaHomeTalk'
+	act '离开房间': gt 'mey_home', 'start'
+end
+
+if $ARGS[0] = 'hornykiss':
+	'卡佳把脸凑得离你如此之近，你甚至能感觉到她灼热的呼吸喷在你的皮肤上。'
+
+	act '把你的脸凑近她的脸':
+		*clr & cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你靠得离卡佳的脸更近了。'
+
+		if katjaQW['horny'] < 50:
+
+			if rand(0, 50) < 15:
+				act '吻': gt 'katjaEvDin', 'kiss'
+			else
+				katjaQW['horny'] += 5
+				'卡佳咯咯地笑着，把你的脸从她面前推开。'
+
+				act '换个话题':
+					minut += 15
+					if $loc = 'katja_dorm':
+						gt 'katja_dorm', 'talk'
+					else
+						gt 'KatjaHomeTalk'
+					end
+				end
+
+!!				if pcs_dom > 0:
+					act '捧住卡佳的脸':
+						*clr & cla
+						katjaQW['dom'] -= 2
+						katjaQW['horny'] -= 10
+						gs 'stat'
+						'你双手捧住她的脸，把自己的嘴唇贴向卡佳的嘴唇。'
+
+						!! if pcs_dom < katjaQW['dom']:
+							!! 'Katja firmly takes your hands and removes them from her face, allowing you to understand, that she does not intend to kiss you.'
+
+							!! act 'Continue': minut += 15 & gt 'KatjaHomeTalk'
+						!! else
+							'卡佳凝视着你的眼睛。'
+							act '吻': gt 'katjaEvDin', 'kiss'
+						!! end
+					end
+				!! end
+			end
+		else
+			act '吻': gt 'katjaEvDin', 'kiss'
+		end
+	end
+end
+
+if $ARGS[0] = 'tender_kiss':
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'卡佳若有所思，随后尴尬地脸红了。"<<$pcs_nickname>>……你以前……亲过男孩吗？"'
+	katjaQW['boy_lie'] = 1
+
+	act '亲过':
+		*clr & cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你对卡佳笑了笑，说自己亲过男孩。'
+		'卡佳更加害羞地继续说道。"是这样的，我喜欢一个男生，但他比我大，我怕我们开始接吻的时候我会做错什么。你能教我怎么接吻吗？"'
+
+		act '吻': gt 'katjaEvDin', 'kiss'
+
+		act '拒绝':
+			*clr & cla
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'你拒绝了，她用恳求的眼神看着你。"求你了<<$pcs_nickname>>，你不想让我接吻技术太差吧？"'
+
+			act '让步':
+				katjaQW['dom'] += 2
+				gt 'katjaEvDin', 'kiss'
+			end
+
+			gs 'willpower', 'kiss', 'resist', 'medium'
+			if pcs_willpwr < will_cost:
+				act '坚定立场' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '坚定立场' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+					'你拒绝亲吻卡佳，她对你生气了。'
+
+					act '聊点别的':
+						if $loc = 'katja_dorm':
+							gt 'katja_dorm', 'talk'
+						else
+							gt 'KatjaHomeTalk'
+						end
+					end
+					if $loc = 'katja_dorm':
+						act '别说了': gt 'katja_dorm', 'start'
+					else
+						act '离开房间': gt 'mey_home', 'start'
+					end
+				end
+			end
+		end
+	end
+
+	act '没有':
+		*clr & cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你摇了摇头，说自己从来没亲过男孩。'
+		'卡佳更加害羞地继续说道。"是这样的，我喜欢一个男生，但他比我大，我怕我们开始接吻的时候我会做错什么。也许我们可以试着接吻，用这种方式来学习？"'
+		act '吻': gt 'katjaEvDin', 'kiss'
+
+		act '拒绝':
+			*clr & cla
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'你拒绝了，她用恳求的眼神看着你。"求你了<<$pcs_nickname>>，这对我们俩都有好处，这样我们真正亲到男孩的时候会表现得更好！"'
+
+			act '让步':
+				katjaQW['dom'] += 2
+				gt 'katjaEvDin', 'kiss'
+			end
+
+			gs 'willpower', 'kiss', 'resist', 'medium'
+			if pcs_willpwr < will_cost:
+				act '坚定立场' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '坚定立场' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+					'你拒绝亲吻卡佳，她对你生气了。'
+
+					act '聊点别的':
+						if $loc = 'katja_dorm':
+							gt 'katja_dorm', 'talk'
+						else
+							gt 'KatjaHomeTalk'
+						end
+					end
+					if $loc = 'katja_dorm':
+						act '别说了': gt 'katja_dorm', 'start'
+					else
+						act '离开房间': gt 'mey_home', 'start'
+					end
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'marcus_kiss':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/katja_kiss.jpg"></center>'
+	'卡佳几乎扑到你身上，给了你一个吻。之后，她有些犹豫地看着你。"你知道的，叫马库斯过来挺有意思的，那我们为什么不现在就给他打电话呢？"'
+	act '同意': gt 'katja_sex', 'marcus_wait'
+	act '你没心情': katjaQW['horny'] -= 20 & gt 'KatjaHomeTalk'
+end
+
+if $ARGS[0] = 'TamVal':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/TK.jpg"></center>'
+	'卡佳把手机忘在了家里，于是你快步去她的房间取，但当你走进走廊时，一些话语传入了你的耳朵。两个女人正在客厅里交谈。'
+	'"哦，塔玛拉夫人！能再次和你在一起真是太美妙了，但我的工作让我只能这么少见到你，真是太不公平了，而我……我想回报你给予我的一切恩惠。"'
+	'这个女人的声音听起来很年轻，而且，不得不说，还有点轻佻？你转向卡佳，看到她的眼中闪过认出来的人那种神情和惊讶。'
+	'"这是我的荣幸，瓦伦蒂娜，不过我现在不需要你再做什么了。你现在要做的是专注于你的学业和工作。这样就够了，但时间不早了，我们得告别了。你现在可以站起来了，瓦伦蒂娜！"'
+	'年长的女人语气听起来严肃得多，但也不乏温情，然后她们突然安静下来，一些闷闷的声音传入了你的耳朵。卡佳拉着你的手，悄悄往房子深处走去，在那里你看到两个女人正拥抱在一起，深情地亲吻着。也许对于告别之吻来说，这亲密得有些过头了。'
+	'卡佳倒吸一口凉气，两个女人转身看向你们。年长的那位微笑着，对这次突如其来的打扰毫不在意。年轻的那位——比你也大不了多少——松开怀抱，低垂着眼，向你们俩行了一个顺从的屈膝礼。'
+	'"哦，叶卡捷琳娜！看看谁来看我们了！瓦伦蒂娜！"'
+	'卡佳含糊地嘟囔了一句听起来像"你好"的话，然后没有松开握着你的手，飞快地拉着你走向她的卧室。一进门，她就扑到床上，把一声尖叫闷在了枕头里。'
+	minut += 5
+	gs 'stat'
+
+	act '卡佳很困惑':
+		menu_off = 1
+		*clr & cla
+		katjaQW['QWstage'] = 2
+		$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你试着安抚这个大口喘着气的红发女孩，她抓狂地站起来，朝自己房间门外偷看了一眼。最后，她总算冷静到能和你说话了。'
+		'"<<$pcs_nickname>>，你看到了，对吧？我是说……她们……哦，天哪！"'
+		'你拉着她的手，让卡佳坐在你身边，然后抱住这个红发女孩，主要是为了阻止她把你逼疯。'
+		'"没事的，没事的，卡佳。停下来，深呼吸。"'
+		'她听从了你的建议，大口吸了一口气。这似乎让她安静了下来，泄了气，回到了更"正常"的精神状态。即便如此，她仍然很困扰。'
+		'"抱歉，<<$pcs_nickname>>，只是很多事情突然就说得通了。听着，瓦伦蒂娜以前在这里住过一段时间。我不完全清楚来龙去脉，只知道她离开母亲来到城里生活，后来惹上了某种麻烦。妈妈把她迎进了我们家，而且……还记得她有多黏我妈妈吗？瓦伦蒂娜一直那样，似乎还嫉妒维姬和我，现在我忍不住在想……"'
+		'"你是在想，你妈妈和瓦伦蒂娜可能曾经是、或者现在就是恋人？这让你困扰吗？你不喜欢这样？"'
+		'卡佳看着你，脸上交织着各种情绪。困惑、惊讶、怀疑、恐惧。她张了张嘴又闭上，看着你，脸红了，然后说出了一句出人意料的话。'
+		'"我不知道……也许吧？我从没想过这种事。呃……<<$pcs_nickname>>……如果我也……我是说……呃……像瓦伦蒂娜那样……试着吻你，你会怎么想？"'
+		minut += 5
+		gs 'stat'
+
+		gs 'willpower', 'kiss', 'force', 'hard'
+		if pcs_willpwr < will_cost:
+			act '"如果是我想要吻你呢？"' + $func('willpower', 'get_willcost_string'): msg $noWillpower
+		else
+			act '"如果是我想要吻你呢？"' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'kiss', 'force', 'hard'
+				gs 'willpower', 'pay', 'force'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/katja_kiss.jpg"></center>'
+				'卡佳用最合乎逻辑的方式之一作出了回应。这个本就激动的女孩脸颊上的红晕蔓延开来，覆盖了她的脸、脖子，你猜想还有她的身体。接下来的部分就不那么合乎逻辑了——她张开嘴想说话，却咳了起来。'
+				'她舔了舔嘴唇，用沙哑而犹豫的声音回答道。"好……？"'
+				'你靠向她，在她唇上轻轻亲了一下。她没有反应，于是你继续，捧住她的脸、脸颊和脖颈。她的手抬起来抵在你的胸口，却没有试图把你推开。事实上，她开始回吻你。'
+				'这演变成了一场笨拙的缠绵热吻，这个没有经验的女孩害羞地试着跟上你的节奏，不止一次咬到了你。你们的嘴唇越贴越紧，最终舌头交缠在一起，在越来越强烈的循环中把两人撩拨得欲火高涨，但一切在卡佳发出一声惊讶的"呀！"并从你身边退开时戛然而止。'
+				'看来你的一只手不知什么时候已经伸到了她的衣服下面，嗯，开始玩弄她的一只乳房。现在你们俩正困惑地看着这只越界的手。她咬着嘴唇，紧张地环顾四周，试图整理自己被弄乱的衣服。'
+				'"那真是……哇。嗯…… <i>某件事</i> <<$pcs_nickname>>…… "'
+				gs 'npc_relationship', 'modify', 'A14', 1
+				katjaQW['slut'] += 5
+				katjaQW['dom'] -= 2
+				katjaQW['QWstage'] = 3
+				minut += 5
+				gs 'mood', 'raise', 'tiny'
+				gs 'arousal', 'kiss', 10
+				gs 'stat'
+
+				act '该走了': gt 'katjaHomeTalk', 'TamVal_2'
+			end
+		end
+
+		gs 'willpower', 'kiss', 'self'
+		if pcs_willpwr < will_cost:
+			act '"想试试吗？"' + $func('willpower', 'get_willcost_string'): msg $noWillpower
+		else
+			act '"想试试吗？"' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'kiss', 'self'
+				gs 'willpower', 'pay', 'self'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/katja_kiss.jpg"></center>'
+				'卡佳的眼睛睁得大大的，有那么一瞬间，你以为自己搞砸了，但她什么也没说，什么也没做。她只是坐在你身边，专注地盯着你的脸。'
+				'"好。"'
+				'你几乎没听见卡佳低语的那个字，她就靠向你，轻轻吻上你的嘴唇。这个吻只是微微碰到你的皮肤，你以为就这样结束了，直到她的双手伸向你，抓住你的衣服，把你固定在原地。'
+				'她开始缓慢地吻你……试探性地。细碎的吻落在你的双唇各处，卡佳眼中带着惊人的热切。很快，事情升级了，她的舌头试图撬开你的嘴。说实话，她并不擅长这个，而且不止一次咬得你有点疼，但。你。不在乎。'
+				'你最终躺倒在卡佳的床上，她整个人压在你身上。这场缠绵热吻迅速升温，卡佳用舌头试图够到你的扁桃体（又咬了你一下），你发现自己喘不过气来。你欲火中烧的大脑有一小部分勉强注意到，她的手正伸向你的衣服下面，朝着你的胸部而去，然后……停住了？！'
+				'一声困惑的"嗯？"从你嘴边逸出，你试图弄明白刚才发生了什么。卡佳已经退到了床头。她咬着嘴唇，紧张地环顾四周，试图整理自己被弄乱的衣服。'
+				'"那真是。哇。嗯。 <i>某件事</i> <<$pcs_nickname>>……"'
+				gs 'npc_relationship', 'modify', 'A14', 1
+				katjaQW['slut'] += 5
+				katjaQW['QWstage'] = 3
+				minut += 5
+				gs 'mood', 'raise', 'tiny'
+				gs 'arousal', 'kiss', 10
+				gs 'stat'
+
+				act '该走了': gt 'katjaHomeTalk', 'TamVal_2'
+			end
+		end
+
+		act '尴尬地盯着她看':
+			*clr & cla
+			$func('wrap', 'header center b', '<<$npc_firstname[''A14'']>> <<$npc_lastname[''A14'']>>')
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'"嗯？！"'
+			'这就是你的大脑面对卡佳的问题似乎所能给出的全部回应，显然她对此接受得不太好。'
+			'"对不起，<<$pcs_nickname>>！我不是在暗示什么……我是说……我不是想……呃……"'
+			'你盯着她，她也盯着你。沉默似乎只让两人一秒比一秒更尴尬。'
+			gs 'mood', 'lower', 'small'
+			gs 'npc_relationship', 'modify', 'A14', -5
+			minut += 5
+			gs 'stat'
+
+			act '该走了': gt 'katjaHomeTalk', 'TamVal_2'
+		end
+
+		if succubusQW = 14:
+			act '用魅魔的风格回答':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+				'"我会教你一些你"妈妈"从没教过你的东西！"你咧嘴一笑。'
+				'你露出了微笑，因为卡佳，这个最可爱的人形番茄，正瞪着快要爆出来的眼睛回望着你。然后她跳下床，冲你尖叫起来，一半是愤怒，一半是尴尬。'
+				'"<<$pcs_nickname>>！我不是在开玩笑！这对我来说是个艰难的时刻！"'
+				'看着她可爱的样子，你忍不住一直微笑。"好吧，卡佳，上课时间到了。让我们脱光衣服吧。"'
+				'你开始脱衣服，目瞪口呆的卡佳努力消化着你刚才说的话。'
+				'"呃……什么？<<$pcs_nickname>>，这是在开玩笑吗？"'
+				
+				act '不是玩笑':
+					*clr & cla
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/pc/body/succubusself.jpg"></center>'
+					'你叫<<$sucself1>>从它安放的位置升起，它完全充满你，力量涌遍你的全身…… ' + $func('wrap', 'v_neg b', '还有饥渴。')
+					'转瞬间，帷幕破裂，卡佳暴露在你全部的光辉之下。恐惧掠过她的眼眸，随后虚假的现实重新施加影响，遮蔽了她的感知，但就在那一刻，你的魔力触须已经连接上了她内心最深的欲望。'
+					'慢慢地……怯生生地……卡佳开始脱衣服，最后只穿着内裤站在你面前，拼命想遮住自己。你惊讶于她还有意志留下最后那件衣物，不过，天哪，她看起来真是一道可爱的风景！'
+					'"过来，卡佳！放松点！我们不会做任何坏事！"'
+					
+					act '她坐到床上':
+						*clr & cla
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/sex/SL1.jpg"></center>'
+						'"好吧，<<$pcs_nickname>>……你……你打算做什么？"'
+						'你没有回答。取而代之的，只有一个拥抱。卡佳紧张地扭动着身体，但并没有试图挣脱。你亲吻着她美丽的脖颈，等待着，让这个红发女孩放松下来……这可不是件容易的事，所以几分钟后，你的双手开始在她身上游走。'
+						'"听好了，害羞、天真、拘谨、处女之身的卡佳。从现在起，你只能用"哦……哦……哦……"来回应。明白了吗，我的小宠物？"'
+						'你的右手终于伸到她的双腿之间，停在她内裤柔软的布料上。这是对未来之事的一种预告……当她合拢双腿时，你停了下来。'
+						'"<<$pcs_nickname>>！疼！"'
+						'因为卡佳的越轨举动，你在她的胯间轻轻掐了一下，吓了她一跳，但也让她闭上了嘴。你增强的感官让你能爱抚她所有的敏感地带，她很快便开始呻吟，忘记了对你这般支配行为的抗拒。'
+						'"没事的，我的小宠物。只要……让我来做所有的事。但首先，我需要你给我一样东西……你愿意让我进去吗？"'
+						'她困惑地看着你，但毫无疑问已被撩起了欲望。她隐约明白了你的话，张开了双腿。'
+						
+						act '是时候收下这份"礼物"了':
+							*clr & cla
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/sex/SL2.jpg"></center>'
+							'即使隔着丝绸般的布料，你也能感觉到她的阴唇正在充血肿胀。又热又湿，她已经准备好接受你的第一堂"课"了。'
+							'"我们会慢慢来的，别紧张。"'
+							'卡佳靠在你身上，闭上了眼睛。你用一只手拨开通往她小穴的最后一道障碍，另一只手开始爱抚她的唇瓣。面对你的挑逗，卡佳只是呻吟着，臀部不自觉地扭动，渴求更多的快感。'
+							'你继续抚弄着她，渐渐地，你感觉到卡佳的小穴又热又湿，让你可以轻松地把手指插入那紧紧闭合的缝隙。'
+							'"哦？"'
+							'当你的食指和中指在她最隐秘的地方游走时，这是卡佳口中唯一逸出的字眼。被撩起的嫩肉几乎无力抵抗你的侵入，指尖触到一道完整的屏障，它顺从地在你的攻势前分开。你以剪刀状的动作活动着手指。'
+							'"啊！"'
+							'你抽回手，举了起来。在沾满她爱液的手指之间，可以看到一抹粉红的色泽。'
+							
+							act '结束这堂课':
+								*clr & cla
+								gs 'npcStat', 'A14'
+								'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/katja/sex/SL3.jpg"></center>'
+								'卡佳目瞪口呆地看着你的手，缺乏经验的她很难理解刚才发生了什么。突然，她恍然大悟般睁大了眼睛，你吻了她，同时向怀中的这个女人道贺。'
+								'"恭喜！你现在是个女人了！"'
+								'过于震惊又欲火高涨的卡佳任由你把她放倒在床上，脱掉她的内裤，然后俯身下去。她已经毫无保留，呻吟声响彻整个房间。你对她的攻势，加上你的触碰带来的快感，让她在床上快乐地扭动翻滚。'
+								'当卡佳抬起臀部，一声长长的、从喉咙深处发出的闷哼从她唇间逸出时，你感觉到了。她高潮了，就在那一刻，一条交感链接被触发，让她的能量流向你。卡佳一遍又一遍地呻吟着，你的汲取触发了一次又一次的高潮。'
+								'最后，筋疲力尽的卡佳躺在床上，依偎着你。接下来的几分钟她什么也没说，事实上，她似乎快要睡着了。你开始收拾自己的衣服。现在离开大概是最好的选择。'
+								gs 'arousal', 'vaginal_finger_give', 10, 'lesbian'
+								gs 'arousal', 'cuni_give', 10, 'lesbian'
+								gs 'arousal', 'end'
+								gs 'mood', 'raise', 'small'
+								katjaQW['slut'] += 20
+								gs 'npc_relationship', 'modify', 'A14', 'adore'
+								npc_had_sex['A14'] = 1
+								if npc_vag['A14'] = 0: npc_vag['A14'] = 20
+								katjaQW['QWstage'] = 3
+								npcbrokehymen = 1
+								katjaQW['dom'] -= 5
+								sexnutrition += 25 * scfeed
+								suclezsex = stat['female_sexual_times']
+								succubxp += 6
+								sucabslez = 1
+								gs 'stat'
+
+								act '该走了': gt 'katjaHomeTalk', 'TamVal_2'
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'TamVal_2':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'几分钟过去，卡佳陷入沉思般的沉默，你终于决定离开，但当你伸手去够门把手时，她终于开口了。'
+	'"嘿，<<$pcs_nickname>>！我……这话听起来会有点尴尬，尤其是……呃……考虑到刚才发生的事，不过我之前就在想这件事了，嗯，你懂的。你想不想……来我家学习？我不是想……呃……妈的！"'
+	'看着卡佳的窘迫，你笑了笑。"我很乐意。"'
+	'你离开时，她怯生生地冲你笑了一下，然后钻进了被窝。这真是充实的一个下午。这里已经没有别的事了……除了卡佳的母亲正在门厅等你……'
+	minut += 5
+	gs 'stat'
+
+	act '谈一谈':
+		*clr & cla
+		menu_off = 1
+		minut += 5
+		gs 'stat'
+		$func('wrap', 'header center h4', '塔玛拉·梅诺德')
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big257.jpg"></center>'
+		if zz_stage >= 1:
+			'"那么，究竟是什么让我女儿心烦意乱？"'
+			'她毫不在意地问你，一时间你不知道该说什么，但最终还是决定回答。"她烦恼的是你和瓦伦蒂娜之间……呃……那种恋爱关系。"'
+			'塔玛拉似乎在思考你的回答，最后有些恼火地叹了口气。"看来我得跟她谈谈了。你觉得我和瓦伦蒂娜之间是什么关系？"'
+			'你试着给出一个还算有见地的回答。"说真的？我不知道，但她看起来……呃……"'
+			'"太黏人了？是的。瓦伦蒂娜不是我帮助重新振作起来的第一个女孩，但她无疑是最"懂得感恩"的一个。很高兴和你交谈，但我得去和我的女儿谈谈了。"'
+			'最后，道别之后，你离开了房子。'
+		else
+			'"你是<<$pcs_nickname>>，对吧？我是塔玛拉·梅诺尔德，幸会。"'
+			'"你好，梅诺尔德夫人。"'
+			'"那么，究竟是什么让我的小姑娘心烦意乱？"'
+			'她毫不在意地问你，一时间你不知道该说什么，但最终还是决定回答。"她烦恼的是你和瓦伦蒂娜之间……呃……那种恋爱关系。"'
+			'塔玛拉似乎在思考你的回答，最后有些恼火地叹了口气。"看来我得跟她谈谈了。你觉得我和瓦伦蒂娜之间是什么关系？"'
+			'你试着给出一个还算有见地的回答。"说真的？我不知道，但她看起来……呃……"'
+			'"太黏人了？是的。瓦伦蒂娜不是我帮助重新振作起来的第一个女孩，但她无疑是最"懂得感恩"的一个。很高兴和你交谈，但我得去和我的女儿谈谈了。"'
+			'最后，道别之后，你离开了房子。'
+		end
+
+		act '离开': gt 'pav_residential'
+	end
+end
+
+if $ARGS[0] = 'boy_discussion':
+	*clr & cla
+	katjaQW['QWstage'] = 5
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if Marcus_sextype > 0:
+		katjaQW['horny'] += 20
+		'"我有时候会和马库斯做爱，我可以告诉你，他对俄罗斯女孩特别着迷。我敢肯定他会很乐意破掉像你这样一位俄罗斯美人的处。"'
+		'"马库斯<i>确实</i>很帅……如果你觉得他愿意和我这样的女孩做爱的话……"卡佳的声音逐渐变小，又开始听起来紧张起来。'
+		'"我敢肯定他会很乐意和你做爱。任何一个不是同性恋的男人都会这样，"你回答道，卡佳的脸亮了起来，随即朝你靠过来想要一个吻。'
+		act '回吻她': gt 'katjaEvDin', 'kiss'
+	else
+		katjaQW['horny'] += 10
+		'"你心里有人选了吗？"你问道。'
+		'"我不知道。拉扎尔很帅，但我觉得他会把我们当成他清单上的一笔，而且管不住自己的嘴，"她回答完，沉思了一会儿。"也许马库斯？他非常帅，而且我没听说过他散布谣言。反正其他大多数人都不听他说话，因为他是黑人，又来自美国。你觉得他会是个不错的第一次吗？"'
+		'"我不知道，我从没和他做过爱，"你回答。"也许你可以试试那个……"'
+		'卡佳用她的大眼睛恳求地看着你。"求你了，<<$pcs_nickname>>。我真的很想让我的第一次变得美好，所以你能帮我试试他吗？"'
+		*nl
+		'"马库斯很帅，但我们该怎么接近他？"你问道。'
+		'"试着在迪斯科舞厅和他跳舞，靠近他。他似乎真的很喜欢那里的女孩，而且既然你是那里最辣的，我肯定他会喜欢。尤其是如果你像你擅长的那样去挑逗他，"她用最讨好的声音说道。'
+		'你笑了笑。"好吧，我会试着在迪斯科舞厅和他跳舞，看看能不能帮你试出他的深浅。"'
+		'"你是我最好的朋友！"她笑逐颜开，给了你一个紧紧的拥抱。'
+		act '聊点别的': gt 'KatjaHomeTalk'
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+if $ARGS[0] = 'anal_discussion':
+	*clr & cla
+	katjaQW['anal_quest'] = 2
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if IvanShowerQW = 11:
+		katjaQW['horny'] += 20
+		'"伊万似乎对我们接吻很感兴趣。我有时候会和他肛交。可以说我们就是你所说的''炮友''。我觉得他可能会感兴趣，"你告诉她。'
+		'"伊万很帅，而且我也听说他非常喜欢肛交。是啊，如果你觉得他愿意的话，那么……"卡佳有些语无伦次，想到这件事时她明显兴奋起来。'
+		'"下次他在学校看我们接吻的时候，我们可以试着看看他有没有兴趣'+iif(month > 4 and month < 10, ', 或者如果我们在海滩上遇到他', '。')+'"你回答道，卡佳张开双臂搂住你，凑上来要亲你。'
+		act '回吻她': gt 'katjaEvDin', 'kiss'
+	else
+		katjaQW['horny'] += 10
+		'"你心里有人选了吗？"你问道。'
+		'"嗯，伊万似乎对我们俩在学校接吻相当感兴趣。其他女孩说他特别喜欢肛交。他也很帅，"她回答道。"所以也许你可以先试试他，看看和他做会不会不那么疼？我不想让我的第一次太痛苦。"'
+		'"是啊，伊万很帅。不过我得想个办法去跟他提这件事，"你回答。'
+		'"他下午晚些时候会在社区中心的健身房里训练。你在那里跟他谈可能会有运气。我还听说一个传言，说他有时候会使用那里的女更衣室淋浴间，"她告诉你。'
+		'你笑了笑。"好吧，我会去那里看看他有没有兴趣，然后帮你试出他的深浅。"'
+		act '聊点别的': gt 'KatjaHomeTalk'
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+if $ARGS[0] = 'preventation_talk':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	katjaQW['birth_control_start_day'] = daystart + 15
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"如果你想'+iif( katjaQW['QWstage'] = 7, '和公园里的男孩做爱', '继续和这里的男孩做爱')+'，就应该采取避孕措施，"你告诉卡佳。"这里的大多数男孩都不想用安全套，也不在乎会不会让女孩怀孕。"'
+	'"而且如果他们让女孩怀孕了，他们只会装作不是自己干的。你现在可不想独自抚养孩子吧？"你问道。'
+	'"不想，"她无力地回答。"不想。我想要孩子，但不是现在。不是在上大学之前。"'
+	'"那你应该去吃避孕药，"你继续说道。"我相信如果你去问你妈妈，她会帮你的。我无法想象维姬到现在还没吃避孕药，但如果你不想问她，你可以在当地的药房买到。我姑姑柳达在那里工作，她不会告诉任何人这件事的。她知道怎么守口如瓶。"'
+	act '聊点别的':
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+	if $loc = 'katja_dorm':
+		act '别说了': gt 'katja_dorm', 'start'
+	else
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+if $ARGS[0] = 'random_park_sex_talk':
+	*clr & cla
+	katjaQW['QWstage'] = 7
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'卡佳朝你投来她所能挤出的最妩媚的眼神。"你知道的，和伊万还有马库斯做爱虽然很棒，但我在想也许是时候试试别的男孩了。"'
+	'"你心里有人选了吗？"你问道。'
+	'"班上的男生都不行。我觉得除了伊万，没人能对和学校里最火辣的两个妞玩三人行这件事守口如瓶！"她回答道。"我真的不认识别的人了。你比我见多识广得多，也许你认识什么人？"'
+	act '告诉她关于公园里的男孩们':
+		cla
+		katjaQW['horny'] += 5
+		'你告诉她，会有陌生人来公园找女孩寻欢作乐，不带任何承诺，并建议你们可以去那里试着勾搭一些男孩。'
+		'"太棒了！"她说，非常兴奋地看着你。"我们现在就去怎么样？"'
+		if katjaQW['birth_control_start_day'] < daystart and katjaQW['birth_control_start_day'] > 0:
+			act '同意':
+				gt 'KatjaHomeTalk', 'go_to_park'
+			end
+			act '现在不行': gt 'KatjaHomeTalk'
+		else
+			'想起公园里的男孩不会使用防护措施，你拒绝了卡佳。'
+			if katjaQW['birth_control_start_day'] = 0:
+				act '告诉卡佳你觉得她应该使用避孕措施': gt 'KatjaHomeTalk', 'preventation_talk'
+			end
+			act '聊点别的': gt 'KatjaHomeTalk'
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+end
+
+if $ARGS[0] = 'sex_with_boy_ask':
+	*clr & cla
+	katjaQW['QWstage'] = 4
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'卡佳紧张地看着你，但她的眼神告诉你她正在想什么调皮的事。"你跟我讲过和男孩做爱有多好，"她温顺地说。"我……我想……我想我也愿意试一试……"'
+	if katjaQW['anal_quest'] > 1:
+		'"所以你想让我再安排一次？"你问道，卡佳只是羞怯地点了点头。"好吧。伊万不会干女孩的小穴，因为他怕让她们怀孕，所以我猜你想让我找别人？"'
+		'"是的，<<$pcs_nickname>>。你认识那么多男生，我相信你一定能把我的第一次安排得完美无缺！"她用最具有说服力的声音说道。'
+	else
+		'"好吧，那你为什么不自己去？"你问道。'
+		'"我不知道该怎么接近一个男孩……"她回答。"我不想要男朋友，我只是想试试和男孩做爱。你就不能帮我安排一下吗？求你了……"她说着，用她的大眼睛恳求地看着你。'
+	end
+	act '同意': gt 'KatjaHomeTalk', 'boy_discussion'
+	act '拒绝':
+		cla
+		'你拒绝帮助她，但她继续苦苦哀求。'
+		act '告诉她让她自己去问一个男孩':
+			cla
+			katjaQW['horny'] -= 20
+			minut += 5
+			'她不再哀求，你们回到了别的话题。'
+			act '继续': gt 'KatjaHomeTalk'
+		end
+		act '你太珍贵了不能分享':
+			cla
+			katjaQW['horny'] += 20
+			minut += 5
+			'她停止了恳求并用充满欲望的眼神看着你。'
+			act '聊点别的': gt 'KatjaHomeTalk'
+			act '亲吻她': gt 'katjaEvDin', 'kiss'
+		end
+		act '告诉她坚持和女孩在一起':
+			cla
+			katjaQW['horny'] -= 5
+			minut += 5
+			'"男孩不值得。还是跟女孩在一起吧，"你告诉她，她停止了哀求，但看起来并不完全信服。'
+			act '聊点别的': gt 'KatjaHomeTalk'
+		end
+	end
+end
+
+if $ARGS[0] = 'sex_with_Artem_ask':
+	*clr & cla
+	katjaQW['QWstage'] = 4
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'卡佳紧张地看着你，但她的眼神告诉你她正在想什么调皮的事。"你跟我讲过你和阿尔乔姆做爱有多好，"她温顺地说。"这让我有点嫉妒，所以我……我想……我想知道，我能不能也成为其中一部分……"'
+	'"所以你想加入我和阿尔乔姆，来一次三人行？"你问道。'
+	'"是的……我想试试和男孩做爱……而且你说过他床上功夫有多好，所以我想也许他会很适合当我的第一次。你也会在场，我相信你会帮我度过美好时光的，"她回答。'
+	act '同意和阿尔乔姆来一次三人行': gt 'KatjaHomeTalk', 'artem_threesome_planning'
+	act '告诉卡佳你不想分享阿尔乔姆':
+		*clr & cla
+		minut += 2
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'"对不起，但我想把他留给自己。我知道这也许很自私，但我觉得自己还没有准备好和其他女孩分享我的男朋友，"你回答。'
+		'"没问题，我理解，"她带着一丝失望说道。"如果你改变主意了，告诉我一声。"'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+	end
+	act '告诉卡佳她太珍贵了，不能分享':
+		cla
+		katjaQW['horny'] += 20
+		minut += 5
+		'她停止了恳求并用充满欲望的眼神看着你。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		act '亲吻她': gt 'katjaEvDin', 'kiss'
+	end
+	act '告诉她坚持和女孩在一起':
+		cla
+		katjaQW['horny'] -= 5
+		minut += 5
+		'"男孩不值得。还是跟女孩在一起吧，"你告诉她，她停止了哀求，但看起来并不完全信服。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'Marcus_answer_talk':
+	*clr & cla
+	katjaQW['marcus_asked'] = 2
+	minut += 5
+	katjaQW['Marcus_day'] = daystart
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'你告诉卡佳，你已经和马库斯谈过了，他同意了。'
+	'她兴奋地看着你。"那我们什么时候做？"'
+	'"他同意了我一打电话就过来，所以我们可以现在就给他打电话，或者改天再说，"你回答。'
+	if week < 6 and (locat['Vicky'] ! 8 and locat['Vicky'] ! 9 and locat['Vicky'] ! 12 and locat['Vicky'] ! 13) and (katjaQW['horny']+katjaQW['slut']) > 100:
+		'"好吧。我们现在就给他打电话！"她尖声叫道，脸涨得通红。'
+		act '给马库斯打电话': gt 'katja_sex', 'marcus_wait'
+	elseif (katjaQW['horny'] + katjaQW['slut']) <= 100:
+		'"我不知道。也许改天吧。我还需要再想想，"她说，看起来有点紧张。'
+		'"好吧，那就改天吧，"你回答。'
+		act '聊点别的': gt 'KatjaHomeTalk'
+	else
+		'"我们现在不能给他打电话！维姬很快就回家了，我不想让她看到他在这里！"她说，看起来有点惊慌。'
+		'"好吧，那我们改天有空的时候再安排吧，"你回答。'
+		act '聊点别的': gt 'KatjaHomeTalk'
+	end
+end
+
+if $ARGS[0] = 'first_boy_sex_follow_up':
+	*clr & cla
+	katjaQW['QWstage'] = 6
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'卡佳给了你一个大大的拥抱。"谢谢你！和马库斯的经历太棒了！"她咧着嘴笑道。'
+	if npc_vag['A14'] + 5 < npc_dick['A146']:
+		'"没怎么疼吧？"你问道。'
+		'"疼，所以我没能坚持太久。但很有趣，我觉得下次会好一些，"她回答。'
+		'"所以你还想再和男孩做爱？"你回应道。'
+	else
+		'"你看起来确实玩得很开心，"你说。'
+		'"我当然玩得很开心，我以为会疼，但我一点也没感觉到疼，"她回答。'
+		'"可能是我用假阳具对你做过那么多次的缘故吧，"你回答。'
+	end
+	'"我们以后一定要再找个时间做一次，"她最后说道。'
+	'"我们看看以后还有没有这样的机会吧，"你回答。'
+	act '聊点别的': gt 'KatjaHomeTalk'
+	if katjaQW['birth_control_start_day'] = 0:
+		act '告诉她她应该使用避孕措施': gt 'KatjaHomeTalk', 'preventation_talk'
+	end
+end
+
+if $ARGS[0] = 'first_boy_sex_Artem_follow_up':
+	*clr & cla
+	katjaQW['QWstage'] = 6
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if katjaQW['came_during_first_time_with_artem'] = 1:
+		'卡佳给了你一个大大的拥抱。"谢谢你！和阿尔乔姆的经历太棒了！"她咧着嘴笑道。'
+		if npc_vag['A14'] + 7 < npc_dick['A2']:
+			'"没怎么疼吧？"你问道。'
+			'"疼了一段时间。但疼痛消失了，或者说至少到最后我感觉不到了，而且他让我高潮得很厉害，"她回答。'
+			'"很高兴你玩得开心，"你回答。"阿尔乔姆也很喜欢。"'
+		else
+			'"你看起来确实玩得很开心，"你说。'
+			'"我当然玩得很开心！"她回答。"我以为会疼，但我一点也没感觉到疼，而且他让我高潮得很厉害！"'
+			'"可能是我用假阳具对你做过那么多次的缘故吧，"你回答。"阿尔乔姆也说和你在一起很开心。"'
+		end
+		'"那你觉得他以后还会愿意再来一次吗？"她用恳求的眼神问道。'
+	else
+		'"那么，你和男孩的第一次做爱感觉怎么样？"你问卡佳。'
+		if npc_vag['A14'] + 7 < npc_dick['A2']:
+			'"疼得很厉害。这可能就是我没高潮的原因，"她回答。'
+			'"很遗憾听到这些，"你回答。"阿尔乔姆不太有经验，所以他可能不知道该怎么避免让你有点疼。"'
+			'"没关系。我没有受到任何永久性的伤害，而且我相信他下次会表现更好，不会让我疼，这样我也能高潮了，"她说。'
+		else
+			'"很有趣，但我可能期待得更多。他没有让我感觉很好，不像你平时那样。我没高潮，"她回答。'
+			'"很遗憾听到这些，"你回答。"阿尔乔姆不太有经验，所以他可能不知道怎么给你快感。"'
+			'"没关系。我相信他下次会表现更好，给我我需要的那些高潮，"她说。'
+		end
+		'"那你还想再和阿尔乔姆做爱吗？"你问道。'
+		'"看他愿不愿意吧？在拿定主意之前，我需要更多和男孩相处的经历，"她回答。'
+	end
+	'"我想是的，不过我会问问他确认一下，"你回答，这引得卡佳又给了你一个大大的拥抱。'
+	act '聊点别的': gt 'KatjaHomeTalk'
+	if katjaQW['birth_control_start_day'] = 0:
+		act '告诉她她应该使用避孕措施': gt 'KatjaHomeTalk', 'preventation_talk'
+	end
+end
+
+if $ARGS[0] = 'anal_sex_with_boy_ask':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	katjaQW['anal_quest'] = 1
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'卡佳开始有些犹豫地开口。"你一直跟我说和男孩肛交有多好'+iif(katjaQW['strapon_ass'] = 1, '，你用假阳具干我后面感觉很不错，但要是换成真鸡巴，大概会好得多，', '，我想我也愿意试一试，')+'"她说这话时用最恳求的眼神看着你。'
+	if katjaQW['QWstage'] >= 6:
+		'"所以你想让我再安排一次？"你问道，她只是羞怯地点了点头。"好吧。既然你开口了，我猜你是想跟马库斯以外的人试试？"'
+		'"是的，<<$pcs_nickname>>。你认识那么多男生，我相信你一定能把我的第一次肛交安排得完美无缺！"她用最具有说服力的声音说道。'
+	else
+		'"好吧，那你为什么不自己去？"你问道。'
+		'"我不知道该怎么接近一个男孩……"她回答。"我不想要男朋友，我只是想试试和男孩肛交。你就不能帮我安排一下吗？求你了……"她说着，用她的大眼睛恳求地看着你。'
+	end
+	act '同意': gt 'KatjaHomeTalk', 'anal_discussion'
+	act '拒绝':
+		cla
+		'你拒绝帮助她，但她继续苦苦哀求。'
+		act '告诉她让她自己去问一个男孩':
+			cla
+			katjaQW['horny'] -= 20
+			minut += 5
+			'她不再哀求，你们回到了别的话题。'
+			act '继续': gt 'KatjaHomeTalk'
+		end
+		act '你太珍贵了不能分享':
+			cla
+			katjaQW['horny'] += 20
+			minut += 5
+			'她停止了恳求并用充满欲望的眼神看着你。'
+			act '聊点别的': gt 'KatjaHomeTalk'
+			act '亲吻她': gt 'katjaEvDin', 'kiss'
+		end
+		act '告诉她还是跟女孩在一起':
+			cla
+			katjaQW['horny'] -= 5
+			minut += 5
+			'"男孩不值得。还是跟女孩在一起吧，"你告诉她，她停止了哀求，但看起来并不完全信服。'
+			act '聊点别的': gt 'KatjaHomeTalk'
+		end
+	end
+end
+
+if $ARGS[0] = 'uni_tell':
+	*clr & cla
+	minut += 15
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if $university['enrolled_in'] = 'teaching_studies':
+		katjaQW['know_going_to_teaching_degree'] = 1
+		if katjaQW['know_katja_uni'] = 0:
+			'你告诉卡佳，你已经报名上大学，学习教育专业，将来成为一名教师。'
+			'她回答说她也打算做同样的事，还说一起在大学学习会很有趣。然后她连珠炮似的向你追问报名过程进行得怎么样。'
+		else
+			'你告诉卡佳，你也报名上了大学学习教育专业。她说一起在大学学习会很有趣，然后接下来的几分钟里，你们兴奋地聊着各自对这个专业的了解。'
+		end
+	else
+		if katjaQW['know_katja_uni'] = 0:
+			'你告诉卡佳，你已报名上大学学习<<$func(''uni_programs'', ''get_program_name'')>>。'
+			'她回答说她打算报名学习教育专业，成为一名教师，但你们在那里大概还是能经常见面。'
+		else
+			'你告诉卡佳，你也已报名学习<<$func(''uni_programs'', ''get_program_name'')>>。'
+			'她回答说她已报名学习教育专业，成为一名教师，但你们在那里大概还是能经常见面。'
+		end
+	end
+	if $loc = 'mey_home':
+		act '聊点别的': gt 'KatjaHomeTalk'
+	elseif $loc = 'pav_disco':
+		act '问她是否想跳舞': gt 'pav_disco_coolkids', 'katja_dance_ask'
+		act '做点别的事': gt 'pav_disco_classmates', 'classmates'
+	else
+		act '和其他人交谈': gt 'pav_beach_chat', 'beach_hangout'
+	end
+end
+
+if $ARGS[0] = 'katja_uni_tell':
+	*clr & cla
+	minut += 15
+	katjaQW['know_katja_uni'] = 1
+	if katjaQW['QWstage'] >= 2: katjaQW['knows_dorm_room_number'] = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if katjaQW['know_going_to_teaching_degree'] = 0:
+		'卡佳兴奋地告诉你，她被大学录取了学习教育专业。然后她告诉你这个专业有多棒。'+iif(katjaQW['QWstage'] = 2, '她还告诉你她将在八月初搬进大学宿舍的206室。', '')
+		if university['student'] = 1:
+			act '告诉卡佳你要去大学': gt 'KatjaHomeTalk', 'uni_tell'
+		end
+	else
+		'卡佳兴奋地告诉你，她也已被大学录取学习教育专业，还说一起在大学学习会很有趣。'+iif(katjaQW['QWstage'] = 2, '她还告诉你她将在八月初搬进大学宿舍的206室。', '')+''
+		'然后接下来的几分钟里，你们兴奋地聊着各自对这个专业的了解。'
+	end
+	if $loc = 'mey_home':
+		act '聊点别的': gt 'KatjaHomeTalk'
+	elseif $loc = 'pav_disco':
+		act '聊点别的': gt 'pav_disco_coolkids', 'katja'
+	else
+		act '享受阳光': gt 'pav_beach_chat', 'katja'
+	end
+end
+
+if $ARGS[0] = 'boy_no':
+	*clr & cla
+	minut += 15
+	katjaQW['horny'] += 20
+	katjaQW['boy_block'] = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"我对男孩不感兴趣，"你告诉卡佳。'
+	'"哦，"她回答。"那是不是意味着……"她开了口，但声音却发颤了。'
+	'"是的。我只对女孩感兴趣，"你说。'
+	'卡佳什么也没说，但她的脸越来越红，她用那双大眼睛专注地看着你。'
+	act '聊点别的':
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+	if $loc = 'katja_dorm':
+		act '别说了': gt 'katja_dorm', 'start'
+	else
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+if $ARGS[0] = 'boy_yes':
+	*clr & cla
+	minut += 15
+	katjaQW['horny'] += 10
+	katjaQW['boy_block'] = 0
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"我之前跟你说过我对男孩不感兴趣吧？"你说。'
+	'"是的，我记得，"她回答。'
+	'"结果是我错了。事实上，我开始觉得男孩有吸引力了，"你说。'
+	'她开始连珠炮似的向你提问。"那你已经和男孩做过什么了吗？全都告诉我！你觉得男孩哪里吸引人？学校里最帅的男生是谁？"'
+	'"慢点说！这对我来说也是新鲜事，但如果你想聊男孩的话，我们可以聊，"你说，同时看到卡佳的脸越来越红。'
+	act '聊点别的':
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+	if $loc = 'katja_dorm':
+		act '别说了': gt 'katja_dorm', 'start'
+	else
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+if $ARGS[0] = 'fisting_ask':
+	*clr & cla
+	minut += 15
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"哇，"她说着，若有所思地坐在那里，呼吸变得越来越急促。几秒钟后，她继续说道。"一点都不疼吗？"'
+	'"不怎么疼，"你回答。"当一切由你掌控时，你可以确保疼痛不会太厉害。"'
+	'她再次露出若有所思的神情。"我觉得我没办法对自己做那种事。"'
+	'"没关系。这并不适合所有人，"你说。'
+	'"但这听起来太刺激了！"她说。"也许……你可以……"她的声音越来越小。过了一会儿，她继续说道。"也许你可以演示给我看看……"'
+	'"你想让我在你面前把拳头塞进自己里面？"你问道。'
+	'"不，我想让你……来……"她的声音再次发颤。'
+	'"你是想让我对你用拳头？"你问道。她什么也没说，只是慢慢地点了点头。"现在？"'
+	'她再次什么也没说，只是点了点头。'
+	act '向卡佳演示拳交是怎么做的': gt 'katja_sex', 'first_fisting'
+	act '说你会改天再做':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+		'你告诉她，你现在没那个心情，但改天如果她再开口，你也许会做。'
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+end
+
+if $ARGS[0] = 'go_to_park':
+	minut += 15
+	katjaQW['horny'] += 5
+	dick = 0
+	gs 'placer', 'init'
+	$placerStringParameter['ev_name'] = '卡佳'
+	$placerStringParameter['ev_name_a'] = '卡佳'
+	$placerStringParameter['ev_name_om'] = '卡佳'
+	placerParameter['friend_index'] = 14
+	placerParameter['friend_horny'] = katjaQW['horny']
+	placerParameter['friend_dom'] = katjaQW['dom'] + 50
+	placerParameter['friend_slut'] = katjaQW['slut']
+	placerParameter['friend_alko'] = 0
+	placerParameter['location_index'] = 0
+	gt 'placer'
+end
+
+if $ARGS[0] = 'Artem_talk':
+	katjaQW['knows_artem_is_boyfreind'] = 1
+	minut += 3
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"我听莉扎维塔说你和阿尔乔姆在约会。是真的吗？"她几乎是扑上来问你这个问题。'
+	'"莉扎维塔已经在散布这种谣言了？"你问道。"她怎么知道的？"'
+	'"她当然会！"卡佳回答。"要想瞒过她这种事，你得极其小心才行。"'
+	if katjaQW['boy_block'] = 1:
+		gs 'npc_relationship', 'A14', 'dislike'
+		'"可你不是告诉我你不喜欢男孩吗？你怎么突然就和男孩约会了？"她问道，显然有点受伤。'
+		act '告诉她这也让你自己很意外':
+			cla
+			'"我自己也很意外。我以为自己只对女孩有感觉，但后来和阿尔乔姆一起出去玩改变了一些东西。他约我的时候那么可爱，我没法拒绝，"你解释道。'
+			'"然后他在约会时非常浪漫，我就爱上了他。事实证明，男孩在床上其实也可以很温柔，"你继续说道。'
+			act '卡佳继续说': gt 'KatjaHomeTalk', 'Artem_talk2'
+		end
+		act '告诉她阿尔乔姆不一样':
+			cla
+			'"阿尔乔姆和其他男孩不一样，"你回答。"他像我们这些女孩一样温柔。"'
+			'"我想他两腿之间还是长着那玩意儿吧？"卡佳用非常直接的语气说道。'
+			'"是的，而且我发现让我反感的其实不是那玩意儿本身，因为它玩起来其实挺不错的。让我作呕的是大多数那玩意儿连着的那些混蛋。"'
+			'最后这句评论把卡佳逗得轻轻笑了一声。'
+			act '卡佳继续说': gt 'KatjaHomeTalk', 'Artem_talk2'
+		end
+		act '告诉她你撒谎了':
+			cla
+			'"对不起，卡佳，但我没有完全说实话。我确实喜欢男孩，我只是不想因为要聊男孩而毁掉我们之间的感情，"你解释道。'
+			'"你应该信任我，告诉我真正的原因，那样我就不会问你关于男孩的事了，"她回答。'
+			'"我真的很抱歉，"你重复道。'
+			act '卡佳继续说': gt 'KatjaHomeTalk', 'Artem_talk2'
+		end
+	else
+		'"你本来可以告诉我你打算和他约会，这样我就不用从莉扎维塔那里听说了！"卡佳用一种假装受伤的声音说道。'
+		'"在确定之前我不想说任何事，而现在你连告诉你的机会都没给我，就扑上来问个没完！"你回答。'
+		act '卡佳继续说': gt 'KatjaHomeTalk', 'Artem_talk2'
+	end
+end
+
+if $ARGS[0] = 'Artem_talk2':
+	minut += 7
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if (katjaQW['QWstage'] >= 4 or katjaQW['slut'] >= 50 or katjaQW['pussy_sex'] > 0) and npc_had_sex['A14']:
+		'"算了，重要的是他床上功夫怎么样？他是个好情人吗？他能让你高潮吗？"'
+		'在花了几分钟向她讲述你和阿尔乔姆性生活的点点滴滴之后，卡佳终于问出了那个真正占据她脑海的问题。'
+		if katjaQW['QWstage'] >= 6:
+			if katjaQW['boy_block'] = 0:
+				'"我猜这意味着我们不能再和其他男孩做爱了吧？"卡佳问道。"那我们呢？这是不是也意味着我们俩不能再一起玩了吗？"'
+				'"是的。我不会背着他和其他男孩做爱，但我肯定他不会介意我和女孩们找点乐子，"你回答。'
+			else
+				'"这是不是意味着我们俩不能再一起玩了吗？"她问道。'
+				'"我肯定他不会介意我和女孩们找点乐子，"你微笑着回答。'
+			end
+			'犹豫了一会儿之后，她继续说道。"那你觉得他会愿意让一个火辣的红发女孩加入你们俩的床笫之欢吗？"'
+		else
+			'"这是不是意味着我们俩不能再一起玩了吗？"她问道。'
+			'"我肯定他不会介意我和女孩们找点乐子，"你微笑着回答。'
+			if katjaQW['pussy_sex'] > 0:
+				if katjaQW['QWstage'] < 6: katjaQW['QWstage'] = 6
+				'犹豫了一会儿之后，她继续说道。"那你觉得他会愿意让一个火辣的红发女孩加入你们俩的床笫之欢吗？"'
+			else
+				if katjaQW['QWstage'] >= 4:
+					'犹豫了一会儿之后，她继续说道。"那让我试试和男孩做爱怎么样？我明白让马库斯加入我们不再是个选项了，但你觉得你能安排一下，让阿尔乔姆成为我的第一个男孩吗？"'
+				else
+					'犹豫了很长一段时间之后，她继续说道。"我有点嫉妒。现在你有了和男孩做爱的经历。那是……那也是我想试试的事……"'
+					'她的脸涨得通红，沉默了很久之后，她问道。"你能……你觉得……你觉得我能加入你们，让阿尔乔姆成为我的第一个男孩吗？"'
+				end
+			end
+		end
+		act '同意和阿尔乔姆安排一次三人行': katjaQW['boy_block'] = 1 & gt 'KatjaHomeTalk', 'artem_threesome_planning'
+		act '告诉卡佳你不想分享阿尔乔姆':
+			*clr & cla
+			if katjaQW['QWstage'] = 5: katjaQW['QWstage'] = 4
+			katjaQW['boy_block'] = 1
+			minut += 2
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+			'"对不起，但我想把他留给自己。我知道这也许很自私，但我觉得自己还没有准备好和其他女孩分享我的男朋友，"你回答。'
+			'"没问题，我理解，"她带着一丝失望说道。"如果你改变主意了，告诉我一声。"'
+			act '聊点别的':
+				if $loc = 'katja_dorm':
+					gt 'katja_dorm', 'talk'
+				else
+					gt 'KatjaHomeTalk'
+				end
+			end
+			if $loc = 'katja_dorm':
+				act '别说了': gt 'katja_dorm', 'start'
+			else
+				act '离开房间': gt 'mey_home', 'start'
+			end
+		end
+	else
+		katjaQW['boy_block'] = 1
+		'"这是不是意味着我们俩不能再一起玩了吗？"她问道。'
+		'"我肯定他不会介意我和女孩们找点乐子，"你微笑着回答。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+end
+
+if $ARGS[0] = 'artem_sex_discussion':
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if katjaQW['QWstage'] >= 6:
+		'"还记得你问过我能不能加入我和阿尔乔姆来一次三人行吗？"你说。"我已经决定了，如果你想的话，可以。"'
+	else
+		'"我知道你想和男孩做爱已经有一阵子了，我已经决定了，如果你愿意的话，可以加入我和阿尔乔姆来一次三人行，"你告诉卡佳。'
+	end
+	'卡佳的脸像过圣诞节一样亮了起来，她几乎无法抑制自己的兴奋。"太好了！我非常愿意！我们什么时候做？"'
+	act '把你的计划告诉卡佳': gt 'KatjaHomeTalk', 'artem_threesome_planning'
+end
+
+if $ARGS[0] = 'artem_threesome_planning':
+	minut += 4
+	katjaQW['horny'] += rand(5, 20)
+	artemQW['katja_threesome'] = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"好吧。我觉得最好是给他一个惊喜，也就是趁我在场的时候你去勾引他，"你告诉卡佳。'
+	if katjaQW['QWstage'] < 5 and katjaQW['pussy_sex'] = 0:
+		'"我该怎么做？我以前从没勾引过男孩，"她回答。'
+		'"在他面前表现得风骚一点，让他看你的好身材，"你解释道。"如果他移不开目光，你就知道你得手了。男孩在这方面很容易上钩。"'
+		'"好吧，"她回答，并不完全信服。"但我在公共场合做不出来那种事。"'
+	else
+		'"当然，我可以表现得风骚一点，把他弄进我的掌心，"她回答。"但得在一个私密的地方。我觉得他不是那种在公共场合被搭讪还能不僵住的人。"'
+	end
+	'"是啊，必须只有我们三个人，否则他会直接慌掉。我家不行，而且我去他家的时候他父母大多都在家，"你回答。'
+	'"也许我们可以在这里做？塔玛拉要工作到很晚，维姬不练啦啦操的时候通常也会和万尼亚去别处玩，所以这里的下午很空闲，"她提议道。'
+	'"这是个好主意，"你说。"但我们怎么让他毫无戒心地来这里？"'
+	'"我不知道。有没有什么我们可以一起做、他也能参加的活动？也许我们可以一起做作业？"她提议道。'
+	'"没错，就是这样！"你兴奋地回答。"下次我和他一起放学回家时，你就过来打断我们，声称我答应过要和你一起做作业。然后我再提议我们三个人一起做。这样他就不会怀疑任何事。"'
+	'"太妙了！"卡佳说。"我只需要练练我的勾引技巧。我已经迫不及待了。"'
+	if katjaQW['QWstage'] < 5: katjaQW['QWstage'] = 5
+	act '聊点别的':
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+	if $loc = 'katja_dorm':
+		act '别说了': gt 'katja_dorm', 'start'
+	else
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+if $ARGS[0] = 'Artem_break_up_talk':
+	katjaQW['knows_artem_is_boyfreind'] = 2
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"你和阿尔乔姆怎么样了？"卡佳用一副知道你们已经分手的语气问道。'
+	act '"我伤心欲绝"':
+		cla & *nl
+		minut += 6
+		katjaQW['horny'] = min(20, katjaQW['horny'])
+		if katjaQW['marcus_pussy'] > 0: katjaQW['Marcus_day'] = daystart
+		gs 'stat'
+		'"我们……"你刚开口，喉咙里就涌上一团东西，让你立刻哽咽了。泪水模糊了你的视线，你转过身去，用手腕擦着眼睛，脸上同时泛起尴尬、羞愧和悲伤的红晕。'
+		'"我们分手了，"你勉强挤出这句话，仍然不敢看卡佳。"我……我觉得这可能是我经历过的最糟糕的事。我毁掉了一切。我每天都想他，而且……"你终于转过身面对她。"我想我的心已经碎了……"'
+		'"过来，可怜的家伙！"卡佳说着，走近你，抱住了你。'
+		*nl
+		'你就那样坐在那里，靠在卡佳的怀里轻轻抽泣，她温柔地安慰你说一切很快就会好起来，艰难时刻你永远有她可以依靠。'
+		'过了一段时间，你止住了眼泪，擦干眼睛，然后回到别的话题上。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '对他对待你的方式感到愤怒':
+		cla & *nl
+		minut += 3
+		'"我知道我们还年轻，也许我们懂得还不够多，不知道什么是爱，但那份感情超出了友谊或亲吻的范畴。我真的以为自己找到了那个可以共度余生的特别的人，但他和其他人一样只是个混蛋。我不敢相信像他那样的呆子居然伤透了我的心，更糟的是，我觉得他根本不在乎伤不伤我的心。妈的！"'
+		'"该死，听到这些我很难过。没有人应该那样对你。过来，"卡佳说着，张开双臂把你拉进怀里。'
+		'"我原以为阿尔乔姆会不一样，但事实证明，即使是书呆子，一旦得到漂亮女人的关注，也会变成那些自称酷男孩的蠢货之一。"'
+		'"别担心，你可以找到比他好得多的男孩。如果你想要的话，"卡佳松开怀抱后说道。你不太能确定她最后那句话是什么意思。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+	
+	act '你能找到更好的':
+		cla & *nl
+		minut += 2
+		katjaQW['horny'] -= rand(10, 20)
+		if katjaQW['marcus_pussy'] > 0: katjaQW['Marcus_day'] = daystart
+		gs 'npc_relationship', 'modify', 'A14', 'dislike'
+		gs 'stat'
+		'"阿尔乔姆是个甜心，也许没有比他更体贴的人了，可以让我跟他约会，但我总觉得我只是在将就那个最容易的选择。我是个漂亮的女孩，学校里我可以跟任何人约会，而我却选了他？我不想像分手时那样伤害他，但我一直高他太多，而且总感觉所有人都知道这一点。"'
+		'你叹了口气。"当然，我本可以无视他们，但他也知道这一点，而我无法无视。我希望他能找到一个会让他幸福的、温柔顾家的好女孩，我真的希望。他值得幸福。"'
+		'她看起来有点震惊，过了好一会儿才回答。"所以长相和地位就是一切？我不知道自己居然和贝拉是朋友。我很好奇我什么时候会达不到你的标准，"她说，听起来相当不赞同。'
+		'"不是那样的，卡佳！"你回答。"没有人能和你相比！我不会离开你。只是对于男孩，我想我需要尝试更多、更刺激的东西，而阿尔乔姆不是那样的人。"'
+		'她看起来并不完全信服，但不再追问，你们转而讨论别的事情。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '为它不得不结束而难过':
+		cla & *nl
+		minut += 6
+		katjaQW['horny'] = min(40, katjaQW['horny'])
+		gs 'stat'
+		'"我们……已经不在一起了，"你承认道，胸口一阵刺痛。"回想起来，我不认为有什么真正的方法能让这段感情长久。我们并不适合彼此，但这不代表我对分手感到高兴。我想念他，也想念我们在一起的美好时光，我很伤心我们可能再也不会有那样的经历了。"'
+		'"听到这些我真的很遗憾。过来，"卡佳回答，为你张开双臂。你把头靠在她的怀里，抱住她，她继续说道。"还会有别人的。我理解那种感觉，好像你再也经历不了那样的爱了，但我向你保证你会再经历的。我们还年轻漂亮，世界仍然向我们敞开。给它一点时间，一切都会好起来的。"'
+		'你在她温暖的怀抱里待了几分钟，然后整理好心情，转而讨论别的事情。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '这是最好的结局':
+		cla & *nl
+		minut += 3
+		gs 'stat'
+		'"我们不再在一起了，"你叹气道。"但这可能是最好的结局。"'
+		'卡佳既关切又怀疑地看着你，后者似乎是担心你只是在欺骗自己。'
+		'"真的，"你连忙补充道，试图打消她的想法。"我们并不适合彼此。如果我认真想想，我无法想象我们俩永远在一起的未来。这段感情注定以分手告终。趁它还没有变得太痛苦、还没有浪费我们俩太多时间之前结束，这样更好。"'
+		'"好吧……"她回答，听起来仍然不太信服。"只要你没事就好。我喜欢阿尔乔姆，但外面还有别的男孩。'+iif(katjaQW['QWstage'] >= 6, '也许甚至还有其他人我们可以一起试试？', '你会没事的，')+'"她用更欢快的语气结束了这番话。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '你对他感到厌倦了':
+		cla & *nl
+		minut += 3
+		'"说真的？"你说。"我厌倦了。他太……<i>平淡无奇。</i>我想要一个能带给我刺激的男孩。一开始，光是知道他喜欢我就足以带来那种兴奋感，但我们在一起越久，我就越发现他只会打电子游戏、学习和读书。别提多无聊了。"'
+		'"读书和学习并不无聊！"卡佳回答，听起来有点受伤，"但如果那是你唯一做的事，那确实是一种无聊的生活。没有派对？没有舞蹈？没有这些的生活确实很糟糕！"她用更轻松的语气继续说道。'
+		if katjaQW['QWstage'] >= 6:
+			katjaQW['horny'] += rand(10, 30)
+			'"嗯，外面有的是可以一起鬼混的帅哥，所以我完全理解只跟一个人定下来很无聊。我们还是火辣得要命，会找到别的男人来取悦我们的，"她说，声音听起来有点动情。'
+		else
+			katjaQW['horny'] += rand(5, 15)
+			'"周围有很多别的男生，所以'+iif(pcs_hotcat > 6, '凭你惊艳的外貌 ', ' ')+'你会找到别人的，"她继续说道。'
+			'你不太能确定她的语气。你察觉到的是一种嫉妒的暗示，如果是的话，嫉妒什么<i>谁？</i>你还是她提到的那些男孩？'
+		end
+		gs 'stat'
+		act '聊点别的':
+			if katjaQW['horny'] > rand(70, 100):
+				if katjaQW['QWstage'] > 2:
+					gt 'KatjaHomeTalk', 'hornykiss'
+				else
+					gt 'KatjaHomeTalk', 'tender_kiss'
+				end
+			else
+				if $loc = 'katja_dorm':
+					gt 'katja_dorm', 'talk'
+				else
+					gt 'KatjaHomeTalk'
+				end
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '阿尔乔姆拖累了你':
+		cla & *nl
+		minut += 3
+		'你翻了个白眼。"他拖累了我。我可以比他做得好得多。他没有激情，也没有任何抱负。他整天只知道打电子游戏和读书。我想要更好的人。我想要一个能让我变得<i>更好</i>的人。阿尔乔姆对我来说只会是累赘。"'
+		'"读书并不无聊！"她回答。"但我能理解，如果那是你们<i>唯一</i>一起做的事，那确实没意思。没有派对？没有舞蹈？没有这些的生活确实很糟糕！"'
+		if katjaQW['QWstage'] >= 6:
+			katjaQW['horny'] += rand(10, 30)
+			'"嗯，外面有的是可以一起鬼混的帅哥，所以我完全理解你想向前看。我们还是火辣得要命，会找到别的男人来取悦我们的，"她说，声音听起来有点动情。'
+		else
+			katjaQW['horny'] += rand(5, 15)
+			'"周围有很多别的男生，所以'+iif(pcs_hotcat > 6, '凭你惊艳的外貌 ', ' ')+'你会找到别人的，"她继续说道。'
+			'你不太能确定她的语气。你察觉到的是一种嫉妒的暗示，如果是的话，嫉妒什么<i>谁？</i>你还是她提到的那些男孩？'
+		end
+		gs 'stat'
+		act '聊点别的':
+			if katjaQW['horny'] > rand(70, 100):
+				if katjaQW['QWstage'] > 2:
+					gt 'KatjaHomeTalk', 'hornykiss'
+				else
+					gt 'KatjaHomeTalk', 'tender_kiss'
+				end
+			else
+				if $loc = 'katja_dorm':
+					gt 'katja_dorm', 'talk'
+				else
+					gt 'KatjaHomeTalk'
+				end
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '很高兴你甩掉了那个可怜的失败者':
+		cla & *nl
+		minut += 6
+		katjaQW['horny'] = -rand(20, 30)
+		if katjaQW['marcus_pussy'] > 0: katjaQW['Marcus_day'] = daystart
+		gs 'npc_relationship', 'modify', 'A14', 'hate'
+		gs 'stat'
+		'"阿尔乔姆？我甩掉了那个可怜的失败者，我不明白自己为什么让那个书呆子在我身边待了那么久。完全配不上我的标准，"你告诉她。'
+		'卡佳完全震惊地看着你。"好吧，看来我是在跟贝拉说话。那可不是描述阿尔乔姆这样一个好人的方式。你简直在学学校里最烂的那些女孩！如果你需要和他分手，那没问题，但别把责任推到他身上，我明明听得出那是你的错！"她说，听起来相当生气。'
+		'"我不是那个意思！只是阿尔乔姆达不到我对……的标准……"'
+		'你试图解释，但还没等你说完，卡佳就打断了你。"那么，我什么时候会达不到巴甫洛夫斯克公主的标准呢？你听起来就像学校里那些愚蠢的婊子！"她几乎是在冲你大喊。'
+		'你感觉现在无论你说什么都无法让她理解你的立场，所以你只好道歉。卡佳什么也没说，只是无视了你几分钟，然后才回来聊别的事情。'
+		act '聊点别的':
+			if $loc = 'katja_dorm':
+				gt 'katja_dorm', 'talk'
+			else
+				gt 'KatjaHomeTalk'
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+	act '你背叛了他':
+		cla & *nl
+		minut += 3
+		katjaQW['horny'] += rand(5, 15)
+		'"事实是……我背叛了他，"你坦白道，卡佳震惊地倒吸一口凉气，然后你继续说道。"我不确定为什么。也许只是为了刺激。也许是我厌倦了他。也许我只是想找个分手的借口。也许我只是喜欢伤害别人。又或者我只是个荡妇，我不知道。但我跟另一个男人睡了，而被他发现了。这就是我们分手的原因。"'
+		'"我明白了。好吧，如果你承诺过会忠诚，那这显然是你的错，他跟你分手是对的，"她回答，这话有点伤人，但你觉得她并没有生你的气。'
+		'"我不在乎你跟多少男孩睡过，"她继续说。'+iif(katjaQW['QWstage'] >= 6, '"只要你能分我几个，"', '"这能给你讲好故事来告诉我，"')+'她用非常低沉的声音说道。'
+		'你不太能确定她的语气。你察觉到的是一种嫉妒的暗示，如果是的话，嫉妒什么<i>谁？</i>你还是她提到的那些男孩？'
+		act '聊点别的':
+			if katjaQW['horny'] > rand(70, 100):
+				if katjaQW['QWstage'] > 2:
+					gt 'KatjaHomeTalk', 'hornykiss'
+				else
+					gt 'KatjaHomeTalk', 'tender_kiss'
+				end
+			else
+				if $loc = 'katja_dorm':
+					gt 'katja_dorm', 'talk'
+				else
+					gt 'KatjaHomeTalk'
+				end
+			end
+		end
+		if $loc = 'katja_dorm':
+			act '别说了': gt 'katja_dorm', 'start'
+		else
+			act '离开房间': gt 'mey_home', 'start'
+		end
+	end
+
+end
+
+if $ARGS[0] = 'artem_opne_relationship':
+	katjaQW['boy_block'] = 0
+	minut += 2
+	katjaQW['horny'] += rand(5, 20)
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	'"所以阿尔乔姆和我已经决定，我们之间是开放式关系，"你告诉卡佳。'
+	'"开放式关系？那是什么意思？"她问道。'
+	'"这意味着我可以随时和我喜欢的任何男孩或女孩做爱，就像他可以和他喜欢的任何女孩做爱一样，"你解释道。"男孩也一样，不过我觉得他不想那样。"'
+	'"那是不是意味着……"卡佳开口道，但她的声音逐渐变小。'
+	'"是的，这意味着我不在的时候你可以和他做爱，"你微笑着说。'
+	'"哦……但这不是我的意思，"她说。'
+	act '聊点别的':
+		if $loc = 'katja_dorm':
+			gt 'katja_dorm', 'talk'
+		else
+			gt 'KatjaHomeTalk'
+		end
+	end
+	if $loc = 'katja_dorm':
+		act '别说了': gt 'katja_dorm', 'start'
+	else
+		act '离开房间': gt 'mey_home', 'start'
+	end
+	if katjaQW['park_sex'] > 0:
+		'"不。我的意思是我们可以再去公园，找'+iif(katjaQW['park_sex'] > 1, '一些男孩', '一个男孩')+'一起寻欢作乐，"她解释道。'
+	else
+		if katjaQW['marcus_pussy'] + katjaQW['ivan_anal'] + katjaQW['lazar_pussy'] + katjaQW['lazar_anal']> 0:
+			if katjaQW['marcus_pussy'] + katjaQW['ivan_anal'] = 2:
+				'"不，我的意思是我们可以重新开始和马库斯还有伊万做爱，"她解释道。'
+			else
+				if katjaQW['marcus_pussy'] > 0:
+					'"不，我的意思是我们可以重新开始和马库斯做爱，"她解释道。'
+				else
+					if katjaQW['ivan_anal'] > 0:
+						'"不，我的意思是我们可以重新开始和伊万做爱，"她解释道。'
+					else
+						'"不，我的意思是我们可以重新开始和拉扎尔做爱，"她解释道。'
+					end
+				end
+			end
+		else
+			if katjaQW['QWstage'] >= 6:
+				'"不，我的意思是你和我或许可以找另一个男人来试着做爱？"她解释道。'
+				cla
+				act '问她心里有没有人选':
+					if $loc = 'katja_dorm':
+						if katjaQW['lazar_uni_meet'] = 1:
+							gt 'katja_dorm', 'lazar_pussy_talk'
+						else
+							cla
+							'"目前还没有人选，没有，但让我们留意一下合适的人吧，"她回答。'
+							act '聊点别的':
+								gt 'katja_dorm', 'talk'
+							end
+						end
+					else
+						gt 'KatjaHomeTalk', 'Marcus_discussion', 1
+					end
+				end
+			else
+				'"你知道的，我从没和男孩做过爱。所以我的意思是……你知道的，算了。我们聊点别的吧，"她继续说道。'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'Marcus_discussion':
+	*clr & cla
+	minut += 5
+	katjaQW['marcus_asked'] = -1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big14.jpg"></center>'
+	if katjaQW['knows_artem_is_boyfreind'] = 2:
+		'"既然你不再有男朋友了，我有点怀念我们的三人行，"卡佳说。"也许我们可以找别人一起寻欢作乐，但得是能保守秘密的人！"'
+	elseif ARGS[1] = 0 and katjaQW['knows_artem_is_boyfreind'] = 1:
+		'"那么既然你和阿尔乔姆现在是开放式关系，我在想，也许你和我可以试着跟另一个男人做爱？"卡佳恳求地看着你问道。'
+	end
+	if Marcus_sextype > 0:
+		katjaQW['horny'] += 20
+		'"我有时候会和马库斯做爱，我可以告诉你，他对俄罗斯女孩特别着迷。我敢肯定他会很乐意和你这样一位俄罗斯美人做爱。"'
+		'"马库斯非常帅……如果你觉得他愿意和我这样的女孩做爱的话……"她的声音逐渐变小，又开始听起来紧张起来。'
+		'"我敢肯定他会很乐意和你做爱。任何一个不是同性恋的男人都会这样，"你回答道，卡佳的脸亮了起来，随即朝你靠过来想要一个吻。'
+		act '回吻她': gt 'katjaEvDin', 'kiss'
+	else
+		katjaQW['horny'] += 10
+		'"你心里有人选了吗？"你问道。'
+		'"我不知道。拉扎尔很帅，但我觉得他会把我当成他清单上的一笔，而且管不住自己的嘴，"她回答完，沉思了一会儿。"也许马库斯？他非常帅，而且我没听说过他散布谣言。反正其他大多数人都不听他说话，因为他是黑人，又来自美国。你觉得他会想和我做爱吗？"'
+		'"我不知道，我从没和他做过爱，"你回答。"也许你可以试试那个……"'
+		'卡佳用她的大眼睛恳求地看着你。"求你了，<<$pcs_nickname>>。我不知道该怎么勾引一个男孩。这种事你擅长得多，你就不能先去勾引他吗？"'
+		*nl
+		'"马库斯很帅，但我该怎么接近他？"你问道。'
+		'"试着在迪斯科舞厅和他跳舞，靠近他。他似乎真的很喜欢那里的女孩，而且既然你是那里最辣的，我肯定他会喜欢，尤其是如果你像你擅长的那样去挑逗他，"她用最讨好的声音说道。'
+		'你笑了笑。"好吧，我会试着在迪斯科舞厅和他跳舞，看看能不能勾引到他。"'
+		'"你是我最好的朋友！"她笑逐颜开，给了你一个紧紧的拥抱。'
+		act '聊点别的': gt 'KatjaHomeTalk'
+		act '离开房间': gt 'mey_home', 'start'
+	end
+end
+
+
+--- KatjaHomeTalk ---------------------------------

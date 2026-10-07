@@ -1,0 +1,1825 @@
+# stat_display_compute
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  queue_alert — queue a transient alert into $sd_alerts[]            ║
+!! ║  $ARGS[1] = message text (plain or HTML; no <br>)                   ║
+!! ║  $ARGS[2] = optional theme colour token; '' or 'none' = no wrap     ║
+!! ║  sec_alerts renders $sd_alerts[] with auto-bold per entry.          ║
+!! ║  Alerts ignore show_positive_texts and are always shown.            ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'queue_alert':
+	$sd_qa['text'] = iif($ARGS[2] <> '' and $ARGS[2] <> 'none', $func('wrap', $ARGS[2], $ARGS[1]), $ARGS[1])
+	$sd_alerts[] = $sd_qa['text']
+	killvar 'sd_qa'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  queue_msg — queue a text message + optional icon                   ║
+!! ║  $ARGS[1] = label key into $stat_texts[]                            ║
+!! ║  $ARGS[2] = colour token (wrap name; '' or omit = no wrap)  		 ║
+!! ║  Positional shorthands (ARGS[3] disambiguated by value):            ║
+!! ║   Short-A (text-only+gate): label, color, 'pos'|'const'             ║
+!! ║   Short-B (icon+gate):      label, color, icon, row, 'pos'|'const'  ║
+!! ║   Full:                     label, color, icon, row, action, gate   ║
+!! ║  Icon: 'light|dark' path relative to images/system/icons/           ║
+!! ║  Gate: 'pos' = positive-dynamic (icons+texts), 'const' = text only  ║
+!! ║  Icon-only: if $stat_texts[label]='' but icon set, text is skipped. ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'queue_msg':
+	!! Resolve positional shorthands
+	if $ARGS[3] = 'pos' or $ARGS[3] = 'const':
+		!! Short-A: no icon, gate at ARGS[3]
+		$sd_qm['icon_arg'] = ''
+		sd_qm['row_arg'] = 0
+		$sd_qm['action_arg'] = ''
+		$sd_qm['gate'] = $ARGS[3]
+	elseif $ARGS[5] = 'pos' or $ARGS[5] = 'const':
+		!! Short-B: icon present, gate at ARGS[5], action omitted
+		$sd_qm['icon_arg'] = $ARGS[3]
+		sd_qm['row_arg'] = ARGS[4]
+		$sd_qm['action_arg'] = ''
+		$sd_qm['gate'] = $ARGS[5]
+	else
+		!! Full form
+		$sd_qm['icon_arg'] = $ARGS[3]
+		sd_qm['row_arg'] = ARGS[4]
+		$sd_qm['action_arg'] = $ARGS[5]
+		$sd_qm['gate'] = $ARGS[6]
+	end
+
+	!! _tooltip = plain text for title="" attr; stat_texts[label] = rich text for popup/display
+	$sd_qm['title'] = iif($stat_texts[$ARGS[1] + '_tooltip'] <> '', $stat_texts[$ARGS[1] + '_tooltip'], $stat_texts[$ARGS[1]])
+	$sd_qm['display'] = $stat_texts[$ARGS[1]]
+	!! Action: prefer action_arg, then msg via stat_texts ref (not embedded value — HTML quotes break href attrs).
+	if $sd_qm['action_arg'] <> '':
+		$sd_qm['action'] = $sd_qm['action_arg']
+	elseif $sd_qm['display'] <> '':
+		$sd_qm['action'] = 'msg $stat_texts[''' + $ARGS[1] + ''']'
+	else
+		$sd_qm['action'] = 'msg $stat_texts[''' + $ARGS[1] + '_tooltip'']'
+	end
+	!! menu_off override
+	if menu_off and $sd_qm['action_arg'] <> '':
+		$sd_qm['action'] = 'msg $func(''wrap'', ''v_neg'', ''你现在不能使用菜单。'')'
+	end
+	if $sd_qm['icon_arg'] <> '' and instr($sd_qm['icon_arg'], '|') > 0:
+		if theme['is_dark'] = 0:
+			$sd_qm['icon'] = $mid($sd_qm['icon_arg'], 1, instr($sd_qm['icon_arg'], '|') - 1)
+		else
+			$sd_qm['icon'] = $mid($sd_qm['icon_arg'], instr($sd_qm['icon_arg'], '|') + 1)
+		end
+	else
+		$sd_qm['icon'] = $sd_qm['icon_arg']
+	end
+
+	!! Extract bg_color if present (format: "path:hex_color")
+	$sd_qm['bg_color'] = ''
+	if instr($sd_qm['icon'], ':') > 0:
+		$sd_qm['bg_color'] = $mid($sd_qm['icon'], instr($sd_qm['icon'], ':') + 1)
+		$sd_qm['icon'] = $mid($sd_qm['icon'], 1, instr($sd_qm['icon'], ':') - 1)
+	end
+
+	!! Gate: 'pos'=positive-dynamic (icons+texts togglable), 'const'=constant accessory (only text gated), ''=always shown.
+	if $sd_qm['gate'] = 'pos':
+		if stat_cfg['show_positive_icons'] = 0: $sd_qm['icon'] = ''
+		if stat_cfg['show_positive_texts'] = 0: $sd_qm['display'] = ''
+	elseif $sd_qm['gate'] = 'const':
+		if stat_cfg['show_constant_texts'] = 0: $sd_qm['display'] = ''
+	end
+
+	!! Icons — title uses plain-text _tooltip, click uses rich display text or tooltip
+	if $sd_qm['icon'] <> '' and (stat_cfg['msg_display_mode'] = 0 or stat_cfg['msg_display_mode'] = 1):
+		if $sd_qm['bg_color'] <> '':
+			$sd_qm['final_icon'] = '<a href="exec: <<$sd_qm[''action'']>>"><span style="display:inline-block;background:<<$sd_qm[''bg_color'']>>;border-radius:12px;width:<<stat_cfg[''icon_height'']>>px;height:<<stat_cfg[''icon_height'']>>px;padding:5%;box-sizing:border-box;"><img src="images/system/icons/<<$sd_qm[''icon'']>>.png" title="<<$sd_qm[''title'']>>" style="width:100%;height:100%;display:block;"></span></a>'
+		else
+			$sd_qm['final_icon'] = '<a href="exec: <<$sd_qm[''action'']>>"><img src="images/system/icons/<<$sd_qm[''icon'']>>.png" title="<<$sd_qm[''title'']>>" height="<<stat_cfg[''icon_height'']>>"></a>'
+		end
+		if sd_qm['row_arg'] = 1:
+			$sd_icons_1[] = $sd_qm['final_icon']
+		elseif sd_qm['row_arg'] = 2:
+			$sd_icons_2[] = $sd_qm['final_icon']
+		elseif sd_qm['row_arg'] = 3:
+			$sd_icons_3[] = $sd_qm['final_icon']
+		else
+			$sd_icons_4[] = $sd_qm['final_icon']
+		end
+	end
+
+	!! Text — uses rich display text (may contain HTML links etc.)
+	!! Skip text queue when display is empty (icon-only mode)
+	if $sd_qm['display'] <> '' and (stat_cfg['msg_display_mode'] = 0 or stat_cfg['msg_display_mode'] = 2 or $sd_qm['icon'] = ''):
+		$sd_qm['final_text'] = $iif($ARGS[2] <> '', $func('wrap', $ARGS[2], $sd_qm['display']), $sd_qm['display'])
+		$sd_texts[] = $sd_qm['final_text']
+	end
+
+	killvar 'sd_qm'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ compute_data — zero all arrays ($stat_texts, stat_nums,         │
+!! │ $sd_msg_*), then call compute_* submodules.                     │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'compute_data':
+
+	!! ── Zero all state text arrays ───────────────────────────────────
+	killvar 'stat_texts'
+	killvar 'stat_nums'
+	killvar 'sd_alerts'
+	killvar 'sd_texts'
+	killvar 'sd_icons_1'
+	killvar 'sd_icons_2'
+	killvar 'sd_icons_3'
+	killvar 'sd_icons_4'
+
+	!! ── Compute submodules ───────────────────────────────────────────
+	gs 'stat_display_compute', 'compute_stats'
+	gs 'stat_display_compute', 'compute_body'
+	gs 'din_bad',		'compute_cycle_state'
+	gs 'din_bad',		'compute_bc_status'
+	gs 'archetypes',	'compute_stat_display'
+	gs 'traits',		'compute_stat_display'
+	gs 'lact_lib',		'compute_stat_display'
+	gs 'outfit',		'compute_stat_display'
+	gs 'drugs',			'compute_stat_display'
+	gs 'stat_display_compute', 'compute_appearance'
+	gs 'cum_manage',	'compute_stat_display'
+	gs 'jobs',			'compute_stat_display'
+	gs 'gschool',		'compute_stat_display'
+	gs 'uni_lessons',	'compute_stat_display'
+	gs 'stat',			'compute_stat_display'
+	gs 'stat_display_compute', 'compute_misc'
+	gs 'stat_display_compute', 'compute_images'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  COMPUTE ATTRIBUTES PROSE — render_mode=3 prose summary             ║
+!! ║  Notable = absolute outlier (≥80/≤15) or relative (±15 from mean).  ║
+!! ║  Result → $sd_attrs_prose                                           ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'compute_attributes_prose':
+	!! ── Step 1: Collect visible attribute values (normalized 0-100) ──
+	sd_ap['cnt'] = 0
+	sd_ap['sum'] = 0
+
+	!! Iterate $attr_bar_order[] to respect hide + ordering
+	sd_ap['ai'] = 0
+	sd_ap['amax'] = arrsize('$attr_bar_order')
+	:sd_ap_collect
+	if sd_ap['ai'] < sd_ap['amax']:
+		$sd_ap['ck'] = $attr_bar_order[sd_ap['ai']]
+
+		if stat_hide_bar[$sd_ap['ck']] = 0:
+			!! Map key → value (0-100 normalized) + display name
+			sd_ap['cv'] = -1
+			if $sd_ap['ck'] = 'inhib':
+				sd_ap['cv'] = 100 - pcs_inhib
+				$sd_ap['cn'] = '抑制'
+			elseif $sd_ap['ck'] = 'stren':
+				sd_ap['cv'] = pcs_stren
+				$sd_ap['cn'] = '力量'
+			elseif $sd_ap['ck'] = 'agil':
+				sd_ap['cv'] = pcs_agil
+				$sd_ap['cn'] = '敏捷'
+			elseif $sd_ap['ck'] = 'vital':
+				sd_ap['cv'] = pcs_vital
+				$sd_ap['cn'] = '耐力'
+			elseif $sd_ap['ck'] = 'intel':
+				sd_ap['cv'] = pcs_intel
+				$sd_ap['cn'] = '智力'
+			elseif $sd_ap['ck'] = 'sprt':
+				sd_ap['cv'] = pcs_sprt
+				$sd_ap['cn'] = '精神'
+			elseif $sd_ap['ck'] = 'react':
+				sd_ap['cv'] = pcs_react
+				$sd_ap['cn'] = '反应'
+			elseif $sd_ap['ck'] = 'chrsm':
+				sd_ap['cv'] = pcs_chrsm
+				$sd_ap['cn'] = '魅力'
+			elseif $sd_ap['ck'] = 'prcptn':
+				sd_ap['cv'] = pcs_prcptn
+				$sd_ap['cn'] = '感知'
+			elseif $sd_ap['ck'] = 'apprnc':
+				!! Normalize 0-200 → 0-100
+				sd_ap['cv'] = pcs_apprnc * 100 / 200
+				$sd_ap['cn'] = '魅力'
+			elseif $sd_ap['ck'] = 'magik':
+				if $start_type['magic'] <> 'nomagic':
+					sd_ap['cv'] = pcs_magik
+					$sd_ap['cn'] = '魔法'
+				end
+			elseif $sd_ap['ck'] = 'sucexcess':
+				if $start_type['magic'] <> 'nomagic' and succubusflag = 1:
+					sd_ap['cv'] = sucexcess
+					$sd_ap['cn'] = '魅魔能量'
+				end
+			end
+
+			if sd_ap['cv'] >= 0:
+				sd_ap['v_' + $str(sd_ap['cnt'])] = sd_ap['cv']
+				$sd_ap['n_' + $str(sd_ap['cnt'])] = $sd_ap['cn']
+				sd_ap['sum'] += sd_ap['cv']
+				sd_ap['cnt'] += 1
+			end
+		end
+
+		sd_ap['ai'] += 1
+		jump 'sd_ap_collect'
+	end
+
+	!! ── Step 2: Compute mean ─────────────────────────────────────────
+	if sd_ap['cnt'] > 0:
+		sd_ap['mean'] = sd_ap['sum'] / sd_ap['cnt']
+	else
+		sd_ap['mean'] = 50
+	end
+
+	!! ── Step 3: Flag notable attributes ──────────────────────────────
+	!! Buckets: high (positive notable), low (negative notable)
+	sd_ap['n_high'] = 0
+	sd_ap['n_low'] = 0
+
+	sd_ap['bi'] = 0
+	:sd_ap_bucket
+	if sd_ap['bi'] < sd_ap['cnt']:
+		sd_ap['bv'] = sd_ap['v_' + $str(sd_ap['bi'])]
+		sd_ap['dev'] = sd_ap['bv'] - sd_ap['mean']
+
+		!! High: absolute ≥80 or relative deviation ≥+15
+		if sd_ap['bv'] >= 80 or sd_ap['dev'] >= 15:
+			$sd_ap['high_' + $str(sd_ap['n_high'])] = $sd_ap['n_' + $str(sd_ap['bi'])]
+			sd_ap['n_high'] += 1
+		!! Low: absolute ≤15 or relative deviation ≤-15
+		elseif sd_ap['bv'] <= 15 or sd_ap['dev'] <= -15:
+			$sd_ap['low_' + $str(sd_ap['n_low'])] = $sd_ap['n_' + $str(sd_ap['bi'])]
+			sd_ap['n_low'] += 1
+		end
+
+		sd_ap['bi'] += 1
+		jump 'sd_ap_bucket'
+	end
+
+	!! ── Step 4: Assemble prose ───────────────────────────────────────
+	$sd_attrs_prose = ''
+
+	!! High attributes: "Your Strength and Charisma stand out."
+	if sd_ap['n_high'] > 0:
+		if sd_ap['n_high'] = 1:
+			$sd_attrs_prose = '你的 ' + $func('wrap', 'pos', $sd_ap['high_0']) + ' 很显眼'
+		elseif sd_ap['n_high'] = 2:
+			$sd_attrs_prose = '你的 ' + $func('wrap', 'pos', $sd_ap['high_0']) + ' 和 ' + $func('wrap', 'pos', $sd_ap['high_1']) + ' 很显眼'
+		else
+			$sd_attrs_prose = '你的 ' + $func('wrap', 'pos', $sd_ap['high_0'])
+			sd_ap['ji'] = 1
+			:sd_ap_join_high
+			if sd_ap['ji'] < (sd_ap['n_high'] - 1):
+				$sd_attrs_prose += ', ' + $func('wrap', 'pos', $sd_ap['high_' + $str(sd_ap['ji'])])
+				sd_ap['ji'] += 1
+				jump 'sd_ap_join_high'
+			end
+			$sd_attrs_prose += ', 而且 ' + $func('wrap', 'pos', $sd_ap['high_' + $str(sd_ap['n_high'] - 1)]) + ' 很显眼'
+		end
+	end
+
+	!! Low attributes: "but your Agility is lacking" or standalone
+	if sd_ap['n_low'] > 0:
+		!! Build the low list
+		if sd_ap['n_low'] = 1:
+			$sd_ap['low_list'] = $func('wrap', 'neg', $sd_ap['low_0'])
+			$sd_ap['low_verb'] = '有所欠缺'
+		elseif sd_ap['n_low'] = 2:
+			$sd_ap['low_list'] = $func('wrap', 'neg', $sd_ap['low_0']) + ' 和 ' + $func('wrap', 'neg', $sd_ap['low_1'])
+			$sd_ap['low_verb'] = '有所欠缺'
+		else
+			$sd_ap['low_list'] = $func('wrap', 'neg', $sd_ap['low_0'])
+			sd_ap['ji'] = 1
+			:sd_ap_join_low
+			if sd_ap['ji'] < (sd_ap['n_low'] - 1):
+				$sd_ap['low_list'] += ', ' + $func('wrap', 'neg', $sd_ap['low_' + $str(sd_ap['ji'])])
+				sd_ap['ji'] += 1
+				jump 'sd_ap_join_low'
+			end
+			$sd_ap['low_list'] += ', 而且 ' + $func('wrap', 'neg', $sd_ap['low_' + $str(sd_ap['n_low'] - 1)])
+			$sd_ap['low_verb'] = '有所欠缺'
+		end
+
+		if $sd_attrs_prose <> '':
+			!! Append as contrast: ", but your X is lacking."
+			$sd_attrs_prose += '，但你的' + $sd_ap['low_list'] + ' ' + $sd_ap['low_verb']
+		else
+			!! Standalone: "Your X is lacking."
+			$sd_attrs_prose = '你的' + $sd_ap['low_list'] + ' ' + $sd_ap['low_verb']
+		end
+	end
+
+	!! Close the sentence
+	if $sd_attrs_prose <> '':
+		$sd_attrs_prose += '。'
+	else
+		$sd_attrs_prose = '你的属性很均衡。'
+	end
+
+	killvar 'sd_ap'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                      COMPUTE STATS                                  ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'compute_stats':
+
+	!! ── Arousal ─────────────────────────────────────────────────────
+	if pcs_horny >= 100:
+		$stat_texts['arousal'] = '渴望淹没你的感官。你 <a href="exec: view''images/pc/body/pussy/aroused/<<iif($pantyworntype <> ''none'', ''panties'', ''none'')>>_high.jpg''">湿透</a>了，全是自己的爱液。'
+		$stat_texts['arousal_tooltip'] = '渴望淹没你的感官。你被自己的爱液浸透了。'
+		gs 'stat_display_compute', 'queue_msg', 'arousal', 'bimbo', 'status/arousal_high', 2
+		gs 'stat_display_compute', 'queue_alert', '你被性欲冲昏了头脑。', 'bimbo'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '被欲望征服'
+	elseif pcs_horny >= 75:
+		$stat_texts['arousal'] = '你无法停止想着性事。你的身体因性兴奋而<a href="exec: view''images/pc/body/pussy/aroused/<<iif($pantyworntype <> ''none'', ''panties'', ''none'')>>_low.jpg''">发痒</a>。'
+		$stat_texts['arousal_tooltip'] = '你满脑子都是性事。你因欲望而瘙痒难耐。'
+		gs 'stat_display_compute', 'queue_msg', 'arousal', 'bimbo', 'status/arousal_high', 2
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '非常亢奋'
+	elseif pcs_horny >= 50:
+		$stat_texts['arousal'] = '温暖的欲望让你心跳加速。'
+		gs 'stat_display_compute', 'queue_msg', 'arousal', 'punk', 'status/arousal_med', 2
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '微微泛红'
+	elseif pcs_horny >= 25:
+		$stat_texts['arousal'] = '一丝渴望隐隐刺痛着你。'
+		gs 'stat_display_compute', 'queue_msg', 'arousal', 'neutral', 'status/arousal_low', 2, 'pos'
+	else
+		$stat_texts['arousal'] = '冷漠削弱了所有情欲火花。'
+		gs 'stat_display_compute', 'queue_msg', 'arousal', 'pos', 'status/arousal_low', 2, 'pos'
+	end
+
+	!! ── Pain ────────────────────────────────────────────────────────
+	if pain['total'] > 75:
+		$stat_texts['pain'] = '剧烈的疼痛折磨着你的身体。'
+		gs 'stat_display_compute', 'queue_msg', 'pain', 'v_neg', 'status/pain_3', 2, 'gt ''$menu_character'', ''pain'''
+		gs 'stat_display_compute', 'queue_alert', '你痛苦不堪。', 'v_neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '痛苦不堪'
+	elseif pain['total'] > 50:
+		$stat_texts['pain'] = '尖锐的疼痛窜过你的四肢。'
+		gs 'stat_display_compute', 'queue_msg', 'pain', 'neg', 'status/pain_2', 2, 'gt ''$menu_character'', ''pain'''
+		gs 'stat_display_compute', 'queue_alert', '你感到剧烈疼痛。', 'neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '剧痛难忍'
+	elseif pain['total'] > 25:
+		$stat_texts['pain'] = '阵阵疼痛分散着你的注意力。'
+		gs 'stat_display_compute', 'queue_msg', 'pain', 'neutral', 'status/pain_1', 2, 'gt ''$menu_character'', ''pain'''
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '有些酸痛'
+	elseif pain['total'] > 5:
+		$stat_texts['pain'] = '一阵隐痛牵扯着你的肌肉。'
+		gs 'stat_display_compute', 'queue_msg', 'pain', 'neutral', 'status/pain_1', 2, 'gt ''$menu_character'', ''pain''', 'pos'
+	else
+		$stat_texts['pain'] = '你的身体感到完全放松。'
+		gs 'stat_display_compute', 'queue_msg', 'pain', 'v_pos', 'pos'
+	end
+
+	!! ── Health ──────────────────────────────────────────────────────
+	stat_nums['health_percent'] = (100 * pcs_health) / healthmax
+	if stat_nums['health_percent'] < 15:
+		$stat_texts['health'] = '你正处于危急状态。'
+		gs 'stat_display_compute', 'queue_msg', 'health', 'v_neg'
+		gs 'stat_display_compute', 'queue_alert', '你伤势垂危。', 'v_neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '病危'
+	elseif stat_nums['health_percent'] < 30:
+		$stat_texts['health'] = '你的健康在压力下每况愈下。'
+		gs 'stat_display_compute', 'queue_msg', 'health', 'neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '健康状况不佳'
+	elseif stat_nums['health_percent'] < 60:
+		$stat_texts['health'] = '你明显感到身体不适。'
+		gs 'stat_display_compute', 'queue_msg', 'health', 'neutral'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '感觉不适'
+	elseif stat_nums['health_percent'] < 90:
+		$stat_texts['health'] = '隐隐的虚弱感在消耗你的精力。'
+		gs 'stat_display_compute', 'queue_msg', 'health', 'neutral', 'pos'
+	else
+		$stat_texts['health'] = '你非常健康。'
+		gs 'stat_display_compute', 'queue_msg', 'health', 'v_pos', 'pos'
+	end
+
+	!! ── Mana ────────────────────────────────────────────────────────
+	if $start_type['magic'] <> 'nomagic':
+		stat_nums['mana_percent'] = (100 * pcs_mana) / manamax
+		if stat_nums['mana_percent'] < 15:
+			$stat_texts['mana'] = '你的奥术能量已被抽空。'
+			gs 'stat_display_compute', 'queue_msg', 'mana', 'v_neg'
+			if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '魔力枯竭'
+		elseif stat_nums['mana_percent'] < 30:
+			$stat_texts['mana'] = '你的魔力储备所剩无几，十分吃紧。'
+			gs 'stat_display_compute', 'queue_msg', 'mana', 'neg'
+			if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '法力不足'
+		elseif stat_nums['mana_percent'] < 60:
+			$stat_texts['mana'] = '你的法术池充能稳定。'
+			gs 'stat_display_compute', 'queue_msg', 'mana', 'neutral', 'pos'
+		elseif stat_nums['mana_percent'] < 90:
+			$stat_texts['mana'] = '魔法在你的皮肤下轻轻嗡鸣。'
+			gs 'stat_display_compute', 'queue_msg', 'mana', 'pos', 'pos'
+		else
+			$stat_texts['mana'] = '奥术之力在你血管中涌动。'
+			gs 'stat_display_compute', 'queue_msg', 'mana', 'v_pos', 'pos'
+		end
+	end
+
+	!! ── Willpower ───────────────────────────────────────────────────
+	stat_nums['willpower_percent'] = (100 * pcs_willpwr) / willpowermax
+	if stat_nums['willpower_percent'] < 20:
+		$stat_texts['willpower'] = '你完全任人摆布。'
+		gs 'stat_display_compute', 'queue_msg', 'willpower', 'v_neg', 'status/willpower_low', 2
+		gs 'stat_display_compute', 'queue_alert', '你的意志力崩溃了。', 'v_neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '意志崩溃'
+	elseif stat_nums['willpower_percent'] < 40:
+		$stat_texts['willpower'] = '你的决心在压力下动摇。'
+		gs 'stat_display_compute', 'queue_msg', 'willpower', 'pos', 'status/willpower_low', 2
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '意志薄弱'
+	elseif stat_nums['willpower_percent'] < 60:
+		$stat_texts['willpower'] = '疑虑悄悄渗入你的心间。'
+		gs 'stat_display_compute', 'queue_msg', 'willpower', 'neutral', 'status/willpower_med', 2
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '优柔寡断'
+	elseif stat_nums['willpower_percent'] < 80:
+		$stat_texts['willpower'] = '你感到意志坚定、目标明确。'
+		gs 'stat_display_compute', 'queue_msg', 'willpower', 'pos', 'status/willpower_high', 2, 'pos'
+	else
+		$stat_texts['willpower'] = '你的决心坚不可摧。'
+		gs 'stat_display_compute', 'queue_msg', 'willpower', 'v_pos', 'status/willpower_high', 2, 'pos'
+	end
+
+	!! ── Stamina ─────────────────────────────────────────────────────
+	stat_nums['stamina_percent'] = (100 * pcs_stam) / stammax
+	if stat_nums['stamina_percent'] < 15:
+		$stat_texts['stamina'] = '你的体力完全耗尽。'
+		gs 'stat_display_compute', 'queue_msg', 'stamina', 'v_neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '精疲力竭'
+	elseif stat_nums['stamina_percent'] < 30:
+		$stat_texts['stamina'] = '你的四肢因劳累而颤抖。'
+		gs 'stat_display_compute', 'queue_msg', 'stamina', 'neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '筋疲力尽'
+	elseif stat_nums['stamina_percent'] < 60:
+		$stat_texts['stamina'] = '你的呼吸因用力而变得急促。'
+		gs 'stat_display_compute', 'queue_msg', 'stamina', 'neutral'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '气喘吁吁'
+	elseif stat_nums['stamina_percent'] < 90:
+		$stat_texts['stamina'] = '疲劳感隐隐浮现。'
+		gs 'stat_display_compute', 'queue_msg', 'stamina', 'neutral', 'pos'
+	else
+		$stat_texts['stamina'] = '你感到神清气爽，头脑敏锐。'
+		gs 'stat_display_compute', 'queue_msg', 'stamina', 'v_pos', 'pos'
+	end
+
+	!! ── Mood ────────────────────────────────────────────────────────
+	if pcs_mood < 10:
+		$stat_texts['mood'] = '黑暗的绝望将你包围。'
+		gs 'stat_display_compute', 'queue_msg', 'mood', 'v_neg', 'status/mood_6', 2
+		gs 'stat_display_compute', 'queue_alert', '你陷入深深的绝望。', 'v_neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '陷入绝望'
+	elseif pcs_mood < 25:
+		$stat_texts['mood'] = '一阵尖锐的忧郁拉扯着你的心绪。'
+		gs 'stat_display_compute', 'queue_msg', 'mood', 'v_neg', 'status/mood_5', 2
+		gs 'stat_display_compute', 'queue_alert', '你非常不开心。', 'v_neg'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '极度不快'
+	elseif pcs_mood < 40:
+		$stat_texts['mood'] = '沉重感笼罩着你的心情。'
+		gs 'stat_display_compute', 'queue_msg', 'mood', 'neg', 'status/mood_4', 2
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '心情阴郁'
+	elseif pcs_mood < 55:
+		$stat_texts['mood'] = '你的心情平静而安稳。'
+		gs 'stat_display_compute', 'queue_msg', 'mood', 'neutral', 'status/mood_3', 2, 'pos'
+	elseif pcs_mood < 70:
+		$stat_texts['mood'] = '一丝暖意染上你的思绪。'
+		gs 'stat_display_compute', 'queue_msg', 'mood', 'pos', 'status/mood_2', 2, 'pos'
+	else
+		$stat_texts['mood'] = '你的情绪轻快地高昂起来。'
+		gs 'stat_display_compute', 'queue_msg', 'mood', 'v_pos', 'status/mood_1', 2, 'pos'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_upbeat[] = '精神饱满'
+	end
+	!! STD mood effects
+	if Gerpes >= 3 or Sifilis >= 21 or Triper > 2:
+		$stat_texts['mood'] += ' 你的心情因性病而变差。'
+	end
+	!! Trauma
+	if mood_trauma > 0:
+		$stat_texts['mood_trauma'] = '最近的事件已使你的心情上限降至 <<moodVars[''max'']>>。'
+		gs 'stat_display_compute', 'queue_msg', 'mood_trauma', 'v_neg', 'status/mood_6', 2
+		if pcs_mood >= moodVars['max'] - 10:
+			gs 'stat_display_compute', 'queue_alert', '你的情绪因创伤而封顶（上限：<<moodVars[''max'']>>）。', 'v_neg'
+		end
+	end
+
+	!! ── Energy ──────────────────────────────────────────────────────
+	!! Text always set. Icon only ≤50; sandwich overrides plain icon at same threshold.
+	if pcs_energy <= 1:
+		$stat_texts['energy'] = '你因饥饿快要昏倒了。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '饿得要命'
+	elseif pcs_energy <= 10:
+		$stat_texts['energy'] = '你几乎快要饿死了。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '非常饥饿'
+	elseif pcs_energy <= 30:
+		$stat_texts['energy'] = '饥饿牵扯着你的注意力。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '开始饿了'
+	elseif pcs_energy <= 50:
+		$stat_texts['energy'] = '你觉得有点饿。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '有点饿'
+	elseif pcs_energy <= 75:
+		$stat_texts['energy'] = '一阵轻微的饥饿感提醒你该吃东西了。'
+	else
+		$stat_texts['energy'] = '你一口也吃不下去了。'
+	end
+	!! Icon only when actually hungry (<=50)
+	if pcs_energy <= 50:
+		if cheatVars['hunger'] = 0 and mc_inventory['food_sandwich'] > 0:
+			!! Interactive: sandwich available — use 'status/need_food_sandwich' when art exists
+			$stat_texts['sandwich_icon_tooltip'] = '点击吃你的三明治。'
+			gs 'stat_display_compute', 'queue_msg', 'sandwich_icon', '', 'status/need_food_sandwich', 2, 'mc_inventory[''food_sandwich''] -= 1 & gs ''food'', ''bagged_lunch_stats'''
+		else
+			!! Plain hunger icon — severity mirrors the tier above
+			if pcs_energy <= 1:
+				gs 'stat_display_compute', 'queue_msg', 'energy', 'v_neg', 'status/need_food', 2
+				gs 'stat_display_compute', 'queue_alert', '你饿坏了。', 'v_neg'
+			elseif pcs_energy <= 10:
+				gs 'stat_display_compute', 'queue_msg', 'energy', 'v_neg', 'status/need_food', 2
+				gs 'stat_display_compute', 'queue_alert', '你快饿死了。', 'v_neg'
+			else
+				gs 'stat_display_compute', 'queue_msg', 'energy', 'neg', 'status/need_food', 2
+			end
+		end
+	end
+
+	!! ── Thirst ──────────────────────────────────────────────────────
+	!! Same structure as Energy: bottle overrides plain icon at same threshold.
+	if pcs_hydra <= 1:
+		$stat_texts['thirst'] = '你被难以抑制的口渴灼烧着。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_urgent[] = '口干舌燥'
+	elseif pcs_hydra <= 10:
+		$stat_texts['thirst'] = '你渴得快要昏倒了。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_warning[] = '干渴难耐'
+	elseif pcs_hydra <= 30:
+		$stat_texts['thirst'] = '你的喉咙因干渴而发紧。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '口渴'
+	elseif pcs_hydra <= 50:
+		$stat_texts['thirst'] = '你的嘴有点干。'
+		if stat_cfg['render_mode_status'] = 3: $sd_pr_mild[] = '口干'
+	elseif pcs_hydra <= 75:
+		$stat_texts['thirst'] = '你的嘴唇上带着些许干涩。'
+	else
+		$stat_texts['thirst'] = '你的喉咙感到湿润了。'
+	end
+	!! Icon only when actually thirsty (<=50)
+	if pcs_hydra <= 50:
+		if cheatVars['thirst'] = 0 and (mc_inventory['refill_bottle_water'] > 0 or mc_inventory['food_water'] > 0):
+			!! Interactive: bottle available — use 'status/need_drink_bottle' when art exists
+			if mc_inventory['refill_bottle_water'] > 0:
+				$stat_texts['water_icon_tooltip'] = '点击，从可续水的水瓶里喝水。'
+				gs 'stat_display_compute', 'queue_msg', 'water_icon', '', 'status/need_drink_bottle', 2, 'mc_inventory[''refill_bottle_water''] -= 1 & gs ''beverage'', ''water_stats'''
+			else
+				$stat_texts['water_icon_tooltip'] = '点击，从水瓶里喝水。'
+				gs 'stat_display_compute', 'queue_msg', 'water_icon', '', 'status/need_drink_bottle', 2, 'mc_inventory[''food_water''] = 0 & gs ''beverage'', ''water_stats'''
+			end
+		else
+			!! Plain thirst icon — severity mirrors the tier above
+			if pcs_hydra <= 1:
+				gs 'stat_display_compute', 'queue_msg', 'thirst', 'v_neg', 'status/need_drink', 2
+				gs 'stat_display_compute', 'queue_alert', '你口渴难耐。', 'v_neg'
+			elseif pcs_hydra <= 10:
+				gs 'stat_display_compute', 'queue_msg', 'thirst', 'v_neg', 'status/need_drink', 2
+				gs 'stat_display_compute', 'queue_alert', '你非常口渴。', 'neg'
+			else
+				gs 'stat_display_compute', 'queue_msg', 'thirst', 'neg', 'status/need_drink', 2
+			end
+		end
+	end
+	!! ── Sleep ───────────────────────────────────────────────────────
+	if pcs_sleep <= 5:
+		$stat_texts['sleep'] = '你努力想睁开眼睛。'
+		gs 'stat_display_compute', 'queue_msg', 'sleep', 'v_neg', 'status/need_sleep', 2
+		gs 'stat_display_compute', 'queue_alert', '你累到危险的程度。', 'v_neg'
+	elseif pcs_sleep <= 25:
+		$stat_texts['sleep'] = '沉重的眼皮拉扯着你的视线。'
+		gs 'stat_display_compute', 'queue_msg', 'sleep', 'v_neg', 'status/need_sleep', 2
+		gs 'stat_display_compute', 'queue_alert', '你几乎睁不开眼了。', 'v_neg'
+	elseif pcs_sleep <= 50:
+		$stat_texts['sleep'] = '你忍不住一直打哈欠。'
+		gs 'stat_display_compute', 'queue_msg', 'sleep', 'neg', 'status/need_sleep', 2
+	elseif pcs_sleep <= 75:
+		$stat_texts['sleep'] = '一阵轻轻的哈欠涌上来。'
+		gs 'stat_display_compute', 'queue_msg', 'sleep', 'neutral', 'pos'
+	else
+		$stat_texts['sleep'] = '你感觉非常清醒。'
+		gs 'stat_display_compute', 'queue_msg', 'sleep', 'v_pos', 'pos'
+	end
+
+	!! Caffeine override (modifies sleep text when caffeinated)
+	if drugVars['caffeine_dose'] <> 0 and pcs_sleep >= 10:
+		if pcs_sleep <= 50:
+			if drugVars['sleep_actual'] > 5:
+				$stat_texts['sleep'] = '沉重的眼皮拉扯着你的视线，咖啡几乎没有缓解。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'neg', 'status/need_sleep', 2
+				if drugVars['sleep_actual'] <= 25:
+					gs 'stat_display_compute', 'queue_alert', '你几乎睁不开眼了。', 'v_neg'
+				end
+			end
+		elseif pcs_sleep <= 75:
+			if drugVars['sleep_actual'] <= 5:
+				$stat_texts['sleep'] = '你的身体想倒下，但咖啡因不让。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'v_neg', 'status/need_sleep', 2
+				gs 'stat_display_compute', 'queue_alert', '你累到危险的程度。', 'v_neg'
+			elseif drugVars['sleep_actual'] <= 50:
+				$stat_texts['sleep'] = '你的身体在兴奋剂的颤抖刺激下疲惫不堪。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'neg', 'status/need_sleep', 2
+				if drugVars['sleep_actual'] <= 25:
+					gs 'stat_display_compute', 'queue_alert', '你几乎睁不开眼了。', 'v_neg'
+				end
+			else
+				$stat_texts['sleep'] = '你有点困，但咖啡让你保持清醒。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'neutral', 'status/need_sleep', 2
+			end
+		else
+			if drugVars['sleep_actual'] <= 5:
+				$stat_texts['sleep'] = '你的血液完全由咖啡因构成。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'v_neg', 'status/need_sleep', 2
+				gs 'stat_display_compute', 'queue_alert', '你累到危险的程度。', 'v_neg'
+			elseif drugVars['sleep_actual'] <= 50:
+				$stat_texts['sleep'] = '你疲惫不堪，全靠咖啡因的刺激硬撑着。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'neg', 'status/need_sleep', 2
+				if drugVars['sleep_actual'] <= 25:
+					gs 'stat_display_compute', 'queue_alert', '你几乎睁不开眼了。', 'v_neg'
+				end
+			elseif drugVars['sleep_actual'] <= 75:
+				$stat_texts['sleep'] = '你感觉非常清醒，这完全归功于咖啡因。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'neutral', 'status/need_sleep', 2
+			else
+				$stat_texts['sleep'] = '你感觉非常清醒，咖啡帮了忙。'
+				gs 'stat_display_compute', 'queue_msg', 'sleep', 'pos', 'pos'
+			end
+		end
+	end
+
+	!! ── Faith (prude archetype only) ──────────────────────────────────
+	if $arch_vars['main_active'] = 'prude':
+		if pcs_faith <= 1:
+			$stat_texts['faith'] = '你感到与信仰彻底断了联系，心情大受影响。'
+			gs 'stat_display_compute', 'queue_msg', 'faith', 'v_neg', 'status/faith', 2
+			gs 'stat_display_compute', 'queue_alert', '你急需去教堂待一段时间。', 'v_neg'
+		elseif pcs_faith <= 25:
+			$stat_texts['faith'] = '你已经很久没去教堂了，这正在影响你的心情。'
+			gs 'stat_display_compute', 'queue_msg', 'faith', 'neg', 'status/faith', 2
+			gs 'stat_display_compute', 'queue_alert', '你需要去教堂待一段时间。', 'neg'
+		elseif pcs_faith <= 50:
+			$stat_texts['faith'] = '你该尽快去一趟教堂了。'
+			gs 'stat_display_compute', 'queue_msg', 'faith', 'neutral', 'pos'
+		else
+			$stat_texts['faith'] = '你的信仰很坚定。'
+			gs 'stat_display_compute', 'queue_msg', 'faith', 'v_pos', 'pos'
+		end
+
+		!! Reminder a few hours ahead of the weekly Vigil (Sat) / Liturgy (Sun)
+		temp_weekday = func('time', 'get_week_from_daystart', daystart)
+		if temp_weekday = 6 and hour >= 16 and hour < 19:
+			gs 'stat_display_compute', 'queue_alert', '教堂守夜仪式就在今晚。', 'prude'
+		elseif temp_weekday = 7 and hour >= 5 and hour < 10:
+			gs 'stat_display_compute', 'queue_alert', '神圣礼拜仪式就在今天早上。', 'prude'
+		end
+		killvar 'temp_weekday'
+	end
+
+	!! ── Prose: sleep fragments ──────────────────────────────────────
+	!! Uses actual sleep when caffeinated to show true exhaustion beneath the buzz
+	if stat_cfg['render_mode_status'] = 3 and cheatVars['sleep'] = 0:
+		if drugVars['caffeine_dose'] > 0 and drugVars['sleep_actual'] < 100:
+			sd_pr['sl'] = drugVars['sleep_actual']
+		else
+			sd_pr['sl'] = pcs_sleep
+		end
+
+		if sd_pr['sl'] <= 5:
+			$sd_pr_urgent[] = '快要倒下'
+		elseif sd_pr['sl'] <= 25:
+			$sd_pr_warning[] = '几乎睁不开眼'
+		elseif sd_pr['sl'] <= 50:
+			$sd_pr_mild[] = '困倦'
+		end
+
+		!! Note caffeine masking as a separate mild item
+		if drugVars['caffeine_dose'] > 0 and pcs_sleep > drugVars['sleep_actual'] and drugVars['sleep_actual'] <= 50:
+			$sd_pr_mild[] = '因咖啡因而亢奋'
+		end
+	end
+
+	!! ── Prose assembly ──────────────────────────────────────────────
+	!! If prose mode is active, flatten severity buckets into an
+	!! Oxford-comma sentence and store in $sd_status_prose.
+	if stat_cfg['render_mode_status'] = 3:
+		!! Flatten fragments into a single indexed list: $sd_pr_flat[]
+		killvar 'sd_pr_flat'
+
+		sd_pr['i'] = 0
+		:sd_pr_flatten_urgent
+		if sd_pr['i'] < arrsize('sd_pr_urgent'):
+			$sd_pr_flat[] = $func('wrap', 'v_neg', $sd_pr_urgent[sd_pr['i']])
+			sd_pr['i'] += 1
+			jump 'sd_pr_flatten_urgent'
+		end
+
+		sd_pr['i'] = 0
+		:sd_pr_flatten_warning
+		if sd_pr['i'] < arrsize('sd_pr_warning'):
+			$sd_pr_flat[] = $func('wrap', 'neg', $sd_pr_warning[sd_pr['i']])
+			sd_pr['i'] += 1
+			jump 'sd_pr_flatten_warning'
+		end
+
+		sd_pr['i'] = 0
+		:sd_pr_flatten_mild
+		if sd_pr['i'] < arrsize('sd_pr_mild'):
+			$sd_pr_flat[] = $func('wrap', 'neutral', $sd_pr_mild[sd_pr['i']])
+			sd_pr['i'] += 1
+			jump 'sd_pr_flatten_mild'
+		end
+
+		sd_pr['total'] = arrsize('sd_pr_flat')
+		if sd_pr['total'] = 0:
+			!! Nothing bad — "all clear" with optional positive note
+			if arrsize('sd_pr_upbeat') > 0:
+				$sd_status_prose = '你感觉不错，而且' + $sd_pr_upbeat[0] + '。'
+			else
+				$sd_status_prose = '你总体感觉不错。'
+			end
+		else
+			!! Build the sentence from the flat list.
+			!! Pattern: "You are <f0>" / "You are <f0> and <f1>" /
+			!!          "You are <f0>, <f1>, and <f2>" (Oxford comma).
+			if sd_pr['total'] = 1:
+				$sd_status_prose = '你' + $sd_pr_flat[0]
+			elseif sd_pr['total'] = 2:
+				$sd_status_prose = '你' + $sd_pr_flat[0] + '，' + $sd_pr_flat[1]
+			else
+				!! 3+ items: comma-separated with "and" before last
+				$sd_status_prose = '你' + $sd_pr_flat[0]
+				sd_pr['i'] = 1
+				:sd_pr_join_loop
+				if sd_pr['i'] < (sd_pr['total'] - 1):
+					$sd_status_prose += '，' + $sd_pr_flat[sd_pr['i']]
+					sd_pr['i'] += 1
+					jump 'sd_pr_join_loop'
+				end
+				$sd_status_prose += '，而且' + $sd_pr_flat[sd_pr['total'] - 1]
+			end
+
+			!! Append upbeat clause if present (e.g. ", but in great spirits")
+			if arrsize('sd_pr_upbeat') > 0:
+				$sd_status_prose += '—但 ' + $func('wrap', 'v_pos', $sd_pr_upbeat[0])
+			end
+
+			!! Close the sentence
+			$sd_status_prose += '。'
+		end
+	end
+
+	killvar 'sd_pr_urgent'
+	killvar 'sd_pr_warning'
+	killvar 'sd_pr_mild'
+	killvar 'sd_pr_upbeat'
+	killvar 'sd_pr_flat'
+	killvar 'sd_pr'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                       COMPUTE BODY                                  ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'compute_body':
+
+	!! Hotcat ─────────────────────────────────────────────────────────
+	$stat_texts['hotcat'] = '别人会给你外貌打<<pcs_hotcat>>分（满分 10 分）。'
+	gs 'stat_display_compute', 'queue_msg', 'hotcat', '', 'status/appearance', 1, 'const'
+
+	!! Hair & Makeup ────────────────────────────────────────────────
+	!! Merged text message for both makeup and hair state
+	if opPRE = 0:
+		$stat_texts['makeup_hair'] = '你的脸<<$pc_descWordy[''makeup'']>>，你的头发<<$pcs_hairstate>>.'
+		gs 'stat_display_compute', 'queue_msg', 'makeup_hair'
+	end
+
+	!! Interactive makeup icon: apply light makeup (travel mirror + travel makeup).
+	if opPRE = 0:
+		if pcs_makeup = 1 and mc_inventory['travel_mirror'] > 0 and mc_inventory['travel_makeup'] > 0:
+			$stat_texts['makeup_icon_tooltip'] = '<<$pcs_makeup_tooltip>>点击化淡妆。'
+			gs 'stat_display_compute', 'queue_msg', 'makeup_icon', '', 'status/makeup_' + $str(pcs_makeup), 1, 'minut += 3 & gs ''exp_gain'', ''makupskl'', rand(1, 3) & pcs_makeup = 2 & mc_inventory[''travel_makeup''] -= 1 & gs ''stat'''
+		else
+			$stat_texts['makeup_icon_tooltip'] = $pcs_makeup_tooltip
+			gs 'stat_display_compute', 'queue_msg', 'makeup_icon', '', 'status/makeup_' + $str(min(pcs_makeup, 4)), 1
+		end
+	end
+
+	!! Interactive hair icon: brush hair (comb).
+	if opPRE = 0:
+		if pcs_hairbsh <> 1 and mc_inventory['comb'] > 0:
+			$stat_texts['hair_icon_tooltip'] = '你的头发是<<$pcs_hairstate>>。点击梳理。这大约需要<<min(15, max(1, pcs_hairlng / 80))>>分钟。'
+			gs 'stat_display_compute', 'queue_msg', 'hair_icon', '', 'status/hair_0', 1, 'minut += min(15, max(1, pcs_hairlng / 80)) & pcs_hairbsh = 1 & gs ''stat'''
+		else
+			$stat_texts['hair_icon_tooltip'] = '你的头发是<<$pcs_hairstate>>.'
+			gs 'stat_display_compute', 'queue_msg', 'hair_icon', '', 'status/hair_<<max(0, pcs_hairbsh)>>', 1
+		end
+	end
+
+	!! Lip balm & False lashes ─────────────────────────────────────
+	!! Constant accessories, after hair.
+	if pcs_lipbalm > 0:
+		$stat_texts['lipbalm'] = '你的嘴唇涂有保湿润唇膏。'
+		gs 'stat_display_compute', 'queue_msg', 'lipbalm', 'pos', 'status/lipstick', 1, 'const'
+	end
+	if false_lashes >= 1:
+		$stat_texts['lashes'] = '你戴着假<<iif(pcs_lashes = 4, ''貂毛'', '' '')>>睫毛。'
+		gs 'stat_display_compute', 'queue_msg', 'lashes', 'pos', 'status/lashes', 1, 'const'
+	end
+
+	!! Shaving ──────────────────────────────────────────────────────
+	if pcs_leghair >= 4:
+		$stat_texts['shave'] = '你的双腿<<iif(pubestyle > 0 and pcs_pubes >= shave_trigger, ''和小穴 '', '''')>>都没剃毛。'
+		gs 'stat_display_compute', 'queue_msg', 'shave', '', 'status/need_shave', 1
+	elseif pubestyle > 0 and pcs_pubes >= shave_trigger:
+		$stat_texts['shave'] = '你的小穴没有剃毛。'
+		gs 'stat_display_compute', 'queue_msg', 'shave', '', 'status/need_shave', 1
+	end
+
+	!! Sweat ─────────────────────────────────────────────────────────
+	if cheatVars['no_sweat'] = 0:
+		if pcs_sweat >= 60:
+			$stat_texts['sweat'] = '你汗流浃背，闻起来像健身房的臭袜子。'
+			gs 'stat_display_compute', 'queue_msg', 'sweat', 'v_neg', 'status/need_shower', 1
+			gs 'stat_display_compute', 'queue_alert', '你浑身是汗。', 'v_neg'
+		elseif pcs_sweat >= 50:
+			$stat_texts['sweat'] = '你真的很臭。'
+			gs 'stat_display_compute', 'queue_msg', 'sweat', 'v_neg', 'status/need_shower', 1
+			gs 'stat_display_compute', 'queue_alert', '你一身汗臭。', 'v_neg'
+		elseif pcs_sweat >= 40:
+			$stat_texts['sweat'] = '你发臭了。'
+			gs 'stat_display_compute', 'queue_msg', 'sweat', 'neg', 'status/need_shower', 1
+			gs 'stat_display_compute', 'queue_alert', '你身上有汗味。', 'neg'
+		elseif pcs_sweat >= 30:
+			$stat_texts['sweat'] = '你有点臭。'
+			gs 'stat_display_compute', 'queue_msg', 'sweat', 'neutral', 'status/need_shower', 1
+		elseif pcs_sweat >= 20:
+			$stat_texts['sweat'] = '你在出汗。'
+			gs 'stat_display_compute', 'queue_msg', 'sweat', 'neutral', 'status/need_shower', 1
+		elseif pcs_sweat >= 10 and deodorant_on = 1:
+			$stat_texts['sweat'] = '你用了除臭剂，感觉清爽。'
+			gs 'stat_display_compute', 'queue_msg', 'sweat', 'pos', 'status/deodorant', 1, 'pos'
+		else
+			if deodorant_on = 1:
+				$stat_texts['sweat'] = '涂了除臭剂，你感觉清爽。'
+				gs 'stat_display_compute', 'queue_msg', 'sweat', 'v_pos', 'status/deodorant', 1, 'pos'
+			elseif arrsize('sparrvol') = 0:
+				$stat_texts['sweat'] = '你干干净净，神清气爽。'
+				gs 'stat_display_compute', 'queue_msg', 'sweat', 'pos', 'pos'
+			end
+		end
+	end
+
+	!! Sickness ─────────────────────────────────────────────────────
+	if sick >= 75:
+		$stat_texts['sick'] = '你在发烧中辗转反侧。你鼻塞头痛，浑身酸痛到骨子里。你的喉咙发炎肿痛。你觉得自己快把肺咳出来了。'
+		gs 'stat_display_compute', 'queue_msg', 'sick', 'v_neg', 'status/health', 3
+		gs 'stat_display_compute', 'queue_alert', '你病得很重。', 'v_neg'
+	elseif sick >= 50:
+		$stat_texts['sick'] = '你发着高烧，鼻塞，头也痛喉咙也痛，咳嗽得很厉害。也许是流感？'
+		gs 'stat_display_compute', 'queue_msg', 'sick', 'v_neg', 'status/health', 3
+		gs 'stat_display_compute', 'queue_alert', '你病得不轻。', 'v_neg'
+	elseif sick >= 25:
+		$stat_texts['sick'] = '你发烧，鼻子堵塞，吞咽时疼痛。你不停地咳嗽和打喷嚏。'
+		gs 'stat_display_compute', 'queue_msg', 'sick', 'v_neg', 'status/health', 3
+		gs 'stat_display_compute', 'queue_alert', '你生病了。', 'neg'
+	elseif sick >= 5:
+		$stat_texts['sick'] = '你流鼻涕，喉咙刺痛，咳嗽打喷嚏。'
+		gs 'stat_display_compute', 'queue_msg', 'sick', 'v_neg', 'status/health', 3
+		gs 'stat_display_compute', 'queue_alert', '你感觉不舒服。', 'neg'
+	elseif sick = 1:
+		$stat_texts['sick'] = '你喉咙发痒，流鼻涕。'
+		gs 'stat_display_compute', 'queue_msg', 'sick', 'v_neg', 'status/health', 3
+	end
+
+	!! Lack of Sleep ────────────────────────────────────────────────
+	if pcs_condition['lack_of_sleep'] >= 20:
+		$stat_texts['lack_sleep'] = '你的睡眠不足，这严重影响了你学习新事物的能力。你需要好好睡一整晚才能好转。'
+		gs 'stat_display_compute', 'queue_msg', 'lack_sleep', '', 'status/lack_of_sleep_4', 3
+	elseif pcs_condition['lack_of_sleep'] >= 10:
+		$stat_texts['lack_sleep'] = '你的睡眠不足，这对你学习新事物的能力产生了很大的负面影响。你需要多睡觉，也许需要好好休息一整晚。'
+		gs 'stat_display_compute', 'queue_msg', 'lack_sleep', '', 'status/lack_of_sleep_3', 3
+	elseif pcs_condition['lack_of_sleep'] >= 5:
+		$stat_texts['lack_sleep'] = '你的睡眠不足，这在一定程度上影响了你学习新事物的能力。你需要多睡觉。'
+		gs 'stat_display_compute', 'queue_msg', 'lack_sleep', '', 'status/lack_of_sleep_2', 3
+	elseif pcs_condition['lack_of_sleep'] >= 2:
+		$stat_texts['lack_sleep'] = '你的睡眠没有达到应有的量，这对你学习新事物的能力有轻微的影响。你应该多睡觉，否则情况可能会变得更糟。'
+		gs 'stat_display_compute', 'queue_msg', 'lack_sleep', '', 'status/lack_of_sleep_1', 3
+	end
+
+	!! Hypothermia ──────────────────────────────────────────────────
+	if frost > 10:
+		$stat_texts['frost'] = '你快冻僵了。'
+		gs 'stat_display_compute', 'queue_msg', 'frost', 'v_neg', 'status/hypothermia', 3
+		gs 'stat_display_compute', 'queue_alert', '你冻僵了。', 'v_neg'
+	elseif frost > 5:
+		$stat_texts['frost'] = '你感到冷。'
+		gs 'stat_display_compute', 'queue_msg', 'frost', 'v_neg', 'status/hypothermia', 3
+		gs 'stat_display_compute', 'queue_alert', '你很冷。', 'neg'
+	elseif frost > 0:
+		$stat_texts['frost'] = '你有点冷。'
+		gs 'stat_display_compute', 'queue_msg', 'frost', 'v_neg', 'status/hypothermia', 3
+	end
+
+	!! Recuperation ─────────────────────────────────────────────────
+	if recuperation = 1:
+		$stat_texts['recuperation'] = '你还在大手术后的恢复期。'
+		gs 'stat_display_compute', 'queue_msg', 'recuperation', 'v_neg', 'status/health', 3
+		gs 'stat_display_compute', 'queue_alert', '你正在术后恢复。', 'v_neg'
+	end
+
+	!! Body Writing ─────────────────────────────────────────────────
+	if body_write >= 1 and face_write >= 1:
+		$stat_texts['writing'] = '你的身体和脸上涂满了淫秽的涂鸦。'
+		gs 'stat_display_compute', 'queue_msg', 'writing', 'v_neg', 'status/body_writing', 3
+		gs 'stat_display_compute', 'queue_alert', '你的身体和脸上有字迹。', 'v_neg'
+	elseif face_write > 1:
+		$stat_texts['writing'] = '你脸上有字。'
+		gs 'stat_display_compute', 'queue_msg', 'writing', 'v_neg', 'status/body_writing', 3
+		gs 'stat_display_compute', 'queue_alert', '你脸上有字迹。', 'v_neg'
+	elseif face_write = 1:
+		$stat_texts['writing'] = '你脸上被人写了羞辱性的字。'
+		gs 'stat_display_compute', 'queue_msg', 'writing', 'v_neg', 'status/body_writing', 3
+		gs 'stat_display_compute', 'queue_alert', '你脸上贴着标签。', 'v_neg'
+	elseif body_write > 1:
+		$stat_texts['writing'] = '你的身体上写有贬损涂鸦。'
+		gs 'stat_display_compute', 'queue_msg', 'writing', 'v_neg', 'status/body_writing', 3
+		gs 'stat_display_compute', 'queue_alert', '你身上有字迹。', 'v_neg'
+	elseif body_write = 1:
+		$stat_texts['writing'] = '你的身体上写有一条淫秽的信息。'
+		gs 'stat_display_compute', 'queue_msg', 'writing', 'v_neg', 'status/body_writing', 3
+		gs 'stat_display_compute', 'queue_alert', '你身上有字迹。', 'v_neg'
+	end
+
+	!! Black Eye ────────────────────────────────────────────────────
+	if fingal > 0:
+		$stat_texts['black_eye'] = '你的一只眼睛淤青了。'
+		gs 'stat_display_compute', 'queue_msg', 'black_eye', 'v_neg'
+	end
+
+	!! Commando Irritation ──────────────────────────────────────────
+	if mosol >= 50:
+		$stat_texts['commando'] = '你的小穴很痒，影响了你的心情。你该抹点药膏，或者别再不穿内裤就穿裤子。'
+		gs 'stat_display_compute', 'queue_msg', 'commando', 'v_neg'
+	elseif mosol >= 30:
+		$stat_texts['commando'] = '你的小穴有点痒，似乎是因为与衣服摩擦。'
+		gs 'stat_display_compute', 'queue_msg', 'commando', 'v_neg'
+	end
+
+	!! Panties Rubbing ──────────────────────────────────────────────
+	if $pantyworntype <> 'none' and clit_size >= 40:
+		$stat_texts['panties_rubbing'] = '你的内裤一直摩擦着你的阴蒂，让你性欲高涨。'
+		gs 'stat_display_compute', 'queue_msg', 'panties_rubbing', 'bimbo'
+	end
+
+	!! STDs ──────────────────────────────────────────────────────────
+	temp_std_count = 0
+
+	if Gerpes >= 10 and GenHerpes = 1:
+		temp_std_count += 1
+		$stat_texts['std_gen_herpes'] = '你的阴道上出现了疮口。你得了生殖器疱疹。'
+		gs 'stat_display_compute', 'queue_msg', 'std_gen_herpes', 'v_neg', 'status/std', 3
+	elseif Gerpes >= 5 and GenHerpes = 1:
+		temp_std_count += 1
+		$stat_texts['std_gen_herpes'] = '你的阴道发红且非常痒。你得了生殖器疱疹。'
+		gs 'stat_display_compute', 'queue_msg', 'std_gen_herpes', 'v_neg', 'status/std', 3
+	elseif Gerpes >= 3 and OrHerpes = 1:
+		temp_std_count += 1
+		$stat_texts['std_oral_herpes'] = '你的嘴唇上长了唇疱疹。你得了口腔疱疹。'
+		gs 'stat_display_compute', 'queue_msg', 'std_oral_herpes', 'v_neg', 'status/std', 3
+	end
+	if Gerpes >= 20 and GenHerpes = 1:
+		temp_std_count += 1
+		$stat_texts['std_anal_herpes'] = '疱疹疮口也遍布你的屁股。'
+		gs 'stat_display_compute', 'queue_msg', 'std_anal_herpes', 'v_neg', 'status/std', 3
+	end
+	if Sifilis >= 50:
+		temp_std_count += 1
+		$stat_texts['std_syphilis'] = '梅毒疹遍布你的全身。'
+		gs 'stat_display_compute', 'queue_msg', 'std_syphilis', 'v_neg', 'status/std', 3
+	elseif Sifilis >= 21:
+		temp_std_count += 1
+		$stat_texts['std_syphilis'] = '你的嘴唇上有一个又大又硬的疮口。你得了梅毒。'
+		gs 'stat_display_compute', 'queue_msg', 'std_syphilis', 'v_neg', 'status/std', 3
+	end
+	if Triper > 2:
+		temp_std_count += 1
+		$stat_texts['std_gonorrhea'] = '你小便时有刺痛感。你得了淋病。'
+		gs 'stat_display_compute', 'queue_msg', 'std_gonorrhea', 'v_neg', 'status/std', 3
+	end
+	if Kandidoz > 30:
+		temp_std_count += 1
+		$stat_texts['std_yeast'] = '你的阴道有白色分泌物。你得了酵母菌感染。'
+		gs 'stat_display_compute', 'queue_msg', 'std_yeast', 'v_neg', 'status/std', 3
+	end
+	stat_nums['std_count'] = temp_std_count
+	killvar 'temp_std_count'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                    COMPUTE APPEARANCE                               ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'compute_appearance':
+
+	!! ── Shoes / Makeup / Style summary ───────────────────────────────
+	$temp_shoes = ''
+	$temp_mu = ''
+	$temp_tot = ''
+	if PShoBimbo = 1:
+		$temp_shoes += ' ' + $func('wrap', 'bimbo', '花瓶')
+		if PCloBimbo = 1 and pcs_makeup = 6:
+			$temp_mu += ' ' + $func('wrap', 'bimbo', '花瓶')
+			$temp_tot += ' ' + $func('wrap', 'bimbo', '花瓶')
+		end
+	end
+	if PShoGoth = 1:
+		$temp_shoes += ' ' + $func('wrap', 'goth', '哥特')
+		if PCloGoth = 1 and pcs_makeup = 7:
+			$temp_mu += ' ' + $func('wrap', 'goth', '哥特')
+			$temp_tot += ' ' + $func('wrap', 'goth', '哥特')
+		end
+	end
+	if PShoPunk = 1:
+		$temp_shoes += ' ' + $func('wrap', 'punk', '朋克')
+		if PCloPunk = 1 and pcs_makeup >= 1 and pcs_makeup < 3:
+			$temp_mu += $iif(pcs_makeup = 1, ' 素颜', ' ' + $func('wrap', 'punk', '朋克'))
+			$temp_tot += ' ' + $func('wrap', 'punk', '朋克')
+		end
+	end
+
+	if $temp_shoes <> '':
+		$stat_texts['clothes_style'] = '你正穿着<<$temp_shoes>>的鞋子'
+		if $temp_mu <> '': $stat_texts['clothes_style'] += '，还化着<<$temp_mu>>的妆'
+		$stat_texts['clothes_style'] += '.'
+		if $temp_tot <> '':
+			$stat_texts['clothes_style'] += ' 你看起来像个<<$temp_tot>>.'
+		end
+		$stat_texts['clothes_style_tooltip'] = $stat_texts['clothes_tooltip']
+		gs 'stat_display_compute', 'queue_msg', 'clothes_style'
+	end
+	killvar 'temp_shoes'
+	killvar 'temp_mu'
+	killvar 'temp_tot'
+
+	!! ── Feet pain ────────────────────────────────────────────────────
+	if pcs_heels < PShoPain['mild']:
+		if pain['feet'] >= 70:
+			$stat_texts['feet_pain'] = '你的脚疼得要命。你应该穿更舒服的鞋子。'
+			gs 'stat_display_compute', 'queue_msg', 'feet_pain', 'v_neg'
+			gs 'stat_display_compute', 'queue_alert', '你的脚疼得厉害。', 'v_neg'
+		elseif pain['feet'] >= 50:
+			$stat_texts['feet_pain'] = '你的脚在酸痛。你应该穿更舒服的鞋子。'
+			gs 'stat_display_compute', 'queue_msg', 'feet_pain', 'neg'
+		end
+	end
+
+	!! ── Sex Toys ─────────────────────────────────────────────────────
+	if analPlugIn = 1 and vibratorin = 1:
+		$stat_texts['toys'] = '你同时戴着振动器和肛塞。'
+		gs 'stat_display_compute', 'queue_msg', 'toys', 'bimbo', 'status/tdouble_stuffed', 4
+	elseif analPlugIn = 1:
+		$stat_texts['toys'] = '你戴着肛塞。'
+		gs 'stat_display_compute', 'queue_msg', 'toys', 'bimbo', 'status/tbutt_plug', 4
+	elseif vibratorin = 1:
+		$stat_texts['toys'] = '你的阴道里插入了一个振动器。'
+		gs 'stat_display_compute', 'queue_msg', 'toys', 'bimbo', 'status/tvibrator', 4
+	end
+
+	!! ── Stuck Condom ─────────────────────────────────────────────────
+	if cumcondslip > 0 and cumcondslip_aware > 0:
+		$stat_texts['stuck_condom'] = '你感到恶心，并且想着那个你一直没找到的用过的避孕套。也许这两者有关？'
+		gs 'stat_display_compute', 'queue_msg', 'stuck_condom', 'v_neg', 'status/stuck_condom', 3
+		gs 'stat_display_compute', 'queue_alert', '一个用过的安全套卡在你体内。', 'v_neg'
+	end
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                      COMPUTE MISC                                   ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'compute_misc':
+	!! ── Starlets ─────────────────────────────────────────────────────
+	if AlbinaQW['StarletsJoined'] > 0 and AlbinaQW['StarletsShutDown'] = 0 and npc_pregtalk['A23'] = 0 and starlets_on = 1 and stat_nums['starlets_late_msg'] <> daystart:
+		if (hour < 16 or starlets_missed > 0):
+			if (hour >= 16 and hour < 19) and starlets_practice > 0:
+				$stat_texts['starlets'] = '你今天错过了 新星 的练习！'
+				gs 'stat_display_compute', 'queue_msg', 'starlets', 'v_neg', 'status/starlets_red', 4, 'stat_nums[''starlets_late_msg''] = daystart & msg ''你今天错过了 新星 的训练！'''
+			else
+				$stat_texts['starlets'] = '你必须在 新星 的练习时间，即<<$func(''time'', ''get_time_string'', 15, 0)>>到<<$func(''time'', ''get_time_string'', 16, 0)>>之间到场。'
+				gs 'stat_display_compute', 'queue_msg', 'starlets', '', 'status/starlets_black|status/starlets_white', 4
+				if hour >= 14:
+					gs 'stat_display_compute', 'queue_alert', '新星 的训练马上就要开始了。', 'neg'
+				end
+			end
+		end
+	end
+
+	!! ── Volleyball Tournament ────────────────────────────────────────
+	if vballVars['on_team'] = 1 and week = 6 and vballVars['last_match_day'] <> daystart and hour <= 18 and (daystart mod 365) <> 1:
+		$stat_texts['vball'] = '今天<<$func(''time'', ''get_time_string'', 18, 0)>>有排球锦标赛。'
+		gs 'stat_display_compute', 'queue_msg', 'vball', '', 'status/volleyball', 4
+		if hour >= 16:
+			gs 'stat_display_compute', 'queue_alert', '排球比赛马上就要开始了。', 'neg'
+		end
+	end
+
+	!! ── Court ────────────────────────────────────────────────────────
+	if daystart = policeQW_courthearing_dates[0] - 1:
+		$stat_texts['court'] = '你明天有法庭听证会，时间是<<$func(''time'', ''get_time_string'', 7, 0)>>到<<$func(''time'', ''get_time_string'', 11, 0)>>。法院位于圣彼得堡市中心。'
+		gs 'stat_display_compute', 'queue_msg', 'court', 'neg', 'status/courtdate', 4
+	elseif daystart = policeQW_courthearing_dates[0]:
+		if hour < 11:
+			$stat_texts['court'] = '你今天有法庭听证会，时间是<<$func(''time'', ''get_time_string'', 7, 0)>>到<<$func(''time'', ''get_time_string'', 11, 0)>>。法院位于圣彼得堡市中心。'
+			gs 'stat_display_compute', 'queue_msg', 'court', 'v_neg', 'status/courtdate', 4
+			gs 'stat_display_compute', 'queue_alert', '你今天有庭审。', 'v_neg'
+		end
+	end
+
+	!! ── Fines ────────────────────────────────────────────────────────
+	if policeQW['legal_fine'] > 0:
+		$stat_texts['fines'] = '你有未缴清的罚款，共计<<$func(''money'', ''string_debt'', policeQW[''legal_fine''])>>，还有<<policeQW[''fine_deadline'']-daystart>>天可以付清。你可以在邮局结清。'
+		if policeQW['fine_deadline'] = daystart:
+			gs 'stat_display_compute', 'queue_msg', 'fines', '', 'status/fine', 4
+			gs 'stat_display_compute', 'queue_alert', '你的罚款今天到期。', 'v_neg'
+		elseif policeQW['fine_deadline'] - daystart <= 3:
+			gs 'stat_display_compute', 'queue_msg', 'fines', '', 'status/fine', 4
+		else
+			gs 'stat_display_compute', 'queue_msg', 'fines', '', 'status/fine', 4
+		end
+	end
+
+	!! ── Music Lesson ─────────────────────────────────────────────────
+	if ml_guitarlesson['nextlesson'] = daystart and hour < 15:
+		$stat_texts['music_lesson'] = '你有一节吉他课安排在社区大厅，时间是<<$func(''time'', ''get_time_string'', 15, 0)>>。'
+		gs 'stat_display_compute', 'queue_msg', 'music_lesson', '', 'status/musiclesson', 4
+		if hour >= 13:
+			gs 'stat_display_compute', 'queue_alert', '你的吉他课马上就要开始了。', 'neg'
+		end
+	end
+
+	!! ── Game Night ───────────────────────────────────────────────────
+	if nerd_game['game_day'] = daystart:
+		if yearstart > 1 and hour < 19:
+			$stat_texts['game_night'] = '游戏之夜今晚开始于<<$func(''time'', ''get_time_string'', 18, 0)>>在咖啡洞'
+			gs 'stat_display_compute', 'queue_msg', 'game_night', '', 'status/game_night', 4
+			if hour >= 17:
+				gs 'stat_display_compute', 'queue_alert', '游戏之夜马上就要开始了。', 'neg'
+			end
+		elseif yearstart <= 1 and hour < 21:
+			$stat_texts['game_night'] = '游戏之夜今晚开始于<<$func(''time'', ''get_time_string'', 20, 0)>>在社区中心'
+			gs 'stat_display_compute', 'queue_msg', 'game_night', '', 'status/game_night', 4
+			if hour >= 19:
+				gs 'stat_display_compute', 'queue_alert', '游戏之夜马上就要开始了。', 'neg'
+			end
+		end
+	end
+
+	!! ── Cum craving (cum_addict trait) ──────────────────────────
+	if trait_vars['cum_addict'] > 0:
+		if missCum > timeTresh:
+			if trait_vars['cum_addict'] = 2:
+				$stat_texts['cum_craving'] = '你迫切地需要精液在你体内。你的身体渴望它。'
+				gs 'stat_display_compute', 'queue_msg', 'cum_craving', 'hypno', 'status/hypno_addict', 3
+				gs 'stat_display_compute', 'queue_alert', '你极度渴望精液。', 'hypno'
+			else
+				$stat_texts['cum_craving'] = '你渴望精液在你体内的感觉。你感到焦躁不安。'
+				gs 'stat_display_compute', 'queue_msg', 'cum_craving', 'hypno', 'status/hypno_addict', 3
+			end
+		end
+	end
+
+	!! ── Therapist withdrawal (hypnoWithdrawal) ──────────────────────
+	if hypnoWithdrawal > 0:
+		if hypnoWithdrawal = 2:
+			$stat_texts['hypno_withdrawal'] = '你需要尽快和你的治疗师谈谈。没有治疗，你感到严重失衡。'
+			gs 'stat_display_compute', 'queue_msg', 'hypno_withdrawal', 'hypno', 'status/hypno_addict', 3
+			gs 'stat_display_compute', 'queue_alert', '你需要去看心理医生。', 'hypno'
+		else
+			$stat_texts['hypno_withdrawal'] = '你想和你的治疗师谈谈。你想念你的治疗。'
+			gs 'stat_display_compute', 'queue_msg', 'hypno_withdrawal', 'hypno', 'status/hypno_addict', 3
+		end
+	end
+
+	!! ── Body hair discomfort (trait-driven) ───────────────────────────
+	!! -2 (smooth compulsion / ex-hypnoHair): significant debuff when hairy
+	if trait_vars['body_hair_attitude'] = -2 and (pcs_pubes >= 4 or pcs_leghair >= 4):
+		$temp_area = iif(pcs_pubes < 4 and pcs_leghair < 4, '腿部和阴阜', iif(pcs_pubes < 4, '腿部', '阴阜'))
+		$stat_texts['body_hair_attitude_discomfort'] = '你的<<$temp_area>>摸起来粗糙，让你情绪低落。'
+		killvar 'temp_area'
+		gs 'stat_display_compute', 'queue_msg', 'body_hair_attitude_discomfort', 'v_neg', 'status/hypno_addict', 3
+	end
+
+	!! ── Hypnosis — scheduled session ──────────────────────────────────
+	if hypnoSchedule = 1 and therapist_weekly_block = 0 and week = 4 and therapistday <> daystart:
+		if hour < 18:
+			$stat_texts['hypno_schedule'] = '你今天有一个与治疗师的会面安排在<<$func(''time'', ''get_time_string'', 18, 0, cheatVars[''time_format''])>>.'
+			gs 'stat_display_compute', 'queue_msg', 'hypno_schedule', 'hypno', 'status/hypno_addict', 3
+			if hour > 16:
+				gs 'stat_display_compute', 'queue_alert', '你的治疗时段马上就要开始了。', 'hypno'
+			end
+		elseif hour = 18 or (hour = 19 and minut < 15):
+			$stat_texts['hypno_schedule'] = '你现在就有一个与治疗师的会面！'
+			gs 'stat_display_compute', 'queue_msg', 'hypno_schedule', 'hypno', 'status/hypno_addict', 3
+			gs 'stat_display_compute', 'queue_alert', '你的治疗时段马上就要开始了。', 'hypno'
+		end
+	end
+
+	!! ── Hypnosis — panty compulsion ───────────────────────────────────
+	if hypnoPanty = 1 and $pantyworntype <> 'none':
+		$stat_texts['hypno_panty'] = '你穿着内裤感到不安。'
+		gs 'stat_display_compute', 'queue_msg', 'hypno_panty', 'hypno', 'status/hypno_addict', 3
+	end
+
+	!! ── Hypnosis — bra compulsion ─────────────────────────────────────
+	if hypnoBra = 1 and $braworntype <> 'none':
+		$stat_texts['hypno_bra'] = '你穿着胸罩感到不安。'
+		gs 'stat_display_compute', 'queue_msg', 'hypno_bra', 'hypno', 'status/hypno_addict', 3
+	end
+
+	!! ── Succubus Feeding ─────────────────────────────────────────────
+	if succubusflag = 1 and succhungry > 0:
+		$stat_texts['succubus_feeding'] = '你已经连续<<succhungry>>天没有进食了。'
+		gs 'stat_display_compute', 'queue_msg', 'succubus_feeding', '', 'status/need_succubus_feeding', 4
+	end
+
+	!! ── Active Spells ────────────────────────────────────────────────
+	!! Pre-formatted HTML (bimbo-colored headers + names).
+	if arrsize('spellComplete') > 0:
+		$sd_cm['spell_text'] = '<br><b><<$func(''wrap'', ''bimbo'', ''Active Spells'')>></b>'
+		sd_cm['si'] = 0
+		:sd_spell_loop
+		if sd_cm['si'] < arrsize('spellComplete'):
+			$sd_cm['spell_text'] += $func('wrap', 'bimbo', '<br><<$spellName[$spellTimeName[sd_cm[''si'']]]>>')
+			sd_cm['si'] += 1
+			jump 'sd_spell_loop'
+		end
+		$stat_texts['active_spells'] = $func('cleanHTML', $sd_cm['spell_text'])
+		killvar 'sd_cm'
+		gs 'stat_display_compute', 'queue_msg', 'active_spells'
+	end
+
+	!! ── EXP Notifications ────────────────────────────────────────────
+	!! Cache in $exp_notif_pending so alert persists until player navigates away.
+	if stat_cfg['notify_exp'] <> 1:
+		if func('exp_notification', 'is_empty') = 0:
+			$exp_notif_pending = $func('exp_notification', 'get_message')
+			$exp_notif_pending_loc = $loc
+		end
+		if $exp_notif_pending <> '':
+			if $loc <> $exp_notif_pending_loc:
+				$exp_notif_pending = ''
+			else
+				gs 'stat_display_compute', 'queue_alert', $exp_notif_pending
+			end
+		end
+	end
+
+	!! ── Archetype Notifications ──────────────────────────────────────────
+	!! Cache in $archetype_notif_pending so alert persists until player navigates away.
+	if stat_cfg['notify_archetypes'] <> 1:
+		if func('archetypes', 'is_empty_archetypes') = 0:
+			$archetype_notif_pending = $func('archetypes', 'get_archetype_message')
+			$archetype_notif_pending_loc = $loc
+		end
+		if $archetype_notif_pending <> '':
+			if $loc <> $archetype_notif_pending_loc:
+				$archetype_notif_pending = ''
+			else
+				gs 'stat_display_compute', 'queue_alert', $archetype_notif_pending
+			end
+		end
+	end
+
+	!! ── Rent ─────────────────────────────────────────────────────────
+	if accessible_property['city_house'] = 1 and accessible_property['old_town_apartment'] > 0:
+		$stat_texts['rent'] = '你在城市住宅区租了一套公寓，已付清<<func(''homes_properties'', ''get_rent_days'', ''city_apartment'')>>天。你也在普希金有一套公寓，已支付了<<func(''homes_properties'', ''get_rent_days'', ''old_town_apartment'')>>天。水电费应在<<$monthName>> 25日缴纳。'
+	elseif accessible_property['city_house'] = 1:
+		$stat_texts['rent'] = '你在城市住宅区租了一套公寓，已付清<<func(''homes_properties'', ''get_rent_days'', ''city_apartment'')>>天。水电费应在<<$monthName>> 25日缴纳。'
+	elseif accessible_property['old_town_apartment'] > 0:
+		$stat_texts['rent'] = '你在普希金租了一套公寓，已付清<<func(''homes_properties'', ''get_rent_days'', ''old_town_apartment'')>>天。水电费应在<<$monthName>> 25日缴纳。'
+	end
+	if $stat_texts['rent'] <> '': gs 'stat_display_compute', 'queue_msg', 'rent'
+
+	!! ── Nicholas ─────────────────────────────────────────────────────
+	$stat_texts['nicholas'] = $nichStatMsg
+	if $stat_texts['nicholas'] <> '': gs 'stat_display_compute', 'queue_msg', 'nicholas'
+
+	!! ── Bely Debt ────────────────────────────────────────────────────
+	if npc_QW['A113'] = 1 and belgangPay > 0:
+		$stat_texts['bely_debt'] = '你欠瓦迪姆·别雷<<$func(''money'', ''string_debt'', belgangPay)>>'
+		if daybelisex < daystart:
+			$stat_texts['bely_debt'] += '，你这周需要付给他<<$func(''money'', ''string_debt'', belgangpayweek)>>。'
+		elseif daybelisex = daystart:
+			$stat_texts['bely_debt'] += '，你下周需要付给他<<$func(''money'', ''string_debt'', belgangpayweek)>>。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'bely_debt'
+		if week = 7 and belgangpayweek > 0 and daybelisex < daystart:
+			gs 'stat_display_compute', 'queue_alert', '你欠 瓦季姆·别雷 的每周债务今天到期。', 'v_neg'
+		end
+	end
+
+	!! ── Gadukino Chores ──────────────────────────────────────────────
+	if $region = 'gad':
+		!! Basket
+		if boletus + boletus_cooked + bilberry > 0:
+			if boletus + boletus_cooked + bilberry >= 5:
+				$stat_texts['gadukino'] = '你的篮子已经满了，你不能再携带更多了。'
+			else
+				$stat_texts['gadukino'] = '你的篮子装了一部分。'
+			end
+			if boletus > 0: $stat_texts['gadukino'] += '<br>蘑菇：<a href="exec: boletus -= 1 & gs ''stat''"><b><<boletus>></b></a>公斤。'
+			if boletus_cooked > 0: $stat_texts['gadukino'] += '<br>熟蘑菇：<a href="exec: boletus_cooked -= 1 & gs ''stat''"><b><<boletus_cooked>></b></a>公斤。'
+			if bilberry > 0: $stat_texts['gadukino'] += '<br>浆果：<a href="exec: bilberry -= 1 & gs ''stat''"><b><<bilberry>></b></a>公斤。'
+			$stat_texts['gadukino'] += '<br>（点击数字可一次扔掉一个）'
+		end
+		!! Grandparent chores (external callers append to $stat_texts['gadukino'])
+		gs 'gp_elene', 'stat_display'
+		gs 'gp_zlatek', 'stat_display'
+		!! Combined forest gathering check
+		if grandpaQW['chore_mushroom_quantity'] > 0 and grandmaQW['chore_mushroom_quantity'] > 0 and boletus < (grandpaQW['chore_mushroom_quantity'] + grandmaQW['chore_mushroom_quantity']):
+			sd_cm['need_boletus'] = (grandpaQW['chore_mushroom_quantity'] + grandmaQW['chore_mushroom_quantity']) - boletus
+		else
+			sd_cm['need_boletus'] = 0
+		end
+		if grandpaQW['chore_berry_quantity'] > 0 and grandmaQW['chore_berry_quantity'] > 0 and bilberry < (grandpaQW['chore_berry_quantity'] + grandmaQW['chore_berry_quantity']):
+			sd_cm['need_bilberry'] = (grandpaQW['chore_berry_quantity'] + grandmaQW['chore_berry_quantity']) - bilberry
+		else
+			sd_cm['need_bilberry'] = 0
+		end
+		if sd_cm['need_boletus'] > 0 and sd_cm['need_bilberry'] > 0:
+			$stat_texts['gadukino'] += '<br><b>你需要再采<<sd_cm[''need_boletus'']>>公斤蘑菇和<<sd_cm[''need_bilberry'']>>公斤浆果，才能满足你祖父母两人的要求。</b>'
+		elseif sd_cm['need_boletus'] > 0:
+			$stat_texts['gadukino'] += '<br><b>你需要再采<<sd_cm[''need_boletus'']>>公斤蘑菇，才能满足你祖父母两人的要求。</b>'
+		elseif sd_cm['need_bilberry'] > 0:
+			$stat_texts['gadukino'] += '<br><b>你需要再采<<sd_cm[''need_bilberry'']>>公斤浆果，才能满足你祖父母两人的要求。</b>'
+		end
+	end
+	if $stat_texts['gadukino'] <> '':
+		$stat_texts['gadukino_tooltip'] = $func('cleanHTML', $stat_texts['gadukino'])
+		gs 'stat_display_compute', 'queue_msg', 'gadukino'
+	end
+
+	!! ── Lover Meetings (moved from lover.qsrc stat_display) ──────────
+	sd_cm['lover_max'] = arrsize('$lover')
+	if sd_cm['lover_max'] > 0:
+		sd_cm['li'] = 0
+		:sd_lover_loop
+			$sd_cm['npcid'] = $lover[sd_cm['li']]
+			if npc_meetday[$sd_cm['npcid']] = daystart:
+				$sd_cm['label'] = 'lover_' + $sd_cm['npcid']
+				if hour < npc_meethour[$sd_cm['npcid']]:
+					$stat_texts[$sd_cm['label']] = '<<$npc_usedname[$sd_cm[''npcid'']]>>将在<<npc_meethour[$sd_cm[''npcid'']]>>:00 到<<$func(''homes_properties'', ''get_home_desc'')>>附近等你。'
+					gs 'stat_display_compute', 'queue_msg', $sd_cm['label'], 'accent', 'status/date', 4
+					if hour >= npc_meethour[$sd_cm['npcid']] - 2:
+						gs 'stat_display_compute', 'queue_alert', '<<$npc_usedname[$sd_cm[''npcid'']]>>正在等你赴约。', 'accent'
+					end
+				elseif hour = npc_meethour[$sd_cm['npcid']]:
+					$stat_texts[$sd_cm['label']] = '<<$npc_usedname[$sd_cm[''npcid'']]>>正在<<$func(''homes_properties'', ''get_home_desc'')>>等你。'
+					gs 'stat_display_compute', 'queue_msg', $sd_cm['label'], 'v_neg', 'status/date', 4
+					gs 'stat_display_compute', 'queue_alert', '<<$npc_usedname[$sd_cm[''npcid'']]>>现在正在等你。', 'v_neg'
+				end
+			end
+			sd_cm['li'] += 1
+		if sd_cm['li'] < sd_cm['lover_max']: jump 'sd_lover_loop'
+	end
+	killvar 'sd_cm'
+
+	!! ── Calendar Upcoming Cache ──────────────────────────────────────
+	!! Two-tier design:
+	!!   Day-cache  — rebuilt once per day (or on add/remove via cal_upcoming_dirty).
+	!!                Stores 10 upcoming entries with cur_ts=0 so today is fully included.
+	!!   Render     — walks the day-cache each compute, skips already-past timeslots,
+	if arrsize('$events_list') > 0:
+
+		!! ── Rebuild day-cache if stale ─────────────────────────────
+		if cal_upcoming_dirty = 1 or cal_day_cache_key <> daystart:
+			gs 'calendar_query', 'get_upcoming', 10, daystart, 0
+			killvar 'cal_upc_ids'
+			killvar 'cal_upc_days'
+			killvar 'cal_upc_ts'
+			killvar 'cal_upc_all_day'
+			killvar 'cal_upc_end_ts'
+			cal_r['ci'] = 0
+			:cal_cache_copy
+			if cal_r['ci'] < upcoming_count:
+				$cal_upc_ids[cal_r['ci']]	= $upcoming_ids[cal_r['ci']]
+				cal_upc_days[cal_r['ci']]	= upcoming_days[cal_r['ci']]
+				cal_upc_ts[cal_r['ci']]		= upcoming_ts[cal_r['ci']]
+				!! Cache all_day/flex_type/window_end_ts so render-loop skip checks need no get_event call
+				gs 'calendar_events', 'get_event', $upcoming_ids[cal_r['ci']]
+				cal_upc_all_day[cal_r['ci']] = event_vars['all_day']
+				cal_upc_end_ts[cal_r['ci']] = iif(event_vars['flex_type'] = 1, event_vars['window_end_ts'], event_vars['start_ts'])
+				cal_r['ci'] += 1
+				jump 'cal_cache_copy'
+			end
+			cal_upc_cache_cnt = upcoming_count
+			cal_day_cache_key = daystart
+			cal_upcoming_dirty = 0
+		end
+
+		!! ── Render: walk cache, skip past events, show first N ─────
+		!! All skip checks use cached data only; get_event called only for rendered entries.
+		$cal_upcoming_html = ''
+		cal_r['now_ts'] = hour * 4 + minut / 15
+		!! cal_count: 1-5=that many; 6=all (today implied); default init=3
+		if stat_cfg['cal_count'] = 6:
+			!! All (today): no count cap, today-only forced
+			cal_r['max'] = cal_upc_cache_cnt
+			cal_r['today_only'] = 1
+		else
+			cal_r['max'] = stat_cfg['cal_count']
+			!! today_only: 0=On (default/unset), 1=Off
+			cal_r['today_only'] = iif(stat_cfg['cal_today_only'] = 1, 0, 1)
+		end
+		cal_r['shown'] = 0
+		cal_r['i'] = 0
+		:cal_render_loop
+		if cal_r['i'] < cal_upc_cache_cnt and cal_r['shown'] < cal_r['max']:
+			!! Skip future-day events when today_only is active (cached)
+			if cal_r['today_only'] = 1 and cal_upc_days[cal_r['i']] <> daystart:
+				cal_r['i'] += 1
+				jump 'cal_render_loop'
+			end
+			!! Skip events more than 5 days in the future
+			if cal_upc_days[cal_r['i']] > daystart + 5:
+				cal_r['i'] += 1
+				jump 'cal_render_loop'
+			end
+			!! Skip all-day events if hidden (cached; cal_show_all_day: 0=Shown default, 1=Hidden)
+			if stat_cfg['cal_show_all_day'] = 1 and cal_upc_all_day[cal_r['i']] = 1:
+				cal_r['i'] += 1
+				jump 'cal_render_loop'
+			end
+			!! Skip today timed events whose timeslot has already passed (cached).
+			if cal_upc_days[cal_r['i']] = daystart and cal_upc_all_day[cal_r['i']] = 0 and cal_upc_end_ts[cal_r['i']] <= cal_r['now_ts']:
+				cal_r['i'] += 1
+				jump 'cal_render_loop'
+			end
+			!! Load event only for entries we are actually rendering
+			gs 'calendar_events', 'get_event', $cal_upc_ids[cal_r['i']]
+			!! Build entry HTML
+			$cal_r['rgb'] = $func('calendar_render', 'get_event_color', event_vars['color'])
+			if cal_upc_days[cal_r['i']] = daystart:
+				$cal_r['day_lbl'] = '今天'
+			elseif cal_upc_days[cal_r['i']] = daystart + 1:
+				$cal_r['day_lbl'] = '明天'
+			else
+				$cal_r['day_lbl'] = $weekName[func('time', 'get_week_from_daystart', cal_upc_days[cal_r['i']])]
+			end
+			if event_vars['all_day'] = 1:
+				$cal_r['time_lbl'] = ''
+			elseif event_vars['flex_type'] = 1:
+				$cal_r['time_lbl'] = $func('time', 'get_time_string', event_vars['window_start_ts'] / 4, (event_vars['window_start_ts'] mod 4) * 15, 0) + '&ndash;' + $func('time', 'get_time_string', event_vars['window_end_ts'] / 4, (event_vars['window_end_ts'] mod 4) * 15, 0)
+			else
+				$cal_r['time_lbl'] = $func('time', 'get_time_string', cal_upc_ts[cal_r['i']] / 4, (cal_upc_ts[cal_r['i']] mod 4) * 15, 0)
+			end
+			$cal_upcoming_html += iif($cal_upcoming_html <> '', '<br>', '') + '<span style="color:rgb(<<$cal_r[''rgb'']>>)">&#9679;</span>&ensp;' + $event_vars['title'] + '&ensp;<span style="opacity:0.7">' + $cal_r['day_lbl'] + iif($cal_r['time_lbl'] <> '', '&ensp;' + $cal_r['time_lbl'], '') + '</span>'
+			cal_r['shown'] += 1
+			cal_r['i'] += 1
+			jump 'cal_render_loop'
+		end
+		killvar 'cal_r'
+
+	end
+
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                      COMPUTE HELPERS                                ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cond_string(dirt_raw, show_dirt, wear, show_wear)               │
+!! │ Colored [dirt%] + [wear N] condition string for clothing.       │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cond_string':
+	$result = ''
+	if ARGS[2] = 0 and ARGS[4] = 0: exit
+
+	$sd_cs['out'] = ''
+
+	if ARGS[2] = 1:
+		sd_cs['dirt_pct'] = min(max(0, ARGS[1] / 24), 100)
+		if sd_cs['dirt_pct'] <= 20:
+			$sd_cs['dirt_col'] = 'v_pos'
+		elseif sd_cs['dirt_pct'] <= 60:
+			$sd_cs['dirt_col'] = 'neutral'
+		else
+			$sd_cs['dirt_col'] = 'neg'
+		end
+		$sd_cs['out'] = $func('wrap', $sd_cs['dirt_col'], '[' + $str(sd_cs['dirt_pct']) + '% 脏污]')
+	end
+
+	if ARGS[4] = 1:
+		if $sd_cs['out'] <> '': $sd_cs['out'] += ' '
+		if ARGS[3] <= 5:
+			$sd_cs['wear_col'] = 'v_neg'
+		elseif ARGS[3] <= 15:
+			$sd_cs['wear_col'] = 'neg'
+		elseif ARGS[3] <= 25:
+			$sd_cs['wear_col'] = 'neutral'
+		else
+			$sd_cs['wear_col'] = 'v_pos'
+		end
+		$sd_cs['out'] += $func('wrap', $sd_cs['wear_col'], '[wear ' + $str(ARGS[3]) + ']')
+	end
+
+	$result = $sd_cs['out']
+	killvar 'sd_cs'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cond_face — face condition: cum > written-on > messy hair       │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cond_face':
+	if cumloc[11] > 0:
+		$result = $func('wrap', 'v_neg', '[脸上有精液]')
+	elseif face_write > 0:
+		$result = $func('wrap', 'v_neg', '[身上有字]')
+	elseif pcs_hairbsh = 0:
+		$result = $func('wrap', 'neg', '[头发凌乱]')
+	else
+		$result = ''
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cond_sweat — pcs_sweat: <20 '' · <30 sweating · <40 smelly      │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cond_sweat':
+	if pcs_sweat >= 40:
+		$result = $func('wrap', 'v_neg', '[臭哄哄]')
+	elseif pcs_sweat >= 30:
+		$result = $func('wrap', 'neg', '[有异味]')
+	elseif pcs_sweat >= 20:
+		$result = $func('wrap', 'neutral', '[出汗]')
+	else
+		$result = ''
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cond_coat_temp — PCoatWarm vs temper[0] warmth adequacy         │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cond_coat_temp':
+	if $coatworntype = 'none' or $coatworntype = '':
+		$result = ''
+		exit
+	end
+	!! Minimum temperatures each CoatWarm level can handle (from outdoors.qsrc)
+	!! 1 → -10°C  |  2 → -20°C  |  3 → -30°C
+	sd_cs['min_temp'] = iif(PCoatWarm = 3, -30, iif(PCoatWarm = 2, -20, -10))
+	if temper[0] > 15:
+		!! Coat unnecessary at this temperature, but not a problem
+		$result = $func('wrap', 'v_pos', '[足够温暖]')
+	elseif temper[0] >= sd_cs['min_temp']:
+		$result = $func('wrap', 'v_pos', '[发热]')
+	else
+		$result = $func('wrap', 'v_neg', '[太冷了！]')
+	end
+	killvar 'sd_cs'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cond_heel_skill — colored heel-skill adequacy for shoe image    │
+!! │ Returns '' for flat shoes; mirrors shoes.qsrc pain thresholds.  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cond_heel_skill':
+	!! Flat shoes have no skill or pain requirements — nothing to show
+	if PShoSkill = 0 and PShoPain['mild'] = 0:
+		$result = ''
+		exit
+	end
+	!! Use pain thresholds (from shoe_attributes.qsrc) to reflect current pain level.
+	!! Mirrors the wardrobe description in shoes.qsrc exactly.
+	!! ≥mild = no pain message shown (Fine); lower tiers are genuinely painful.
+	if PShoPain['severe'] > 0 and pcs_heels < PShoPain['severe']:
+		$result = $func('wrap', 'v_neg', '[很疼]')
+	elseif PShoPain['medium'] > 0 and pcs_heels < PShoPain['medium']:
+		$result = $func('wrap', 'neg', '[疼痛]')
+	elseif pcs_heels < PShoPain['mild']:
+		$result = $func('wrap', 'neutral', '[不适]')
+	else
+		$result = $func('wrap', 'v_pos', '[还好]')
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cond_clo_style — colored style/category tag list for clothing   │
+!! │ PCloStyle2 role: 1=maid 2=server 3=stripper 4=school 5=office   │
+!! │ 6=gym. Also: PCloSwimwear, PCloStyle=4, bimbo/goth/punk flags.  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cond_clo_style':
+	$result = ''
+	if $clothingworntype = 'nude': exit
+
+	!! Role uniform (Swimwear overrides Style2 per outfit.qsrc)
+	if PCloSwimwear = 1:
+		$result += ', ' + $func('wrap', 'bimbo', '[泳装]')
+	elseif PCloStyle2 = 6:
+		$result += ', ' + $func('wrap', 'bimbo', '[健身]')
+	elseif PCloStyle2 = 5:
+		$result += ', ' + $func('wrap', 'bimbo', '[办公]')
+	elseif PCloStyle2 = 4:
+		$result += ', ' + $func('wrap', 'bimbo', '[校服]')
+	elseif PCloStyle2 = 3:
+		$result += ', ' + $func('wrap', 'bimbo', '[脱衣舞娘]')
+	elseif PCloStyle2 = 2:
+		$result += ', ' + $func('wrap', 'bimbo', '[服务员]')
+	elseif PCloStyle2 = 1:
+		$result += ', ' + $func('wrap', 'bimbo', '[女仆]')
+	end
+	if PCloStyle = 4: $result += ', ' + $func('wrap', 'bimbo', '[卖淫]')
+	if PCloInhibit >= 40 or PCloThinness = 6: $result += ', ' + $func('wrap', 'bimbo', '[暴露狂]')
+	if PCloBimbo = 1 and cheatVars['bimbo'] = 0: $result += ', ' + $func('wrap', 'bimbo', '[婊气]')
+	if PCloGoth = 1: $result += ', ' + $func('wrap', 'goth', '[哥特]')
+	if PCloPunk = 1: $result += ', ' + $func('wrap', 'punk', '[朋克]')
+
+	!! Trim leading ', '
+	if $result <> '': $result = mid($result, 3)
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                      COMPUTE IMAGES                                 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ compute_images — populate $sd_img[url/label/short/cond_KEY]     │
+!! │ for each visible entry in $image_order[].                       │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'compute_images':
+
+	killvar 'sd_img'
+	sd_img['count'] = 0
+
+	sd_ci['max'] = arrsize('$image_order')
+	sd_ci['i'] = 0
+	:sd_compute_images_loop
+		$sd_ci['key'] = $image_order[sd_ci['i']]
+
+		!! Skip if this image type is hidden
+		if stat_hide[$sd_ci['key']] = 1: jump 'sd_compute_images_next'
+
+		!! ── Per-key image computation ───────────────────────────────
+		if $sd_ci['key'] = 'face':
+			$sd_img['url_face'] = $func('$face_image')
+			!! Makeup label lookup (face_style type 2 = makeup active)
+			if face_style['type'] <> 2:
+				$sd_img['label_face'] = '外貌'
+			else
+				$sd_mu_lbl[0] = '花掉的妆容'
+				$sd_mu_lbl[1] = '素颜'
+				$sd_mu_lbl[2] = '淡妆'
+				$sd_mu_lbl[3] = '亮丽妆容'
+				$sd_mu_lbl[4] = '浓妆'
+				$sd_mu_lbl[5] = '专业妆容'
+				$sd_mu_lbl[6] = '傻妞妆'
+				$sd_mu_lbl[7] = '哥特妆'
+				$sd_img['label_face'] = iif(pcs_makeup >= 1 and pcs_makeup <= 7, $sd_mu_lbl[pcs_makeup], iif(pcs_makeup <= 0, '花掉的妆容', '外貌'))
+				killvar 'sd_mu_lbl'
+			end
+			$sd_img['short_face'] = $sd_img['label_face']
+			!! Condition: cum on face, writing, or messy hair
+			$sd_img['cond_face'] = $func('stat_display_compute', 'cond_face')
+
+		elseif $sd_ci['key'] = 'body':
+			$sd_img['url_body'] = $func('$body_image', 'body')
+			$sd_img['label_body'] = '身体'
+			$sd_img['short_body'] = '身体'
+			!! Condition: sweat (only when notable ≥20) + visible cum on body (not face)
+			!! check_visible from cum_manage = cumloc[6]+[7]+[11]+[13]+[16]; exclude [11] (face shown separately)
+			$sd_img['cond_body'] = $func('stat_display_compute', 'cond_sweat')
+			if (cumloc[6] + cumloc[7] + cumloc[13] + cumloc[16]) > 0:
+				$sd_ci['cum_line'] = $func('wrap', 'v_neg', '[身上有精液]')
+				$sd_img['cond_body'] = iif($sd_img['cond_body'] <> '', $sd_img['cond_body'] + ' ', '') + $sd_ci['cum_line']
+			end
+
+		elseif $sd_ci['key'] = 'coat':
+			if $coatworntype = 'none' or $coatworntype = '':
+				jump 'sd_compute_images_next'
+			end
+			$sd_img['url_coat'] = $func('$body_image', 'coat')
+			$sd_img['label_coat'] = '外套'
+			$sd_img['short_coat'] = $func('$item_description', 'coat', $coatworntype, coatwornnumber)
+			!! Condition: warmth adequacy vs current temperature
+			$sd_img['cond_coat'] = $func('stat_display_compute', 'cond_coat_temp')
+
+		elseif $sd_ci['key'] = 'clothes':
+			$sd_img['url_clothes'] = $func('$body_image', 'clothes')
+			if $clothingworntype = 'nude':
+				!! Towel or robe override, otherwise naked
+				$sd_img['label_clothes'] = iif(towel = 1, '毛巾', iif(robe = 1, '浴袍', '裸体'))
+				$sd_img['short_clothes'] = $sd_img['label_clothes']
+				!! No condition for nude/covering states
+			else
+				$sd_img['label_clothes'] = 'Clothes'
+				$sd_img['short_clothes'] = $func('$short_description', $clothingworntype, clothingwornnumber)
+				!! Condition: dirt + wear, then style/category tags
+				$sd_img['cond_clothes'] = $func('stat_display_compute', 'cond_string', PCloDirt, 1, dyneval('result = <<$clothingworntype>>_h[<<clothingwornnumber>>]'), 1)
+				$sd_ci['style_line'] = $func('stat_display_compute', 'cond_clo_style')
+				if $sd_ci['style_line'] <> '':
+					$sd_img['cond_clothes'] = iif($sd_img['cond_clothes'] <> '', $sd_img['cond_clothes'] + ' ', '') + $sd_ci['style_line']
+				end
+			end
+
+		elseif $sd_ci['key'] = 'bra':
+			$sd_img['url_bra'] = $func('$body_image', 'bra')
+			if $braworntype = 'none' or $braworntype = '':
+				$sd_img['label_bra'] = '胸部'
+				$sd_img['short_bra'] = '胸部'
+			else
+				$sd_img['label_bra'] = '胸罩'
+				$sd_img['short_bra'] = $func('$item_description', 'bra', $braworntype, brawornnumber)
+				!! Condition: dirt only (no durability tracking for bras)
+				$sd_img['cond_bra'] = $func('stat_display_compute', 'cond_string', PBraDirt, 1, 0, 0)
+			end
+
+		elseif $sd_ci['key'] = 'panties':
+			$sd_img['url_panties'] = $func('$body_image', 'panties')
+			if $pantyworntype = 'none' or $pantyworntype = '':
+				$sd_img['label_panties'] = '小穴'
+				$sd_img['short_panties'] = '小穴'
+			else
+				$sd_img['label_panties'] = '内裤'
+				$sd_img['short_panties'] = $func('$item_description', 'panty', $pantyworntype, pantywornnumber)
+				!! Condition: dirt only (no durability tracking for panties)
+				$sd_img['cond_panties'] = $func('stat_display_compute', 'cond_string', PPanDirt, 1, 0, 0)
+			end
+
+		elseif $sd_ci['key'] = 'shoes':
+			$sd_img['url_shoes'] = $func('$body_image', 'shoes')
+			if $shoeworntype = 'none' or $shoeworntype = '':
+				$sd_img['label_shoes'] = '脚'
+				$sd_img['short_shoes'] = '脚'
+			else
+				$sd_img['label_shoes'] = '鞋子'
+				$sd_img['short_shoes'] = $func('$shoe_description', $shoeworntype, shoewornnumber)
+			end
+			!! Condition: heel skill adequacy (empty when no heels required)
+			$sd_img['cond_shoes'] = $func('stat_display_compute', 'cond_heel_skill')
+
+		elseif $sd_ci['key'] = 'bodysuit':
+			!! Only shown when actually worn
+			if bodysuitwornnumber = 0 or $bodysuitworntype = 'none' or $bodysuitworntype = '':
+				jump 'sd_compute_images_next'
+			end
+			!! Bodysuit replaces bra+panties; skip if both are hidden
+			if stat_hide['bra'] = 1 and stat_hide['panties'] = 1:
+				jump 'sd_compute_images_next'
+			end
+			$sd_img['url_bodysuit'] = $func('$body_image', 'bodysuit')
+			$sd_img['label_bodysuit'] = '连体衣'
+			$sd_img['short_bodysuit'] = $func('$item_description', 'bodysuit', $bodysuitworntype, bodysuitwornnumber)
+			!! Condition: dirt only (uses PPanDirt slot per outfit.qsrc)
+			$sd_img['cond_bodysuit'] = $func('stat_display_compute', 'cond_string', PPanDirt, 1, 0, 0)
+		end
+
+		!! Skip if URL ended up empty (e.g. coat with no image)
+		if $sd_img['url_' + $sd_ci['key']] = '': jump 'sd_compute_images_next'
+
+		!! Record visible order for rendering
+		$sd_img['order_' + $str(sd_img['count'])] = $sd_ci['key']
+		sd_img['count'] += 1
+
+		:sd_compute_images_next
+		sd_ci['i'] += 1
+	if sd_ci['i'] < sd_ci['max']: jump 'sd_compute_images_loop'
+
+	killvar 'sd_ci'
+	exit
+end
+
+
+--- stat_display_compute ---------------------------------

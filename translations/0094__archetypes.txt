@@ -1,0 +1,2376 @@
+# archetypes
+
+!{
+	Main archetypes, mutually exclusive, arranged in a pentagram of opposites:
+
+		Bimbo (Opposes Prude, Punk)
+		Preppy (Opposes Punk, Goth)
+		Prude (Opposes Goth, Bimbo)
+		Punk (Opposes Bimbo, Preppy)
+		Goth (Opposes Preppy, Prude)
+
+		Each archetype effect has an opposite effect in at least one of the opposing archetypes.
+		Gaining a point in one archetype will cause you to lose a point in the opposing archetypes.
+		The chosen archetype is the one with the highest score. A archetype must have a minimum of 50000 points to be active.
+
+	Variables:
+		$arch_vars['main_active'] - Name of the currently active main archetype, or '' if none
+		arch_vars['X_points'] - Number of points in archetype X
+		arch_vars['Y_effect'] - Current effect on Y skill/attribute, derived from active archetype points
+		arch_vars['last_update'] - totminut when get_state_points last ran (for throttling)
+		arch_vars['X_history_N'] - 7-day history: archetype X's snapshot points, 0=today, 6=oldest
+		arch_vars['X_avg'] - 7-day running average of archetype X's points (recomputed daily)
+		arch_vars['withdrawal_pct'] - Percentage deficit of active archetype vs its 7-day average (0 = no withdrawal)
+
+	Constants:
+		arch_const['point_cap'] - Maximum number of points in a archetype, default 2 mil
+		arch_const['point_min'] - Minimum points to activate a archetype, default 50000
+		arch_const['points_full_effect'] - Points at which effects reach full effectiveness, default 500000
+		arch_const['level_third'] - One third of effect_range, used for _lvl tiers
+
+	Helpers:
+		$func('archetypes', 'get_archetype', N) - Returns archetype name for index 0-4
+		$func('archetypes', 'get_opposite', 'X', 0/1)  - Returns Nth opposite of archetype X
+
+	Point descriptors (gain/lose):
+		'tiny'    =     250  (trivial: washing dishes, small remark, ~15 min passive max gain)
+		'small'   =   1,000  (minor: brief interaction, small choice, ~1 hr passive max gain)
+		'medium'  =   5,000  (moderate: significant scene, pill/potion, ~6 hr passive max gain)
+		'large'   =  15,000  (major: transformative multi-hour event, ~1 day passive max gain)
+		'huge'    =  50,000  (extreme: life-altering, crosses activation, ~3 days passive max gain)
+
+	- Eva
+!}
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Helper Functions													 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Format Points													 │
+!! │  Converts a raw point delta to a human-readable display-point   │
+!! │  string on the same scale used by the pentagon display (÷250).  │
+!! │  ARGS[1]   Raw delta (signed integer)						     │
+!! │  $ARGS[2]  Mode: 'fine' (1 decimal) or 'coarse' (whole number)  │
+!! │  Returns:  '+23.4' / '-<0.1' (fine) or '+23' / '-<1' (coarse)   │
+!! │  Use: $func('archetypes', 'fmt_pts', delta, $mode)			     │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'fmt_pts':
+	if ARGS[1] = 0:
+		$result = '0'
+		exit
+	end
+	temp_fmt['abs'] = iif(ARGS[1] < 0, -ARGS[1], ARGS[1])
+	temp_fmt['whole'] = temp_fmt['abs'] / 250
+	$temp_fmt['sign'] = iif(ARGS[1] > 0, '+', '-')
+	if $ARGS[2] = 'fine':
+		temp_fmt['tenths'] = (temp_fmt['abs'] mod 250) * 10 / 250
+		if temp_fmt['whole'] = 0 and temp_fmt['tenths'] = 0:
+			$result = $temp_fmt['sign'] + '&lt;0.1'
+		else
+			$result = $temp_fmt['sign'] + $str(temp_fmt['whole']) + '.' + $str(temp_fmt['tenths'])
+		end
+	else
+		if temp_fmt['whole'] = 0:
+			$result = $temp_fmt['sign'] + '&lt;1'
+		else
+			$result = $temp_fmt['sign'] + $str(temp_fmt['whole'])
+		end
+	end
+	killvar 'temp_fmt'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Clamp Archetype												 │
+!! │	Clamps a archetype''s points between 0 and the point cap.	 │
+!! │	$ARGS[1]	Archetype name									 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'clamp':
+	if arch_const['point_cap'] > 0:
+		arch_vars['<<$ARGS[1]>>_points'] = func('math', 'int_clamp', arch_vars['<<$ARGS[1]>>_points'], 0, arch_const['point_cap'])
+	else
+		arch_vars['<<$ARGS[1]>>_points'] = max(0, arch_vars['<<$ARGS[1]>>_points'])
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Get Archetype Name by Index									 │
+!! │	Returns the archetype name for index 0-4.					 │
+!! │	ARGS[1]	 Index (0=bimbo, 1=preppy, 2=prude, 3=punk, 4=goth)	 │
+!! │	Use: $func(''archetypes'', ''get_archetype'', N)			 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_archetype':
+	if ARGS[1] = 0:
+		$result = 'bimbo'
+	elseif ARGS[1] = 1:
+		$result = 'preppy'
+	elseif ARGS[1] = 2:
+		$result = 'prude'
+	elseif ARGS[1] = 3:
+		$result = 'punk'
+	elseif ARGS[1] = 4:
+		$result = 'goth'
+	else
+		$result = ''
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Get Opposite Archetype Name									 │
+!! │	Returns the Nth opposite of the given archetype.			 │
+!! │	Pentagram: bimbo↔(prude,punk), preppy↔(punk,goth),			 │
+!! │	  prude↔(goth,bimbo),punk↔(bimbo,preppy),goth↔(preppy,prude) │
+!! │	$ARGS[1]	Archetype name									 │
+!! │	 ARGS[2]	0 or 1 (which opposite)							 │
+!! │	Use: $func(''archetypes'', ''get_opposite'', ''bimbo'', 0)	 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_opposite':
+	if $ARGS[1] = 'bimbo':
+		$result = $iif(ARGS[2] = 0, 'prude', 'punk')
+	elseif $ARGS[1] = 'preppy':
+		$result = $iif(ARGS[2] = 0, 'punk', 'goth')
+	elseif $ARGS[1] = 'prude':
+		$result = $iif(ARGS[2] = 0, 'goth', 'bimbo')
+	elseif $ARGS[1] = 'punk':
+		$result = $iif(ARGS[2] = 0, 'bimbo', 'preppy')
+	elseif $ARGS[1] = 'goth':
+		$result = $iif(ARGS[2] = 0, 'preppy', 'prude')
+	else
+		$result = ''
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Get Archetype Percentage										 │
+!! │	Returns the percentage of an archetype compared to the max   │
+!! │	$ARGS[1]	Archetype name									 │
+!! │	ARGS[2]		1 to use effective range						 │
+!! │	Use: func(''archetypes'', ''get_percentage'', ''bimbo'')	 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_percentage':
+	if arch_const['point_cap'] > 0:
+		if ARGS[2] = 1:
+			temp_gap_gp = max(0, arch_vars['<<$ARGS[1]>>_points'] - arch_const['point_min'])
+			result = min(100, temp_gap_gp * 100 / (arch_const['point_cap'] - arch_const['point_min']))
+			killvar 'temp_gap_gp'
+		else
+			result = min(100, arch_vars['<<$ARGS[1]>>_points'] * 100 / arch_const['point_cap'])
+		end
+	else
+		result = 0
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Get Archetype Level (0-3)										 │
+!! │	Returns the legacy tier for a archetype   					 │
+!! │	  0 = inactive (below point_min)							 │
+!! │	  1 = low (min to min + 1×level_third)						 │
+!! │	  2 = mid (min + 1× to min + 2×level_third)					 │
+!! │	  3 = high (min + 2×level_third and above)					 │
+!! │	$ARGS[1]  Archetype name									 │
+!! │	Use: func(''archetypes'', ''get_lvl'', ''bimbo'')			 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_lvl':
+	temp_gl_pts = arch_vars['<<$ARGS[1]>>_points']
+	if temp_gl_pts < arch_const['point_min']:
+		result = 0
+	else
+		temp_gl_gap = temp_gl_pts - arch_const['point_min']
+		if temp_gl_gap < arch_const['level_third']:
+			result = 1
+		elseif temp_gl_gap < (2 * arch_const['level_third']):
+			result = 2
+		else
+			result = 3
+		end
+	end
+	killvar 'temp_gl_pts'
+	killvar 'temp_gl_gap'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  System Functions													 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Point Gain														 │
+!! │	Awards points to a single archetype and deducts from its two	 │
+!! │	opposites.													 │
+!! │	$ARGS[1]	Archetype name									 │
+!! │	$ARGS[2]	Points: descriptor or integer					 │
+!! │				Descriptors: tiny (250), small (1k),			 │
+!! │				medium (5k), large (15k), huge (50k)			 │
+!! │	$ARGS[3]	Story label for the event log (optional)		 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'gain':
+	if cheatVars['archetypes'] = 1 or succubusflag = 1: exit
+	!! Optional per-label cooldown: ARGS[4] = minimum days between gains (0 = no limit).
+	!! Uses arch_vars['cooldown_<label>'] to store the last daystart this label fired.
+	if ARGS[4] > 0 and $ARGS[3] ! '':
+		if arch_vars['cooldown_<<$ARGS[3]>>'] > 0 and daystart - arch_vars['cooldown_<<$ARGS[3]>>'] < ARGS[4]:
+			exit
+		end
+		arch_vars['cooldown_<<$ARGS[3]>>'] = daystart
+	end
+	if $ARGS[2] = 'tiny':
+		temp_points = 250
+	elseif $ARGS[2] = 'small':
+		temp_points = 1000
+	elseif $ARGS[2] = 'medium':
+		temp_points = 5000
+	elseif $ARGS[2] = 'large':
+		temp_points = 15000
+	elseif $ARGS[2] = 'huge':
+		temp_points = 50000
+	else
+		temp_points = iif(ARGS[2] > 0, ARGS[2], 1)
+	end
+	arch_vars['<<$ARGS[1]>>_points'] += temp_points
+	gs 'archetypes', 'clamp', $ARGS[1]
+	$temp_opp0 = $func('archetypes', 'get_opposite', $ARGS[1], 0)
+	$temp_opp1 = $func('archetypes', 'get_opposite', $ARGS[1], 1)
+	arch_vars['<<$temp_opp0>>_points'] -= temp_points
+	gs 'archetypes', 'clamp', $temp_opp0
+	arch_vars['<<$temp_opp1>>_points'] -= temp_points
+	gs 'archetypes', 'clamp', $temp_opp1
+	!! ── Archetype gain notifications ──────────────────────────────────────
+	if stat_cfg['notify_archetypes'] <> 1:
+		gs 'archetypes', 'track_archetype', $ARGS[1], temp_points
+		if stat_cfg['notify_archetypes_opposite'] <> 1:
+			gs 'archetypes', 'track_archetype', $temp_opp0, -temp_points
+			gs 'archetypes', 'track_archetype', $temp_opp1, -temp_points
+		end
+	end
+	!! ── Event log ─────────────────────────────────────────────────────
+	gs 'archetypes', 'log_event', $ARGS[1], 'story', $ARGS[3], temp_points
+	gs 'archetypes', 'log_event', $temp_opp0, 'opposition', '', -temp_points
+	gs 'archetypes', 'log_event', $temp_opp1, 'opposition', '', -temp_points
+	killvar 'temp_points'
+	killvar 'temp_opp0'
+	killvar 'temp_opp1'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Point Loss														 │
+!! │	Deducts points from a single archetype only; does not affect │
+!! │	opposites.													 │
+!! │	$ARGS[1]	Archetype name									 │
+!! │	$ARGS[2]	Points: descriptor or integer					 │
+!! │				Descriptors: tiny (250), small (1k),			 │
+!! │				medium (5k), large (15k), huge (50k)			 │
+!! │	$ARGS[3]	Story label for the event log (optional)		 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'lose':
+	if cheatVars['archetypes'] = 1 or succubusflag = 1: exit
+	if $ARGS[2] = 'tiny':
+		temp_points = 250
+	elseif $ARGS[2] = 'small':
+		temp_points = 1000
+	elseif $ARGS[2] = 'medium':
+		temp_points = 5000
+	elseif $ARGS[2] = 'large':
+		temp_points = 15000
+	elseif $ARGS[2] = 'huge':
+		temp_points = 50000
+	else
+		temp_points = iif(ARGS[2] > 0, ARGS[2], 1)
+	end
+	arch_vars['<<$ARGS[1]>>_points'] -= temp_points
+	gs 'archetypes', 'clamp', $ARGS[1]
+	!! ── Archetype lose notification ───────────────────────────────────────
+	if stat_cfg['notify_archetypes'] <> 1:
+		gs 'archetypes', 'track_archetype', $ARGS[1], -temp_points
+	end
+	!! ── Event log ─────────────────────────────────────────────────────
+	gs 'archetypes', 'log_event', $ARGS[1], 'story', $ARGS[3], -temp_points
+	killvar 'temp_points'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Change (State Loop)											 │
+!! │	Applies gains, losses, and proportional opposition for the	 │
+!! │	state point loop. Unlike gain(), handles all 5 archetypes	 │
+!! │	simultaneously with proportional shielding.					 │
+!! │	 ARGS[1..5]	 Points: bimbo, preppy, prude, punk, goth		 │
+!! │				 Positive = gain, negative = loss, 0 = skip.	 │
+!! │	 ARGS[6]	 Multiplier (optional, default 1)				 │
+!! │	 $ARGS[7]	 Category key for log_event (e.g. 'clothing')	 │
+!! │				 Defaults to 'unknown' if omitted.				 │
+!! │	 $ARGS[8]	 Optional label for log_event (e.g. for 'story'	 │
+!! │				 category events with a distinct per-event name) │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'change':
+	if cheatVars['archetypes'] = 1 or succubusflag = 1: exit
+	killvar 'temp_change'
+	temp_change['mul'] = iif(ARGS[6] > 0, ARGS[6], 1)
+	temp_change['bimbo'] = ARGS[1] * temp_change['mul']
+	temp_change['preppy'] = ARGS[2] * temp_change['mul']
+	temp_change['prude'] = ARGS[3] * temp_change['mul']
+	temp_change['punk'] = ARGS[4] * temp_change['mul']
+	temp_change['goth'] = ARGS[5] * temp_change['mul']
+
+	if temp_change['bimbo'] > 0:
+		temp_change['opp_prude'] += max(0, temp_change['bimbo'] - max(0, temp_change['prude']))
+		temp_change['opp_punk'] += max(0, temp_change['bimbo'] - max(0, temp_change['punk']))
+	end
+
+	if temp_change['preppy'] > 0:
+		temp_change['opp_punk'] += max(0, temp_change['preppy'] - max(0, temp_change['punk']))
+		temp_change['opp_goth'] += max(0, temp_change['preppy'] - max(0, temp_change['goth']))
+	end
+
+	if temp_change['prude'] > 0:
+		temp_change['opp_bimbo'] += max(0, temp_change['prude'] - max(0, temp_change['bimbo']))
+		temp_change['opp_goth'] += max(0, temp_change['prude'] - max(0, temp_change['goth']))
+	end
+
+	if temp_change['punk'] > 0:
+		temp_change['opp_bimbo'] += max(0, temp_change['punk'] - max(0, temp_change['bimbo']))
+		temp_change['opp_preppy'] += max(0, temp_change['punk'] - max(0, temp_change['preppy']))
+	end
+
+	if temp_change['goth'] > 0:
+		temp_change['opp_preppy'] += max(0, temp_change['goth'] - max(0, temp_change['preppy']))
+		temp_change['opp_prude'] += max(0, temp_change['goth'] - max(0, temp_change['prude']))
+	end
+
+	!! ── Log raw category deltas and opposition deductions ─────────────
+	!! Log before subtracting opposition, so each is recorded separately.
+	if stat_cfg['arch_log_enabled'] = 1:
+		$temp_change['cat'] = $iif($ARGS[7] <> '', $ARGS[7], 'unknown')
+		if temp_change['bimbo'] <> 0:			gs 'archetypes', 'log_event', 'bimbo',  $temp_change['cat'], $ARGS[8], temp_change['bimbo']
+		if temp_change['preppy'] <> 0:			gs 'archetypes', 'log_event', 'preppy', $temp_change['cat'], $ARGS[8], temp_change['preppy']
+		if temp_change['prude'] <> 0:			gs 'archetypes', 'log_event', 'prude',  $temp_change['cat'], $ARGS[8], temp_change['prude']
+		if temp_change['punk'] <> 0:			gs 'archetypes', 'log_event', 'punk',   $temp_change['cat'], $ARGS[8], temp_change['punk']
+		if temp_change['goth'] <> 0:			gs 'archetypes', 'log_event', 'goth',   $temp_change['cat'], $ARGS[8], temp_change['goth']
+		if temp_change['opp_bimbo'] <> 0:		gs 'archetypes', 'log_event', 'bimbo',  'opposition', '', -temp_change['opp_bimbo']
+		if temp_change['opp_preppy'] <> 0:		gs 'archetypes', 'log_event', 'preppy', 'opposition', '', -temp_change['opp_preppy']
+		if temp_change['opp_prude'] <> 0:		gs 'archetypes', 'log_event', 'prude',  'opposition', '', -temp_change['opp_prude']
+		if temp_change['opp_punk'] <> 0:		gs 'archetypes', 'log_event', 'punk',   'opposition', '', -temp_change['opp_punk']
+		if temp_change['opp_goth'] <> 0:		gs 'archetypes', 'log_event', 'goth',   'opposition', '', -temp_change['opp_goth']
+	end
+
+	temp_change['bimbo'] -= temp_change['opp_bimbo']
+	temp_change['preppy'] -= temp_change['opp_preppy']
+	temp_change['prude'] -= temp_change['opp_prude']
+	temp_change['punk'] -= temp_change['opp_punk']
+	temp_change['goth'] -= temp_change['opp_goth']
+
+	if temp_change['bimbo'] <> 0:
+		arch_vars['bimbo_points'] += temp_change['bimbo']
+		gs 'archetypes', 'clamp', 'bimbo'
+	end
+	if temp_change['preppy'] <> 0:
+		arch_vars['preppy_points'] += temp_change['preppy']
+		gs 'archetypes', 'clamp', 'preppy'
+	end
+	if temp_change['prude'] <> 0:
+		arch_vars['prude_points'] += temp_change['prude']
+		gs 'archetypes', 'clamp', 'prude'
+	end
+	if temp_change['punk'] <> 0:
+		arch_vars['punk_points'] += temp_change['punk']
+		gs 'archetypes', 'clamp', 'punk'
+	end
+	if temp_change['goth'] <> 0:
+		arch_vars['goth_points'] += temp_change['goth']
+		gs 'archetypes', 'clamp', 'goth'
+	end
+
+	!! ── State notification (opt-in) ───────────────────────────────────
+	if stat_cfg['notify_archetypes'] <> 1 and stat_cfg['notify_archetypes_state'] = 1:
+		if temp_change['bimbo']  <> 0: gs 'archetypes', 'track_archetype', 'bimbo',  temp_change['bimbo']
+		if temp_change['preppy'] <> 0: gs 'archetypes', 'track_archetype', 'preppy', temp_change['preppy']
+		if temp_change['prude']  <> 0: gs 'archetypes', 'track_archetype', 'prude',  temp_change['prude']
+		if temp_change['punk']   <> 0: gs 'archetypes', 'track_archetype', 'punk',   temp_change['punk']
+		if temp_change['goth']   <> 0: gs 'archetypes', 'track_archetype', 'goth',   temp_change['goth']
+	end
+
+	killvar 'temp_change'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ faith_gain - award pcs_faith restoration points from church     │
+!! │ activity, once per method per day regardless of church location.│
+!! │ ARGS[1] = method key ('pray'/'confession'/'vigil'/'liturgy')    │
+!! │ ARGS[2] = point value                                           │
+!! │ No-op for non-prude players, since pcs_faith only applies to    │
+!! │ the prude archetype.                                            │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'faith_gain':
+	if $arch_vars['main_active'] <> 'prude': exit
+	if faithVars[$ARGS[1] + '_day'] = daystart: exit
+	faithVars[$ARGS[1] + '_day'] = daystart
+	pcs_faith = min(100, pcs_faith + ARGS[2])
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Sex Change														 │
+!! │	Awards Bimbo/Prude for a sex act, capping cumulative daily	 │
+!! │	Bimbo gain from this source (Prude loss is uncapped).		 │
+!! │	 ARGS[1]	Bimbo gain (uncapped input)						 │
+!! │	 ARGS[2]	Prude loss (negative)							 │
+!! │	 $ARGS[3]	Label for log_event								 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sex_change':
+	if cheatVars['archetypes'] = 1 or succubusflag = 1: exit
+	if arch_vars['sex_bimbo_day'] <> daystart:
+		arch_vars['sex_bimbo_day'] = daystart
+		arch_vars['sex_bimbo_today'] = 0
+	end
+	temp_sex_bimbo = max(0, min(ARGS[1], arch_const['sex_bimbo_daily_cap'] - arch_vars['sex_bimbo_today']))
+	arch_vars['sex_bimbo_today'] += temp_sex_bimbo
+	gs 'archetypes', 'change', temp_sex_bimbo, 0, ARGS[2], 0, 0, 1, 'story', $ARGS[3]
+	killvar 'temp_sex_bimbo'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Set Active														 │
+!! │	Determines and sets the active main archetype, if any.		 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'set_active':
+	$temp_sa_active = ''
+	temp_sa_index = 0
+	:active_archetype_loop
+		$temp_archetype = $func('archetypes', 'get_archetype', temp_sa_index)
+		if arch_vars[$temp_archetype + '_points'] >= arch_const['point_min']:
+			if arch_vars[$temp_archetype + '_points'] > arch_vars[$temp_sa_active + '_points']:
+				$temp_sa_active = $temp_archetype
+			end
+		end
+		temp_sa_index += 1
+		if temp_sa_index < 5: jump 'active_archetype_loop'
+	if $temp_sa_active = 'prude' and $arch_vars['main_active'] <> 'prude' and calendar_show['church'] = 0:
+		calendar_show['church'] = 1
+		gs 'calendar', 'pack', 'add', 'church'
+	end
+	$arch_vars['main_active'] = $temp_sa_active
+	killvar 'temp_archetype'
+	killvar 'temp_sa_active'
+	killvar 'temp_sa_index'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Get state points												 │
+!! │	Awards and detracts points based on the current player state.│
+!! │	 ARGS[1]	Elapsed-minute multiplier, forwarded from loop.  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_state_points':
+	temp_gs['mul'] = ARGS[1]
+
+	!! ── Precompute guards ────────────────────────────────────────────
+	temp_gs['is_student'] = $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and kanikuli = 0
+	temp_gs['school_hrs'] = temp_gs['is_student'] and week < 6 and hour >= 8 and hour < 15 and gschoolVars['last_attendance'] = daystart
+
+	!! ── Precompute piercings/tattoos ─────────────────────────────────
+	!! Piercing values > 0 = currently wearing; tattoo values > 0 = has tattoo
+	temp_gs['pierce_private']	= pcs_piercings['nipples'] > 0 or pcs_piercings['pussy'] > 0
+	temp_gs['pierce_facial']	= pcs_piercings['brow'] > 0 or pcs_piercings['nose'] > 0 or pcs_piercings['lip'] > 0 or pcs_piercings['tongue'] > 0
+	temp_gs['pierce_body']		= temp_gs['pierce_facial'] <> 0 or pcs_piercings['navel'] > 0
+	temp_gs['pierce_non_ear']	= temp_gs['pierce_body'] <> 0 or temp_gs['pierce_private'] <> 0
+
+	temp_gs['tattoo_any']		= pcs_tattoos['any'] > 0
+	temp_gs['tattoo_private']	= pcs_tattoos['breast'] > 0 or pcs_tattoos['under'] > 0 or pcs_tattoos['tramp'] > 0 or pcs_tattoos['ass'] > 0 or pcs_tattoos['pussy'] > 0
+	temp_gs['tattoo_visible']	= pcs_tattoos['face'] > 0 or pcs_tattoos['lip'] > 0 or pcs_tattoos['neck'] > 0 or pcs_tattoos['back'] > 0 or pcs_tattoos['shoulder'] > 0 or pcs_tattoos['chest'] > 0 or pcs_tattoos['side'] > 0 or pcs_tattoos['belly'] > 0 or pcs_tattoos['arm'] > 0 or pcs_tattoos['wrist'] > 0 or pcs_tattoos['hand'] > 0 or pcs_tattoos['leg'] > 0 or pcs_tattoos['ankle'] > 0
+	killvar 'temp_state'
+
+	!! ── Clothing ─────────────────────────────────────────────────────
+	if $clothingworntype <> 'nude' and PCloSwim = 0:
+		!! Archetype flags (can overlap)
+		if PCloBimbo = 1:						temp_state['bimbo']		+= 2
+		if PCloPrep = 1:						temp_state['preppy']	+= 2
+		if PCloPrude = 1:						temp_state['prude']		+= 2
+		if PCloPunk = 1:						temp_state['punk']		+= 2
+		if PCloGoth = 1:						temp_state['goth']		+= 3
+
+		!! Style: 2=rebel, 3=wealthy, 4=prostitute, 5=baggy
+		if PCloStyle = 2:
+												temp_state['punk']		+= 1	& temp_state['preppy']	-= 1
+		elseif PCloStyle = 3:
+												temp_state['preppy']	+= 1
+		elseif PCloStyle = 4 or PCloProstitute = 1:
+												temp_state['bimbo']		+= 1	& temp_state['prude']	-= 1
+		elseif PCloStyle = 5:
+												temp_state['bimbo']		-= 1
+		end
+
+		!! Style2 flags: stripper, school, office, sport
+		if PCloStrip = 1:
+												temp_state['prude']		-= 1
+		elseif PCloSchool = 1:
+			if temp_gs['school_hrs'] = 0:		temp_state['prude']		+= 1	& temp_state['punk']	-= 1
+			if PCloGoth = 0:					temp_state['goth']		-= 1
+		elseif PCloOffice = 1:
+												temp_state['preppy']	+= 1	& temp_state['punk']	-= 1
+		elseif PCloSport = 1 and PCloGoth = 0:
+												temp_state['goth']		-= 1
+		end
+
+		!! Inhibit tiers; higher = more revealing, lower = more conservative
+		if PCloInhibit <= 5:
+												temp_state['prude']		+= 1	& temp_state['bimbo']	-= 1
+		elseif PCloInhibit <= 10:
+												temp_state['prude']		+= 1	& temp_state['bimbo']	-= 1
+		elseif PCloInhibit >= 40:
+												temp_state['prude']		-= 3	& temp_state['bimbo']	+= 1
+		elseif PCloInhibit >= 30:
+												temp_state['prude']		-= 2
+		elseif PCloInhibit >= 20:
+												temp_state['prude']		-= 1
+		end
+
+		!! Quality: 1-5 scale
+		if PCloQuality >= 5:
+												temp_state['preppy']	+= 1
+		elseif PCloQuality <= 2:
+												temp_state['preppy']	-= 2
+		elseif PCloQuality <= 3:
+												temp_state['preppy']	-= 1
+		end
+
+		!! Durability: worn-out clothes look shabby, hurting preppy
+		if PCloMaxStrength > 0:
+			if PCloStrength * 100 / PCloMaxStrength < 25:
+												temp_state['preppy']	-= 2
+			elseif PCloStrength * 100 / PCloMaxStrength < 60:
+												temp_state['preppy']	-= 1
+			end
+		end
+
+		!! Expensive clothes penalize punk
+		if PCloPrice >= 5000:					temp_state['preppy']	+= 1	& temp_state['punk']	-= 1
+
+		gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'clothing'
+		killvar 'temp_state'
+	end
+
+	!! ── Shoes ────────────────────────────────────────────────────────
+	if $shoeworntype <> 'none' and $shoeworntype <> '':
+		if PShoBimbo = 1:						temp_state['bimbo']		+= 2
+		if PShoPrep = 1:						temp_state['preppy']	+= 2
+		if PShoPrude = 1:						temp_state['prude']		+= 1
+		if PShoPunk = 1:						temp_state['punk']		+= 2
+		if PShoGoth = 1:						temp_state['goth']		+= 3
+
+		if PShoHeels >= 5:						temp_state['bimbo']		+= 1
+		if PShoQuality >= 5:					temp_state['preppy']	+= 1
+		if PShoStyle = 1:						temp_state['punk']		+= 1
+		if PShoStyle2 = 1:						temp_state['prude']		-= 1
+
+		gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'shoes'
+		killvar 'temp_state'
+	end
+
+	!! ── Makeup ───────────────────────────────────────────────────────
+	!! 0=smeared, 1=none, 2=light, 3=medium, 4=heavy, 5=professional, 6=bimbo, 7=goth
+	if pcs_makeup = 0:
+												temp_state['punk']		+= 2
+	elseif pcs_makeup = 1:
+												temp_state['punk']		+= 1
+	elseif pcs_makeup = 3 or pcs_makeup = 5:
+												temp_state['preppy']	+= 1
+	elseif pcs_makeup = 6:
+												temp_state['bimbo']		+= 2
+	elseif pcs_makeup = 7:
+												temp_state['goth']		+= 3
+	end
+
+	gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'makeup'
+	killvar 'temp_state'
+
+	!! ── Hair ─────────────────────────────────────────────────────────
+	!! 0=black, 3=blonde, 11-13=pink, 14-16=purple, 18-19=dark/medium red, 5+ = unnatural
+	if pcs_hairlng <= 30:						temp_state['punk']		+= 1	& temp_state['bimbo']	-= 1
+	if pcs_haircol >= 5:						temp_state['punk']		+= 1	& temp_state['goth']	+= 1
+	if pcs_haircol = 0:
+		if nathcol <> 0:						temp_state['goth']		+= 1
+	elseif pcs_haircol = 3:
+		if nathcol <> 3:						temp_state['bimbo']		+= 1
+	elseif pcs_haircol >= 11 and pcs_haircol <= 13:
+												temp_state['bimbo']		+= 1
+	elseif pcs_haircol >= 14 and pcs_haircol <= 16:
+												temp_state['goth']		+= 1
+	elseif pcs_haircol = 18 or pcs_haircol = 19:
+												temp_state['goth']		+= 1
+	end
+	if pcs_pubes <= 3:							temp_state['bimbo']		+= 1
+	if pcs_pubes >= 30:							temp_state['prude']		+= 1
+	if pcs_leghair > 6:							temp_state['bimbo']		-= 1
+
+	gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'hair'
+	killvar 'temp_state'
+
+	!! ── Piercings + Tattoos (merged) ─────────────────────────────────
+	if temp_gs['pierce_non_ear']:				temp_state['prude']		-= 1
+	if temp_gs['pierce_body']:					temp_state['punk']		+= 1
+	if temp_gs['pierce_facial']:				temp_state['goth']		+= 1
+	if temp_gs['pierce_private']:				temp_state['bimbo']		+= 1	& temp_state['prude']	-= 1
+	if temp_gs['tattoo_visible']:				temp_state['goth']		+= 1	& temp_state['punk']	+= 1
+	if temp_gs['tattoo_private']:				temp_state['bimbo']		+= 1	& temp_state['prude']	-= 1
+	if analPlugIn = 1:							temp_state['bimbo']		+= 1	& temp_state['prude']	-= 1
+	if vibratorIN = 1:							temp_state['bimbo']		+= 1	& temp_state['prude']	-= 1
+
+	gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'body_mods'
+	killvar 'temp_state'
+
+	!! ── Body ─────────────────────────────────────────────────────────
+	if bodyVars['bust_silicone'] > 0:			temp_state['bimbo']		+= 2	& temp_state['prude']	-= 3
+	if bodyVars['butt_silicone'] > 0:			temp_state['bimbo']		+= 2	& temp_state['prude']	-= 2
+	if glass = 1:								temp_state['preppy']	-= 1	& temp_state['prude']	+= 1
+	if glass <> 0:								temp_state['punk']		-= 1
+	if pcs_brace = 1:							temp_state['punk']		-= 1
+
+	gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'body'
+	killvar 'temp_state'
+
+	!! ── Social ───────────────────────────────────────────────────────
+	if temp_gs['is_student']:
+		!! grupTipe: 1=popular, 2=jock, 3=nerd, 4=gopnik, 5=outcast
+		if grupTipe = 1:
+												temp_state['bimbo']		+= 1	& temp_state['preppy']	+= 1 & temp_state['goth'] -= 1
+		elseif grupTipe = 2:
+												temp_state['preppy']	+= 1	& temp_state['goth']	-= 1
+		elseif grupTipe = 3:
+												temp_state['prude']		+= 1	& temp_state['preppy']	-= 1
+												temp_state['punk']		-= 1	& temp_state['goth']	-= 1
+		elseif grupTipe = 4:
+												temp_state['punk']		+= 1	& temp_state['prude']	-= 1
+		elseif grupTipe = 5:
+												temp_state['goth']		+= 1	& temp_state['bimbo']	-= 1
+		end
+		if chess_rank >= 4:						temp_state['prude']		+= 1	& temp_state['bimbo']	-= 1
+		if cheerleadingQW['quest_stage'] >= 2:	temp_state['preppy']	+= 1	& temp_state['punk']	-= 1 & temp_state['goth'] -= 1
+
+		gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'social'
+		killvar 'temp_state'
+	end
+
+	!! ── Drugs & Alcohol ─────────────────────────────────────────────
+	if alko >= 4:								temp_state['punk']		+= 1	& temp_state['prude']	-= 1
+	if drugVars['aphrodisiac_timer'] > 0:		temp_state['bimbo']		+= 1	& temp_state['prude']	-= 1
+	if drugVars['weed_high'] > 0:				temp_state['punk']		+= 1	& temp_state['goth']	+= 1	& temp_state['prude'] -= 1
+	if drugVars['amphetamine_high'] > 0:		temp_state['punk']		+= 1	& temp_state['prude']	-= 1
+	if drugVars['heroin_high'] > 0:				temp_state['goth']		+= 1	& temp_state['punk']	+= 1	& temp_state['prude'] -= 2
+	gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'drugs'
+	killvar 'temp_state'
+
+	!! ── Sex chastity ─────────────────────────────────────────────────
+	if daystart - stat['last_sex_day'] >= arch_const['sex_chastity_days']:
+		temp_state['prude'] += 1
+		gs 'archetypes', 'change', temp_state['bimbo'], temp_state['preppy'], temp_state['prude'], temp_state['punk'], temp_state['goth'], temp_gs['mul'], 'chastity'
+		killvar 'temp_state'
+	end
+
+	!! ── Cleanup ──────────────────────────────────────────────────────
+	killvar 'temp_state'
+	killvar 'temp_gs'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Loop															 │
+!! │	Called from stat every minute (self-throttled). Applies		 │
+!! │	state-based point changes, updates active archetype,		 │
+!! │	and applies archetype effects.								 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'loop':
+	!! Guard against uninitialised constants
+	if arch_const['effect_range'] <= 0: gs 'archetypes', 'init'
+
+	
+	!! ── Stale-clock gate ─────────────────────────────────────────────
+	!! totminut is computed by gs 'time' which runs late in stat.qsrc.
+	!! On the very first gs 'stat' call it may still be stale (-1 from
+	!! start.qsrc).  Sync to one minute earlier so the next loop runs
+	if totminut <= 0:
+		arch_vars['last_update'] = (minut + hour * 60 + daystart * 1440) - 1
+		exit
+	end
+	
+	!! ── Cheat gate ───────────────────────────────────────────────────
+	!! cheatVars['archetypes'] freezes the whole system: points stop
+	!! moving and active effects are cleared once, then the clock is
+	!! kept in sync so re-enabling doesn''t replay the frozen interval.
+	!! Succubi are excluded from the archetype system entirely.
+	if cheatVars['archetypes'] = 1 or succubusflag = 1:
+		$arch_vars['main_active'] = ''
+		killvar 'arch_effects'
+		arch_vars['last_update'] = totminut
+		exit
+	end
+
+	!! ── Sleep gate ───────────────────────────────────────────────────
+	!! During sleep totminut advances but nothing should change.
+	!! Sync the clock so the first waking tick starts fresh.
+	if inSleep <> 0:
+		arch_vars['last_update'] = totminut
+		exit
+	end
+
+	!! ── Timing gate ──────────────────────────────────────────────────
+	temp_loop_mul = totminut - arch_vars['last_update']
+	if temp_loop_mul = 0: killvar 'temp_loop_mul' & exit
+	arch_vars['last_update'] = totminut
+
+	gs 'archetypes', 'get_state_points', temp_loop_mul
+	gs 'archetypes', 'decay', temp_loop_mul
+	gs 'archetypes', 'set_active'
+	gs 'archetypes', 'compute_withdrawal'
+	gs 'archetypes', 'apply_effects', temp_loop_mul
+	killvar 'temp_loop_mul'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Decay															 │
+!! │	Reduces all archetype points per elapsed minute, at a rate	 │
+!! │	that scales with each archetype own current point total (see │
+!! │	get_decay_rate below). Ensures archetypes fade without		 │
+!! │	reinforcement, faster the higher they have climbed.			 │
+!! │	Logs the *actual* delta (post-clamp) per archetype under	 │
+!! │	cat=''decay'' so floored archetypes don''t over-report.		 │
+!! │	 ARGS[1]	Elapsed minutes									 │
+!! └─────────────────────────────────────────────────────────────────┘
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Get Decay Rate													 │
+!! │	Smooth (S-curve) decay/min for a given point total:			 │
+!! │	 rate = decay_cap * x^2 / (x^2 + decay_half^2), x = points/1000│
+!! │	Near 0 for low totals, rises through decay_half, and eases	 │
+!! │	toward decay_cap for very high totals                        │
+!! │	See decay_half/decay_cap in init() for calibration.	         │
+!! │	 ARGS[1]	Current points									 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_decay_rate':
+	temp_gdr_x = ARGS[1] / 1000
+	temp_gdr_h = arch_const['decay_half'] / 1000
+	result = arch_const['decay_cap'] * temp_gdr_x * temp_gdr_x / (temp_gdr_x * temp_gdr_x + temp_gdr_h * temp_gdr_h)
+	killvar 'temp_gdr_x'
+	killvar 'temp_gdr_h'
+	exit
+end
+
+
+if $ARGS[0] = 'decay':
+	!! Log only the *actual* reduction per archetype (clamped at 0) so the
+	!! history page and popup don''t over-report decay on already-floored archetypes.
+	!! Decay rate is piecewise-linear in the current point total (see
+	!! get_decay_rate) so high totals fall faster, capping runaway passive
+	!! growth, while staying at 0 below point_min so early growth isn''t punished.
+	temp_decay_i = 0
+	:decay_loop
+		$temp_decay_archetype = $func('archetypes', 'get_archetype', temp_decay_i)
+		temp_decay_before = arch_vars['<<$temp_decay_archetype>>_points']
+		temp_decay_rate = func('archetypes', 'get_decay_rate', temp_decay_before)
+		temp_decay_after = max(0, temp_decay_before - temp_decay_rate * ARGS[1])
+		arch_vars['<<$temp_decay_archetype>>_points'] = temp_decay_after
+		temp_decay_delta = temp_decay_after - temp_decay_before
+		if temp_decay_delta < 0:
+			gs 'archetypes', 'log_event', $temp_decay_archetype, 'decay', '', temp_decay_delta
+		end
+		temp_decay_i += 1
+	if temp_decay_i < 5: jump 'decay_loop'
+	killvar 'temp_decay_i'
+	killvar 'temp_decay_before'
+	killvar 'temp_decay_rate'
+	killvar 'temp_decay_after'
+	killvar 'temp_decay_delta'
+	killvar 'temp_decay_archetype'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Archetype Effects													 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Apply Active Effects											 │
+!! │	Applies active effects of archetypes, i.e. those that change │
+!! │	variables rather than just biasing skill/attributes.		 │
+!! │	Called every minute from loop(). ARGS[1] = elapsed minutes.  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'apply_effects':
+	!! Zero all effect variables first. Prevents stale values when switching
+	!! archetypes or when no archetype is active.
+	killvar 'arch_effects'
+
+	!! Early exit if no archetype is active (effects already zeroed above).
+	if $arch_vars['main_active'] = '': exit
+
+	!! Helpers:
+	!! gap_points: clamped to [0, effect_range] — used for both active mechanics and basic_effect scaling.
+	arch_temp['gap_points'] = func('math', 'int_clamp', arch_vars['<<$arch_vars[''main_active'']>>_points'] - arch_const['point_min'], 0, arch_const['effect_range'])
+	arch_temp['basic_effect'] = 2 + (8 * arch_temp['gap_points']) / arch_const['effect_range']
+	!! denom: minutes-per-expected-tick interval for willpower gain/loss (preppy/punk/goth), 30 at max effect to 120 at min effect.
+	arch_temp['denom'] = 120 - (90 * arch_temp['gap_points']) / arch_const['effect_range']
+	arch_temp['eff_mul'] = ARGS[1]
+	!! numer: elapsed-minutes-scaled mood-chance numerator (preppy/goth), out of a 1500 (or 6000) denominator.
+	arch_temp['numer'] = (arch_temp['gap_points'] * 100 / arch_const['effect_range']) * arch_temp['eff_mul']
+
+	!! ── Bimbo ────────────────────────────────────────────────────────
+	if $arch_vars['main_active'] = 'bimbo':
+		!! Drives arousal toward bimbo_arousal_target via proportional-gap decay.
+		if cheatVars['smart_bimbo'] = 0 and pcs_horny < arch_const['bimbo_arousal_target']:
+			arch_temp['arousal_gap'] = arch_const['bimbo_arousal_target'] - pcs_horny
+			arch_temp['rate'] = arch_const['bimbo_rate_min'] + (arch_const['bimbo_rate_range'] * arch_temp['gap_points']) / arch_const['effect_range']
+			pcs_horny += (arch_temp['arousal_gap'] * arch_temp['rate'] * arch_temp['eff_mul']) / arch_const['bimbo_rate_divisor']
+			pcs_horny = min(pcs_horny, arch_const['bimbo_arousal_target'])
+		end
+		!! Appearance boost. 20 at full effect, 4 at min effect, interpolated in between.
+		arch_effects['appearance_effect']	=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['charisma_effect']		=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['erotic_dance_effect']	=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['pole_dance_effect']	=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['heels_effect']		=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['service_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['modeling_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['inhib_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['chess_effect']		=	-2 * arch_temp['basic_effect']	& !! -4 -> -20
+		arch_effects['intelligence_effect']	=	-2 * arch_temp['basic_effect']	& !! -4 -> -20
+		arch_effects['perception_effect']	=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['spirit_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['computer_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['observation_effect']	=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['sewing_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		!! Willpower cost %: positive = easier to do sexual things / harder to resist them
+		arch_effects['wp_sexual_effect']	=	 3 * arch_temp['basic_effect']	& !!  6 -> 30
+
+
+	!! ── Preppy ───────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'preppy':
+		!! max preppy should lose 2 willpwr an hour on average, min preppy should lose 0.5 willpwr/h on average
+		!! i.e. 30 minutes between expected loss on max, 120 minutes between expected loss on min
+		!! i.e. rand(1, 30) <= eff_mul on max, rand(1, 120) <= eff_mul on min
+		if cheatVars['smart_bimbo'] = 0 and pcs_willpwr > 20:
+			pcs_willpwr -= arch_temp['eff_mul'] / arch_temp['denom']
+			if rand(1, arch_temp['denom']) <= arch_temp['eff_mul'] mod arch_temp['denom']:
+				pcs_willpwr -= 1
+			end
+		end
+
+		!! Chance to get positive mood each minute
+		!! At max effectiveness: +4 mood per hour on average, i.e. one +1 tick per 15 minutes
+		if pcs_mood < 80:
+			arch_temp['successes'] = arch_temp['numer'] / 1500
+			if rand(1, 1500) <= arch_temp['numer'] mod 1500:
+				arch_temp['successes'] += 1
+			end
+			if arch_temp['successes'] > 0:
+				gs 'mood', 'raise', arch_temp['successes']
+			end
+		end
+
+		arch_effects['appearance_effect']		=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['charisma_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['disposition_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['modeling_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['dancing_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['people_skills_effect']	=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['cheerleading_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['persuasion_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['computer_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['makeup_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['sports_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['revealing_sports_effect']	=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['combat_effect']			=	-2 * arch_temp['basic_effect']	& !! -4 -> -20
+		arch_effects['spirit_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['strength_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['artistic_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['music_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		!! Willpower cost %: negative = harder to commit crime
+		arch_effects['wp_crime_effect']			=	-3 * arch_temp['basic_effect']	& !! -6 -> -30
+
+	!! ── Prude ────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'prude':
+		!! Drives arousal down toward prude_arousal_target via proportional-gap decay.
+		!! Each minute: delta = gap * rate / divisor, scaled by elapsed minutes.
+		!! rate interpolated so full effect reaches target in ~2h, min effect in ~8h.
+		if pcs_horny > arch_const['prude_arousal_target']:
+			arch_temp['arousal_gap'] = pcs_horny - arch_const['prude_arousal_target']
+			arch_temp['rate'] = arch_const['prude_rate_min'] + (arch_const['prude_rate_range'] * arch_temp['gap_points']) / arch_const['effect_range']
+			pcs_horny -= (arch_temp['arousal_gap'] * arch_temp['rate'] * arch_temp['eff_mul']) / arch_const['prude_rate_divisor']
+			pcs_horny = max(pcs_horny, arch_const['prude_arousal_target'])
+		end
+		arch_effects['intelligence_effect']		=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['chess_effect']			=	 2 * arch_temp['basic_effect']	& !!  4 -> 20
+		arch_effects['computer_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['observation_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['sewing_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['cleaning_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['appearance_effect']		=	-2 * arch_temp['basic_effect']	& !! -4 -> -20
+		arch_effects['erotic_dance_effect']		=	-2 * arch_temp['basic_effect']	& !! -4 -> -20
+		arch_effects['pole_dance_effect']		=	-2 * arch_temp['basic_effect']	& !! -4 -> -20
+		arch_effects['charisma_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['heels_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['makeup_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['songwriting_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['performance_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['inhib_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['revealing_sports_effect']	=	-1 * arch_temp['basic_effect']	& !! -2 -> -10  (volleyball + ice skating only)
+		!! Willpower cost %: negative = harder to do sexual things / easier to resist them
+		arch_effects['wp_sexual_effect']		=	-3 * arch_temp['basic_effect']	& !! -6 -> -30
+
+	!! ── Punk ─────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'punk':
+		!! max punk should gain 2 willpwr an hour on average, min punk should gain 0.5 willpwr/h on average
+		if pcs_willpwr < willpowermax:
+			pcs_willpwr += arch_temp['eff_mul'] / arch_temp['denom']
+			if rand(1, arch_temp['denom']) <= arch_temp['eff_mul'] mod arch_temp['denom']:
+				pcs_willpwr += 1
+			end
+		end
+		arch_effects['spirit_effect']		=	 1 * arch_temp['basic_effect']	& !!   2 -> 10
+		arch_effects['strength_effect']		=	 2 * arch_temp['basic_effect']	& !!   4 -> 20
+		arch_effects['combat_effect']		=	 2 * arch_temp['basic_effect']	& !!   4 -> 20
+		arch_effects['music_effect']		=	 1 * arch_temp['basic_effect']	& !!   2 -> 10
+		arch_effects['appearance_effect']	=	-4 * arch_temp['basic_effect']	& !!  -8 -> -40
+		arch_effects['modeling_effect']		=	-2 * arch_temp['basic_effect']	& !!  -4 -> -20
+		arch_effects['charisma_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		arch_effects['dancing_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		arch_effects['service_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		arch_effects['heels_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		arch_effects['computer_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		arch_effects['makeup_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		arch_effects['cleaning_effect']		=	-1 * arch_temp['basic_effect']	& !!  -2 -> -10
+		!! Willpower cost %: positive = easier to drink/use drugs/commit crime
+		arch_effects['wp_substances_effect']=	 3 * arch_temp['basic_effect']	& !!  6 -> 30
+		arch_effects['wp_crime_effect']		=	 3 * arch_temp['basic_effect']	& !!  6 -> 30
+
+	!! ── Goth ─────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'goth':
+		!! Identical to punk willpower gain
+		if pcs_willpwr < willpowermax:
+			pcs_willpwr += arch_temp['eff_mul'] / arch_temp['denom']
+			if rand(1, arch_temp['denom']) <= arch_temp['eff_mul'] mod arch_temp['denom']:
+				pcs_willpwr += 1
+			end
+		end
+		!! Chance to lose mood each minute
+		!! At max effectiveness: -4 mood per hour on average, i.e. one -1 tick per 15 minutes
+		!! chance quartered if mood <= 20
+		if cheatVars['smart_bimbo'] = 0:
+			arch_temp['mood_denom'] = iif(pcs_mood > 20, 1500, 6000)
+			arch_temp['successes'] = arch_temp['numer'] / arch_temp['mood_denom']
+			if rand(1, arch_temp['mood_denom']) <= arch_temp['numer'] mod arch_temp['mood_denom']:
+				arch_temp['successes'] += 1
+			end
+			if arch_temp['successes'] > 0:
+				gs 'mood', 'lower', arch_temp['successes']
+			end
+		end
+
+		arch_effects['spirit_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['perception_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['artistic_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['makeup_effect']			=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['songwriting_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['performance_effect']		=	 1 * arch_temp['basic_effect']	& !!  2 -> 10
+		arch_effects['charisma_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['disposition_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['people_skills_effect']	=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['cheerleading_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['persuasion_effect']		=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['sports_effect']			=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+		arch_effects['revealing_sports_effect']	=	-1 * arch_temp['basic_effect']	& !! -2 -> -10
+	end
+
+	!! ── Smart Bimbo: clamp all negative skill/attribute effects to 0 ──
+	if cheatVars['smart_bimbo']:
+		if arch_effects['appearance_effect']		< 0: arch_effects['appearance_effect'] = 0
+		if arch_effects['charisma_effect']			< 0: arch_effects['charisma_effect'] = 0
+		if arch_effects['erotic_dance_effect']		< 0: arch_effects['erotic_dance_effect'] = 0
+		if arch_effects['pole_dance_effect']		< 0: arch_effects['pole_dance_effect'] = 0
+		if arch_effects['heels_effect']				< 0: arch_effects['heels_effect'] = 0
+		if arch_effects['service_effect']			< 0: arch_effects['service_effect'] = 0
+		if arch_effects['modeling_effect']			< 0: arch_effects['modeling_effect'] = 0
+		if arch_effects['inhib_effect']				< 0: arch_effects['inhib_effect'] = 0
+		if arch_effects['chess_effect']				< 0: arch_effects['chess_effect'] = 0
+		if arch_effects['intelligence_effect']		< 0: arch_effects['intelligence_effect'] = 0
+		if arch_effects['perception_effect']		< 0: arch_effects['perception_effect'] = 0
+		if arch_effects['spirit_effect']			< 0: arch_effects['spirit_effect'] = 0
+		if arch_effects['computer_effect']			< 0: arch_effects['computer_effect'] = 0
+		if arch_effects['observation_effect']		< 0: arch_effects['observation_effect'] = 0
+		if arch_effects['sewing_effect']			< 0: arch_effects['sewing_effect'] = 0
+		if arch_effects['disposition_effect']		< 0: arch_effects['disposition_effect'] = 0
+		if arch_effects['dancing_effect']			< 0: arch_effects['dancing_effect'] = 0
+		if arch_effects['people_skills_effect']		< 0: arch_effects['people_skills_effect'] = 0
+		if arch_effects['cheerleading_effect']		< 0: arch_effects['cheerleading_effect'] = 0
+		if arch_effects['persuasion_effect']		< 0: arch_effects['persuasion_effect'] = 0
+		if arch_effects['makeup_effect']			< 0: arch_effects['makeup_effect'] = 0
+		if arch_effects['sports_effect']			< 0: arch_effects['sports_effect'] = 0
+		if arch_effects['revealing_sports_effect']	< 0: arch_effects['revealing_sports_effect'] = 0
+		if arch_effects['combat_effect']			< 0: arch_effects['combat_effect'] = 0
+		if arch_effects['strength_effect']			< 0: arch_effects['strength_effect'] = 0
+		if arch_effects['artistic_effect']			< 0: arch_effects['artistic_effect'] = 0
+		if arch_effects['music_effect']				< 0: arch_effects['music_effect'] = 0
+		if arch_effects['cleaning_effect']			< 0: arch_effects['cleaning_effect'] = 0
+		if arch_effects['songwriting_effect']		< 0: arch_effects['songwriting_effect'] = 0
+		if arch_effects['performance_effect']		< 0: arch_effects['performance_effect'] = 0
+	end
+
+	killvar 'arch_temp'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Withdrawal Tracking												 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Daily Snapshot													 │
+!! │	Records each archetype''s current points into 7-day history	 │
+!! │	array, shifting older entries down by one position.			 │
+!! │	Recomputes the 7-day averages.								 │
+!! │	Called from cikl (once per day).							 │
+!! │															     │
+!! │	arch_vars[''X_history_0''] = most recent (today)			 │
+!! │	arch_vars[''X_history_6''] = oldest (6 days ago)			 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'daily_snapshot':
+	temp_ds_i = 0
+	:snapshot_archetype_loop
+		$temp_ds_archetype = $func('archetypes', 'get_archetype', temp_ds_i)
+
+		!! Shift history: [5]→[6], [4]→[5], ... [0]→[1]
+		temp_ds_j = 6
+		:snapshot_shift_loop
+			if temp_ds_j > 0:
+				arch_vars['<<$temp_ds_archetype>>_history_<<temp_ds_j>>'] = arch_vars[$temp_ds_archetype + '_history_' + (temp_ds_j - 1)]
+				temp_ds_j -= 1
+				jump 'snapshot_shift_loop'
+			end
+
+		!! Write today''s value at position 0
+		arch_vars['<<$temp_ds_archetype>>_history_0'] = arch_vars[$temp_ds_archetype + '_points']
+
+		!! Compute average
+		temp_ds_sum = 0
+		temp_ds_j = 0
+		:snapshot_sum_loop
+			temp_ds_sum += arch_vars[$temp_ds_archetype + '_history_' + temp_ds_j]
+			temp_ds_j += 1
+			if temp_ds_j < 7: jump 'snapshot_sum_loop'
+		arch_vars['<<$temp_ds_archetype>>_avg'] = temp_ds_sum / 7
+
+		temp_ds_i += 1
+		if temp_ds_i < 5: jump 'snapshot_archetype_loop'
+
+	killvar 'temp_ds_i'
+	killvar 'temp_ds_j'
+	killvar 'temp_ds_sum'
+	killvar 'temp_ds_archetype'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Compute Withdrawal												 │
+!! │	Computes withdrawal_pct: the percentage deficit of the		 │
+!! │	active archetype''s current points vs its 7-day average.	 │
+!! │	0 if at or above average, or if no archetype is active.		 │
+!! │	Called every minute from loop() and from seed_snapshots().	 │
+!! │																 │
+!! │	Tiers (for consumers):										 │
+!! │	   1-10%  mild    11-20%  moderate							 │
+!! │	  21-40%  severe  41%+   critical							 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'compute_withdrawal':
+	arch_vars['withdrawal_pct'] = 0
+	if cheatVars['no_archetype_withdrawal'] = 0 and $arch_vars['main_active'] <> '':
+		temp_cw_avg = arch_vars[$arch_vars['main_active'] + '_avg']
+		if temp_cw_avg > 0:
+			temp_cw_cur = arch_vars[$arch_vars['main_active'] + '_points']
+			if temp_cw_cur < temp_cw_avg:
+				arch_vars['withdrawal_pct'] = ((temp_cw_avg - temp_cw_cur) * 100) / temp_cw_avg
+			end
+		end
+	end
+
+	!! ── Mood debuffs from withdrawal ─────────────────────────────────
+	if arch_vars['withdrawal_pct'] > 40:
+		!! Critical: effectively cap mood at 25
+		if pcs_mood > 25: gs 'mood', 'lower', 'tiny'
+	elseif arch_vars['withdrawal_pct'] > 20:
+		!! Severe: effectively cap mood at 40
+		if pcs_mood > 40: gs 'mood', 'lower', 'small'
+	end
+
+	killvar 'temp_cw_avg'
+	killvar 'temp_cw_cur'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Seed Snapshots													 │
+!! │	Fills all 7 slots with each archetype''s current points.     │
+!! │	Computes averages and withdrawal.							 │
+!! │	Used at game start and save migration to prevent false		 │
+!! │	withdrawal from an empty history.							 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'seed_snapshots':
+	temp_ss_i = 0
+	:seed_archetype_loop
+		$temp_ss_archetype = $func('archetypes', 'get_archetype', temp_ss_i)
+		temp_ss_val = arch_vars[$temp_ss_archetype + '_points']
+		temp_ss_j = 0
+		:seed_slot_loop
+			arch_vars['<<$temp_ss_archetype>>_history_<<temp_ss_j>>'] = temp_ss_val
+			temp_ss_j += 1
+			if temp_ss_j < 7: jump 'seed_slot_loop'
+		arch_vars['<<$temp_ss_archetype>>_avg'] = temp_ss_val
+		temp_ss_i += 1
+		if temp_ss_i < 5: jump 'seed_archetype_loop'
+
+	gs 'archetypes', 'compute_withdrawal'
+
+	killvar 'temp_ss_i'
+	killvar 'temp_ss_j'
+	killvar 'temp_ss_val'
+	killvar 'temp_ss_archetype'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Stat Display														 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ compute_stat_display											 │
+!! │	Computes messages and icons for stat_display, called from	 │
+!! │	stat_display_compute. Uses withdrawal_pct tiers:			 │
+!! │	  0%	 healthy   1-10%  mild   11-20% moderate			 │
+!! │	  21-40% severe    41%+  critical							 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'compute_stat_display':
+	if cheatVars['archetypes'] = 1 or succubusflag = 1: exit
+	!! TODO: When preppy and prude get their own theme color keys, replace
+	!! 'accent' with their dedicated color names (like 'bimbo', 'punk', 'goth').
+
+	!! ── Bimbo ──────────────────────────────────────────────────────────
+	if $arch_vars['main_active'] = 'bimbo':
+		if arch_vars['withdrawal_pct'] <= 0:
+			$stat_texts['archetype_main'] = '花瓶：你，就像，今天超级火辣。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'bimbo', 'status/archetype_bimbo', 1, 'gt ''$menu_character'', ''archetypes''', 'pos'
+		elseif arch_vars['withdrawal_pct'] <= 10:
+			$stat_texts['archetype_main'] = '花瓶：你感觉，就像，今天有点差劲。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'bimbo', 'status/archetype_bimbo', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 20:
+			$stat_texts['archetype_main'] = '花瓶：你感觉，就像，今天完全差劲。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_bimbo', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 40:
+			$stat_texts['archetype_main'] = '花瓶：你真的感觉，就像，今天糟糕。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_bimbo', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到花瓶戒断的影响。', 'bimbo'
+		else
+			$stat_texts['archetype_main'] = '花瓶：你感觉，就像，今天可怕！'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'v_neg', 'status/archetype_bimbo', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到花瓶戒断的严重影响。', 'bimbo'
+		end
+
+	!! ── Preppy ─────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'preppy':
+		if arch_vars['withdrawal_pct'] <= 0:
+			$stat_texts['archetype_main'] = '乖乖女：你看起来惊艳，所有人都知道。今天是<i>你的</i>日子。'
+			$stat_texts['archetype_main_tooltip'] = '乖乖女：你看起来棒极了而且所有人都知道。今天是你的日子。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'preppy', 'status/archetype_preppy', 1, 'gt ''$menu_character'', ''archetypes''', 'pos'
+		elseif arch_vars['withdrawal_pct'] <= 10:
+			$stat_texts['archetype_main'] = '乖乖女：那是皱纹吗？不……但你就是忍不住一直看。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'preppy', 'status/archetype_preppy', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 20:
+			$stat_texts['archetype_main'] = '乖乖女：你的笑容很勉强。有人注意到了吗？'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_preppy', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 40:
+			$stat_texts['archetype_main'] = '乖乖女：你今天装不出来了。一切都在崩塌，所有人都看得出来。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_preppy', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到乖乖女戒断的影响。', 'preppy'
+		else
+			$stat_texts['archetype_main'] = '乖乖女：你瞥见了自己，差点没认出她。她到底<i>是</i>谁？'
+			$stat_texts['archetype_main_tooltip'] = '乖乖女：你瞥见了自己，差点没认出她。她是谁？'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'v_neg', 'status/archetype_preppy', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到乖乖女戒断的严重影响。', 'preppy'
+		end
+
+	!! ── Prude ──────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'prude':
+		if arch_vars['withdrawal_pct'] <= 0:
+			$stat_texts['archetype_main'] = '保守女：淑女保持思想纯洁且身姿挺拔。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'prude', 'status/archetype_prude', 1, 'gt ''$menu_character'', ''archetypes''', 'pos'
+		elseif arch_vars['withdrawal_pct'] <= 10:
+			$stat_texts['archetype_main'] = '保守女：你的思绪飘到了不该去的地方。你把它甩开了。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'prude', 'status/archetype_prude', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 20:
+			$stat_texts['archetype_main'] = '保守女：不正经的念头不断冒出来。这可不像你。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_prude', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 40:
+			$stat_texts['archetype_main'] = '保守女：你感到脸红又心神不宁。为什么就是无法<i>集中注意力</i>?'
+			$stat_texts['archetype_main_tooltip'] = '保守女：你感到脸红又心神不宁。为什么就是无法集中注意力？'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_prude', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到保守女戒断的影响。', 'prude'
+		else
+			$stat_texts['archetype_main'] = '保守女：你的皮肤感觉太紧而且一切都是<i>太过</i>了。你到底怎么了？'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'v_neg', 'status/archetype_prude', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到保守女戒断的严重影响。', 'prude'
+		end
+
+	!! ── Punk ───────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'punk':
+		if arch_vars['withdrawal_pct'] <= 0:
+			$stat_texts['archetype_main'] = '朋克女：你感到叛逆。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'punk', 'status/archetype_punk', 1, 'gt ''$menu_character'', ''archetypes''', 'pos'
+		elseif arch_vars['withdrawal_pct'] <= 10:
+			$stat_texts['archetype_main'] = '朋克女：你今天不太想叛逆。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'punk', 'status/archetype_punk', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 20:
+			$stat_texts['archetype_main'] = '朋克女：你今天懒得叛逆。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_punk', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 40:
+			$stat_texts['archetype_main'] = '朋克女：你对世界的愤怒是无声的。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_punk', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到朋克女戒断的影响。', 'punk'
+		else
+			$stat_texts['archetype_main'] = '朋克女：父权统治今天赢了！'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'v_neg', 'status/archetype_punk', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到朋克女戒断的严重影响。', 'punk'
+		end
+
+	!! ── Goth ───────────────────────────────────────────────────────────
+	elseif $arch_vars['main_active'] = 'goth':
+		if arch_vars['withdrawal_pct'] <= 0:
+			$stat_texts['archetype_main'] = '哥特女：小蝙蝠今天接触了她的黑暗面。'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'goth', 'status/archetype_goth', 1, 'gt ''$menu_character'', ''archetypes''', 'pos'
+		elseif arch_vars['withdrawal_pct'] <= 10:
+			$stat_texts['archetype_main'] = '哥特女：今天比平时更煎熬！'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'goth', 'status/archetype_goth', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 20:
+			$stat_texts['archetype_main'] = '哥特女：你今天没有创作灵感；今天什么时候才能结束？'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_goth', 1, 'gt ''$menu_character'', ''archetypes'''
+		elseif arch_vars['withdrawal_pct'] <= 40:
+			$stat_texts['archetype_main'] = '哥特女：这真是令人沮丧的一天！'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'neg', 'status/archetype_goth', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到哥特女戒断的严重影响。', 'goth'
+		else
+			$stat_texts['archetype_main'] = '哥特女：今天必须结束！对吧？！'
+			gs 'stat_display_compute', 'queue_msg', 'archetype_main', 'v_neg', 'status/archetype_goth', 1, 'gt ''$menu_character'', ''archetypes'''
+			gs 'stat_display_compute', 'queue_alert', '你的心情受到哥特女戒断的严重影响。', 'goth'
+		end
+	end
+
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Miscellaneous Functions											 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Init															 │
+!! │	Initializes archetype constants.							 │
+!! │	Should be called in game start and saveupdater only.		 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'init':
+	!! Difficulty multiplier: stored in cheatVars['arch_difficulty']
+	!! 0 = Normal (1×), -1 = Easy (½×), 1 = Hard (2×), -2 = Very Easy (¼×), 2 = Very Hard (4×)
+	!! Multiplier formula: 2^opt (e.g. 2^-1 = 0.5, 2^0 = 1, 2^1 = 2)
+	!! We apply it by shifting the base thresholds.
+	if cheatVars['arch_difficulty'] = -2:
+		temp_diff_num = 1
+		temp_diff_den = 4
+	elseif cheatVars['arch_difficulty'] = -1:
+		temp_diff_num = 1
+		temp_diff_den = 2
+	elseif cheatVars['arch_difficulty'] = 1:
+		temp_diff_num = 2
+		temp_diff_den = 1
+	elseif cheatVars['arch_difficulty'] = 2:
+		temp_diff_num = 4
+		temp_diff_den = 1
+	else
+		temp_diff_num = 1
+		temp_diff_den = 1
+	end
+
+	arch_const['point_cap'] = 2000000
+	arch_const['point_min'] = 50000 * temp_diff_num / temp_diff_den
+	arch_const['points_full_effect'] = 500000 * temp_diff_num / temp_diff_den
+	arch_const['effect_range'] = arch_const['points_full_effect'] - arch_const['point_min']
+	arch_const['level_third'] = arch_const['effect_range'] / 3
+
+	!! ── Decay ──────────────────────────────────────────────────────────
+	!! Smooth decay per minute, as a function of the archetype current
+	!! points (see func archetypes get_decay_rate points):
+	!!   rate = decay_cap * x^2 / (x^2 + decay_half^2), x = points/1000
+	arch_const['decay_half'] = arch_const['points_full_effect'] * 4 / 5
+	arch_const['decay_cap'] = 29
+
+	!! ── Bimbo arousal constants ──────────────────────────────────────
+	!! Proportional-gap decay: delta = gap * rate / divisor per minute.
+	!! rate = ln(target) * divisor / minutes, ln(150) ≈ 5010/1000
+	!!   rate_full: 2h → 120 min;  rate_min: 8h → 480 min
+	arch_const['bimbo_arousal_target'] = 150
+	arch_const['bimbo_rate_divisor'] = 6750
+	arch_const['bimbo_rate_min'] = (5010 * arch_const['bimbo_rate_divisor']) / 480000
+	arch_const['bimbo_rate_range'] = (5010 * arch_const['bimbo_rate_divisor']) / 120000 - arch_const['bimbo_rate_min']
+
+	!! ── Prude arousal constants ──────────────────────────────────────
+	!! Same approach, starting arousal 150 (gap=120): ln(120) ≈ 4780/1000
+	!!   rate_full: 2h → 120 min;  rate_min: 8h → 480 min
+	arch_const['prude_arousal_target'] = 30
+	arch_const['prude_rate_divisor'] = 6750
+	arch_const['prude_rate_min'] = (4780 * arch_const['prude_rate_divisor']) / 480000
+	arch_const['prude_rate_range'] = (4780 * arch_const['prude_rate_divisor']) / 120000 - arch_const['prude_rate_min']
+
+	killvar 'temp_diff_num'
+	killvar 'temp_diff_den'
+
+	!! ── Sex-act rebalance ─────────────────────────────────────────────
+	arch_const['sex_bimbo_daily_cap'] = 2500
+	arch_const['sex_chastity_days'] = 14
+	arch_const['sex_chastity_bonus_prude'] = 2700
+
+	!! ── Timing ────────────────────────────────────────────────────────
+	!! Compute real totminut from daystart/hour/minut to avoid using the
+	!! stale global totminut (-1 from start.qsrc) that hasn''t been
+	!! recalculated by gs 'time' yet during intro initialization.
+	arch_vars['last_update'] = iif(totminut <= 0, minut + hour * 60 + daystart * 1440, totminut)
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ arch_tabs — renders the sub-tab bar for the archetypes section  │
+!! │   ARGS[1]: 'main' | 'catalog' | 'history' (currently active tab)│
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'arch_tabs':
+	$arch_tabs_h = '<center><b><table width="30%" cellspacing="0" cellpadding="0"><tr>'
+	if $ARGS[1] = 'main':
+		$arch_tabs_h += '<th>主</th>'
+	else
+		$arch_tabs_h += '<th><a href="exec:gt ''$menu_character'', ''archetypes''">主</a></th>'
+	end
+	if $ARGS[1] = 'catalog':
+		$arch_tabs_h += '<th>目录</th>'
+	else
+		$arch_tabs_h += '<th><a href="exec:gt ''$menu_character'', ''archetypes'', ''catalog''">目录</a></th>'
+	end
+	if $ARGS[1] = 'history':
+		$arch_tabs_h += '<th>历史</th>'
+	elseif stat_cfg['arch_log_enabled'] = 0:
+		$arch_tabs_h += '<th title="通过设置页面启用"><font color="#888888">历史</font></th>'
+	else
+		$arch_tabs_h += '<th><a href="exec:gt ''$menu_character'', ''archetypes'', ''history''">历史</a></th>'
+	end
+	$arch_tabs_h += '</tr></table></b></center>'
+	*pl $arch_tabs_h
+	killvar 'arch_tabs_h'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ display_page — renders the section for _menu_character  		 │
+!! │   Called via: gs 'archetypes', 'display_page'					 │
+!! │   Outputs: active info, progress bars, explanation text 		 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'display_page':
+
+	!! ── Setup: labels, gradients, colors, opposition text ────────────
+	$temp_tv['labels, 0'] = '花瓶'		& $temp_tv['grads, 0'] = 'mono:bimbo'	& $temp_tv['opp, 0'] = '保守派 &amp; 朋克'
+	$temp_tv['labels, 1'] = '学院风'	& $temp_tv['grads, 1'] = 'mono:accent'	& $temp_tv['opp, 1'] = '朋克 &amp; 哥特'
+	$temp_tv['labels, 2'] = '保守派'		& $temp_tv['grads, 2'] = 'mono:neutral'	& $temp_tv['opp, 2'] = '哥特 &amp; 花瓶'
+	$temp_tv['labels, 3'] = '朋克'		& $temp_tv['grads, 3'] = 'mono:punk'	& $temp_tv['opp, 3'] = '花瓶 &amp; 学院风'
+	$temp_tv['labels, 4'] = '哥特'		& $temp_tv['grads, 4'] = 'mono:goth'	& $temp_tv['opp, 4'] = '学院风 &amp; 保守派'
+	$temp_tv['colors, 0'] = $theme_hex['bimbo']
+	$temp_tv['colors, 1'] = $theme_hex['accent']
+	$temp_tv['colors, 2'] = $theme_hex['neutral']
+	$temp_tv['colors, 3'] = $theme_hex['punk']
+	$temp_tv['colors, 4'] = $theme_hex['goth']
+
+	!! ── Active archetype callout ─────────────────────────────────────────
+	if $arch_vars['main_active'] <> '':
+		$temp_tv['active'] = $arch_vars['main_active']
+		!! Resolve label and color for the active archetype
+		temp_tv['idx'] = 0
+		:tv_dp_find_label
+			if $func('archetypes', 'get_archetype', temp_tv['idx']) = $temp_tv['active']:
+				$temp_tv['active_label'] = $temp_tv['labels, ' + $str(temp_tv['idx'])]
+				$temp_tv['active_color'] = $temp_tv['colors, ' + $str(temp_tv['idx'])]
+			else
+				temp_tv['idx'] += 1
+				if temp_tv['idx'] < 5: jump 'tv_dp_find_label'
+			end
+
+		!! Callout box: colored left border, padded cell
+		*p '<table width="82%" align="center" cellpadding="0" cellspacing="0" style="border-left: 4px solid <<$temp_tv[''active_color'']>>; margin: 4px auto 8px;">'
+		*p '<tr><td style="padding: 8px 14px;">'
+
+		!! Header: archetype name + percentage
+		temp_tv['pct'] = (arch_vars[$temp_tv['active'] + '_points'] * 100) / arch_const['points_full_effect']
+		if temp_tv['pct'] > 100: temp_tv['pct'] = 100
+		'<span style="color: <<$temp_tv[''active_color'']>>; font-size: 1.1em;"><b><<$temp_tv[''active_label'']>></b></span>&nbsp;<font color="#888888">— <<temp_tv[''pct'']>>%</font>'
+
+		!! Withdrawal line (only shown when relevant)
+		if arch_vars['withdrawal_pct'] > 0:
+			if arch_vars['withdrawal_pct'] <= 10:
+				$func('wrap', 'pos', '● 轻度戒断 (' + $str(arch_vars['withdrawal_pct']) + '%)')
+			elseif arch_vars['withdrawal_pct'] <= 20:
+				$func('wrap', 'neutral', '● 中度戒断 (' + $str(arch_vars['withdrawal_pct']) + '%)')
+			elseif arch_vars['withdrawal_pct'] <= 40:
+				$func('wrap', 'neg', '● 重度戒断 (' + $str(arch_vars['withdrawal_pct']) + '%)')
+			else
+				$func('wrap', 'v_neg b', '● 极度戒断 (' + $str(arch_vars['withdrawal_pct']) + '%)!')
+			end
+		end
+
+		!! Effect summary: two lines (boosts / penalizes) + special note
+		*nl
+		if $temp_tv['active'] = 'bimbo':
+			$func('wrap', 'v_pos', '▲') + ' <b>加成：</b>外貌，魅力，艳舞，高跟鞋，拘谨，模特，钢管舞，服务'
+			$func('wrap', 'neg', '<br>▼') + ' <b>惩罚：</b>智力，洞察力，精神，国际象棋，电脑，观察力，缝纫'
+			$func('wrap', 'neutral', '<br>◆') + ' 持续提高兴奋值。'
+		elseif $temp_tv['active'] = 'preppy':
+			$func('wrap', 'v_pos', '▲') + ' <b>加成：</b>外貌，魅力，性情，舞蹈，模特，啦啦队，说服力，电脑，化妆，体育'
+			$func('wrap', 'neg', '<br>▼') + ' <b>惩罚：</b>战斗，精神，力量，艺术，音乐'
+			$func('wrap', 'neutral', '<br>◆') + ' 消耗意志力。'
+		elseif $temp_tv['active'] = 'prude':
+			$func('wrap', 'v_pos', '▲') + ' <b>加成：</b>智力，国际象棋，电脑，观察力，缝纫，清洁'
+			$func('wrap', 'neg', '<br>▼') + ' <b>惩罚：</b>外貌，魅力，艳舞，高跟鞋，抑制，化妆，歌曲创作，表演，暴露运动'
+			$func('wrap', 'neutral', '<br>◆') + ' 抑制性唤起。'
+		elseif $temp_tv['active'] = 'punk':
+			$func('wrap', 'v_pos', '▲') + ' <b>加成：</b>力量，战斗，精神，音乐'
+			$func('wrap', 'neg', '<br>▼') + ' <b>惩罚：</b>外貌（强烈）， 魅力，模特，舞蹈，高跟鞋，化妆，电脑，服务，清洁'
+			$func('wrap', 'neutral', '<br>◆') + ' 恢复意志力。'
+		elseif $temp_tv['active'] = 'goth':
+			$func('wrap', 'v_pos', '▲') + ' <b>加成：</b>精神，感知，艺术，化妆，歌曲创作，表演'
+			$func('wrap', 'neg', '<br>▼') + ' <b>惩罚：</b>魅力，性情，人际交往，啦啦队，说服，运动，暴露运动'
+			$func('wrap', 'neutral', '<br>◆') + ' 恢复意志力。'
+		end
+
+		*p '</td></tr></table>'
+	else
+		*p '<center><font color="#888888"><i>没有激活的原型 —在任意原型中至少获得<<arch_const[''point_min''] / 250>>点即可激活。</i></font></center>'
+	end
+	*nl
+	!! ── Progress bars — build as single string to avoid QSP linebreaks ──
+	temp_tv['max'] = arch_const['points_full_effect']
+	temp_tv['saved_bar_width'] = stat_cfg['bar_width']
+	stat_cfg['bar_width'] = 740
+	$temp_tv['border'] = iif(theme['is_dark'] = 1, '#555555', '#aaaaaa')
+
+	$temp_tv['html'] = '<table cellpadding="0" cellspacing="0">'
+	temp_tv['i'] = 0
+	:tv_dp_bar_loop
+		$temp_tv['name'] = $func('archetypes', 'get_archetype', temp_tv['i'])
+		temp_tv['pts'] = arch_vars[$temp_tv['name'] + '_points']
+		$temp_tv['bar'] = $func('progressbar', $temp_tv['grads, ' + $str(temp_tv['i'])], temp_tv['pts'], temp_tv['max'], 0, 0, '', 'none', '', 1)
+		!! Label: bold + colored for active, just colored otherwise
+		if $temp_tv['name'] = $arch_vars['main_active']:
+			$temp_tv['lbl'] = '<b><font color="' + $temp_tv['colors, ' + $str(temp_tv['i'])] + '">' + $temp_tv['labels, ' + $str(temp_tv['i'])] + '</font></b>'
+		else
+			$temp_tv['lbl'] = '<font color="' + $temp_tv['colors, ' + $str(temp_tv['i'])] + '">' + $temp_tv['labels, ' + $str(temp_tv['i'])] + '</font>'
+		end
+		$temp_tv['html'] += '<tr>'
+		$temp_tv['html'] += '<td width="60" align="right" valign="middle" style="padding: 4px 8px 4px 0; vertical-align: middle;">' + $temp_tv['lbl'] + '</td>'
+		$temp_tv['html'] += '<td width="<<stat_cfg[''bar_width'']>>" valign="middle" style="padding: 4px 0; vertical-align: middle; border: 1px solid ' + $temp_tv['border'] + ';">' + $temp_tv['bar'] + '</td>'
+		$temp_tv['html'] += '<td width="50" align="right" valign="middle" style="padding: 4px 0 4px 8px; vertical-align: middle; white-space: nowrap;">' + $str(temp_tv['pts'] / 250) + '</td>'
+		$temp_tv['html'] += '</tr>'
+		temp_tv['i'] += 1
+	if temp_tv['i'] < 5: jump 'tv_dp_bar_loop'
+	$temp_tv['html'] += '</table>'
+	$temp_tv['html']
+
+	stat_cfg['bar_width'] = temp_tv['saved_bar_width']
+
+	!! ── How archetypes work ──────────────────────────────────────────────
+	*p '<center><font size="2" color="#888888">原型由服装，化妆，和其他表现选择塑造，以及社交圈和你能做的许多决定。<br>每个原型都有两个对立面，具有相反效果。在一个原型中获得点数会减少其对立面同等数量的点数。<br>花瓶与保守派 &amp; 朋克对立，学院风与朋克 &amp; 哥特对立，保守派与哥特 &amp; 花瓶对立，朋克与花瓶 &amp; 学院风对立，哥特与学院风 &amp; 保守派对立。<br>你在活跃原型中的点数越多，其效果越强。</font></center>'
+
+	killvar 'temp_tv'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  History Page														 ║
+!! ║  Shows a per-archetype breakdown of point change over the last hour ║
+!! ║  and last day, split by category, with story events listed by name. ║
+!! ║																	 ║
+!! ║  gs 'archetypes', 'history_page'									 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ history_page — full-page archetype history breakdown  			 │
+!! │   Called via: gs 'archetypes', 'history_page'					 │
+!! │   Output: rendered HTML written directly to page 				 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'history_page':
+	if stat_cfg['arch_log_enabled'] = 0:
+		'<center><font color="#888888"><i>原型历史记录已禁用。请通过设置页面启用。</i></font></center>'
+		exit
+	end
+
+	!! ── Aggregate both windows into agg[] ──────────────────────────
+	gs 'archetypes', 'aggregate', 60
+	gs 'archetypes', 'aggregate', 1440
+
+	!! ── Page header ────────────────────────────────────────────────
+	'<h3 style="text-align:center;margin:8px 0 4px;">原型历史</h3>'
+	'<p style="text-align:center;font-size:0.85em;color:#888888;margin:0 0 12px;">按类别查看过去一小时和过去一天的点数变化。</p>'
+
+	!! ── Setup archetype metadata ───────────────────────────────────
+	$thp['names, 0'] = 'bimbo'			& $thp['labels, 0'] = '花瓶'
+	$thp['names, 1'] = 'preppy'			& $thp['labels, 1'] = '学院风'
+	$thp['names, 2'] = 'prude'			& $thp['labels, 2'] = '保守派'
+	$thp['names, 3'] = 'punk'			& $thp['labels, 3'] = '朋克'
+	$thp['names, 4'] = 'goth'			& $thp['labels, 4'] = '哥特'
+	$thp['colors, 0'] = $theme_hex['bimbo']
+	$thp['colors, 1'] = $theme_hex['accent']
+	$thp['colors, 2'] = $theme_hex['neutral']
+	$thp['colors, 3'] = $theme_hex['punk']
+	$thp['colors, 4'] = $theme_hex['goth']
+
+	!! Category rows: internal key, display label
+	$thp['cats, 0'] = 'clothing'	& $thp['catlbl, 0'] = '服装'
+	$thp['cats, 1'] = 'shoes'		& $thp['catlbl, 1'] = '鞋子'
+	$thp['cats, 2'] = 'makeup'		& $thp['catlbl, 2'] = '妆容'
+	$thp['cats, 3'] = 'hair'		& $thp['catlbl, 3'] = '发型'
+	$thp['cats, 4'] = 'body_mods'	& $thp['catlbl, 4'] = '身体改造与玩具'
+	$thp['cats, 5'] = 'body'		& $thp['catlbl, 5'] = '身体'
+	$thp['cats, 6'] = 'social'		& $thp['catlbl, 6'] = '社交'
+	$thp['cats, 7'] = 'drugs'		& $thp['catlbl, 7'] = '药物'
+	$thp['cats, 8'] = 'chastity'	& $thp['catlbl, 8'] = '贞洁'
+
+	$thp['border'] = iif(theme['is_dark'] = 1, '#444444', '#cccccc')
+
+	!! ── One section per archetype ──────────────────────────────────
+	thp['ti'] = 0
+	'<center><div style="width:50%;">'
+	:thp_archetype_loop
+
+		$thp['tname'] = $thp['names, ' + $str(thp['ti'])]
+		$thp['tlabel'] = $thp['labels, ' + $str(thp['ti'])]
+		$thp['tcolor'] = $thp['颜色，' + $str(thp['ti'])]
+
+		!! Section header
+		*p '<div style="margin:12px 0 4px;border-bottom:2px solid <<$thp[''tcolor'']>>;padding-bottom:3px;">'
+		*p '<b><font color="<<$thp[''tcolor'']>>"><<$thp[''tlabel'']>></font></b>'
+		*p '</div>'
+
+		!! Category table
+		*p '<table width="100%" cellpadding="2" cellspacing="0" style="font-size:0.9em;">'
+		*p '<tr>'
+		*p '<td width="120" style="color:#888888;font-size:0.85em;">类别</td>'
+		*p '<td width="80" align="right" style="color:#888888;font-size:0.85em;">过去一小时</td>'
+		*p '<td width="80" align="right" style="color:#888888;font-size:0.85em;">过去一天</td>'
+		*p '</tr>'
+
+		!! 8 state category rows — always shown, zero values rendered as "—"
+		thp['ci'] = 0
+		thp['tot60'] = 0
+		thp['tot1440'] = 0
+		:thp_cat_loop
+			$thp['ckey'] = $thp['cats, ' + $str(thp['ci'])]
+			$thp['clabel'] = $thp['catlbl, ' + $str(thp['ci'])]
+			thp['v60'] = agg['arch:' + $thp['tname'] + ', cat:' + $thp['ckey'] + ', w:60']
+			thp['v1440'] = agg['arch:' + $thp['tname'] + ', cat:' + $thp['ckey'] + ', w:1440']
+			thp['tot60'] += thp['v60']
+			thp['tot1440'] += thp['v1440']
+
+			*p '<tr>'
+			*p '<td><<$thp[''clabel'']>></td>'
+			*p '<td align="right"><<iif(thp[''v60''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''v60''],   ''coarse''), ''—'')>></td>'
+			*p '<td align="right"><<iif(thp[''v1440''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''v1440''], ''coarse''), ''—'')>></td>'
+			*p '</tr>'
+
+			thp['ci'] += 1
+		if thp['ci'] < 9: jump 'thp_cat_loop'
+
+		!! Decay row — always shown
+		thp['v60'] = agg['arch:' + $thp['tname'] + ', cat:decay, w:60']
+		thp['v1440'] = agg['arch:' + $thp['tname'] + ', cat:decay, w:1440']
+		thp['tot60'] += thp['v60']
+		thp['tot1440'] += thp['v1440']
+		*p '<tr style="color:#888888;">'
+		*p '<td><i>衰减</i></td>'
+		*p '<td align="right"><<iif(thp[''v60''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''v60''],   ''coarse''), ''—'')>></td>'
+		*p '<td align="right"><<iif(thp[''v1440''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''v1440''], ''coarse''), ''—'')>></td>'
+		*p '</tr>'
+
+		!! Opposition row — always shown
+		thp['v60'] = agg['arch:' + $thp['tname'] + ', cat:opposition, w:60']
+		thp['v1440'] = agg['arch:' + $thp['tname'] + ', cat:opposition, w:1440']
+		thp['tot60'] += thp['v60']
+		thp['tot1440'] += thp['v1440']
+		*p '<tr style="color:#888888;">'
+		*p '<td><i>对立</i></td>'
+		*p '<td align="right"><<iif(thp[''v60''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''v60''],   ''coarse''), ''—'')>></td>'
+		*p '<td align="right"><<iif(thp[''v1440''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''v1440''], ''coarse''), ''—'')>></td>'
+		*p '</tr>'
+
+		!! Total row
+		*p '<tr style="border-top:1px solid <<$thp[''border'']>>;font-weight:bold;">'
+		*p '<td>总计</td>'
+		*p '<td align="right"><<iif(thp[''tot60''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''tot60''],   ''coarse''), ''—'')>></td>'
+		*p '<td align="right"><<iif(thp[''tot1440''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''tot1440''], ''coarse''), ''—'')>></td>'
+		*p '</tr>'
+
+		'</table>'
+
+		!! Story events block — walk log directly for this archetype (last 1440 min)
+		!! Collect unique labels and their 60-min / 1440-min sums into thp_story[]
+		thp['cutoff24'] = totminut - 1440
+		thp['cutoff1'] = totminut - 60
+		thp['si'] = 0
+		thp['story_count'] = 0
+		:thp_story_scan
+		if thp['si'] < arrsize('arch_log_minut'):
+			if arch_log_minut[thp['si']] >= thp['cutoff24']:
+				if $arch_log_archetype[thp['si']] = $thp['tname']:
+					if $arch_log_cat[thp['si']] = 'story':
+						$thp['slbl'] = $arch_log_label[thp['si']]
+						!! Accumulate 1440 sum
+						thp_story_d1440[$thp['slbl']] += arch_log_delta[thp['si']]
+						!! Accumulate 60 sum if within hour
+						if arch_log_minut[thp['si']] >= thp['cutoff1']:
+							thp_story_d60[$thp['slbl']] += arch_log_delta[thp['si']]
+						end
+						!! Track unique labels (thp_story_seen is used as a set)
+						if thp_story_seen[$thp['slbl']] = 0:
+							thp_story_seen[$thp['slbl']] = 1
+							$thp_story_labels[thp['story_count']] = $thp['slbl']
+							thp['story_count'] += 1
+						end
+					end
+				end
+			end
+			thp['si'] += 1
+			jump 'thp_story_scan'
+		end
+
+		!! Render story events
+		*p '<div style="margin-top:4px;font-size:0.88em;color:#888888;">'
+		if thp['story_count'] = 0:
+			*p '<i>（过去一天内没有记录到故事事件）</i>'
+		else
+			*p '<b>故事事件 （过去一天）：</b>'
+			*p '<table width="100%" cellpadding="1" cellspacing="0">'
+			thp['sj'] = 0
+			thp['stot60'] = 0
+			thp['stot1440'] = 0
+			:thp_story_render
+				$thp['slbl'] = $thp_story_labels[thp['sj']]
+				thp['sv60'] = thp_story_d60[$thp['slbl']]
+				thp['sv1440'] = thp_story_d1440[$thp['slbl']]
+				thp['stot60'] += thp['sv60']
+				thp['stot1440'] += thp['sv1440']
+				*p '<tr>'
+				*p '<td><<$thp[''slbl'']>></td>'
+				*p '<td width="80" align="right"><<$func(''archetypes'', ''fmt_pts'', thp[''sv60''],   ''coarse'')>></td>'
+				*p '<td width="80" align="right"><<$func(''archetypes'', ''fmt_pts'', thp[''sv1440''], ''coarse'')>></td>'
+				*p '</tr>'
+				thp['sj'] += 1
+			if thp['sj'] < thp['story_count']: jump 'thp_story_render'
+			!! Story total row
+			*p '<tr style="border-top:1px solid <<$thp[''border'']>>;font-weight:bold;">'
+			*p '<td>总计</td>'
+			*p '<td width="80" align="right"><<iif(thp[''stot60'']   <> 0, $func(''archetypes'', ''fmt_pts'', thp[''stot60''],   ''coarse''), ''—'')>></td>'
+			*p '<td width="80" align="right"><<iif(thp[''stot1440''] <> 0, $func(''archetypes'', ''fmt_pts'', thp[''stot1440''], ''coarse''), ''—'')>></td>'
+			*p '</tr>'
+			*p '</table>'
+		end
+		*p '</div>'
+
+		!! Clean up per-archetype story accumulators
+		killvar 'thp_story_d60'
+		killvar 'thp_story_d1440'
+		killvar 'thp_story_seen'
+		killvar 'thp_story_labels'
+
+		thp['ti'] += 1
+	if thp['ti'] < 5: jump 'thp_archetype_loop'
+	*p '</div></center>'
+
+	!! ── Cleanup ─────────────────────────────────────────────────────
+	killvar 'agg'
+	killvar 'thp'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Static Cause Catalog												 ║
+!! ║  records every cond in get_state_points that produces archetype	 ║
+!! ║  points. Pure documentation — not data-driven. Keep in sync with    ║
+!! ║  get_state_points; mismatches are harmless but confusing.  		 ║
+!! ║																	 ║
+!! ║  gt '$menu_character', 'archetypes', 'catalog'						 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ cause_catalog — static reference of all archetype-point sources │
+!! │   Called via: gt '$menu_character', 'archetypes', 'catalog'  	 │
+!! │   Output: rendered HTML written directly to page 				 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cause_catalog':
+	'<center><div style="width:65%">'
+	!! ── Pre-built cell HTML (uses 'wrap' for theme-safe colours) ─
+	!! Magnitude: 1=slight (small arrow), 2=moderate (arrow), 4=strong (↑↑), 6=very strong (↑↑↑)
+	$cc['bg+'] = 'background:' + $theme_hex['v_pos'] + '10;'
+	$cc['bg-'] = 'background:' + $theme_hex['v_neg'] + '10;'
+	$cc['bg+_hex'] = $theme_hex['v_pos']
+	$cc['bg-_hex'] = $theme_hex['v_neg']
+	$cc['__'] = '<td align="center" style="color:#555555;">—</td>'
+	!! Bimbo cells
+	$cc['b+1'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'bimbo', '<small>↑</small>') + '</td>'
+	$cc['b+2'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'bimbo', '↑') + '</td>'
+	$cc['b+4'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'bimbo b', '↑↑') + '</td>'
+	$cc['b-1'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'bimbo', '<small>↓</small>') + '</td>'
+	$cc['b-2'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'bimbo', '↓') + '</td>'
+	$cc['b-4'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'bimbo b', '↓↓') + '</td>'
+	!! Preppy cells
+	$cc['p+1'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'preppy', '<small>↑</small>') + '</td>'
+	$cc['p+2'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'preppy', '↑') + '</td>'
+	$cc['p+4'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'preppy b', '↑↑') + '</td>'
+	$cc['p-1'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'preppy', '<small>↓</small>') + '</td>'
+	$cc['p-2'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'preppy', '↓') + '</td>'
+	$cc['p-4'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'preppy b', '↓↓') + '</td>'
+	!! Prude cells
+	$cc['r+1'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'prude', '<small>↑</small>') + '</td>'
+	$cc['r+2'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'prude', '↑') + '</td>'
+	$cc['r+4'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'prude b', '↑↑') + '</td>'
+	$cc['r+6'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'prude b', '↑↑↑') + '</td>'
+	$cc['r-1'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'prude', '<small>↓</small>') + '</td>'
+	$cc['r-2'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'prude', '↓') + '</td>'
+	$cc['r-4'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'prude b', '↓↓') + '</td>'
+	$cc['r-6'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'prude b', '↓↓↓') + '</td>'
+	!! Punk cells
+	$cc['u+1'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'punk', '<small>↑</small>') + '</td>'
+	$cc['u+2'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'punk', '↑') + '</td>'
+	$cc['u+4'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'punk b', '↑↑') + '</td>'
+	$cc['u-1'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'punk', '<small>↓</small>') + '</td>'
+	$cc['u-2'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'punk', '↓') + '</td>'
+	!! Goth cells
+	$cc['g+1'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'goth', '<small>↑</small>') + '</td>'
+	$cc['g+2'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'goth', '↑') + '</td>'
+	$cc['g+6'] = '<td align="center" bgcolor="<<$cc[''bg+_hex'']>>" style="<<$cc[''bg+'']>>">' + $func('wrap', 'goth b', '↑↑↑') + '</td>'
+	$cc['g-1'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'goth', '<small>↓</small>') + '</td>'
+	$cc['g-2'] = '<td align="center" bgcolor="<<$cc[''bg-_hex'']>>" style="<<$cc[''bg-'']>>">' + $func('wrap', 'goth', '↓') + '</td>'
+
+	!! ── Shared table string ─────────────────────────────────────────
+	$cc['tbl'] = '<table width="100%" cellpadding="3" cellspacing="0" style="font-size:0.88em;border-collapse:collapse;">'
+	!! By-category header: each archetype name is a link to filter to that archetype
+	$cc['hdr'] = '<tr style="border-bottom:1px solid #888888;font-size:0.85em;"><th align="left">状态</th>'
+	$cc['hdr'] += '<th align="center" width="52"><a href="exec:archetype_catalog_view=1 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''">' + $func('wrap', 'bimbo', '花瓶') + '</a></th>'
+	$cc['hdr'] += '<th align="center" width="52"><a href="exec:archetype_catalog_view=2 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''">' + $func('wrap', 'preppy', '学院风') + '</a></th>'
+	$cc['hdr'] += '<th align="center" width="52"><a href="exec:archetype_catalog_view=3 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''">' + $func('wrap', 'prude', '保守派') + '</a></th>'
+	$cc['hdr'] += '<th align="center" width="52"><a href="exec:archetype_catalog_view=4 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''">' + $func('wrap', 'punk', '朋克') + '</a></th>'
+	$cc['hdr'] += '<th align="center" width="52"><a href="exec:archetype_catalog_view=5 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''">' + $func('wrap', 'goth', '哥特') + '</a></th></tr>'
+
+	$cc['b'] = $func('wrap', 'bimbo', '花瓶')
+	$cc['g'] = $func('wrap', 'goth', '哥特')
+	$cc['pp'] = $func('wrap', 'preppy', '学院风')
+	$cc['pr'] = $func('wrap', 'prude', '保守派')
+	$cc['pu'] = $func('wrap', 'punk', '朋克')
+
+	!! ── Data rows ───────────────────────────────────────────────────
+	!! Parallel arrays: $cc_cond, $cc_cat, $cc_bv/$cc_pv/$cc_rv/$cc_uv/$cc_gv
+	!! Values are cell-var keys ('b+4', '__', etc.) looked up via $cc[key] at render time.
+	!! Rows must stay grouped by category so section headers appear correctly.
+	i = 0
+	!! CLOTHING
+	$cc_cond[i]='辣妹风格装扮'					& $cc_cat[i]='服装'		& $cc_bv[i]='b+4'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='学院风装扮'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p+4'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='保守风格装扮'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r+4'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='朋克风格服装'						& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+4'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='哥特风格服装'						& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+6'	& i = i + 1
+	$cc_cond[i]='叛逆/另类剪裁'			& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p-2'	& $cc_rv[i]='__'	& $cc_uv[i]='u+2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='富贵/名牌剪裁'				& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p+2'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='站街女/妓女/卖淫风格剪裁'	& $cc_cat[i]='服装'		& $cc_bv[i]='b+1'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='宽松/无形剪裁'					& $cc_cat[i]='服装'		& $cc_bv[i]='b-2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='脱衣舞娘风格服装'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r-2'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='校服 （非上课时间）'	& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r+2'	& $cc_uv[i]='u-2'	& $cc_gv[i]='g-2'	& i = i + 1
+	$cc_cond[i]='办公/商务服装'				& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p+2'	& $cc_rv[i]='__'	& $cc_uv[i]='u-2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='运动/锻炼服装'			& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g-2'	& i = i + 1
+	$cc_cond[i]='极度保守的覆盖度'		& $cc_cat[i]='服装'		& $cc_bv[i]='b-2'	& $cc_pv[i]='__'	& $cc_rv[i]='r+2'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='保守覆盖度'					& $cc_cat[i]='服装'		& $cc_bv[i]='b-2'	& $cc_pv[i]='__'	& $cc_rv[i]='r+2'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='暴露覆盖度'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r-2'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='非常暴露覆盖度'				& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r-4'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='极其暴露覆盖度'			& $cc_cat[i]='服装'		& $cc_bv[i]='b+2'	& $cc_pv[i]='__'	& $cc_rv[i]='r-6'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='高质量服装'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p+2'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='中等质量服装'				& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p-2'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='低质量服装'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p-4'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='耐久度低于60%的服装'			& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p-2'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='耐久度低于25%的服装'			& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p-4'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='昂贵服装'					& $cc_cat[i]='服装'		& $cc_bv[i]='__'	& $cc_pv[i]='p+2'	& $cc_rv[i]='__'	& $cc_uv[i]='u-2'	& $cc_gv[i]='__'	& i = i + 1
+	!! SHOES
+	$cc_cond[i]='艳俗风格鞋子'						& $cc_cat[i]='鞋子'		& $cc_bv[i]='b+4'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='学院风鞋子'					& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='p+4'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='保守风格鞋子'						& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r+2'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='朋克风格鞋子'						& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+4'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='哥特风格鞋子'						& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+6'	& i = i + 1
+	$cc_cond[i]='高跟鞋'							& $cc_cat[i]='鞋子'		& $cc_bv[i]='b+2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='高质量鞋子'					& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='p+2'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='朋克标记鞋风格'				& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='暴露风格鞋子'					& $cc_cat[i]='鞋子'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r-2'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	!! MAKEUP
+	$cc_cond[i]='晕染/斑驳的妆容'				& $cc_cat[i]='妆容'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+4'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='完全素颜'						& $cc_cat[i]='妆容'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='中等/专业妆容'			& $cc_cat[i]='妆容'		& $cc_bv[i]='__'	& $cc_pv[i]='p+2'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='傻妞妆'							& $cc_cat[i]='妆容'		& $cc_bv[i]='b+4'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='哥特妆'							& $cc_cat[i]='妆容'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+6'	& i = i + 1
+	!! HAIR
+	$cc_cond[i]='短发'							& $cc_cat[i]='头发'			& $cc_bv[i]='b-2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='非自然/染色发色'				& $cc_cat[i]='头发'			& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+2'	& $cc_gv[i]='g+2'	& i = i + 1
+	$cc_cond[i]='染黑 （非自然）'				& $cc_cat[i]='头发'			& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+2'	& i = i + 1
+	$cc_cond[i]='染金发 （非自然）'				& $cc_cat[i]='头发'			& $cc_bv[i]='b+2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='粉色染发'						& $cc_cat[i]='头发'			& $cc_bv[i]='b+2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='紫色染发'						& $cc_cat[i]='头发'			& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+2'	& i = i + 1
+	$cc_cond[i]='深/中红色头发'				& $cc_cat[i]='头发'			& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+2'	& i = i + 1
+	$cc_cond[i]='修剪过或无毛的阴毛'			& $cc_cat[i]='头发'			& $cc_bv[i]='b+2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='未刮毛的腿'							& $cc_cat[i]='头发'			& $cc_bv[i]='b-2'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	!! BODY MODS
+	$cc_cond[i]='任何非耳部穿孔'					& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='面部/肚脐穿孔'				& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+1'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='面部穿孔'						& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+1'	& i = i + 1
+	$cc_cond[i]='私密处穿孔'						& $cc_cat[i]='身体改造'	& $cc_bv[i]='b+1'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='任何纹身'							& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+1'	& i = i + 1
+	$cc_cond[i]='可见纹身 （脸部 / 手臂 / 等）'	& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u+1'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='私密纹身'						& $cc_cat[i]='身体改造'	& $cc_bv[i]='b+1'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='佩戴肛塞'					& $cc_cat[i]='身体改造'	& $cc_bv[i]='b+1'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='佩戴按摩棒'					& $cc_cat[i]='身体改造'	& $cc_bv[i]='b+1'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='隆胸'						& $cc_cat[i]='身体改造'	& $cc_bv[i]='b+4'	& $cc_pv[i]='__'	& $cc_rv[i]='r-6'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='隆臀'							& $cc_cat[i]='身体改造'	& $cc_bv[i]='b+4'	& $cc_pv[i]='__'	& $cc_rv[i]='r-4'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='戴眼镜'						& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='p-2'	& $cc_rv[i]='__'	& $cc_uv[i]='u-2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='戴隐形眼镜'				& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u-2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='戴牙套'				& $cc_cat[i]='身体改造'	& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='u-2'	& $cc_gv[i]='__'	& i = i + 1
+	!! SOCIAL
+	$cc_cond[i]='受欢迎派系'						& $cc_cat[i]='社交'		& $cc_bv[i]='b+1'	& $cc_pv[i]='p+1'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g-1'	& i = i + 1
+	$cc_cond[i]='体育生派系'							& $cc_cat[i]='社交'		& $cc_bv[i]='__'	& $cc_pv[i]='p+1'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g-1'	& i = i + 1
+	$cc_cond[i]='书呆子派系'							& $cc_cat[i]='社交'		& $cc_bv[i]='__'	& $cc_pv[i]='p-1'	& $cc_rv[i]='r+1'	& $cc_uv[i]='u-1'	& $cc_gv[i]='g-1'	& i = i + 1
+	$cc_cond[i]='戈普尼克派系'						& $cc_cat[i]='社交'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r-1'	& $cc_uv[i]='u+1'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='边缘人派系'						& $cc_cat[i]='社交'		& $cc_bv[i]='b-1'	& $cc_pv[i]='__'	& $cc_rv[i]='__'	& $cc_uv[i]='__'	& $cc_gv[i]='g+1'	& i = i + 1
+	$cc_cond[i]='高排名国际象棋棋手'			& $cc_cat[i]='社交'		& $cc_bv[i]='b-1'	& $cc_pv[i]='__'	& $cc_rv[i]='r+1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='在啦啦队'				& $cc_cat[i]='社交'		& $cc_bv[i]='__'	& $cc_pv[i]='p+1'	& $cc_rv[i]='__'	& $cc_uv[i]='u-1'	& $cc_gv[i]='g-1'	& i = i + 1
+	!! DRUGS & ALCOHOL
+	$cc_cond[i]='醉酒'									& $cc_cat[i]='毒品与酒精'	& $cc_bv[i]='__'	& $cc_pv[i]='__' & $cc_rv[i]='r-2' & $cc_uv[i]='u+2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='服用春药'						& $cc_cat[i]='毒品与酒精'	& $cc_bv[i]='b+2'	& $cc_pv[i]='__' & $cc_rv[i]='r-2' & $cc_uv[i]='__'		& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='嗨了'								& $cc_cat[i]='毒品与酒精'	& $cc_bv[i]='__'	& $cc_pv[i]='__' & $cc_rv[i]='r-1' & $cc_uv[i]='u+1'	& $cc_gv[i]='g+1'	& i = i + 1
+	$cc_cond[i]='服用安非他命'						& $cc_cat[i]='毒品与酒精'	& $cc_bv[i]='__'	& $cc_pv[i]='__' & $cc_rv[i]='r-2' & $cc_uv[i]='u+2'	& $cc_gv[i]='__'	& i = i + 1
+	$cc_cond[i]='海洛因作用中'								& $cc_cat[i]='毒品与酒精'	& $cc_bv[i]='__'	& $cc_pv[i]='__' & $cc_rv[i]='r-3' & $cc_uv[i]='u+1'	& $cc_gv[i]='g+2'	& i = i + 1
+	!! CHASTITY
+	$cc_cond[i]='距上次性行为 14 天以上'				& $cc_cat[i]='贞洁'		& $cc_bv[i]='__'	& $cc_pv[i]='__'	& $cc_rv[i]='r+1'	& $cc_uv[i]='__'	& $cc_gv[i]='__'
+
+	!! ── Legend ──────────────────────────────────────────────────────
+	*p '<h3 style="text-align:center;margin:8px 0 4px;">原型点数的获得与损失</h3>'
+	*p '<p style="text-align:center;font-size:0.85em;color:#888888;margin:0 0 8px;">每项影响因素在其生效的每一分钟都会推动原型分数上升或下降。↑ = 中等 &nbsp;↑↑ = 强 &nbsp;↑↑↑ = 非常强 &nbsp; 小箭头 = 轻微。</p>'
+
+	!! ── View toggle bar ─────────────────────────────────────────────
+	!! Shared button style fragments
+	$cc['btn'] = 'display:inline-block;padding:7px 18px;margin:2px;border:1px solid #888888;border-radius:4px;font-size:0.95em;'
+	$cc['btn_on'] = $cc['btn'] + 'font-weight:bold;opacity:0.5;cursor:default;'
+	!! Row 1: By Category / By Archetype
+	if archetype_catalog_view = 0:
+		*p '<div style="text-align:center;margin:10px 0 4px;"><span style="' + $cc['btn_on'] + '">按类别</span><a href="exec:archetype_catalog_view=1 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['btn'] + '">按原型</a></div>'
+	else
+		*p '<div style="text-align:center;margin:10px 0 4px;"><a href="exec:archetype_catalog_view=0 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['btn'] + '">按类别</a><span style="' + $cc['btn_on'] + '">按原型</span></div>'
+		!! Row 2: archetype selector buttons, one per archetype
+		$cc['tb'] = 'display:inline-block;padding:5px 16px;margin:2px;border:1px solid;border-radius:4px;font-size:0.9em;'
+		$cc['tb_on'] = $cc['tb'] + 'font-weight:bold;opacity:0.6;cursor:default;'
+		*p '<div style="text-align:center;margin:0 0 12px;">'
+		!! Bimbo
+		if archetype_catalog_view = 1:
+			*p '<span style="' + $cc['tb_on'] + 'border-color:' + $theme_hex['bimbo'] + ';color:' + $theme_hex['bimbo'] + ';">花瓶</span>'
+		else
+			*p '<a href="exec:archetype_catalog_view=1 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['tb'] + 'border-color:' + $theme_hex['bimbo'] + ';color:' + $theme_hex['bimbo'] + ';">花瓶</a>'
+		end
+		!! Preppy
+		if archetype_catalog_view = 2:
+			*p '<span style="' + $cc['tb_on'] + 'border-color:' + $theme_hex['accent'] + ';color:' + $theme_hex['accent'] + ';">学院风</span>'
+		else
+			*p '<a href="exec:archetype_catalog_view=2 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['tb'] + 'border-color:' + $theme_hex['accent'] + ';color:' + $theme_hex['accent'] + ';">学院风</a>'
+		end
+		!! Prude
+		if archetype_catalog_view = 3:
+			*p '<span style="' + $cc['tb_on'] + 'border-color:' + $theme_hex['neutral'] + ';color:' + $theme_hex['neutral'] + ';">保守派</span>'
+		else
+			*p '<a href="exec:archetype_catalog_view=3 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['tb'] + 'border-color:' + $theme_hex['neutral'] + ';color:' + $theme_hex['neutral'] + ';">保守派</a>'
+		end
+		!! Punk
+		if archetype_catalog_view = 4:
+			*p '<span style="' + $cc['tb_on'] + 'border-color:' + $theme_hex['punk'] + ';color:' + $theme_hex['punk'] + ';">朋克</span>'
+		else
+			*p '<a href="exec:archetype_catalog_view=4 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['tb'] + 'border-color:' + $theme_hex['punk'] + ';color:' + $theme_hex['punk'] + ';">朋克</a>'
+		end
+		!! Goth
+		if archetype_catalog_view = 5:
+			*p '<span style="' + $cc['tb_on'] + 'border-color:' + $theme_hex['goth'] + ';color:' + $theme_hex['goth'] + ';">哥特</span>'
+		else
+			*p '<a href="exec:archetype_catalog_view=5 & archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="' + $cc['tb'] + 'border-color:' + $theme_hex['goth'] + ';color:' + $theme_hex['goth'] + ';">哥特</a>'
+		end
+		*p '</div>'
+	end
+
+	!! ── Render ───────────────────────────────────────────────────────
+	if archetype_catalog_view = 0:
+		!! BY CATEGORY: separate table per category, each with heading + description
+		n = 0
+		$cc_prevcat = ''
+		:cc_cat_loop
+		if n < arrsize('cc_cond'):
+			if $cc_cat[n] <> $cc_prevcat:
+				if $cc_prevcat <> '': *p '</table>'
+				$cc_prevcat = $cc_cat[n]
+				*p '<div style="margin:10px 0 4px;font-size:1em;font-weight:bold;border-bottom:1px solid #888888;"><<$cc_prevcat>></div>'
+				if $cc_prevcat = '服装':			*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>只要你穿着衣服就会生效。风格、剪裁和覆盖度都会影响你的原型分数。</i></p>'
+				if $cc_prevcat = '鞋子':				*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>只要你穿着鞋子就会生效。</i></p>'
+				if $cc_prevcat = '妆容':				*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>取决于你当前的化妆风格。</i></p>'
+				if $cc_prevcat = '头发':				*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>发长、发色和打理方式都会传递信号。</i></p>'
+				if $cc_prevcat = '身体改造':			*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>永久性改造 （隆胸、纹身） 以及佩戴物 （穿孔、眼镜、牙套）。</i></p>'
+				if $cc_prevcat = '社交':				*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>只有在你仍在校时才会计算。你的圈子、爱好和课外活动都会影响别人对你的看法。</i></p>'
+				if $cc_prevcat = '毒品与酒精': *p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>醉酒或受到某些药物影响会主动改变原型分数。</i></p>'
+				if $cc_prevcat = '贞洁':			*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;"><i>性行为在这里不按速率计分，而是给予一次性「故事」事件；详情见你的原型历史记录。</i></p>'
+				*p $cc['tbl'] + $cc['hdr']
+			end
+			*p '<tr><td><<$cc_cond[n]>></td>' + $cc[$cc_bv[n]] + $cc[$cc_pv[n]] + $cc[$cc_rv[n]] + $cc[$cc_uv[n]] + $cc[$cc_gv[n]] + '</tr>'
+			n = n + 1
+			jump 'cc_cat_loop'
+		end
+		*p '</table>'
+	else
+		!! BY archetype: filtered table with sortable columns
+		if archetype_catalog_view = 1: $cc_title = $func('wrap', 'bimbo',   '花瓶') & $cc_tcol = $theme_hex['bimbo']
+		if archetype_catalog_view = 2: $cc_title = $func('wrap', 'preppy',  '学院风') & $cc_tcol = $theme_hex['accent']
+		if archetype_catalog_view = 3: $cc_title = $func('wrap', 'prude', '保守派') & $cc_tcol = $theme_hex['neutral']
+		if archetype_catalog_view = 4: $cc_title = $func('wrap', 'punk',    '朋克') & $cc_tcol = $theme_hex['punk']
+		if archetype_catalog_view = 5: $cc_title = $func('wrap', 'goth',    '哥特') & $cc_tcol = $theme_hex['goth']
+		!! Header: Category (clickable when sort=1) | ArchetypeName (clickable when sort=0)
+		if archetype_catalog_sort = 1:
+			$cc_hdr2 = '<tr style="border-bottom:1px solid #888888;font-size:0.85em;"><th align="left">状态</th><th align="left" width="120"><a href="exec:archetype_catalog_sort=0 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="color:' + $cc_tcol + ';">分类 ↕</a></th><th align="center" width="80"><<$cc_title>></th></tr>'
+		else
+			$cc_hdr2 = '<tr style="border-bottom:1px solid #888888;font-size:0.85em;"><th align="left">状态</th><th align="left" width="120">类别</th><th align="center" width="80"><a href="exec:archetype_catalog_sort=1 & gt ''$menu_character'', ''archetypes'', ''catalog''" style="color:' + $cc_tcol + ';"><<$cc_title>> ↕</a></th></tr>'
+		end
+		*p $cc['tbl'] + $cc_hdr2
+		if archetype_catalog_sort = 1:
+			!! Sort by magnitude: 4 bucketed passes (strong+ → mild+ → mild− → strong−)
+			!! Pass 1: +6 / +4
+			n = 0
+			:cc_t_sp
+			if n < arrsize('cc_cond'):
+				if archetype_catalog_view = 1: $cc_tcell = $cc_bv[n]
+				if archetype_catalog_view = 2: $cc_tcell = $cc_pv[n]
+				if archetype_catalog_view = 3: $cc_tcell = $cc_rv[n]
+				if archetype_catalog_view = 4: $cc_tcell = $cc_uv[n]
+				if archetype_catalog_view = 5: $cc_tcell = $cc_gv[n]
+				if $cc_tcell = 'b+6' or $cc_tcell = 'p+6' or $cc_tcell = 'r+6' or $cc_tcell = 'u+6' or $cc_tcell = 'g+6' or $cc_tcell = 'b+4' or $cc_tcell = 'p+4' or $cc_tcell = 'r+4' or $cc_tcell = 'u+4' or $cc_tcell = 'g+4':
+					*p '<tr><td><<$cc_cond[n]>></td><td><<$cc_cat[n]>></td>' + $cc[$cc_tcell] + '</tr>'
+				end
+				n = n + 1 & jump 'cc_t_sp'
+			end
+			!! Pass 2: +2 / +1
+			n = 0
+			:cc_t_mp
+			if n < arrsize('cc_cond'):
+				if archetype_catalog_view = 1: $cc_tcell = $cc_bv[n]
+				if archetype_catalog_view = 2: $cc_tcell = $cc_pv[n]
+				if archetype_catalog_view = 3: $cc_tcell = $cc_rv[n]
+				if archetype_catalog_view = 4: $cc_tcell = $cc_uv[n]
+				if archetype_catalog_view = 5: $cc_tcell = $cc_gv[n]
+				if $cc_tcell = 'b+2' or $cc_tcell = 'p+2' or $cc_tcell = 'r+2' or $cc_tcell = 'u+2' or $cc_tcell = 'g+2' or $cc_tcell = 'b+1' or $cc_tcell = 'p+1' or $cc_tcell = 'r+1' or $cc_tcell = 'u+1' or $cc_tcell = 'g+1':
+					*p '<tr><td><<$cc_cond[n]>></td><td><<$cc_cat[n]>></td>' + $cc[$cc_tcell] + '</tr>'
+				end
+				n = n + 1 & jump 'cc_t_mp'
+			end
+			!! Pass 3: −1 / −2
+			n = 0
+			:cc_t_mn
+			if n < arrsize('cc_cond'):
+				if archetype_catalog_view = 1: $cc_tcell = $cc_bv[n]
+				if archetype_catalog_view = 2: $cc_tcell = $cc_pv[n]
+				if archetype_catalog_view = 3: $cc_tcell = $cc_rv[n]
+				if archetype_catalog_view = 4: $cc_tcell = $cc_uv[n]
+				if archetype_catalog_view = 5: $cc_tcell = $cc_gv[n]
+				if $cc_tcell = 'b-1' or $cc_tcell = 'p-1' or $cc_tcell = 'r-1' or $cc_tcell = 'u-1' or $cc_tcell = 'g-1' or $cc_tcell = 'b-2' or $cc_tcell = 'p-2' or $cc_tcell = 'r-2' or $cc_tcell = 'u-2' or $cc_tcell = 'g-2':
+					*p '<tr><td><<$cc_cond[n]>></td><td><<$cc_cat[n]>></td>' + $cc[$cc_tcell] + '</tr>'
+				end
+				n = n + 1 & jump 'cc_t_mn'
+			end
+			!! Pass 4: −4 / −6
+			n = 0
+			:cc_t_sn
+			if n < arrsize('cc_cond'):
+				if archetype_catalog_view = 1: $cc_tcell = $cc_bv[n]
+				if archetype_catalog_view = 2: $cc_tcell = $cc_pv[n]
+				if archetype_catalog_view = 3: $cc_tcell = $cc_rv[n]
+				if archetype_catalog_view = 4: $cc_tcell = $cc_uv[n]
+				if archetype_catalog_view = 5: $cc_tcell = $cc_gv[n]
+				if $cc_tcell = 'b-4' or $cc_tcell = 'p-4' or $cc_tcell = 'r-4' or $cc_tcell = 'u-4' or $cc_tcell = 'g-4' or $cc_tcell = 'b-6' or $cc_tcell = 'p-6' or $cc_tcell = 'r-6' or $cc_tcell = 'u-6' or $cc_tcell = 'g-6':
+					*p '<tr><td><<$cc_cond[n]>></td><td><<$cc_cat[n]>></td>' + $cc[$cc_tcell] + '</tr>'
+				end
+				n = n + 1 & jump 'cc_t_sn'
+			end
+		else
+			!! Sort by category: linear scan in original array order
+			n = 0
+			:cc_archetype_loop
+			if n < arrsize('cc_cond'):
+				if archetype_catalog_view = 1: $cc_tcell = $cc_bv[n]
+				if archetype_catalog_view = 2: $cc_tcell = $cc_pv[n]
+				if archetype_catalog_view = 3: $cc_tcell = $cc_rv[n]
+				if archetype_catalog_view = 4: $cc_tcell = $cc_uv[n]
+				if archetype_catalog_view = 5: $cc_tcell = $cc_gv[n]
+				if $cc_tcell <> '__':
+					*p '<tr><td><<$cc_cond[n]>></td><td><<$cc_cat[n]>></td>' + $cc[$cc_tcell] + '</tr>'
+				end
+				n = n + 1
+				jump 'cc_archetype_loop'
+			end
+		end
+		*p '</table>'
+	end
+
+	!! ── Footer (always shown) ────────────────────────────────────────
+	*p '<div style="margin:10px 0 4px;font-size:1em;font-weight:bold;border-bottom:1px solid #888888;">被动衰减</div>'
+	*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;">所有原型每游戏分钟都会衰减，衰减强度取决于该原型当前拥有的点数。正是这种持续向下的漂移，使得任何原型在没有持续强化的情况下都不会失控增长。</p>'
+	*p '<div style="margin:10px 0 4px;font-size:1em;font-weight:bold;border-bottom:1px solid #888888;">对立</div>'
+	*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;">每个原型都有两个对立面；在一个原型上获得点数总会削弱它的对立面。 <<$cc[''b'']>>对立于<<$cc[''pr'']>> &amp; <<$cc[''pu'']>>。 <<$cc[''pp'']>>对立于<<$cc[''pu'']>> &amp; <<$cc[''g'']>>。 <<$cc[''pr'']>>对立于<<$cc[''g'']>> &amp; <<$cc[''b'']>>。 <<$cc[''pu'']>>对立于<<$cc[''b'']>> &amp; <<$cc[''pp'']>>。 <<$cc[''g'']>>对立于<<$cc[''pp'']>> &amp; <<$cc[''pr'']>>。</p>'
+	*p '<div style="margin:10px 0 4px;font-size:1em;font-weight:bold;border-bottom:1px solid #888888;">故事事件</div>'
+	*p '<p style="font-size:0.82em;color:#888888;margin:0 0 4px;">通过任务、事件和故事中的选择直接获得或失去原型点数。<br>例如，在教堂真诚祈祷可能会获得保守点数。</p>'
+	'</div></center>'
+	killvar 'cc'
+	killvar 'cc_cond'
+	killvar 'cc_cat'
+	killvar 'cc_bv'
+	killvar 'cc_pv'
+	killvar 'cc_rv'
+	killvar 'cc_uv'
+	killvar 'cc_gv'
+	killvar 'cc_prevcat'
+	killvar 'cc_tcell'
+	killvar 'cc_title'
+	killvar 'cc_hdr2'
+	killvar 'cc_tcol'
+	killvar 'i'
+	killvar 'n'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Archetype Event Log 												 ║
+!! ║  Rolling 24-hour log of individual archetype point changes.		 ║
+!! ║  Disabled when stat_cfg['arch_log_enabled'] = 0. 					 ║
+!! ║																	 ║
+!! ║  Storage (parallel arrays, always packed at index 0):				 ║
+!! ║	arch_log_minut[i]	- totminut when event was recorded  		 ║
+!! ║	$arch_log_archetype[i] - 'bimbo'|'preppy'|'prude'|'punk'|'goth'	 ║
+!! ║	$arch_log_cat[i]	- category key (clothing, hair, story, …)	 ║
+!! ║	$arch_log_label[i]	- story label (cat='story' only), else ''	 ║
+!! ║	arch_log_delta[i]	- raw points  								 ║
+!! ║																	 ║
+!! ║  No cursor needed: killvar arr, 0 shifts all later indices down.	 ║
+!! ║  arrsize('arch_log_minut') always equals the live entry count.		 ║
+!! ║																	 ║
+!! ║  gs 'archetypes', 'log_event', $archetype, $cat, $label, delta		 ║
+!! ║  gs 'archetypes', 'aggregate', window_minutes						 ║
+!! ║	→ populates agg['arch:X, cat:Y, w:N'] = total_delta 			 ║
+!! ║		agg is NOT persisted; killvar 'agg' after rendering.		 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Log Event														 │
+!! │  Appends one point-change record to the rolling 24-hour log.	 │
+!! │  $ARGS[1]  Archetype name ('bimbo', 'preppy', etc.)   			 │
+!! │  $ARGS[2]  Category key ('clothing', 'hair', 'story', etc.)	 │
+!! │  $ARGS[3]  Story label — non-empty only when cat = 'story'		 │
+!! │  ARGS[4]   Delta (signed integer; 0 is silently ignored)		 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'log_event':
+	if stat_cfg['arch_log_enabled'] = 0: exit
+	if ARGS[4] = 0: exit
+
+	!! ── Trim entries older than 24 hours from the front ───────────────
+	!! killvar arr, 0 removes index 0 and shifts all later indices down.
+	:tl_trim_loop
+	if arrsize('arch_log_minut') > 0:
+		if arch_log_minut[0] < totminut - 1440:
+			killvar 'arch_log_minut', 0
+			killvar 'arch_log_archetype', 0
+			killvar 'arch_log_cat', 0
+			killvar 'arch_log_label', 0
+			killvar 'arch_log_delta', 0
+			jump 'tl_trim_loop'
+		end
+	end
+
+	!! ── Append new entry at tail ───────────────────────────────────────
+	arch_log_minut[]	= totminut
+	$arch_log_archetype[]	= $ARGS[1]
+	$arch_log_cat[]	= $ARGS[2]
+	$arch_log_label[]	= $ARGS[3]
+	arch_log_delta[]	= ARGS[4]
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Aggregate														 │
+!! │	Walks the live log window and sums deltas into agg[].		 │
+!! │	Call once before rendering; killvar 'agg' after.			 │
+!! │	ARGS[1]  Window in minutes (e.g. 60 for last hour,			 │
+!! │			1440 for last day) 									 │
+!! │	Populates: agg['arch:X, cat:Y, w:N'] = total_delta			 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'aggregate':
+	temp_agg['window']	= iif(ARGS[1] > 0, ARGS[1], 1440)
+	temp_agg['cutoff']	= totminut - temp_agg['window']
+	temp_agg['i']		= 0
+	:agg_loop
+	if temp_agg['i'] < arrsize('arch_log_minut'):
+		if arch_log_minut[temp_agg['i']] >= temp_agg['cutoff']:
+			$temp_agg['key'] = 'arch:<<$arch_log_archetype[temp_agg[''i'']]>>, cat:<<$arch_log_cat[temp_agg[''i'']]>>, w:<<temp_agg[''window'']>>'
+			agg[$temp_agg['key']] += arch_log_delta[temp_agg['i']]
+		end
+		temp_agg['i'] += 1
+		jump 'agg_loop'
+	end
+	killvar 'temp_agg'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║  Archetype Notification Buffer										 ║
+!! ║  Accumulates point changes from 'gain' and 'lose' calls for		 ║
+!! ║  display in the stat panel via stat_display_compute.				 ║
+!! ║																	 ║
+!! ║  Settings (stat_cfg):												 ║
+!! ║    notify_archetypes          — 1 = hide (default 0 = show)		 ║
+!! ║    notify_archetypes_opposite — 1 = hide opposite deductions		 ║
+!! ║    notify_archetypes_state    — 1 = also track state-tick changes	 ║
+!! ║                         (tracked independently of notify_archetypes;║
+!! ║                          display still gated on notify_archetypes)	 ║
+!! ║																	 ║
+!! ║  Persistent window vars (not persisted across save/load):			 ║
+!! ║    tnotif_window_start    — totminut when last notification cleared ║
+!! ║    tnotif_popup_start     — window start of the last notification	 ║
+!! ║    tnotif_popup_end       — window end of the last notification	 ║
+!! ║																	 ║
+!! ║  gs 'archetypes', 'track_archetype', $name, delta					 ║
+!! ║  $func('archetypes', 'get_archetype_message')  → returns HTML		 ║
+!! ║  gs 'archetypes', 'notify_popup', $arch → msg popup (from href)	 ║
+!! ║  func('archetypes', 'is_empty_archetypes')   						 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+if $ARGS[0] = 'track_archetype':
+	tnotif_archetype_delta[$ARGS[1]] += ARGS[2]
+	if arrpos('$tnotif_archetype_names', $ARGS[1]) < 0:
+		$tnotif_archetype_names[] = $ARGS[1]
+	end
+	exit
+end
+
+if $ARGS[0] = 'get_archetype_message':
+	$result = ''
+	if arrsize('$tnotif_archetype_names') = 0: exit
+
+	!! Record window bounds for notify_popup
+	tnotif_popup_start = tnotif_window_start
+	tnotif_popup_end = totminut
+
+	$tnotif_disp['bimbo'] = '花瓶'
+	$tnotif_disp['preppy'] = '学院风'
+	$tnotif_disp['prude'] = '保守派'
+	$tnotif_disp['punk'] = '朋克'
+	$tnotif_disp['goth'] = '哥特'
+
+	tnotif_i = 0
+	:tnotif_archetype_loop
+		$tnotif_t = $tnotif_archetype_names[tnotif_i]
+		if tnotif_archetype_delta[$tnotif_t] <> 0:
+			!! Arrow tier: ↑(<50) / ↑↑(<250) / ↑↑↑(<1000) / ↑↑↑↑(≥1000)
+			tnotif_abs = iif(tnotif_archetype_delta[$tnotif_t] < 0, -tnotif_archetype_delta[$tnotif_t], tnotif_archetype_delta[$tnotif_t])
+			$tnotif_dir = iif(tnotif_archetype_delta[$tnotif_t] > 0, '↑', '↓')
+			if tnotif_abs <= 50:
+				$tnotif_arrow = $tnotif_dir
+			elseif tnotif_abs <= 250:
+				$tnotif_arrow = $tnotif_dir + $tnotif_dir
+			elseif tnotif_abs <= 1000:
+				$tnotif_arrow = $tnotif_dir + $tnotif_dir + $tnotif_dir
+			else
+				$tnotif_arrow = $tnotif_dir + $tnotif_dir + $tnotif_dir + $tnotif_dir
+			end
+			$result += iif($result <> '', '&ensp;', '') + '<a href="exec:gs ''archetypes'',''notify_popup'',''<<$tnotif_t>>''" style="color:<<$theme_hex[$tnotif_t]>>;text-decoration:underline"><<$tnotif_arrow>> <<$tnotif_disp[$tnotif_t]>></a>'
+		end
+		tnotif_i += 1
+	if tnotif_i < arrsize('$tnotif_archetype_names'): jump 'tnotif_archetype_loop'
+
+	$result = '<span style="font-weight:normal">' + $result + '</span>'
+
+	killvar 'tnotif_i'
+	killvar 'tnotif_t'
+	killvar 'tnotif_abs'
+	killvar 'tnotif_dir'
+	killvar 'tnotif_arrow'
+	killvar 'tnotif_disp'
+	killvar 'tnotif_archetype_delta'
+	killvar 'tnotif_archetype_names'
+	tnotif_window_start = totminut
+	exit
+end
+
+if $ARGS[0] = 'is_empty_archetypes':
+	result = (arrsize('$tnotif_archetype_names') = 0)
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Notify Popup 													 │
+!! │  Shows a msg popup breaking down arch changes for the last		 │
+!! │  notification window. Called from the clickable link in		 │
+!! │  get_archetype_message via exec: href.   						 │
+!! │  $ARGS[1]  Archetype name ('bimbo', 'preppy', etc.)   			 │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'notify_popup':
+	$temp_np['archetype'] = $ARGS[1]
+
+	!! Archetype display name
+	if $temp_np['archetype'] = 'bimbo':
+		$temp_np['disp'] = '花瓶'
+	elseif $temp_np['archetype'] = 'preppy':
+		$temp_np['disp'] = '学院风'
+	elseif $temp_np['archetype'] = 'prude':
+		$temp_np['disp'] = '保守派'
+	elseif $temp_np['archetype'] = 'punk':
+		$temp_np['disp'] = '朋克'
+	elseif $temp_np['archetype'] = 'goth':
+		$temp_np['disp'] = '哥特'
+	end
+
+	!! Ordered state category list and display names
+	$temp_np_cats[0] = 'clothing'
+	$temp_np_cats[1] = 'shoes'
+	$temp_np_cats[2] = 'makeup'
+	$temp_np_cats[3] = 'hair'
+	$temp_np_cats[4] = 'body_mods'
+	$temp_np_cats[5] = 'body'
+	$temp_np_cats[6] = 'social'
+	$temp_np_cats[7] = 'drugs'
+	$temp_np_cats[8] = 'chastity'
+	$temp_np_cat_disp['clothing'] = '服装'
+	$temp_np_cat_disp['shoes'] = '鞋子'
+	$temp_np_cat_disp['makeup'] = '妆容'
+	$temp_np_cat_disp['hair'] = '发型'
+	$temp_np_cat_disp['body_mods'] = '身体改造与玩具'
+	$temp_np_cat_disp['body'] = '身体'
+	$temp_np_cat_disp['social'] = '社交'
+	$temp_np_cat_disp['drugs'] = '药物与酒精'
+	$temp_np_cat_disp['chastity'] = '贞洁'
+
+	!! Walk the log for the recorded notification window
+	temp_np['i'] = 0
+	:np_walk_loop
+	if temp_np['i'] < arrsize('arch_log_minut'):
+		if $arch_log_archetype[temp_np['i']] = $temp_np['archetype']:
+			if arch_log_minut[temp_np['i']] >= tnotif_popup_start and arch_log_minut[temp_np['i']] <= tnotif_popup_end:
+				$temp_np['cat'] = $arch_log_cat[temp_np['i']]
+				if $temp_np['cat'] = 'story':
+					$temp_np['lbl'] = $iif($arch_log_label[temp_np['i']] <> '', $arch_log_label[temp_np['i']], '（未标注）')
+					if arrpos('$temp_np_labels', $temp_np['lbl']) < 0: $temp_np_labels[] = $temp_np['lbl']
+					temp_np_lbl_delta[$temp_np['lbl']] += arch_log_delta[temp_np['i']]
+				else
+					temp_np_cat_delta[$temp_np['cat']] += arch_log_delta[temp_np['i']]
+				end
+				temp_np['total'] += arch_log_delta[temp_np['i']]
+			end
+		end
+		temp_np['i'] += 1
+		jump 'np_walk_loop'
+	end
+
+	!! Header: coloured archetype name + net delta (fine dp)
+	$temp_np['out'] = '<font color="<<$theme_hex[$temp_np[''archetype'']]>>"><b><<$temp_np[''disp'']>></b></font> <<$func(''archetypes'',''fmt_pts'',temp_np[''total''],''fine'')>>本次更新<br><br>'
+
+	!! State categories (non-zero only, fine dp)
+	temp_np['ci'] = 0
+	:np_cats_loop
+	if temp_np['ci'] < 9:
+		$temp_np['ck'] = $temp_np_cats[temp_np['ci']]
+		if temp_np_cat_delta[$temp_np['ck']] <> 0:
+			$temp_np['out'] += '&nbsp;&nbsp;<<$temp_np_cat_disp[$temp_np[''ck'']]>>: <<$func(''archetypes'',''fmt_pts'',temp_np_cat_delta[$temp_np[''ck'']],''fine'')>><br>'
+		end
+		temp_np['ci'] += 1
+		jump 'np_cats_loop'
+	end
+
+	!! Passive decay and opposition (fine dp)
+	if temp_np_cat_delta['decay'] <> 0:
+		$temp_np['out'] += '&nbsp;&nbsp；衰减：<<$func(''archetypes'',''fmt_pts'',temp_np_cat_delta[''decay''],''fine'')>><br>'
+	end
+	if temp_np_cat_delta['opposition'] <> 0:
+		$temp_np['out'] += '&nbsp;&nbsp；对立：<<$func(''archetypes'',''fmt_pts'',temp_np_cat_delta[''opposition''],''fine'')>><br>'
+	end
+
+	!! Story events (per-label, fine dp)
+	if arrsize('$temp_np_labels') > 0:
+		$temp_np['out'] += '<br>'
+		temp_np['li'] = 0
+		:np_lbls_loop
+		if temp_np['li'] < arrsize('$temp_np_labels'):
+			$temp_np['lbl'] = $temp_np_labels[temp_np['li']]
+			$temp_np['out'] += '&nbsp;&nbsp;<<$temp_np[''lbl'']>>: <<$func(''archetypes'',''fmt_pts'',temp_np_lbl_delta[$temp_np[''lbl'']],''fine'')>><br>'
+			temp_np['li'] += 1
+			jump 'np_lbls_loop'
+		end
+	end
+
+	msg $temp_np['out']
+	killvar 'temp_np'
+	killvar 'temp_np_cats'
+	killvar 'temp_np_cat_disp'
+	killvar 'temp_np_cat_delta'
+	killvar 'temp_np_labels'
+	killvar 'temp_np_lbl_delta'
+	exit
+end
+
+
+msg '原型函数出错，不应执行到这一行：''<<$ARGS[0]>>'''
+
+--- archetypes ---------------------------------

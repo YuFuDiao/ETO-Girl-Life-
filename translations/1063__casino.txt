@@ -1,0 +1,1175 @@
+# casino
+
+$loc = 'casino'
+$menu_loc = 'casino'
+
+if $ARGS[0] = 'outside':
+	$loc_arg = 'outside'
+	$menu_arg = 'outside'
+	menu_off = 0
+	$location_type = 'public_outdoors'
+	*clr & cla
+	gs 'stat'
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/zdcasino.jpg"></right>'
+	'你站在赌场大门前。'
+
+	act '返回城市工业区': minut += 10 & gt 'city_industrial'
+	act '进入赌场': gt 'casino', 'foyer'
+end
+
+
+if $ARGS[0] = 'foyer':
+	CLOSE ALL
+	$loc_arg = $ARGS[0]
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	$location_type = 'public_indoors'
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	temp_pic_rand = rand(1, 3)
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/hcasino<<temp_pic_rand>>.jpg"></right>'
+	killvar 'temp_pic_rand'
+	'你走进赌场大厅，这里有许多游戏可以玩。'
+	*nl
+	'大厅里有各种各样的<a href="exec:gt ''casino'', ''slots''">老虎机</a>。'
+	'游戏室里有<a href="exec:gt ''casino'', ''roulette''">轮盘赌</a>和<a href="exec:gt ''casino'', ''cards''">纸牌游戏</a>。'
+	*nl
+	'在你能玩大多数游戏之前，你必须先把你的钱换成筹码，在<a href="exec:gt ''casino'', ''cashier''">收银台。</a>'
+	*pl $func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+
+	act '出去':
+		if casino_chips > 0:
+			*clr & cla
+			'你有<<casino_chips>>筹码在你身上。你最好在离开前到收银台把它们换成现金。'
+			act '还是离开': gt 'casino', 'outside'
+			act '出去': gt 'casino', 'outside'
+		else
+			gt 'casino', 'outside'
+		end
+	end
+	act '去收银台': gt 'casino', 'cashier'
+	act '去老虎机': gt 'casino', 'slots'
+	act '去轮盘赌桌': gt 'casino', 'roulette'
+	act '去纸牌桌': gt 'casino', 'cards'
+end
+
+
+if $ARGS[0] = 'cashier':
+	$loc_arg = $ARGS[0]
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	$location_type = 'public_indoors'
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	temp_pic_rand = rand(1, 3)
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/hcasino<<temp_pic_rand>>.jpg"></right>'
+	killvar 'temp_pic_rand'
+	*pl $func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	'你走近收银台，收银员微笑着向你打招呼。“欢迎光临！在这里你可以把钱换成筹码，也可以把筹码换成钱。请注意，我一次最多只能给你1000枚筹码；如果你手上已经有一千枚了，也不能再兑换更多。今天有什么需要帮忙的吗？”'
+	if casino_chips > 0:
+		act '用筹码换钱':
+			temp_chips = input('请输入你想换成钱的筹码数量，介于 1 和<<casino_chips>>之间。')
+			if temp_chips > 0 and temp_chips <= casino_chips:
+				gs 'money', 'earn', temp_chips
+				casino_chips -= temp_chips
+				*pl $func('wrap', 'accent', '你交换了<<temp_chips>>个筹码，换到了<<$func(''money'', ''string_price'', temp_chips)>>。')
+			else
+				msg '输入的金额无效。'
+				gt 'casino', 'cashier'
+			end
+			killvar 'temp_chips'
+			cla
+			act '继续': gt 'casino', 'cashier'
+		end
+	end
+
+	if func('money', 'can_afford', 1) = 1 and casino_chips < 1000:
+		act '用钱换筹码':
+			temp_chips = input('请输入你想购买的筹码数量，介于 1 和<<1000 - casino_chips>>之间。')
+			if temp_chips > 0 and temp_chips <= 1000 - casino_chips:
+				if func('money', 'can_afford', temp_chips):
+					gs 'money', 'pay', temp_chips
+					casino_chips += temp_chips
+					*pl $func('wrap', 'accent', '你交换了<<$func(''money'', ''string_price'', temp_chips)>>，换到了<<temp_chips>>个筹码。')
+				else
+					msg '你买不起这么多筹码。'
+					gt 'casino', 'cashier'
+				end
+			else
+				msg '输入的金额无效。'
+				gt 'casino', 'cashier'
+			end
+			killvar 'temp_chips'
+			cla
+			act '继续': gt 'casino', 'cashier'
+		end
+	end
+	act '返回门厅': gt 'casino', 'foyer'
+end
+
+
+!! ----------
+!! Roulette
+!! ----------
+
+
+if $ARGS[0] = 'roulette':
+	$loc_arg = $ARGS[0]
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/ruletka.jpg"></right>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	'你走近一张美式轮盘赌桌。'
+
+	act '回到门厅': gt 'casino', 'foyer'
+	act '玩轮盘赌': gt 'casino', 'roulette_bet1'
+	act '走近荷官':
+		*clr & cla
+		menu_off = 1
+		minut += 1
+		gs 'stat'
+		'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/crup.jpg"></right>'
+		'“需要我帮忙吗？”他问道。'
+
+		act '摇摇头走开': gt 'casino', 'roulette'
+
+		act '询问规则':
+			msg '规则非常简单。
+			首先，你选择想下注的金额。
+			然后你选择把筹码放在哪里。共有六种下注方式：
+			1. 红/黑（赔率：1 赔 1）
+			2. 单/双（赔率：1 赔 1）
+			3. 小/大（赔率：1 赔 1）
+			4. 一打（赔率：1 赔 3）
+			5. 系列（赔率：1 赔 3）
+			6. 单个数字（赔率：1 赔 36）
+			剩下的就看你的运气了。'
+			gt 'casino', 'roulette'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'roulette_bet1':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	kh = 0
+	chnch = 0
+	mb = 0
+	du = 0
+	series = 0
+	chi = 100
+	x_rul = 100
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/amrul.jpg"></center>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	'你俯身靠近赌桌。'
+
+	act '从桌边走开': gt 'casino', 'roulette'
+
+	act '下注':
+		st_1 = input '输入金额'
+
+		if casino_chips < st_1:
+			msg '<br>你的筹码不够。'
+			gt 'casino', 'roulette_bet1'
+		elseif st_1 <= 0:
+			msg '<br>你不能押为零或负数的金额。'
+			gt 'casino', 'roulette_bet1'
+		else
+			casino_chips -= st_1
+			gt 'casino', 'roulette_bet2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'roulette_bet2':
+	*clr & cla
+	minut += 1
+	kh = 0
+	chnch = 0
+	mb = 0
+	du = 0
+	series = 0
+	chi = 100
+	gs 'stat'
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/stavkaru.jpg"></right>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	'你想把筹码放在哪里？'
+
+	act '不下注':
+		casino_chips += st_1
+		gt 'casino', 'roulette_bet1'
+	end
+
+	act '红 / 黑':
+		cla
+		act '重新考虑': gt 'casino', 'roulette_bet2'
+		act '红色': kh = 1 & gt 'casino', 'roulette_result'
+		act '黑色': kh = 2 & gt 'casino', 'roulette_result'
+	end
+
+	act '偶 / 奇':
+		cla
+		act '重新考虑': gt 'casino', 'roulette_bet2'
+		act '偶数':	chnch = 1 & gt 'casino', 'roulette_result'
+		act '奇数': chnch = 2 & gt 'casino', 'roulette_result'
+	end
+
+	act '小 / 大':
+		cla
+		act '重新考虑': gt 'casino', 'roulette_bet2'
+		act '小：1-18': mb = 1 & gt 'casino', 'roulette_result'
+		act '大：19-36':	mb = 2 & gt 'casino', 'roulette_result'
+	end
+
+	act '12个数':
+		cla
+		act '重新考虑': gt 'casino', 'roulette_bet2'
+		act '第一组：1-12': du = 1 & gt 'casino', 'roulette_result'
+		act '第二组：13-24': du = 2 & gt 'casino', 'roulette_result'
+		act '第三组：25-36': du = 3 & gt 'casino', 'roulette_result'
+	end
+
+	act '一列':
+		cla
+		act '重新考虑': gt 'casino', 'roulette_bet2'
+		act '第一列：1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34': series = 1 & gt 'casino', 'roulette_result'
+		act '第二列：2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35': series = 2 & gt 'casino', 'roulette_result'
+		act '第三列：3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36': series = 3 & gt 'casino', 'roulette_result'
+	end
+
+	act '数字':
+		cla
+		act '重新考虑': gt 'casino', 'roulette_bet2'
+		act '选择一个数字':
+			chi = input '输入 0-36 之间的一个数字'
+
+			if chi < 0 and chi > 36:
+				msg '你需要选择一个 0 到 36 之间的数字。'
+				gt 'casino', 'roulette_bet2'
+			else
+				gt 'casino', 'roulette_result'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'roulette_result':
+	cla
+	minut += 5
+	gs 'stat'
+	x_rul = 100
+	x_rul = rand(0, 36)
+
+	if x_rul = 0:
+		$color = ' '
+	else
+		if x_rul = 1 or x_rul = 3 or x_rul = 5 or x_rul = 7 or x_rul = 9 or x_rul = 12 or x_rul = 14 or x_rul = 16 or x_rul = 18 or x_rul = 19 or x_rul = 21 or x_rul = 23 or x_rul = 25 or x_rul = 27 or x_rul = 30 or x_rul = 32 or x_rul = 34 or x_rul = 36:
+			$color = 'red'
+		else
+			$color = 'black'
+		end
+	end
+
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/resul.jpg"></right>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	*nl
+	'小球停在<<x_rul>> <<$color>>'
+
+	if kh <> 0:
+		if kh = 1:
+			if x_rul = 1 or x_rul = 3 or x_rul = 5 or x_rul = 7 or x_rul = 9 or x_rul = 12 or x_rul = 14 or x_rul = 16 or x_rul = 18 or x_rul = 19 or x_rul = 21 or x_rul = 23 or x_rul = 25 or x_rul = 27 or x_rul = 30 or x_rul = 32 or x_rul = 34 or x_rul = 36:
+				act '你已经赢了<<2 * st_1>>':
+					casino_chips += 2 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		elseif kh = 2:
+			if x_rul = 2 or x_rul = 4 or x_rul = 6 or x_rul = 8 or x_rul = 10 or x_rul = 11 or x_rul = 13 or x_rul = 15 or x_rul = 17 or x_rul = 20 or x_rul = 22 or x_rul = 24 or x_rul = 26 or x_rul = 28 or x_rul = 29 or x_rul = 31 or x_rul = 33 or x_rul = 35:
+				act '你已经赢了<<2 * st_1>>':
+					casino_chips += 2 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		end
+	elseif chnch <> 0:
+		if chnch = 1:
+			chnch = 0
+			if x_rul mod 2 = 0:
+				act '你已经赢了<<2 * st_1>>':
+					casino_chips += 2 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		elseif chnch = 2:
+			chnch = 0
+
+			if x_rul mod 2 = 1:
+				act '你已经赢了<<2 * st_1>>':
+					casino_chips += 2 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		end
+	elseif mb <> 0:
+		if mb = 1:
+			mb = 0
+			if x_rul > 0 and x_rul < 19:
+				act '你已经赢了<<2 * st_1>>':
+					casino_chips += 2 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		elseif mb = 2:
+			mb = 0
+			if x_rul > 18 and x_rul < 37:
+				act '你已经赢了<<2 * st_1>>':
+					casino_chips += 2 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		end
+	elseif du <> 0:
+		if du = 1:
+			du = 0
+
+			if x_rul > 0 and x_rul < 13:
+				act '你已经赢了<<3 * st_1>>':
+					casino_chips += 3 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+
+		elseif du = 2:
+			du = 0
+
+			if x_rul > 12 and x_rul < 25:
+				act '你已经赢了<<3 * st_1>>':
+					casino_chips += 3 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+
+		elseif du = 3:
+			du = 0
+			if x_rul > 24 and x_rul < 37:
+				act '你已经赢了<<3 * st_1>>':
+					casino_chips += 3 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		end
+	elseif series <> 0:
+		if series = 1:
+			series = 0
+
+			if x_rul = 1 or x_rul = 4 or x_rul = 7 or x_rul = 10 or x_rul = 13 or x_rul = 16 or x_rul = 19 or x_rul = 22 or x_rul = 25 or x_rul = 28 or x_rul = 31 or x_rul = 34:
+				act '你已经赢了<<3*st_1>>':
+					casino_chips += 3 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+
+		elseif series = 2:
+			series = 0
+
+			if x_rul = 2 or x_rul = 3 or x_rul = 8 or x_rul = 11 or x_rul = 14 or x_rul = 17 or x_rul = 20 or x_rul = 23 or x_rul = 26 or x_rul = 29 or x_rul = 32 or x_rul = 35:
+				act '你已经赢了<<3*st_1>>':
+					casino_chips += 3 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+
+		elseif series = 3:
+			series = 0
+
+			if x_rul = 3 or x_rul = 4 or x_rul = 9 or x_rul = 12 or x_rul = 15 or x_rul = 18 or x_rul = 21 or x_rul = 24 or x_rul = 27 or x_rul = 30 or x_rul = 33 or x_rul = 36:
+				act '你已经赢了<<3*st_1>>':
+					casino_chips += 3 * st_1
+					gt 'casino', 'roulette_bet1'
+				end
+			else
+				act '你输了': gt 'casino', 'roulette_bet1'
+			end
+		end
+	elseif chi <> 100:
+		if chi = x_rul:
+			act '你已经赢了<<37 * st_1>>':
+				casino_chips += 37 * st_1
+				gt 'casino', 'roulette_bet1'
+			end
+		else
+			act '你输了': gt 'casino', 'roulette_bet1'
+		end
+	end
+end
+
+
+!! -------
+!! Slots
+!! -------
+
+
+if $ARGS[0] = 'slots':
+	$loc_arg = $ARGS[0]
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/zaligravt.jpg"></right>'
+	'你走进大厅，一时被那望不到头的老虎机行列发出的叮当响声和闪烁灯光晃得眼花缭乱。机器前面站着形形色色的人，年龄、性别、出身各不相同，有的想试试手气，有的也许只是想消磨时间。'
+	'你不时能听到硬币哗啦啦落入下一位幸运儿接币盘的悦耳声响。'
+	'根据后墙那巨大的动态电子显示屏所示，现在有一份沉甸甸的大奖正等着被人赢走。'
+
+	act '去大厅': gt 'casino', 'foyer'
+	act '使用其中一台老虎机':
+		*clr & cla
+		menu_off = 1
+		minut += 1
+		gs 'stat'
+		betAmount = 10
+		slotsJackpot = betAmount * 20000
+		'<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/avt.jpg"></center>'
+		'游戏规则非常简单：投入一枚<<$func(''money'', ''string_price'', betAmount)>>硬币到机器里，然后拉下杠杆。有多种中奖组合，但这里每个人的目光都集中在<<$func(''money'', ''string_profit'', slotsJackpot)>>大奖。'
+
+		act '回到门厅': gt 'casino', 'foyer'
+
+		act '拉动拉杆':
+			if func('money', 'can_afford', betAmount):
+				gs 'money', 'pay', betAmount
+
+				temp_slots_rand = rand(1, 100000)
+
+				if temp_slots_rand > 99990:
+					temp_winnings = slotsJackpot
+					msg '大奖！这运气也太逆天了吧？！'
+				elseif temp_slots_rand >= 99900:
+					temp_winnings = betAmount * 1500
+				elseif temp_slots_rand >= 99000:
+					temp_winnings = betAmount * 100
+				elseif temp_slots_rand >= 90000:
+					temp_winnings = betAmount * 5
+				elseif temp_slots_rand >= 66667:
+					temp_winnings = betAmount * 2
+				else
+					temp_winnings = 0
+				end
+
+				if temp_winnings > 0:
+					gs 'money', 'earn', temp_winnings
+					msg '你已经赢了<<func(''money'', ''string_profit'', temp_winnings)>>.'
+				else
+					msg '你输了。还想再试一次吗？'
+				end
+
+				killvar 'temp_slots_rand'
+				killvar 'temp_winnings'
+
+				minut += 1
+				gs 'stat'
+				gt 'casino', 'slots'
+			else
+				msg '你的钱不够玩。事实证明天下没有免费的午餐，想赢更多的钱，你就得先拿出钱来赌。生活真是太不公平了。'
+				gt 'casino', 'slots'
+			end
+		end
+	end
+end
+
+
+!! -------
+!! Cards
+!! -------
+
+
+if $ARGS[0] = 'cards':
+	$loc_arg = $ARGS[0]
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/zalcart.jpg"></right>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	'大厅里四处摆满了各种二十一点和赌场对决的牌桌。'
+
+	act '回到门厅': gt 'casino', 'foyer'
+	act '玩二十一点': gt 'casino', 'blackjack_play'
+	act '玩赌场对决': gt 'casino', 'cards_cw'
+
+	!! SYMBOLS
+	!! ♥
+	!! ♠
+	!! ♦
+	!! ♣
+	!! deck of cards
+	$suit[1] = '黑桃'
+	$symbol[1] = '♠'
+	$suit[2] = '梅花'
+	$symbol[2] = '♣'
+	$suit[3] = '红心'
+	$symbol[3] = '♥'
+	$suit[4] = '方块'
+	$symbol[4] = '♦'
+
+	$number[1] = 'A '
+	points[1] = 11
+	$number[2] = '二 '
+	points[2] = 2
+	$number[3] = '三 '
+	points[3] = 3
+	$number[4] = '四 '
+	points[4] = 4
+	$number[5] = '五 '
+	points[5] = 5
+	$number[6] = '六 '
+	points[6] = 6
+	$number[7] = '七 '
+	points[7] = 7
+	$number[8] = '八 '
+	points[8] = 8
+	$number[9] = '九 '
+	points[9] = 9
+	$number[10] = '十 '
+	points[10] = 10
+	$number[11] = '杰克 '
+	points[11] = 10
+	$number[12] = '王后 '
+	points[12] = 10
+	$number[13] = '国王 '
+	points[13] = 10
+	$number[14] = 'A '
+	points[14] = 11
+end
+
+!! --------------------
+!! Cards: Casino Wars
+!! --------------------
+
+
+if $ARGS[0] = 'cards_cw':
+	$loc_arg = $ARGS[0]
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/stolcw.jpg"></right>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	'你走近赌场的这张赌桌。'
+
+	act '从桌边走开': gt 'casino', 'cards'
+	act '在赌桌前坐下': gt 'casino', 'cards_cwplay'
+	act '走近荷官':
+		*clr & cla
+		menu_off = 1
+		minut += 1
+		gs 'stat'
+		'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/crupcw.jpg"></right>'
+		'"需要帮忙吗？"'
+
+		act '离开荷官': gt 'casino', 'cards_cw'
+
+		act '询问规则':
+			msg '规则非常简单。
+			首先你要选择下注多少。
+			之后，你可以选择继续下注，或者押平局（需要再押一份注），以赢取更高的赔付。
+
+			普通玩法：
+				双方各发一张牌。花牌的点数各不相同。
+				点数大者获胜，赔率为 1 赔 1。
+				如果双方点数相同，可以选择继续（下注翻倍），或者结束本局并退回你的下注。
+				如果第二局你赢了，可以获得 2 赔 1 的赔付；如果又打平，则获得 1.5 赔 1 的赔付。
+
+			押平局：
+				押平局并且获胜时，可以拿回你的下注。
+				不过，如果真的是平局，赔付为 10 赔 1。
+
+			就这样。祝你玩得开心。'
+			gt 'casino', 'cards_cw'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'cards_cwplay':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	if turn1 = 0:
+		cla
+		'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/stavkacw.jpg"></right>'
+		$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+		'各位先生女士，请下注。'
+
+		act '离开桌子': gt 'casino', 'cards_cw'
+
+		act '下注':
+			if casino_chips < 1:
+				'你一个筹码都没有！'
+				act '离开桌子': gt 'casino', 'cards_cw'
+			end
+
+			bet_amount = input '输入下注金额'
+
+			if casino_chips < bet_amount:
+				msg '你的筹码不够押那么多。'
+			elseif bet_amount < 1:
+				msg '你最少必须下注 1 枚筹码。'
+			else
+				casino_chips -= bet_amount
+				turn1 = 1
+			end
+
+			gt 'casino', 'cards_cwplay'
+		end
+	end
+
+	if turn1 = 1:
+		cla
+		bet_draw = 0
+		'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/stavkacw.jpg"></right>'
+		'继续普通下注（赔率 2 比 1），还是押在平局上（赔率 11 比 1）？'
+		if casino_chips < bet_amount:
+			turn1 = 2
+			gt 'casino', 'cards_cwplay'
+		else
+			act '继续普通下注':
+				turn1 = 2
+				gt 'casino', 'cards_cwplay'
+			end
+
+			act '押平局（加倍下注）':
+				turn1 = 2
+				bet_draw = 1
+				casino_chips -= bet_amount
+				gt 'casino', 'cards_cwplay'
+			end
+		end
+	end
+
+	if turn1 = 2:
+		cla
+		'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartcw.jpg"></right>'
+		' 庄家发牌：'
+		'…'
+		suit = rand(1, 4)
+		number = rand(1, 13)
+		$d_card[1] = $number[number] + 'of ' + $suit[suit]
+		d_points = number
+		suit = rand(1, 4)
+		!! Player draws from cards 2-14 so that they win if both they and the dealer draw an ace
+		number = rand(2, 14)
+		$p_card[1] = $number[number] + 'of ' + $suit[suit]
+		p_points = number
+		wait 1000
+		'荷官的牌：'
+		'  <<$d_card[1]>>'
+
+		'__________________________'
+		'你的牌：'
+		'  <<$p_card[1]>>'
+
+		if d_points > p_points:
+			' '
+			'赌场赢了'
+
+			act '你输了':
+				turn1 = 0
+				gt 'casino', 'cards_cwplay'
+			end
+		elseif d_points < p_points:
+			' '
+			'你赢了'
+			act '拿走筹码（<<2 * bet_amount>>枚）':
+				casino_chips += 2 * bet_amount
+				turn1 = 0
+				gt 'casino', 'cards_cwplay'
+			end
+		else
+			if bet_draw = 1:
+				' '
+				'你赢了'
+
+				act '拿走筹码（<<11 * bet_amount>>枚）':
+					casino_chips += 11 * bet_amount
+					turn1 = 0
+					gt 'casino', 'cards_cwplay'
+				end
+			else
+				turn1 = 3
+				gt 'casino', 'cards_cwplay'
+			end
+		end
+	end
+
+	if turn1 = 3:
+		'<right><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartcw.jpg"></right>'
+		' '
+		'平局'
+
+		if casino_chips >= bet_amount:
+			act '继续（再下<<bet_amount>>筹码）':
+				cla
+
+				casino_chips -= bet_amount
+
+				' 庄家发牌：'
+				'…'
+				suit = rand(1, 4)
+				number = rand(1, 13)
+				$d_card[2] = $number[number] + 'of ' + $suit[suit]
+				d_points = number
+				suit = rand(1, 4)
+				number = rand(2, 14)
+				$p_card[2] = $number[number] + 'of ' + $suit[suit]
+				p_points = number
+				'荷官的牌：'
+				'  <<$d_card[1]>>'
+				'  <<$d_card[2]>>'
+				'__________________________'
+				'你的牌：'
+				'  <<$p_card[1]>>'
+				'  <<$p_card[2]>>'
+
+				if d_points > p_points:
+					' '
+					'赌场赢了'
+
+					act '你输了':
+						turn1 = 0
+						gt 'casino', 'cards_cwplay'
+					end
+				elseif d_points < p_points:
+					' '
+					'你赢了'
+
+					act '拿走筹码（<<4 * bet_amount>>枚）':
+						casino_chips += 4 * bet_amount
+						turn1 = 0
+						gt 'casino', 'cards_cwplay'
+					end
+				elseif d_points = p_points:
+					' '
+					'平局'
+
+					act '拿走筹码（<<3 * bet_amount>>枚）':
+						casino_chips += 3 * bet_amount
+						turn1 = 0
+						gt 'casino', 'cards_cwplay'
+					end
+				end
+			end
+		else
+			' '
+			'你的筹码不足以继续。'
+		end
+
+		act '收回原始下注（<<bet_amount>>筹码）':
+			casino_chips += bet_amount
+			turn1 = 0
+			gt 'casino', 'cards_cwplay'
+		end
+	end
+end
+
+!! --------------------
+!! Cards: Blackjack
+!! --------------------
+
+
+if $ARGS[0] = 'blackjack_play':
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+	*clr & cla
+	killvar 'temp_dealer_hand'
+	killvar 'temp_player_hand'
+	killvar 'temp_player_bets'
+	killvar 'temp_player_points'
+	temp_dealer_hand[] = 0
+	temp_dealer_hand[] = 1
+	temp_player_hand[] = 2
+	temp_player_hand[] = 3
+	cardsDealt = 4
+	numHands = 1
+	currentHand = 0
+	handLosses = 0
+	numAces = 0
+	dealerPoints = 0
+	insurance = 0
+	betTotal = 0
+	doubleBet = 0
+	minBet = 10
+	maxBet = 500
+	gs 'deckShuffle', 'sort'
+	*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/stolbd.jpg"></center>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	*pl '你正坐在二十一点的牌桌前。'
+	act '从桌边走开' : gt 'casino', 'cards'
+	act '玩二十一点' : gt 'casino', 'bet1'
+	act '询问规则' : gt 'casino', 'rules'
+end
+
+
+if $ARGS[0] = 'rules':
+	*clr & cla
+	*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/crupbd.jpg"></center>'
+	*pl '<h2><u>二十一点规则：</u></h2>'
+	*p '<ol><li>玩家和庄家在初始下注（<<minBet>> - <<maxBet>>筹码）后各发两张牌。庄家会有一张明牌和一张暗牌。</li>'
+	*p '<li>人头牌值 10 点，A 可以当作 11 或 1，其余所有的牌都按其面值计点。</li>'
+	*p '<li>玩家结束要牌之后，庄家必须继续要牌，直到达到 17 点或更多。</li>'
+	*p '<li>若要获胜，玩家的点数必须比庄家高，或让庄家爆牌，或拿到二十一点。</li>'
+	*p '<li>点数超过 21 称为爆牌，会自动判负。</li>'
+	*p '<li>在前两张牌中拿到一张 A 和一张十点牌称为二十一点，会直接获胜，并按 3 : 2 赔付。</li>'
+	*p '<li>如果庄家的明牌是 A，玩家可以下一种称为“保险”的边注；若庄家是二十一点，则按 2 : 1 赔付。</li>'
+	*p '<li>玩家随时可以选择加倍下注，这样可以再获得一张牌，但该手牌之后就不能再要牌了。</li>'
+	*p '<li>如果玩家的一手牌只有两张点数相同的牌，可以把它们分成两手牌。每手都必须以相当于原始下注的金额来下注。</li>'
+	*p '<li>玩家不能用分牌后的手牌组成二十一点。</li>'
+	act '返回' : gt 'casino', 'blackjack_play'
+end
+
+
+if $ARGS[0] = 'bet1':
+	*clr & cla
+	*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/stavkabd.jpg"></center>'
+	$func('wrap', 'accent', '你目前有<<casino_chips>>个筹码。<br>')
+	temp_player_bets[0] = input('请下注。')
+	if casino_chips < temp_player_bets[0]:
+		msg '你的筹码不够下这个注。'
+		gt 'casino', 'blackjack_play'
+	elseif temp_player_bets[0] < minBet:
+		msg '最低下注额为<<minBet>>筹码。'
+		gt 'casino', 'blackjack_play'
+	elseif temp_player_bets[0] > maxBet:
+		msg '最高下注额为<<maxBet>>筹码。'
+		gt 'casino', 'blackjack_play'
+	else
+		gt 'casino', 'bet2'
+	end
+end
+
+
+if $ARGS[0] = 'bet2':
+	betTotal = temp_player_bets[0]
+	gs 'deckShuffle', 'shuffle'
+	if (deckFace[temp_player_hand[0]] = 1 and deckFace[temp_player_hand[1]] > 9) or (deckFace[temp_player_hand[0]] > 9 and deckFace[temp_player_hand[1]] = 1):
+		gt 'casino', 'blackjack'
+	elseif deckFace[temp_dealer_hand[0]] > 9 and deckFace[temp_dealer_hand[1]] = 1:
+		gt 'casino', 'blackjack'
+	elseif deckFace[dealerCards[0]] = 1:
+		gt 'casino', 'insurance1'
+	else
+		gt 'casino', 'player'
+	end
+end
+
+
+if $ARGS[0] = 'blackjack':
+	gs 'casino', 'blackjack_view', 1
+	if temp_player_points[0] = 21 and dealerPoints = 21:
+		*pl '平局'
+		*pl '你收回了你的注。'
+	elseif temp_player_points[0] = 21:
+		*pl '玩家获胜'
+		*pl '你获得<<temp_player_bets[0] * 3 / 2>>的赢利筹码。'
+		casino_chips += temp_player_bets[0] * 3 / 2
+	else
+		*pl '庄家赢'
+		*pl '卖家拿走了你的<<temp_player_bets[0]>>筹码赌注。'
+		casino_chips -= temp_player_bets[0]
+	end
+	act '继续' : gt 'casino', 'blackjack_play'
+end
+
+
+if $ARGS[0] = 'insurance1':
+	gs 'casino', 'blackjack_view'
+	*pl '庄家的明牌是 A。你想押一笔保险注吗？'
+	insurance = 0
+	act '押保险' :
+		insurance = input('请下注。')
+		if casino_chips < insurance:
+			msg '你的筹码不够下这个注。'
+			gt 'casino', 'insurance1'
+		elseif insurance < 0:
+			msg '你不能下注负数的筹码。'
+			gt 'casino', 'insurance1'
+		elseif insurance > temp_player_bets[0] / 2:
+			msg '保险注不能超过原始下注的一半。'
+			gt 'casino', 'insurance1'
+		else
+			gt 'casino', 'insurance2'
+		end
+	end
+	act '不押保险' : gt 'casino', 'insurance2'
+end
+
+
+if $ARGS[0] = 'insurance2':
+	if dealerPoints = 21 or deckFace[temp_dealer_hand[1]] > 9:
+		gs 'casino', 'blackjack_view', 1
+		*pl '庄家赢'
+		*p '卖家拿走了你的<<temp_player_bets[0]>>筹码赌注'
+		if insurance > 0: *p ' 但也因你的保险注给了你<<insurance>>筹码'
+		*p '.'
+		casino_chips -= temp_player_bets[0]
+		casino_chips += insurance
+		act '继续' : gt 'casino', 'blackjack_play'
+	else
+		gs 'casino', 'blackjack_view'
+		*pl '庄家偷偷看了看他的暗牌；不是二十一点。'
+		if insurance > 0: *p '他收走了你的保险注<<insurance>>筹码。'
+		casino_chips -= insurance
+		act '继续' : gt 'casino', 'player'
+	end
+end
+
+
+if $ARGS[0] = 'player':
+	gs 'casino', 'blackjack_view'
+	if temp_player_points[currentHand] > 21:
+		currentHand += 1
+		handLosses += 1
+		doubleBet = 0
+	end
+	if temp_player_points[currentHand] = 21 or doubleBet = 1: currentHand += 1 & doubleBet = 0
+	if handLosses = numHands:
+		*pl '庄家赢'
+		*p '卖家收走了你的<<betTotal>>筹码。'
+		casino_chips -= betTotal
+		act '继续' : gt 'casino', 'blackjack_play'
+	elseif currentHand >= numHands:
+		*pl '你不能再采取任何行动了。'
+		act '继续' : gt 'casino', 'dealer'
+	else
+		if numHands = 1:
+			*pl '你在思考该如何处理你的这手牌。'
+			$text = ''
+		else
+			*pl '你在思考该如何处理<b>第<<currentHand + 1>>手牌</b>。'
+			$text = '第<<currentHand + 1>>手： '
+		end
+		act '<<$text>>要牌' :
+			i = currentHand * 16 + 2
+			:loop1
+			if temp_player_hand[i] <> 0: i += 1 & jump 'loop1'
+			temp_player_hand[i] = cardsDealt
+			cardsDealt += 1
+			*clr & cla
+			*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartbde.jpg"></center>'
+			gt 'casino', 'player'
+		end
+		if casino_chips >= betTotal + temp_player_bets[currentHand]:
+			act '<<$text>>加倍' :
+				doubleBet = 1
+				betTotal += temp_player_bets[currentHand]
+				temp_player_bets[currentHand] += temp_player_bets[currentHand]
+				i = currentHand * 16 + 2
+				:loop2
+				if temp_player_hand[i] <> 0: i += 1 & jump 'loop2'
+				temp_player_hand[i] = cardsDealt
+				cardsDealt += 1
+				*clr & cla
+				*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartbde.jpg"></center>'
+				gt 'casino', 'player'
+			end
+			if temp_player_hand[currentHand * 16 + 2] = 0 and ((deckFace[temp_player_hand[currentHand * 16]] > 9 and deckFace[temp_player_hand[currentHand * 16 + 1]] > 9) or deckFace[temp_player_hand[currentHand * 16]] = deckFace[temp_player_hand[currentHand * 16 + 1]]):
+				act '<<$text>>分牌' :
+					betTotal += temp_player_bets[currentHand]
+					temp_player_bets[numHands] = temp_player_bets[currentHand]
+					numHands += 1
+					i = (currentHand + 1) * 16
+					:loop3
+					if temp_player_hand[i] <> 0: i += 16 & jump 'loop3'
+					temp_player_hand[i] = temp_player_hand[currentHand * 16 + 1]
+					temp_player_hand[currentHand * 16 + 1] = cardsDealt
+					cardsDealt += 1
+					temp_player_hand[i + 1] = cardsDealt
+					cardsDealt += 1
+					*clr & cla
+					*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartbde.jpg"></center>'
+					gt 'casino', 'player'
+				end
+			end
+		end
+		act '<<$text>>留下' :
+			currentHand += 1
+			cla
+			if currentHand < numHands: gt 'casino', 'player'
+			if currentHand >= numHands: gt 'casino', 'dealer'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'dealer':
+	gs 'casino', 'blackjack_view', 1
+	if dealerPoints < 17:
+		act '继续' :
+			i = 2
+			:loop4
+			if temp_dealer_hand[i] <> 0: i += 1 & jump 'loop4'
+			temp_dealer_hand[i] = cardsDealt
+			cardsDealt += 1
+			*clr & cla
+			*pl '<center><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartbde.jpg"></center>'
+			gt 'casino', 'dealer'
+		end
+	elseif dealerPoints > 21:
+		betTotal = 0
+		i = 0
+		:loop5
+		if temp_player_points[i] <= 21: betTotal += temp_player_bets[i]
+		i += 1
+		if i < numHands: jump 'loop5'
+		*pl '玩家获胜'
+		*p '你获得<<betTotal>>的赢利筹码。'
+		casino_chips += betTotal
+		act '继续' : gt 'casino', 'blackjack_play'
+	else
+		betTotal = 0
+		i = 0
+		:loop6
+		if temp_player_points[i] > 21:
+			betTotal -= temp_player_bets[i]
+		elseif temp_player_points[i] < dealerPoints:
+			betTotal -= temp_player_bets[i]
+		elseif temp_player_points[i] > dealerPoints:
+			betTotal += temp_player_bets[i]
+		end
+		i += 1
+		if i < numHands: jump 'loop6'
+		if betTotal = 0:
+			*pl '平局'
+			if numHands = 1: *p '你收回了你的注。'
+			if numHands > 1: *p '你收回了你的注。'
+		elseif betTotal < 0:
+			*pl '庄家赢'
+			if numHands > 1: *p '把所有的牌局都算进去，你还是输了。 '
+			*p '卖家收走了你的<<0 - betTotal>>筹码。'
+		else
+			*pl '玩家获胜'
+			if numHands > 1: *p '把所有的牌局都算进去，你赢了。 '
+			*p '你获得<<betTotal>>的赢利筹码。'
+		end
+		casino_chips += betTotal
+		act '继续' : gt 'casino', 'blackjack_play'
+	end
+end
+
+
+if $ARGS[0] = 'blackjack_view':
+	*pl '<table width="100%"><tr><td>'
+	*pl '<u>庄家</u>'
+	if ARGS[1] = 0:
+		*p '<img <<$set_imgh>> src="<<$deckImg[temp_dealer_hand[0]]>>">'
+		*pl '<img <<$set_imgh>> src="images/locations/city/industrial/casino/cards/back.jpg">'
+	else
+		numAces = 0
+		dealerPoints = 0
+		i = 0
+		:loop7
+		*p '<img <<$set_imgh>> src="<<$deckImg[temp_dealer_hand[i]]>>">'
+		if deckFace[temp_dealer_hand[i]] = 1:
+			dealerPoints += 11
+			numAces += 1
+		elseif deckFace[temp_dealer_hand[i]] > 9:
+			dealerPoints += 10
+		else
+			dealerPoints += deckFace[temp_dealer_hand[i]]
+		end
+		i += 1
+		if temp_dealer_hand[i] <> 0: jump 'loop7'
+		:loop8
+		if dealerPoints > 21 and numAces > 0:
+			dealerPoints -= 10
+			numAces -= 1
+			jump 'loop8'
+		end
+		if dealerPoints > 21:
+			*p '<br>爆牌！'
+		elseif dealerPoints = 21 and temp_dealer_hand[2] = 0:
+			*p '<br>二十一点！'
+		else
+			*p '<br><<dealerPoints>>点'
+		end
+	end
+
+	*pl '<br><br><u>玩家</u>'
+	i = 0
+	:loop9
+	numAces = 0
+	temp_player_points[i] = 0
+	if numHands > 1: *pl '第<<i + 1>>手：'
+	j = 0
+	:loop10
+	if temp_player_hand[i * 16 + j] <> 0:
+		*p '<img <<$set_imgh>> src="<<$deckImg[temp_player_hand[i * 16 + j]]>>">'
+		if deckFace[temp_player_hand[i * 16 + j]] = 1:
+			temp_player_points[i] += 11
+			numAces += 1
+		elseif deckFace[temp_player_hand[i * 16 + j]] > 9:
+			temp_player_points[i] += 10
+		else
+			temp_player_points[i] += deckFace[temp_player_hand[i * 16 + j]]
+		end
+		j += 1
+		jump 'loop10'
+	end
+	:loop11
+	if temp_player_points[i] > 21 and numAces > 0:
+		temp_player_points[i] -= 10
+		numAces -= 1
+		jump 'loop11'
+	end
+	if temp_player_points[i] > 21:
+		*p '<br>爆牌！'
+	elseif temp_player_points[i] = 21 and temp_player_hand[2] = 0 and numHands = 1:
+		*p '<br>二十一点！'
+	else
+		*p '<br><<temp_player_points[i]>>点数 |'
+	end
+	*p ' 下注 = <<temp_player_bets[i]>>筹码<br><br>'
+	i += 1
+	if i < numHands: jump 'loop9'
+	*pl '</td><td valign="top"><div align="right"><img <<$set_imgh>> src="images/locations/city/industrial/casino/cartbd.jpg"></div></td></tr></table>'
+end
+
+
+--- casino ---------------------------------

@@ -1,0 +1,1452 @@
+# stripclub
+!! 2024/08/10
+CLOSE ALL
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	minut += 1
+	$menu_loc = 'stripclub'
+	$menu_arg = 'start'
+	menu_off = 0
+	if sound_settings['environment_off'] = 0:
+		if month >= 11 or month <= 3:
+			if hour >= 3 and hour <= 17:
+				PLAY 'sound/street2.mp3', 30
+				PLAY 'sound/street7.mp3', 30
+				PLAY 'sound/zima.mp3', 30
+			else
+				PLAY 'sound/street_club.mp3', 30
+			end
+		else
+			if hour >= 3 and hour <= 17:
+				PLAY 'sound/street2.mp3', 30
+				PLAY 'sound/street7.mp3', 30
+				PLAY 'sound/street_leto.mp3', 30
+			else
+				PLAY 'sound/street_club.mp3', 30
+			end
+		end
+	end
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '脱衣舞俱乐部')
+	if month >= 11 or month <= 3:
+		if hour >= 19 or hour <= 5:
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_winter.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_day_winter.jpg"></center>'
+		end
+	else
+		if hour >= 20 and hour <= 5:
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_summer.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_day_summer.jpg"></center>'
+		end
+	end
+	*nl
+
+	act '离开': gt 'city_redlight', 'start'
+
+	if hour = 3:
+		'脱衣舞俱乐部要关门了，保安正在把所有人请出去。'
+	elseif hour >= 18 or hour < 3:
+		gs 'stripclub', 'entry'
+		if $job_status['city_strip_stripper'] = 'employed' or $job_status['city_strip_bargirl'] = 'employed':
+			gs 'stripclub', 'employee_entrance'
+		end
+	else
+		if ($job_status['city_strip_stripper'] = 'employed' and func('jobs', 'is_arrival_time', 'city_strip_stripper') = 1) or ($job_status['city_strip_bargirl'] = 'employed' and func('jobs', 'is_arrival_time', 'city_strip_bargirl') = 1):
+			'脱衣舞俱乐部已对公众关闭，但员工仍然可以从后门进入。'
+			gs 'stripclub', 'employee_entrance'
+		else
+			'脱衣舞俱乐部已关闭。门上的牌子写着营业时间在 '+func('time', 'get_time_string', 18, 0)+' 到 '+func('time', 'get_time_string', 3, 0)+'。'
+		end
+	end
+end
+
+if $ARGS[0] = 'employee_entrance':
+	act '绕到后面':
+		cla
+		act '离开': gt 'city_redlight', 'start'
+		act '回到前面': gt 'stripclub', 'start'
+
+		if $job_status['city_strip_stripper'] = 'employed' and func('jobs', 'has_booking_for_day', 'city_strip_stripper', daystart):
+			'“晚上好，<<$pcs_strippername>>。今晚人挺多的，”保安笑着说。'
+			'你朝他点了点头，然后走向后面的脱衣舞娘入口。'
+			act '走脱衣舞娘的入口': frost = 0 & gt 'stwork', 'start'
+		elseif $job_status['city_strip_bargirl'] = 'employed' and func('jobs', 'is_work_day', 'city_strip_bargirl', daystart) = 1:
+			gs 'jobs', 'get_shift_for_day', 'city_strip_bargirl', daystart
+			if func('jobs', 'is_arrival_time', 'city_strip_bargirl') = 1:
+				'“人不少。今晚酒吧应该会很忙，”保安笑着说。'
+				'你向他点了点头，他站到一旁让你进去。'
+				act '前往酒吧': frost = 0 & gt 'stwork3', 'start'
+			elseif func('jobs', 'is_work_time', 'city_strip_bargirl') = 1:
+				if hour * 60 + minut < result_start + 60:
+					'“你来得有点赶。快进去准备吧。要是工资被扣掉一部分，别觉得意外，”保安皱着眉头说。'
+					gs 'jobs', 'dock_pay', 'city_strip_bargirl', job_pay_rate['city_strip_bargirl'] / 3
+					'你向他点了点头，他站到一旁让你进去。'
+					act '前往酒吧': frost = 0 & gt 'stwork3', 'start'
+				else
+					'“你上班来晚了。下次排班的时候再来吧，”保安摇着头说。'
+				end
+			elseif hour * 60 + minut < result_arrival:
+				'“你的班次还没到。请在 '+func('time', 'get_time_string', 17, 0)+' 到 '+func('time', 'get_time_string', 18, 0)+' 之间再来，”保安提醒你。'
+			else
+				'“你上班来晚了。下次排班的时候再来吧，”保安摇着头说。'
+			end
+		elseif $job_status['city_strip_stripper'] = 'employed' or $job_status['city_strip_bargirl'] = 'employed':
+			'“休息日也想来我们这儿转转？”保安问道。'
+			'你点了点头，他站到一旁让你进去。'
+			if $job_status['city_strip_stripper'] = 'employed':
+				'“我敢说，你穿上衣服顾客们就认不出你了，”他笑着说。'
+				act '去更衣室': gt 'stwork', 'start'
+			end
+			if $job_status['city_strip_bargirl'] = 'employed': '“在吧台另一边过一晚，玩得开心，”他笑着说。'
+			act '进入俱乐部': gt 'stripclub', 'main_floor'
+		end
+	end
+end
+
+if $ARGS[0] = 'entry':
+	act '进入俱乐部':
+		*clr & cla
+		$func('wrap', 'header center b', '脱衣舞俱乐部')
+		if month >= 11 or month <= 3:
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_winter.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_summer.jpg"></center>'
+		end
+		if strip_club['id_check'] <> 0:
+			'保安认出了上次来过的你，点了点头，站到一旁让你进去。'
+			gs 'stripclub', 'pay_enter'
+		else
+			'你想进俱乐部，但保安在门口拦住了你。'
+			'“等等。我需要看一下你的身份证件。”'
+			if age >= 21:
+				act '说真的？':
+					cla & *nl
+					strip_club['id_check'] = 1
+					'你翻了个白眼。“你是认真的吗？我看起来像那种想混进去看奶子的流鼻涕小屁孩吗？”'
+					'“绝对认真，”他答道。“拿证件来，不然你别想进去‘看奶子’。”'
+					'你不情愿地在包里翻找，掏出护照。保安看了一眼，点了点头。'
+					*nl
+					'“照片不错，”他笑着把护照还给你。“我刚刚是在逗你玩。你可以进去了。”'
+					'你只是朝他翻了个白眼，把护照塞回包里。'
+					gs 'stripclub', 'pay_enter'
+				end
+			elseif age >= 18 and age < 21:
+				act '给他看你的护照':
+					cla & *nl
+					strip_club['id_check'] = 1
+					'你在包里翻找，掏出护照给他看，证明你已经到了法定年龄。保安看了一眼，点了点头。'
+					'“好了，你没问题。”'
+					gs 'stripclub', 'pay_enter'
+				end
+			elseif fakepassport = 1:
+				act '把你的假护照给他看':
+					cla & *nl
+					strip_club['id_check'] = 1
+					'你在包里翻找，掏出假护照给他看，证明你已‘达到法定年龄’。保安盯着看了很久，才点了点头。'
+					'“好了，你没问题。”'
+					gs 'stripclub', 'pay_enter'
+				end
+			else
+				act '呃……':
+					cla & *nl
+					'“呃……”你尴尬地假装在包里翻找，最后两手空空。“抱歉，我肯定是把证件落在家里了。我能不能——”'
+					'“不行！”他坚决地说，然后毫不费力地把你推开。“十八岁以下不得入内。等你够年龄了再来。”'
+					act '离开': gt 'stripclub', 'start'
+				end
+			end
+		end
+	end
+
+	if $job_status['city_strip_stripper'] <> 'employed':
+		if pcs_dancero > 0 or pcs_inhib >= 40:
+			act '询问在这里工作': gt 'stripclub', 'hire1'
+		else
+			gs 'willpower', 'pcs_inhib', 'self', 'medium'
+			if pcs_willpwr < will_cost:
+				act '询问在这里工作' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '询问在这里工作' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'force'
+					gt 'stripclub', 'hire1'
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'pay_enter':
+	if strip_club['pay_fee'] = 0:
+		'你正要从他身边走过，他拦住了你。“别急着走。入场费要 ' + $func('money', 'string_price', 300) + '。”'
+		act '说真的？！':
+			cla & *nl
+			'“唉，你在逗我吗？”'
+			'“规矩就是规矩，”他耸了耸肩。'
+
+			act '离开': gt 'city_redlight', 'start'
+			act '付钱' + $func('money', 'get_cost_string', 300, 'cash'):
+				if func('money', 'can_afford', 300, 'cash') = 0:
+					$noMoney
+				else
+					cla & *nl
+					'你又一次在包里翻找，掏出一小叠现金。你把它递给保安，他接过去，挥手让你进去。'
+					gs 'money', 'pay', 300, 'cash'
+					minut += 1
+					strip_club['pay_fee'] = 1
+					frost = 0
+					act '走进去': gt 'stripclub', 'main_floor'
+				end
+			end
+		end
+	else
+		'保安清了清嗓子，伸出了手。'
+
+		act '离开': gt 'city_redlight', 'start'
+		act '付钱' + $func('money', 'get_cost_string', 300, 'cash'):
+			if func('money', 'can_afford', 300, 'cash') = 0:
+				$noMoney
+			else
+				cla & *nl
+				'你叹了口气，在包里翻找，掏出一小叠现金。你把它递给保安，他接过去，挥手让你进去。'
+				gs 'money', 'pay', 300, 'cash'
+				minut += 1
+				frost = 0
+				gt 'stripclub', 'main_floor'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'work_leave':
+	if $clothingworntype = 'nude': gs 'clothing', $lastwornclothingtype['strip_club'], lastwornclothingnumber['strip_club']
+	!!	if $pantyworntype = 'none' and $lastwornpantytype <> 'none' and $lastwornpantytype <> '':
+	if $pantyworntype = 'none' and $lastwornpantytype['strip_club'] <> 'none': gs 'panties', 'wear', $lastwornpantytype['strip_club'], lastwornpantynumber['strip_club']
+!!	if $braworntype = 'none' and $lastwornbratype <> 'none' and $lastwornbratype <> '':
+	if $braworntype = 'none' and $lastwornbratype['strip_club'] <> 'none': gs 'bras', 'wear', $lastwornbratype['strip_club'], lastwornbranumber['strip_club']
+	gt 'stripclub', 'main_floor'
+end
+
+if $ARGS[0] = 'main_floor':
+	*clr & cla
+	minut += 5
+	$menu_loc = 'stripclub'
+	$menu_arg = 'main_floor'
+	gs 'schedule', 'A23'
+	gs 'stat'
+	$func('wrap', 'header center b', '脱衣舞俱乐部')
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_interior.jpg"></center>'
+	'当你走进俱乐部，你看到一个半裸的女孩在舞台上随着震耳欲聋的音乐表演，其他人四处走动，试图引诱顾客购买私人舞蹈。你注意到一个牌子写着私人舞蹈价格为 ' + $func('money', 'string_price', 1000) + '。'
+
+	act '离开': minut += 2 & gt 'stripclub', 'start'
+	if hour < 2 or (hour = 2 and minut < 45): act '观看脱衣舞': gt 'stripclub', 'striptease'
+	act '点一支私人舞蹈' + $func('money', 'get_cost_string', 1000):
+		if func('money', 'can_afford', 1000) = 0:
+			$noMoney
+		else
+			gt 'stripclub', 'private_dance'
+		end
+	end
+	if (AlbinaQW['seen_strip'] = 1 or AlbinaQW['working_stripclub'] = 1) and locat['A23'] = 22:
+		act '向阿尔宾娜点一支私人舞蹈' + $func('money', 'get_cost_string', 1000):
+			if func('money', 'can_afford', 1000) = 0:
+				$noMoney
+			else
+				gt 'stripclub', 'albina_dance'
+			end
+		end
+	end
+	if hour < 2 or (hour = 2 and minut < 30): act '在吧台喝一杯': gt 'stripclub', 'bar'
+	if $job_status['city_strip_stripper'] <> 'employed':
+		act '向经理询问当脱衣舞娘的工作':
+			cla
+			if pcs_inhib < 50:
+				'你可以向经理要一份工作，但你还没自信到能当脱衣舞娘。你应该先习惯展示自己的身体。'
+				act '继续': gt 'stripclub', 'main_floor'
+			elseif pcs_dancero <= 0:
+				'你可以向经理要一份工作，但你没有当脱衣舞娘的舞蹈功底。你应该去上一些情色舞蹈课。'
+				act '继续': gt 'stripclub', 'main_floor'
+			else
+				gt 'stripclub', 'hire2'
+			end
+		end
+	end
+	if $job_status['city_strip_bargirl'] <> 'employed':
+		act '向经理询问在酒吧工作':
+			cla
+			if pcs_inhib < 60:
+				'你可以向经理要一份工作，但你还没自信到能在脱衣舞俱乐部工作，哪怕只是在吧台。'
+				act '继续': gt 'stripclub', 'main_floor'
+			else
+				gt 'stripclub', 'hire3'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'bar':
+	*clr & cla
+	gs 'stat'
+	if week < 5:
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/lev.jpg"></center>'
+		'你走向酒吧，那里 ' + iif($job_status['city_strip_bargirl'] <> '', '列夫', '酒保') + ' 正在点单，同时打量着舞台上的女孩。你决定在等待时喝点什么。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/nadia.jpg"></center>'
+		'你走向酒吧，那里 ' + iif($job_status['city_strip_bargirl'] <> '', '娜佳', '一个穿着暴露的女孩') + ' 正在点单，她丰满的乳房随着她的每个动作摇晃，吸引了你的注意力。你决定在等待时喝点什么。'
+	end
+	act '离开': gt 'stripclub', 'main_floor'
+
+	act '点一杯水':
+		*clr & cla
+		minut += 5
+		gs 'beverage', 'water_stats'
+		gs 'beverage', 'afterdrink'
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_bar.jpg"></center>'
+		'你点了一杯水，在吧台边坐下喝着，顺便打量着俱乐部里的景象。'
+		act '离开': gt 'stripclub', 'main_floor'
+	end
+
+	act '点一瓶啤酒' + $func('money', 'get_cost_string', 80):
+		if func('money', 'can_afford', 80) = 0:
+			$noMoney
+		else
+			*clr & cla
+			gs 'money', 'pay', 80
+			minut += 5
+			gs 'beverage', 'beer_stats'
+			gs 'beverage', 'afteralcohol'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_bar.jpg"></center>'
+			'你点了一瓶啤酒，在吧台边坐下慢慢喝，顺便打量着俱乐部里的光景。'
+			act '离开': gt 'stripclub', 'main_floor'
+		end
+	end
+
+	act '点一杯伏特加' + $func('money', 'get_cost_string', 120):
+		if func('money', 'can_afford', 120) = 0:
+			$noMoney
+		else
+			*clr & cla
+			gs 'money', 'pay', 120
+			minut += 2
+			gs 'beverage', 'vodka_stats'
+			gs 'beverage', 'afteralcohol'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_bar.jpg"></center>'
+			'你点了一杯伏特加，一饮而尽，感受着它一路烧灼喉咙，然后把空杯子放回吧台。'
+			act '离开': gt 'stripclub', 'main_floor'
+		end
+	end
+
+	act '点一杯葡萄酒' + $func('money', 'get_cost_string', 300):
+		if func('money', 'can_afford', 300) = 0:
+			$noMoney
+		else
+			*clr & cla
+			gs 'money', 'pay', 300
+			minut += 10
+			gs 'beverage', 'wine_stats'
+			gs 'beverage', 'afteralcohol'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_bar.jpg"></center>'
+			'你点了一杯葡萄酒，在吧台边坐下慢慢喝，顺便打量着俱乐部里的光景。'
+			act '离开': gt 'stripclub', 'main_floor'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'private_dance':
+	*clr & cla
+	gs 'money', 'pay', 1000
+	minut += 60
+	pcs_horny += 25
+	gs 'stat'
+	privrand = rand(0, 4)
+	if privrand = 0:
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/sex/private_dance.jpg"></center>'
+		'你向其中一位脱衣舞娘点了一支私人舞蹈，她把你带进一间包房，另一个女孩也加入了进来。她们似乎很享受有女性作陪，为你献上一支双人舞，你能感觉到自己的小穴渐渐湿润了。'
+		'她们跳完后，其中一个爬上你的大腿，在你耳边低语：“'+$func('money', 'string_price', 2000)+'，我现在就要吃掉你的小穴，就在这里，就是现在……”'
+		act '接受' + $func('money', 'get_cost_string', 2000):
+			if func('money', 'can_afford', 2000) = 0:
+				$noMoney
+			else
+				gt 'stripclub', 'private_sex'
+			end
+		end
+		act '离开': gt 'stripclub', 'main_floor'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/private_dance.jpg"></center>'
+		'你点了一支私人舞蹈，两个女孩把你带进一间包房。她们把你按进椅子里，开始围着你跳起极其色情的舞，一边互相脱着衣服。你感到心跳加速，小穴也渐渐湿润了。'
+		act '完成': gt 'stripclub', 'main_floor'
+	end
+end
+
+if $ARGS[0] = 'striptease':
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/sveta_show3.jpg"></center>'
+	'DJ 宣布马上会有一位脱衣舞娘表演钢管舞，人群中的男人们顿时欢呼雀跃。'
+
+	act '看表演':
+		gs 'schedule', 'A23'
+		if rand(0, 3) = 0 and AlbinaQW['seen_strip'] = 0 and locat['A23'] = 22:
+			gs 'stripclub', 'albina_first_dance1'
+		elseif rand(0, 3) = 0 and AlbinaQW['seen_strip'] = 1 and locat['A23'] = 22:
+			gs 'stripclub', 'albina_recurrent_dance'
+		else
+			*clr & cla
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_show1.mp4"></video></center>'
+			'你决定坐下来观看即将开始的表演。'
+			*nl
+			gs 'stripclub', 'set_girl'
+			*nl
+			'音乐震耳欲聋，衣着暴露的女孩在响亮的欢呼和口哨声中昂首走上舞台。'
+			'接着她开始表演，一边在钢管上舞动，一边慢慢脱去衣物。人群中的男人们一边怪叫起哄，一边把成把的卢布扔到台上。'
+
+			act '给她钱' + $func('money', 'get_cost_string', 100, 'cash'):
+				if func('money', 'can_afford', 100, 'cash') = 0:
+					$noMoney
+				else
+					*clr & cla
+					pcs_horny += 5
+					minut += 5
+					gs 'money', 'pay', 100, 'cash'
+					'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_show2.mp4"></video></center>'
+					'你把'+$func('money', 'string_price', 100)+' 塞进她的丁字裤里，然后她挑逗地开始摇晃屁股，在你面前的钢管上摆动。你感觉自己慢慢兴奋起来。'
+					'女孩很快结束了表演，收拾好衣物和小费，在男人们的欢呼声中走下舞台。'
+					act '走开': gt 'stripclub', 'main_floor'
+				end
+			end
+
+			act '看表演':
+				*clr & cla
+				pcs_horny += 5
+				minut += 5
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_show2.mp4"></video></center>'
+				'看着女孩表演，你感觉自己慢慢兴奋起来，直到她终于扯下丁字裤，在钢管上做了最后一个旋转，然后收拾好衣物和小费，在男人们的欢呼声中走下舞台。'
+				act '走开': gt 'stripclub', 'main_floor'
+			end
+
+			act '看向别处':
+				cla
+				pcs_horny -= 5
+				'你决定不给脱衣舞娘任何钱，并把目光移开。你感到有点羞愧，欲火也渐渐消退。'
+				act '走开': gt 'stripclub', 'main_floor'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'private_sex':
+	!! TODO: multiple npc arousal
+	*clr & cla
+	girl += 2
+	stat['lesbian_count'] += 1
+	gs 'money', 'pay', 2000
+	gs 'arousal', 'cuni', 15, 'lesbian', 'group'
+	$orgasm_or = 'yes'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/private_dance_sex.jpg"></center>'
+	'女孩们把你从舞台边带进一间私人包间。还没等你反应过来，她们就脱光了你的衣服，让你张开双腿，其中一个舔起你的小穴，又快又熟练地把你送上高潮，另一个则继续抚摸你的身体。'
+	act '完成': gt 'stripclub', 'main_floor'
+	act '更多': gt 'stripclub', 'private_sex1'
+end
+
+if $ARGS[0] = 'private_sex1':
+	!! TODO: multiple npc arousal
+	*clr & cla
+	girl += 2
+	stat['lesbian_count'] += 1
+	gs 'arousal', 'cuni', 15, 'lesbian', 'group'
+	$orgasm_or = 'yes'
+	gs 'arousal', 'end'
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/private_dance_sex.jpg"></center>'
+	'另一个女孩叹了口气，轻轻把她的朋友推开。“你已经让她高潮了。现在我也要加入，”她说着开始舔你，很快又把你送上第二次高潮。'
+	'当你回过神来，你发现房间里只剩下你一个人了。'
+	act '完成': gt 'stripclub', 'main_floor'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          HIRING & TRYOUTS                          !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'hire1':
+	*clr & cla
+	$func('wrap', 'header center b', '脱衣舞俱乐部')
+	if month >= 11 or month <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_winter.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_summer.jpg"></center>'
+	end
+	'“嘿，”你对保镖说。“我想在这里找份工作。我能见见经理吗？”'
+	if pcs_hotcat > 5:
+		'“哼，”他哼了一声。“身份证？”'
+		if age >= 18:
+			act '给他看你的护照':
+				cla & *nl
+				'你在包里翻找，掏出护照给他看，证明你已经到了法定年龄。保安看了一眼，点了点头。'
+				'“查过了，没问题，进去吧，”他说着挥手让你过去。“你要找的是萨沙。敲那扇写着‘经理’的门。”'
+				act '走进去': gt 'stripclub', 'hire2'
+			end
+		elseif fakepassport = 1:
+			cla & *nl
+			'你在包里翻找，掏出假护照给他看，证明自己已经“到了法定年龄”。保镖看了一眼，点了点头。'
+			'“查过了，没问题，进去吧，”他说着挥手让你过去。“你要找的是萨沙。敲那扇写着‘经理’的门。”'
+			act '走进去': gt 'stripclub', 'hire2'
+		else
+			act '呃……':
+				cla & *nl
+				'“呃……”你尴尬地假装在包里翻找。“抱歉，我一定是把身份证落在家里了。我能不能——”'
+				'“不行，”他说着把你推开。“等你找到再来。”'
+				act '离开': gt 'stripclub', 'start'
+			end
+		end
+	else
+		'“哼，”他嗤笑一声。“你是认真的？”'
+		'“是啊，我想在这里工作。”'
+		'“我们这儿只雇漂亮姑娘，”他说着把你推开。“退后点。你把客人都吓跑了。”'
+		act '离开': gt 'stripclub', 'start'
+	end
+end
+
+if $ARGS[0] = 'hire2':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/manager_office.jpg"></center>'
+	minut += 5
+	gs 'stat'
+	'你走进经理装潢考究的办公室，看见一个气势逼人的中年男人坐在办公桌后，穿着一身看起来很昂贵的西装。“有事吗？我能帮你什么？”'
+	'你朝他笑了笑，他没有回应。你走到桌前，惊讶地看见一个半裸的女孩从桌子后面站起来，手里拿着几张纸巾，正擦着她那对硕大乳房上像是精液的东西。'
+	'随后她重新穿上那件紧身的白色皮束腰，男人递给她一些钱，还拍了拍她的屁股。“你的奶子还和以前一样棒，奥珀尔，”他咧嘴笑道。'
+	*nl
+	'她朝他笑了笑，然后从你身边擦身而过走出房间，似乎并不在意你刚才撞见她大概是在给老板乳交。'
+	'“你是萨沙吗？”你问道，努力不去想刚才看到的事。“有人让我来问问，我能不能在这里找份工作？”'
+	'“就是我，”他点点头，拉上裤子的拉链，然后打量着你。“你满18岁了吗？上周警察来过一趟，他们发现这里有个未成年女孩在工作。幸好那些警官能收买，但我不希望他们再来一次。”'
+	*nl
+	if age >= 18 or fakepassport = 1:
+		if age >= 18:
+			'“是的，”你自信地回答，把身份证递给他。'
+			'你看到他检查时露出了笑容。“看来一切都没问题。那你想做什么工作？脱衣舞娘还是女招待？”'
+		else
+			'“是的……”你回答着，把假护照递给他。'
+			'你看到他皱着眉头，满腹狐疑地检查着。“好吧，我想应该没问题。那你想做什么工作？脱衣舞娘还是女招待？”'
+		end
+
+		act '脱衣舞娘':
+			cla & *nl
+			'“我想当脱衣舞娘，”你回答。'
+			gs 'stripclub', 'stripper_tryout1'
+		end
+
+		act '女招待':
+			cla & *nl
+			'“我想当女招待，”你回答。'
+			act '继续': gt 'stripclub', 'hire3'
+		end
+
+		act '我不能调酒吗？':
+			cla
+			'“我必须当女招待吗？我不能调酒吗？”'
+			'“那可是个人人眼馋的重要职位。你想要那个位置，就得一步步熬上去。我得先确定自己能信任你。所以，脱衣舞娘还是女招待？”'
+			'“那就女招待吧，”你失望地耸耸肩。'
+			act '继续': gt 'stripclub', 'hire3'
+		end
+	else
+		'“快了……”你沮丧地说。'
+		'“好吧。你得离开了，不过等你够年龄了一定要再来，”他回答。'
+		act '离开': gt 'city_redlight', 'start'
+	end
+end
+
+if $ARGS[0] = 'hire3':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/manager_office.jpg"></center>'
+	minut += 5
+	gs 'stat'
+	'“你有在酒吧工作的经验吗？”他一边问一边打量着你。'
+	if $job_status['city_cafe_waitress'] <> '':
+		'“算是有点，”你回答。“我以前在一家有吧台的小餐馆工作过。”'
+		'“是路边餐馆小餐馆？”他问道。“太好了。你在场内应该能应付得来，不过想到吧台后面工作，还得先接受培训。”'
+		'“那要多久？”你问道。'
+		'他笑了。“如果你能毫无问题地做到这些，那我就会找时间培训你到吧台工作。”'
+	else
+		'你摇了摇头。“没有，我以前从没做过这种工作。这有问题吗？”'
+		'他皱起眉头。“这不太理想。我们的客人非常饥渴，而且不光是对酒水，所以你得在干中学，强度会很大。”'
+		'“哦，”你沮丧地回答，但他却笑了。'
+		'别担心。我们的吧台员工会带你上手，让你不出错。”'
+	end
+	'“你还有什么问题要问我吗？”他问道。'
+	'“就两个，”你回答。“我什么时候上班，工资多少？”'
+	'他轻笑一声。“看来你说话很直接。俱乐部营业时间是从 '+func('time', 'get_time_string', 18, 0)+' 到 '+func('time', 'get_time_string', 3, 0)+'，而酒吧女郎需要在 '+func('time', 'get_time_string', 17, 0)+' 到 '+func('time', 'get_time_string', 18, 0)+' 之间工作。'
+	'他翻出一张单子似的东西。“目前有两个班次可选：周三和周四晚上，或者周五和周六晚上。工资按周结算，外加小费。有兴趣吗？”'
+
+	act '接受这份工作':
+		cla
+		gs 'stat'
+		'“我接受，”你笑着说。'
+		'“太好了，”他回答。“你想选哪个班次？”'
+		temp_can_weekday = func('jobs', 'check_employment_possible', 'city_strip_bargirl', 0)
+		temp_can_weekend = func('jobs', 'check_employment_possible', 'city_strip_bargirl', 1)
+		if temp_can_weekday = 0 and temp_can_weekend = 0:
+			'“其实，我没法把这些班次安排进我现在的事务里，”你皱着眉头说。'
+			act '离开': gt 'stripclub', 'main_floor'
+		else
+			if temp_can_weekday = 1:
+				act '选工作日的班次':
+					cla
+					gs 'jobs', 'set_employed', 'city_strip_bargirl'
+					'“太好了。下周你来上第一个班的时候来找我，我会帮你安排好。”'
+					'就在你正要离开时，他叫住了你。“如果你以后想换班次或者辞职，就在下班<i>之后</i>来找我，这样我好为第二天晚上做好调整。”'
+					if hour >= 3:
+						act '离开': gt 'city_redlight', 'start'
+					else
+						act '离开': gt 'stripclub', 'work_leave'
+					end
+				end
+			end
+
+			if temp_can_weekend = 1:
+				act '选择周末班次':
+					cla
+					gs 'jobs', 'set_employed', 'city_strip_bargirl'
+					gs 'jobs', 'change_schedule', 'city_strip_bargirl', 1
+					'“太好了。下周来上你的第一班，我会帮你安排好的。”'
+					'你正要离开时，他拦住了你。“如果你以后想换班或者辞职，就在一个班次<i>结束之后</i>来找我，我会帮你把第二天晚上的安排都改好。”'
+					if hour >= 3:
+						act '离开': gt 'city_redlight', 'start'
+					else
+						act '离开': gt 'stripclub', 'work_leave'
+					end
+				end
+			end
+		end
+		killvar 'temp_can_weekday'
+		killvar 'temp_can_weekend'
+
+		act '拒绝他的提议':
+			cla
+			gs 'stat'
+			'“抱歉，我觉得自己还没完全准备好做这种工作，”你说，他笑了笑。'
+			'“没关系，”他回答道。“等你准备好了再来。”'
+			if hour >= 3:
+				act '离开': gt 'city_redlight', 'start'
+			else
+				act '离开': gt 'stripclub', 'work_leave'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'stripper_tryout1':
+	*nl
+	'“好吧，先说第一件事。把衣服脱了。”'
+	act '恐慌':
+		cla & *nl
+		'一阵寒意顺着你的脊背爬上来。'
+		'“<i>什么？</i>”你惊讶地脱口而出。'
+		'他翻了个白眼。“哦，妈的。又来一个……你想当脱衣舞娘，那别人就会看到你裸体。也就是说<i>我</i>得看看你裸体，确认你够辣、能在我俱乐部里跳舞，而不是<i>像这样</i>临阵退缩。现在要么把衣服脱了，要么滚蛋。”'
+		act '脱衣': gt 'stripclub', 'stripper_tryout2'
+	end
+
+	act '惊喜':
+		cla & *nl
+		'“啊？”你眨了眨眼。“现在？”'
+		'“为什么不呢？”他耸耸肩。“你想当脱衣舞娘，那别人就会看到你裸体。也就是说<i>我</i>得看看你裸体，确认你够辣、能在我俱乐部里跳舞。所以<i>脱吧。</i>”'
+		act '脱衣': gt 'stripclub', 'stripper_tryout2'
+	end
+	act '脱衣': gt 'stripclub', 'stripper_tryout2'
+end
+
+if $ARGS[0] = 'stripper_tryout2':
+	gs 'stwork', 'strip_clothing'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripinspection.jpg"></center>'
+	'你脱掉衣服，赤身裸体地站在萨沙面前，他站起身仔细打量。'
+	if pcs_leghair <= 3:
+		'他欣赏着你的双腿。'
+		'“腿很光滑。非常好。”'
+	else
+		'他皱起眉头看着你的双腿。'
+		'“你得把它们刮一刮。”'
+	end
+	'他把手放在你的阴阜上慢慢揉搓。他的触碰让你的小穴有点湿了，你希望他没注意到。'
+	gs 'arousal', 'foreplay', 2
+	gs 'stat'
+	!! This allows different pubic styles, but anything from small bush up is not permitted.
+	if (pubestyle = 1 and pcs_pubes <= 3) or lashair = 1:
+		'“刮得很干净。不错。”'
+	elseif ((pubestyle >= 2 and pubestyle <=7) or (pubestyle >= 12 and pubestyle <= 14)) and pcs_pubes <= 25:
+		strippermission = 1
+		'“毛挺好看，”他得意地笑了笑。“我相信顾客们会喜欢的。”'
+		strip_club['dancing_rounds'] = 3
+	elseif pcs_leghair <= 3:
+		'“你得把这刮掉，”他咕哝着，用手指穿过你浓密的阴毛。“或者至少修剪一下。弄得可爱点。”'
+	else
+		'“这儿也是，”他皱着眉，用手指穿过你浓密的阴毛。“你是什么，嬉皮士吗？这是脱衣舞俱乐部，不是动物园！”'
+	end
+
+	if tits >= 5:
+		'他打量着你那对巨大的乳房。'
+		'“在这儿干活的姑娘里，没几个能吹嘘自己的胸有脑袋那么大，”他笑着用手揉捏着。“奥珀尔这下可算遇到对手了。”'
+		gs 'arousal', 'foreplay', 2
+		gs 'stat'
+	elseif tits = 4:
+		'他欣赏着你丰满的乳房。'
+		'“胸不错。是真的吗？”他一边问，一边用手轻轻揉弄。'
+		gs 'arousal', 'foreplay', 2
+		gs 'stat'
+	elseif tits = 3:
+		'他打量了一下你的乳房。'
+		'“你的胸还算可以。”'
+	elseif tits = 2:
+		'看到你那对小巧的乳房，他皱起了眉头。'
+		'“这胸可惜了。”'
+	else
+		'他看着你那对小小的乳房，皱起了眉头。'
+		'“嗯……”'
+	end
+	if func('pcs_has_attr', 'body_ass_bubble'):
+		'他把你转了一圈，检查你巨大的屁股。'
+		'“屁股真棒，姑娘，”他一边说一边拍揉着你硕大的臀部。“你会成为俱乐部的话题人物！”'
+		if year > 2017 or (year = 2017 and month > 8): '“我觉得安珀在俱乐部最佳屁股的称号上可能真遇到对手了！”'
+	elseif func('pcs_has_attr', 'body_ass_big') or func('pcs_has_attr', 'body_ass_heart'):
+		'他把你转了一圈，检查你形状姣好的屁股。'
+		'“屁股不错，”他一边说一边用手拍揉着你的臀部。“这肯定能给你多挣不少小费。”'
+	elseif func('pcs_has_attr', 'body_ass_flat'):
+		'他把你转了过来，检查你的屁股。'
+		'“嗯……”他说。“你该做点深蹲把它练厚实些。顾客们总得有东西可看。”'
+	else
+		'他把你转了过来，检查你的屁股。'
+		'“不算差，不过做点深蹲把它练厚实些也没坏处。”'
+	end
+	'然后他把你领到一间私人隔间，指了指钢管。'
+	'“好了。现在让我看看你的本事。”'
+
+	act '为他跳舞': gt 'stripclub', 'stripper_tryout3'
+end
+
+if $ARGS[0] = 'stripper_tryout3':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/tryout.jpg"></center>'
+	if pcs_dancero >= 40 and pcs_dancpol >= 30:
+		gs 'stripclub', 'stripper_accept1'
+	elseif pcs_dancero >= 40:
+		'一分钟后，他让你停下，摇了摇头。“你的性感本色已经到位了，但钢管舞还差得远。我记得健身房有钢管舞课程。等你能驾驭钢管了再来，我会再给你一次机会。”'
+		act '离开': gt 'stripclub', 'work_leave'
+	else
+		'一分钟后，他让你停下，摇了摇头。“你的舞技还不行。想要这份工作，你得先上些课。我记得健身房可以学。等你能在台上跳舞而不用担心摔下来的时候再来，我会再给你一次机会。”'
+		act '离开': gt 'stripclub', 'work_leave'
+	end
+end
+
+if $ARGS[0] = 'stripper_accept1':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/manager_office.jpg"></center>'
+	'你跳得十分撩人，他显然被你迷住了，随后让你坐下。'
+	'“我们的营业时间是从 '+func('time', 'get_time_string', 18, 0)+' 到 '+func('time', 'get_time_string', 3, 0)+'，每天分两个六小时的班次——'+func('time', 'get_time_string', 18, 0)+' 到午夜，以及 '+func('time', 'get_time_string', 21, 0)+' 到 '+func('time', 'get_time_string', 3, 0)+'。班次优先权先到先得。后台有一块写着排班表的白板。”'
+	'他从身后的柜子里拿出一些文件。'
+	'“你拿到的小费都归你，但我们不按小时付工资。就当是好好表现的激励。如果顾客想要私人膝上舞，那是 '+$func('money', 'string_profit', 1000)+' <i>每</i>支舞。你拿40%，剩下的归俱乐部。”'
+	'他在椅子上坐直身体，严肃地看着你。“有些客人可能想额外付钱，为他们的舞蹈要一个「圆满结局」；这最多仅限于口交。我们<i>不</i>是妓院，所以你必须<i>一定</i>拒绝<i>任何</i>性服务要求，不管他们出多少钱。如果他们纠缠不休，就叫维克托。现在在这里签字。”'
+	act '改变主意':
+		cla
+		gs 'stat'
+		'“再想想，我不确定自己能不能做这个，”你犹豫地说。'
+		'“呃，又他妈是个怂货。”他翻了个白眼，把文件扔进抽屉，砰地关上。“等你准备好认真对待了再回来。在那之前，滚蛋。”'
+		act '离开': gt 'stripclub', 'main_floor'
+	end
+
+	act '招牌':
+		cla
+		gs 'jobs', 'set_employed', 'city_strip_stripper'
+		gs 'stat'
+		'你想了一分钟，然后微笑着接受了他的提议。'
+		'然后他把你领到更衣室，告诉负责服装的女人你要加入俱乐部了。他还把你介绍给保安主管，那人给你拍了照，让你签了几份文件，然后带你回到他的办公室。'
+		*nl
+		'“出于显而易见的原因，我们的姑娘不用真名表演。我们这儿有点宝石主题，不过你想取什么艺名都行。你<i>要是</i>违背这个主题，你会脱颖而出，这可能是一件好事<i>或者</i>对你的名声来说是件坏事。”'
+		'然后他拿出一份像是名单的东西。“如果你想自己用宝石名，那要知道安珀、杰德、奥尼克斯、埃默拉尔德、艾米瑟斯特、黛蒙德、阿祖尔、奥珀尔和鲁比都已经被占了。那你想叫什么名字？”'
+		
+		$pcs_strippername = input("你想在脱衣舞俱乐部用什么名字？（留空则使用蓝宝石）")
+		
+		if $pcs_strippername = 'Amber' or $pcs_strippername = 'Jade' or $pcs_strippername = 'Onyx' or $pcs_strippername = 'Emerald' or $pcs_strippername = 'Amythest' or $pcs_strippername = 'Diamond' or $pcs_strippername = 'Azul' or $pcs_strippername = 'Opal' or $pcs_strippername = 'Ruby':
+			'这个名字不可用。'
+		elseif $pcs_strippername = '':
+			$pcs_strippername = '蓝宝石'
+			'“呃，我不知道……”你呆板地说，萨沙翻了个白眼。'
+			'“随便吧。从现在起你就叫蓝宝石。现在把这些表格填了，”他说着把之前的文件递给你，然后把你新取的名字加到名单上。'
+		else
+			'“我可以叫<<$pcs_strippername>>吗？”'
+			'“当然，”他耸耸肩，把你选的名字加到名单上，指了指之前的文件。“现在把这些表格填了。”'
+		end
+		'你在文件上草草写下自己的信息并签了字，萨沙一直在跟你说话。'
+		'“上台之前，我希望你先到我办公室来一趟，让我检查你是否符合我们俱乐部的标准。只是例行检查，确保俱乐部的名声不受影响。没什么好担心的，”他说着把你送出了办公室。'
+		act '离开': gt 'stripclub', 'work_leave'
+	end
+end
+
+if $ARGS[0] = 'manager_job_change':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/manager_office.jpg"></center>'
+	'你走进萨沙的办公室，他微笑着向你打招呼。“你好啊<<$pcs_nickname>>，有什么我能帮你的吗？”'
+	if $job_status['city_strip_bargirl'] = 'employed':
+		if val($job_active_schedule['city_strip_bargirl']) = 0:
+			if func('jobs', 'check_employment_possible', 'city_strip_bargirl', 1) = 1:
+				act '我想改成周末酒吧班':
+					cla
+					'“我能把班次改成周末上班吗？”你问。'
+					'“你确定吗？”他问。“那会比你现在忙得多，不过另一个酒吧女孩会很乐意跟你换，这样她周末就能休息了。”'
+					'“我确定，”你点点头。'
+					gs 'jobs', 'change_schedule', 'city_strip_bargirl', 1
+					'“那好吧，”他笑了笑。“我会改好的。准备好周五和周六晚上回来上班，在 '+func('time', 'get_time_string', 17, 0)+' 到 '+func('time', 'get_time_string', 18, 0)+' 之间到。”'
+					*nl
+					'你在离开办公室前向他道谢。'
+					act '离开': gt 'city_redlight', 'start'
+				end
+			end
+		elseif val($job_active_schedule['city_strip_bargirl']) = 1:
+			if func('jobs', 'check_employment_possible', 'city_strip_bargirl', 0) = 1:
+				act '我想改成工作日酒吧班':
+					cla
+					'“我能把班次改成工作日上班吗？”你问。'
+					'“你确定吗？”他问。“那会比你现在清闲得多，所以另一个酒吧女孩会很乐意跟你换，这样她能多赚点钱。”'
+					'“我确定，”你点点头。'
+					gs 'jobs', 'change_schedule', 'city_strip_bargirl', 0
+					'“那好吧，”他笑了笑。“我会改好的。准备好周三和周四晚上回来上班，在 '+func('time', 'get_time_string', 17, 0)+' 到 '+func('time', 'get_time_string', 18, 0)+' 之间到。”'
+					*nl
+					'你在离开办公室前向他道谢。'
+					act '离开': gt 'city_redlight', 'start'
+				end
+			end
+		end
+		act '我想辞掉调酒的工作':
+			cla
+			'“我想辞职，”你告诉他，他点点头。'
+			'“我相信你有自己的理由，但如果是因为你想改跳钢管舞，那你就得像其他姑娘一样，改天晚上再回来试演。”'
+			gs 'jobs', 'set_terminated', 'city_strip_bargirl'
+			'你只是点点头并在离开办公室前向他道谢。'
+			act '离开': gt 'city_redlight', 'start'
+		end
+		act '没关系':
+			cla
+			'"哦，没什么重要的事，"你回答。"抱歉打扰你了。"'
+			'"好吧，"他耸耸肩，把注意力转回刚才在做的事。'
+			'你向他道了谢，然后离开办公室。'
+			act '离开': gt 'city_redlight', 'start'
+		end
+	elseif $job_status['city_strip_stripper'] = 'employed':
+		act '我想改做女招待':
+			cla
+			'你也回以微笑。“你好，我在想我能不能改做女招待？”'
+			'他轻笑一声。“跳钢管舞跳腻了，想找份轻松点的工作？”'
+			'“可以这么说，”你笑了笑。'
+			gs 'jobs', 'set_terminated', 'city_strip_stripper'
+			act '继续': gt 'stripclub', 'hire3'
+		end
+		act '我想辞职':
+			cla
+			'“我想辞职，”你告诉他，他点点头。'
+			'“我相信你有自己的理由，但如果是因为你想改跳钢管舞，那你就得像其他姑娘一样，改天晚上再回来试演。”'
+			gs 'jobs', 'set_terminated', 'city_strip_stripper'
+			'你只是点点头并在离开办公室前向他道谢。'
+			act '离开': gt 'city_redlight', 'start'
+		end
+		act '没关系':
+			cla
+			'"哦，没什么重要的事，"你回答。"抱歉打扰你了。"'
+			'"好吧，"他耸耸肩，把注意力转回刚才在做的事。'
+			'你向他道了谢，然后离开办公室。'
+			act '离开': gt 'city_redlight', 'start'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               ALBINA                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'albina_first_dance1':
+	*clr & cla
+	pcs_horny += 5
+	minut += 15
+	AlbinaQW['seen_strip'] = 1
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_show1.mp4"></video></center>'
+	'几分钟后，DJ在宣布哪位脱衣舞女表演时把观众气氛炒热。'
+	if ($start_type['magic'] = 'tg' and $start_type['loc'] ! 'sg') and AlbinaQW['know_albina_uni'] = 0:
+		'“接下来登场的这位姑娘，我知道你们在座的不少绅士都等很久了！为全城最棒的屁股欢呼吧，因为登场的是……安——珀——！”DJ通过音响宣布，人群爆发出响亮的欢呼和口哨声。'
+		'你抬头看向舞台，一个非常迷人的棕发女郎穿着紧身银色束腰和配套丁字裤大步走出，开始对着人群摇屁股。'
+	else
+		if AlbinaQW['Friends'] = 2:
+			'“接下来登场的这位姑娘，我知道你们在座的不少绅士都等很久了！为全城最棒的屁股欢呼吧，因为登场的是……安——珀——！”DJ通过音响宣布，人群大声欢呼。'
+			'一个穿着紧身银色束腰和配套丁字裤的姑娘在响亮的欢呼声中大步走上舞台，对着人群摇屁股，你惊得下巴都掉了。那是阿尔宾娜？！'
+		else
+			'“接下来登场的这位姑娘，我知道你们在座的不少绅士都等很久了！为全城最棒的屁股欢呼吧，因为登场的是……安——珀——！”DJ通过音响宣布，人群大声欢呼，一个穿着紧身银色束腰和配套丁字裤的姑娘大步走上舞台，开始摇屁股。'
+			'你抬头看向舞台，不禁觉得她看起来很眼熟……你仔细一看，发现那是阿尔宾娜！'
+		end
+	end
+	if npc_rel['A23'] >= 60 or AlbinaQW['Friends'] = 2:
+		'她看到你后笑了笑，凑到你面前跳舞，把圆翘的屁股在你眼前扭来扭去。'
+
+		act '看她的表演':
+			*clr & cla
+			pcs_horny += 5
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+			'你默默地看着阿尔宾娜随着音乐脱衣，用舞姿挑逗人群，把屁股甩到他们脸上，而他们把成堆的卢布扔到舞台上。她偶尔会大摇大摆地走过来在你面前跳舞，引得那些男人往舞台上扔更多的钱，好让她把注意力转回他们身上。'
+			'她挑逗地拉扯着丁字裤，慢慢脱掉，以此结束表演，周围的顾客看得兴高采烈，她光着身子在舞台上打滚，他们瞪大眼睛欢呼。然后她收起衣物和小费，大摇大摆地走下舞台，甚至没有朝你这边看一眼。'
+			'几分钟后，她走到大厅，立刻抓住你的胳膊，把你拖进一间私人房间。'
+			act '跟她走': gt 'stripclub', 'albina_confront'
+		end
+
+		act '给她钱' + $func('money', 'get_cost_string', 100):
+			if func('money', 'can_afford', 100) = 0:
+				$noMoney
+			else
+				*clr & cla
+				gs 'money', 'pay', 100
+				minut += 5
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+				'你扔出 '+$func('money', 'string_price', 100)+' 走到她面前的舞台上，她向你眨了眨眼，然后回到舞台中央，用她的舞姿挑逗着人群，他们把成堆的卢布扔到舞台上。'
+				'她挑逗地拉扯着丁字裤，慢慢把它脱下来，以此结束表演，你周围的顾客看得兴高采烈，她光着身子在舞台上翻滚，他们盯着她欢呼。然后她收起衣物和小费，男人们又喊又叫，她大摇大摆地走下舞台。'
+				'几分钟后，她走到大厅，立刻抓住你的胳膊，把你拖进一间私人房间。'
+				act '跟她走': gt 'stripclub', 'albina_confront'
+			end
+		end
+	else
+		'你们对上了目光，你注意到她眼里闪过一丝认出的神色，但除此之外她完全没有理会你，继续表演并脱着衣服。'
+
+		act '看她的表演':
+			*clr & cla
+			pcs_horny += 5
+			minut += 5
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+			'你默默地看着，'+iif(AlbinaQW['know_albina_uni'] = 0 and ($start_type['loc'] ! 'sg' and $start_type['magic'] = 'tg'), '那个棕发女孩', '阿尔宾娜')+'随着音乐脱衣，用动作挑逗人群，把屁股甩到他们脸上，而他们把一叠叠卢布扔到舞台上。'
+			'她挑逗地拉扯着丁字裤，慢慢脱掉，以此结束表演，周围的顾客看得兴高采烈，她光着身子在舞台上打滚，他们瞪大眼睛欢呼。然后她收起衣物和小费，大摇大摆地走下舞台，甚至没有朝你这边看一眼。'
+			'几分钟后，她走到大厅，立刻抓住你的胳膊，把你拖进一间私人房间。'
+			act '跟她走': gt 'stripclub', 'albina_confront'
+		end
+
+		act '给她钱' + $func('money', 'get_cost_string', 100):
+			if func('money', 'can_afford', 100) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+				gs 'money', 'pay', 100
+				minut += 5
+				gs 'stat'
+				'你扔出 '+$func('money', 'string_price', 100)+'扔到她面前的舞台上，但她只是翻了个白眼，走到一群给她更加慷慨小费的男人面前跳舞。'
+				'她挑逗地拉扯着丁字裤，慢慢脱掉，以此结束表演，周围的顾客看得兴高采烈，她光着身子在舞台上打滚，他们瞪大眼睛欢呼。然后她收起衣物和小费，大摇大摆地走下舞台，甚至没有朝你这边看一眼。'
+				'几分钟后，她走到大厅，立刻抓住你的胳膊，把你拖进一间私人房间。'
+				act '跟她走': gt 'stripclub', 'albina_confront'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'albina_recurrent_dance':
+	*clr & cla
+	pcs_horny += 5
+	minut += 15
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/stripclub_show1.mp4"></video></center>'
+	'几分钟后，DJ在宣布哪位脱衣舞女表演时把观众气氛炒热。'
+	'“我知道你们这些绅士中有不少人一直在等着这个姑娘！为全城最棒的屁股欢呼吧，因为她来了……安珀——！”'
+	'看到阿尔宾娜昂首阔步走上舞台开始表演，你露出了微笑。'
+	if npc_rel['A23'] >= 60 or AlbinaQW['Friends'] = 2:
+		'她看到你时露出微笑，一边脱衣一边贴近你跳舞，把她的翘臀在你脸前扭来扭去。'
+		act '给她钱' + $func('money', 'get_cost_string', 100):
+			if func('money', 'can_afford', 100) = 0:
+				$noMoney
+			else
+				*clr & cla
+				gs 'money', 'pay', 100
+				minut += 5
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+				'你扔出 '+$func('money', 'string_price', 100)+' 走到她面前的舞台上，她向你眨了眨眼，然后回到舞台中央，用她的舞姿挑逗着人群，他们把成堆的卢布扔到舞台上。'
+				'她慢慢地脱掉衣服并在钢管上跳舞然后挑逗地拉扯她的丁字裤并慢慢脱下它，这让你周围的顾客大为高兴，他们盯着她并在她赤身裸体在舞台上打滚时欢呼。'
+				'她的表演结束后，音乐停下她捡起衣服和小费然后大摇大摆走下舞台，摆动臀部展示她的裸臀同时男人们欢呼叫喊。'
+				act '走开': gt 'stripclub', 'main_floor'
+			end
+		end
+
+		act '看她的表演':
+			*clr & cla
+			pcs_horny += 5
+			minut += 5
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+			'你默默地看着阿尔宾娜随着音乐脱衣，用舞姿挑逗人群，把屁股甩到他们脸上，而他们把一叠叠卢布扔到舞台上。她偶尔会大摇大摆地走过来在你面前跳舞，引得那些男人往舞台上扔更多的钱，好让阿尔宾娜重新把注意力转回他们身上。'
+			'她挑逗地拉扯着丁字裤，慢慢脱掉，以此结束表演，周围的顾客看得兴高采烈，她光着身子在舞台上打滚，他们瞪大眼睛欢呼。然后她收起衣物和小费，大摇大摆地走下舞台，甚至没有朝你这边看一眼。'
+			act '走开': gt 'stripclub', 'main_floor'
+		end
+	else
+		'然而她看到你时并没有回以微笑，开始脱衣并在钢管上跳舞时也几乎没搭理你。'
+		act '给她钱' + $func('money', 'get_cost_string', 100):
+			if func('money', 'can_afford', 100) = 0:
+				$noMoney
+			else
+				*clr & cla
+				gs 'money', 'pay', 100
+				minut += 5
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+				'你扔出 '+$func('money', 'string_price', 100)+'扔到她面前的舞台上，但她只是翻了个白眼，走到一群喧闹的，给她更加慷慨小费的男人面前跳舞。'
+				'她慢慢地脱掉衣服并在钢管上跳舞然后挑逗地拉扯她的丁字裤并慢慢脱下它，这让你周围的顾客大为高兴，他们盯着她并在她赤身裸体在舞台上打滚时欢呼。'
+				'她的表演结束后，音乐停下她捡起衣服和小费然后大摇大摆走下舞台，摆动臀部展示她的裸臀同时男人们欢呼叫喊。'
+				act '走开': gt 'stripclub', 'main_floor'
+			end
+		end
+
+		act '看她的表演':
+			*clr & cla
+			pcs_horny += 5
+			minut += 5
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/redlight/stripclub/albina_show.mp4"></video></center>'
+			'你默默地看着阿尔宾娜随着音乐脱衣，用舞姿挑逗人群，把屁股甩到他们脸上，而他们把一叠叠卢布扔到舞台上。'
+			'她挑逗地拉扯着丁字裤，慢慢脱掉，以此结束表演，周围的顾客看得兴高采烈，她光着身子在舞台上打滚，他们瞪大眼睛欢呼。然后她收起衣物和小费，大摇大摆地走下舞台，甚至没有朝你这边看一眼。'
+			act '走开': gt 'stripclub', 'main_floor'
+		end
+	end
+end
+
+if $ARGS[0] = 'albina_confront':
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big23.jpg"></center>'
+	if npc_rel['A23'] >= 60 or AlbinaQW['Friends'] = 2:
+		'“你在这里做什么，<<$pcs_nickname>>？”她问道。'
+		'“<i>你</i>在这里做什么？！”你反唇相讥，她笑了。'
+		'“看起来就是这样。妈妈不肯承担我所有的开销，我得自己赚钱，所以我决定发挥自己的特长，在这里找份跳钢管舞的工作。”'
+		*nl
+		'“你喜欢这份工作吗？”你问道，她耸了耸肩。'
+		'“还不算太糟。我赚了不少钱，而且保安会帮忙对付那些动手动脚的色鬼。只是别告诉任何人我在这里工作。”'
+		'“我会替你保密的，”你眨了眨眼，她笑了。'
+		'“谢谢你，<<$pcs_nickname>>，不过我得回去工作了，”她说完便离开了房间。'
+		act '返回楼层': gt 'stripclub', 'main_floor'
+	elseif AlbinaQW['know_albina_uni'] = 0 and ($start_type['loc'] <> 'sg' and $start_type['magic'] = 'tg'):
+		'“你在这里做什么，<<$pcs_nickname>>？”她问道。'
+		'你努力想给出一个答案，试图记起这个女孩是谁。'
+		'“怎么样？”她期待地问道。“如果你没什么好说的，那我就让保安把你当成色鬼扔出去！”'
+		*nl
+		'你突然想起日记里写的内容。这个女孩叫阿尔宾娜，是<<$pcs_nickname>>以前的同学，天生擅长跳舞。'
+		'“真没想到会在这儿见到你，”你回答道。“看来你把舞蹈天赋用在了正道上。”'
+		'“去你的，<<$pcs_nickname>>！”她皱起眉头。“我拦不住你来这里，但你别痴心妄想，觉得<i>任何</i>金额的钱能让我招待你！”'
+		'她一句话也没再说就冲了出去。看来她可不是你的头号粉丝……你来这个地方时最好尽量避开她。'
+		act '返回楼层': gt 'stripclub', 'main_floor'
+	else
+		'“你他妈在这里干什么，<<$pcs_nickname>>？！”她严厉地问道。'
+		'“<i>我<i>？！你在<i>这里</i>做什么？！”你反唇相讥，她翻了个白眼。'
+		'“我是他们新来的清洁工，不过今晚他们让我替一个姑娘顶班。你觉得我在干什么，你这白痴？！我不管也不在乎你为什么来这儿，但别指望我给你跳私人舞蹈！”'
+		'“我没——”你刚想回答，但她打断了你。'
+		'“随便吧。我得回去工作了，”她说完便离开了房间。'
+		act '返回楼层': gt 'stripclub', 'main_floor'
+	end
+end
+
+if $ARGS[0] = 'albina_dance':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/private_room.jpg"></center>'
+	'你把钱交过去，被带到其中一间私人房间，在那里坐下等待阿尔宾娜到来。'
+	if npc_rel['A23'] >= 60 or AlbinaQW['Friends'] = 2:
+		if AlbinaQW['special_lapdance'] = 0:
+			'阿尔宾娜走进房间，看到你时脸上露出喜色。“<<$pcs_nickname>>！我就知道是你！”'
+			'你只能咧嘴笑着看她风情万种地朝你走来。“不如我们让这支舞变得更……有趣一点？”'
+			'“哦？”你挑了挑眉毛问道。'
+			'“我们就在所有人面前的舞台上做吧！”她咧嘴笑道。'
+			act '同意':
+				*clr & cla
+				minut += 10
+				pcs_horny += 5
+				gs 'money', 'pay', 1000
+				AlbinaQW['special_lapdance'] = 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/alb_lapdance.jpg"></center>'
+				'DJ宣布由安珀进行一场特别表演，阿尔宾娜带你走上舞台。她把你按在舞台上的椅子上，音乐响起她开始表演。她一边性感地跳舞和扭臀一边慢慢脱掉衣服，同时对您和欢呼的观众露出挑逗的微笑并摆动臀部。'
+				'一旦脱到只剩丁字裤，她爬上你的大腿开始在你身上磨蹭，挺拔的乳房在你面前晃动。到她弯下腰在你面前把那条轻薄丁字裤拉下双腿时，你已相当兴奋，这让人群中的男人十分高兴。你注意到她的小穴有点湿；看来她和你一样享受。'
+				'歌曲结束，赤裸的阿尔宾娜一边朝你摆动她裸露的臀部一边微笑。你用力拍打她的屁股时男人们吹口哨叫喊。'
+				*nl
+				'她的表演结束后，她捡起衣服和小费然后大摇大摆走下舞台，男人们继续欢呼，留下你爬下舞台。'
+				act '返回楼层': gt 'stripclub', 'main_floor'
+			end
+
+			act '拒绝':
+				cla
+				minut += 10
+				pcs_horny += 5
+				gs 'money', 'pay', 1000
+				gs 'stat'
+				'你摇了摇头。“不用了，如果方便的话，我只想要一支私人舞蹈。”'
+				'她点点头。“当然。坐好欣赏表演就行。”'
+				*nl
+				'她把你按到椅子上，音乐响起她开始表演。她一边性感地跳舞和扭臀一边慢慢脱掉衣服，同时给你一个挑逗的微笑并摆动臀部。'
+				'一旦脱到只剩丁字裤，她爬上你的大腿开始在你身上磨蹭，挺拔的乳房在你面前晃动。到她弯下腰在你面前把那条轻薄丁字裤拉下双腿时，你已相当兴奋。你注意到她的小穴有点湿；看来她和你一样享受。'
+				'歌曲结束，赤裸的阿尔宾娜朝你微笑着摆动裸露的臀部，然后她捡起衣服穿好。她向你眨眼然后大摇大摆走出房间，留下你返回主区域。'
+				act '返回楼层': gt 'stripclub', 'main_floor'
+			end
+		else
+			'阿尔宾娜走进房间，看到你时脸上露出喜色。“<<$pcs_nickname>>！我就知道是你！”'
+			'你只能咧嘴笑着看她风情万种地朝你走来。“想不想再上台来一场‘特别’表演？”'
+			act '同意':
+				*clr & cla
+				minut += 10
+				pcs_horny += 5
+				gs 'money', 'pay', 1000
+				AlbinaQW['special_lapdance'] = 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/alb_lapdance.jpg"></center>'
+				'DJ宣布由安珀进行一场特别表演，阿尔宾娜带你走上舞台。她把你按在舞台上的椅子上，音乐响起她开始表演。她一边性感地跳舞和扭臀一边慢慢脱掉衣服，同时对您和欢呼的观众露出挑逗的微笑并摆动臀部。'
+				'一旦脱到只剩丁字裤，她爬上你的大腿开始在你身上磨蹭，挺拔的乳房在你面前晃动。到她弯下腰在你面前把那条轻薄丁字裤拉下双腿时，你已相当兴奋，这让人群中的男人十分高兴。你注意到她的小穴有点湿；看来她和你一样享受。'
+				'歌曲结束，赤裸的阿尔宾娜一边朝你摆动她裸露的臀部一边微笑。你用力拍打她的屁股时男人们吹口哨叫喊。'
+				*nl
+				'她的表演结束后，她捡起衣服和小费然后大摇大摆走下舞台，男人们继续欢呼，留下你爬下舞台。'
+				act '返回楼层': gt 'stripclub', 'main_floor'
+			end
+
+			act '拒绝':
+				cla
+				minut += 10
+				pcs_horny += 5
+				gs 'money', 'pay', 1000
+				gs 'stat'
+				'你摇了摇头。“不用了，如果方便的话，我只想要一支私人舞蹈。”'
+				'她点点头。“当然。坐好欣赏表演就行。”'
+				*nl
+				'她把你按到椅子上，音乐响起她开始表演。她一边性感地跳舞和扭臀一边慢慢脱掉衣服，同时给你一个挑逗的微笑并摆动臀部。'
+				'一旦脱到只剩丁字裤，她爬上你的大腿开始在你身上磨蹭，挺拔的乳房在你面前晃动。到她弯下腰在你面前把那条轻薄丁字裤拉下双腿时，你已相当兴奋。你注意到她的小穴有点湿；看来她和你一样享受。'
+				'歌曲结束，赤裸的阿尔宾娜朝你微笑着摆动裸露的臀部，然后她捡起衣服穿好。她向你眨眼然后大摇大摆走出房间，留下你返回主区域。'
+				act '返回楼层': gt 'stripclub', 'main_floor'
+			end
+		end
+	else
+		*clr & cla
+		minut += 2
+		gs 'money', 'pay', 100
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big23.jpg"></center>'
+		'几分钟后，阿尔宾娜走了进来，看到你时翻了个白眼。“我他妈才不会给像你这样的人跳膝上舞！”她把你的钱扔在地上。“这是退给你的钱，当然要扣掉一点浪费我时间的费用。现在赶紧滚，不然我就叫保安了！”'
+		'她双臂交叉，狠狠地盯着你，直到你离开房间。'
+		act '返回楼层': gt 'stripclub', 'main_floor'
+	end
+end
+
+if $ARGS[0] = 'fan_approach':
+	*clr & cla
+	if month >= 11 or month <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_winter.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/club_night_summer.jpg"></center>'
+	end
+	!!the creation of a fan for a stripper Sveta
+	temp['strip_club_partner'] = rand(1,300)
+	gs 'npcgeneratec', 0, '脱衣舞俱乐部的男人', 0, rand(3,4), 'like'
+	if npc_finance[$npcID] = 2 and npc_age[$npcID] < 26: npc_age[$npcID] = rand(26,45)
+	gs 'npcStat', $npclastgenerated
+	temp['strip_club_partner'] = rand(0,100)
+
+	if npc_finance[$npcID] < 2:
+		'一个穿着<<$npc_outfit[$npcID]>>的男人在你从员工通道出来时试图引起你的注意。'
+	else
+		'一个穿着<<$npc_outfit[$npcID]>>正在试图引起你的注意，你从员工通道出来。他的衣服看起来很贵。'
+	end
+	act '无视他': gt 'stripclub', 'start'
+	act '走近他': gt 'stripclub', 'fan_chat'
+end
+
+if $ARGS[0] = 'fan_chat':
+	*clr & cla
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+	if npc_finance[$npcID] < 2:
+		'他兴奋得满脸通红。“我太喜欢你今晚的表演了，<<$pcs_strippername>>！我是你的忠实粉丝！”'
+		'“哦。谢谢，”你回答道。“你是？”'
+		'“哦。我叫<<$npcdesc>>，”他笑着说。“但别告诉我你的名字！我喜欢只把你当作<<$pcs_strippername>>来认识的那种神秘感。”'
+		'“你是想要签名还是什么，<<$npcdesc>>？”你咯咯笑道。'
+		*nl
+		if npc_rough[$npcID] = 1:
+			'他开始用充满欲望的眼神上下打量你。'
+			'“看你表演让我下面硬得不行！我们回我那儿吧，我要把你操个半死！”'
+			
+			act '不用了，谢谢':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“不用了，谢谢。我对一夜情不感兴趣，”你回答道。'
+				'他脸上带着怒气看着你。“你在里面像骚货一样跳舞，现在却不肯把身子给我？！”'
+				'他对你拒绝他的事大做文章，朝你嘶声，往地上吐了口唾沫，差点吐到你的鞋上，然后怒气冲冲地走了。'
+				'你只是翻了个白眼，等他走了之后才离开。'
+				gs 'arousal', 'end'
+				act '离开': gt 'stripclub', 'start'
+			end
+
+			act '滚开':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“原来是为了这个？你怎么不直接滚远点？”你皱起眉头。“你<i>绝对</i>没机会跟我上床！”'
+				'他脸上带着怒气看着你。“你在里面像骚货一样跳舞，现在却不肯把身子给我？！”'
+				'他对你拒绝他的事大做文章，朝你嘶声，往地上吐了口唾沫，差点吐到你的鞋上，然后怒气冲冲地走了。'
+				'你只是翻了个白眼，等他走了之后才离开。'
+				gs 'arousal', 'end'
+				act '离开': gt 'stripclub', 'start'
+			end
+
+			act '听起来不错':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+				'“听起来不错，”你微笑着说。'
+				'他靠过来给了你一个短暂，却热情的吻。'
+				if $npc_residence[$npcID] = 'city_center':
+					'“太好了！我住在市中心，所以不算太远。”'
+				else
+					'“太好了！我住在住宅区，不过我们到那儿应该用不了多久。”'
+				end
+				gs 'arousal', 'kiss', 2
+				gs 'arousal', 'end'
+				if $npc_residence[$npcID] = 'city_center':
+					act '去他家': minut += 15 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				else
+					act '去他家': minut += 20 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				end
+			end
+
+			act '听起来很棒':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+				'“太他妈棒了，听起来爽爆了！”你咧嘴笑道。'
+				'他凑过来拍了一下你的屁股。'
+				gs 'arousal', 'kiss', 2
+				gs 'arousal', 'end'
+				'他靠过来给了你一个短暂，却热情的吻。'
+				if $npc_residence[$npcID] = 'city_center':
+					'“我就知道我喜欢你是有原因的！我住在市中心，所以不算太远。”'
+				else
+					'“我就知道我喜欢你是有原因的！我住在住宅区，不过我们过去应该不会花太久。”'
+				end
+				if $npc_residence[$npcID] = 'city_center':
+					act '去他家': minut += 15 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				else
+					act '去他家': minut += 20 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				end
+			end
+		else
+			'“今晚看你跳舞我真的很开心，我在想……你愿不愿意跟我回我那儿，然后……”'
+			
+			act '不用了，谢谢':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“不用了，谢谢，我没兴趣。”你回答道。'
+				'“哦，当然。没关系。呃，抱歉我问了这种问题。”他带着一丝失望说道。'
+				'你只是耸耸肩然后走开。'
+				act '离开': gt 'stripclub', 'start'
+			end
+
+			act '和他上床':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“听起来不错。”你微笑着说。'
+				'“太好了！那么……我们走吧？”'
+				if $npc_residence[$npcID] = 'city_center':
+					'你跟着他回到市中心的公寓，一路上用暗示调情。'	
+					act '去他家': minut += 15 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				else	
+					'你跟着他回到住宅区公寓大楼里的家，一路上用暗示调情。'
+					act '去他家': minut += 20 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				end
+			end
+		
+			act '想操吗？':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“……操？”你说着，替他把句子补完。'
+				'他一脸茫然。“呃……”'
+				'“操。”你重复道，“你想带我回你家，然后操我？”'
+				'<<$npcdesc>>似乎被你的直白吓了一跳，但最终还是回答了。“想！”'
+				'“那你在前面带路吧！”你咧嘴一笑，随后你们两人一起匆匆穿过街道。'
+				if $npc_residence[$npcID] = 'city_center':
+					'你跟着他回到市中心的公寓，一路上用暗示调情。'	
+					act '去他家': minut += 15 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				else	
+					'你跟着他回到住宅区公寓大楼里的家，一路上用暗示调情。'
+					act '去他家': minut += 20 & gt 'sex_ev_start', 'hookup_npc_home_start'
+				end
+			end
+		end
+	else
+		'“我太喜欢你今晚的表演了，<<$pcs_strippername>>！”他咧嘴笑道，“我只是来城里出差，但我是你的超级粉丝，说不定会专程为你再来一次！”'
+		'“哦。谢谢。”你回答道，“你是哪位？”'
+		'“我是<<$npcdesc>>。”他微笑着说，“但别告诉我你的名字！我喜欢这种只把你当作<<$pcs_strippername>>来认识的神秘感……”'
+		'“你是想要个签名，还是想带点什么回去，<<$npcdesc>>？”你咯咯笑着说。'
+		*nl
+		if npc_rough[$npcID] = 1:
+			'他开始用充满欲望的眼神上下打量你。'
+			'“看你表演把我看得他妈欲火焚身！我们回我的酒店房间，让我好好操你个够！”'
+			
+			act '不用了，谢谢':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“不用了，谢谢。我对一夜情没兴趣。”你回答道。'
+				'他脸上带着怒气看着你。“你在里面跳舞跳得像个骚货，现在却不肯给我上？！”'
+				'他对你拒绝他的事大做文章，朝你嘶声，往地上吐了口唾沫，差点吐到你的鞋上，然后怒气冲冲地走了。'
+				'你只是翻了个白眼，等他走了之后才离开。'
+				gs 'arousal', 'end'
+				act '离开': gt 'stripclub', 'start'
+			end
+
+			act '滚开':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“原来就是为了这个？你他妈怎么不滚远点？”你怒视着他，“你<i>没</i>有机会得到我！”'
+				'他脸上带着怒气看着你。“你在里面跳舞跳得像个骚货，现在却不肯给我上？！”'
+				'他对你拒绝他的事大做文章，朝你嘶声，往地上吐了口唾沫，差点吐到你的鞋上，然后怒气冲冲地走了。'
+				'你只是翻了个白眼，等他走了之后才离开。'
+				gs 'arousal', 'end'
+				act '离开': gt 'stripclub', 'start'
+			end
+
+			act '听起来不错':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+				'“听起来不错。”你微笑着说，他开心地咧嘴笑了。'
+				act '跟他走': 
+					*clr & cla
+					close all
+					menu_off = 1
+					!! gs 'npcpreservec', $npclastgenerated
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/sex/hotel/coupletaxi.jpg"></center>'
+					'<<$npcdesc>>很快拦下一辆出租车，和司机简短地聊了几句。“来吧，我们走！”'
+					'你和他一起坐进出租车后座，接下来的30分钟车程，大多是沉默。你注意到<<$npcdesc>>到达酒店时，你给了出租车司机一笔可观的小费……他是在试图打动你，还是他只是非常慷慨？'
+					act '去<<$npcdesc>>的房间': gt 'sex_ev_start', 'hookup_hotel_start'
+				end
+			end
+
+			act '听起来很棒':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+				'“操，这听起来太棒了！”你咧嘴笑道。'
+				'他凑过来，拍了一下你的屁股。“我就知道我喜欢你是有原因的！”'
+				act '跟他走': 
+					*clr & cla
+					close all
+					menu_off = 1
+					!! gs 'npcpreservec', $npclastgenerated
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/sex/hotel/coupletaxi.jpg"></center>'
+					'<<$npcdesc>>很快拦下一辆出租车，和司机简短地聊了几句。“来吧，我们走！”'
+					'你和他一起坐进出租车后座，并度过接下来五分钟的车程，大多在沉默中。你注意到<<$npcdesc>>到达酒店时，你给了出租车司机一笔可观的小费……他是在试图打动你，还是他只是非常慷慨？'
+					act '去<<$npcdesc>>的房间': gt 'sex_ev_start', 'hookup_hotel_start'
+				end
+			end
+		else
+			'“今晚看你跳舞我真的很开心，我在想……你愿不愿意跟我回我的酒店，然后……”'
+			
+			act '不用了，谢谢':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“不用了，谢谢，我没兴趣。”你回答道。'
+				'“哦，当然。没关系。呃，抱歉我问了这种问题。”他带着一丝失望说道。'
+				'你只是耸耸肩然后走开。'
+				act '离开': gt 'stripclub', 'start'
+			end
+
+			act '和他上床':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“听起来不错。”你微笑着说。'
+				'“太好了！那么，我们走吧……”'
+				act '跟他走': 
+					*clr & cla
+					close all
+					menu_off = 1
+					!! gs 'npcpreservec', $npclastgenerated
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/sex/hotel/coupletaxi.jpg"></center>'
+					'<<$npcdesc>>很快拦下一辆出租车，和司机简短地聊了几句。“来吧，我们走！”'
+					'你和他一起坐进出租车后座，并度过接下来五分钟的车程，大多在沉默中。你注意到<<$npcdesc>>到达酒店时，你给了出租车司机一笔可观的小费……他是在试图打动你，还是他只是非常慷慨？'
+					act '去<<$npcdesc>>的房间': gt 'sex_ev_start', 'hookup_hotel_start'
+				end
+			end
+		
+			act '想操吗？':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'“……操？”你说着，替他把句子补完。'
+				'他一脸茫然。“呃……”'
+				'“操。”你重复道，“你想带我回你的酒店房间，然后操我？”'
+				'<<$npcdesc>>似乎被你的直白吓了一跳，但最终还是回答了。“想！”'
+				'“那你在前面带路吧！”你咧嘴笑道。'
+				act '跟他走': 
+					*clr & cla
+					close all
+					menu_off = 1
+					!! gs 'npcpreservec', $npclastgenerated
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/sex/hotel/coupletaxi.jpg"></center>'
+					'<<$npcdesc>>很快拦下一辆出租车，和司机简短地聊了几句。“来吧，我们走！”'
+					'你和他一起坐进出租车后座，并度过接下来五分钟的车程，大多在沉默中。你注意到<<$npcdesc>>到达酒店时，你给了出租车司机一笔可观的小费……他是在试图打动你，还是他只是非常慷慨？'
+					act '去<<$npcdesc>>的房间': gt 'sex_ev_start', 'hookup_hotel_start'
+				end
+			end
+		end
+	end
+end
+	
+if $ARGS[0] = 'set_girl':
+	'几分钟后，DJ 把人群的情绪炒热起来，开始宣布接下来由哪位脱衣舞娘表演。'
+	if rand(0,7) = 0:
+		'“就是那位热情似火的红发美人，她总是乐意给在场的各位绅士多送一点<i>爱~~~~</i>……让我们掌声欢迎……鲁———比———（鲁比）！”'
+	elseif rand(0,7) = 1:
+		'“金发尤物本人登场了，先生们！她那本就<i>绝妙</i>的身材又做了些升级，让我们掌声欢迎……杰———德———（杰德）！”'
+	elseif rand(0,7) = 2:
+		'“先生们，准备好迎接这场连时间都无法磨灭的黑发奇观吧，因为登场的是……奥———尼———克———斯———（奥尼克斯）！”'
+	elseif rand(0,7) = 3:
+		'“这位小妖精急着为各位绅士表演，已经在后台开始脱衣服了！让我们掌声欢迎……埃———默———拉———尔———德———（艾默拉尔德）！”'
+	elseif rand(0,7) = 4:
+		'“先生们，现在请集中注意力，因为来自未知国度的神秘美人来迷惑你们了！让我们掌声欢迎这位异域女神……艾———米———瑟———斯———特———（艾米瑟斯特）！”'
+	elseif rand(0,7) = 5:
+		'“先生们，这位女孩会让你们的夜晚<i>闪耀</i>！她来自莫斯科璀璨的中心，让我们掌声欢迎……黛———蒙———德———（黛蒙德）！”'
+	elseif rand(0,7) = 6:
+		'“这位女孩如今可一点都不害羞在各位绅士面前表演了！让我们掌声欢迎……阿———祖———尔———（阿祖尔）！”'
+	else
+		'“先生们，我知道你们很多人一直在等这位女孩！让我们掌声欢迎全城最棒的一对奶子，因为登场的是……奥———珀———尔———（欧珀）！”'
+	end
+end
+
+--- stripclub ---------------------------------

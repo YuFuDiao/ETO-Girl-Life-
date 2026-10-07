@@ -1,0 +1,130 @@
+# pav_library
+
+!! 2021/10/05
+!! 2023/09/11 Loan update by Anjuna
+
+
+if $ARGS[0] = '':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_library', ''
+	$location_type = 'public_indoors'
+	frost = 0
+	gs 'stat'
+
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center b', '社区中心图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/library/gdkbibl.jpg"></center>'
+	'对这么一个小镇来说，图书馆大得惊人，里面收藏着许多不同主题的有趣书籍。'
+
+	act '离开': gt 'pav_commcenter'
+	act '去厕所': gt 'gdktoilet', 'start'
+
+	if nerd_game['game_day'] = daystart and hour = 19: act '等待游戏之夜开始': minut = 60 & gt 'pav_library'
+	if nerd_game['game_day'] = daystart and hour = 20: act '加入书呆子们': gt 'nerd_game_night', 'game'
+
+	if hour < 8 or hour >= 18:
+		'图书馆关门了。'
+		exit
+	end
+
+	if $start_type['loc'] = 'sg' and kanikuli = 0:
+		if week <= 5 and nerdstudynight['day'] ! daystart and hour >= 15 and gschoolVars['school_diploma'] = 0:
+			temp_nerds_here = 1
+			'书呆子们正围坐在一张桌子旁一起学习。'
+		elseif week >= 6 and hour >= 12 and hour < 14:
+			if nataliaQW['library_day_check'] ! daystart:
+				nataliaQW['library_day_check'] = daystart
+				if rand(0, 3) = 0: nataliaQW['library_day'] = daystart
+			end
+			if nataliaQW['library_day'] = daystart:
+				'你看到你的同学<a href="exec: gt ''natalia_pavlova'',''library''">娜塔莉亚·帕夫洛娃</a>独自坐在其中一张桌子旁。'
+			end
+		end
+	end
+
+	'书架之间有一些可用于学习的桌子。其中一些有<a href="exec: gs ''internet_mobile'', ''get_access'', ''free'', ''noporn'',''nocamshow'' & gs ''internet_mobile'', ''add_limitation'', ''general'', ''On this public computer all adult content sites are blocked'' & gt ''komp'',''start''">电脑</a>供公共使用。'
+	if lernHome > 0: '你可以借助其中一台电脑完成作业。'
+
+	act '读一本书': gt 'pav_library', 'read'
+	act '借一本书': gt 'pav_library', 'loan'
+
+	if lernHome > 0:
+		gs 'willpower', 'chore', 'self', iif(grupTipe = 4 and trait_vars['academic'] = 0, 'hard', iif(trait_vars['academic'] > 0, 'easy', 'medium'))
+		if trait_vars['academic'] = 2:
+			will_cost = will_cost / 2
+		elseif trait_vars['academic'] >= 3:
+			will_cost = 0
+		end
+		if pcs_willpwr < will_cost:
+			act '做作业' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '做作业 (1:00)' + $func('willpower', 'get_willcost_string'):
+				if will_cost > 0: gs 'willpower', 'pay', 'self', 'chore'
+
+				*clr & cla
+				minut += 60
+				gs 'mood', 'raise', 5 * trait_vars['academic']
+				lern += 1
+
+				gs 'stat'
+				gs 'grades', 'homework', 'school', 'yes', 1, 0, 0
+
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/library/homework.jpg"></center>'
+				'你在其中一张摆着电脑的桌子前坐下，借助电脑完成作业。'
+				'一个小时后，你' + iif(lernHome = 0, '完成了', '完成了一部分') + '作业。'
+
+				act '从桌子旁站起来': gt 'pav_library'
+			end
+		end
+	end
+
+	if temp_nerds_here and gschoolVars['block'] = 0 and ((class['school_grades_above_40'] + class['school_grades_above_70'] + class['school_grades_above_90']) <= 20 or grupTipe = 3):
+		act '加入书呆子的学习小组': gt 'pav_library_nerdstudy', 'nerd_study_night'
+	end
+	killvar 'temp_nerds_here'
+end
+
+
+if $ARGS[0] = 'read':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_library', 'read'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '社区中心图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/library/gdkbibl.jpg"></center>'
+
+	act '离开': gt 'pav_commcenter'
+
+	if hour >= 18:
+		!! Note find stern librarian image
+		'图书管理员发现你还在看书，把你赶出了图书馆。'
+		exit
+	end
+
+	act '回去': gt 'pav_library'
+	gs 'library_functions', 'set_library_read_acts'
+end
+
+
+if $ARGS[0] = 'loan':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_library', 'loan'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '社区中心图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/library/gdkbibl.jpg"></center>'
+
+	act '离开': gt 'pav_commcenter'
+
+	if hour >= 18:
+		'图书馆今晚要关门了。'
+		exit
+	end
+
+	act '回去': gt 'pav_library'
+	gs 'library_functions', 'set_loan_acts'
+end
+
+
+--- pav_library ---------------------------------

@@ -1,0 +1,492 @@
+# appointments
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                              APPOINTMENTS                              ║
+!! ║                                                                        ║
+!! ╠════════════════════════════════════════════════════════════════════════╣
+!! ║                                                                        ║
+!! ║  Generic booking system: offer a few conflict-free slots, let the      ║
+!! ║  caller book one, track it, and handle no-shows. Built on the calendar ║
+!! ║  and modeled on the booking-mode job machinery in jobs.qsrc.           ║
+!! ║                                                                        ║
+!! ║  A category is any caller-defined unique string for a bookable slot    ║
+!! ║  type (e.g. clinic_gyno_pav). Only one active appointment per category ║
+!! ║  exists at a time.                                                     ║
+!! ║                                                                        ║
+!! ║  get_state/check_in/render_acts also work for a caller-defined         ║
+!! ║  recurring event instead of a booking, via $recurring_event_id.        ║
+!! ║                                                                        ║
+!! ║  Storage:                                                              ║
+!! ║    $appointment_categories[]        - every booked category            ║
+!! ║    $appointment_active[category]    - active event id, or ''           ║
+!! ║    appointment_late_limit[category] - minutes late = forfeit           ║
+!! ║                                                                        ║
+!! ║  Usage:                                                                ║
+!! ║    gs 'appointments', 'offer_slots', count, seed, window_days,         ║
+!! ║        duration, buffer, range_min, range_max, skip_weekends           ║
+!! ║    gs 'appointments', 'book', $category, slot_index, $title, ...       ║
+!! ║    gs 'appointments', 'check_conflict', daystart, window_end_ts        ║
+!! ║    gs 'appointments', 'resolve', $category                             ║
+!! ║    gs 'appointments', 'daily_check'   !! once per day, from cikl.qsrc  ║
+!! ║    gs 'appointments', 'render_acts', $category, $loc, $none_func,      ║
+!! ║        $arrive_func, $recur_id                                         ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │                                QUERIES                                 │
+!! └────────────────────────────────────────────────────────────────────────┘
+
+
+if $ARGS[0] = 'has_appointment':
+	!! result = func('appointments', 'has_appointment', $category)
+	result = iif($appointment_active[$ARGS[1]] <> '', 1, 0)
+	exit
+end
+
+
+if $ARGS[0] = 'get_appointment_id':
+	!! $result = func('appointments', 'get_appointment_id', $category)
+	$result = $appointment_active[$ARGS[1]]
+	exit
+end
+
+
+if $ARGS[0] = 'get_event_display_ts':
+	!! result = func('appointments', 'get_event_display_ts', $event_id)
+	!! The display time for an appointment-shaped event: arrival deadline (window_end_ts) if
+	!! flexible, else start_ts. Keyed by event id so recurring events can reuse it too.
+	gs 'calendar_events', 'get_event', $ARGS[1]
+	result = iif(event_vars['flex_type'] = 1, event_vars['window_end_ts'], event_vars['start_ts'])
+	exit
+end
+
+
+if $ARGS[0] = 'get_state':
+	!! $result = func('appointments', 'get_state', $category, $recurring_event_id)
+	!! -> 'none' | 'pending' | 'current' | 'late'. $recurring_event_id: '' for a normal
+	!! booked category, or a recurring calendar event id (e.g. 'therapist_appointment').
+	gs 'appointments', '_resolve_state', $ARGS[1], $ARGS[2]
+	$result = $appointment_state
+	exit
+end
+
+
+if $ARGS[0] = 'get_wait_minutes':
+	!! result = func('appointments', 'get_wait_minutes', $category, $recurring_event_id)
+	!! Minutes until the arrival deadline (negative once late); 0 when state = 'none'.
+	gs 'appointments', '_resolve_state', $ARGS[1], $ARGS[2]
+	result = appointment_state_wait
+	exit
+end
+
+
+if $ARGS[0] = '_resolve_state':
+	!! Internal to 'get_state'/'get_wait_minutes'. ARGS: category, recurring_event_id. Sets
+	!! $appointment_state and appointment_state_wait (separate globals, not result/$result -
+	!! a variable cannot hold both a number and a string at once). Single source of truth so
+	!! the two public queries above can never disagree.
+	!!
+	!! The 'appointments' story cheat forces every category straight to 'current'.
+	if cheatVars['appointments'] = 1:
+		$appointment_state = 'current'
+		appointment_state_wait = 0
+		exit
+	end
+
+	if $ARGS[2] <> '':
+		!! Recurring category - resolve via calendar recurrence, not a stored booking.
+		if func('calendar_events', 'event_occurs_in_day', $ARGS[2], daystart) = 0:
+			$appointment_state = 'none'
+			appointment_state_wait = 0
+			exit
+		end
+		gs 'appointments', '_state_from_event', $ARGS[2], daystart
+		exit
+	end
+
+	!! Bookable category.
+	if $appointment_active[$ARGS[1]] = '':
+		$appointment_state = 'none'
+		appointment_state_wait = 0
+		exit
+	end
+
+	gs 'calendar_events', 'get_event', $appointment_active[$ARGS[1]]
+	if event_vars['daystart'] < daystart:
+		!! Stale - nobody checked in and the day has passed. Free it up the moment
+		!! anything observes it, rather than waiting for the once-a-day 'daily_check'
+		!! sweep (which stays as a backstop for categories nobody ever queries).
+		gs 'appointments', 'resolve', $ARGS[1]
+		$appointment_state = 'none'
+		appointment_state_wait = 0
+		exit
+	end
+
+	gs 'appointments', '_state_from_event', $appointment_active[$ARGS[1]], event_vars['daystart']
+	exit
+end
+
+
+if $ARGS[0] = '_state_from_event':
+	!! Internal to '_resolve_state'. ARGS: event id, occurrence daystart (the day the
+	!! booking was made for, or today for a recurring occurrence - a recurring event
+	!! stores its original creation day, not the current one, so callers must resolve
+	!! this themselves). Sets $appointment_state/appointment_state_wait as usual.
+	temp_apptState['ts'] = func('appointments', 'get_event_display_ts', $ARGS[1])
+	appointment_state_wait = (temp_apptState['ts'] * 15 + ARGS[2] * 1440) - totminut
+	if appointment_state_wait > 65:
+		$appointment_state = 'pending'
+	elseif appointment_state_wait >= 0:
+		$appointment_state = 'current'
+	else
+		$appointment_state = 'late'
+	end
+	killvar 'temp_apptState'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │                             OFFERING SLOTS                             │
+!! └────────────────────────────────────────────────────────────────────────┘
+
+
+if $ARGS[0] = 'offer_slots':
+	!! gs 'appointments', 'offer_slots', count, seed, window_days, duration, buffer, range_min, range_max, skip_weekends
+	!! late_limit (used later by 'check_in') is fixed at 90 - no ARGS room left for it, and
+	!! no caller has ever needed to tune it anyway.
+	!!
+	!! Outputs (index 0..count-1): appointment_offer_day[i] (daystart, or -1 if unfilled),
+	!! appointment_offer_window_end[i], $appointment_offer_desc[i]; plus
+	!! appointment_offer_count and duration/buffer/late_limit (reused by 'book').
+	!!
+	!! Sweeps the window a day at a time, one seeded slot per day; a blocked day is skipped
+	!! rather than retried, so fewer than `count` slots may come back. Seeded off daystart
+	!! too, so offers are stable within a day but cannot be save-scummed.
+	killvar 'appointment_offer_day'
+	killvar 'appointment_offer_window_end'
+	killvar 'appointment_offer_desc'
+
+	appointment_offer_count = ARGS[1]
+	!! Promoted to globals so 'book' (a later, separate call) can still see them.
+	appointment_offer_duration = ARGS[4]
+	appointment_offer_buffer = ARGS[5]
+	appointment_offer_late_limit = 90
+
+	!! 'found' is shared with _offer_try_day (gosubs return values only via globals).
+	temp_apptOffer['found'] = 0
+	temp_apptOffer['day'] = 1
+	:offer_sweep
+	if temp_apptOffer['found'] < ARGS[1] and temp_apptOffer['day'] <= ARGS[3]:
+		gs 'appointments', '_offer_try_day', ARGS[2], temp_apptOffer['day'], ARGS[6], ARGS[7], ARGS[8]
+		temp_apptOffer['day'] += 1
+		jump 'offer_sweep'
+	end
+
+	temp_apptOffer['i'] = temp_apptOffer['found']
+	:offer_pad
+	if temp_apptOffer['i'] < ARGS[1]:
+		appointment_offer_day[temp_apptOffer['i']] = -1
+		temp_apptOffer['i'] += 1
+		jump 'offer_pad'
+	end
+
+	gs 'appointments', '_offer_describe'
+
+	killvar 'temp_apptOffer'
+	killvar 'event_vars'
+	exit
+end
+
+
+if $ARGS[0] = '_offer_try_day':
+	!! Internal to 'offer_slots'. ARGS: seed, day_offset, range_min, range_max, skip_weekends.
+	!! Tries up to 3 seeded times for the day; the first conflict-free one is appended at
+	!! temp_apptOffer['found'] (kept day-sorted since days are swept in order).
+	temp_apptTry['offset'] = ARGS[2]
+	temp_apptTry['daystart'] = daystart + temp_apptTry['offset']
+	temp_apptTry['done'] = 0
+	if ARGS[5] = 1:
+		temp_apptTry['wk'] = (week + temp_apptTry['offset']) mod 7
+		if temp_apptTry['wk'] = 0: temp_apptTry['wk'] = 7
+		if temp_apptTry['wk'] > 5: temp_apptTry['done'] = 1
+	end
+
+	temp_apptTry['attempt'] = 0
+	:offer_try_draw
+	if temp_apptTry['done'] = 0 and temp_apptTry['attempt'] < 3:
+		temp_apptTry['end'] = func('random', 'srand', ARGS[1] + daystart + temp_apptTry['offset'] * 654321 + temp_apptTry['attempt'] * 7654321, ARGS[3], ARGS[4])
+
+		if func('appointments', 'check_conflict', temp_apptTry['daystart'], temp_apptTry['end']) = 0:
+			appointment_offer_day[temp_apptOffer['found']] = temp_apptTry['daystart']
+			appointment_offer_window_end[temp_apptOffer['found']] = temp_apptTry['end']
+			temp_apptOffer['found'] += 1
+			temp_apptTry['done'] = 1
+		end
+
+		temp_apptTry['attempt'] += 1
+		jump 'offer_try_draw'
+	end
+	killvar 'temp_apptTry'
+	exit
+end
+
+
+if $ARGS[0] = '_slot_event_vars':
+	!! gs 'appointments', '_slot_event_vars', daystart, window_end_ts
+	!! A blocking, high-priority, flexible arrival window (buffer minutes wide) of
+	!! appointment_offer_duration. Call after 'init_event_vars'; shared by the offer
+	!! dry-run and 'book'.
+	event_vars['daystart'] = ARGS[1]
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = ARGS[2] - appointment_offer_buffer
+	event_vars['window_end_ts'] = ARGS[2]
+	event_vars['duration_ts'] = appointment_offer_duration
+	event_vars['blocking'] = 1
+	event_vars['priority'] = 2
+	exit
+end
+
+
+if $ARGS[0] = 'check_conflict':
+	!! result = func('appointments', 'check_conflict', daystart, window_end_ts)
+	!! -> 1 if conflicting, 0 if free. Uses appointment_offer_duration/buffer - set those
+	!! first. Dry run only, nothing is added to the calendar.
+	gs 'calendar_list', 'init_event_vars'
+	$event_vars['id'] = 'appointment_offer_check'
+	gs 'appointments', '_slot_event_vars', ARGS[1], ARGS[2]
+	result = func('calendar_events', 'new_event', $event_vars['id'], 'dry_run')
+	exit
+end
+
+
+if $ARGS[0] = '_offer_describe':
+	!! Internal to 'offer_slots'. Builds $appointment_offer_desc[i] for each filled slot.
+	temp_apptDesc['i'] = 0
+	:offer_desc_loop
+	if temp_apptDesc['i'] < appointment_offer_count:
+		if appointment_offer_day[temp_apptDesc['i']] >= 0:
+			temp_apptDesc['offset'] = appointment_offer_day[temp_apptDesc['i']] - daystart
+			if temp_apptDesc['offset'] = 1:
+				$temp_apptDesc['day'] = '明天'
+			elseif temp_apptDesc['offset'] = 2:
+				$temp_apptDesc['day'] = '两天后'
+			elseif temp_apptDesc['offset'] < 7:
+				$temp_apptDesc['day'] = "On <<$weekName[(week + temp_apptDesc['offset']) mod 7]>>"
+			else
+				!! A bare weekday name is ambiguous a week or more out, so spell out the distance.
+				$temp_apptDesc['day'] = "在 <<$weekName[(week + temp_apptDesc['offset']) mod 7]>>（<<temp_apptDesc['offset']>> 天后）"
+			end
+			$temp_apptDesc['h1'] = func('calendar_query', 'ts_to_str', appointment_offer_window_end[temp_apptDesc['i']])
+			$temp_apptDesc['h2'] = func('calendar_query', 'ts_to_str', appointment_offer_window_end[temp_apptDesc['i']] + appointment_offer_duration)
+			$appointment_offer_desc[temp_apptDesc['i']] = "<<$temp_apptDesc['day']>>，从 <<$temp_apptDesc['h1']>> 到 <<$temp_apptDesc['h2']>>"
+
+			$temp_apptDesc['note'] = func('appointments', '_offer_conflict_note', temp_apptDesc['i'])
+			if $temp_apptDesc['note'] <> '': $appointment_offer_desc[temp_apptDesc['i']] = "<<$appointment_offer_desc[temp_apptDesc['i']]>> <<$temp_apptDesc['note']>>"
+		end
+		temp_apptDesc['i'] += 1
+		jump 'offer_desc_loop'
+	end
+	killvar 'temp_apptDesc'
+	exit
+end
+
+
+if $ARGS[0] = '_offer_conflict_note':
+	!! $result = func('appointments', '_offer_conflict_note', i)
+	!! Internal to '_offer_describe'. '(与以下冲突： ...)' listing non-blocking events
+	!! overlapping the window of slot i (blocking ones are already rejected, all-day events
+	!! are excluded by 'get_events_for_time_range' itself), or '' if none.
+	temp_apptConf['idx'] = ARGS[1]
+	gs 'calendar_query', 'get_events_for_time_range', appointment_offer_day[temp_apptConf['idx']], appointment_offer_window_end[temp_apptConf['idx']] - appointment_offer_buffer, appointment_offer_buffer + appointment_offer_duration
+	copyarr '$temp_apptConf', '$query_events_for_time_range'
+	if arrsize('$temp_apptConf') > 0:
+		$result = '与以下冲突： '
+		temp_apptConf['k'] = 0
+		:offer_conf_loop
+		if temp_apptConf['k'] < arrsize('$temp_apptConf'):
+			if temp_apptConf['k'] > 0: $result += ', '
+			gs 'calendar_query', 'get_event_display_range', $temp_apptConf[temp_apptConf['k']], appointment_offer_day[temp_apptConf['idx']]
+			$temp_apptConf_time = $func('calendar_query', 'ts_to_str', result_start_ts) + '-' + $func('calendar_query', 'ts_to_str', result_end_ts)
+			$result += $event_vars['title'] + ': ' + $temp_apptConf_time
+			temp_apptConf['k'] += 1
+			jump 'offer_conf_loop'
+		end
+		$result = '(' + $result + ')'
+	end
+	killvar 'temp_apptConf'
+	killvar 'temp_apptConf_time'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │                          BOOKING & LIFECYCLE                           │
+!! └────────────────────────────────────────────────────────────────────────┘
+
+
+if $ARGS[0] = 'book':
+	!! result = func('appointments', 'book', $category, slot_index, $title, $loc)
+	!! Books slot_index from the last 'offer_slots'. Returns 1 if booked, 0 if rejected
+	!! (category already active, slot unavailable, or a conflict appeared since the offer).
+	if $appointment_active[$ARGS[1]] <> '' or appointment_offer_day[ARGS[2]] < 0:
+		result = 0
+		exit
+	end
+
+	gs 'calendar_list', 'init_event_vars'
+	$event_vars['id'] = 'appointment_' + $ARGS[1] + '_' + $str(appointment_offer_day[ARGS[2]])
+	$event_vars['title'] = $ARGS[3]
+	$event_vars['loc'] = $ARGS[4]
+	gs 'appointments', '_slot_event_vars', appointment_offer_day[ARGS[2]], appointment_offer_window_end[ARGS[2]]
+	gs 'calendar_list', 'assign_color'
+
+	if func('calendar_events', 'new_event', $event_vars['id']) = 1:
+		result = 0
+		killvar 'event_vars'
+		exit
+	end
+
+	if arrpos('$appointment_categories', $ARGS[1]) = -1:
+		$appointment_categories[] = $ARGS[1]
+	end
+	$appointment_active[$ARGS[1]] = $event_vars['id']
+	appointment_late_limit[$ARGS[1]] = appointment_offer_late_limit
+
+	result = 1
+	killvar 'event_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'resolve':
+	!! gs 'appointments', 'resolve', $category
+	!! On check-in or cancel: remove the calendar event and free the category for rebooking.
+	if $appointment_active[$ARGS[1]] <> '':
+		gs 'calendar_events', 'remove_event', $appointment_active[$ARGS[1]]
+	end
+	$appointment_active[$ARGS[1]] = ''
+	appointment_late_limit[$ARGS[1]] = 0
+	exit
+end
+
+
+if $ARGS[0] = 'daily_check':
+	!! gs 'appointments', 'daily_check' - once per day from cikl.qsrc.
+	!! Backstop for categories nobody has queried today - 'get_state' already resolves a
+	!! stale booking as soon as anything observes it, so this just forces that check for
+	!! every booked category once a day.
+	temp_apptDaily['i'] = 0
+	:daily_check_loop
+	if temp_apptDaily['i'] < arrsize('$appointment_categories'):
+		gs 'appointments', 'get_state', $appointment_categories[temp_apptDaily['i']], ''
+		temp_apptDaily['i'] += 1
+		jump 'daily_check_loop'
+	end
+	killvar 'temp_apptDaily'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │                            CHECK-IN & ACTS                             │
+!! └────────────────────────────────────────────────────────────────────────┘
+
+
+if $ARGS[0] = 'check_in':
+	!! $result = func('appointments', 'check_in', $category, $recurring_event_id)
+	!! -> 'ok' | 'missed' | 'too_early' (not yet 'late'). 'missed' means the booking is
+	!! gone and the category cannot be entered today at all - not a longer wait, an
+	!! outright loss - so the player must reschedule.
+	!!
+	!! Bookable: forfeiture chance scales linearly with lateness, reaching certain at
+	!! appointment_late_limit[category] (integer math - multiply before dividing).
+	!! Resolves the booking either way. Recurring: nothing to lose, always 'ok'.
+	$temp_apptCheckin['state'] = $func('appointments', 'get_state', $ARGS[1], $ARGS[2])
+	if $temp_apptCheckin['state'] <> 'late':
+		$result = 'too_early'
+		killvar 'temp_apptCheckin'
+		exit
+	end
+
+	if $ARGS[2] <> '':
+		$result = 'ok'
+		killvar 'temp_apptCheckin'
+		exit
+	end
+
+	temp_apptCheckin['lateness'] = -1 * func('appointments', 'get_wait_minutes', $ARGS[1], $ARGS[2])
+	temp_apptCheckin['late_limit'] = iif(appointment_late_limit[$ARGS[1]] > 0, appointment_late_limit[$ARGS[1]], 90)
+	temp_apptCheckin['severity'] = min(100, temp_apptCheckin['lateness'] * 100 / temp_apptCheckin['late_limit'])
+
+	gs 'appointments', 'resolve', $ARGS[1]
+	if rand(0, 99) < temp_apptCheckin['severity']:
+		$result = 'missed'
+	else
+		$result = 'ok'
+	end
+	killvar 'temp_apptCheckin'
+	exit
+end
+
+
+if $ARGS[0] = 'render_acts':
+	!! gs 'appointments', 'render_acts', $category, $loc, $none_func, $arrive_func, $recurring_event_id
+	!! Handlers live in $loc. $arrive_func is called as
+	!! gs $loc, $arrive_func, $category, wait_minutes, $recurring_event_id for both
+	!! 'current' and 'late' (wait_minutes negative once late) - it decides for itself what
+	!! lateness means, e.g. calling 'check_in' once the player actually commits to
+	!! attending. No separate $missed_func; $arrive_func decides that outcome now.
+	!!
+	!!   none           -> $none_func (book / leave / whatever)
+	!!   pending        -> ">65 min early" text, plus a 'Wait' act into $arrive_func once
+	!!                      within 120 min of the appointment (nothing to do yet otherwise)
+	!!   current / late -> straight to $arrive_func, same either way
+	!! $recurring_event_id passes straight through to 'get_state' and $arrive_func - see
+	!! the module header. Pass '' for a normal bookable category.
+	gs 'appointments', '_resolve_state', $ARGS[1], $ARGS[5]
+	temp_apptRender['wait'] = appointment_state_wait
+	$temp_apptRender['state'] = $appointment_state
+
+	if $temp_apptRender['state'] = 'none':
+		gs $ARGS[2], $ARGS[3], $ARGS[1]
+
+	elseif $temp_apptRender['state'] = 'pending':
+		"你距离预约开始还有一些时间（大约<<$func('time', 'get_duration_string', temp_apptRender['wait'])>>）。"
+		if temp_apptRender['wait'] <= 120:
+			$appt_pending_loc = $ARGS[2]
+			$appt_pending_none_func = $ARGS[3]
+			$appt_pending_func = $ARGS[4]
+			$appt_pending_category = $ARGS[1]
+			$appt_pending_recur = $ARGS[5]
+			appt_pending_wait = temp_apptRender['wait']
+			act '等待你的预约':
+				cla
+				minut += appt_pending_wait - 60
+				gs 'stat'
+				gs 'appointments', 'render_acts', $appt_pending_category, $appt_pending_loc, $appt_pending_none_func, $appt_pending_func, $appt_pending_recur
+				killvar 'appt_pending_loc'
+				killvar 'appt_pending_none_func'
+				killvar 'appt_pending_func'
+				killvar 'appt_pending_category'
+				killvar 'appt_pending_wait'
+				killvar 'appt_pending_recur'
+			end
+		end
+		act '返回': gt $loc, $loc_arg
+
+	else
+		!! 'current' or 'late' - the exact same hand-off either way.
+		gs $ARGS[2], $ARGS[4], $ARGS[1], temp_apptRender['wait'], $ARGS[5]
+	end
+
+	killvar 'temp_apptRender'
+	exit
+end
+
+
+--- appointments ---------------------------------

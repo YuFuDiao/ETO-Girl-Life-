@@ -1,0 +1,1239 @@
+# lact_bp
+
+!!	---- old variables ---------------------------------------------------------
+!!	- These Variables still need to be replaced/removed or substituted. -
+!!	bottlecounter
+!!	bp_unbox
+!!	bp_useable_mbottle
+!!	bp_useable_sbottle
+!!	bp_used_mbottle
+!!	bp_used_sbottle
+!!	bpbottlem
+!!	bpbottles
+!!	breastcounter
+!!	breastpump
+!!	breastpumped
+!!	di_i
+!!	emb_i
+!!	energytomilkpump
+!!	lactaterate_use
+!!	max_nip_flow_rate
+!!	max_sucktion_demand
+!!	mbarrcool
+!!	mbarrfill
+!!	mbarrloca
+!!	mbarrmage
+!!	mbarrtype
+!!	milk_demand
+!!	nip_flow
+!!	nip_flow_mod
+!!	nipple_cream
+!!	pcs_ask_mward_help
+!!	pcs_know_mward
+!!	pcs_knows_electric_pump
+!!	pcs_massagedherbreasts
+!!	pcs_usedbreastpumponherself
+!!	piits_i
+!!	pump_bottletype
+!!	pump_stop_brake
+!!	pump_timestamp
+!!	pumpinggrowth
+!!	pumptime
+!!	pumptime_left
+!!	pumptype
+!!	rbc_index
+!!	reg_bottlem_count
+!!	reg_bottles_count
+!!	soreness_mod
+!!	suck_flow_rate
+!!	suck_until_pain
+!!	temp_breastsize
+!!	temp_lactaterate
+!!	temp_timestamp
+!!	temp_var
+!!	temp_var2
+!!	ts_i
+!!	umbc_i
+!!	usbc_i
+!!	vmb_i
+!!	bpID_arr['index'] : breast pump id. Starts at 0, with every purchased breast pump the id will be added
+!!	bpType_arr['index'] : breast pump type. 0 = 'manual_single', 1 = 'electric_single', 2 ='electric_dual'
+!!	bpLocID_arr['index'] : 0 = lost, 1 = in svetas hand… same as bottle locations
+!!	bpbID1_arr['index'] : index of milk bottle array.
+!!	bpbID2_arr['index'] : only used for dual pump, index for milk bottle array. cannot be the same like breastpump_arr['bottle_id_1'].
+
+!!	when ever sveta buys a new breastpump, it has to be added to the breast pump array.
+if $ARGS[0] = 'build_bp':
+	!!	ARGS[1] = type
+	!!	ARGS[2] = location_id
+	!!	usage func('lact_bp', 'build_bp', 'breast pump type', 'location id')
+	!!	returns the new bottle ID
+	bp_i = arrsize('bpID_arr')
+	bpID_arr[bp_i] = bp_i
+	bpType_arr[bp_i] = ARGS[1]
+	bpLocID_arr[bp_i] = ARGS[2]
+	bpbID1_arr[bp_i] = -1
+	bpbID2_arr[bp_i] = -1
+	result = bp_i
+end
+
+
+!!	view milk bottles function
+if $ARGS[0] = 'view_milk_bottles':
+	!! func('lact_bp', 'view_milk_bottles', location_id)
+	!! use gs 'lact_bp','view_milk_bottles', 2
+	!! locations
+	!! 0 = lost
+	!! 1 = in svetas hand
+	!! 2 = in svetas bag
+	!! 3 = parent bathroom
+	!! 4 = parent fridge
+	!! 5 = Resident Area Apartment Bathroom
+	!! 6 = Resident Area Apartment Fridge
+	!! 7 = Grandparents Bathroom
+	!! 8 = Villa Bathroom
+	!! 9 = Villa Fridge
+	!! 10 = Shared Apartment Bathroom
+	!! 11 = Shared Apartment Fridge
+	!! Locations are not used yet but are implemented. I will add this on another day.
+	!! milk bottle array indices
+	!! mbarrtype: Size of milk bottle. Normal bottles are 150ml and large bottles are 250ml. Values are ml*10
+	!! mbarrfill: Filled milk volume in the bottle. Values are in ml*10 and can''t surpass mbarrtype
+	!! mbarrmage: timestamp the milk was pumped.
+	!! mbarrcool: Is the milk cooled? 0 = no, 1 = normal cooler, 2 = deep freezer
+	!! $mbarrstat: State of the milk: fresh, normal, old, rancid
+	!! $mbarrtemp: Temperature of the milk: hot, warm, normal, cold, frozen
+	!! mbarrloca: Location of the bottle.
+	*clr & cla
+	!! Checking for unregistered bottles.
+	gs 'lact_bp', 'reg_bottle_count'
+	'你检查一下存放在这里的奶瓶。<br>'
+	temp_var = (mc_inventory['bottle_m'] + mc_inventory['bottle_s']) - 1
+	vmb_i = 0
+	milkedvolume = 0
+	:vmbloop
+	if vmb_i <= temp_var:
+		if mbarrloca[vmb_i] = ARGS[1]:
+			gs 'lact_bp', 'update_mbottle', vmb_i
+			if mbarrfill[vmb_i] <=0:
+				mbarrfill[vmb_i] = 0
+				'<br><<vmb_i + 1>>. - 一个空的<<mbarrtype[vmb_i]/10>>毫升的奶瓶。你可以用它来储存你的母乳。'
+			else
+				'<br><<vmb_i + 1>>. - 一个<<mbarrtype[vmb_i]/10>>ml瓶。瓶中有<<mbarrfill[vmb_i]/10>>毫升母乳。<a href="exec:msg ''<center>你打开奶瓶检查里面的奶。</center><br>你能感觉到这奶是<<$mbarrtemp[vmb_i]>>的，闻起来是<<$mbarrstat[vmb_i]>>。''">检查内容</a>' + ' ' + iif(pcs_hydra < 100 and ($mbarrtemp[vmb_i] = '温热' or $mbarrtemp[vmb_i] = '常温' or $mbarrtemp[vmb_i] = '冰凉' or $mbarrtemp[vmb_i] = '滚烫') and ($mbarrstat[vmb_i] = '新鲜' or $mbarrstat[vmb_i] = '正常'), '<a href="exec:gt''lact_bp'',''drink_milk_bottles'', <<vmb_i>>"> 喝掉它</a>', '')
+				milkedvolume += mbarrfill[vmb_i]
+			end
+		end
+		vmb_i += 1
+		jump 'vmbloop'
+	end
+	if milkedvolume > 0:
+		'<br><a href="exec:gt''lact_bp'',''empty_all_milk_bottles''">把牛奶倒进水槽</a>'
+	end
+	act '返回': gt 'lact_bp', 'bp_milking'
+end
+
+
+!! drink bottle function
+if $ARGS[0] = 'drink_milk_bottles':
+	if mbarrfill[ARGS[1]] <= 0: exit
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_drink.jpg"></center>'
+	'<center>你喝下自己的母乳，然后把奶瓶洗干净。</center>'
+	if $mbarrtemp[ARGS[1]] = '温热': '<center>乳汁还带着你乳房的温度。</center>'
+	minut += max(1, (mbarrfill[ARGS[1]]/1000) + 3)
+	gs 'beverage', 'breast_milk_stats', mbarrfill[ARGS[1]]
+	act '完成':
+		gs 'lact_bp', 'empty_milk_bottle', ARGS[1]
+		gs 'stat'
+		menu_off = 0
+		gs 'lact_bp', 'view_milk_bottles', 1
+	end
+end
+
+
+if $ARGS[0] = 'empty_milk_bottle':
+	mbarrfill[ARGS[1]] = 0
+	mbarrmage[ARGS[1]] = 0
+	mbarrcool[ARGS[1]] = 0
+	$mbarrstat[ARGS[1]] = '无'
+	$mbarrtemp[ARGS[1]] = '无'
+end
+
+
+!! empty bottle function
+if $ARGS[0] = 'empty_all_milk_bottles':
+	!! use gt 'lact_bp', 'empty_all_milk_bottles'
+	*clr & cla
+	temp_var = arrsize('mbarrtype') - 1
+	if temp_var < 0: temp_var = -1
+	emb_i = 0
+	:emb_loop
+	if emb_i <= temp_var:
+		gs 'lact_bp', 'empty_milk_bottle', emb_i
+		emb_i += 1
+		jump 'emb_loop'
+	end
+	'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_sink.jpg"></center>'
+	'<center>你把收集到的所有母乳都倒进了水槽，并清洗了奶瓶。</center>'
+	minut += temp_var
+	act '完成': menu_off = 0 & gt $loc, $loc_arg
+end
+
+
+!! fill a bottle function
+if $ARGS[0] = 'fill_milk_bottle':
+	!! use func('lact_bp','fill_milk_bottle',bottle_id,milk_amount)
+	!! example func('lact_bp','fill_milk_bottle',3,300)
+	if ARGS[2] > mbarrtype[ARGS[1]]:
+		'错误 - 倒进奶瓶的奶超过了奶瓶的容量。'
+	else
+		mbarrfill[ARGS[1]] = ARGS[2]
+		mbarrmage[ARGS[1]] = func('lact_bp', 'time_stamp')
+		mbarrcool[ARGS[1]] = 0
+		$mbarrstat[ARGS[1]] = '新鲜'
+		$mbarrtemp[ARGS[1]] = '温热'
+	end
+end
+
+
+!! Time Stamp function for milk bottles.
+if $ARGS[0] = 'time_stamp':
+	!! use func('lact_bp','time_stamp')
+	!! This function creates a time stamp in minutes. It takes the current in game time and converts it to total minutes from year 01.01.0000 to in game now.
+	!! Used to check breast milk age in bottles. Can be used for other functions if needed.
+	temp_timestamp = 0
+	temp_timestamp += year * 365 * 24 * 60
+	ts_i = 1
+	if month > 1:
+		:ts_loop
+		if (month - 1) >= ts_i:
+			if ts_i = 1 or ts_i = 3 or ts_i = 5 or ts_i = 7 or ts_i = 8 or ts_i = 10 or ts_i = 12:
+				temp_timestamp += 44640
+			elseif ts_i = 4 or ts_i = 6 or ts_i = 9 or ts_i = 11:
+				temp_timestamp += 43200
+			elseif ts_i = 2:
+				temp_timestamp += 40320
+				if (year mod 4) = 0 and (year mod 100) ! 0 or (year mod 400) = 0:
+					temp_timestamp += 1440
+				end
+			end
+			ts_i += 1
+			jump 'ts_loop'
+		end
+	end
+	temp_timestamp += (day - 1) * 24 * 60
+	temp_timestamp += hour * 60
+	temp_timestamp += minut
+	result = temp_timestamp
+end
+
+
+!! Update Milk bottle function
+if $ARGS[0] = 'update_mbottle':
+	!! func('lact_bp', 'update_mbottle', bottle_id)
+	!! use result = func('lact_bp','update_mbottle', '0')
+	!! this function is used to update milk bottles whenever the milk is pumped or sveta checkes the bottles in her stash.
+	!! Room temperature. Freshly expressed breast milk can be kept at room temperature for up to six hours. However, use or proper storage within four hours is optimal. If the room is especially warm, the limit is also four hours.
+	!! Insulated cooler. Freshly expressed breast milk can be stored in an insulated cooler with ice packs for up to one day.
+	!! Refrigerator. Freshly expressed breast milk can be stored in the back of the refrigerator for up to five days in clean conditions. However, use or freezer storage within three days is optimal.
+	!! Deep freezer. Freshly expressed breast milk can be stored in the back of a deep freezer for up to 12 months. However, using the frozen milk within six months is optimal.
+	!! milk bottle array indices
+	!! mbarrtype: Size of milk bottle. Normal bottles are 150ml and large bottles are 250ml. Values are ml*10
+	!! mbarrfill: Filled milk volume in the bottle. Values are in ml*10 and can''t surpass mbarrtype
+	!! mbarrmage: timestamp the milk was pumped.
+	!! mbarrcool: Is the milk cooled? 0 = no, 1 = normal cooler, 2 = deep freezer
+	!! $mbarrstat: State of the milk: fresh, normal, old, rancid
+	!! $mbarrtemp: Temperature of the milk: hot, warm, lukewarm, cold, frozen
+	!! mbarrloca: Location of the bottle.
+	if mbarrfill[ARGS[1]] <= 0:
+		gs 'lact_bp', 'empty_milk_bottle', ARGS[1]
+	else
+		if mbarrfill[ARGS[1]] > mbarrtype[ARGS[1]]: mbarrfill[ARGS[1]] = mbarrtype[ARGS[1]]
+		if mbarrmage[ARGS[1]] <= 0: mbarrmage[ARGS[1]] = func('lact_bp', 'time_stamp')
+		if mbarrcool[ARGS[1]] = 0:
+			if (mbarrmage[ARGS[1]] + 60) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '温热'
+				$mbarrstat[ARGS[1]] = '新鲜'
+			elseif (mbarrmage[ARGS[1]] + 60) < func('lact_bp', 'time_stamp') and (mbarrmage[ARGS[1]] + 360) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '微温'
+				$mbarrstat[ARGS[1]] = '正常'
+			elseif (mbarrmage[ARGS[1]] + 360) < func('lact_bp', 'time_stamp') and (mbarrmage[ARGS[1]] + 1440) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '微温'
+				$mbarrstat[ARGS[1]] = '变陈'
+			else
+				$mbarrtemp[ARGS[1]] = '微温'
+				$mbarrstat[ARGS[1]] = '酸败'
+			end
+		elseif mbarrcool[ARGS[1]] = 1:
+			if (mbarrmage[ARGS[1]] + 1440) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '冰凉'
+				$mbarrstat[ARGS[1]] = '新鲜'
+			elseif (mbarrmage[ARGS[1]] + 1440) < func('lact_bp', 'time_stamp') and (mbarrmage[ARGS[1]] + 4320) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '冰凉'
+				$mbarrstat[ARGS[1]] = '正常'
+			elseif (mbarrmage[ARGS[1]] + 4320) < func('lact_bp', 'time_stamp') and (mbarrmage[ARGS[1]] + 7200) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '冰凉'
+				$mbarrstat[ARGS[1]] = '变陈'
+			else
+				$mbarrtemp[ARGS[1]] = '冰凉'
+				$mbarrstat[ARGS[1]] = '酸败'
+			end
+		elseif mbarrcool[ARGS[1]] = 2:
+			if (mbarrmage[ARGS[1]] + 10080) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '冰冻'
+				$mbarrstat[ARGS[1]] = '新鲜'
+			elseif (mbarrmage[ARGS[1]] + 10080) < func('lact_bp', 'time_stamp') and (mbarrmage[ARGS[1]] + 262080) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '冰冻'
+				$mbarrstat[ARGS[1]] = '正常'
+			elseif (mbarrmage[ARGS[1]] + 262080) < func('lact_bp', 'time_stamp') and (mbarrmage[ARGS[1]] + 525600) >= func('lact_bp', 'time_stamp'):
+				$mbarrtemp[ARGS[1]] = '冰冻'
+				$mbarrstat[ARGS[1]] = '变陈'
+			else
+				$mbarrtemp[ARGS[1]] = '冰冻'
+				$mbarrstat[ARGS[1]] = '酸败'
+			end
+		else
+			$mbarrtemp[ARGS[1]] = '温热'
+			$mbarrstat[ARGS[1]] = '新鲜'
+		end
+	end
+	killvar 'pump_start_timestamp'
+end
+
+
+if $ARGS[0] = 'useable_sbottle_count':
+	!! use result = func('lact_bp','useable_sbottle_count',)
+	!! function will give you the amount of 150ml bottles that sveta can use at the moment.
+	usbc_i = 0
+	bottlecounter = 0
+	if reg_bottles_count > 0:
+		:usbc_loop
+		if usbc_i <= (reg_bottlem_count + reg_bottles_count):
+			if mbarrtype[usbc_i] = 1500 and mbarrfill[usbc_i] = 0:
+				bottlecounter += 1
+			end
+			usbc_i += 1
+			jump 'usbc_loop'
+		end
+	end
+	result = bottlecounter
+end
+
+
+if $ARGS[0] = 'useable_mbottle_count':
+	!! use result = func('lact_bp','useable_mbottle_count')
+	!! function will give you the amount of 250ml bottles that sveta can use at the moment.
+	umbc_i = 0
+	bottlecounter = 0
+	if reg_bottlem_count > 0:
+		:umbc_loop
+		if umbc_i <= (reg_bottlem_count + reg_bottles_count):
+			if mbarrtype[umbc_i] = 2500 and mbarrfill[umbc_i] = 0:
+				bottlecounter += 1
+			end
+			umbc_i += 1
+			jump 'umbc_loop'
+		end
+	end
+	result = bottlecounter
+end
+
+!!	bp_milking - breast pump milking
+!!	use href="exec:gt ''lact_bp'',''bp_milking''" or gt 'lact_bp','bp_milking'
+
+
+if $ARGS[0] = 'bp_milking':
+	pumptime = 0
+	pumptype = 0
+	gs 'lact_bp', 'reg_bottle_count'
+	if pump_bottletype < 1500: pump_bottletype = 1500
+	if $location_type <> 'bathroom' and $location_type <> 'restroom' and $location_type <> 'private_shared' and pcs_inhib < 30 or ($location_type = 'restroom' or $location_type = 'private_shared') and pcs_inhib < 20:
+		'你还不够自信，不能在这里这么做。'
+		act '完成': menu_off = 0 & gt $loc, $loc_arg
+	elseif bp_unbox <= 0:
+		'你得先给吸奶器拆箱。'
+		act '完成': menu_off = 0 & gt $loc, $loc_arg
+	elseif bp_unbox = 1 and ($location_type = 'bathroom' or $location_type = 'private'):
+		gt 'lact_bp', 'bp_unbox_event'
+	else
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/body/tits/breast_pump.jpg"></center>'
+		'你想用这个手动吸奶器吸多久奶？'
+		if func('lact_bp', 'useable_sbottle_count') <= 0 and func('lact_bp', 'useable_mbottle_count') <= 0:
+			'你已经没有可用的奶瓶了。请清空奶瓶或去药店买新的。'
+		elseif func('lact_bp', 'useable_sbottle_count') <= 0:
+			pump_bottletype = 2500
+			'你目前在你的吸奶器上用一个250毫升的奶瓶。'
+		elseif func('lact_bp', 'useable_mbottle_count') <= 0:
+			pump_bottletype = 1500
+			'你目前在你的吸奶器上用一个150毫升的奶瓶。'
+		else
+			if pump_bottletype = 1500:
+				'当前使用的奶瓶规格：&gt;150ml | <a href="exec:pump_bottletype = 2500 & gt ''lact_bp'', ''bp_milking''">250ml</a>'
+			else
+				pump_bottletype = 2500
+				'当前使用的奶瓶规格<a href="exec:pump_bottletype = 1500 & gt ''lact_bp'', ''bp_milking''">150ml</a> | &gt;250ml'
+			end
+		end
+		if (mc_inventory['bottle_m'] + mc_inventory['bottle_s']) = 1:
+			'你有一个奶瓶。你可以<a href="exec:gs ''lact_bp'',''view_milk_bottles'', 1">在这里</a>检查它'
+		elseif (mc_inventory['bottle_m'] + mc_inventory['bottle_s']) > 1:
+			'你有<<mc_inventory[''bottle_m''] + mc_inventory[''bottle_s'']>>个奶瓶。你可以<a href="exec:gs ''lact_bp'',''view_milk_bottles'', 1">在这里</a>检查它们'
+		end
+
+		if lactation['breastmv'] > 0 and (func('lact_bp', 'useable_sbottle_count') > 0 or func('lact_bp', 'useable_mbottle_count') > 0):
+			pumptime = func('lact_lib', '$get_breastmilk_time', 3, lactation['breastmv'] / 1000)
+			if pumptime <= 0:
+				act '泵奶直到乳房排空':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'你在准备吸奶时用手掂了掂自己的乳房。乳房感到非常空。现在没有必要吸奶。'
+					act '别泵': gt $loc, $loc_arg
+					act '返回': gt 'lact_bp', 'bp_milking'
+				end
+			elseif pumptime <= 60:
+				act '泵奶直到乳房排空':
+					gt 'lact_bp', 'milking'
+				end
+			else
+				act '泵奶直到乳房排空':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'你在准备吸奶时用手掂了掂自己的乳房。你感觉乳房里存了很多奶，吸奶大概会花很长时间。'
+					'用手动吸奶器给你的乳房缓解胀感大概至少要<<pumptime>>分钟。'
+					if pcs_know_mward <= 0:
+						'你在考虑去医院求助，或者去买一个更好的吸奶器。'
+						pcs_ask_mward_help = 1
+						pcs_knows_electric_pump = 1
+					end
+					'你想继续吗？'
+					act '别泵': gt $loc, $loc_arg
+					act '继续':
+						gt 'lact_bp', 'milking'
+					end
+				end
+			end
+		end
+		if (func('lact_bp', 'useable_sbottle_count') > 0 or func('lact_bp', 'useable_mbottle_count') > 0):
+			act '15分钟':
+				pumptime = 15
+				gt 'lact_bp', 'milking'
+			end
+			act '30分钟':
+				pumptime = 30
+				gt 'lact_bp', 'milking'
+			end
+			act '自定义':
+				pumptime = input ("你打算吸奶吸多久？（不能超过60分钟）")
+				if pumptime <= 0 or pumptime > 60:
+					minut += 2
+					act '别泵': menu_off = 0 & gt $loc, $loc_arg
+					act '返回': gt 'lact_bp', 'bp_milking'
+				elseif pumptime > 0 and pumptime <= 60:
+					gt 'lact_bp', 'milking'
+				end
+			end
+		end
+		if lactation['active'] > 0 and lactation['pc_aware'] > 0:
+			act '用手挤奶': gt 'lact_bp', 'man_milking'
+		else
+			act '按摩你的乳房': gt 'lact_bp', 'man_milking'
+		end
+		act '别泵':
+			menu_off = 0
+			gt $loc, $loc_arg
+		end
+	end
+end
+
+!!	man_milking - manual (with hands) milking
+!!	use href="exec:gt ''lact_bp'',''man_milking''"
+!!	for manual milk expression in bathrooms etc. please use this function.
+
+
+if $ARGS[0] = 'massage':
+	if cheatVars['no_lactation'] = 1: exit
+	if lactation['active'] = 0 and pcs_horny < 10: exit
+	if $location_type = 'bathroom':
+		if mc_inventory['breast_pump'] = 1: exit
+	elseif $location_type = 'restroom':
+		if pcs_inhib < 30: exit
+	else
+		if pcs_inhib < 20: exit
+	end
+
+	if lactation['active'] > 0 and lactation['pc_aware'] > 0:
+		act '挤你的奶': gt 'lact_bp', 'man_milking'
+	else
+		act '按摩你的乳房': gt 'lact_bp', 'man_milking'
+	end
+end
+
+
+if $ARGS[0] = 'man_milking':
+	*clr & cla
+	pumptime = 0
+	gs 'lact_bp', 'reg_bottle_count'
+
+	if lactation['active'] > 0 and lactation['pc_aware'] > 0:
+		'你想挤多久的奶？'
+	else
+		'你想按摩多久的乳房？'
+	end
+
+	if lactation['breastmv'] > 0:
+		pumptime = (func('lact_lib', '$get_breastmilk_time', 5, (lactation['breastmv']/1000)))
+		if pumptime > 60:
+			act '挤奶直到乳房排空':
+				*clr & cla
+				minut += 2
+				'你准备好了，用手掂了掂自己的乳房。你感觉乳房里存了很多奶，用手挤大概会花很长时间。'
+				'用手挤奶来给你的乳房缓解胀感大概至少要<<pumptime>>分钟。'
+				if mc_inventory['breast_pump'] <= 0 and bp_unbox <= 1:
+					'你应该考虑买一个吸奶器。'
+				elseif mc_inventory['breast_pump'] = 1 and bp_unbox <= 1 and pain['nipples'] <= 60:
+					'你应该考虑使用你的吸奶器。'
+				else
+					'你应该考虑使用吸奶器。'
+				end
+				'你想继续吗？'
+				act '不要挤奶': menu_off = 0 & gt $loc, $loc_arg
+				act '挤你的奶':
+					gt 'lact_bp', 'hand_milking'
+				end
+			end
+		elseif pumptime <= 0:
+			act '一直挤奶直到乳房排空':
+				*clr & cla
+				minut += 2
+				'你准备好了，用手感受着自己的乳房。乳房感到非常空。现在没有必要挤奶。'
+				act '不挤奶': menu_off = 0 & gt $loc, $loc_arg
+				act '返回': gt 'lact_bp', 'man_milking'
+			end
+		else
+			act '挤奶直到乳房排空':
+				pumptime = func('lact_lib', '$get_breastmilk_time', 5, (lactation['breastmv']/1000))
+				gt 'lact_bp', 'hand_milking'
+			end
+		end
+	end
+	act '5分钟':
+		pumptime = 5
+		gt 'lact_bp', 'hand_milking'
+	end
+	act '10分钟':
+		pumptime = 10
+		gt 'lact_bp', 'hand_milking'
+	end
+	act '自定义':
+		if lactation['active'] > 0 and lactation['pc_aware'] > 0:
+			pumptime = input ("你打算挤多久的奶？（不能超过60分钟）")
+		else
+			pumptime = input ("你打算按摩多久的乳房？（不能超过60分钟）")
+		end
+		if pumptime <= 0 or pumptime > 60:
+			minut += 2
+			if lactation['active'] > 0 and lactation['pc_aware'] > 0:
+				act '不要挤奶': gt $loc, $loc_arg
+			else
+				act '不要按摩': gt $loc, $loc_arg
+			end
+			act '返回': gt 'lact_bp', 'man_milking'
+		elseif pumptime > 0 and pumptime <= 60:
+			gt 'lact_bp', 'hand_milking'
+		end
+	end
+
+	if lactation['active'] > 0 and lactation['pc_aware'] > 0:
+		act '不要挤奶':
+			menu_off = 0
+			gt $loc, $loc_arg
+		end
+	else
+		act '不要按摩':
+			menu_off = 0
+			gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'bp_unbox_event':
+	if bp_unbox <= 0:
+		*clr & cla
+		minut += 5
+		gs 'stat'
+
+		if $location_type = 'bathroom':
+			'你放下马桶盖坐了下来，慢慢开始给你新买的吸奶器拆箱。'
+		elseif $location_type = 'private' and ($locclass = 'bedr' or $locclass = 'bedroom'):
+			'你坐在床上，慢慢开始给你新买的吸奶器拆箱。'
+		elseif $location_type = 'private':
+			'你坐下来，慢慢开始给你新买的吸奶器拆箱。'
+		end
+
+		if knowpreg = 0 and bp_unbox <= 0:
+			'在端详它的时候，你想着当初为什么买它。你没有怀孕，也没有需要母乳的孩子。'
+			if lactation['active'] <= 0:
+				'你的乳房里也还没有奶，所以这个吸奶器看起来有点没用。'
+			else
+				'至少它能把奶从你的乳房里吸出来。'
+			end
+		end
+
+		if $location_type = 'private':
+			'<center><img <<$set_imgh>> src="images/pc/body/tits/pump_unboxing.jpg"></center>'
+		elseif $location_type = 'bathroom':
+			'<center><img <<$set_imgh>> src="images/pc/body/tits/pump_unboxing_bath.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/pc/body/tits/pump_unboxing_bath.jpg"></center>'
+		end
+
+		!! creating first 150ml bottle
+		mc_inventory['bottle_s'] += 1
+		gs 'lact_bp', 'reg_bottle_count'
+
+		!! Actions
+		if (pcs_inhib > 40 and $location_type = 'private') or $location_type = 'bathroom':
+			act '试试看它怎么用':
+				*clr & cla
+				milkedvolume = (func('lact_lib', '$get_breastmilk', 3, 1))/100
+				minut += 1
+				bp_unbox = 2
+				gs 'stat'
+
+				'你拉起上衣释放你的乳房'
+				'<br><center><img <<$set_imgh>> src="images/pc/body/tits/t<<tits>>.jpg"></center><br>'
+				'你的手指在吸奶器的吸杯周围滑动，而你的另一只手握着吸奶器。'
+				'确保四周无人，你将吸奶器举到左乳房。冰冷的吸杯贴在乳头上感觉不舒服。'
+				if lactation['active'] <= 0:
+					'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+					'你用手再次向下挤压，你的乳头再次被吸进去。你继续，并开始有节奏地挤压它。'
+					'你继续了一分钟然后取下吸奶器。果然瓶子里没有收集到乳汁。'
+					'<br><center><img <<$set_imgh>> src="images/pc/body/tits/breast_pump.jpg"></center>'
+				elseif milkedvolume <= 0:
+					'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+					'你用手再次向下挤压，你的乳头再次被吸进去。你继续，并开始有节奏地挤压它。'
+					'你继续了一分钟然后取下泵。你收集了一些奶，但它只是瓶子里的一小滩。'
+					'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_milkdrops.jpg"></center>'
+				else
+					if milkedvolume <= 50:
+						'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+						'你再次用手挤压，乳头再次被吸进去。你继续下去，开始有节奏地挤压。吸奶器开始从你乳房中吸出奶水。'
+						'你继续了一分钟然后取下泵。你收集了一些奶，但它只是瓶子里的一小滩。'
+						'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_milkdrops.jpg"></center>'
+					elseif milkedvolume <= 1500:
+						'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+						'你再次用手挤压，乳头再次被吸进去。你继续下去，开始有节奏地挤压。吸奶器开始从你乳房中吸出奶水。'
+						'你继续了一分钟然后取下吸奶器。你收集了<<milkedvolume/10>>毫升你自己的母乳。'
+						'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_half.jpg"></center>'
+					else
+						'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+						'你再次用手挤压，乳头再次被吸进去。你继续下去，开始有节奏地挤压。吸奶器开始从你乳房中吸出奶水。'
+						'你继续了一分钟然后取下吸奶器。仅用这么一小会儿你就轻而易举地用母乳装满了吸奶器的瓶子。'
+						'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_full.jpg"></center>'
+					end
+					'你对着吸奶器点了点头，觉得它以后会派上用场。'
+				end
+				if lactation['active'] > 0 and pain['nipples'] < 60 and lactation['pc_aware'] <= 0:
+					lactation['pc_aware'] = 1
+					if pcs_usedbreastpumponherself > 0:
+						lactation['induced'] = 1
+						if pcs_massagedherbreasts > 0:
+							'那样反复吸奶和按摩乳房可能让你泌乳了！<br>'
+						elseif pcs_massagedherbreasts <= 0:
+							'你惊讶地发现自己居然泌乳了！'
+						end
+					else
+						if pcs_massagedherbreasts > 0:
+							lactation['induced'] = 1
+							'经常按摩你的乳房可能让你泌乳了！<br>'
+						else
+							lactation['induced'] = 0
+							'令你惊讶的是，这居然是奶。你开始泌乳了！<br>'
+							if thinkpreg = 1 or knowpreg = 1:
+								'这可能是因为你怀孕了。'
+							else
+								'你应该让医生检查一下。你可能是怀孕了。'
+							end
+						end
+					end
+				end
+				act '继续':
+					*clr & cla
+					if milkedvolume > 50 and $location_type = 'private':
+						'你看了看瓶子里的奶，又环顾了一下房间。不知道该怎么处理多余的奶，你看着它，突然一口喝了下去。'
+						'这是你自己的奶，喝掉应该没问题。'
+						'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_drink.jpg"></center>'
+						'<center>乳汁还带着你乳房的温度。</center>'
+						minut += ((milkedvolume/1000) + 3)
+						gs 'beverage', 'breast_milk_stats', milkedvolume
+						act '完成': menu_off = 0 & gt $loc, $loc_arg
+					else
+						'你清理好吸奶器，重新遮住胸部。'
+						act '完成': menu_off = 0 & gt $loc, $loc_arg
+					end
+				end
+				bp_unbox = 2
+			end
+		end
+
+		act '别在这里试':
+			*clr & cla
+			'你环顾四周，觉得在这里使用吸奶器不太自在。'
+			bp_unbox = 1
+			act '完成': menu_off = 0 & gt $loc, $loc_arg
+		end
+	elseif bp_unbox = 1:
+		if $location_type = 'private' and pcs_inhib < 40:
+			'你不能在这里这么做'
+			act '完成': menu_off = 0 & gt $loc, $loc_arg
+		else
+			'你拉起上衣释放你的乳房'
+			'<br><center><img <<$set_imgh>> src="images/pc/body/tits/t<<tits>>.jpg"></center><br>'
+			'你的手指在吸奶器的吸杯周围滑动，而你的另一只手握着吸奶器。'
+			'确保四周无人，你将吸奶器举到左乳房。冰冷的吸杯贴在乳头上感觉不舒服。'
+			milkedvolume = (func('lact_lib', '$get_breastmilk', 3, 1))/100
+			minut += 1
+			bp_unbox = 2
+			if lactation['active'] <= 0:
+				'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+				'你用手再次向下挤压，你的乳头再次被吸进去。你继续，并开始有节奏地挤压它。'
+				'你继续了一分钟然后取下吸奶器。果然瓶子里没有收集到乳汁。'
+				'<br><center><img <<$set_imgh>> src="images/pc/body/tits/breast_pump.jpg"></center>'
+			elseif milkedvolume <= 0:
+				'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+				'你用手再次向下挤压，你的乳头再次被吸进去。你继续，并开始有节奏地挤压它。'
+				'你继续了一分钟然后取下泵。你收集了一些奶，但它只是瓶子里的一小滩。'
+				'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_milkdrops.jpg"></center>'
+			else
+				if milkedvolume <= 50:
+					'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+					'你再次用手挤压，乳头再次被吸进去。你继续下去，开始有节奏地挤压。吸奶器开始从你乳房中吸出奶水。'
+					'你继续了一分钟然后取下泵。你收集了一些奶，但它只是瓶子里的一小滩。'
+					'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_milkdrops.jpg"></center>'
+				elseif milkedvolume <= 1500:
+					'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+					'你再次用手挤压，乳头再次被吸进去。你继续下去，开始有节奏地挤压。吸奶器开始从你乳房中吸出奶水。'
+					'你继续了一分钟然后取下吸奶器。你收集了<<milkedvolume/10>>毫升你自己的母乳。'
+					'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_half.jpg"></center>'
+				else
+					'你开始挤压球囊。你的乳头被吸进锥体，略微拉长。起初感觉很奇怪然后你松开手柄，乳头上的吸力消失然后乳头缩回。'
+					'你再次用手挤压，乳头再次被吸进去。你继续下去，开始有节奏地挤压。吸奶器开始从你乳房中吸出奶水。'
+					'你继续了一分钟然后取下吸奶器。仅用这么一小会儿你就轻而易举地用母乳装满了吸奶器的瓶子。'
+					'<br><center><img <<$set_imgh>> src="images/pc/body/tits/pump_full.jpg"></center>'
+				end
+				'你对着吸奶器点了点头，觉得它以后会派上用场。'
+			end
+
+			act '继续':
+				*clr & cla
+				if milkedvolume <= 50 or $location_type <> 'private':
+					'你清理好吸奶器，重新遮住胸部。'
+				else
+					minut += ((milkedvolume/1000) + 3)
+					gs 'beverage', 'breast_milk_stats', milkedvolume
+
+					'你看了看瓶子里的奶，又环顾了一下房间。不知道该怎么处理多余的奶，你看着它，突然一口喝了下去。'
+					'这是你自己的奶，喝掉应该没问题。'
+					'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_drink.jpg"></center>'
+					'<center>乳汁还带着你乳房的温度。</center>'
+				end
+				act '完成':
+					menu_off = 0
+					gt $loc, $loc_arg
+				end
+			end
+		end
+	elseif bp_unbox >= 2:
+		*clr & cla
+		'你已经给吸奶器拆过箱了。'
+		act '完成':
+			menu_off = 0
+			gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'reg_bottle_count':
+	if reg_bottles_count <= 0: reg_bottles_count = 0
+	if reg_bottlem_count <= 0: reg_bottlem_count = 0
+	if (reg_bottlem_count + reg_bottles_count) < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+		:rbc_loop
+		rbc_index = (reg_bottlem_count + reg_bottles_count) - 1
+		if (mc_inventory['bottle_s'] - reg_bottles_count) > 0:
+			reg_bottles_count += 1
+			rbc_index = (reg_bottlem_count + reg_bottles_count) - 1
+			mbarrtype[rbc_index] = 1500
+			gs 'lact_bp', 'empty_milk_bottle', rbc_index
+			mbarrloca[rbc_index] = 1
+			jump 'rbc_loop'
+		end
+		if (mc_inventory['bottle_m'] - reg_bottlem_count) > 0:
+			reg_bottlem_count += 1
+			rbc_index = (reg_bottlem_count + reg_bottles_count) - 1
+			mbarrtype[rbc_index] = 2500
+			gs 'lact_bp', 'empty_milk_bottle', rbc_index
+			mbarrloca[rbc_index] = 1
+			jump 'rbc_loop'
+		end
+	end
+end
+
+
+!!	milking
+!!	never use directly. Always use bp_milking, man_milking or sex_milking
+if $ARGS[0] = 'milking':
+	gs 'lact_bp', 'reg_bottle_count'
+
+	if pain['nipples'] >= 60:
+		'你的乳头现在太疼了，还不能用吸奶器。'
+	elseif lactation['active'] = 0:
+		milkedvolume = (func('lact_lib', '$get_breastmilk', 3, pumptime))/100
+		minut += pumptime
+		breastcounter += 1
+		pcs_usedbreastpumponherself += 1
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/pc/body/tits/t<<tits>>.jpg"></center>'
+		if breastaccommodation < 100:
+			'你把吸奶器对准乳头，开始挤压球囊。乳头上的吸力让你觉得不舒服。'
+		elseif breastaccommodation < 200:
+			'你把吸奶器对准乳头，开始挤压球囊。你已经习惯乳头上的这种吸力了。'
+		else
+			'你把吸奶器对准乳头，开始挤压球囊。乳头上的吸力感觉很舒服。'
+		end
+		if lactation['prolactinlvl'] > 100: '有少量液体从你的乳头流出，但那不是奶。'
+		if pump_stop_brake = 1:
+			'泵奶时，你的乳头开始极度疼痛。你不得不在<<pumptime>>分钟时停了下来，因为你无法继续下去。'
+		end
+		if lactation['prolactinlvl'] > 100:
+			'结束后，你的乳房奇怪地感到胀胀的。'
+		end
+		if drugVars['breastcream_dose'] = 1:
+			pcs_nips += rand(0, 2)
+		end
+	elseif lactation['pc_aware'] <= 0:
+		lactation['pc_aware'] = 1
+
+		'<center><img <<$set_imgh>> src="images/pc/body/tits/pump_milkdrops.jpg"></center>'
+		if pcs_usedbreastpumponherself > 0:
+			lactation['induced'] = 1
+			if pcs_massagedherbreasts > 0:
+				'你装上吸奶器，但吸了几下之后，白色的液体突然从你的乳头里流了出来。那样反复吸奶和按摩乳房可能让你泌乳了！<br>'
+			else
+				'像往常一样，你装上吸奶器，但吸了几下之后，白色的液体突然开始从你的乳头里流出。<br>经常使用吸奶器可能让你泌乳了！'
+			end
+		else
+			if pcs_massagedherbreasts > 0:
+				lactation['induced'] = 1
+				'你装上吸奶器，但吸了几下之后，白色的液体突然从你的乳头里流了出来。经常按摩你的乳房可能让你泌乳了！<br>'
+			else
+				lactation['induced'] = 0
+				'你装上吸奶器吸了几下。令你惊讶的是，白色的液体突然从你的乳头里流了出来。你开始泌乳了！<br>'
+				if thinkpreg = 1 or knowpreg = 1:
+					'这可能是因为你怀孕了。'
+				else
+					'你应该让医生检查一下。你可能是怀孕了。'
+				end
+			end
+		end
+		pcs_usedbreastpumponherself = 0
+		pcs_massagedherbreasts = 0
+	else
+		milkedvolume = func('lact_lib', '$get_breastmilk', 3, pumptime) / 100
+		!! act 'Finish':menu_off = 0 & gt $loc, $loc_arg
+		bp_used_mbottle = 0
+		bp_used_sbottle = 0
+		bp_useable_sbottle = func('lact_bp', 'useable_sbottle_count')
+		bp_useable_mbottle = func('lact_bp', 'useable_mbottle_count')
+		pump_start_timestamp = func('lact_bp', 'time_stamp')
+		breastcounter += 1
+		minut += pumptime
+		pump_timestamp = func('lact_bp', 'time_stamp')
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/pc/body/tits/pump_lactating.jpg"></center>'
+		if pumptime > 1:
+			'你把吸奶器对准乳房，有节奏地挤压球囊<<pumptime>>分钟。'
+		else
+			'你把吸奶器对准乳房，有节奏地挤压球囊一分钟。'
+		end
+
+		if milkedvolume > pump_bottletype and (bp_useable_sbottle*1500 + bp_useable_mbottle*2500) = pump_bottletype:
+			'吸奶时，集奶瓶装满你的奶，你不得不把它倒空。'
+			'你又多吸了几下，然后取下吸奶器。<br>你用瓶子装满了<<pump_bottletype/10>>毫升你自己的奶。'
+			'要收集你所有吸出来的奶，你或许应该去药店看看有没有额外的奶瓶可以配你的吸奶器。'
+			if (bp_useable_sbottle - bp_used_sbottle) > 0:
+				bottlecounter = 0
+				:sbottle_loneloop
+				if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']) and milkedvolume > 1500:
+					if mbarrtype[bottlecounter] <> 1500 or mbarrfill[bottlecounter] <> 0:
+						bottlecounter += 1
+						jump 'sbottle_loneloop'
+					end
+
+					gs 'lact_bp', 'fill_milk_bottle', bottlecounter, 1500
+				end
+			elseif (bp_useable_mbottle - bp_used_mbottle) > 0 and milkedvolume > 2500:
+				bottlecounter = 0
+				:mbottle_loneloop
+				if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+					if mbarrtype[bottlecounter] <> 2500 or mbarrfill[bottlecounter] <> 0:
+						bottlecounter += 1
+						jump 'mbottle_loneloop'
+					end
+
+					gs 'lact_bp', 'fill_milk_bottle', bottlecounter, 2500
+				end
+			else
+				'未处理的情况 - 你不应该在这里结束。请在 tfg-forums 的 Girl Life 的错误报告板块报告此问题。'
+				'第一种分支情况'
+				'已用大瓶：<<bp_used_mbottle>>'
+				'已用小瓶：<<bp_used_sbottle>>'
+				'已挤奶量：<<milkedvolume>>'
+				'吸奶器瓶型：<<pump_bottletype>>'
+				'可用小瓶：<<bp_useable_sbottle>>'
+				'可用大瓶：<<bp_useable_mbottle>>'
+			end
+		elseif milkedvolume > pump_bottletype and (bp_useable_sbottle*1500 + bp_useable_mbottle*2500) > pump_bottletype:
+			!!	Checking which bottletype is used and filling those bottles up before the other type is used.
+			:sbottleloop
+			if pump_bottletype < 2500 and milkedvolume >= 1500 and bp_used_sbottle < bp_useable_sbottle:
+				bp_used_sbottle += 1
+				milkedvolume -= 1500
+				bottlecounter = 0
+				:sbottle_searchloop
+				if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+					if mbarrtype[bottlecounter] <> 1500 or mbarrfill[bottlecounter] <> 0:
+						bottlecounter += 1
+						jump 'sbottle_searchloop'
+					end
+
+					gs 'lact_bp', 'fill_milk_bottle', bottlecounter, 1500
+				end
+				jump 'sbottleloop'
+			end
+			:mbottleloop
+			if pump_bottletype >= 2500 and milkedvolume >= 2500 and bp_used_mbottle < bp_useable_mbottle:
+				bp_used_mbottle += 1
+				milkedvolume -= 2500
+				bottlecounter = 0
+				:mbottle_searchloop
+				if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+					if mbarrtype[bottlecounter] <> 2500 or mbarrfill[bottlecounter] <> 0:
+						bottlecounter += 1
+						jump 'mbottle_searchloop'
+					end
+
+					gs 'lact_bp', 'fill_milk_bottle', bottlecounter, 2500
+				end
+				jump 'mbottleloop'
+			end
+			!!	Checking for the milkedvolume and if there are bottles left. if yes - use these bottles
+			if milkedvolume > 0 and (((bp_useable_mbottle - bp_used_mbottle) > 0) or ((bp_useable_sbottle - bp_used_sbottle) > 0)):
+				:altfill01
+				if pump_bottletype < 2500 and milkedvolume >= 2500 and bp_used_mbottle < bp_useable_mbottle:
+					bp_used_mbottle += 1
+					milkedvolume -= 2500
+					bottlecounter = 0
+					:sbottle_altsearchloop
+					if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+						if mbarrtype[bottlecounter] <> 2500 or mbarrfill[bottlecounter] <> 0:
+							bottlecounter += 1
+							jump 'sbottle_altsearchloop'
+						end
+
+						gs 'lact_bp', 'fill_milk_bottle', bottlecounter, 2500
+					end
+					jump 'altfill01'
+				end
+
+				:altfill02
+				if pump_bottletype >= 2500 and milkedvolume >= 1500 and bp_used_sbottle < bp_useable_sbottle:
+					bp_used_sbottle += 1
+					milkedvolume -= 1500
+					bottlecounter = 0
+					:mbottle_altsearchloop
+					if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+						if mbarrtype[bottlecounter] <> 1500 or mbarrfill[bottlecounter] <> 0:
+							bottlecounter += 1
+							jump 'mbottle_altsearchloop'
+						end
+
+						gs 'lact_bp', 'fill_milk_bottle', bottlecounter, 1500
+					end
+					jump 'altfill02'
+				end
+			end
+			!!	by this point all bottles should have been used up. Everything else needs to end up in the drain.
+			if milkedvolume > 0 and bp_useable_mbottle = bp_used_mbottle and bp_useable_sbottle = bp_used_sbottle:
+				'吸奶时，当集奶瓶装满你的奶，你不得不更换瓶子。不幸的是，你没有足够的奶瓶来收集所有的奶。'
+				'你不得不把<<milkedvolume/10>>毫升的母乳倒进水槽。'
+				milkedvolume = ((bp_used_mbottle*2500) + (bp_used_sbottle*1500))
+			elseif milkedvolume > 0 and milkedvolume < 1500 and (bp_useable_sbottle - bp_used_sbottle) > 0:
+				'泵奶时，当集奶瓶装满你的乳汁，你需要更换瓶子。'
+			elseif milkedvolume > 0 and milkedvolume < 2500 and milkedvolume > 1500 and (bp_useable_mbottle - bp_used_mbottle) > 0:
+				'泵奶时，当集奶瓶装满你的乳汁，你需要更换瓶子。'
+			else
+				'泵奶时，当集奶瓶装满你的乳汁，你需要更换瓶子。'
+			end
+			if bp_used_mbottle >= 1 or bp_used_sbottle >= 1:
+				'<center><img <<$set_imgh>> src="images/pc/body/tits/bottles_full.jpg"></center>'
+				if milkedvolume = ((bp_used_mbottle*2500) + (bp_used_sbottle*1500)):
+					'你从乳房里挤出了<<milkedvolume/10>>毫升的奶，收集在：'
+					if bp_useable_sbottle = 1:
+						'一个150毫升的瓶子'
+					elseif bp_used_sbottle > 1:
+						'<<bp_used_sbottle>>个150毫升的奶瓶'
+					end
+					if bp_used_mbottle = 1:
+						'一个250毫升的瓶子'
+					elseif bp_used_mbottle > 1:
+						'<<bp_used_mbottle>>个250毫升的奶瓶'
+					end
+				else
+					'你从乳房里挤出了<<((bp_used_mbottle*2500)+(bp_used_sbottle*1500)+milkedvolume)/10>>毫升的奶，收集在：'
+					if bp_used_sbottle = 1:
+						'一个150毫升的瓶子'
+					elseif bp_used_sbottle > 1:
+						'<<bp_used_sbottle>>个150毫升的奶瓶'
+					end
+					if bp_used_mbottle = 1:
+						'一个250毫升的瓶子'
+					elseif bp_used_mbottle > 1:
+						'<<bp_used_mbottle>>个250毫升的奶瓶'
+					end
+					if (bp_useable_sbottle - bp_used_sbottle) > 0 and milkedvolume <= 1500:
+						bottlecounter = 0
+						:sbottle_restsearchloop
+						if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+							if mbarrtype[bottlecounter] <> 1500 or mbarrfill[bottlecounter] <> 0:
+								bottlecounter += 1
+								jump 'sbottle_restsearchloop'
+							end
+
+							gs 'lact_bp', 'fill_milk_bottle', bottlecounter, milkedvolume
+						end
+						'你还储存了<<milkedvolume/10>>毫升的母乳在一个150毫升的奶瓶里。'
+					elseif (bp_useable_mbottle - bp_used_mbottle) > 0 and milkedvolume <= 2500:
+						bottlecounter = 0
+						:mbottle_restsearchloop
+						if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+							if mbarrtype[bottlecounter] <> 2500 or mbarrfill[bottlecounter] <> 0:
+								bottlecounter += 1
+								jump 'mbottle_restsearchloop'
+							end
+
+							gs 'lact_bp', 'fill_milk_bottle', bottlecounter, milkedvolume
+						end
+						'你还储存了<<milkedvolume/10>>毫升的母乳在一个250毫升的奶瓶里。'
+					else
+						'未处理的情况 - 你不应该在这里结束。请在 tfg-forums 的 Girl Life 的错误报告板块报告此问题。'
+						'第二种分支情况'
+						'已用大瓶：<<bp_used_mbottle>>'
+						'已用小瓶：<<bp_used_sbottle>>'
+						'已挤奶量：<<milkedvolume>>'
+						'吸奶器瓶型：<<pump_bottletype>>'
+						'可用小瓶：<<bp_useable_sbottle>>'
+						'可用大瓶：<<bp_useable_mbottle>>'
+					end
+					milkedvolume += bp_used_mbottle*2500 + bp_used_sbottle*1500
+				end
+			else
+				'未处理的情况 - 你不应该在这里结束。请在 tfg-forums 的 Girl Life 的错误报告板块报告此问题。'
+				'第三种分支情况'
+				'已用大瓶：<<bp_used_mbottle>>'
+				'已用小瓶：<<bp_used_sbottle>>'
+				'已挤奶量：<<milkedvolume>>'
+				'吸奶器瓶型：<<pump_bottletype>>'
+				'小瓶数量：<<mc_inventory[''bottle_s'']>>'
+				'大瓶数量：<<mc_inventory[''bottle_m'']>>'
+			end
+		else
+			'你又多吸了几下，然后取下吸奶器。<br>你用瓶子装满了<<milkedvolume/10>>毫升你自己的奶。'
+			if (bp_useable_sbottle - bp_used_sbottle) > 0 and milkedvolume <= 1500:
+				bottlecounter = 0
+				:single_sbottle_searchloop
+				if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+					if mbarrtype[bottlecounter] <> 1500 or mbarrfill[bottlecounter] <> 0:
+						bottlecounter += 1
+						jump 'single_sbottle_searchloop'
+					end
+
+					gs 'lact_bp', 'fill_milk_bottle', bottlecounter, milkedvolume
+				end
+			elseif (bp_useable_mbottle - bp_used_mbottle) > 0 and milkedvolume <= 2500:
+				bottlecounter = 0
+				:single_mbottle_searchloop
+				if bottlecounter < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+					if mbarrtype[bottlecounter] <> 2500 or mbarrfill[bottlecounter] <> 0:
+						bottlecounter += 1
+						jump 'single_mbottle_searchloop'
+					end
+
+					gs 'lact_bp', 'fill_milk_bottle', bottlecounter, milkedvolume
+				end
+			else
+				'未处理的情况 - 你不应该在这里结束。请在 tfg-forums 的 Girl Life 的错误报告板块报告此问题。'
+				'第二种分支情况'
+				'已用大瓶：<<bp_used_mbottle>>'
+				'已用小瓶：<<bp_used_sbottle>>'
+				'已挤奶量：<<milkedvolume>>'
+				'吸奶器瓶型：<<pump_bottletype>>'
+				'可用小瓶：<<bp_useable_sbottle>>'
+				'可用大瓶：<<bp_useable_mbottle>>'
+			end
+			milkedvolume += bp_used_mbottle*2500 + bp_used_sbottle*1500
+		end
+		if energytomilkpump > 0:
+			if pcs_energy <= 0:
+				'<br>泵奶时你感到非常饿，产奶似乎比想象中更耗费体力。'
+				energytomilkpump = 0
+			else
+				'<br>泵完奶后你感到有点口渴。'
+				energytomilkpump = 0
+			end
+		end
+		if drugVars['breastcream_dose'] = 1:
+			pcs_nips += rand(0, 2)
+		end
+	end
+
+	if milkedvolume <= 0:
+		act '完成':
+			menu_off = 0
+			gt $loc, $loc_arg
+		end
+	else
+		lact_engorgement = 0
+		lactatemess = 0
+		act '倒进水槽 (<<3 + milkedvolume/1500>>分钟）':
+			minut += 3 + milkedvolume / 1500
+			gs 'stat'
+
+			piits_i = 0
+			:piits_emptyloop
+			if piits_i < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+				if mbarrmage[piits_i] >= pump_start_timestamp and mbarrmage[piits_i] <= pump_timestamp:
+					gs 'lact_bp', 'empty_milk_bottle', piits_i
+				end
+				piits_i += 1
+				jump 'piits_emptyloop'
+			end
+
+			*clr & cla
+			if milkedvolume > 1500 and mc_inventory['bottle_s'] <= 1:
+				'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_sink.jpg"></center>'
+				'<center>你把150毫升的母乳倒进水槽，然后清洗你的吸奶器。</center>'
+			else
+				'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_sink.jpg"></center>'
+				'<center>你把<<milkedvolume/10>>毫升的母乳倒进水槽，然后清洗你的吸奶器。</center>'
+			end
+
+			act '完成':
+				milkedvolume = 0
+				menu_off = 0
+				gt $loc, $loc_arg
+			end
+		end
+
+		act '把它留在这里':
+			*clr & cla
+			'你把瓶盖拧到瓶子上，然后把它收好。'
+
+			act '完成':
+				milkedvolume = 0
+				menu_off = 0
+				gt $loc, $loc_arg
+			end
+		end
+
+		if pcs_hydra < 100:
+			act '喝掉它 (<<3 + milkedvolume/1500>>分钟）':
+				minut += 3 + milkedvolume / 1000
+				gs 'beverage', 'breast_milk_stats', milkedvolume
+
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/pc/body/tits/milk_drink.jpg"></center>'
+				'<center>你喝下自己的母乳，然后清洗你的吸奶器。</center>'
+				'<center>乳汁还带着你乳房的温度。</center>'
+
+				di_i = 0
+				:di_emptyloop
+				if di_i < (mc_inventory['bottle_m'] + mc_inventory['bottle_s']):
+					if mbarrmage[di_i] >= pump_start_timestamp and mbarrmage[di_i] <= pump_timestamp:
+						gs 'lact_bp', 'empty_milk_bottle', di_i
+					end
+					di_i += 1
+					jump 'di_emptyloop'
+				end
+
+				act '完成':
+					milkedvolume = 0
+					menu_off = 0
+					gt $loc, $loc_arg
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'hand_milking':
+	*clr & cla
+	if pain['nipples'] >= 60:
+		'你的乳头现在太疼了，还不能用手按摩。'
+	elseif lactation['active'] = 0:
+		minut += pumptime
+		milkedvolume = func('lact_lib', '$get_breastmilk', 5, pumptime)/1000
+		pcs_massagedherbreasts += 0
+
+		'你开始按摩自己的乳房，手指顺着乳房肌肤滑过乳晕。手指向下按进乳晕，把它朝你的乳头方向拉伸，'
+		'同时也在揉捏你的乳房。'
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/body/tits/bathroom_massage.mp4"></video></center>'
+	elseif lactation['pc_aware'] > 0:
+		minut += pumptime
+		milkedvolume = func('lact_lib', '$get_breastmilk', 5, pumptime)/1000
+
+		'你开始按摩自己的乳房，手指顺着乳房肌肤滑过乳晕。手指向下按进乳晕，把它朝你的乳头方向拉伸。'
+		'几股细小的奶流开始从你的乳头喷出。'
+		'你一直这样按<<pumptime>>分钟，直到停下来。你把自己以及所有被奶弄湿的地方都擦干净。<br>'
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/body/tits/bathroom_milking.mp4"></video></center>'
+	elseif lactation['pc_aware'] <= 0:
+		lactation['pc_aware'] = 1
+
+		'<center><img <<$set_imgh>> src="images/pc/body/tits/lactate_start.jpg"></center>'
+		if pcs_usedbreastpumponherself > 0:
+			lactation['induced'] = 1
+			if pcs_massagedherbreasts > 0:
+				'你开始按摩自己的乳房，手指顺着乳房肌肤滑过乳晕。手指向下按进乳晕，把它朝你的乳头方向拉伸。挤了几下之后，白色的液体突然开始从你的乳头里流出。那样反复吸奶和按摩乳房可能让你泌乳了！<br>'
+			else
+				'你开始按摩自己的乳房，手指顺着乳房肌肤滑过乳晕。手指向下按进乳晕，把它朝你的乳头方向拉伸。挤了几下之后，白色的液体突然开始从你的乳头里流出。<br>经常使用吸奶器可能让你泌乳了！'
+			end
+		else
+			if pcs_massagedherbreasts > 0:
+				lactation['induced'] = 1
+				'你开始按摩自己的乳房，手指顺着乳房肌肤滑过乳晕。手指向下按进乳晕，把它朝你的乳头方向拉伸。挤了几下之后，白色的液体突然开始从你的乳头里流出。经常按摩你的乳房可能让你泌乳了！<br>'
+			else
+				lactation['induced'] = 0
+				'你开始按摩自己的乳房，手指顺着乳房肌肤滑过乳晕。手指向下按进乳晕，把它朝你的乳头方向拉伸。令你惊讶的是，白色的液体突然开始从你的乳头里流出。你开始泌乳了！<br>'
+				if thinkpreg = 1 or knowpreg = 1:
+					'这可能是因为你怀孕了。'
+				else
+					'你应该让医生检查一下。你可能是怀孕了。'
+				end
+			end
+		end
+		pcs_usedbreastpumponherself = 0
+		pcs_massagedherbreasts = 0
+	end
+
+	act '完成': menu_off = 0 & gt $loc, $loc_arg
+end
+
+
+--- lact_bp ---------------------------------

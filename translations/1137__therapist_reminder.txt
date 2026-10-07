@@ -1,0 +1,123 @@
+# therapist_reminder
+
+if $ARGS[0] = '':
+	*clr & cla
+	menu_off = 1
+	remindedtherapyday = daystart
+	reminderCount += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/pc/reactions/forget.jpg"></center>'
+	''
+	'你想起今天你和治疗师约好在 '+func('time', 'get_time_string', 18, 0)+'。现在已经<b><<$mid(100+hour,2,2)>>:<<$mid(100+minut,2,2)>></b>。你现在应该去了。'
+	if $region = 'pav':
+		if reminderFreebee < 4:
+			gs 'willpower', 'misc', 'resist', 'easy'
+			if cheatVars['willpower'] = 0: will_cost += (hypnoTime * 2)
+			if pcs_willpwr < will_cost:
+				act '返回你之前在做的事' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '返回你之前在做的事' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'therapist_reminder', 'ignore_cost'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/pc/reactions/Sad.jpg"></center>'
+					''
+					'你为错过预约感到难过，但现在你有别的事要做。你告诉自己，你会尽快再见到他。'
+					act '继续':
+						gs 'therapist_reminder', 'return'
+					end
+				end
+			end
+		else
+			act '返回你之前在做的事':
+				*clr & cla
+				gs 'therapist_reminder', 'ignore_cost'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/pc/reactions/Sad.jpg"></center>'
+				''
+				'你为错过预约感到难过，但现在你有别的事要做。你告诉自己，你会尽快再见到他。'
+				act '继续': gs 'therapist_reminder', 'return'
+			end
+		end
+
+		act '去见你的治疗师':
+			*clr & cla
+			gs 'therapist_reminder', 'move_to_therapist'
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/schoolWalk.mp4"></video></center>'
+			'你朝你的治疗师办公室走去。'
+
+			act '继续': gs 'therapist_reminder', 'therapist'
+		end
+	else
+		''
+		'……但你意识到你离得太远了，根本不可能按时赶到。'
+		act '返回你之前在做的事':
+			*clr & cla
+			gs 'therapist_reminder', 'ignore_cost'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/reactions/Sad.jpg"></center>'
+			''
+			'你为错过预约感到非常难过。你告诉自己，你会尽快再见到他。'
+			act '继续': gs 'therapist_reminder', 'return'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'ignore_cost':
+	if reminderFreebee < 4:
+		tempReminderVars['CostLow'] = 10
+		tempReminderVars['CostHigh'] = 20
+		reminderMoodCostLow = 10
+		reminderMoodCostHigh = 20
+	else
+		tempReminderVars['Mult'] = reminderCount
+		if reminderCount > 10: tempReminderVars['Mult'] = 10
+		tempReminderVars['CostLow'] = func('shortgs', 'sqrt', 30 * tempReminderVars['Mult'])
+		tempReminderVars['CostHigh'] = func('shortgs', 'sqrt', 90 * tempReminderVars['Mult'])
+	end
+	gs 'mood', 'lower', rand(tempReminderVars['CostLow'], tempReminderVars['CostHigh'])
+
+	daysSkippedHypno += 1
+	if daysSkippedHypno >= 5: hypnoTime -= 1
+
+	if hypnoTime <= 5:
+		if trait_vars['cum_addict'] > 0: gs 'traits', 'level', 'cum_addict', 0
+	elseif hypnoTime = 0:
+		gs 'therapist', 'restTherapyVariables'
+	end
+
+	killvar 'tempReminderVars'
+end
+
+
+if $ARGS[0] = 'move_to_therapist':
+	if $loc = 'pav_lake':
+		minut += 15
+	elseif $loc = 'pav_park':
+		minut += 10
+	elseif $region = 'pav':
+		minut += 10
+	else
+		minut += 5
+	end
+	if $clothingworntype = 'nude':
+		gs 'outfit', 'wear_last_worn'
+		gs 'shoes', 'wear', 'last_worn'
+	end
+end
+
+
+if $ARGS[0] = 'return':
+	gt $menu_loc, $menu_arg
+end
+
+
+if $ARGS[0] = 'therapist':
+	gt 'therapist', 'start'
+end
+
+
+--- therapist_reminder ---------------------------------

@@ -1,0 +1,1856 @@
+# pav_pharmacy
+$location_type = 'public_indoors'
+
+!! LudaQW['KnowsSexActive'] is for her quest with Olu
+!! LudaQW['knows_sex'] is just to check whether she knows for sure whether or not you are sexually active
+!! pharmacy['arrive'] is to determine what kind of dialogue you get from who''s behind the counter
+!! pharmacy['first_purchase'] = 1 will skip the prologue dialogue when buying multiple items in a row
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	*clr & cla
+	$loc = 'pav_pharmacy'
+	$loc_arg = 'start'
+	$menu_loc = 'pav_pharmacy'
+	$menu_arg = 'start'
+	$loc_s = 'pav_pharmacy'
+	$args_s = 'start'
+	menu_off = 0
+	if sound_settings['environment_off'] = 0: PLAY 'sound/shop.mp3', 30
+	gs 'stat'
+
+	if gatabletkiday ! daystart: gap_bc_count = 0
+	if galubriday ! daystart: gap_lub_count = 0
+	if gapregday ! daystart: gap_preg_count = 0
+	if gaprezikday ! daystart: gap_condom_count = 0
+	if gabotsmlday ! daystart: gap_botsml_count = 0
+	if gabotmedday ! daystart: gap_botmed_count = 0
+
+	if ((hour >= 9 and hour < 13) or (hour >= 14 and hour <= 18)) and week < 6:
+		LudaQW['work_hours'] = 1
+	else
+		LudaQW['work_hours'] = 0
+	end
+
+	$func('wrap', 'header center b', '药房')
+	if LudaQW['work_hours'] = 1:
+		if LudaQW['free_condoms'] = 0 and $ARGS[1] = '': gt 'pav_pharmacy', 'luda_free_condoms'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+		if pharmacy_timers['birth_control'] > 0 and pharmacy_timers['birth_control'] < daystart - 30 and LudaQW['birth_control_worry'] = 0 and LudaQW['bc_shot_know'] = 0: gt 'pav_pharmacy', 'luda_birth_control_worry'
+	else
+		if pav_pharma_day ! daystart: pav_pharma_day = daystart & pav_pharma_picrand = rand(1, 4)
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_worker_' + pav_pharma_picrand + '.jpg"></center>'
+	end
+	*nl
+
+	act '离开药房': gs 'item_cart', 'shopping_var_clear' & gt 'pav_commercial'
+
+	if $ARGS[1] = 'return':
+		'“还需要别的吗？”'
+	else
+		if LudaQW['work_hours'] = 0:
+			'柜台后面的女人跟你打招呼。“你好。需要点什么？”'
+		else
+			'卢达阿姨正坐在柜台后面，见你进来便跟你打招呼。'
+			'“你好，<<$pcs_nickname>>。想找点什么吗？”'
+
+!!			if rand(0,1) = 1:
+!!				'"Hello <<$pcs_firstname>>! How are you?"'
+!!			else
+!!				'She''s busy with a customer right now, but acknowledges you with a glance.'
+!!			end
+		end
+	end
+	act '买点东西': gt 'pav_pharmacy', 'cart'
+end
+
+
+if $ARGS[0] = 'cart':
+	*clr & cla
+	$loc_s = 'pav_pharmacy'
+	$args_s = 'cart'
+
+	if hour < 8 or hour > 20:
+		'药店现在关门了。'
+
+		act '离开': gs 'item_cart', 'shopping_var_clear' & gt 'pav_commercial'
+		exit
+	end
+
+	gs 'themes', 'indoors'
+	gs 'item_cart', 'shopping_aisle', 'chemist'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	if LudaQW['work_hours'] = 1:
+		$backimage = 'images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg'
+	else
+		$backimage = 'images/locations/pavlovsk/pharmacy/apteka_worker_' + pav_pharma_picrand + '.jpg'
+	end
+
+	act '退出购物车': gs 'item_cart', 'shopping_var_clear' & gt 'pav_pharmacy', 'start'
+end
+
+
+if $ARGS[0] = 'buy_condoms':
+	if pharmacy_timers['condom_timer'] = daystart or LudaQW['birth_control_timer'] = daystart:
+		gt $loc_s, $args_s
+	else
+		pharmacy_timers['condom_timer'] = daystart
+	end
+	$ludaQW['pharm_purchase'] = 'condoms'
+	menu_off = 1
+	minut += 2
+	*clr & cla
+	if LudaQW['KnowsSexActive'] < 10: LudaQW['KnowsSexActive'] += 1
+	gs 'stat'
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+
+	act '怯生生地问':
+		cla & *nl
+		act '继续购物': gt $loc_s, $args_s
+		if pharmacy['first_purchase'] = 0:
+			pharmacy['first_purchase'] = 1
+			'你尴尬地躲开她的目光，让视线在她身后的货架上乱飘，假装在找别的什么，就不是避孕套。你咽了口唾沫，只觉得脸颊发烫。'
+		end
+!!		'"Hello, <<$pcs_nickname>>. Are you looking for something?"'
+		if pharmacy['morning_after'] > 0 and LudaQW['condom_scold'] < pharmacy['morning_after']:
+			LudaQW['condom_scold'] = pharmacy['morning_after']
+			'“我需要点……<i>东西</i>，卢达阿姨，”你压低声音说，尽量表现得隐晦。'
+			if fame['pav_slut'] > 150:
+				'"<<$pcs_nickname>>..."'
+				'她面无表情地盯着你。“有话直说。我们心里都清楚这是怎么回事。既然你要过性生活，尤其是还搞到成了全镇的公共汽车，就不该为买‘东西’感到难为情。现在，说清楚。你要找什么？”'
+				'你深吸一口气，感觉自己又成了那个打碎东西后被逼着道歉的小孩。'
+				'“我需要……避孕套，卢达阿姨，”你低着头嘟囔道。她对你笑了笑，立刻把一盒避孕套放到柜台上。<i>她怎么知道我想要避孕套？</i>'
+				'“瞧，有那么难吗？”她继续微笑着，顺手把它加进你的购物清单。“好了，还需要别的吗？”'
+			else
+				'“你说的‘东西’是什么意思？”她一脸无辜地问。“我们这儿什么‘东西’都有。你说的是润唇膏？止痒膏？避孕药？还是碰巧，想要点肛交润滑——”'
+				'“避孕套！”你低声急促地说，一边环顾四周看有没有人在看。“我要避孕套，卢达阿姨。”'
+				'她轻笑一声，拿出一盒避孕套——那盒子她明显一直就放在柜台后面。'
+				'“很高兴看到你这次更注意安全了，”她说着，把它加进你的购物清单。“好了，还需要别的吗？”'
+			end
+			gs 'pav_pharmacy', 'dont_tell'
+		elseif LudaQW['condoms'] = 0 and LudaQW['knows_sex'] ! 1:
+			LudaQW['condoms'] = 1
+			LudaQW['knows_sex'] = 1
+			'“我需要点……<i>东西</i>，卢达阿姨，”你压低声音说，尽量表现得隐晦。'
+			if fame['pav_slut'] > 150:
+				if LudaQW['condom_give_day'] - daystart < 7:
+					'“你这么快就把我送的礼物用完了？”卢达惊讶地大笑起来，这只会让你脸更红。“巴甫洛夫斯克人人都叫你<<$gnikname>>，可这才不到一个星期呀，亲爱的。”'
+				else
+					'“我的礼物这么快就用完了？”卢达问，这只会让你脸更红。“我倒不意外，我在镇上可听了不少你的风言风语。巴甫洛夫斯克的人好像都把你当成<<$gnikname>>。”'
+				end
+				'“唔……可是我……”想到你阿姨——显然还有镇上所有人——都知道你放荡的行为，你羞愧难当，真不知道该说什么。她轻笑一声，给了你一个宽慰的微笑。'
+				'“别担心，<<$pcs_nickname>>，我只是逗你玩，”她咯咯笑着，把一盒避孕套放到柜台上，加进你的购物清单。“我不是来评判你的。老天作证，我可没资格说别人。”'
+				'她把盒子放进纸袋，然后顺着柜台推到你面前。'
+				if pharmacyfirstbirthcontrol = 0:
+					'“如果你想开始不戴套，我们也有避孕药。”'
+					gs 'pav_pharmacy', 'birth_control_addon'
+				end
+			else
+				if LudaQW['condom_give_day'] - daystart < 7:
+					'“你这么快就把我送的礼物用完了？”卢达惊讶地大笑起来，这只会让你脸更红。“亲爱的，这才不到一个星期呢！”'
+				else
+					'“我的礼物这么快就用完了？”卢达问，这只会让你脸更红。“我很高兴它派上了用场。”'
+				end
+				'她从柜台后面拿出一盒避孕套，加进你要结账的东西里。'
+				if pharmacyfirstbirthcontrol = 0:
+					'“如果你想开始不戴套，我们也有避孕药。”'
+					gs 'pav_pharmacy', 'birth_control_addon'
+				end
+			end
+			gs 'pav_pharmacy', 'dont_tell'
+		else
+			'“卢达阿姨，”你飞快地低声说，尽管急着把话说完，还是感觉脸在发烫。“我还需要些避孕套。”'
+			if pcs_inhib < 50:
+				'“你用得可真快啊，”她轻笑着，把一盒避孕套塞进纸袋，你感觉自己的脸更红了。'
+				!! '"Thank you, Aunt..." you mumble, taking the bag and stuffing it into your purse.'
+			else
+				'“你用得可真快啊，”你阿姨微笑着，把一盒避孕套塞进纸袋。你脸红了，但还是笑着回她，漫不经心地耸耸肩，看她把它加进你的购物清单。'
+				!! '"Thank you, Aunt Luda."'
+			end
+		end
+	end
+	act '坦率地问':
+		minut += 1
+		cla & *nl
+		if LudaQW['condoms'] = 0:
+			LudaQW['condoms'] = 1
+			'“嗨，卢达阿姨。我能买点避孕套吗？”'
+			if LudaQW['knows_sex'] = 0:
+				LudaQW['knows_sex'] = 1
+				if LudaQW['condom_give_day'] - daystart < 7:
+					'“你这么快就把我送的礼物用完了？”卢达惊讶地大笑起来。“亲爱的，这才不到一个星期呢！”'
+					'你漫不经心地耸耸肩。“看来我真的很喜欢做爱。”'
+					'“这是家族遗传，”她轻笑着，宠溺地对你微笑，一边伸手拿过一盒避孕套放进袋子里。“也许我们身上都带着点荡妇基因什么的。”'
+				else
+					'“我的礼物这么快就用完了？”卢达微笑道。“我很高兴它派上了用场。”'
+				end
+				act '继续购物': gt $loc_s, $args_s
+				if pharmacyfirstbirthcontrol = 0:
+					'“如果你想开始不戴套，我们也有避孕药。”'
+					gs 'pav_pharmacy', 'birth_control_addon'
+				end
+			elseif pharmacyfirstbirthcontrol = 1:
+				'“你交了新对象？”卢达好奇地问，一边拿过一盒避孕套放进袋子里。“还是只是谨慎起见？我还以为你已经在吃避孕药了。”'
+				if birth_control['using_bc'] > 0:
+					if birth_control['think_safe'] = 0:
+						'“还在等它起效呢，”你苦笑道。'
+						'“哦！我糊涂了！”卢达自嘲地翻了个白眼。“当然啦。亏我还自称药剂师！不过你在这期间注意安全，值得表扬！”'
+						act '继续购物': gt $loc_s, $args_s
+					else
+						act '新对象':
+							cla & *nl
+							'“是新对象，”你笑道。“还没顾得上确认对方干不干净呢。”'
+							'“那我希望你快去确认。”她眼中闪着俏皮的光，凑近过来，一只手拢在嘴边。“我也更喜欢不戴套呢。”'
+							act '继续购物': gt $loc_s, $args_s
+						end
+
+						act '约炮':
+							cla & *nl
+							'“我最近老是搞一夜情，”你告诉她。'
+							'“啊。很高兴知道我侄女又受欢迎<i>又</i>聪明，”她眨眨眼，把避孕套加进你的购物清单。'
+							act '继续购物': gt $loc_s, $args_s
+						end
+
+						act '只是为了安全':
+							cla & *nl
+							'“只是求个安心，”你耸耸肩。“避孕药可能失效，避孕套也可能。我两样都用不是更好吗？”'
+							'“乖孩子。”她骄傲地对你微笑，把避孕套加进你的购物清单。'
+							act '继续购物': gt $loc_s, $args_s
+						end
+					end
+				else
+					gs 'pav_pharmacy', 'luda_stopped_bc'
+				end
+			elseif pharmacyfirstbirthcontrol = 0:
+				'“当然可以，亲爱的。”她在柜台里翻找一阵，拿出一盒避孕套。“如果你更喜欢不戴套，我们也有避孕药。当然，前提是你得确认你的伴侣是干净的。”'
+				gs 'pav_pharmacy', 'birth_control_addon'
+			else
+				'“当然可以，亲爱的！”卢达在柜台下面翻找一阵，拿出一盒避孕套，顺着柜台滑给你。'
+				'“记得常来光顾哦，”她眨眨眼。'
+				act '继续购物': gt $loc_s, $args_s
+			end
+		else
+			'“嗨，卢达阿姨，我还需要些避孕套。”'
+			'“你用得可真快啊，”她轻笑着，把手伸到柜台下面，拿出一盒避孕套。'
+			act '只是为了安全':
+				cla & *nl
+				'“只是求个安心，”你耸耸肩，从她手里接过盒子。“谢谢，卢达阿姨。”'
+				'“随时都行，亲爱的！”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+			act '我最近性生活很多':
+				cla & *nl
+				'“我不确定这是不是一个原因，”你假装思考地说。“但也许是因为我最近性生活很多。”'
+				'“我希望也玩得很开心，”她笑道。“我只是很高兴你注意安全，亲爱的。”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_birth_control':
+	if pharmacy_timers['birth_control'] = daystart or LudaQW['birth_control_timer'] = daystart:
+		gt $loc_s, $args_s
+	else
+		pharmacy_timers['birth_control'] = daystart
+	end
+	menu_off = 1
+	*clr & cla
+	if LudaQW['birth_control_worry'] >= 2: gt 'pav_pharmacy', 'luda_birth_control_start_again_meek'
+	if LudaQW['birth_control_worry'] = 1: LudaQW['birth_control_worry'] = 0
+	$ludaQW['pharm_purchase'] = 'bc_pills'
+	gs 'stat'
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if pharmacy['first_purchase'] = 0:
+		pharmacy['first_purchase'] = 1
+		'你局促地避开她的目光，让视线在药房里游移，假装不知道自己是来干什么的。最后，你深吸一口气，感觉脸颊发烫。'
+	end
+!!	'"Hello, <<$pcs_nickname>>. Are you looking for something?"'
+	act '怯生生地问':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+		if pharmacyfirstbirthcontrol ! 0:
+			if pcs_inhib < 50:
+				'“我还需要些避孕药，卢达阿姨，”你嘟囔道。'
+				'“你有记得每天按时吃吗？”她一边问，一边给你结账，把药片放进袋子里。你点点头没说话，避开她的目光，她把你买的东西递给你。“很好。另外，如果你想不来月经，有个小窍门：跳过安慰剂药片，直接接着吃下一片活性药片。激素会积累到足够多，你就不会再来了。你多半还是会有点痛经，但至少应该也不用再用卫生棉条了。”'
+				'“谢谢你，阿姨……”你说着，脸红起来，她则把药片加进你的购物清单。'
+			else
+				'“我还需要些避孕药，卢达阿姨。”你居然能面不改色地把这话说出来，尽管还是感觉脸颊发烫。'
+				'“你有记得每天按时吃吗？”她一边问，一边给你结账，把药片放进袋子里。'
+				'“是的，卢达阿姨。”'
+				'“很好。另外，如果你想不来月经，有个小窍门：跳过安慰剂药片，直接接着吃下一片活性药片。激素会积累到足够多，你就不会再来了。你多半还是会有点痛经，但至少应该也不用再用卫生棉条了。”'
+				'“好的，谢谢你的建议，”你温顺地点点头。'
+			end
+			act '继续购物': gt $loc_s, $args_s
+		else
+			pharmacyfirstbirthcontrol = 1
+			minut += 2
+			if pharmacy['morning_after'] > 2 or pharmacyfirstpregtest > 0:
+				'“呃……是的阿姨。我需要点……<i>东西</i>，”你一边说，一边意味深长地看着那些避孕药。'
+				'“是时候了，”卢达说着，夸张地翻了个白眼，然后飞快地抓起一盒放到柜台上。“我还在想你得闯多少次祸，才会学聪明点去做安全的事。”'
+				act '继续购物': gt $loc_s, $args_s
+			elseif fame['pav_slut'] > 150:
+				LudaQW['knows_sex'] = 1
+				'“呃……是的阿姨。我需要点……<i>东西</i>，”你一边说，一边看向一旁，避开她的目光。'
+				'“你的意思是，避孕药能让你开始无忧无虑地享受，”她笑着说。你惊讶地看着她。“我又不聋，<<$pcs_nickname>>。我几乎能听到巴甫洛夫斯克每个人都说你是个<<$gnikname>>。”'
+				act '结结巴巴':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“唔——可是我——”你真不知道该说什么，而且想到你阿姨——显然还有镇上所有人——都知道你放荡的行为，你羞愧难当。她轻笑一声，给了你一个宽慰的微笑。'
+					'“别担心，<<$pcs_nickname>>，我只是逗你玩，”她咯咯笑着，把一盒药片放进袋子里。“我不是来评判你的。这是家族遗传；也许我们身上都带着点荡妇基因什么的。”'
+					act '继续购物': gt $loc_s, $args_s
+					if LudaQW['condoms'] = 0:
+						'“既然你似乎有很多性伴侣，要不要也来点避孕套？当然是为了防性病。如今你永远分不清谁干净谁不干净。”'
+						gs 'pav_pharmacy', 'condom_addon'
+					end
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '不喜欢避孕套':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我不喜欢用避孕套……”你嘟囔道。这坦白不知怎的让你的脸更烫了。'
+					'“我也不喜欢，”卢达咯咯笑着，把一盒药片放进袋子里。“我想这是家族遗传。”'
+					act '继续购物': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '我只是为了安全':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我只是为了安全，”你嘟囔道，感觉自己的脸不知怎的更烫了。“我还在用避孕套，但不想只靠它。”'
+					'“很高兴我侄女很聪明，”她点点头，把一盒药片放进袋子里。“防性病也很重要。如今你永远不知道谁干净。既然如此，你要不要趁在这儿再买点避孕套？”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+			else
+				'你深吸一口气。“呃……是的阿姨。我需要点……<i>东西</i>，”你一边说，一边意味深长地看着那些避孕药。'
+				'“我的礼物这么快就用完了？”卢达调皮地笑着问。“还是你只是决定更喜欢不戴套了？”'
+				act '用完了':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					if LudaQW['condom_give_day'] - daystart < 7:
+						'“我用完了，”你承认道，卢达惊讶地大声笑出来。'
+						'“亲爱的，这才不到一个星期呢！”'
+						'你的脸更红了。'
+						'“哦，别难为情。我不是在荡妇羞辱你，亲爱的。这是家族遗传，”她轻笑着，宠溺地对你微笑，然后伸手拿过一盒药片放进袋子里。'
+					else
+						'“我用完了，”你承认道，脸红得厉害。'
+					end
+					*nl
+					'卢达一边把药片加进你要结账的东西里，一边飞快地往后瞟了一眼。'
+					'“你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '不喜欢避孕套':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我不喜欢用避孕套，”你红着脸说。“戴着不舒服。”'
+					'“也许我一开始就该给你药片，”她轻笑着给你结账。“我知道你不喜欢它们，但趁你在这儿，能不能让你再买点避孕套？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '想试试无套':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我想试试不戴套是什么感觉，”你红着脸承认道。“但我也不想怀孕。”'
+					'“哦，那可<i>美妙</i>了，亲爱的，”卢达滔滔不绝地说，你的脸更红了。“如果你像我们家其他姑娘一样，你会爱上的。你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '更喜欢无套':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“戴避孕套的感觉不一样，”你承认道。'
+					'“我同意，”她坏笑着，你的脸更红了。“当你姐姐也因为这个原因开始吃药时，我就开始怀疑这是家族遗传了。你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '安全措施':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					if age < 20:
+						'“我还在用避孕套，”你红着脸说。“但药片能多一道安全网。我真的很想避免当少女妈妈。”'
+						'“我也希望如此，”她坏笑着给你结账。“你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					else
+						'“我还在用避孕套，”你红着脸说。“但药片能多一道安全网。我还没准备好当妈妈。”'
+						'“好，”她微笑着给你结账。“你应该享受青春，而不用承担为人父母的责任。你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					end
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				if stat['total_creampies'] > 0:
+					act '发现我喜欢内射':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+						'“我……我发现我喜欢男人射在我里面，”你坦白道。“那感觉真的很好。”'
+						'卢达挑起一边眉毛，你觉得脸颊一阵发烫。'
+						'“我希望你发现这点的时候，用了我送的另一件礼物？”她问。'
+						if stat['morning_after_pill'] > 0:
+							'“用了，”你点点头，脸更红了。'
+							'“很好，”她一边给你结账一边说。“不用才是傻瓜。”'
+							*nl
+							'“记得每天都要吃这些，”她叮嘱道，把药片加进你的购物清单。“必须天天吃才有效。事实上，不吃的话反而会让你更容易怀孕。对一个喜欢内射的姑娘来说，这可不是好消息。”'
+							act '继续购物': gt $loc_s, $args_s
+						else
+							act '啊哦':
+								cla & *nl
+								'你的胃猛地一沉，感觉血液从脸上退去。“我，呃……我忘了……？”你畏缩地说。'
+								'“<<$pcs_firstname>> <<$pcs_lastname>>，你到底怎么回事？！”她双手叉腰斥责道。“你怎么能忘？！这就是我一开始把它给你的原因！”'
+								'卢达摇了摇头，一边给你结账，一边自顾自地咂着嘴。'
+								*nl
+								'“<i>别</i>忘了每天吃这些，”她警告道，把药片递给你。“每天都要吃，小姐，否则不会起效。事实上，不吃的话反而会让你更容易怀孕。”'
+								'“好的，卢达阿姨……”你温顺地说。'
+								act '继续购物': gt $loc_s, $args_s
+							end
+
+							act '那天是安全期。':
+								cla & *nl
+								'“呃……那天是安全期，”你含糊地嘟囔出来。'
+								'“<<$pcs_firstname>>！”她双手叉腰说。“安全期避孕法？真的吗？”'
+								'你的脸更红了，卢达气呼呼地叹了口气，啪地把一盒药片拍在柜台上。'
+								*nl
+								'“那是种极不负责任的避孕方法！”她一边开始扫盒子一边叹气。“至少你要戒掉那个，改用这些。记住：这些药你<i>每天</i>都得吃，小姐，否则不会起效。事实上，不吃的话反而会让你更容易怀孕。”'
+								'“好的，卢达阿姨……”你温顺地说。'
+								act '继续购物': gt $loc_s, $args_s
+							end
+						end
+					end
+				end
+
+				if LudaQW['knows_sex'] = 0:
+					act '为了我的月经周期。':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+						if stat['think_virgin'] = 1:
+							'“我只是想调理生理周期，卢达阿姨，”你抗议道，脸红得厉害。“我没有做爱。”'
+						else
+							'“我只是想调理生理周期，卢达阿姨，”你撒着谎，脸红得厉害。“我没有做爱。”'
+						end
+						'她冲你笑了笑，嘴角带着一丝狐疑，一边把药片加进你要结账的东西里。'
+						'“好吧，我没法证明不是这样，所以我想只能相信你的话了……”'
+						act '继续购物': gt $loc_s, $args_s
+					end
+				end
+			end
+		end
+	end
+	act '坦率地问':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+		if pharmacyfirstbirthcontrol ! 0:
+			'“请再给我些避孕药好吗？”'
+			'“当然可以，亲爱的，”她说着，给你结账，把药片从柜台上递给你。“你有记得每天按时吃吗？”'
+			'“是的，卢达阿姨。”'
+			'“很好。另外，如果你想不来月经，有个小窍门：跳过安慰剂药片，直接接着吃下一片活性药片。激素会积累到足够多，你就不会再来了。”'
+			act '继续购物': gt $loc_s, $args_s
+		else
+			pharmacyfirstbirthcontrol = 1
+			minut += 2
+			'“嗨，卢达阿姨。我能买点避孕药吗？”'
+			if pharmacy['morning_after'] > 2 or pharmacyfirstpregtest > 0:
+				'“是时候了，”卢达说着，夸张地翻了个白眼，然后飞快地抓起一盒放到柜台上。“我还在想你得闯多少次祸，才会学聪明点去做安全的事。”'
+				act '继续购物': gt $loc_s, $args_s
+			else
+				if LudaQW['condoms'] = 0:
+					'“我的礼物这么快就用完了？”卢达调皮地笑着问。“还是你只是决定更喜欢不戴套了？”'
+				else
+					'测试'
+				end
+				act '用完了':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我用完了，”你承认道。“顺便谢谢你的礼物。”'
+					if LudaQW['condom_give_day'] - daystart < 7:
+						'“我用完了，”你承认道，卢达惊讶地大笑起来。'
+						'“亲爱的，这才不到一个星期呢！”'
+						'你漫不经心地耸耸肩。“看来我真的很喜欢做爱。”'
+						'“这是家族遗传，”她轻笑着，宠溺地对你微笑，一边伸手拿过一盒避孕套放进袋子里。“也许我们身上都带着点荡妇基因什么的。”'
+					else
+						'“我用完了，”你承认道。“不过药片似乎没那么麻烦。”'
+					end
+					'“我很高兴它派上了用场，”她轻笑着给你结账。“你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+				end
+
+				act '讨厌避孕套':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我受够用避孕套了，”你皱着眉说。“实在太麻烦了。我很感激你的礼物，但也许你当初该给我一盒药片。”'
+					'“我想那样确实会省事一点，”她轻笑着给你结账。“我知道你不喜欢它们，但趁你在这儿，能不能让你再买点避孕套？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+				end
+
+				act '想试试无套':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“我想试试不戴套是什么感觉，”你笑着承认道。“但我不想承担随之而来的风险。至少在没有避孕药的情况下不想。”'
+					'“哦，那可<i>美妙</i>了，亲爱的，”卢达滔滔不绝地说。“如果你像我们家其他姑娘一样，你会爱上的。你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+					gs 'pav_pharmacy', 'dont_tell'
+				end
+
+				act '更喜欢无套':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'“无套，”你笑着承认道。“戴避孕套的感觉不一样。我<i>感觉不到</i>他在我体内。我很感激你的礼物，但也许你当初该给我一盒药片。”'
+					'“也许我确实该这样，”她轻笑道。“当你姐姐也因为这个原因开始吃药时，我就该猜到这是家族遗传。你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+				end
+
+				act '安全措施':
+					LudaQW['knows_sex'] = 1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					if age < 20:
+						'“我还在用避孕套，”你耸耸肩。“但药片能多一道安全网。我真的很想避免当少女妈妈。”'
+						'“我也希望如此，”她坏笑着给你结账。“你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					else
+						'“我还在用避孕套，”你耸耸肩。“但药片能多一道安全网。我还没准备好当妈妈。”'
+						'“好，”她微笑着给你结账。“你应该享受青春，而不用承担为人父母的责任。你要趁在这儿再买点避孕套吗？药片要几个星期才起效。”'
+					end
+
+					act '不用了，谢谢': gt $loc_s, $args_s
+					gs 'pav_pharmacy', 'condom_addon'
+				end
+
+				if stat['total_creampies'] > 0:
+					act '发现我喜欢内射':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+						'“其实我……发现我喜欢内射，”你咧开嘴笑着坦白道。“那感觉真的很好。”'
+						'“我希望你发现这点的时候，用了我送的另一件礼物？”她问。'
+						if stat['morning_after_pill'] > 0:
+							'“用了，”你点点头。“它真的帮我在没有顾虑的情况下享受内射。”'
+							'“嗯，”她一边给你结账一边回以微笑。“那件礼物就是为此而设的。让你可以毫无恐惧地去尝试。所以我很高兴它派上了用场。”'
+							*nl
+							'“记得每天都要吃这些，”她叮嘱道，把药片递给你。“必须天天吃才有效。事实上，不吃的话反而会让你更容易怀孕。对一个喜欢内射的姑娘来说，这可不是好消息。”'
+							'“谢谢你，卢达阿姨，”你说。'
+							act '继续购物': gt $loc_s, $args_s
+						else
+							act '啊哦':
+								cla & *nl
+								'“呃……”你尴尬地对她笑笑。“其实……我忘了要……？”'
+								'“<<$pcs_firstname>> <<$pcs_lastname>>，你到底怎么回事？！”她双手叉腰斥责道。“你怎么能忘？！这就是我一开始把它给你的原因！”'
+								'卢达摇了摇头，一边给你结账，一边自顾自地咂着嘴。'
+								*nl
+								'“总之<i>别</i>忘了每天吃这些，”她警告道，把药片递给你。“每天都要吃，小姐，否则不会起效。事实上，不吃的话反而会让你更容易怀孕。”'
+								'“好的，卢达阿姨，”你边说边又挤出一个畏缩的笑容。'
+								act '继续购物': gt $loc_s, $args_s
+							end
+
+							act '那天是安全期。':
+								cla & *nl
+								'“那天是安全期，”你平静地微笑着告诉她。'
+								'“<<$pcs_firstname>>！”她双手叉腰说。“安全期避孕法？真的吗？”'
+								'卢达摇着头，大声喘着气，抓过一盒药片啪地拍在柜台上。'
+								*nl
+								'“那是种极不负责任的避孕方法！”她一边开始扫盒子一边叹气。“至少你要戒掉那个，改用这些。记住：这些药你<i>每天</i>都得吃，小姐，否则不会起效。事实上，不吃的话反而会让你更容易怀孕。”'
+								act '继续购物': gt $loc_s, $args_s
+							end
+						end
+					end
+				end
+				act '为了我的月经周期。':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					if LudaQW['knows_sex'] = 0:
+						'“我只是想调理生理周期，卢达阿姨，”你抗议道。“我没有做爱。”'
+					else
+						'“我只是想调理生理周期，卢达阿姨，”你恬不知耻地撒着谎。“我没有做爱。”'
+					end
+					'她冲你笑了笑，嘴角带着一丝狐疑。'
+					'“好吧，我没法证明不是这样，所以我想只能相信你的话了……”'
+					act '继续购物': gt $loc_s, $args_s
+				end
+				!! gs 'pav_pharmacy', 'condom_addon_start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_preg_test':
+	if pharmacy_timers['preg_test'] = daystart:
+		gt $loc_s, $args_s
+	else
+		pharmacy_timers['preg_test'] = daystart
+	end
+	menu_off = 1
+	*clr & cla
+	if LudaQW['KnowsSexActive'] < 10: LudaQW['KnowsSexActive'] = 10
+	LudaQW['knows_sex'] = 1
+	gs 'stat'
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'你局促地避开她的目光，胃里七上八下，想到不得不向她开口要的东西，你紧张得要命。'
+	if pharmacyfirstpregtest = 0:
+		pharmacyfirstpregtest = 1
+		if preziktype = 0:
+			mc_inventory['equipped_condoms'] += 5
+		elseif preziktype = 1 or preziktype = 2:
+			mc_inventory['normal_condoms'] += 5
+		end
+		minut += 2
+		mc_inventory['normal_condoms'] += 5
+		if fame['pav_slut'] > 150:
+			'“卢达阿姨……我需要……我需要一根验孕棒。”'
+			'你抬头看过去，本以为她会惊讶得跳起来，却发现她看你的眼神里满是失望，像是认了命。'
+			'“我还在想会不会发生这种事，”她叹了口气。当她注意到你惊讶的表情时，她又补充道，“我又不聋，<<$pcs_nickname>>。我几乎能听到巴甫洛夫斯克每个人都说你是个<<$gnikname>>。我只是希望你有注意安全。”'
+			'“唔……可是我……”想到你阿姨——显然还有镇上所有人——都知道你放荡的行为，你羞愧难当，真不知道该说什么，但她给了你一个苦笑。'
+			'“别担心，<<$pcs_nickname>>。我不是来评判你的。意外总会发生。老天作证，你姐姐就是活生生的证明。”她把验孕棒放进袋子里，然后顺着柜台推到你面前。'
+		else
+			'“卢达阿姨……我需要……我需要一根验孕棒。”'
+			'她眼睛睁得老大。“<<$pcs_nickname>>！出什么事了？？”'
+			'“我知道，阿姨，”你羞愧难当地说。“我只是……犯了个错误……”'
+			'“我想我们都会犯这种错，”她叹了口气，从架子上取下一个小盒子。“老天作证，你姐姐就是活生生的证明。字面意义上的。”'
+	!!		if rape_day+3 > daystart:
+	!!			act 'I was raped': gt 'pav_pharmacy', 'buy_morning_after_raped'
+	!!		end
+		end
+		act '别告诉<<$npc_nickname[''A29'']>>':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			LudaQW['dont_tell'] = 1
+			if momslut >= 1:
+				'“请别告诉<<$npc_nickname[''A29'']>>。她不会理解的。”'
+				'你阿姨给了你一个古怪的微笑。“你也许会惊讶的，亲爱的，但我保证这是我们之间的小秘密。”'
+				'你轻轻叹了口气。“是啊，关于<<$npc_nickname[''A29'']>>的事我全都知道。我只是不想听她唠叨罢了。”'
+				'卢达点点头，把东西递给你。“暂时这是我们的秘密，不过要是验孕结果是阳性，等你的肚子一天天鼓起来，可就什么都瞒不住她了。不管怎样，拿着这些。”'
+			else
+				'“你也许会惊讶的，亲爱的，”你阿姨带着古怪的微笑说。“但我保证这是我们之间的小秘密。至少，如果结果是阴性的话。要是阳性，等你的肚子一天天鼓起来，可就什么都瞒不住她了。不管怎样，拿着这些。”'
+			end
+			'卢达把一盒避孕套顺着柜台推到你面前。“这些我不收你的钱，但<i>请</i>务必用上。咱们别再让这种事发生了，好吗？”'
+			mc_inventory['normal_condoms'] += 10
+			act '继续购物': gt $loc_s, $args_s
+		end
+	else
+		minut += rand(2, 5)
+		act '怯生生地问':
+			cla & *nl
+			'“我需要……我还需要一根验孕棒，卢达阿姨……”你结结巴巴地说。'
+			'“<<$pcs_nickname>>……”她说着，一脸失望。“你什么时候才能长点记性？”'
+			'你低下头，在她给你结账时避开她的目光。'
+			'“我不是想教训你，但是真的！小心点！”她一边把条码扫过扫描仪一边说。“不然很快你肚子里游来游去的就不只是精子了。”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+		act '坦率地问':
+			cla & *nl
+			'“我还需要一根验孕棒，卢达阿姨，”你恬不知耻地说。'
+			'“<<$pcs_nickname>>……”她说着，一脸失望。“你什么时候才能长点记性？”'
+			'“只是个失误，阿姨，”你耸耸肩说，卢达摇了摇头。'
+			'“我不是想教训你，但是真的！小心点！”她一边把条码扫过扫描仪一边说。“不然很快你肚子里游来游去的就不只是精子了。”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_lube':
+	if pharmacy_timers['lube'] = daystart:
+		gt $loc_s, $args_s
+	else
+		pharmacy_timers['lube'] = daystart
+	end
+	menu_off = 1
+	*clr & cla
+	if LudaQW['KnowsSexActive'] < 10: LudaQW['KnowsSexActive'] += 1
+	gs 'stat'
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if pharmacy['first_purchase'] = 0:
+		pharmacy['first_purchase'] = 1
+		'你局促地避开她的目光，让视线在药房里游移，假装不知道自己是来干什么的。最后，你深吸一口气，感觉脸颊发烫。'
+	end
+	if pharmacyfirstlube = 0:
+		pharmacyfirstlube = 1
+		minut += 2
+		if fame['pav_slut'] > 150:
+			'“呃……是的阿姨。我需要点……<i>东西</i>，”你一边看着润滑剂，一边特别加重了那个词。'
+			'“我还在想你会不会来找我买这个，”她笑着说。当她注意到你惊讶的表情时，她又补充道，“当巴甫洛夫斯克人人都叫你<<$gnikname>>时，你开始让男孩走你的后门就只是时间问题了。”'
+			'“唔……可是我……”想到你阿姨——显然还有镇上所有人——都知道你放荡的行为，你羞愧难当，真不知道该说什么。她轻笑一声，给了你一个宽慰的微笑。'
+			'“别担心，<<$pcs_nickname>>，我只是逗你玩，”她咯咯笑着。她把那管润滑剂扫过扫描仪时，收银机响亮地哔了一声。“我不是来评判你的。老天作证，我可没资格说别人。我一个月就要用掉两管这东西！”'
+		else
+			'“呃……是的阿姨。我需要点……<i>东西</i>，”你一边看着润滑剂，一边特别加重了那个词。'
+			'“想用你的屁股绕过你妈妈的规矩，<<$pcs_nickname>>？”她坏笑着问。'
+			'你的脸不知怎的烫得更厉害了。“我，呃……”'
+			'“别担心，”她轻笑道。她把那管润滑剂扫过扫描仪时，收银机响亮地哔了一声。“你姐姐在你这个年纪也来问我要过同样的东西。事实上，还要更早一点。”'
+		end
+	else
+		if pcs_inhib < 50:
+			'“嗨，卢达阿姨，我还需要些润滑剂，”你微微脸红地告诉她。'
+			'“如果你用得这么快，也许该让那些男孩偶尔放过你那可怜的屁股，”她轻笑道。你脸更红了，在她把润滑剂扫过扫描仪、收银机响亮地哔了一声时，你避开了她的目光。'
+		else
+			'“嗨，卢达阿姨，我还需要些润滑剂。”'
+			'“如果你用得这么快，也许该让那些男孩偶尔放过你那可怜的屁股，”她轻笑道。'
+			'你冲她的打趣翻了个白眼。“只要我有这个，我的屁股就没事。”'
+		end
+	end
+	act '继续购物': gt $loc_s, $args_s
+end
+
+
+if $ARGS[0] = 'buy_morning_after':
+	if pharmacy_timers['morning_after'] = daystart:
+		gt $loc_s, $args_s
+	else
+		pharmacy_timers['morning_after'] = daystart
+	end
+	menu_off = 1
+	*clr & cla
+	if LudaQW['KnowsSexActive'] < 10: LudaQW['KnowsSexActive'] += 2
+	gs 'stat'
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if pharmacy['first_purchase'] = 0:
+		pharmacy['first_purchase'] = 1
+		'你局促地避开她的目光，让视线在药房里游移，假装不知道自己是来干什么的。'
+	end
+	act '怯生生地问':
+		cla
+		if pharmacy['morning_after'] = 0:
+			pharmacy['morning_after'] += 1
+			minut += 2
+			'“卢达阿姨……”你深吸一口气。“我需要些事后药……”'
+			if fame['pav_slut'] > 150:
+				'“我还在想会不会发生这种事，”她叹了口气，摇了摇头。你困惑地看着她，她面无表情地盯着你。“拜托，<<$pcs_nickname>>。巴甫洛夫斯克的每个人都叫你<<$gnikname>>。你以为我没听说过吗？”'
+			else
+				'她惊愕地瞪大了眼睛。“<<$pcs_nickname>>！出什么事了？”她立刻冲向那些避孕产品。'
+			end
+		else
+			if pcs_inhib < 50:
+				'“卢达阿姨，”你低声说。“我还需要一片事后药。”'
+				'“又来？！”她惊骇地问。你的脸红得像要滴血。'
+			else
+				'“嗨，卢达阿姨，”你说，感觉脸已经开始发烫。“我还需要一片事后药。”'
+				'“又来？！”她惊骇地问。你唯一的回应就是耸了耸肩，一脸抱歉。'
+			end
+			'“你还要犯多少次同样的错误，<<$pcs_nickname>>？”她一边摇着头，一边把盒子扫过扫描仪，发出响亮的哔声。“你该去买点避孕药了。每天吃一片真的没那么难，你知道的。”'
+		end
+		act '这是应急用的。': gt 'pav_pharmacy', 'morning_after_emergency_embarrassed'
+		act '我犯了个错误': gt 'pav_pharmacy', 'morning_after_mistake_embarrassed'
+		act '他没拔出来': gt 'pav_pharmacy', 'morning_after_no_pullout_meek'
+		act '他没拔出来（恼怒）': gt 'pav_pharmacy', 'morning_after_no_pullout_annoyed'
+		if stat['last_broken_condom'] >= daystart - 3:
+			act '安全套破了': gs 'pav_pharmacy', 'buy_morning_after_condom_broke_meek'
+		end
+		if birth_control['condom_stealth'] >= daystart - 3:
+			act '我被人偷偷摘了套。': gs 'pav_pharmacy', 'morning_after_stealth_meek'
+		end
+!!		if rape_day+3 > daystart:
+!!			act 'I was raped': gt 'pav_pharmacy', 'buy_morning_after_raped'
+!!		end
+	end
+	act '坦率地问':
+		cla
+		if pharmacy['morning_after'] = 0:
+			pharmacy['morning_after'] += 1
+			minut += 2
+			'“我需要一片事后药，卢达阿姨，”你漫不经心地说。'
+			if fame['pav_slut'] > 150:
+				'“我还在想这事什么时候会发生，”她叹了口气，摇了摇头。你困惑地看着她，她面无表情地盯着你。“拜托，<<$pcs_nickname>>。我几乎每隔一天就会在同一句话里听到你的名字和“<<$gnikname>>”。把这些拼起来不难。”'
+				'“我想我最近确实玩得挺花，”你羞赧地笑笑。卢达翻了个白眼。'
+				'“照我听到的来看，这都算轻描淡写了。”她把那盒药啪地拍在柜台上。'
+			else
+				'她惊愕地瞪大了眼睛。“<<$pcs_nickname>>！出什么事了？”她立刻冲向那些避孕产品。'
+			end
+			act '这是应急用的。': gt 'pav_pharmacy', 'morning_after_emergency_open'
+			act '我犯了个错误': gt 'pav_pharmacy', 'morning_after_mistake_open'
+			act '他没拔出来（恼怒）': gt 'pav_pharmacy', 'morning_after_no_pullout_annoyed'
+			if stat['last_broken_condom'] >= daystart - 3:
+				act '安全套破了': gs 'pav_pharmacy', 'buy_morning_after_condom_broke_meek'
+			end
+			if birth_control['condom_stealth'] >= daystart - 3:
+				act '我被人偷偷摘了套。': gs 'pav_pharmacy', 'morning_after_stealth_open'
+			end
+		else
+			minut += rand(2, 5)
+			'“嗨，卢达阿姨，”你漫不经心地说。“我还需要一片事后药。”'
+			if pcs_inhib < 50:
+				'“又来？！”她惊骇地问。你的脸红得像要滴血。'
+			else
+				'“又来？！”她惊骇地问。你唯一的回应就是耸了耸肩，一脸抱歉。'
+			end
+			'“你还要犯多少次同样的错误，<<$pcs_nickname>>？”她一边摇着头，一边把盒子扫过扫描仪，发出响亮的哔声。“你该去买点避孕药了。每天吃一片真的没那么难，你知道的。”'
+			act '继续购物': gt $loc_s, $args_s
+			if stat['last_broken_condom'] >= daystart - 3:
+				act '安全套破了': gt 'pav_pharmacy', 'buy_morning_after_condom_broke_open'
+			end
+			if birth_control['condom_stealth'] >= daystart - 3:
+				act '我被人偷偷摘了套。': gs 'pav_pharmacy', 'morning_after_stealth_open'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'morning_after_emergency_embarrassed':
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if pharmacy['morning_after'] > 1: pharmacy['morning_after'] -= 1
+	if pharmacyfirstbirthcontrol = 0:
+		'“什么都没发生！”你急忙安抚她说。“我——我呃……我只是想备着应急用……以防万一，你知道吧？”'
+		'“那你现在已有的那一片呢？”她挑起一边眉毛问。“我给你应急用的那一片？”'
+		if stat['morning_after_pill'] >= 1:
+			act '呃……':
+				cla & *nl
+				'“我……呃……”你结结巴巴地说。'
+				'“还‘什么都没发生’，骗鬼呢，”卢达冲天上翻了个白眼，从身后的货架上拿下你要的药片。“你已经用掉了，对吧？”'
+				'“呃……”你脸红得发亮，羞愧极了。'
+				'“你至少可以对我诚实一点，”她叹了口气。“做了坏事，与其撒谎让它恶化，不如老实承认。<i>尤其</i>是这种事。”'
+				'“是的，阿姨……”你愧疚地嘟囔道。'
+				'“你为什么不趁在这儿买点避孕药呢？”她坚持道。“这样你就不用担心这种事了。它要几个星期才起效，所以越早开始越好。”'
+				gs 'pav_pharmacy', 'birth_control_addon'
+			end
+		else
+			act '“我忘了”':
+				cla & *nl
+				'“哦！”'
+				'你惊讶地眨眨眼，然后把手伸进包里翻找起来。'
+				'“它……就在这儿，”你难为情地嘟囔道。“我……忘了你给过我。”'
+				'“那可就有点让人担心了，”她一边从身后货架上拿下一盒，一边干巴巴地回应。“要是你忘了它们在那儿，全世界的紧急避孕药都没用。”'
+				'“是的，阿姨……”你叹了口气。'
+				'“你为什么不趁在这儿买点避孕药呢？”她坚持道。“这样你就不用担心这种事了。它要几个星期才起效，所以越早开始越好。”'
+				gs 'pav_pharmacy', 'birth_control_addon'
+			end
+
+			act '未雨绸缪':
+				cla & *nl
+				'“我还留着呢，”你难为情地笑着说，一边从包里掏出来给她看。“我只是有点多疑，未雨绸缪罢了。”'
+				'“好吧，至少这样我就不用担心你是在骗我了，”她轻笑道。“你显然非常重视自己的安全。不过为了更加保险，你为什么不趁在这儿买点避孕药呢？那样你就完全不用操心这种事了。它要几个星期才起效，所以越早开始越好。”'
+				gs 'pav_pharmacy', 'birth_control_addon'
+			end
+		end
+!!		'Luda heaves a mighty sigh. "My goodness, you need to lead with that next time, <<$pcs_firstname>>! I nearly had a heart attack!"'
+!!		'"Sorry," you cringe as she rings up the pill, shaking her head.'
+!!		'"If you really want to be safe, you should start on the pill. I can give you a box right now for you to start. It takes several weeks to become effective so the sooner you start, the better."'
+!!		gs 'pav_pharmacy', 'birth_control_addon'
+	else
+		if birth_control['think_safe'] ! 1 and pillcon2 > 0:
+			'“什么都没发生！”你急忙安抚她说。“我——我呃……我只是想备着应急用……以防在药片完全起效之前出什么事？”'
+		else
+			'“什么都没发生！”你急忙安抚她说。“我——我呃……我只是想备着应急用……比如要是我忘了吃避孕药什么的……”'
+		end
+		'卢达重重地叹了口气。“天哪，下次你得先把这话说在前面，<<$pcs_firstname>>！我差点心脏病发作！”'
+		'“对不起，”她一边给你结账一边摇头，你畏缩地道歉。'
+		act '继续购物': gt $loc_s, $args_s
+	end
+end
+
+
+if $ARGS[0] = 'morning_after_emergency_open':
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if pharmacy['morning_after'] > 1: pharmacy['morning_after'] -= 1
+	if pharmacyfirstbirthcontrol = 0:
+		'“什么都没发生，卢达阿姨，”你放松地笑着说。“我只是想备一片应急。万一避孕套破了什么的。”'
+		'卢达重重地叹了口气。“天哪，下次你得先把这话说在前面，<<$pcs_firstname>>！我差点心脏病发作！”'
+		'“对不起，”你带着一丝愧疚地咧嘴笑笑。'
+		'“如果你真的想安全，就该开始吃避孕药。我现在就能给你一盒开始吃。越早越好，它要几个星期才起效。”'
+		gs 'pav_pharmacy', 'birth_control_addon'
+	else
+		if birth_control['think_safe'] ! 1 and pillcon2 > 0:
+			'“什么都没发生，卢达阿姨，”你放松地笑着说。“我只是想备一片应急。万一在我的避孕药起效之前避孕套破了。”'
+		else
+			'“什么都没发生，卢达阿姨，”你放松地笑着说。“我只是想备一片应急。万一我喝醉了忘了吃避孕药什么的。”'
+		end
+		'卢达重重地叹了口气。“天哪，下次你得先把这话说在前面，<<$pcs_firstname>>！我差点心脏病发作！”'
+		'“对不起，”你咧嘴笑回去。'
+		act '继续购物': gt $loc_s, $args_s
+	end
+end
+
+
+if $ARGS[0] = 'morning_after_mistake_embarrassed':
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if fame['pav_slut'] > 150:
+		'“我平时都很小心的！”你抗议道，脸颊因连卢达都知道你放荡的行为而烧得通红。“我只是……这次犯了个错误……”'
+		'“我想我们都会犯这种错，”她又叹了口气，走到柜台后面，从架子上取下一个小盒子，然后拿回来。“老天作证，你姐姐就是活生生的证明。字面意义上的。”'
+	else
+		'“我知道，阿姨，”你羞愧地红着脸说。“我只是……犯了个错误……”'
+		if pharmacy['morning_after'] > 3:
+			'“犯一两次错可以理解，但到了某个时候，你得开始为自己负责，”她一边从架子上取下一个小盒子，一边盯着你责备道。“我可能是老了，但我还会数数。”'
+		else
+			'“我想我们都会犯这种错，”她一边从架子上取下一个小盒子一边说。“老天作证，你姐姐就是活生生的证明。字面意义上的。”'
+		end
+	end
+	gs 'pav_pharmacy', 'buy_morning_after_end'
+
+	gs 'pav_pharmacy', 'morning_after_warning'
+end
+
+
+if $ARGS[0] = 'morning_after_no_pullout_meek':
+	*clr & cla
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'“他呃……忘了拔出来？”你懊恼地说。'
+	'“啧~！真是的！”你阿姨一边从架子上拿下事后药，一边责备道。“你应该有点常识，别光凭你让他拔出来，就相信男孩真会拔出来。”'
+	'卢达似乎有点生你的气，把药也加进了你要结账的东西里。'
+	gs 'pav_pharmacy', 'morning_after_warning'
+end
+
+
+if $ARGS[0] = 'morning_after_no_pullout_annoyed':
+	*clr & cla
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'“他跟我说他会拔出来，但没有，”你苦涩地叹了口气，任由自己的恼火表现出来。'
+	'“啧~！真是的！”你阿姨一边从架子上拿下事后药，一边责备道。“你应该有点常识，别光凭你让他拔出来，就相信男孩真会拔出来。”'
+	'卢达似乎有点生你的气，把药也加进了你要结账的东西里。'
+	gs 'pav_pharmacy', 'morning_after_warning'
+end
+
+
+if $ARGS[0] = 'morning_after_mistake_open':
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if fame['pav_slut'] > 150:
+		'“我平时都很小心的！”你抗议道，对她这样揣测你有点恼火。“这次只是犯了个错误。”'
+		'“我想我们都会犯这种错，”她叹了口气，把它加进你的购物清单。'
+	else
+		'“我只是犯了个错误，”你耸耸肩。“一个姑娘总该被允许犯一两次错吧，不是吗？”'
+		if pharmacy['morning_after'] > 3:
+			'“你可不止犯了一两次，”她一边从架子上取下一个小盒子，一边盯着你说。“我可能是老了，但记性还没那么差。”'
+		else
+			'“一个错误也可能带来长久的后果，”她一边从架子上取下一个小盒子一边说。“老天作证，你姐姐就是活生生的证明。字面意义上的。”'
+		end
+	end
+	gs 'pav_pharmacy', 'buy_morning_after_end'
+	gs 'pav_pharmacy', 'morning_after_warning'
+end
+
+
+if $ARGS[0] = 'morning_after_stealth_meek':
+	*clr & cla
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'“跟我在一起的那个男的偷偷摘了套，”你难为情地说。“他，呃，是在我‘后面’，我让他戴避孕套。他撒谎说戴了，然后他就，呃……射在了我里面……”'
+	'“哦，亲爱的，”卢达同情地摇着头说。“男人都是猪。所以你不能对他们放松警惕。想让他们用避孕套，就得自己给他们戴。否则不能相信他们。一次就中。”'
+	'卢达把药丸也加进去一起结账。'
+	'“但你怎么会没注意到？”她困惑地问。“你感觉不到差别吗？这就是你妈妈和我都不用避孕套的原因。”'
+	act '继续购物': gt $loc_s, $args_s
+end
+
+
+if $ARGS[0] = 'morning_after_stealth_open':
+	*clr & cla
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'“不是我的错！”你说。“是那家伙偷偷摘了套！他从后面骑我，我让他戴避孕套时他撒了谎。那混蛋事后居然还有脸射在我里面！”'
+	'“哦，亲爱的，”卢达同情地摇着头说。“男人都是猪。所以你不能对他们放松警惕。想让他们用避孕套，就得自己给他们戴。否则不能相信他们。一次就中。”'
+	'卢达把药丸也加进去一起结账。'
+	'“但你怎么会没注意到？”她困惑地问。“你感觉不到差别吗？这就是你妈妈和我都不用避孕套的原因。”'
+	act '继续购物': gt $loc_s, $args_s
+end
+
+
+if $ARGS[0] = 'buy_morning_after_condom_broke_meek':
+	cla & *nl
+	if LudaQW['broken_condoms'] = 0:
+		'“避孕套破了，”你难为情地嘟囔道。'
+		'“好吧，我想那不是你的错，”卢达叹了口气，把药片加进你的购物清单。“不过正因为如此，才更应该双重防护。”'
+	else
+		'“避孕套又破了，”你难为情地嘟囔道。'
+		if LudaQW['broken_condoms'] <= 5:
+			'“你运气肯定不太好，”她一边摇头一边把药片加进你的购物清单。“你确定不想开始吃避孕药吗？”'
+		else
+			'“这真是太荒唐了，”她恼火地叹了口气，把药片加进你的购物清单。“赶紧开始吃那该死的避孕药吧，<<$pcs_firstname>>！”'
+		end
+	end
+	LudaQW['broken_condoms'] += 1
+	act '继续购物': gt $loc_s, $args_s
+end
+
+
+if $ARGS[0] = 'buy_morning_after_condom_broke_open':
+	cla & *nl
+	if LudaQW['broken_condoms'] = 0:
+		'“不是我的错，”你耸耸肩。“避孕套破了。”'
+		'“好吧，我想这种事确实时有发生，”卢达叹了口气，把药片加进你的购物清单。“不过正因为如此，才更应该双重防护。”'
+	else
+		'“避孕套又破了，”你耸耸肩。'
+		if LudaQW['broken_condoms'] <= 5:
+			'“你运气肯定不太好，”她一边摇头一边把药片加进你的购物清单。“你确定不想开始吃避孕药吗？”'
+		else
+			'“这真是太荒唐了，”她恼火地叹了口气，把药片加进你的购物清单。“赶紧开始吃那该死的避孕药吧，<<$pcs_firstname>>！”'
+		end
+	end
+	LudaQW['broken_condoms'] += 1
+	act '继续购物': gt $loc_s, $args_s
+end
+
+
+if $ARGS[0] = 'buy_morning_after_raped':
+	*clr & cla
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	if fame['pav_slut'] > 150:
+		'“唔……可是我……”你现在真不知道该说什么，话变成了含糊不清的哭腔。想到连卢达都知道你放荡的行为，你羞愧难当。'
+		'“我想这是家族遗传，”她又叹了口气。“也许我们身上都带着点荡妇基因什么的。我本希望你有注意安全，但我想我们偶尔都会有失手的时候。”'
+		'她走到柜台后面，从架子上取下一个小盒子，拿回来。“老天作证，你姐姐就是活生生的证明。”'
+		'你羞愧地点了点头。'
+	else
+		'你羞愧地红着脸。“我知道，阿姨……我只是……犯了个错误。”'
+		'“嗯，我们偶尔都会犯这种错，”她一边从架子上取下一个小盒子一边说。“老天作证，你姐姐就是活生生的证明。”'
+		'她把盒子递给你。“尽快吃。越早吃越有效。也许你该趁在这儿再买点避孕药？这样这就只是一次性的事了。”'
+		'你羞愧地点了点头。'
+	end
+	'“请别告诉<<$npc_nickname[''A29'']>>。她不会理解的。”'
+	if momslut >= 1:
+		'你阿姨古怪地看了你一眼。“你也许会惊讶的，亲爱的。”'
+		'你轻轻叹了口气。“是啊，关于<<$npc_nickname[''A29'']>>的事我全都知道。我只是不想听她唠叨罢了。”'
+		'卢达点点头。“好吧，即便如此，我想她宁愿听说你在吃这个，也不愿发现你没吃。但我保证，这是我们之间的小秘密。”'
+	else
+		'卢达点点头。“好吧，即便如此，我想她宁愿听说你在过性生活并吃着这个，也不愿发现你怀孕了。但我保证，这是我们之间的小秘密。”'
+	end
+end
+
+
+if $ARGS[0] = 'buy_morning_after_end':
+	act '继续购物': gt $loc_s, $args_s
+	act '别告诉<<$npc_nickname[''A29'']>>':
+		*clr & cla
+		$func('wrap', 'header center b', '药房')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+		if LudaQW['momslut_know'] = 1:
+			'“请别告诉<<$npc_nickname[''A29'']>>，”你说。'
+			'“这会是我们之间的秘密，”她眨眨眼。'
+		elseif momslut >= 1:
+			LudaQW['momslut_know'] = 1
+			'“请别告诉<<$npc_nickname[''A29'']>>，”你说。'
+			'“你也许会惊讶的，亲爱的，”她带着苦笑说，你疲惫地叹了口气。'
+			'“是的，阿姨，关于<<$npc_nickname[''A29'']>>的……那些习惯，我全都知道。我只是不想听她唠叨罢了。”'
+			'卢达点点头。“即便如此，我想她宁愿听说你在吃这个，也不愿看到你怀孕。但我保证，这是我们之间的小秘密。”'
+		else
+			'“请别告诉<<$npc_nickname[''A29'']>>，”你说。“她不会理解的。”'
+			'“你也许会惊讶的，亲爱的，”她带着苦笑说，你困惑地歪了歪头。'
+			*nl
+			'<i>那是什么意思？</i>'
+			*nl
+			'“好吧，即便如此，”她继续说道。“我想她宁愿听说你在过性生活并吃着这个，也不愿看到你怀孕。但我保证，这是我们之间的小秘密。”'
+		end
+		act '继续购物': gt $loc_s, $args_s
+	end
+end
+
+
+if $ARGS[0] = 'morning_after_warning':
+	if pharmacy['morning_after'] = 1:
+		'“尽快吃，”她警告道。“离你的‘意外’越近吃越有效。也许你该趁在这儿再买点避孕药？这样这就只是一次性的事了。”'
+	else
+		'“你知道规矩。尽快吃。也许趁你在这儿，我能让你对某些避孕药感兴趣？”她挖苦地补充道。'
+	end
+	if birth_control['using_bc'] > 0:
+		'“我已经在吃药了，阿姨，只是在等它起效。”'
+		'“我可等不及它起效，”她叹了口气，冲天上翻了个白眼。'
+		gs 'pav_pharmacy', 'buy_morning_after_end'
+	else
+		act '不用了，谢谢':
+			cla & *nl
+			'“我没事的，阿姨，”你说。'
+			'“要是从这件事来看，那可未必，”她干巴巴地回应。'
+			gs 'pav_pharmacy', 'buy_morning_after_end'
+		end
+
+		act '我更喜欢避孕套':
+			if preziktype = 0:
+				mc_inventory['equipped_condoms'] += 5
+			elseif preziktype = 1 or preziktype = 2:
+				mc_inventory['normal_condoms'] += 5
+			end
+			cla & *nl
+			'“其实我更喜欢用避孕套，”你说。'
+			'“那就<i>用</i>啊，老天！”卢达说着，从柜台后面抓出一把套子，恼火地朝你扔过来。“只要你别再回来买另一片药，这些就白送你了。”'
+			gs 'pav_pharmacy', 'buy_morning_after_end'
+		end
+		if func('money', 'can_afford', cart_tally + 1870) = 0:
+			act '我没有钱':
+				cla & *nl
+				'“我会的，卢达阿姨，”你说。“我只是现在没钱……”'
+				if pharmacy['bc_pills_free'] = 0:
+					mc_inventory['contraceptive_pill'] += 1
+					'卢达深深叹了口气，拿出一个小盒子，顺着柜台滑到你面前。'
+					'“我想这次我可以送你一些……”她说。“但一定要一天不落地吃，否则可能就没效了！”她冲你晃了晃手指。“而且你下个月最好来买，否则就有你好看的了！”'
+				else
+					'“你上次也是这么说的，”她干巴巴地说。“我不会再免费给你一个月的量了。既然你要过性生活，那至少得对自己的身体负责！”'
+				end
+				gs 'pav_pharmacy', 'buy_morning_after_end'
+			end
+		else
+			act '买避孕药':
+				LudaQW['birth_control_timer'] = daystart
+				pharmacy_timers['birth_control'] = daystart
+				pharmacyfirstbirthcontrol = 1
+				gs 'item_cart', 'simple_add', arrpos('$var_curr_aisle', 'contraceptive_pill') + 1
+				cla & *nl
+				'“你说得对，卢达阿姨，”你抱歉地点点头。“我不该再犯傻去碰运气了。”'
+				'她松了口气，给你取来一盒药片。“至少你比你妈妈在你这个年纪时更有头脑。”'
+				gs 'pav_pharmacy', 'buy_morning_after_end'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'morning_after_no_money':
+	if func('money', 'can_afford', cart_tally + 740) = 0:
+		act '向卢达要事后药（怯生生地）':
+			*clr & cla
+			gs 'stat'
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			if pharmacy['morning_after_free'] < 10:
+				pharmacy['morning_after_free'] += 1
+
+			else
+
+			end
+		end
+
+		act '向卢达要事后药（坦率地）':
+			*clr & cla
+			gs 'stat'
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			if pharmacy['morning_after_free'] < 10:
+				pharmacy['morning_after_free'] += 1
+			else
+
+			end
+		end
+!!{	else
+	!! lie that you don''t have enough money
+		act '向柳达要事后避孕药（怯生生地）':
+			*clr & cla
+			gs 'stat'
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			if pharmacy['morning_after_free'] < 10:
+				pharmacy['morning_after_free'] += 1
+
+			else
+
+			end
+		end
+
+		act '向柳达要事后避孕药（坦然地）':
+			*clr & cla
+			gs 'stat'
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			if pharmacy['morning_after_free'] < 10:
+				pharmacy['morning_after_free'] += 1
+			else
+
+			end
+		end !}
+	end
+end
+
+
+if $ARGS[0] = 'ointment':
+	if mosol > 0:
+		if pharmacy_timers['morning_after'] = daystart:
+			gt $loc_s, $args_s
+		else
+			pharmacy_timers['morning_after'] = daystart
+		end
+		cla
+		$backimage = ''
+		act '怯生生地问':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			'“我需要，呃，一些……药膏，治点东西……”你局促地绞着手指，卢达阿姨上下打量了你一眼，然后嘴角一歪，露出坏笑。'
+			'“最近在挂空挡？”她问。你感觉脸瞬间发烫，她哈哈大笑起来。“是啊，我懂那种感觉。光看你站着的姿势我就看出来了。老天作证，我在你这个年纪也花了好一阵子才习惯。我喜欢没内裤边痕的牛仔裤里自己屁股的样子。”'
+			if PCloskirt = 0:
+				'她从架子上取下一小管什么东西。“不过别担心，”她一边把它扫过收银机、发出响亮的哔声，一边说。“你迟早会习惯的。每天把这东西抹进你的小穴两次，能缓解瘙痒。要是想让自己歇歇，就穿一阵子裙子吧，”她眨眨眼补充道。'
+			else
+				'她从架子上取下一小管什么东西。“不过别担心，”她一边把它扫过收银机、发出响亮的哔声，一边说。“你迟早会习惯的。每天把这东西抹进你的小穴两次，能缓解瘙痒。继续穿裙子吧。那会很有帮助，”她眨眨眼补充道。'
+			end
+			'“卢达阿姨！”你低声急道，逗得她又笑起来。'
+			act '继续购物': gt $loc_s, $args_s
+		end
+
+		act '坦率地问':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			'“嗨，卢达阿姨，”你俯身靠在柜台上说。“我最近没穿内裤，我的裤子<i>真的</i>开始让我的小穴发痒了。你有什么能治的吗？”'
+			'“我正好有你要的，”她从架子上取下一小管什么东西说。“我在你这个年纪也干过同样的事，所以我很清楚你现在正经历什么。”'
+			'“至少没有内裤边痕，”她走回柜台时你耸耸肩说。'
+			if PCloskirt = 0:
+				'“<i>没错</i>，”卢达咧嘴笑着，把它扫过收银机、发出响亮的哔声。“把它抹进你的小穴，一天两次，早晚各一次，几天就会好。而且一定要偶尔让自己歇歇，”她笑道。“换着穿裙子吧。它们<i>非常</i>自在。”'
+			else
+				'“<i>没错</i>，”卢达咧嘴笑着，把它扫过收银机、发出响亮的哔声。“把它抹进你的小穴，一天两次，早晚各一次，几天就会好。与此同时，继续穿裙子，”她笑道。“有微风吹着很舒服，发炎的时候通风透气有好处。”'
+			end
+			'“谢谢你的建议，卢达阿姨。”'
+			'“随时都行，亲爱的。”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+	else
+		gt $loc_s, $args_s
+	end
+end
+
+
+if $ARGS[0] = 'dont_tell':
+	if LudaQW['dont_tell'] = 0:
+		act '别告诉<<$npc_nickname[''A29'']>>':
+			LudaQW['dont_tell'] = 1
+			*clr & cla
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			if LudaQW['momslut_know'] = 1:
+				'“请别告诉<<$npc_nickname[''A29'']>>，”你说。'
+				'“这会是我们之间的秘密，”她眨眨眼。'
+			elseif momslut >= 1:
+				LudaQW['momslut_know'] = 1
+				'“请别告诉<<$npc_nickname[''A29'']>>，”你说。'
+				'“你也许会惊讶的，亲爱的，”她带着苦笑说，你疲惫地叹了口气。'
+				'“是的，阿姨，关于<<$npc_nickname[''A29'']>>的……那些习惯，我全都知道。我只是不想听她唠叨罢了。”'
+				'卢达点点头。“即便如此，我想她宁愿听说你有注意安全。但我保证，这是我们之间的小秘密。”'
+			else
+				'“请别告诉<<$npc_nickname[''A29'']>>，”你说。“她不会理解的。”'
+				'“你也许会惊讶的，亲爱的，”她带着苦笑说，你困惑地歪了歪头。'
+				*nl
+				'<i>那是什么意思？</i>'
+				*nl
+				'“好吧，即便如此，”她继续说道。“我想她宁愿听说你在过性生活并注意安全，也不愿听到相反的消息。但我保证，这是我们之间的小秘密。”'
+				'她冲你眨了眨眼。'
+			end
+			act '继续购物': gt $loc_s, $args_s
+		end
+	end
+end
+
+
+if $ARGS[0] = 'luda_free_condoms':
+	LudaQW['free_condoms'] = 1
+	gs 'pav_pharmacy', 'luda_free_condoms_give'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'你走进药店时，卢达阿姨从收银机旁抬起头，对你微笑。'
+	'“<<$pcs_nickname>>！我还在想什么时候能见到你。我有件礼物要给你。”'
+	'“礼物？”她拿着一个小纸袋出来时，你问道。她把袋子递给你，你往里看了看，里面是一盒装有 10 个避孕套和一片事后药。'
+	if fame['pav_slut'] > 150:
+		LudaQW['knows_sex'] = 1
+		'“我在小道消息里听说你在男孩中间非常……受欢迎，”她说。“我虽然不反对，但也还没准备好让我妹妹当上外婆。那会让我觉得自己老了。”'
+		act '否认':
+			cla & *nl
+			'“呃，我不知道你听说了什么，但是——”'
+			'“哦，嘘，亲爱的！”她带着俏皮的笑容打断你，把袋子递给你。“没什么好难为情的！这是家族遗传。我们身上肯定有某种荡妇基因。不过，既然如此，我想让你拿着这些。”'
+			'她意味深长地看了你一眼。'
+			'“玩得开心，但玩的时候要<i>注意安全</i>。”'
+			act '完成': gt $loc_s, $args_s
+		end
+
+		act '有那么明显吗？':
+			cla & *nl
+			'“真的有那么明显吗？”你红着脸问。'
+			'“这是家族遗传，”她咧嘴笑着，把袋子递给你。“我们身上肯定有某种荡妇基因。不过，既然如此，我想让你拿着这些。”'
+			'她意味深长地看了你一眼。'
+			'“玩得开心，但玩的时候要<i>注意安全</i>。”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+
+		act '让她放心':
+			cla & *nl
+			'“阿姨，”你说。“我向你保证，我已经很注意安全了。你还不用担心当姨婆。”'
+			'“<i>噢</i>，别说那个词！”她打了个寒颤，但还是冲你咧嘴笑。“光是听到它就让我觉得自己长皱纹了！我很高兴听到你很聪明，不过就像我说的，这是件礼物。”'
+			'“把它加进你的存货吧，”她眨眨眼。“外加一点应急的小东西。”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+	else
+		'“你到了那个年纪了——男孩女孩不再互相<i>看</i>，而是开始互相<i>做</i>了。所以，我想确保你准备好了。”'
+		act '咦！':
+			cla & *nl
+			'“咦！”你做了个鬼脸。“卢达阿姨！别那么说！恶心死了！”'
+			'“只是现实一点罢了，”她咧嘴笑回去。“而且作为一个现实主义者，我最不想发生的就是在这个年纪当上姨婆。那会让我觉得自己简直<i>老掉牙</i>了！”'
+			'“以防万一，”她眨眨眼。'
+			act '继续购物': gt $loc_s, $args_s
+		end
+
+		act '脸红':
+			cla & *nl
+			'你的脸颊泛起红晕，她的微笑变成了满脸的笑容。'
+			'“所以我想提前给你点东西，”卢达继续说道。“确保你注意安全。要是这个年纪就当上姨婆，我会觉得自己简直<i>老掉牙</i>了！”'
+			'“以防万一，”她眨眨眼。'
+!!{			act 'Tell her you don''t need them':
+				cla & *nl
+				'"柳达阿姨，你的心意我领了，但我不需要这些，" 你说着把它们推回给她。'
+				'"我知道他们都这么说，<<$pcs_nickname>>，" 她摇着头说。"但不管男生怎么保证他们会及时抽出来，他们从来——"'
+				act '为婚姻守身':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+					'"不！我不是那个意思！" 你嫌恶地皱着眉打断她。"我不会做爱的，柳达阿姨。我要为婚姻守住童贞。"'
+					'"哦，亲爱的……" 她悲伤地对你笑笑。"你现在是这么说，但……不是每件事都按计划走。恐怕你就是活生生的例子，亲爱的。"'
+					act '坚持说你不需要':
+						LudaQW['free_condoms'] = 2
+						cla & *nl
+						'你摇摇头。"我不会变成我妈那样！柳达阿姨，你的心意我领了，但我不需要你的礼物。"'
+						'她叹了口气，却又对你微微一笑，把袋子从你手里拿了回去。'
+						'"好吧，如果你坚持。但要是你哪天改变主意，它们就在这儿等着你。"'
+					end
+
+					act '以防万一……':
+
+					end
+				end
+
+				act '':
+
+				end
+				act '完成': gt $loc_s, $args_s
+			end !}
+			act '继续购物': gt $loc_s, $args_s
+		end
+
+		act '感谢她':
+			cla & *nl
+			if stat['think_virgin'] = 1: '“谢谢你，卢达阿姨，”你笑道。“我不知道自己近期会不会用上，但还是很感激这份心意。”'
+
+			'“只是现实一点罢了，”她咧嘴笑回去。“而且作为一个现实主义者，我最不想发生的就是在这个年纪当上姨婆。那会让我觉得自己简直老掉牙了！所以，这是你的礼物！”'
+			'“以防万一，”她眨眨眼。'
+			act '继续购物': gt $loc_s, $args_s
+		end
+
+		act '改成要药片':
+			cla & *nl
+			mc_inventory['contraceptive_pill'] += 1
+			'“哦哇！呃……谢谢你，阿姨！”'
+			'“但是……”她挑起一边眉毛，读出了你脸上的某种犹豫。'
+			if stat['think_virgin'] = 1:
+				'“你觉得……你能改成给我避孕药吗？”你问。“我宁可不戴避孕套。”'
+				'“肯定是家族遗传，”她轻笑着，从架子上拿下你要的东西。“你姐姐和你妈妈也从来不用。不过我跟你说；与其说‘改’，不如说‘也’怎么样？药片要过一阵子才起效，在那之前我希望你保持安全。”'
+			else
+				'“你觉得……你能改成给我避孕药吗？”你问。“我不喜欢用避孕套。”'
+				'“不喜欢？”她轻笑着，一边从架子上拿下你要的东西，一边挑起眉毛。“看来我的礼物来得有点晚了。我跟你说；与其说‘改’，不如说‘也’怎么样？要过一阵子它们才起效，而我最不想发生的就是在这个年纪当上姨婆。那会让我觉得自己简直老掉牙了！”'
+			end
+			'卢达把盒子连同那袋避孕套一起塞进你手里。'
+			'“谢谢你，阿姨，”你又笑着说。'
+			'“随时都行，亲爱的。”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+
+		if stat['think_virgin'] ! 1:
+			act '承认你在过性生活':
+				LudaQW['knows_sex'] = 1
+				mc_inventory['contraceptive_pill'] += 1
+				cla & *nl
+				'“嗯，这个我没法否认，”你苦笑着对她说。'
+				'“<<$pcs_nickname>>！”卢达惊讶地回以微笑说。“我想我的礼物来得有点晚，但还是希望你能用得上。要是这个年纪就当上姨婆，我会觉得自己简直<i>老掉牙</i>了！”'
+				'“来，也许你该也拿点这个。”她说着递给你一盒避孕药。'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+			act '早点有就好了':
+				LudaQW['knows_sex'] = 1
+				mc_inventory['contraceptive_pill'] += 1
+				cla & *nl
+				if virgin_stats['day_lost'] > daystart - 7:
+					'“要是前几天就有这个就好了……”你苦笑着对她说。'
+				else
+					'“要是有得早点就好了……”你苦笑着对她说。'
+				end
+				'“<<$pcs_nickname>>！”卢达惊讶地回以微笑说。“我想我的礼物来得有点晚，但还是希望你能用得上。要是这个年纪就当上姨婆，我会觉得自己简直<i>老掉牙</i>了！”'
+				'“来，也许你该也拿点这个。”她说着递给你一盒避孕药。'
+				act '继续购物': gt $loc_s, $args_s
+			end
+		end
+	end
+	!! {
+	act '但那是罪过！':
+		cla & *nl
+		'"可我不能用那个，"你皱着眉头回看你的阿姨。"使用避孕措施，那会是罪过吗？"'
+		'"我忍不住注意到，你反对的是避孕措施，却不反对婚外性行为的暗示，"卢达挑起一边眉毛说。"收下这份礼物吧，亲爱的。"'
+		'她执意地朝你晃了晃那个袋子。'
+		act '接受':
+			cla & *nl
+			'"嗯……"你迟疑地说。"我想<i>总有</i>可能出点什么事。上帝保佑，万一我被强奸了之类的……"'
+			'"那种情况避孕套恐怕帮不上你，"你从她手里接过袋子时，卢达得意地笑了笑。"不过事后避孕药对那种情况也有用。"'
+		end
+		
+		act '拒绝':
+			
+		end
+	end
+	}
+end
+
+
+if $ARGS[0] = 'luda_free_condoms_give':
+	LudaQW['condom_give_day'] = daystart
+	if preziktype = 0:
+		mc_inventory['equipped_condoms'] += 10
+	elseif preziktype = 1 or preziktype = 2:
+		mc_inventory['normal_condoms'] += 10
+	end
+	mc_inventory['morning_after_pill'] += 1
+end
+
+!!{if $ARGS[0] = 'luda_change_mind':
+	if LudaQW['free_condoms'] = 2:
+		act '向阿姨要她的礼物':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			LudaQW['free_condoms'] = 1
+			'"柳达阿姨……" 你说。'
+			'"Yes, darling?"'
+			act '尴尬':
+				cla
+				'"我……我最后还是需要你的礼物……" 你结结巴巴地说。'
+				'柳达回你一个灿烂的笑容，俯身在柜台下拿出你之前还给她的那个纸袋。'
+				'"是什么让你改变主意的？"'
+				act '有个男生……':
+
+				end
+
+				act '':
+
+				end
+			end
+
+			act '打开':
+
+			end
+		end
+	end
+end !}
+
+
+if $ARGS[0] = 'luda_birth_control_worry':
+	LudaQW['birth_control_timer'] = daystart
+	LudaQW['birth_control_worry'] = 1
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'你走进药店时，卢达阿姨从收银机旁抬起头，关切地看着你。你满腹狐疑，她招手让你过去，你便走到她面前。'
+	'“<<$pcs_nickname>>！很高兴见到你。你已经一个多月没来我这儿买避孕药了！一切都还好吗？你是不是忘了继续吃？”'
+	act '哦该死！':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+		'你倒吸一口凉气，脸色煞白，震惊地用手捂住嘴巴。'
+		'“哦该死！我完全忘了！”'
+		'“<<$pcs_firstname>>！”卢达责备你。“这非常重要！你现在马上再买点！也买点避孕套，这样在激素重新积累起来之前你不会怀孕！”'
+		if birth_control['using_bc'] = 0:
+			act '继续': gt $loc_s, $args_s
+		else
+			act '只是开玩笑':
+				*clr & cla
+				'你爆发出一阵咯咯笑。'
+				'“<<$pcs_nickname>>，这可不是闹着玩的！”她一脸恼怒地回应。'
+				'“对不起，但我实在忍不住！我只是逗你玩呢。我家里有些备用的，而且别忘了，我也可以从你的助手那儿拿。”'
+				'“<<$pcs_nickname>>，别这么对我！你差点让我心脏病发作。”'
+				'她随即咧开嘴露出大大的笑容，友好地在你胳膊上轻轻捶了一下。“你有时候可真是个坏心眼的小侄女，你知道吗？”'
+				act '继续': gt $loc_s, $args_s
+			end
+		end
+	end
+
+	if birth_control['using_bc'] = 0:
+		gs 'pav_pharmacy', 'luda_stopped_bc'
+	else
+		act '我囤了很多':
+			cla & *nl
+			'“别担心，卢达阿姨，”你笑道。“我只是囤了很多。我有一阵子没买了，手里还有更多。”'
+			'你阿姨脸上涌起如释重负的神情，她把手按在胸口，深深呼吸。“哦谢天谢地！我差点心脏病发作！”'
+			'“对不起，”你抱歉地笑着回应。'
+			LudaQW['birth_control_worry'] = 1
+			act '继续': gt $loc_s, $args_s
+		end
+
+		act '在别处买':
+			cla & *nl
+			'“别担心，卢达阿姨，”你笑道。“我还在吃药，只是最近在别处买。”'
+			'你阿姨脸上涌起如释重负的神情，她把手按在胸口，深深呼吸。“哦谢天谢地！我差点心脏病发作！”她咧嘴笑着回你说。“你这些天都在哪儿买？”'
+			act '城市':
+				cla & *nl
+				'“我最近常去城里，”你告诉她。“有时在那儿药店买。”'
+				'“啊，”她点点头。“那就说得通了。”'
+				LudaQW['birth_control_worry'] = 1
+				act '继续': gt $loc_s, $args_s
+			end
+
+			act '市场':
+				cla & *nl
+				'“我一直在市场上买，”你告诉她。“那儿很容易找到打折的！”'
+				'“嗯……”她皱起眉。“你真的不该在街上买药，亲爱的。你永远不知道自己买到的是不是某种廉价仿冒品，或者更糟，跟他们宣传的完全不同的东西。”'
+				LudaQW['birth_control_worry'] = 1
+				act '继续': gt $loc_s, $args_s
+			end
+			act '继续': gt $loc_s, $args_s
+		end
+
+		act '我在这里从你的助手那儿买':
+			cla & *nl
+			'“不用担心，你助手当班的时候我一直在这儿买。”'
+			'“哦！好的，那确实说得通，”她一脸释然地回答。“我只是担心你是不是忘了，而且重要的是不能断药。”'
+			'“谢谢你的关心，不过不用担心，”你笑着说。'
+			LudaQW['birth_control_worry'] = 1
+			act '继续': gt $loc_s, $args_s
+		end
+	end
+
+	if tabletkishot > 0:
+		act '我改打针了':
+			cla & *nl
+			'“别担心，卢达阿姨，”你笑道。“我只是改打针了。它比药片更方便、更可靠。”'
+			'你阿姨脸上涌起如释重负的神情，她把手按在胸口，深深呼吸。“哦谢天谢地！我差点心脏病发作！”'
+			'“对不起，”你抱歉地笑着回应。'
+			LudaQW['bc_shot_know'] = 1
+			act '继续': gt $loc_s, $args_s
+		end
+	end
+end
+
+
+if $ARGS[0] = 'luda_birth_control_worry2':
+	act '还在用避孕套':
+		cla
+		'“别担心，卢达阿姨，”你微笑道。“我还在用避孕套。”'
+		'“好吧，只要你至少做到这一点……”她明显松了口气地说。'
+		act '继续': gt $loc_s, $args_s
+	end
+
+	act '改用安全期法':
+		cla
+		'“我要改用安全期法，”你微笑道。“我已经开始记录我的生理周期了。”'
+		'“靠记录周期来避孕非常不可靠，”卢达急切地发愁道。“拜托，你至少用用避孕套好吗？”'
+		'“我会小心的，卢达阿姨，我保证。”'
+		'“但即使我们当中最小心的人也还是会犯错，”她明显担忧地说。'
+		act '继续': gt $loc_s, $args_s
+	end
+
+	act '我很小心':
+		cla
+		'“别担心，卢达阿姨，”你微笑道。“我很小心。”'
+		'“戴着避孕套小心？”她急切地问。'
+		'“就是小心。我不会有事的，我保证。”'
+		'“但即使我们当中最小心的人也还是会犯错，”她明显担忧地说。'
+		act '继续': gt $loc_s, $args_s
+	end
+end
+
+
+if $ARGS[0] = 'luda_stopped_bc':
+	act '我是故意停药的':
+		LudaQW['birth_control_worry'] = 1
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+		'“我停药了，卢达阿姨，”你摇着头说。'
+		'“你为什么要这么做？”她一脸担忧地问。'
+		*nl
+		act '扰乱我的激素':
+			cla
+			'“我不喜欢它扰乱我的激素，”你解释道。“我觉得这样折腾自己的身体不明智。”'
+			'“我理解，<<$pcs_firstname>>，但总比怀孕强！尤其是在你这个年纪。”'
+			*nl
+			gs 'pav_pharmacy', 'luda_birth_control_worry2'
+		end
+
+		act '毁了我的性欲':
+			cla
+			'“它完全毁了我的性欲！”你大声抱怨道。“我一开始吃它就是为了能无忧无虑地做爱，但它把我的激素搞得一团糟，搞得我都不想再做爱了！”'
+			'“哦天哪！”她一脸错愕，但随即理解地点点头。“用这类避孕药的女性常见这种问题。我想如果你不想再用避孕药，我理解。但你还是有注意安全吧？没有无保护性行为吧？”'
+			*nl
+			gs 'pav_pharmacy', 'luda_birth_control_worry2'
+		end
+
+		if stat['boyfriends_current'] > 0 or $husID ! '':
+			act '想和男朋友要个孩子':
+				LudaQW['birth_control_worry'] = 3
+				cla
+				'“我想和男朋友要个孩子，”你微笑着说，无法抑制自己强烈的母性渴望。卢达反而脸色煞白。'
+				if age < 20:
+					'“<<$pcs_firstname>>，你还是个少女！那可不明智！你的人生还长着呢！现在做这种决定太早了！”'
+				else
+					'“<<$pcs_firstname>>！在你这年纪那可不明智！你的人生还长着呢！现在做这种决定太早了！”'
+				end
+				'“他爱我！”你冲她吼道。“他会是个好父亲，我想怀他的孩子！”'
+				'“<<$pcs_firstname>>！”'
+				act '你不能告诉我妈妈':
+					cla & *nl
+					'“你休想跑去把这事告诉我妈妈，”你指责地指着她说。“这是我和男朋友之间的事！是我们的决定！”'
+					'“<<$pcs_firstname>>……”她又说道，恳求地看着你。'
+					'“我说真的！”你咆哮道。'
+					'“我……我不会……”你阿姨勉强同意。“但求你了，希望你很快能想明白……在来不及之前……”'
+					act '继续': gt $loc_s, $args_s
+				end
+			end
+		else
+			act '想要个孩子':
+				LudaQW['birth_control_worry'] = 2
+				cla
+				'“我想要个孩子，”你微笑着说，无法抑制自己强烈的母性渴望。卢达反而脸色煞白。'
+				if age < 20:
+					'“<<$pcs_firstname>>，你还是个少女！那可不明智！你的人生还长着呢！你身边有能跟你一起照顾它的人吗？”'
+				else
+					'“<<$pcs_firstname>>！在你这年纪那可不明智！你的人生还长着呢！你身边有能跟你一起照顾它的人吗？”'
+				end
+				'“没有，”你固执地说。“我不需要别人。我想当妈妈，我不打算再等了！”'
+				'“<<$pcs_firstname>>！”'
+				act '你不能告诉我妈妈':
+					cla & *nl
+					'“你休想跑去把这事告诉我妈妈，”你指责地指着她说。“这是<i>我的</i>决定，是<i>我的</i>身体！我想怎样就怎样！”'
+					'“<<$pcs_firstname>>……”她又说道，恳求地看着你。'
+					'“我说真的！”你咆哮道。'
+					'“我……我不会……”你阿姨勉强同意。“但求你了，希望你很快能想明白……在来不及之前……”'
+					act '继续': gt $loc_s, $args_s
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'luda_birth_control_start_again_meek':
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'你迟疑地走到柜台前，为自己过去的行为和接下来不得不做的事感到无比尴尬。'
+	'卢达能从你脸上看出来，关切地看着你。“怎么了，<<$pcs_firstname>>？一切都还好吗？”'
+	'你深吸了一口气。'
+	*nl
+	'“卢达阿姨，我……需要些避孕药。”'
+	'她眼睛惊愕地睁大，然后冲过去拿药，好像担心你会改变主意似的。'
+	if LudaQW['birth_control_worry'] = 2:
+		'“你的……计划……怎么了……？”她迟疑地问。'
+		'“我想清楚了，”你嘟囔着回答，在说了之前那些话之后，不敢直视她的眼睛。'
+		*nl
+		'当你终于把目光转回她身上时，卢达正带着爱与怜悯看着你。'
+		'“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+		'你感激地点点头，从她手里接过那盒药片。'
+		act '继续': gt $loc_s, $args_s
+	elseif LudaQW['birth_control_worry'] = 3:
+		'“你和你那个……男朋友……怎么了……？”她迟疑地问。'
+		act '改变主意了':
+			cla & *nl
+			'“我想清楚了，”你嘟囔着回答，在说了之前那些话之后，不敢直视她的眼睛。'
+			*nl
+			'当你终于把目光转回她身上时，卢达正带着爱与怜悯看着你。'
+			'“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+			'你感激地点点头，从她手里接过那盒药片。'
+			act '继续': gt $loc_s, $args_s
+		end
+
+		act '我们分手了':
+			cla & *nl
+			'“我们分手了，”你嘟囔着回答，强忍着眼泪，在说了之前那些话之后，不敢直视她的眼睛。'
+			*nl
+			'当你终于把目光转回她身上时，卢达正带着爱与怜悯看着你。'
+			'“我真以为他爱我！”你抽着鼻子说。“我以为他就是那个人……”'
+			'“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+			'你感激地点点头，从她手里接过那盒药片。'
+			act '继续': gt $loc_s, $args_s
+		end
+	end
+	LudaQW['birth_control_worry'] = 0
+end
+
+
+if $ARGS[0] = 'luda_birth_control_start_again_open':
+	$func('wrap', 'header center b', '药房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+	'你深吸一口气，鼓起勇气，毫不迟疑地走到柜台前，但还是为自己过去的行为和接下来不得不做的事感到无比尴尬。'
+	'卢达能从你脸上看出来，关切地看着你。“怎么了，<<$pcs_firstname>>？一切都还好吗？”'
+	*nl
+	'“卢达阿姨，”你坚定地说。“我想买些避孕药。”'
+	'她眼睛因震惊和释然而睁大，冲过去拿药，好像担心你会改变主意似的。'
+	if LudaQW['birth_control_worry'] = 2:
+		'“你的……计划……怎么了……？”她迟疑地问。'
+		'“我意识到自己犯傻了，”你叹着气回答。“你说得对，卢达阿姨。我还没准备好。”'
+		*nl
+		'卢达满怀同情地对你微笑。“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+		'你感激地点点头，从她手里接过那盒药片。'
+		act '继续': gt $loc_s, $args_s
+	elseif LudaQW['birth_control_worry'] = 3:
+		'“你和你那个……男朋友……怎么了……？”她迟疑地问。'
+		act '我犯傻了':
+			cla & *nl
+			'“我意识到自己犯傻了，”你叹着气回答。“你说得对，卢达阿姨。我还没准备好。”'
+			*nl
+			'卢达满怀同情地对你微笑。“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+			'你感激地点点头，从她手里接过那盒药片。'
+		end
+
+		act '我们分手了':
+			cla & *nl
+			'“我们分手了，”你说。你的脸绷得僵僵的，尽量不让痛苦流露出来，但卢达给了你一个温柔而会意的眼神。'
+			act '他是个混蛋':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+				'“他是个混蛋，”你咕哝道，表情终于绷不住，扭曲成痛苦和愤怒。“真不敢相信我居然曾想要他当我孩子的父亲！”'
+				'“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+				'你感激地点点头，从她手里接过那盒药片。'
+				act '继续': gt $loc_s, $args_s
+			end
+
+			act '我以为他爱我':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+				'“我真以为他爱我！”你说，声音发颤，努力忍着眼泪。“我以为他就是那个人……”'
+				'“没关系，亲爱的，”她微笑道。“我们都会犯错。只要你从这次中吸取了教训。”'
+				'你感激地点点头，从她手里接过那盒药片。'
+				act '继续': gt $loc_s, $args_s
+			end
+		end
+	end
+	LudaQW['birth_control_worry'] = 0
+end
+
+
+if $ARGS[0] = 'condom_addon_start1':
+	if LudaQW['condoms'] = 0:
+		'“既然你似乎有很多性伴侣，要不要再来点避孕套？当然是为了防性病。如今你永远分不清谁干净谁不干净。”'
+		gs 'pav_pharmacy', 'condom_addon'
+	end
+end
+
+
+if $ARGS[0] = 'condom_addon_start':
+	if LudaQW['condoms'] = 0:
+		'“如果你担心性病，我们也有避孕套。如今你永远分不清谁干净谁不干净。”'
+		gs 'pav_pharmacy', 'condom_addon'
+	end
+end
+
+
+if $ARGS[0] = 'condom_addon':
+	act '不妨买点吧' + $func('money', 'get_cost_string', cart_tally + 300):
+		if func('money', 'can_afford', cart_tally + 300) = 0:
+			$noMoney
+		else
+			LudaQW['condoms'] = 1
+			LudaQW['knows_sex'] = 1
+			if preziktype = 0:
+				gs 'item_cart', 'simple_add', arrpos('$var_curr_aisle', 'equipped_condoms') + 1
+			elseif preziktype = 1 or preziktype = 2:
+				gs 'item_cart', 'simple_add', arrpos('$var_curr_aisle', 'normal_condoms') + 1
+			end
+			*clr & cla
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			'“不妨买点吧，”你点点头。“就为了保险。”'
+			'“注意安全总是值得的，”卢达说着，点了点头，把一盒避孕套加进你的购物清单。'
+			act '继续购物': gt $loc_s, $args_s
+		end
+	end
+	if LudaQW['knows_sex'] = 0 and $ludaQW['pharm_purchase'] = 'bc_pills':
+		act '是为了我的生理周期。':
+			*clr & cla
+			$func('wrap', 'header center b', '药房')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_aunt_1.jpg"></center>'
+			'“只是为我的生理周期，卢达阿姨，”你抗议道。“我没有做爱。”'
+			'她嘴角带着一丝狐疑的弧度对你微笑。“好吧，我没法证明不是这样，所以我想只能相信你的话了……”'
+			act '继续购物': gt $loc_s, $args_s
+		end
+	end
+	$ludaQW['pharm_purchase'] = 'bc_pills'
+end
+
+
+if $ARGS[0] = 'birth_control_addon':
+	act '完成购买': gt $loc_s, $args_s
+	if $ludaQW['pharm_purchase'] ! 'condoms':
+		act '更喜欢避孕套':
+			cla
+			act '只是偏好':
+				cla & *nl
+				'“谢谢你的好意，但我宁可坚持用避孕套。”'
+				'“随你便吧……”你阿姨狐疑地回头看你。“但连你妈妈现在都在吃避孕药了。”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+			act '更安全':
+				cla & *nl
+				'“谢谢你的好意，但我宁可坚持用避孕套。药片容易忘。避孕套就没那么容易忘了戴。”'
+				'“比你想的容易忘，”你阿姨狐疑地回头看你。“不过好的防护是分层的。你真的应该两样都用……”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+			act '更便宜':
+				cla & *nl
+				'“谢谢你的好意，但我宁可坚持用避孕套。它们更便宜。”'
+				'“那得看你多常用了，”你阿姨带着揶揄的坏笑说。“长远来看药片也许更便宜……”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+			act '没有激素':
+				cla & *nl
+				'“谢谢你的好意，但我宁可坚持用避孕套。我不想那样折腾我的激素。”'
+				'“我想这个理由我比某些人更理解，”你阿姨懊悔地叹了口气。“但连你妈妈现在都在吃避孕药了。”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+		end
+	elseif $ludaQW['pharm_purchase'] ! 'bc_pills':
+		if func('money', 'can_afford', cart_tally + 1870) = 0:
+			act '我没有钱':
+				cla & *nl
+				'“我没钱，”你耸耸肩，怅然一笑。'
+				'“好吧，至少你这阵子注意安全了，”她说着，把它们递给你。'
+				'“谢谢，卢达阿姨。”'
+				'“随时都行，亲爱的！”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+			act '只买得起避孕套':
+				cla & *nl
+				'“我没钱，”你耸耸肩，怅然一笑。“避孕套便宜，我现在只买得起这个。”'
+				'“好吧，至少你这阵子注意安全了，”她说着，把它们递给你。'
+				'“谢谢，卢达阿姨。”'
+				'“随时都行，亲爱的！”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+		else
+			act '主意不错（买避孕药）':
+				cla & *nl
+				pharmacyfirstbirthcontrol = 1
+				gs 'item_cart', 'simple_add', arrpos('$var_curr_aisle', 'contraceptive_pill') + 1
+				'“这……倒是个不错的主意。我想既然来了就买点吧。”'
+				'“好选择，”卢达说着，点了点头，把药片加进你的购物清单。“注意安全总是值得的。”'
+				act '继续购物': gt $loc_s, $args_s
+			end
+
+			act '不妨求稳（买避孕药）':
+				cla & *nl
+				pharmacyfirstbirthcontrol = 1
+				gs 'item_cart', 'simple_add', arrpos('$var_curr_aisle', 'contraceptive_pill') + 1
+				'“我想不妨买点吧。就为了保险。”'
+				'“注意安全总是值得的，”卢达说着，点了点头，把药片加进你的购物清单。'
+				act '继续购物': gt $loc_s, $args_s
+			end
+		end
+	end
+	$ludaQW['pharm_purchase'] = ''
+end
+--- pav_pharmacy ---------------------------------

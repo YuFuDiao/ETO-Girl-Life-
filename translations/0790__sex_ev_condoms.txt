@@ -1,0 +1,3331 @@
+# sex_ev_condoms
+
+!! npc_bareback means you have agreed with the npc to regularly have sex without a condom
+!! sex_ev['no_condom'] = 1 - you have agreed not to use condoms today
+!! sex_ev['out_of_condoms'] = 1 - npc has run out of condoms
+!! sex_ev['out_of_condoms'] = 2 - npc has run out of condoms, will use players
+!! $npc_bareback[$npcID] = 'never_use' - player and npc will never use condoms
+!! $npc_bareback[$npcID] = 'when_safe' - player and npc will only use condoms on days when player is in danger of getting pregnant
+
+if $ARGS[0] = 'setup':
+	if npc_condom_conscious[$npcID] > 0 and $sex_ev['loc'] = 'npc_home':
+		sex_ev['condom_count'] = 100
+	elseif npc_condom_conscious[$npcID] > 0:
+		sex_ev['condom_count'] = rand(5, 10)
+	elseif sex_ev['condom_count'] = 0 and sex_ev['fuck_count'] = 0 and npc_no_condoms[$npcID] < 1:
+		if rand(1, 5) = 1:
+			sex_ev['condom_count'] = 0
+		else
+			sex_ev['condom_count'] = rand(1, 10)
+		end
+	elseif npc_no_condoms[$npcID] > 0:
+		sex_ev['condom_count'] = 0
+	end
+	sex_ev['condom_setup'] = 1
+	gs 'sex_ev_sex', 'position_picker'
+end
+
+
+if $ARGS[0] = 'check_count':
+	if sex_ev['condoms_used'] >= sex_ev['condom_count'] and sex_ev['condom_count'] > 0:
+		sex_ev['npc_used_all_condoms'] = 1
+	end
+end
+
+
+if $ARGS[0] = 'condoms':
+	if sex_ev['condom_setup'] ! 1: gs 'sex_ev_condoms', 'setup'
+	gs 'sex_ev_condoms', 'check_count'
+	sex_ev['must_fuck'] = 1
+!!	if sex_ev['no_condom'] ! 1 and sex_ev['skip_condom'] ! 1:
+	if sex_ev['no_condom'] ! 1:
+		if $npc_bareback[$npcID] = 'never_use' and sex_ev['condom'] ! 1:
+	!!		if npc_know_bc[$npcID] = 1 and npc_condom_conscious[$npcID] ! 2: sex_ev['no_condom'] = 1
+			'你同意不再和<<$npcdesc>>使用安全套，而他也丝毫没有要去拿一个的意思。'
+			if $npc_free_creampies[$npcID] = 'when_safe' or npc_creampie_permission[$npcID] = 1:
+				gs 'sex_ev_condoms', 'safeday_check'
+			else
+				gs 'sex_ev_sex', 'position_choose'
+				gs 'sex_ev_condoms', 'dont_cum_in_me'
+				gs 'sex_ev_condoms', 'pc_safe_day'
+				gs 'sex_ev_condoms', 'pc_dangerous_day'
+				gs 'sex_ev_condoms', 'reenable_condoms1'
+				gs 'sex_ev_condoms', 'no_more_free_creampies1'
+				gs 'sex_ev_condoms', 'already_creampie1'
+			end
+			if $npc_free_creampies[$npcID] = 'at_will' or npc_creampie_permission[$npcID] = 2: sex_ev['creampie_allowance'] = 1
+		!! elseif $npc_free_creampies[$npcID] = 'when_safe':
+		elseif $npc_bareback[$npcID] = 'when_safe' and sex_ev['no_condom'] ! 1 and sex_ev['condom'] ! 1:
+			if $npc_free_creampies[$npcID] = 'when_safe':
+				gs 'sex_ev_condoms', 'safeday_check'
+			else
+				'“安全吗？” <<$npcdesc>>问道，“我们可以无套做吗？”'
+				gs 'sex_ev_condoms', 'bareback_check'
+			end
+		elseif sex_ev['condom'] = 0:
+			cla
+			if npc_condom_conscious[$npcID] > 0:
+				gs 'sex_ev_condoms', 'condom_conscious_npc'
+
+			elseif sex_ev['condom_count'] > 0 and (rand(0, 1) + rand(0, npc_diligent[$npcID]) - npc_risktaker[$npcID] >= 1 or npc_always_condoms[$npcID] = 1) and ((npc_risktaker[$npcID] ! 1 and $npc_cum_pref[$npcID] ! 'pullout') or (npc_risktaker[$npcID] ! 1 and $npc_cum_pref[$npcID] ! 'facial')) and npc_no_condoms[$npcID] ! 1:
+				!! boy is less likely to use a condom if he is a risktaker and more likely if he is diligent
+				gs 'sex_ev_condoms', 'npc_condom_use'
+			elseif sex_ev['creampie_allowance'] = 1 and $npc_free_creampies[$npcID] = '' and npc_creampie_permission[$npcID] < 1:
+				sex_ev['no_condom'] = 1
+				'“我真的可以射在里面吗？” <<$npcdesc>>一边摆好姿势一边问道。'
+				'你微笑着点点头。他也回以微笑，开始挺入。'
+				xgt 'sex_ev_sex', 'position_choose'
+			else
+				*nl
+				'<<$npcdesc>>没有任何要戴上安全套的意思。'
+				!! if npc_no_condoms[$npcID] > 0 or npc_risktaker[$npcID] = 1:
+				if $npc_free_creampies[$npcID] = 'when_safe' or npc_creampie_permission[$npcID] = 1:
+					gs 'sex_ev_condoms', 'safeday_check'
+				elseif (npc_risktaker[$npcID] = 1 and $npc_cum_pref[$npcID] ! 'creampie') or (npc_abusive[$npcID] = 1 and npc_childfree[$npcID] > 1 and $npc_cum_pref[$npcID] = 'creampie'):
+					'“别担心。我会拔出来的。”他说。'
+					gs 'sex_ev_condoms', 'npc_pullout_game'
+					gs 'sex_ev_condoms', 'pc_dangerous_day'
+					gs 'sex_ev_condoms', 'lube_up1'
+					gs 'sex_ev_condoms', 'started_bc1'
+				else
+					gs 'sex_ev_condoms', 'pc_condom_ask'
+					gs 'sex_ev_condoms', 'pc_condoms'
+					gs 'sex_ev_condoms', 'dont_cum_in_me'
+					gs 'sex_ev_condoms', 'pc_safe_day'
+					gs 'sex_ev_condoms', 'pc_dangerous_day'
+					gs 'sex_ev_condoms', 'already_creampie1'
+					gs 'sex_ev_condoms', 'lube_up1'
+					gs 'sex_ev_condoms', 'started_bc1'
+					if stat['think_virgin'] = 1 and sex_ev['virgin_fuck'] = 0 and sex_ev['fuck_count'] = 0: gs 'sex_ev_condoms', 'virgin_condom_ask1'
+				end
+			end
+		elseif sex_ev['using_pc_condoms'] = 1:
+			cla
+			if sex_ev['condom'] = 1:
+				gs 'sex_ev_condoms', 'pc_use_condoms'
+			else
+				gs 'sex_ev_condoms', 'pc_condoms'
+			end
+		elseif sex_ev['condom'] = 1:
+			cla
+			if sex_ev['condoms_used'] >= sex_ev['condom_count']:
+				gs 'sex_ev_condoms', 'npc_out_of_condoms'
+			else
+				gs 'sex_ev_condoms', 'npc_condom_use'
+			end
+		end
+	elseif sex_ev['pc_out_of_condoms'] = 1 and sex_ev['npc_used_all_condoms'] = 0:
+		if sex_ev['sleepover'] > 0:
+			'你正要就位时，突然想起昨晚你的安全套就用完了。'
+			'“呃……你有安全套吗？”'
+			gs 'sex_ev_condoms', 'pc_no_condoms_left2'
+		else
+			'“我想那是我的最后一个安全套了……”你说。'
+			gs 'sex_ev_condoms', 'pc_no_condoms_left'
+		end
+	elseif sex_ev['npc_used_all_condoms'] > 0:
+		gs 'sex_ev_condoms', 'npc_out_of_condoms'
+	end
+end
+
+
+if $ARGS[0] = 'condom_wait':
+	if sex_ev['no_condom'] ! 1 and sex_ev['skip_condom'] ! 1:
+		act '等等！（安全套）':
+			cla
+			act '让他用安全套':
+				cla & *nl
+				'“等等！”你尖叫道，“你得戴安全套！”'
+				if ($npc_cum_pref[$npcID] = 'pullout' or npc_arrogant[$npcID] > 0 or npc_abusive[$npcID] > 0 or npc_risktaker[$npcID] > 0) and npc_condom_conscious[$npcID] < 1 and npc_know_bc[$npcID] = 0:
+					'“别担心，” <<$npcdesc>>说，“我拔出很有一套。”'
+					npc_pullout_game[$npcID] = 1
+					xgt 'sex_ev_condoms', 'npc_pullout_game'
+				elseif npc_no_condoms[$npcID] > 0:
+					xgt 'sex_ev_condoms', 'npc_doesnt_use_condoms'
+				else
+					xgt 'sex_ev_condoms', 'pc_condom_ask3'
+				end
+			end
+
+			if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+				act '从包里拿出一个安全套':
+					cla & *nl
+					'“等等！”你喊道，慌忙翻包掏出一个安全套，举在你们两人之间。“你得戴安全套。求你了？”'
+					xgt 'sex_ev_condoms', 'pc_condoms2'
+				end
+			end
+			gs 'sex_ev_condoms', 'pc_dangerous_day'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_need_condoms':
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '用你的安全套':
+			$sex_ev['condom_motive'] = 'safety'
+			cla & *nl
+			'“抱歉，”你说着从包里掏出一个安全套，“但今天我们必须做好安全措施。”'
+			gs 'sex_ev_condoms', 'pc_condoms2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_condoms':
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '拿出一个避孕套':
+			sex_ev['using_pc_condoms'] = 1
+			$sex_ev['condom_motive'] = 'safety'
+			cla & *nl
+			'在<<$npcdesc>>可以插入你体内，你迅速从包里掏出一个安全套。'
+			'“先戴安全套？”你举着它在你们之间问道。'
+			gs 'sex_ev_condoms', 'pc_condoms2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_latex_allergy':
+	if pc_know_npc_latex_allrg[$npcID] = 1:
+		if npc_assertive[$npcID] = 1:
+			'“别这样。你知道我对那东西过敏，” <<$npcdesc>>皱着眉头说。'
+		else
+			'“我过敏，记得吗？” <<$npcdesc>>尴尬地说。'
+		end
+	else
+		if npc_assertive[$npcID] = 1:
+			'“我不能用安全套，” <<$npcdesc>>说，“我对乳胶过敏，会让我鸡巴起疹子。”'
+		else
+			'“我，呃，对安全套过敏……” <<$npcdesc>>不自在地说。'
+			'“你在开玩笑吧。”'
+			'“乳胶过敏，”他尴尬地微笑着回答，“会让我鸡巴起很严重的疹子。”'
+		end
+	end
+	pc_know_npc_latex_allrg[$npcID] = 1
+end
+
+
+if $ARGS[0] = 'pc_condoms2':
+	if npc_no_condoms[$npcID] > 0:
+		if npc_latex_allrg[$npcID] = 1:
+			gs 'sex_ev_condoms', 'npc_latex_allergy'
+		else
+			sex_ev['npc_doesnt_want_condoms'] = 1
+			'“别这样嘛，”他呻吟道，“非得戴吗？我讨厌安全套。”'
+		end
+		gs 'sex_ev_condoms', 'no_condom1'
+	elseif rand(1, 10) >= 7 and $npc_bareback[$npcID] ! 'when_safe':
+		sex_ev['npc_doesnt_want_condoms'] = 1
+		'“别这样嘛，”他呻吟道，“今天非得戴吗？”'
+		gs 'sex_ev_condoms', 'no_condom1'
+	else
+		'<<$npcdesc>>他点点头，你如释重负地叹了口气，他从你手中接过它，撕开包装，笨拙地把它套到自己的阴茎上。'
+		gs 'sex_ev_stats', 'pc_condom_stats'
+		if $sex_ev['position'] ! 'miss' or $sex_ev['position'] ! 'doggy' or $sex_ev['position'] ! 'cowgirl': $sex_ev['position'] = 'miss'
+		act '让<<$npcdesc>>操你': gt 'sex_ev_<<$sex_ev[''position'']>>', '<<$sex_ev[''position'']>>_goto'
+	end
+end
+
+
+if $ARGS[0] = 'pc_use_condoms':
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '给他戴上安全套':
+			gs 'sex_ev_stats', 'pc_condom_stats'
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+			if sex_ev['first_condom'] = 0:
+				sex_ev['first_condom'] = 1
+				if $sex_ev['loc'] = 'family_home':
+					'你探身到床边，伸手拉开书桌抽屉——那里藏着你所有瞒着母亲用的避孕用品。盲目地摸索了一会儿后，你总算找到一个安全套，于是撕开包装，替他套到鸡巴上。'
+				elseif $sex_ev['loc'] = 'player_home':
+					'你探身到床边，伸手拉开床头柜——那里放着你备用的避孕用品。盲目地摸索了一会儿后，你总算找到一个安全套，于是撕开包装，替他套到鸡巴上。'
+				else
+					'你探身到床边，伸手到你的包里。翻找了一会儿后，你掏出一个安全套。撕开包装，替他套在<<$npcdesc>>的鸡巴上。'
+				end
+				*nl
+				'“得做好安全措施哦，”你眨了眨眼。'
+			else
+				'你从你的存货里又拿出一个安全套，套到他的鸡巴上。'
+			end
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+
+		act '用嘴给他戴上安全套':
+			*clr & cla
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/condom_mouth.mp4"></video></center>'
+			gs 'sex_ev_stats', 'pc_condom_stats'
+			'你探身到床边，伸手去够你的手提包。摸索了一会儿后，你掏出一个安全套。你撕开包装，把橡胶套放在他龟头上，隔着橡胶亲吻它。接着，你用手指顺着他的鸡巴把它平滑地卷下来，嘴唇一路跟到底。你又上下套弄了几下，确认完全戴好，这才抬眼看他。'
+			if sex_ev['first_condom'] = 0:
+				sex_ev['first_condom'] = 1
+				'“得做好安全措施哦，”你微笑着说。'
+			end
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	elseif sex_ev['using_pc_condoms'] = 1 and sex_ev['pc_out_of_condoms'] ! 1:
+		sex_ev['pc_out_of_condoms'] = 1
+		cla
+		if sex_ev['out_of_condoms'] = 1:
+			'“我想那是我的最后一个安全套了……”你说，“那我们俩都用完了……？”'
+			'“大概是吧，” <<$npcdesc>>耸耸肩。'
+			gs 'sex_ev_after', 'no_condom_end'
+		elseif sex_ev['fuck_count'] > 0:
+			'“我想那是我的最后一个安全套了……”你说。'
+			gs 'sex_ev_condoms', 'pc_no_condoms_left'
+		else
+			'“呃……”你犹豫了一下，“我身上好像没有……”'
+			gs 'sex_ev_condoms', 'pc_no_condoms_left'
+		end
+		gs 'sex_ev_condoms', 'no_sex_only'
+		gs 'sex_ev_condoms', 'pc_skip_the_condom'
+	end
+end
+
+
+if $ARGS[0] = 'pc_no_condoms_left':
+	gs 'sex_ev_after', 'no_condom_end'
+	act '你有吗？':
+		*clr & cla
+		$sex_ev['bed_room']
+		if sex_ev['cock_inserted'] = 1:
+			'“但我还没准备停下，”你咧嘴一笑，用你的小穴夹紧体内<<$npcdesc>>的鸡巴，“你有吗？”'
+		else
+			'“但我还没准备停下，”你说，“你有吗？”'
+		end
+		gs 'sex_ev_condoms', 'pc_no_condoms_left2'
+	end
+end
+
+
+if $ARGS[0] = 'pc_no_condoms_left2':
+	if npc_condom_conscious[$npcID] = 1:
+		'“我一直都有安全套，” <<$npcdesc>>说，“你知道的，如果你不想买，就不用一直自己掏钱。我都是成批订购的。”'
+		gs 'sex_ev_sex', 'reset'
+		gs 'sex_ev_condoms', 'bulk_condoms'
+	elseif sex_ev['condom_count'] > 0 and sex_ev['condoms_used'] < sex_ev['condom_count']:
+		'“有，我有一些，” <<$npcdesc>>说。'
+		gs 'sex_ev_sex', 'reset'
+		act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+	else
+		if npc_no_condoms_know[$npcID] = 1:
+			'“别这样嘛，” <<$npcdesc>>翻了个白眼说，“你知道我讨厌用安全套。你能说服我用你的，已经算走运了。”'
+		else
+			'<<$npcdesc>>摇了摇头。'
+			'“我没有。”'
+		end
+		gs 'sex_ev_after', 'no_condom_end'
+		gs 'sex_ev_condoms', 'pc_skip_the_condom'
+		gs 'sex_ev_condoms', 'no_sex_only'
+	end
+end
+
+
+if $ARGS[0] = 'pc_condom_ask':
+	act '什么也别说':
+		cla & *nl
+		sex_ev['no_condom'] = 1
+		'<<$npcdesc>>把你的沉默当作默许，开始调整姿势。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+	gs 'sex_ev_condoms', 'pc_condom_ask2'
+end
+
+
+if $ARGS[0] = 'pc_condom_ask2':
+	act '让他戴上避孕套':
+		cla & *nl
+		if $npc_bareback[$npcID] = 'when_safe':
+			'“我们今天需要用安全套，”你摇了摇头。'
+			$sex_ev['condom_motive'] = 'pregnancy'
+		else
+			'“你能戴上安全套吗？”你问。'
+			$sex_ev['condom_motive'] = 'safety'
+		end
+		if $npcID = 'A34':
+			gs 'sex_ev_A34', 'kolka_condoms'
+		else
+			if ($npc_cum_pref[$npcID] = 'pullout' or npc_arrogant[$npcID] > 0 or npc_abusive[$npcID] > 0 or npc_risktaker[$npcID] > 0) and npc_condom_conscious[$npcID] < 1 and npc_know_bc[$npcID] = 0:
+				'“别担心，” <<$npcdesc>>说，“我拔出很有一套。”'
+				npc_pullout_game[$npcID] = 1
+				gs 'sex_ev_condoms', 'npc_pullout_game'
+			elseif npc_no_condoms[$npcID] > 0:
+				gs 'sex_ev_condoms', 'npc_doesnt_use_condoms'
+			else
+				gs 'sex_ev_condoms', 'pc_condom_ask3'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_condom_ask3':
+	if npc_latex_allrg[$npcID] = 1:
+		gs 'sex_ev_condoms', 'npc_latex_allergy'
+		gs 'sex_ev_condoms', 'no_condom1'
+	elseif rand(1, 10) >= 7 and $npc_bareback[$npcID] ! 'when_safe':
+		!! if sex_ev['condom_count'] > sex_ev['condoms_used'] and npc_dislike_condom[$npcID] = 1:
+		if sex_ev['condom_count'] > sex_ev['condoms_used']:
+			sex_ev['npc_doesnt_want_condoms'] = 1
+			'“别这样嘛，”他呻吟道，“今天非得戴吗？”'
+			gs 'sex_ev_condoms', 'no_condom1'
+		else
+			'“我用完了。一个都不剩了。”'
+			gs 'sex_ev_condoms', 'no_condom2'
+		end
+	else
+		gs 'sex_ev_stats', 'npc_condom_stats'
+		if $sex_ev['loc'] = 'npc_home':
+			'他点点头，伸手到床头柜拿了一个。'
+		elseif $sex_ev['loc'] = 'hotel_room':
+			'他点点头，伸手去行李箱里拿了一个。'
+		else
+			'他点点头，伸手从钱包里拿了一个。'
+		end
+		gs 'sex_ev_condoms', 'npc_condom_put_on'
+	end
+end
+
+
+if $ARGS[0] = 'pc_skip_the_condom':
+	act '我们可以不用安全套':
+		sex_ev['pc_skip_the_condom'] = 1
+		sex_ev['skip_condom'] = 1
+		sex_ev['no_condom'] = 1
+		sex_ev['condom'] = 0
+		sex_ev['must_fuck'] = 1
+		cla
+		act '就这一次？':
+			*clr & cla
+			$sex_ev['bed_room']
+			'“也许我们可以不用……”你笑着说，“就这一次？”'
+			gs 'sex_ev_condoms', 'pc_skip_the_condom2'
+		end
+
+		act '能出什么问题呢？':
+			*clr & cla
+			$sex_ev['bed_room']
+			$sex_ev['condom_motive'] = 'exception'
+			'“也许我们可以不用……”你笑着说，“能出什么问题呢？”'
+			gs 'sex_ev_condoms', 'pc_skip_the_condom2'
+		end
+
+		gs 'sex_ev_condoms', 'pulled_out_last_time'
+	end
+end
+
+
+if $ARGS[0] = 'pc_skip_the_condom2':
+	if $sex_ev['preg_risk'] = 'danger' and npc_childfree = 1 and npc_no_condoms[$npcID] < 1:
+		sex_ev['no_condom'] = 0
+		'“这主意好像不太好，” <<$npcdesc>>摇着头说，“你说过今天对你是危险期。我不想冒这个险。”'
+		act '失望':
+			cla & *nl
+			'你深深叹了口气，<<$npcdesc>>已经开始从你身上抽身退开。'
+			gs 'sex_ev_after', 'after_sex1'
+		end
+
+		act '你大概说得对':
+			cla & *nl
+			'“是啊……你大概说得对，”你懊丧地说，而<<$npcdesc>>已经从你身上抽身退开。'
+			gs 'sex_ev_after', 'after_sex1'
+		end
+
+		gs 'sex_ev_condoms', 'no_sex_only'
+	else
+		$sex_ev['condom_motive'] = 'exception'
+		'“就这一次，”他也回以微笑。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'will_morning_after_pill':
+	if mc_inventory['morning_after_pill'] > 0:
+		act '服用紧急避孕药':
+			*clr & cla
+			$sex_ev['bed_room']
+			sex_ev['skip_condom'] = 1
+			sex_ev['no_condom'] = 1
+			sex_ev['must_fuck'] = 1
+			sex_ev['ma_pill'] = 1
+			'“我有紧急避孕药，”你说。 '
+		end
+	else
+		act '明天买紧急避孕药':
+			*clr & cla
+			$sex_ev['bed_room']
+			sex_ev['skip_condom'] = 1
+			sex_ev['no_condom'] = 1
+			sex_ev['must_fuck'] = 1
+			sex_ev['ma_pill_tomorrow'] = 1
+			'“我明天去买药，”你说。 '
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_condom_use':
+	*clr & cla
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/wait.mp4"></video></center>'
+	sex_ev['must_fuck'] = 1
+	sex_ev['cock_inserted'] = 0
+	if sex_ev['fuck_count'] > 1 and $sex_ev['last_cum'] = 'condom':
+		'<<$npcdesc>>把用过的安全套取下来，换上一个新的。'
+	elseif sex_ev['fuck_count'] > 1:
+		'<<$npcdesc>>伸手去拿一个新安全套。'
+	else
+		'<<$npcdesc>>从床头柜上拿了一个安全套。'
+	end
+!!	gs 'sex_ev_sex', 'position_choose'
+
+	gs 'sex_ev_condoms', 'npc_condom_put_on'
+
+	if sex_ev['virgin'] = 1 and sex_ev['fuck_count'] = 0:
+		gs 'sex_ev_condoms', 'virgin_no_condom'
+	else
+		if sex_ev['condom'] = 0:
+			gs 'sex_ev_condoms', 'temp_disable_condoms'
+			if $sex_ev['type'] ! 'hookup': gs 'sex_ev_condoms', 'disable_condoms'
+		end
+	end
+
+end
+
+
+if $ARGS[0] = 'npc_condom_put_on':
+	act '等他':
+		gs 'sex_ev_stats', 'npc_condom_stats'
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/wait.mp4"></video></center>'
+		if sex_ev['fuck_count'] = 0:
+			'他撕开包装，开始把橡胶套顺着鸡巴卷上去。你耐心地等着，看着他，心想该用什么姿势操他。'
+		else
+			'他撕开包装，开始把橡胶套顺着鸡巴卷上去。你耐心地等着，看着他，心想接下来该让他用什么姿势操你。'
+		end
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	act '帮他戴上':
+		gs 'sex_ev_stats', 'npc_condom_stats'
+		*clr & cla
+		gs 'arousal', 'foreplay_give', -2
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+		'<<$npcdesc>>刚撕开包装，你就迅速伸手把安全套从包装里抽了出来。'
+		'“来，让我来。”你带着性感的笑容说。你轻轻地把橡胶套顺着他阴茎往下卷，力度刚好让他被你碰得抖了一下。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	act '用嘴帮他戴上':
+		gs 'sex_ev_stats', 'npc_condom_stats'
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/condom_mouth.mp4"></video></center>'
+		'<<$npcdesc>>刚撕开包装，你就迅速伸手把安全套从包装里抽了出来。'
+		'“来，让我来。”你带着性感的笑容说。你把套子放在他龟头顶端，俯下身用嘴唇同时含住两者。接着你用双手把套子顺着他阴茎往下卷，头也跟着往下移，嘴唇紧贴着橡胶。即使隔着套子，你也能感觉到他的阴茎贴在你舌头上的热度。'
+		'你为了保险起见又上下套弄了几下，然后抬起头，咧嘴一笑。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+	gs 'sex_ev_sex', 'lube_up_condom1'
+end
+
+
+if $ARGS[0] = 'condom_conscious_npc':
+	if sex_ev['fuck_count'] <= 1:
+		'<<$npcdesc>>立刻伸手去拿安全套。'
+	elseif sex_ev['fuck_count'] > 1:
+		'<<$npcdesc>>又伸手去拿一个安全套。'
+	end
+	act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+	if sex_ev['virgin'] = 1 and sex_ev['fuck_count'] = 0:
+		gs 'sex_ev_condoms', 'virgin_no_condom'
+	end
+end
+
+
+if $ARGS[0] = 'bulk_condoms':
+	act '既然你愿意的话':
+		cla & *nl
+		'“那，既然你愿意的话……”你感激地说。'
+		gs 'sex_ev_condoms', 'npc_condom_put_on'
+	end
+
+	act '我说不定会接受':
+		cla & *nl
+		'“我说不定真会接受……”你说。'
+		gs 'sex_ev_condoms', 'npc_condom_put_on'
+	end
+
+	act '我想出点力':
+		cla & *nl
+		'“我想出一份力。”你笑着说。“我很享受和你做爱。我也该付点钱才公平。”'
+		gs 'sex_ev_condoms', 'npc_condom_put_on'
+	end
+
+	if func('money', 'can_afford', 2000) ! 1:
+		act '好，手头正好紧':
+			cla & *nl
+			'“那太好了。”你笑着说。“我手头没什么闲钱，不用自己买能省下不少钱。'
+			gs 'sex_ev_condoms', 'npc_condom_put_on'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_out_of_condoms':
+	sex_ev['npc_used_all_condoms'] = 1
+	*clr & cla
+	$sex_ev['bed_room']
+	if sex_ev['fuck_count'] > 5:
+		'“我想那是我最后一个安全套了。”<<$npcdesc>>喘着气说。'
+	else
+		'“我想那是我最后一个安全套了。”<<$npcdesc>>说。'
+	end
+	gs 'sex_ev_after', 'no_condom_end'
+	gs 'sex_ev_condoms', 'pc_skip_the_condom'
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '用你自带的避孕套':
+			gs 'sex_ev_stats', 'pc_condom_stats'
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+			iif(mc_inventory['normal_condoms'] = 1, '“没关系，我带了。”', '“没关系，我带了几个。”')
+			'你把手伸进包里掏出一个安全套，套到他鸡巴上。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+
+		act '用你的安全套（嘴）':
+			sex_ev['using_pc_condoms'] = 1
+			gs 'sex_ev_stats', 'pc_condom_stats'
+			*clr & cla
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/condom_mouth.mp4"></video></center>'
+			iif(mc_inventory['normal_condoms'] = 1, '“没关系，我带了。”', '“没关系，我带了几个。”')
+			'你把手伸进包里掏出一个安全套，用嘴帮他套到鸡巴上。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+	gs 'sex_ev_condoms', 'still_got_pullout_game'
+end
+
+
+if $ARGS[0] = 'npc_pullout_game':
+	!! if $npc_cum_pref[$npcID] = 'pullout' and he isn''t condom conscious, he will say he has pullout game
+	sex_ev['pullout_game'] = 1
+	gs 'sex_ev_condoms', 'insist_need_condom'
+	gs 'sex_ev_condoms', 'no_condom_pullout_allow'
+	gs 'sex_ev_condoms', 'pulled_out_last_time'
+	gs 'sex_ev_condoms', 'didnt_pull_out_last_time'
+
+	if npc_no_creampie_mistakes[$npcID] <= npc_pullout_failure[$npcID] and npc_pullout_failure[$npcID] > 0:
+		act '“你每次都这么说”（恼火）':
+			cla & *nl
+			'“你每次都这么说。”你板着脸说。“可不知为什么，你说这话的时候，我有一半时间都是被灌满精液。”'
+			'“这次我不会的，我发誓！”他坚持道。'
+			gs 'sex_ev_condoms', 'pulled_out_last_time'
+			gs 'sex_ev_condoms', 'didnt_pull_out_last_time'
+			act '允许':
+				sex_ev['promise_no_creampie'] = 1
+				cla & *nl
+				'“……好吧……”你不情愿地叹了口气。“但这次你最好给我拔出来！”'
+				'他一边就位，一边急切地点点头。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+
+			act '最后的机会':
+				sex_ev['promise_no_creampie'] = 1
+				npc_last_pullout_chance[$npcID] += 1
+				cla & *nl
+				'“……好吧……”你不情愿地叹了口气。“但这是你最后的机会！”'
+				if npc_last_pullout_chance[$npcID] > 1 and (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0):
+					'“行行行，当然。”他一边摆好姿势一边窃笑着说。“你以前也这么说过。”'
+				else
+					'他一边就位，一边急切地点点头。'
+				end
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+			act '<i>需要</i>安全套':
+				cla & *nl
+				'“不可能。”你回答。“我们得用套。”'
+				gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+			end
+		end
+
+		act '“你每次都这么说”（挑逗）':
+			cla & *nl
+			'“你每次都这么说，结果有一半时间我都被人灌得满满的。”你冲着<<$npcdesc>>咯咯笑。'
+			'“这次我不会的，我发誓！”他坚持道。'
+			gs 'sex_ev_condoms', 'pulled_out_last_time'
+			gs 'sex_ev_condoms', 'didnt_pull_out_last_time'
+
+			act '允许':
+				sex_ev['promise_no_creampie'] = 1
+				cla & *nl
+				'“哦，<i>好吧</i>……”你夸张地叹了口气，冲他露出挑逗的微笑。“这次我就信你。”'
+				'他一边就位，一边急切地点点头。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+
+			act '最后的机会':
+				sex_ev['promise_no_creampie'] = 1
+				npc_last_pullout_chance[$npcID] += 1
+				cla & *nl
+				'“哦，<i>好吧</i>……”你夸张地叹了口气，冲他露出挑逗的微笑。“我再给你一次证明自己的机会。”'
+				if npc_last_pullout_chance[$npcID] > 1 and (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0):
+					'“行行行，当然。”他一边摆好姿势一边窃笑着说。“你以前也这么说过。”'
+				else
+					'他一边就位，一边急切地点点头。'
+				end
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+
+			act '<i>需要</i>安全套':
+				cla & *nl
+				'“抱歉，<<$npc_lovername[$npcID]>>。”你得意地一笑。“这次得用套。”'
+				gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+			end
+		end
+	elseif npc_pullout_failure[$npcID] > 0:
+		act '“<i>大多数时候</i>”（恼火）':
+			cla & *nl
+			'“<i>大多数时候</i>。”你板着脸说。“可只要搞砸一次就足够让我怀孕了。' + iif(npc_pullout_failure_last_time[$npcID] = 1, ' 而且我记得你上次<i>搞得非常糟</i>……”', '”')
+			if npc_pay_for_ma_pill[$npcID] = 1:
+				'“至少我付了钱，对吧？”<<$npcdesc>>咧嘴一笑。'
+			elseif (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_caretaker[$npcID] < 1:
+				'“谁都会犯错。”<<$npcdesc>>咧嘴一笑。'
+			else
+				'至少<<$npcdesc>>还知道不好意思。'
+			end
+			gs 'sex_ev_condoms', 'pulled_out_last_time'
+			gs 'sex_ev_condoms', 'didnt_pull_out_last_time'
+			gs 'sex_ev_condoms', 'no_condom_allow_annoyed'
+
+			act '<i>需要</i>安全套':
+				cla & *nl
+				'“抱歉，<<$npc_lovername[$npcID]>>。”你得意地一笑。“这次得用套。”'
+				gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+			end
+		end
+
+		act '“<i>大多数时候</i>”（挑逗）':
+			cla & *nl
+			'“<i>大多数时候</i>。”你意味深长地一笑，' + iif(npc_pullout_failure_last_time[$npcID] = 1, ' “我记得上次有什么又白又黏的东西把我灌得满满的……”', ' ')
+			if npc_pay_for_ma_pill[$npcID] = 1:
+				'“至少我付了钱，对吧？”<<$npcdesc>>咧嘴一笑。'
+			elseif (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_caretaker[$npcID] < 1:
+				'“谁都会犯错。”<<$npcdesc>>咧嘴一笑。'
+			else
+				'至少<<$npcdesc>>还知道不好意思。'
+			end
+			gs 'sex_ev_condoms', 'pulled_out_last_time'
+			gs 'sex_ev_condoms', 'didnt_pull_out_last_time'
+			gs 'sex_ev_condoms', 'no_condom_allow_amused'
+
+			act '<i>需要</i>安全套':
+				cla & *nl
+				'“抱歉，<<$npc_lovername[$npcID]>>。”你得意地一笑。“这次得用套。”'
+				gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+			end
+		end
+	end
+	if $stat['preg_risk'] = 'safe':
+		act '今天是安全期':
+			cla
+			act '今天适合无套':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'safe'
+				'“反正今天是我的安全期。”你笑着说。“很适合无套。”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+
+			act '无需拔出':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'safe'
+				sex_ev['creampie_allowance'] = 1
+				sex_ev['pullout_game'] = 0
+				'“你不用拔出来。”你苦笑着说。“今天是我的安全期。”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	elseif $stat['preg_risk'] = 'prob_safe':
+		act '大概安全':
+			cla
+			act '今天适合无套':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'prob_safe'
+				'“今天相对算是我的安全期。”你笑着说。“无套应该没问题。”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+
+			act '无需拔出':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'prob_safe'
+				sex_ev['creampie_allowance'] = 1
+				sex_ev['pullout_game'] = 0
+				'“你不用拔出来。”你苦笑着说。“今天应该算是我的安全期。”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_condom_allow_annoyed':
+	act '允许':
+		cla & *nl
+		sex_ev['promise_no_creampie'] = 1
+		'“……好吧……”你不情愿地叹了口气。“但这次你最好给我拔出来！”'
+		'他一边就位，一边急切地点点头。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	act '最后的机会':
+		npc_last_pullout_chance[$npcID] += 1
+		sex_ev['promise_no_creampie'] = 1
+		cla & *nl
+		'“……好吧……”你不情愿地叹了口气。“但这是你最后的机会！”'
+		if npc_last_pullout_chance[$npcID] > 1 and (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0):
+			'“行行行，当然。”他一边摆好姿势一边窃笑着说。“你以前也这么说过。”'
+		else
+			'他一边就位，一边急切地点点头。'
+		end
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'no_condom_allow_amused':
+	act '允许':
+		cla & *nl
+		sex_ev['promise_no_creampie'] = 1
+		'“哦，<i>好吧</i>……”你夸张地叹了口气，冲他露出挑逗的微笑。“这次我就信你。”'
+		'他一边就位，一边急切地点点头。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	act '最后的机会':
+		npc_last_pullout_chance[$npcID] += 1
+		sex_ev['promise_no_creampie'] = 1
+		cla & *nl
+		'“哦，<i>好吧</i>……”你夸张地叹了口气，冲他露出挑逗的微笑。“我再给你一次证明自己的机会。”'
+		if npc_last_pullout_chance[$npcID] > 1 and (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0):
+			'“行行行，当然。”他一边摆好姿势一边窃笑着说。“你以前也说过。”'
+		else
+			'他一边就位，一边急切地点点头。'
+		end
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'pulled_out_last_time':
+	if npc_no_creampie_mistakes_last_time[$npcID] > 0:
+		act '上次结果还不错':
+			cla & *nl
+			sex_ev['no_condom'] = 1
+			sex_ev['promise_no_creampie'] = 1
+			'“嗯……上次你确实拔得很及时……”你温和地冲<<$npcdesc>>微笑。“好吧。那就来吧。”'
+			'你们俩摆好姿势准备开干时，你的心因兴奋而怦怦直跳。 <i>没有</i>保护。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'didnt_pull_out_last_time':
+	if npc_pullout_failure_last_time[$npcID] > 0:
+		act '像他上次那样“拔出来”吗？':
+			cla
+			act '恼火':
+				cla & *nl
+				'“哦对，<i>真的很厉害</i>的拔枪技术。”你面无表情地说。“厉害到你甚至<i>不需要</i>拔出来！”'
+				'你意味深长地看了他一眼，提醒他上次他是怎么把你灌满的。'
+				if npc_pay_for_ma_pill[$npcID] = 1:
+					'“至少我付了钱，对吧？”<<$npcdesc>>咧嘴一笑。'
+				elseif (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_caretaker[$npcID] < 1:
+					'“谁都会犯错。”<<$npcdesc>>咧嘴一笑。'
+				else
+					'至少<<$npcdesc>>还知道不好意思。'
+				end
+				gs 'sex_ev_condoms', 'no_condom_allow_annoyed'
+
+				act '<i>需要</i>避孕套':
+					cla & *nl
+					'“抱歉，<<$npc_lovername[$npcID]>>，”你坏笑着说。“这次得戴套了。”'
+					gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+				end
+			end
+
+			act '觉得有趣':
+				cla & *nl
+				'“你是说像你上次那样‘拔出来’吗？”你窃笑着说，故意提醒他上次你们在一起时他是怎么把你灌满的。'
+				if npc_pay_for_ma_pill[$npcID] = 1:
+					'“至少我付了钱，对吧？”<<$npcdesc>>咧嘴一笑。'
+				elseif (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_caretaker[$npcID] < 1:
+					'“谁都会犯错。”<<$npcdesc>>咧嘴一笑。'
+				else
+					'至少<<$npcdesc>>还知道不好意思。'
+				end
+				gs 'sex_ev_condoms', 'no_condom_allow_amused'
+
+				act '<i>需要</i>避孕套':
+					cla & *nl
+					'“抱歉，<<$npc_lovername[$npcID]>>，”你坏笑着说。“这次得戴套了。”'
+					gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'still_got_pullout_game':
+	if npc_pullout_game[$npcID] = 1:
+		act '“还留着那手拔枪绝活吗？”':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/shared/sex/misc/smile.jpg"></center>'
+			sex_ev['no_condom'] = 1
+			sex_ev['condom'] = 0
+			sex_ev['must_fuck'] = 1
+			sex_ev['pullout_game'] = 1
+			'“还留着那手拔枪绝活吗？”你问<<$npcdesc>>，咬着嘴唇，对他抛出一个性感的坏笑。'
+			if sex_ev['npc_used_all_condoms'] = 1:
+				sex_ev['skip_condom'] = 1
+				'“当然有。”他咧嘴一笑，把刚用过的安全套扔到一边，擦干净鸡巴准备下一轮。'
+			else
+				'“当然有。”他咧嘴一笑，急切地摆好姿势。'
+			end
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_doesnt_use_condoms':
+	!! boy says he doesn''t use condoms
+	if npc_latex_allrg[$npcID] = 1:
+		gs 'sex_ev_condoms', 'npc_latex_allergy'
+	elseif npc_no_condoms_know[$npcID] = 1:
+		if npc_selfish[$npcID] = 1:
+			'“你知道我不用那玩意儿。”<<$npcdesc>>皱着眉说。“要么无套，要么不做。”'
+		else
+			'“拜托！我们不需要安全套。”<<$npcdesc>>坚持道。'
+		end
+	else
+		npc_no_condoms_know[$npcID] = 1
+		'“我从来不用安全套。”<<$npcdesc>>咕哝道。“无套感觉更好。”'
+	end
+	gs 'sex_ev_condoms', 'no_condom1'
+end
+
+
+if $ARGS[0] = 'npc_promise_wont_creampie':
+	gs 'sex_ev_condoms', 'insist_need_condom'
+	gs 'sex_ev_condoms', 'trust_no_creampie'
+	gs 'sex_ev_condoms', 'trust_no_creampie_nervous'
+	gs 'sex_ev_condoms', 'pc_skip_the_condom'
+	gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist'
+end
+
+
+if $ARGS[0] = 'insist_need_condom':
+	act '我们<i>需要</i>安全套':
+		$sex_ev['condom_motive'] = 'safety'
+		cla & *nl
+		'“不，”你坚定地说。“我们<i>需要</i>安全套。没有套子我绝不跟你做。”'
+!!{		if npc_abusive[$npcID] = 1:
+			'“放松点，”他不屑地说着，继续挪动身体，摆好操你的姿势。“不会有事的。”'
+			act '让他为所欲为':
+
+			gs 'willpower', 'sex', 'resist'
+
+		else !}
+		if sex_ev['condom_count'] > 0 and sex_ev['using_pc_condoms'] ! 1:
+			'“呃，<i>好吧</i>……”他叹了口气，从床头柜上抓起一个套子。'
+			gs 'sex_ev_condoms', 'npc_condom_put_on'
+		elseif sex_ev['using_pc_condoms'] = 1:
+			'“呃，<i>好吧</i>……”他叹了口气，满怀期待地等着你给他一个。'
+			gs 'sex_ev_condoms', 'pc_use_condoms'
+		else
+			'“呃，<i>好吧</i>……”他叹了口气。“可我没有套子。你有吗？”'
+			if mc_inventory['normal_condoms'] = 0 and (mc_inventory['equipped_condoms'] = 0):
+				'“没有……”你有点尴尬地说。“我以为你会有的。”'
+				if npc_no_condoms[$npcID] > 0:
+					if npc_no_condoms_know[$npcID] = 1:
+						'“我想不出你为什么会这么想，”他干巴巴地回答。“你知道我不用套的。”'
+					else
+						npc_no_condoms_know[$npcID] = 1
+						'“反正我没有，”他干巴巴地回答。“我不用套。”'
+					end
+				else
+					'“那……我们该怎么办？”'
+				end
+				gs 'sex_ev_after', 'no_condom_end'
+				gs 'sex_ev_condoms', 'no_sex_only'
+				gs 'sex_ev_condoms', 'pc_skip_the_condom'
+			else
+				gs 'sex_ev_condoms', 'pc_use_condoms'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'trust_no_creampie':
+	act '我想我可以信你':
+		cla & *nl
+		sex_ev['no_condom'] = 1
+		sex_ev['promise_no_creampie'] = 1
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+		$sex_ev['bed_room']
+		'你犹豫了片刻，然后妥协了。'
+		'“应该没问题……我信你，”你微笑着说，而<<$npcdesc>>急不可耐地放弃了安全套。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'trust_no_creampie_nervous':
+	act '我想我可以信你（紧张）':
+		cla & *nl
+		sex_ev['no_condom'] = 1
+		sex_ev['promise_no_creampie'] = 1
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+		$sex_ev['bed_room']
+		'你犹豫了片刻，然后妥协了。'
+		'“如果你保证的话……”你不情愿地说，而<<$npcdesc>>急不可耐地放弃了安全套。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'condom_why2':
+	!! player says they don''t want to use a condom
+	act '我们不需要安全套（感觉更好）':
+		sex_ev['pc_skip_the_condom'] = 1
+		cla & *nl
+		'“来吧，”你抓住他的手臂说。“别用安全套了。不戴会更舒服。”'
+		if npc_condom_conscious[$npcID] = 2 or (npc_condom_conscious[$npcID] = 1 and npc_childfree[$npcID] = 1):
+			$sex_ev['npc_condom_motive'] = 'adamant'
+			'“不想冒这个险，” <<$npcdesc>>他说道，摇了摇头，还是打开了安全套，把它套在阴茎上。'
+		else
+			if rand(npc_willpwr[$npcID], 100) < pcs_persuas + npc_rel[$npcID]:
+				sex_ev['no_condom'] = 1
+				sex_ev['condom'] = 0
+				'<<$npcdesc>>停下来，回头看了你一会儿，然后露出微笑。'
+				'“好吧，”他说着，把套子留在原处。'
+			else
+				'“不想冒这个险，” <<$npcdesc>>他说道，摇了摇头，还是打开了安全套，把它套在阴茎上。'
+			end
+		end
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	if birth_control['think_safe'] = 1:
+		if tabletkishot > 0:
+			act '我们不需要安全套（打过避孕针）':
+				gs 'sex_ev_stats', 'birth_control_know'
+				npc_know_not_bc[$npcID] = 0
+				sex_ev['must_fuck'] = 1
+				sex_ev['pc_skip_the_condom'] = 1
+				cla & *nl
+				'“嘿，”你笑着抓住他的手臂。“我们不需要安全套。我打过避孕针了。”'
+				if npc_condom_conscious[$npcID] = 2:
+					$sex_ev['npc_condom_motive'] = 'adamant'
+					'“我还是想用套，”<<$npcdesc>>说着，摇摇头，又伸手去拿安全套。“还是小心点好。”'
+					'你惊得下巴都掉了。'
+					*nl
+					'<i>白送的无套机会他都不抓住？这家伙怎么回事？</i>'
+				else
+					sex_ev['no_condom'] = 1
+					'<<$npcdesc>>停止伸手，转过身来迎上你的目光，眼中充满欲望，你的笑容扩大成一个灿烂的笑。'
+				end
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		elseif pillcon2 > 0:
+			act '我们不需要安全套（在吃避孕药）':
+				gs 'sex_ev_stats', 'birth_control_know'
+				npc_know_not_bc[$npcID] = 0
+				sex_ev['must_fuck'] = 1
+				sex_ev['pc_skip_the_condom'] = 1
+				cla & *nl
+				'“嘿，”你笑着抓住他的手臂。“我们不需要安全套。我在吃避孕药。”'
+				if npc_condom_conscious[$npcID] = 2:
+					$sex_ev['npc_condom_motive'] = 'adamant'
+					'“我还是想用套，”<<$npcdesc>>说着，摇摇头，又伸手去拿安全套。“还是小心点好。”'
+					'你惊得下巴都掉了。'
+					*nl
+					'<i>白送的无套机会他都不抓住？这家伙怎么回事？</i>'
+				else
+					sex_ev['no_condom'] = 1
+					'<<$npcdesc>>停止伸手，转过身来迎上你的目光，眼中充满欲望，你的笑容扩大成一个灿烂的笑。'
+				end
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	else
+		act '谎称在避孕':
+			sex_ev['must_fuck'] = 1
+			gs 'sex_ev_stats', 'birth_control_know'
+			sex_ev['pc_skip_the_condom'] = 1
+			npc_know_not_bc[$npcID] = 0
+			cla & *nl
+			'“嘿，”你笑着抓住他的手臂。“我们不需要安全套。我在避孕。”'
+			if npc_condom_conscious[$npcID] = 2:
+				$sex_ev['npc_condom_motive'] = 'adamant'
+				'“我还是想用套，”<<$npcdesc>>说着，摇摇头，又伸手去拿安全套。“还是小心点好。”'
+				'你惊得下巴都掉了。'
+				*nl
+				'<i>狗娘养的！这家伙怎么这么小心？！</i>'
+			else
+				sex_ev['no_condom'] = 1
+				'听到你这不加掩饰的谎言， <<$npcdesc>>停止伸手，转身迎上你的目光，眼中充满欲望。你的笑容扩大成咧嘴大笑。'
+			end
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_condom_leave':
+	!! if sex_ev['rape_chance'] > 0:
+	!! put in chance he rapes you
+	'<<$npcdesc>>继续对你抱怨，而你抓起所有东西，匆匆跑出门口，砰地关上门。'
+	*nl
+	if $sex_ev['type'] = 'hookup':
+		'想跟他上床，并不意味着你会任人占便宜！'
+	elseif $sex_ev['type'] = 'booty call':
+		'他是你的炮友，并不意味着他可以占你便宜！'
+	elseif $npc_rel_type[$npcID] = 'boyfriend':
+		'他是你的男朋友，并不意味着他可以占你便宜！'
+	end
+	act '离开': gt 'sex_ev_leave', 'exit'
+end
+
+
+if $ARGS[0] = 'no_condom_pullout_allow':
+	act '同意（担忧）':
+		sex_ev['no_condom'] = 1
+		sex_ev['promise_no_creampie'] = 1
+		cla & *nl
+		'“呃……嗯……”你紧张地咬着嘴唇。“既然你这么说……”'
+		'你们俩摆好姿势准备无保护地开干时，你忍不住紧张地咽了口口水。'
+		if $sex_ev['position'] = '':
+			xgt 'sex_ev_sex', 'position_choose'
+		else
+			xgt 'sex_ev_<<$sex_ev[''position'']>>', '<<$sex_ev[''position'']>>_goto'
+		end
+	end
+
+	act '同意（信任）':
+		sex_ev['no_condom'] = 1
+		sex_ev['promise_no_creampie'] = 1
+		cla & *nl
+		'“好吧，既然你这么说，”你对他微笑。“这次我信你。”'
+		'你们俩摆好姿势准备开干时，你的心因兴奋而怦怦直跳。 <i>没有</i>任何保护。'
+		if $sex_ev['position'] = '':
+			xgt 'sex_ev_sex', 'position_choose'
+		else
+			xgt 'sex_ev_<<$sex_ev[''position'']>>', '<<$sex_ev[''position'']>>_goto'
+		end
+	end
+
+	act '同意（无所谓）':
+		sex_ev['no_condom'] = 1
+		sex_ev['promise_no_creampie'] = 1
+		cla & *nl
+		'“那好吧……”你狡黠地撇了撇嘴角。“既然你说你有本事……”'
+		'你们俩摆好姿势准备开干时，你的心因兴奋而怦怦直跳。 <i>没有</i>任何保护。'
+		if $sex_ev['position'] = '':
+			xgt 'sex_ev_sex', 'position_choose'
+		else
+			xgt 'sex_ev_<<$sex_ev[''position'']>>', '<<$sex_ev[''position'']>>_goto'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_condom1':
+	!! he says he doesn''t want to use a condom
+	if npc_latex_allrg[$npcID] ! 1:
+		act '没门':
+			*clr & cla
+			$sex_ev['bed_room']
+			if npc_condom_rule[$npcID] = 1:
+				$sex_ev['condom_motive'] = 'adamant'
+				'“你知道我的规矩，”你严厉地说。“不戴套我们不干！”'
+			elseif $stat['preg_risk'] = 'danger' and birth_control['think_safe'] ! 1:
+				$sex_ev['preg_risk'] = 'danger'
+				$sex_ev['condom_motive'] = 'pregnancy'
+				'“我现在正在排卵期！”你严厉地说。“我会怀孕的！'
+			else
+				$sex_ev['condom_motive'] = 'adamant'
+				'“不戴套我们不干，”你严厉地说。'
+			end
+			if sex_ev['buy_virginity'] > 0 and sex_ev['fuck_count'] = 0:
+				gs 'sex_ev_virgin', 'no_condom_offer'
+			elseif $sex_ev['preg_risk'] = 'danger' and npc_childfree[$npcID] > 0:
+				sex_ev['condom'] = 1
+				if sex_ev['using_pc_condoms'] = 1 and mc_inventory['normal_condoms'] > 0:
+					'“操！你怎么不早说！”他说着，立刻从你手里拿过安全套，笨拙地把那个小橡胶套滚到他的鸡巴上。'
+					gs 'sex_ev_stats', 'pc_condom_stats'
+					if $sex_ev['position'] ! 'miss' or $sex_ev['position'] ! 'doggy' or $sex_ev['position'] ! 'cowgirl': $sex_ev['position'] = 'miss'
+					act '让<<$npcdesc>>操你': gt 'sex_ev_<<$sex_ev[''position'']>>', '<<$sex_ev[''position'']>>_goto'
+				else
+					'“操！你怎么不早说！”他说着，立刻伸手去拿安全套。'
+					act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+				end
+			elseif rand(1, 10) < 8:
+				sex_ev['condom'] = 1
+				sex_ev['pc_insist_condom'] = 1
+				if sex_ev['using_pc_condoms'] = 1 and mc_inventory['normal_condoms'] > 0:
+					'“呃，好吧，” <<$npcdesc>>咕哝着，从你手里拿过安全套，笨拙地把那个小橡胶套滚到他的阴茎上。'
+					gs 'sex_ev_stats', 'pc_condom_stats'
+					if $sex_ev['position'] ! 'miss' or $sex_ev['position'] ! 'doggy' or $sex_ev['position'] ! 'cowgirl': $sex_ev['position'] = 'miss'
+					act '让<<$npcdesc>>操你': gt 'sex_ev_<<$sex_ev[''position'']>>', '<<$sex_ev[''position'']>>_goto'
+				else
+					'“呃，好吧，” <<$npcdesc>>咕哝着，伸手去拿安全套。'
+					act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+				end
+			else
+				sex_ev['dont_need_condom'] = 1
+				'“来吧，”他抱怨道。“不会有事的。这次就别用了。就这一次。”'
+				act '没什么大不了？！':
+					*clr & cla
+					$sex_ev['bed_room']
+					if npc_condom_rule[$npcID] = 1:
+						'“没什么大不了？！我们明明说好——算了，<i>操</i>你妈的！”'
+					else
+						'“没什么大不了？！你根本不知道这对我来说有多危险——算了，<i>操</i>你妈的！”'
+					end
+					'“我是想啊，可你不让！”'
+					gs 'sex_ev_condoms', 'no_condom_leave'
+				end
+
+				gs 'sex_ev_condoms', 'pc_skip_the_condom'
+
+				act '只要别射在里面':
+					sex_ev['dont_need_condom'] = 1
+					sex_ev['promise_no_creampie'] = 1
+					sex_ev['must_fuck'] = 1
+					npc_rule_no_creampies[$npcID] = 1
+					cla & *nl
+					'你犹豫了一下，斟酌了片刻'
+					'“嗯……好吧……”你有些不情愿地说。“但你不许射在我里面，知道吗？”'
+					xgt 'sex_ev_sex', 'position_choose'
+				end
+			end
+		end
+	end
+
+	gs 'sex_ev_condoms', 'pc_skip_the_condom'
+
+	act '只要别射在里面':
+		sex_ev['promise_no_creampie'] = 1
+		sex_ev['must_fuck'] = 1
+		npc_rule_no_creampies[$npcID] = 1
+		cla & *nl
+		'“嗯……好吧……”你迟疑地说。“但你不许射在我里面，知道吗？”'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	gs 'sex_ev_condoms', 'no_sex_only'
+end
+
+
+if $ARGS[0] = 'no_condom2':
+	!! he says he has no condoms
+	act '说真的？':
+		*clr & cla
+		$sex_ev['bed_room']
+		if npc_condom_rule[$npcID] = 1:
+			'“你说真的？”你恼火地问。“你知道我的规矩！我们需要安全套！”'
+		else
+			'“你说真的？”你恼火地问。“不戴套我们不干！”'
+		end
+		if rand(1, 10) < 8:
+			'“你有吗？”他问。'
+			gs 'sex_ev_condoms', 'no_condom2.1'
+		else
+			sex_ev['dont_need_condom'] = 1
+			'“来吧，”他说。“不会有事的。这次就别用了。就这一次。”'
+			act '没什么大不了？！':
+				'“没什么大不了？？？你根本不知道这对我有多危险——你知道吗？<i>操</i>你！”'
+				'“我是想啊，可你不让！”'
+				gs 'sex_ev_condoms', 'no_condom_leave'
+			end
+		end
+
+		gs 'sex_ev_condoms', 'pc_skip_the_condom'
+
+		act '只要别射在里面':
+			sex_ev['promise_no_creampie'] = 1
+			sex_ev['must_fuck'] = 1
+			npc_rule_no_creampies[$npcID] = 1
+			$sex_ev['condom_motive'] = 'exception'
+			cla & *nl
+			'“嗯……好吧……”你迟疑地说。“但你不许射在我里面，知道吗？”'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+
+	gs 'sex_ev_condoms', 'no_condom2.1'
+
+	act '你到底在操多少女孩？（调侃）':
+		cla & *nl
+		'“我去！这玩意儿你到底用掉多少个？”你笑着打量了他一眼。“你一天操20个女孩吗？”'
+		'“嘿，等你像我这么厉害的时候，”他说，脸上带着得意的笑。“你有吗？”'
+		gs 'sex_ev_condoms', 'no_condom2.1'
+	end
+end
+
+
+if $ARGS[0] = 'no_condom2.1':
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '我有':
+			*clr & cla
+			gs 'sex_ev_stats', 'pc_condom_stats'
+			'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+			'“我这儿有，”你说着，从包里掏出一个套子，撕开包装。'
+			'你微笑着看着<<$npcdesc>>，替他把安全套套到阴茎上。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	else
+		act '没有安全套':
+			cla & *nl
+			'“没有……”你不情愿地说。“我以为你会有的……”'
+			if npc_no_condoms[$npcID] > 0:
+				if npc_no_condoms_know[$npcID] = 1:
+					'“我想不出你为什么会这么想，”他干巴巴地回答。“你知道我不用套的。”'
+				else
+					npc_no_condoms_know[$npcID] = 1
+					'“反正我没有，”他干巴巴地回答。“我不用套。”'
+				end
+			else
+				'“那……我们该怎么办？”'
+			end
+			gs 'sex_ev_after', 'no_condom_end'
+			gs 'sex_ev_condoms', 'pc_skip_the_condom'
+
+			act '只要别射在我里面（信任）':
+				sex_ev['promise_no_creampie'] = 1
+				sex_ev['must_fuck'] = 1
+				cla & *nl
+				'“只要别射在我里面，”你温暖地微笑着。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+
+			act '只要别射在我里面（紧张）':
+				sex_ev['promise_no_creampie'] = 1
+				sex_ev['must_fuck'] = 1
+				cla & *nl
+				'“嗯……”你迟疑地说。“只要别射在我里面，好吗？”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+			gs 'sex_ev_condoms', 'no_sex_only'
+		end
+	end
+
+	gs 'sex_ev_condoms', 'pc_skip_the_condom'
+
+	act '只要别射在我里面（信任）':
+		sex_ev['promise_no_creampie'] = 1
+		sex_ev['must_fuck'] = 1
+		cla & *nl
+		'“只要别射在我里面，”你温暖地微笑着。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	act '只要别射在我里面（紧张）':
+		sex_ev['promise_no_creampie'] = 1
+		sex_ev['must_fuck'] = 1
+		cla & *nl
+		'“嗯……”你迟疑地说。“只要别射在我里面，好吗？”'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'no_sex_only':
+	if sex_ev['no_sex'] = 0:
+		act '我们可以做点别的':
+			sex_ev['no_sex'] = 1
+			*clr & cla
+			$sex_ev['bed_room']
+			'“也许我们可以不做爱，做点别的？”你提议道。'
+			if npc_no_kiss[$npcID] ! 1:
+				act '我们可以亲热一下':
+					*clr & cla
+					$sex_ev['bed_room']
+					'“也许我们可以不做爱，做点别的？”你提议道。“我们就亲热一下？”'
+					'“好，”<<$npcdesc>>点点头，你高兴地凑上去吻他。'
+					act '和他亲热': xgt 'sex_ev_foreplay', 'makeout_dom1'
+				end
+			end
+
+			act '我可以给你口交':
+				*clr & cla
+				$sex_ev['bed_room']
+				'“也许我们可以不做爱，做点别的？”你提议道。“我可以给你口交？”'
+				if $npc_fav_pos[$npclastgenerated] = 'blowjob':
+					'“我很乐意，”<<$npcdesc>>咧嘴笑道。'
+				else
+					'“这个我赞成……”<<$npcdesc>>微笑着说。'
+				end
+				act '给他口交': gt 'sex_ev_foreplay', 'bj_dom2'
+			end
+
+			if sex_ev['cuni_orgasm'] < 5:
+				act '你可以舔我':
+					*clr & cla
+					$sex_ev['bed_room']
+					'“也许我们可以不做爱，做点别的？”你提议道。“我不介意你给我舔一会儿小穴……”'
+					if npc_pussyeater[$npcID] = 1:
+						'“我想我也喜欢这样，”<<$npcdesc>>说着，眼里闪过一丝危险的光。'
+						act '被口交': gs 'sex_ev_foreplay', 'pussy_lick_start'
+					elseif npc_selfish[$npcID] = 1 or rand(1, 2) = 1:
+						'“不如你给我口交怎么样？”他问。'
+						act '听起来不错':
+							cla & *nl
+							'“听起来不错，”你笑着，俯身到他两腿之间。'
+							act '给他口交': gt 'sex_ev_foreplay', 'bj_sub1'
+						end
+
+						act '我想我可以':
+							cla & *nl
+							'"我想我可以做，"你不情愿地说着，移动到他双腿之间。'
+							act '给他口交': gt 'sex_ev_foreplay', 'bj_sub1'
+						end
+					else
+						'"我想我可以……"他说。'
+						act '被口交': gs 'sex_ev_foreplay', 'pussy_lick_start'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_condom_complain':
+
+end
+
+
+if $ARGS[0] = 'npc_lets_skip_condom':
+
+end
+
+
+if $ARGS[0] = 'dont_cum_in_me':
+	if npc_creampie_okay[$npcID] = 0 and $npc_free_creampies[$npcID] ! 'at_will':
+		act '不要射在我里面':
+			cla & *nl
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			!! npc_rule_no_creampies[$npcID] = 1
+			if birth_control['think_safe'] ! 1 and npc_know_not_bc[$npcID] = 1:
+				'"别忘了，你不能射在我里面，"你摆好姿势时警告他。"我还没开始吃避孕药。"'
+			elseif birth_control['think_safe'] ! 1 and pillcon2 > 0:
+				gs 'sex_ev_stats', 'no_birth_control_know'
+				npc_know_bc[$npcID] = 0
+				npc_know_bc_not_effective[$npcID] = 1
+				'"不要射在我里面，"你摆好姿势时警告他。"我的避孕药还没起效。"'
+			elseif birth_control['think_safe'] ! 1:
+				gs 'sex_ev_stats', 'no_birth_control_know'
+				npc_know_bc[$npcID] = 0
+				'"不要射在我里面，"你摆好姿势时警告他。"我没在吃避孕药。"'
+			else
+				'"不要射在我里面，"你摆好姿势时低声说。'
+			end
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'disable_condoms':
+	if $npc_bareback[$npcID] = '' and sex_ev['condom'] = 0:
+		act '我们不需要安全套':
+			cla
+			act '绝不':
+				sex_ev['temp_bareback'] = 1
+				*clr & cla
+				$sex_ev['bed_room']
+				$sex_ev['disable_condoms_desc'] = '"嘿，"你笑着说。"我们不需要用安全套。'
+				gs 'sex_ev_condoms', 'disable_condoms_options1'
+			end
+			if $stat['preg_risk'] ! 'danger' and birth_control['think_safe'] ! 1:
+				act '我会告诉你什么时候是安全期':
+					sex_ev['temp_bareback'] = 2
+					*clr & cla
+					$sex_ev['bed_room']
+					$sex_ev['disable_condoms_desc'] = '"嘿，"你笑着说。"我们不需要每次都戴安全套。'
+					gs 'sex_ev_condoms', 'disable_condoms_options2'
+				end
+			end
+			gs 'sex_ev_condoms', 'catholic_condoms'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'disable_condoms_options1':
+	act '我相信你':
+		*clr & cla
+		$sex_ev['bed_room']
+		'<<$sex_ev[''disable_condoms_desc'']>>我相信你。"'
+		gs 'sex_ev_condoms', 'npc_no_condom_react'
+	end
+
+	act '那样会更爽':
+		*clr & cla
+		$sex_ev['bed_room']
+		'<<$sex_ev[''disable_condoms_desc'']>>无套爽多了。我想要你的鸡巴完全插进我里面的感觉。"'
+		gs 'sex_ev_condoms', 'npc_no_condom_react'
+	end
+
+	if knowpreg = 1:
+		act '我怀孕了':
+			npc_knowpreg[$npcID] = 1
+			*clr & cla
+			$sex_ev['bed_room']
+			'"嘿，"你笑着说。"我们不需要用安全套。我发现我怀孕了。不可能比现在怀得更厉害了。"'
+			gs 'sex_ev_condoms', 'npc_no_condom_react'
+		end
+
+	elseif birth_control['think_safe'] = 1:
+		if tabletkishot > 0:
+			act '打了避孕针':
+				gs 'sex_ev_stats', 'birth_control_know'
+				npc_know_not_bc[$npcID] = 0
+				sex_ev['must_fuck'] = 1
+				*clr & cla
+				$sex_ev['bed_room']
+				'"嘿，"你笑着说。"我们不再需要用安全套了。我打了避孕针。"'
+				gs 'sex_ev_condoms', 'npc_no_condom_react'
+			end
+		elseif pillcon2 > 0:
+			act '在吃避孕药':
+				gs 'sex_ev_stats', 'birth_control_know'
+				npc_know_not_bc[$npcID] = 0
+				sex_ev['must_fuck'] = 1
+				*clr & cla
+				$sex_ev['bed_room']
+				if npc_know_bc_not_effective[$npcID] = 1:
+					'"嘿，"你笑着说。"我们不再需要用安全套了。我的避孕药终于起效了。"'
+				else
+					'"嘿，"你笑着说。"我们不再需要用安全套了。我在吃避孕药。"'
+				end
+				npc_know_bc[$npcID] = 0
+				gs 'sex_ev_stats', 'birth_control_know'
+				npc_know_bc_not_effective[$npcID] = 0
+				gs 'sex_ev_condoms', 'npc_no_condom_react'
+			end
+		end
+	elseif npc_know_bc[$npcID] = 0:
+		act '谎称在避孕':
+			sex_ev['must_fuck'] = 1
+			gs 'sex_ev_stats', 'birth_control_know'
+			npc_know_not_bc[$npcID] = 0
+			*clr & cla
+			$sex_ev['bed_room']
+			'"嘿，"你笑着说。"我们不再需要用安全套了。我在避孕。"'
+			if npc_condom_conscious[$npcID] = 2:
+				$sex_ev['npc_condom_motive'] = 'adamant'
+				'"我还是想戴一个，"<<$npcdesc>>说着摇了摇头，伸手去拿安全套。"安全点好。"'
+				'你惊得下巴都掉了。'
+				*nl
+				'<i>狗娘养的！这家伙怎么这么小心？！</i>'
+				act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+			else
+				sex_ev['no_condom'] = 1
+				$npc_bareback[$npcID] = 'never_use'
+				'听到你这不加掩饰的谎言， <<$npcdesc>>回望着你充满欲望的眼睛，你的笑容咧成了一个灿烂的大笑。'
+			end
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'disable_condoms_options2':
+	act '我相信你':
+		*clr & cla
+		$sex_ev['bed_room']
+		'<<$sex_ev[''disable_condoms_desc'']>>我相信你。所以我们只需要在危险的日子用安全套。"'
+		gs 'sex_ev_condoms', 'npc_no_condom_react'
+	end
+
+	act '那样会更爽':
+		*clr & cla
+		$sex_ev['bed_room']
+		'<<$sex_ev[''disable_condoms_desc'']>>无套爽多了。我想要你的鸡巴完全插进我里面的感觉。所以我们只需要在危险的日子用安全套。"'
+		gs 'sex_ev_condoms', 'npc_no_condom_react'
+	end
+end
+
+
+if $ARGS[0] = 'catholic_condoms':
+	act '你是东正教徒':
+		gs 'sex_ev_stats', 'no_birth_control_know', 'catholic'
+		*clr & cla
+		$sex_ev['bed_room']
+		if $sex_ev['type'] ! 'hookup':
+			'"嘿，你不需要用那个，"你坏笑着说，把手放在他胳膊上阻止他。"我是东正教徒。我不相信避孕。"'
+		else
+			'"嘿，我是东正教徒，记得吗？"你坏笑着说，把手放在他胳膊上阻止他。"我不相信避孕。"'
+		end
+		gs 'sex_ev_condoms', 'catholic_condom_react'
+	end
+end
+
+
+if $ARGS[0] = 'catholic_condom_react':
+	if npc_condom_conscious[$npcID] = 2 or (npc_condom_conscious[$npcID] = 1 and (rand(npc_willpwr[$npcID], 100) - npc_rel[$npcID]) > pcs_persuas):
+		$sex_ev['npc_condom_motive'] = 'pregnancy'
+		'"这不安全，"<<$npcdesc>>说着摇了摇头。"我可不想让你怀上我的孩子。"'
+		act '那你就不能干了':
+			cla & *nl
+			'"那我们就不做爱了，"你皱着眉头说。'
+			gs 'sex_ev_after', 'no_condom_end'
+			gs 'sex_ev_condoms', 'no_sex_only'
+		end
+
+		act '破例一次':
+			sex_ev['condom'] = 1
+			cla & *nl
+			'"那……我想我可以破个例，"你笑着说。"用<i>一次</i>安全套又不会让我下地狱。"'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+
+		act '那换成肛交？':
+			cla & *nl
+			sex_ev['no_vag'] = 1
+			sex_ev['anal_allowed'] = 1
+			'"那样的话……肛交怎么样？"'
+			if npc_no_anal[$npcID] > 0:
+				'"我不喜欢肛交，"他说。'
+				gs 'sex_ev_after', 'no_condom_end'
+				gs 'sex_ev_condoms', 'no_sex_only'
+			else
+				'"这对我来说算是个折中方案，"他咧嘴一笑，把安全套收了起来。'
+				gs 'sex_ev_anal', 'anal_start'
+			end
+		end
+	else
+		sex_ev['no_condom'] = 1
+		$npc_bareback[$npcID] = 'never_use'
+		if $npc_humor[$npcID] = 'perverted':
+			'"这就是我喜欢信教小妞的原因，"<<$npcdesc>>咧嘴笑道。'
+		else
+			'"这感觉一定会很棒，"<<$npcdesc>>说着，你的笑容咧成了一个灿烂的大笑。'
+		end
+		act '继续': cla & xgt 'sex_ev_sex', 'position_choose'
+		act '不要射在里面':
+			cla & *nl
+			sex_ev['promise_no_creampie'] = 1
+			'"只是别射在我里面，好吗？"你摆好姿势时说。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+		if $stat['preg_risk'] = 'danger':
+			act '不要射在里面（危险日）':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'danger'
+				sex_ev['promise_no_creampie'] = 1
+				'"只是别射在我里面，好吗？"你摆好姿势时说。 ' + iif(ovulate > 0, '"我现在正在排卵。我会怀孕的。"', '"我快排卵了。我会怀孕的。"')
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'reenable_condoms_code':
+	$npc_bareback[$npcID] = ''
+	npc_free_creampies_count[$npcID] = 0
+end
+
+
+if $ARGS[0] = 'reenable_condoms1':
+	if pc_know_npc_latex_allrg[$npcID] ! 1:
+		if birth_control['think_safe'] = 0 and npc_know_bc[$npcID] = 1:
+			act '又需要用安全套了':
+				*clr & cla
+				$sex_ev['bed_room']
+				'"嘿，我们得重新开始用安全套了，"你说。'
+				'"为了什么？" <<$npcdesc>>困惑地问道。'
+				'"我不再吃避孕药了。"'
+				'"哈？为什么？"'
+				gs 'sex_ev_condoms', 'reenable_condoms1_stop_bc'
+
+				if stat['boyfriends_current'] > 0 and $sex_ev['type'] ! 'married_sex' and $sex_ev['type'] ! 'dating_sex':
+					act '为了要孩子':
+						gs 'sex_ev_condoms', 'trying_for_baby'
+						gs 'sex_ev_condoms', 'reenable_condoms2'
+					end
+				end
+			end
+		else
+			act '我们能重新用安全套吗？':
+				*clr & cla
+				$sex_ev['bed_room']
+				'"嘿，我们能重新开始用安全套吗？"你说。'
+				'"为了什么？" <<$npcdesc>>困惑地问道。'
+				act '求安心':
+					cla & *nl
+					'"我只是想更安全一些，"你解释道。"这样我能少一桩心事。我现在可负担不起怀孕。所以我们能换回用安全套吗？"'
+					gs 'sex_ev_condoms', 'reenable_condoms2'
+				end
+				if birth_control['think_safe'] = 0 and pillcon2 > 0:
+					act '我停了避孕药':
+						cla & *nl
+						'"我不再吃避孕药了。"'
+						'"哈？为什么？"'
+						gs 'sex_ev_condoms', 'reenable_condoms1_stop_bc'
+					end
+				end
+
+				if npc_risky_creampie_count[$npcID] > 0 and birth_control['think_safe'] = 0:
+					act '太多次险情':
+						cla & *nl
+						'"我们已经有过太多次险情了，"你说着，回想起所有那些<<$npcdesc>>在危险日射进你里面的时刻。"我太鲁莽了。我现在可负担不起怀孕。所以我们能换回用安全套吗？"'
+						gs 'sex_ev_condoms', 'reenable_condoms2'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'reenable_condoms1_stop_bc':
+	act '没什么原因':
+		cla & *nl
+		'"没什么原因，"你耸耸肩。"我需要向你解释我自己？我们就用安全套吧。"'
+		gs 'sex_ev_condoms', 'reenable_condoms2'
+	end
+
+	act '太麻烦了':
+		cla & *nl
+		'"每天吃药太麻烦了，"你耸耸肩。"直接用安全套更省事。所以我们就用吧。"'
+		gs 'sex_ev_condoms', 'reenable_condoms2'
+	end
+
+	act '不喜欢':
+		cla & *nl
+		'"我不喜欢，"你耸耸肩。"它把我的荷尔蒙搞乱了，让我感觉怪怪的。所以我们就用安全套吧。"'
+		gs 'sex_ev_condoms', 'reenable_condoms2'
+	end
+end
+
+
+if $ARGS[0] = 'reenable_condoms2':
+	if npc_latex_allrg[$npcID] = 1:
+		if pc_know_npc_latex_allrg[$npcID] = 1:
+			if npc_assertive[$npcID] = 1:
+				'"拜托。你知道我因为过敏做不到，"<<$npcdesc>>皱着眉头说。'
+			else
+				'"但我过敏……记得吗？"<<$npcdesc>>尴尬地说。'
+			end
+		else
+			if npc_assertive[$npcID] = 1:
+				'"事情是这样的……" <<$npcdesc>>说。"我做不到。我从没告诉过你，因为我们以前从没用过，但我对安全套过敏。会让我的鸡巴起疹子。"'
+			else
+				'"我，呃，对安全套过敏……" <<$npcdesc>>不自在地说。'
+				'"你在开玩笑吧。"'
+				'"乳胶过敏，"他越发尴尬地回答道。"会让我的鸡巴起很严重的疹子。抱歉我以前没告诉你。"'
+			end
+		end
+		pc_know_npc_latex_allrg[$npcID] = 1
+		'你皱了皱眉。'
+		'"我保证我会拔出来，"<<$npcdesc>>坚持道。'
+		gs 'sex_ev_condoms', 'reenable_condoms3'
+	elseif npc_no_condoms[$npcID] > 0:
+		sex_ev['npc_doesnt_want_condoms'] = 1
+		'"拜托，我们非得用安全套吗？如果不是安全日我会拔出来的，我保证。"'
+		gs 'sex_ev_condoms', 'reenable_condoms3'
+	else
+		gs 'sex_ev_condoms', 'reenable_condoms_code'
+		'"这很合理，"<<$npcdesc>>点点头。"那今天你想用我的还是你的？"'
+		act '你的':
+			cla & *nl
+			if mc_inventory['normal_condoms'] = 0:
+				'"你的，"你说。"我今天身上没带。"'
+				'<<$npcdesc>>又点了点头，从床头柜里拿出一个安全套，你在一旁等着，心里高兴这事不必闹大。'
+			else
+				'"你介意我们今天用你的吗？"'
+				'"完全不介意，"他说着从床头柜里拿出一个安全套，你心里高兴这事没有闹大。'
+			end
+			act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+		end
+
+		if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+			act '我的':
+				cla & *nl
+				'"我的，"你笑着说，心里高兴这事不必闹大。'
+				gs 'sex_ev_condoms', 'pc_use_condoms'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'reenable_condoms3':
+	if pc_know_npc_latex_allrg[$npcID] ! 1:
+		act '我们需要安全套':
+			*clr & cla
+			$sex_ev['bed_room']
+			'"说真的，"你说。"我们得用安全套。这事我不能冒险。"'
+			act '坚持':
+				gs 'sex_ev_condoms', 'reenable_condoms_code'
+				npc_rel -= 10
+				cla & *nl
+				'"这事没得商量，"你坚持道。"要么用安全套，要么我们不能再干了。"'
+				'"呃，好吧。但你得带套来。我一个都没有。"'
+				if mc_inventory['normal_condoms'] = 0:
+					act '啊哦':
+						cla & *nl
+						'"呃……"'
+						'你咽了口唾沫，意识到自己也没想到要带安全套。'
+						'"拜托，"<<$npcdesc>>面无表情地说。"你坚持了那么多，结果却没有安全套可用？那我们现在怎么办？"'
+						act '不做爱':
+							*clr & cla
+							$sex_ev['bed_room']
+							'"我想那意味着我们今天不做爱了……"'
+							'"这他妈真是胡扯，"<<$npcdesc>>嘟囔道。'
+							gs 'sex_ev_after', 'after_sex1'
+						end
+						gs 'sex_ev_condoms', 'no_sex_only'
+						act '最后一次不用':
+							sex_ev['skip_condom'] = 1
+							sex_ev['no_condom'] = 1
+							sex_ev['must_fuck'] = 1
+							*clr & cla
+							$sex_ev['bed_room']
+							'"我想……再来一次也不会有什么坏处，"你犹豫地说。"但这是最后一次，好吗？"'
+							xgt 'sex_ev_sex', 'position_choose'
+						end
+					end
+				else
+					'"我早有准备，"你咧嘴一笑。'
+					gs 'sex_ev_condoms', 'pc_condoms'
+				end
+			end
+			gs 'sex_ev_condoms', 'condom_compromise'
+		end
+	else
+		gs 'sex_ev_condoms', 'condom_compromise'
+	end
+
+	act '你保证？':
+		$npc_bareback[$npcID] = 'never_use'
+		if $npc_free_creampies[$npcID] = 'at_will':
+			$npc_free_creampies[$npcID] = 'when_safe'
+		elseif npc_free_creampies_count[$npcID] ! 1:
+			npc_free_creampies_count[$npcID] = 0
+		end
+		sex_ev['promise_no_creampie'] = 1
+		cla & *nl
+		'"嗯……"你咬着嘴唇，仔细考虑着。"你保证保证？"'
+		'"我就是这么说的，不是吗？那么？今天安全吗？"'
+		if mesec > 0:
+			'"我在来例假，所以……大概吧。"'
+			'你的笑容变成了坏笑，他把你拉过来，准备无套干你。'
+		elseif $stat['preg_risk'] = 'safe':
+			$sex_ev['preg_risk'] = 'safe'
+			cla & *nl
+			'"是的。"'
+			'你们的视线交汇了一瞬然后<<$npcdesc>>开始爬上来摆好姿势无套干你。'
+		elseif $stat['preg_risk'] = 'prob_safe':
+			$sex_ev['preg_risk'] = 'prob_safe'
+			'"大概吧，"你承认道，你的笑容扭曲成了坏笑。他的笑容咧成一个大大的咧嘴笑，把你拉过来，准备无套干你。'
+		else
+			$sex_ev['preg_risk'] = 'danger'
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			'"不。所以你千万别射在我里面，"你严厉地说，随后又露出笑容，张开双腿。"现在快点干我。"'
+		end
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'condom_compromise':
+	if $npc_free_creampies[$npcID] = 'when_safe':
+		'"我们为什么不能就继续现在这样？你已经不想让我在不安全的日子射进你里面了。我们就继续那样吧。"'
+	elseif pc_know_npc_latex_allrg[$npcID] = 1:
+		'"要不只在你有怀孕危险的日子？我们在那些日子就不做爱？"'
+	else
+		'"要不只在你有怀孕危险的日子？那些日子用安全套，其他日子无套？"'
+	end
+	act '折中——只在危险日':
+		$npc_bareback[$npcID] = 'when_safe'
+!!		if $npc_free_creampies[$npcID] = 'at_will':
+!!			$npc_free_creampies[$npcID] = 'when_safe'
+!!		else
+!!			npc_free_creampies_count[$npcID] = 0
+!!		end
+		cla & *nl
+		'你咬着嘴唇，仔细考虑着。'
+		'"嗯……我想那会是个不错的折中方案……"你笑着说。"只要我在安全的时候告诉你就行……"'
+		'"那么？" <<$npcdesc>>期待地看着你。"今天安全吗？"'
+		if mesec > 0:
+			act '我来例假了':
+				$sex_ev['preg_risk'] = 'safe'
+				cla & *nl
+				'"我在来例假，所以……大概吧？"'
+				'你的笑容变成了坏笑，他把你拉过来，准备无套干你。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		elseif $stat['preg_risk'] = 'safe':
+			act '今天是安全期':
+				$sex_ev['preg_risk'] = 'safe'
+				cla & *nl
+				'"是的。"'
+				'你们的视线交汇了一瞬然后<<$npcdesc>>开始爬上来摆好姿势无套干你。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		elseif $stat['preg_risk'] = 'prob_safe':
+			act '大概是安全期':
+				$sex_ev['preg_risk'] = 'prob_safe'
+				*clr & cla
+				$sex_ev['bed_room']
+				'"大概吧，"你说，你的笑容扭曲成了坏笑。他的笑容咧成一个大大的咧嘴笑，把你拉过来，准备无套干你。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		elseif $stat['preg_risk'] = 'danger':
+			act '今天不行':
+				$sex_ev['preg_risk'] = 'danger'
+				*clr & cla
+				$sex_ev['bed_room']
+				'"今天不行，很抱歉这么说。"你的笑容变得惆怅。"我们今天要是有个''意外''我肯定会怀孕的。所以得用安全套。"'
+				if sex_ev['condom_count'] > sex_ev['condoms_used']:
+					'<<$npcdesc>>疲惫地叹了口气，去拿了一些。'
+					gs 'sex_ev_condoms', 'npc_condom_put_on'
+				else
+					'<<$npcdesc>>疲惫地叹了口气。'
+					'"那你有吗？我用完了。'
+					gs 'sex_ev_condoms', 'pc_use_condoms'
+				end
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'temp_disable_condoms':
+	if $npc_bareback[$npcID] = '' and sex_ev['condom'] = 0:
+		act '别用安全套了':
+			sex_ev['pc_skip_the_condom'] = 1
+			*clr & cla
+			$sex_ev['bed_room']
+			iif($sex_ev['type'] ! 'hookup', '“今天别用安全套了吧，”你笑了笑。', '“我们不需要用安全套，”你笑了笑。')
+			act '我相信你':
+				*clr & cla
+				$sex_ev['bed_room']
+				iif($sex_ev['type'] ! 'hookup', '“今天别用安全套了吧，”你笑了笑。', '“我们不需要用安全套，”你笑了笑。') + '“我相信你。”'
+				gs 'sex_ev_condoms', 'npc_temp_no_condom_react'
+			end
+
+			act '那样会更爽':
+				*clr & cla
+				$sex_ev['bed_room']
+				iif($sex_ev['type'] ! 'hookup', '“今天别用安全套了吧，”你笑了笑。', '“我们不需要用安全套，”你笑了笑。') + '“无套会更爽。”'
+				gs 'sex_ev_condoms', 'npc_temp_no_condom_react'
+			end
+
+			if birth_control['think_safe'] = 1 and $sex_ev['type'] = 'hookup':
+				act '“我在避孕”':
+					gs 'sex_ev_stats', 'birth_control_know'
+					npc_know_not_bc[$npcID] = 0
+					sex_ev['must_fuck'] = 1
+					*clr & cla
+					$sex_ev['bed_room']
+					'“我们不需要用安全套，”你笑了笑。' + iif(tabletkishot > 0, '“我打了避孕针。”', '“我在吃避孕药。”')
+					gs 'sex_ev_condoms', 'npc_temp_no_condom_react'
+				end
+			elseif mesec > 0:
+				act '我来例假了':
+					$sex_ev['preg_risk'] = 'prob_safe'
+					*clr & cla
+					$sex_ev['bed_room']
+					'“今天别用安全套了吧，”你笑了笑。“我觉得来例假的时候不会怀孕。”'
+					gs 'sex_ev_condoms', 'npc_temp_no_condom_react'
+				end
+			elseif $stat['preg_risk'] = 'safe':
+				act '今天是安全期':
+					$sex_ev['preg_risk'] = 'safe'
+					*clr & cla
+					$sex_ev['bed_room']
+					'“别用安全套了，”你笑了笑。“今天是我的安全期。我不会怀孕的。”'
+					gs 'sex_ev_condoms', 'npc_temp_no_condom_react'
+				end
+			elseif $stat['preg_risk'] = 'prob_safe':
+				act '大概是安全期':
+					$sex_ev['preg_risk'] = 'prob_safe'
+					*clr & cla
+					$sex_ev['bed_room']
+					'“别用安全套了，”你笑了笑。“今天应该是我的安全期。我不会怀孕的。”'
+!!					if npc_childfree[$npcID] = 1:
+!!						gs 'sex_ev_condoms', 'npc_hesitate_childfree'
+!!					else
+						*nl
+						'<i>可能吧...</i>你在心里默默想道。'
+						gs 'sex_ev_condoms', 'npc_temp_no_condom_react'
+!!					end
+				end
+			end
+			gs 'sex_ev_condoms', 'catholic_condoms'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'father_check':
+	potfather_temp[1] = arrsize('$wombpotfath')
+	potfather_counter = 0
+	'可能的父亲名单：'
+	:potfather_loop
+	if $wombpotfath[potfather_counter] ! 'unknown':
+		$potfather_temp[2] = '<a href="exec: $wombthfath = ''<<$npc_usedname[$wombpotfath[potfather_counter]]>>'' & $wombthfathID = ''<<$wombpotfath[potfather_counter]>>'' & gs ''din_bad'', ''d_cycreport_actor'', 7 & gs ''stat''"><<$npc_usedname[$wombpotfath[potfather_counter]]>> (<<$wombpotfath[potfather_counter]>>)</a>'
+	else
+		$potfather_temp[2] = '<a href="exec: $wombthfath = ''<<$npc_usedname[$wombpotfath[potfather_counter]]>>'' & $wombthfathID = ''<<$wombpotfath[potfather_counter]>>'' & gs ''din_bad'', ''d_cycreport_actor'', 7 & gs ''stat''">未知 (-)</a>'
+	end
+	if $npcID = $potfather_temp[2]: potfather_counter += 1
+	if potfather_counter < arrsize('$wombpotfath'): jump 'potfather_loop'
+end
+
+
+if $ARGS[0] = 'npc_preg_react':
+	if npc_creampie_count[$npcID] > 0:
+		'<<$npcdesc>>的眼睛瞪得老大。'
+		if npc_childfree[$npcID] > 0:
+			'“这……这不是我的吧？”'
+			if npc_is_father = 1:
+				act '也许':
+					cla & *nl
+					'“有可能，”你低声说。“有……几个人都可能是孩子的父亲……”'
+				end
+
+				act '撒谎':
+
+				end
+			else
+
+
+			end
+		else
+
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_no_condom_react':
+	if npc_condom_conscious[$npcID] = 2 or (npc_condom_conscious[$npcID] = 1 and (rand(npc_willpwr[$npcID], 100) - npc_rel[$npcID]) > pcs_persuas):
+		sex_ev['condom'] = 1
+		$sex_ev['npc_condom_motive'] = 'adamant'
+		'“我还是想用安全套，”<<$npcdesc>>说着，摇了摇头，伸手去拿安全套。“小心点总没错。”'
+		'你惊得下巴都掉了。'
+		*nl
+		'<i>白送的无套机会他都不接？这家伙怎么回事？</i>'
+		act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+	else
+		sex_ev['no_condom'] = 1
+		if sex_ev['temp_bareback'] = 1:
+			$npc_bareback[$npcID] = 'never_use'
+		else
+			$npc_bareback[$npcID] = 'when_safe'
+		end
+		if $npc_bareback[$npcID] = 'never_use':
+			'“这感觉会特别爽，”<<$npcdesc>>说，你的笑容咧成了一脸大笑。'
+			xgt 'sex_ev_sex', 'position_choose'
+		else
+			'“那今天安全吗？”<<$npcdesc>>笑着问。'
+			gs 'sex_ev_condoms', 'bareback_check'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_temp_no_condom_react':
+	if npc_condom_conscious[$npcID] = 2 or (npc_condom_conscious[$npcID] = 1 and (rand(npc_willpwr[$npcID], 100) - npc_rel[$npcID]) > pcs_persuas):
+		sex_ev['condom'] = 1
+		$sex_ev['npc_condom_motive'] = 'adamant'
+		'“我还是想用安全套，”<<$npcdesc>>说着，摇了摇头，伸手去拿安全套。“小心点总没错。”'
+		'你惊得下巴都掉了。'
+		*nl
+		'<i>白送的无套机会他都不抓住？这家伙怎么回事？</i>'
+		act '继续': gs 'sex_ev_condoms', 'npc_condom_use'
+	else
+		sex_ev['no_condom'] = 1
+		'“这感觉会特别爽，”<<$npcdesc>>说，你的笑容咧成了一脸大笑。'
+	end
+	xgt 'sex_ev_sex', 'position_choose'
+end
+
+
+if $ARGS[0] = 'npc_hesitate_childfree':
+	'<<$npcdesc>>停顿了一下。'
+	'“你说‘应该’是什么意思？”他问道。'
+
+end
+
+
+if $ARGS[0] = 'bareback_check':
+	if $stat['preg_risk'] = 'safe':
+		act '今天不用安全套（安全期）':
+			cla & *nl
+			$sex_ev['preg_risk'] = 'safe'
+			sex_ev['no_condom'] = 1
+			'“是安全的，”你笑了笑。“我们无套做吧。”'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	elseif $stat['preg_risk'] = 'prob_safe':
+		act '今天不用安全套（大概安全）':
+			cla & *nl
+			$sex_ev['preg_risk'] = 'prob_safe'
+			sex_ev['no_condom'] = 1
+			'“应该是安全的，”你笑了笑。“我们无套做吧。”'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	elseif $stat['preg_risk'] = 'danger':
+		act '今天不用安全套（有风险）':
+			$sex_ev['preg_risk'] = 'danger'
+			cla & *nl
+			'“今天大概不安全，”你承认道。“但我想感受你。我想无套。”'
+			gs 'sex_ev_condoms', 'pc_dangerous_day2'
+		end
+	end
+	gs 'sex_ev_condoms', 'need_condoms_today'
+	gs 'sex_ev_condoms', 'already_creampie2'
+end
+
+
+if $ARGS[0] = 'need_condoms_today':
+	act '今天需要安全套':
+		if $stat['preg_risk'] = 'danger': $sex_ev['preg_risk'] = 'danger'
+		gs 'sex_ev_stats', 'restrict_func', 'creampie'
+		cla
+		act '用他的':
+			cla & *nl
+			'“今天不做保护很危险，”你告诉他。“我们应该用安全套。能用你的吗？”'
+			if ($npc_cum_pref[$npcID] = 'pullout' or npc_arrogant[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_condom_conscious[$npcID] < 1:
+				'“我们不需要安全套，”<<$npcdesc>>说。“我拔出技术很好。”'
+				npc_pullout_game[$npcID] = 1
+				gs 'sex_ev_condoms', 'npc_pullout_game'
+			elseif sex_ev['condom_count'] > sex_ev['condoms_used']:
+				sex_ev['condom'] = 1
+				sex_ev['must_fuck'] = 1
+				if $sex_ev['loc'] = 'npc_home':
+					'他点点头，伸手去床头柜拿了一个安全套。'
+				elseif $sex_ev['loc'] = 'hotel_room':
+					'他点点头，伸手去行李箱里拿了一个。'
+				else
+					'他点点头，伸手从钱包里拿了一个。'
+				end
+
+				gs 'sex_ev_condoms', 'npc_condom_put_on'
+			else
+				'“一个都不剩了。我用完了。”'
+				gs 'sex_ev_condoms', 'no_condom2'
+			end
+		end
+		if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+			act '用你的':
+				sex_ev['using_pc_condoms'] = 1
+				cla & *nl
+				'“抱歉，”你从自己的存货里拿出一个安全套说。“我们今天应该做保护。”'
+				if ($npc_cum_pref[$npcID] = 'pullout' or npc_arrogant[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_condom_conscious[$npcID] < 1:
+					'“我们不需要安全套，”<<$npcdesc>>说。“我拔出技术很好。”'
+					npc_pullout_game[$npcID] = 1
+					gs 'sex_ev_condoms', 'npc_pullout_game'
+				else
+					act '给他戴上':
+						gs 'sex_ev_stats', 'pc_condom_stats'
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+						'你用性感而缓慢的动作爬向<<$npcdesc>>，撕开包装，轻轻把安全套顺着他已经勃起的阴茎卷下去，还撸动了几下，既是为了取悦他，也是为了确保套子贴合。'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+
+					act '用你的嘴':
+						*clr & cla
+						'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/condom_mouth.mp4"></video></center>'
+						gs 'sex_ev_stats', 'pc_condom_stats'
+						'你用性感而缓慢的动作爬向<<$npcdesc>>，撕开包装，把安全套放在他龟头上，隔着橡胶亲吻它。然后你用手指把它顺着他鸡巴的长度平滑地卷下去，嘴唇一路跟着往下。你又上下晃动了几下头，确认完全戴好后才退开。'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'safeday_check':
+	'“今天是安全期吗？”<<$npcdesc>>问。“我可以射在里面吗？”'
+	if birth_control['think_safe'] = 0:
+		if $stat['preg_risk'] = 'safe':
+			act '是安全的':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'safe'
+				sex_ev['creampie_allowance'] = 1
+				'“是安全的，”你笑了笑。“把我灌满吧。”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		elseif $stat['preg_risk'] = 'prob_safe':
+			act '大概是安全的':
+				cla & *nl
+				$sex_ev['preg_risk'] = 'prob_safe'
+				sex_ev['no_condom'] = 1
+				sex_ev['creampie_allowance'] = 1
+				'“够安全了，”你笑了笑。“来吧。把我灌满。”'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		!!{elseif $stat['preg_risk'] = 'danger':
+			act '赌一把（危险）':
+				$sex_ev['preg_risk'] = 'danger'
+				$npc_free_creampies[$npcID] = 'at_will'
+				cla & *nl
+				'"今天大概不太安全，"你承认道。"但我……"'
+				gs 'sex_ev_condoms', 'pc_dangerous_day2'
+			end !}
+		end
+		gs 'sex_ev_condoms', 'already_creampie2'
+		gs 'sex_ev_condoms', 'pc_dangerous_day_cant_cum_inside'
+		gs 'sex_ev_condoms', 'pc_dangerous_day_pullout'
+		gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist'
+	else
+		act '你在吃避孕药':
+			cla & *nl
+			'“我现在在吃<<$birth_control[''type'']>>，”你笑了笑。“你想射在我里面多少次都行。”'
+			gs 'sex_ev_stats', 'birth_control_know'
+			sex_ev['no_condom'] = 1
+			sex_ev['creampie_allowance'] = 1
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_dangerous_day':
+	if $stat['preg_risk'] = 'danger' and birth_control['think_safe'] ! 1 and succubusflag ! 1 and $sex_ev['preg_risk'] = '':
+		act '今天是危险期':
+			$sex_ev['preg_risk'] = 'danger'
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			*clr & cla
+			$sex_ev['bed_room']
+			if ovulate > 0:
+				'“我现在正在排卵，”你提醒<<$npcdesc>>。'
+			else
+				'“我快要排卵了，”你提醒<<$npcdesc>>。'
+			end
+
+			gs 'sex_ev_condoms', 'pc_dangerous_day_cant_cum_inside'
+			gs 'sex_ev_condoms', 'pc_dangerous_day_pullout'
+			gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_dangerous_day_cant_cum_inside':
+	if $stat['preg_risk'] = 'danger' and birth_control['think_safe'] ! 1 and succubusflag ! 1:
+		act '“你不能射在我里面”':
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			$sex_ev['preg_risk'] = 'danger'
+			*clr & cla
+			$sex_ev['bed_room']
+			if ovulate > 0:
+				'“我现在正在排卵，”你提醒<<$npcdesc>>。“你不能射在我里面，我会怀孕的。”'
+			else
+				'“我快要排卵了，”你提醒<<$npcdesc>>。“如果你现在射在我里面，我可能会怀孕的。”'
+			end
+			gs 'sex_ev_condoms', 'pc_dangerous_day2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_dangerous_day_pullout':
+	if $stat['preg_risk'] = 'danger' and birth_control['think_safe'] ! 1 and succubusflag ! 1:
+		act '“你最好拔出来”':
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			*clr & cla
+			$sex_ev['bed_room']
+			if ovulate > 0:
+				'“我现在正在排卵，”你提醒<<$npcdesc>>。' + iif(sex_ev['pullout_game'] = 1, '“所以你最好说到做到。”', '“别忘了拔出来。”')
+			else
+				'“我快要排卵了，”你提醒<<$npcdesc>>。' + iif(sex_ev['pullout_game'] = 1, '“所以如果你不想让我怀孕，最好说到做到。”', '“如果不想让我怀孕，别忘了拔出来。”')
+			end
+			gs 'sex_ev_condoms', 'pc_dangerous_day2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_dangerous_day_condom_insist':
+	if $stat['preg_risk'] = 'danger' and birth_control['think_safe'] ! 1 and succubusflag ! 1:
+		act '我们得用安全套（危险期）':
+			$sex_ev['preg_risk'] = 'danger'
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			*clr & cla
+			$sex_ev['condom_motive'] = 'pregnancy'
+			$sex_ev['bed_room']
+			if ovulate > 0:
+				'“我现在正在排卵，”你提醒<<$npcdesc>>。“我们<i>必须</i>用安全套。”'
+			else
+				'“我快要排卵了，”你提醒<<$npcdesc>>。“如果你现在射在我里面，我会怀孕的。我们<i>必须</i>用安全套。”'
+			end
+			if ($npc_cum_pref[$npcID] = 'pullout' or npc_arrogant[$npcID] > 0 or npc_abusive[$npcID] > 0) and npc_condom_conscious[$npcID] < 1:
+				'“我们不需要安全套，”<<$npcdesc>>说。“我拔出技术很好。”'
+				npc_pullout_game[$npcID] = 1
+				gs 'sex_ev_condoms', 'npc_pullout_game'
+			else
+				gs 'sex_ev_condoms', 'pc_dangerous_day_condom_insist2'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pc_dangerous_day_condom_insist2':
+	if npc_condom_conscious[$npcID] > 0:
+		'“<<$npcdesc>>点点头，立刻从自己的存货里拿了一个。'
+		gs 'sex_ev_condoms', 'npc_condom_put_on'
+	elseif npc_no_condoms[$npcID] > 0 and npc_childfree[$npcID] = 1:
+		'“唉，好吧……”他叹气道。“但我一个都没有。我们得用你的。”'
+		if mc_inventory['normal_condoms'] = 0:
+			'“我一个都没有……”你勉强地说。“我以为你会有。”'
+			if npc_no_condoms_know[$npcID] = 1:
+				'“我想不出你为什么会这么以为，”他干巴巴地回答。“你知道我不用安全套的。”'
+			else
+				npc_no_condoms_know[$npcID] = 1
+				'“反正我没有，”他干巴巴地回答。“我不用安全套。”'
+			end
+			gs 'sex_ev_after', 'no_condom_end'
+			gs 'sex_ev_condoms', 'no_sex_only'
+		else
+			gs 'sex_ev_condoms', 'pc_use_condoms'
+		end
+	elseif npc_no_condoms[$npcID] > 0:
+		'“拜托，真的非得用吗？我保证不会射在里面。”'
+		gs 'sex_ev_condoms', 'npc_promise_wont_creampie'
+	else
+		'“好吧，”<<$npcdesc>>点点头。'
+		act '要求用他的':
+			*clr & cla
+			$sex_ev['bed_room']
+			if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+				'“能用你的吗？”你问道，他立刻伸手拿了一个。'
+			else
+				'“我身上没带。能用你的吗？”你问道，他立刻伸手拿了一个。'
+			end
+			gs 'sex_ev_condoms', 'npc_condom_put_on'
+		end
+		gs 'sex_ev_condoms', 'pc_condoms'
+	end
+end
+
+
+if $ARGS[0] = 'pc_dangerous_day2':
+	if npc_condom_conscious[$npcID] = 1:
+		'“也许我们该用个安全套，”他说着，瞥了一眼自己的套子存货。'
+		act '好主意':
+			cla & *nl
+			'“好主意，”你点点头。'
+			act '要求用他的':
+				*clr & cla
+				$sex_ev['bed_room']
+				if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+					'“能用你的吗？”你问道，他立刻伸手拿了一个。'
+				else
+					'“我身上没带。能用你的吗？”你问道。'
+					'“其实你想要的话，不用自己买，”他一边掏出一个一边说。“我都是大批量买的，所以手头总有。”'
+				end
+				gs 'sex_ev_condoms', 'npc_condom_put_on'
+			end
+			gs 'sex_ev_condoms', 'pc_condoms'
+		end
+
+		act '我相信你':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $npcID, 'like'
+			$sex_ev['bed_room']
+			'“不用，没关系，”你摇了摇头，笑着说。“我相信你。”'
+			if npc_childfree[$npcID] = 1:
+				'他犹豫了一下，然后也对你摇了摇头。'
+				'“不，小心点总没错。”他还是伸手去拿了个安全套，你深深叹了口气。“我真的不想要孩子，”他一边把它套到自己的鸡巴上说。'
+				gs 'sex_ev_stats', 'npc_condom_stats'
+				xgt 'sex_ev_sex', 'position_choose'
+			else
+				sex_ev['no_condom'] = 1
+				sex_ev['promise_no_creampie'] = 1
+				'“既然你这么说，”他也笑了笑。'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	else
+		sex_ev['no_condom'] = 1
+		sex_ev['promise_no_creampie'] = 1
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'pc_safe_day':
+	if $stat['preg_risk'] ! 'danger' and birth_control['think_safe'] ! 1 and succubusflag ! 1 and $sex_ev['preg_risk'] = '' and sex_ev['condom'] = 0:
+		if mesec > 0:
+			$sex_ev['safe_day_act'] = '我来例假了'
+			$sex_ev['safe_day_desc1'] = '我来例假了'
+			$sex_ev['safe_day_creampie_desc'] = '你想要的话可以射在我里面。我觉得来例假的时候不会怀孕'
+			$sex_ev['safe_day_no_condom_desc'] = '所以我们不需要用安全套。我觉得来例假的时候不会怀孕'
+		elseif $stat['preg_risk'] = 'safe':
+			$sex_ev['safe_day_act'] = '今天是安全期'
+			$sex_ev['safe_day_desc1'] = '今天是安全期'
+			$sex_ev['safe_day_creampie_desc'] = '你想要的话可以射在我里面'
+			$sex_ev['safe_day_no_condom_desc'] = '今天可以不用避孕套'
+		elseif $stat['preg_risk'] = 'prob_safe':
+			$sex_ev['safe_day_act'] = '我今天大概是安全期'
+			$sex_ev['safe_day_desc1'] = '今天应该是我的安全期'
+			$sex_ev['safe_day_creampie_desc'] = '我觉得你想射在我里面应该也没问题'
+			$sex_ev['safe_day_no_condom_desc'] = '今天可以不用避孕套'
+		end
+		if $npc_bareback[$npcID] = 'never_use':
+			act '你可以射在我里面':
+				sex_ev['creampie_allowance'] = 1
+				*clr & cla
+				$sex_ev['bed_room']
+				if mesec > 0:
+					'“你今天可以射在我里面，”你对<<$npcdesc>>说。“我觉得来例假的时候不会怀孕。”'
+				else
+					$sex_ev['preg_risk'] = $stat['preg_risk']
+					'“<<$sex_ev[''safe_day_desc1'']>>，”你对<<$npcdesc>>说。“<<$sex_ev[''safe_day_creampie_desc'']>>。”'
+				end
+	!!				if $stat['preg_risk'] = 'prob_safe' and npc_childfree[$npcID] = 1:
+	!!					gs 'sex_ev_condoms', 'npc_hesitate_childfree'
+				if $npc_cum_pref[$npcID] = 'creampie':
+					'“我要用精液把你灌得满满的，内射好多次，”他咧嘴笑道。'
+				else
+					'“知道了，”他也笑了笑。'
+				end
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		else
+			act '<<$sex_ev[''safe_day_act'']>>':
+				$sex_ev['preg_risk'] = 'safe'
+				sex_ev['no_condom'] = 1
+				*clr & cla
+				$sex_ev['bed_room']
+				'“<<$sex_ev[''safe_day_desc1'']>>，”你告诉<<$npcdesc>>。'
+				act '你可以射在我里面':
+					sex_ev['creampie_allowance'] = 1
+					*clr & cla
+					$sex_ev['bed_room']
+					'“<<$sex_ev[''safe_day_desc1'']>>，”你告诉<<$npcdesc>>。“<<$sex_ev[''safe_day_creampie_desc'']>>。”'
+	!!				if $stat['preg_risk'] = 'prob_safe' and npc_childfree[$npcID] = 1:
+	!!					gs 'sex_ev_condoms', 'npc_hesitate_childfree'
+					if $npc_cum_pref[$npcID] = 'creampie':
+						'“我要用精液把你灌得满满的，”他咧嘴笑道。'
+					else
+						'“知道了，”他也笑了笑。'
+					end
+					xgt 'sex_ev_sex', 'position_choose'
+				end
+
+				if $npc_bareback[$npcID] ! 'never_use':
+					act '我们可以不戴套':
+						sex_ev['pc_skip_the_condom'] = 1
+						*clr & cla
+						$sex_ev['bed_room']
+						'“<<$sex_ev[''safe_day_desc1'']>>，”你冲<<$npcdesc>>笑了笑。“<<$sex_ev[''safe_day_no_condom_desc'']>>。”'
+						if $npc_cum_pref[$npcID] = 'creampie':
+							'“我要把你灌满，内射好多次，”他低声说。'
+							act '我可没这么说（恼火）':
+								cla & *nl
+								'“我可没说你就能那么做，”你皱眉回敬道。'
+								xgt 'sex_ev_sex', 'position_choose'
+							end
+
+							act '我可没这么说（觉得好笑）':
+								cla & *nl
+								'“我说的可不是这个意思，”你咯咯笑着说。'
+								'“我听到的就是这个意思，”他咧嘴一笑。'
+								xgt 'sex_ev_sex', 'position_choose'
+							end
+						elseif npc_no_condoms[$npcID] > 0:
+							'“总算啊，”<<$npcdesc>>说。“我早就受够用那玩意儿了。”'
+							xgt 'sex_ev_sex', 'position_choose'
+						else
+							'“知道了，”他笑着回应。'
+							xgt 'sex_ev_sex', 'position_choose'
+						end
+					end
+				end
+				if sex_ev['virgin'] = 1:
+					act '我不想第一次戴着安全套':
+						sex_ev['pc_skip_the_condom'] = 1
+						*clr & cla
+						$sex_ev['bed_room']
+						'“<<$sex_ev[''safe_day_desc1'']>>，”你冲<<$npcdesc>>笑了笑。“再说，我也不想第一次是戴着安全套做的。”'
+						if npc_no_condoms[$npcID] > 0:
+							npc_no_condoms_know[$npcID] = 1
+							'“反正我从来不用安全套，”他咧嘴一笑。'
+						else
+							'“这样感觉会更好，”他点头回应。'
+						end
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'already_creampie1':
+	!! someone already came inside you earlier today so you throw caution to the wind
+	if stat['last_creampie'] = daystart and birth_control['think_safe'] ! 1:
+		if $npc_bareback[$npcID] ! 'never_use':
+			act '今天已经被内射过了（无套上）':
+				sex_ev['no_condom'] = 1
+				sex_ev['pc_skip_the_condom'] = 1
+				cla & *nl
+				'“之前已经有人射在我里面了，”你说。“所以咱们就别用套了吧。这时候再讲究安全套好像有点太晚了。”'
+				if $npc_cum_pref[$npcID] = 'creampie':
+					'“那是不是说明我也可以射在里面？”<<$npcdesc>>急切地问。'
+					act '不行':
+						cla & *nl
+						'“不，不可以，”你回答，嘴角一撇露出苦笑。“我觉得我们没必要格外小心，但我也没说想格外冒险。”'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+
+					act '可以':
+						cla & *nl
+						sex_ev['creampie_allowance'] = 1
+						'“来吧，”你回答。'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+				else
+					'“你还真是到处都吃得开啊？”<<$npcdesc>>打趣地说。'
+					act '脸红':
+						cla & *nl
+						'你的脸颊因为热度而泛红，当<<$npcdesc>>把你拉向他时。'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+
+					act '嘟囔':
+						cla & *nl
+						'“闭嘴，”当<<$npcdesc>>把你拉向他时，你嘟囔道。'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+
+					act '咯咯笑':
+						cla & *nl
+						'“闭嘴，”当<<$npcdesc>>把你拉向他时，你咯咯笑着回敬道。'
+						xgt 'sex_ev_sex', 'position_choose'
+					end
+				end
+			end
+		end
+		if npc_creampie_okay[$npcID] ! 2 and $npc_free_creampies[$npcID] ! 'at_will':
+			act '今天已经被内射过了（免费内射）':
+				sex_ev['no_condom'] = 1
+				sex_ev['creampie_allowance'] = 1
+				cla & *nl
+				'“今天已经有人射在我里面了，”你说。“反正我都得去吃避孕药了，那不如干脆物尽其用。”'
+				'你把<<$npcdesc>>拉到身边，在他耳边低语。'
+				'<i>“想射多少就射多少进来吧。”</i>'
+				xgt 'sex_ev_sex', 'position_choose'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'already_creampie2':
+	!! someone already came inside you earlier today so you throw caution to the wind
+	if stat['last_creampie'] = daystart and birth_control['think_safe'] ! 1:
+		act '今天已经被内射过了（无套上）':
+			cla & *nl
+			sex_ev['no_condom'] = 1
+			sex_ev['pc_skip_the_condom'] = 1
+			'“这个嘛，”你苦笑着说。“既然今天已经有人射在我里面了，这会儿还担心安全套就有点可笑了。所以，没错，无套操我吧。”'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+
+		act '今天已经被内射过了（免费内射）':
+			sex_ev['no_condom'] = 1
+			sex_ev['creampie_allowance'] = 1
+			cla & *nl
+			'“这个嘛，”你苦笑着说。“既然今天已经有人射在我里面了，这会儿还担心安全套就有点可笑了。其实嘛……”'
+			'你把<<$npcdesc>>拉到身边，在他耳边低语。'
+			'<i>“想射多少就射多少进来吧。”</i>'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'started_bc1':
+	if birth_control['think_safe'] = 1:
+		act '不用拔出来（避孕药）':
+			cla & *nl
+			$npc_bareback[$npcID] = 'never_use'
+			sex_ev['no_condom'] = 1
+			sex_ev['creampie_allowance'] = 1
+			gs 'sex_ev_stats', 'birth_control_know'
+			if sex_ev['pullout_game'] = 1:
+				'“何必那么麻烦呢？”你用俏皮的语气问。' + iif(tabletkishot > 0, '“我在打避孕针', '“我在吃避孕药') + iif(npc_fuck_times[$npcID] > 1, '，已经有一阵子了。”', '。”')
+			else
+				'“不用担心拔出来的事，”你用俏皮的语气说。' + iif(tabletkishot > 0, '“我在打避孕针', '“我在吃避孕药') + iif(npc_fuck_times[$npcID] > 1, '，已经有一阵子了。”', '。”')
+			end
+			'<<$npcdesc>>的眼睛亮了起来。'
+			'“想射多少就射多少进来吧，”你坏笑着说。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+
+		act '别拔出来（避孕药）':
+			cla & *nl
+			$npc_bareback[$npcID] = 'never_use'
+			sex_ev['no_condom'] = 1
+			sex_ev['creampie_allowance'] = 1
+			gs 'sex_ev_stats', 'birth_control_know'
+			if sex_ev['pullout_game'] = 1:
+				'“你最好别拔，”你用俏皮的语气说。' + iif(tabletkishot > 0, '“我在打避孕针', '“我在吃避孕药') + iif(npc_fuck_times[$npcID] > 1, '，已经有一阵子了。”', '。”')
+			else
+				'“你敢拔出来试试，”你用俏皮的语气警告道。' + iif(tabletkishot > 0, '“我在打避孕针', '“我在吃避孕药') + iif(npc_fuck_times[$npcID] > 1, '，已经有一阵子了。”', '。”')
+			end
+			'<<$npcdesc>>的眼睛亮了起来。'
+			'“用你的精液灌满我，”你低声说。'
+			xgt 'sex_ev_sex', 'position_choose'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_more_free_creampies1':
+	if $npc_free_creampies[$npcID] ! '':
+		act '关于内射':
+			cla & *nl
+			'“嘿，你还记得我说过你想射在我里面就可以随时射吗？”'
+			'“记得啊？怎么了？”'
+			gs 'sex_ev_condoms', 'no_more_free_creampies2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_more_free_creampies2':
+	act '没关系':
+		cla & *nl
+		'“算了，”你说。“你可以继续那样做。当我没说过。”'
+		gs 'sex_ev_sex', 'position_choose'
+		gs 'sex_ev_condoms', 'condoms'
+	end
+
+	act '不能再射在里面了':
+		cla & *nl
+		'“我不能再让你射在我里面了。彻底不行。”'
+		'“什么？为什么不行？”'
+		sex_ev['temp_disable_creampies'] = 0
+		gs 'sex_ev_condoms', 'no_more_free_creampies3'
+	end
+
+	if $npc_free_creampies[$npcID] = 'at_will':
+		act '你现在得先征求同意':
+			cla & *nl
+			'“你现在想射在我里面得先征求我的同意。”'
+			'“什么？为什么？”'
+			sex_ev['temp_disable_creampies'] = 1
+			gs 'sex_ev_condoms', 'no_more_free_creampies3'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_more_free_creampies3':
+	act '不做解释':
+		cla & *nl
+		if sex_ev['temp_disable_creampies'] = 0:
+			'“就是不行，”你冷冷地说。'
+		elseif sex_ev['temp_disable_creampies'] = 1:
+			'“因为我想这样，”你冷冷地说。'
+		end
+		gs 'sex_ev_condoms', 'no_more_free_creampies4'
+	end
+	if (birth_control['think_safe'] = 0 and pillcon2 > 0) or (birth_control['remind_hour'] = 0 and tabletkicheck = 0):
+		act '我停了避孕药':
+			cla & *nl
+			gs 'sex_ev_stats', 'no_birth_control_know'
+			'“我已经不吃避孕药了。”'
+			'“啊？怎么停了？”'
+			gs 'sex_ev_condoms', 'no_more_free_creampies3.bc'
+		end
+	end
+
+	if stat['boyfriends_current'] > 0:
+		act '想和恋人怀孩子':
+			gs 'sex_ev_condoms', 'trying_for_baby'
+			gs 'sex_ev_condoms', 'no_more_free_creampies4'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'no_more_free_creampies3.bc':
+	act '没什么原因':
+		cla & *nl
+		'“没什么原因，”你耸耸肩。“我还有必要跟你解释吗？听着，这事非得搞得这么复杂吗？你就不能因为我说了不要，就不射在我里面吗？”'
+		gs 'sex_ev_condoms', 'no_more_free_creampies4'
+	end
+
+	act '太麻烦了':
+		cla & *nl
+		'“每天吃药太麻烦了，”你耸耸肩。“我宁愿用安全期算法。听着，这事非得搞得这么复杂吗？你就不能因为我说了不要，就不射在我里面吗？”'
+		gs 'sex_ev_condoms', 'no_more_free_creampies4'
+	end
+
+	act '不喜欢':
+		cla & *nl
+		'“我不喜欢那种感觉，”你耸耸肩。“它搞得我激素乱七八糟，整个人都怪怪的。我宁愿用安全期算法。听着，这事非得搞得这么复杂吗？你就不能因为我说了不要，就不射在我里面吗？”'
+		gs 'sex_ev_condoms', 'no_more_free_creampies4'
+	end
+end
+
+
+if $ARGS[0] = 'no_more_free_creampies4':
+	if $npc_cum_pref[$npcID] = 'creampie' and (npc_selfish[$npcID] > 0 or npc_abusive[$npcID] > 0):
+		if $npc_free_creampies[$npcID] = 'when_safe' and sex_ev['temp_disable_creampies'] = 0:
+			'“认真的？为什么不能就照现在这样继续？你本来就不想让我在不安全的日子射在你里面。咱们就保持那样不就行了。”'
+		else
+			'“要只在你不怕怀孕的日子射进去怎么样？安全的时候你告诉我，不安全的日子我就拔出来？”'
+		end
+		gs 'sex_ev_condoms', 'no_more_free_creampies5'
+	else
+		npc_free_creampies_count[$npcID] = sex_ev['temp_disable_creampies']
+		'“好吧，”<<$npcdesc>>点点头。“这很公平。”'
+		'“谢谢你这么配合，”你笑着说。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'no_more_free_creampies5':
+	act '坚持':
+		npc_free_creampies_count[$npcID] = sex_ev['temp_disable_creampies']
+		npc_rel -= 10
+		cla & *nl
+		'“这事没得商量，”你坚持道。“你得向我保证不会再射在我里面，否则我们就不能再做了。”'
+		'“行行行，”<<$npcdesc>>嘟囔道。'
+		'“<i>谢谢你</i>，”你烦躁地叹了口气。'
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+
+	act '你保证？':
+		$npc_free_creampies[$npcID] = 'when_safe'
+		cla & *nl
+		'“这个嘛……”你咬着嘴唇，仔细琢磨。“你保证没经过我允许就不射在我里面？”'
+		'“我不就是这么说的吗？然后呢？今天安全吗？”'
+		if mesec > 0:
+			'“我正在来月经，所以……应该吧。”'
+			'你的笑容绽成了一个大大的笑，他把你拉了过去，准备操你。'
+			'“用精液灌满我，”你咯咯笑着说。'
+		elseif $stat['preg_risk'] = 'safe':
+			$sex_ev['preg_risk'] = 'safe'
+			cla & *nl
+			'“嗯。”'
+			'你们的视线交汇了一瞬然后<<$npcdesc>>开始挪动身体，摆好姿势准备操你。'
+			'“用精液灌满我，”你咯咯笑着说。'
+		elseif $stat['preg_risk'] = 'prob_safe':
+			$sex_ev['preg_risk'] = $stat['preg_risk']
+			'“大概吧，”你承认道，笑容变成了一丝坏笑。'
+			'他的笑容绽成了一个大大的笑，把你拉了过去，准备操你。'
+			'“用精液灌满我，”你咯咯笑着说。'
+		else
+			$sex_ev['preg_risk'] = 'danger'
+			gs 'sex_ev_stats', 'restrict_func', 'creampie'
+			'“不行。所以你敢射在里面试试，”你严厉地说，随即又绽开笑容，张开双腿。“现在快点来操我。”'
+		end
+		xgt 'sex_ev_sex', 'position_choose'
+	end
+end
+
+
+if $ARGS[0] = 'trying_for_baby':
+	cla & *nl
+	npc_know_cheat[$npcID] = 1
+	npc_know_trying_baby[$npcID] = 1
+	gs 'sex_ev_stats', 'no_birth_control_know'
+	if $sex_ev['type'] = 'booty call':
+		if $husID <> '':
+			'“我丈夫和我在努力要个孩子，”你解释道。“要是我被炮友搞怀孕了，那可就糟透了。”'
+		else
+			'“我男朋友和我在努力要个孩子，”你解释道。“要是我被炮友搞怀孕了，那可就糟透了。”'
+		end
+	else
+		if $husID <> '':
+			'“我丈夫和我在努力要个孩子，”你解释道。“要是我被别的男人搞怀孕了，那可就糟透了。”'
+		else
+			'“我男朋友和我在努力要个孩子，”你解释道。“要是我被别的男人搞怀孕了，那可就糟透了。”'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_condom1':
+	act '等他':
+		sex_ev['condom'] = 1
+		gs 'sex_ev_stats', 'npc_condom_stats'
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/wait.mp4"></video></center>'
+		'他撕开包装，开始把避孕套套在他的阴茎上。你看着他，既焦虑又期待，想着接下来会发生什么。'
+		*nl
+		'安全套牢牢地裹在他的阴茎上，他把龟头对准了你的小穴。'
+		if npc_sex_speed[$npcID] = 3 and (npc_selfish[$npcID] = 1 or npc_abusive[$npcID] = 1):
+			act '继续': gt 'sex_ev_virgin', 'miss_virg_hard1'
+		else
+			act '继续': gt 'sex_ev_virgin', 'insertion_pre'
+		end
+	end
+
+	gs 'sex_ev_condoms', 'virgin_no_condom'
+end
+
+
+if $ARGS[0] = 'virgin_condom_ask1':
+	act '让他用安全套':
+		if sex_ev['condom_setup'] ! 1: gs 'sex_ev_condoms', 'setup'
+		gs 'sex_ev_condoms', 'check_count'
+		*clr & cla
+		$sex_ev['bed_room']
+		'“你能戴个安全套吗？”你低声说。“求你了？”'
+		if npc_condom_conscious[$npcID] = 1:
+			'“当然，”<<$npcdesc>>说，已经在撕开包装了。“你知道的，我可不是傻子。”'
+			gs 'sex_ev_virgin', 'start_with_condom'
+		else
+			if npc_no_condoms[$npcID] > 0:
+				'“得了吧，去他妈的套子。我不用那玩意儿。”'
+				npc_no_condoms_know[$npcID] = 1
+				gs 'sex_ev_condoms', 'virgin_condom_ask2'
+				gs 'sex_ev_condoms', 'virgin_no_condom_shock1'
+			elseif sex_ev['condom_count'] <= 0:
+				'“不行。我用完了。”'
+				gs 'sex_ev_condoms', 'virgin_condom_ask2'
+			else
+				if rand(1, 2) = 2:
+					'<<$npcdesc>>点点头，拿出一个，撕开包装，取出那个小橡胶套。'
+					gs 'sex_ev_virgin', 'start_with_condom'
+				else
+					'“别这样嘛，”他说。“你第一次真的想戴安全套？”'
+					gs 'sex_ev_condoms', 'virgin_condom_ask3'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_condom_pc_ask1':
+	if mc_inventory['normal_condoms'] + mc_inventory['normal_condoms'] > 0:
+		gs 'willpower', 'sex', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '拿出一个避孕套' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拿出一个避孕套' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'self'
+				*clr & cla
+				sex_ev['using_pc_condoms'] = 1
+				gs 'stat'
+				$sex_ev['bed_room']
+				'你把手伸到床边，在包里一通乱翻，终于找到了你要的东西：一个安全套。'
+				'你把它举在你和<<$npcdesc>>.'
+				'“我们用安全套吧，好吗？”'
+				if npc_condom_conscious[$npcID] = 1:
+					'“当然，”<<$npcdesc>>说，立刻从你手里接过去撕开包装。“你知道的，我可不是傻子。”'
+					gs 'sex_ev_virgin', 'start_with_condom'
+				else
+					if npc_no_condoms[$npcID] > 0:
+						'“得了吧，去他妈的套子。我不用那玩意儿。”'
+						npc_no_condoms_know[$npcID] = 1
+						gs 'sex_ev_condoms', 'virgin_condom_ask2'
+						gs 'sex_ev_condoms', 'virgin_no_condom_shock1'
+					elseif sex_ev['condom_count'] <= 0 and sex_ev['using_pc_condoms'] ! 1:
+						'“不行。我用完了。”'
+						gs 'sex_ev_condoms', 'virgin_condom_ask2'
+					else
+						if rand(1, 2) = 2:
+							if sex_ev['using_pc_condoms'] = 1:
+								'<<$npcdesc>>他点点头，你如释重负地叹了口气，他从你手中接过它，撕开包装，笨拙地把它套到自己的阴茎上。'
+							else
+								'<<$npcdesc>>点点头，拿出一个，撕开包装，取出那个小橡胶套。'
+							end
+							gs 'sex_ev_virgin', 'start_with_condom'
+						else
+							'“别这样嘛，”他说。“你第一次真的想戴安全套？”'
+							gs 'sex_ev_condoms', 'virgin_condom_ask3'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_condom_ask2':
+	act '那我们就不操了':
+		*clr & cla
+		if sex_ev['prostitution'] > 0:
+			$sex_ev['bed_room']
+			gs 'sex_ev_virgin', 'no_condom_offer'
+		elseif npc_selfish[$npcID] = 1 or npc_abusive[$npcID] = 1:
+			$sex_ev['bed_room']
+			if npc_no_condoms[$npcID] > 0:
+				'“哇！搞什么鬼？！”你惊呼道，猛地夹紧双腿从他那里退开。“你要是不戴安全套，我绝不让你操我！”'
+			elseif sex_ev['condom_count'] <= 0:
+				'“哇！”你惊呼道，猛地夹紧双腿从他那里退开。“你要是没有安全套，那我们就做不了。”'
+			end
+			'“别这么矫情行不行！来吧！咱们就做吧！感觉会特别爽的，我保证。”'
+			act '让他逼你':
+				cla & *nl
+				'当他把你按倒在床上时，你的良心在剧烈地谴责你。你想拒绝他，你<i>想</i>对他说不，但你也不想跟他起冲突。你不想让他觉得你是个贱货，即便你知道自己是对的。'
+				*nl
+				'你内心叹着气认了命，带着不小的悔意张开了双腿，片刻之后，他夺走了你的童贞。'
+				*nl
+				'<i>没有</i>戴安全套。'
+				gs 'sex_ev_virgin', 'miss_virg_start'
+			end
+			gs 'willpower', 'sex', 'resist', 'medium'
+			if pcs_willpwr < will_cost:
+				act '坚定立场' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '坚定立场' + $func('willpower', 'get_willcost_string'):
+					cla & *nl
+					if sex_ev['using_pc_condoms'] = 1:
+						'“不行。没有安全套就没有性爱。”<<$npcdesc>>叹了口气退了回去。'
+						'“好吧，行吧。我们就用这该死的安全套。”'
+						'他很不情愿地接过它，开始把它往自己的鸡巴上套，尽管你不禁觉得这一刻的浪漫气氛已经打了折扣。'
+						gs 'sex_ev_virgin', 'start_with_condom'
+					else
+						'“不行。没有安全套就没有性爱。”他叹了口气退了回去。'
+						gs 'sex_ev_virgin', 'change_mind'
+					end
+				end
+			end
+		else
+			'<center><img <<$set_imgh>> src="images/shared/sex/after/pillow_talk1.jpg"></center>'
+			if npc_no_condoms[$npcID] > 0:
+				'“哇！”你惊呼道，猛地夹紧双腿从他那里退开。“你要是不戴安全套，我绝不让你操我！”'
+			elseif sex_ev['using_pc_condoms'] = 1:
+				'“哇！”你惊呼道，猛地夹紧双腿从他那里退开。“我们要是不用安全套，我绝不让你操我！”'
+			elseif sex_ev['condom_count'] <= 0:
+				'“哇！”你惊呼道，猛地夹紧双腿从他那里退开。“你要是没有安全套，那我们就做不了。”'
+			end
+			'<<$npcdesc>>深吸一口气，退了回去。'
+			'“抱歉，”他羞涩地冲你笑了笑。“我刚刚是用下半身在想事情，不是用脑子。你说得对，我们不该不做防护就乱来。那我们该怎么做？”'
+			gs 'sex_ev_foreplay', 'foreplay_choose'
+
+			act '改变主意':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/shared/sex/after/pillow_talk1.jpg"></center>'
+				'你惊讶地眨了眨眼。'
+				'他的通情达理不知为何……出乎意料？但他这么轻易就愿意接受你想要的，让你……'
+				*nl
+				'你的小穴里情欲阵阵搏动。你能感觉到爱液几乎要从穴口滴落。你<i>渴望</i>感受到他在你体内。'
+				*nl
+				'“好的，”你低声说。“我们可以不戴安全套做。”'
+				'“可我以为——”'
+				'“你太通情达理了。让我更想要你了，”你微笑着说。“想要到愿意冒险不戴安全套做。”'
+				'“我不确定自己听懂了，”他回以微笑。你耸了耸肩。'
+				'“我也不懂。”'
+				act '让他就位':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/shared/sex/foreplay/miss3.jpg"></center>'
+					gs 'sex_ev_virgin', 'start_without_condom'
+				end
+
+				gs 'sex_ev_condoms', 'virgin_condom2'
+			end
+		end
+	end
+
+	act '也许没事吧？':
+		cla & *nl
+		'<i>嗯……也许没事吧？</i>你自我安慰道。这是你的第一次。如果他不戴安全套，也许他更懂？你以后随时可以改变主意。但就这一次而已。能出什么岔子呢？'
+		sex_ev['no_condom'] = 1
+		gs 'sex_ev_condoms', 'virgin_condom2'
+	end
+
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '从包里拿一个':
+			sex_ev['using_pc_condoms'] = 1
+			gs 'sex_ev_stats', 'pc_condom_stats'
+			*clr & cla
+			$sex_ev['bed_room']
+			if mc_inventory['normal_condoms'] > 1:
+				'“没关系，我这儿有。”'
+			elseif mc_inventory['normal_condoms'] = 1:
+				'“没关系，我这儿有一个。”'
+			end
+			if LudaQW['free_condoms'] = 1:
+				'你伸手进包里，拿出一个你姨妈给你的安全套，递给<<$npcdesc>>.'
+			else
+				'你伸手进包里，拿出一个你买的安全套，递给<<$npcdesc>>.'
+			end
+			'他接过安全套，拆开包装，把它套到自己的鸡巴上。'
+			gs 'sex_ev_virgin', 'start_with_condom'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_condom_ask3':
+	act '不能冒险':
+		*clr & cla
+		$sex_ev['bed_room']
+		'“是的，”你回答。“我不能冒任何风险。求你了？”'
+		if sex_ev['prostitution'] > 0:
+			act '拒绝他':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+				'“不行。不戴安全套我们就不做。”'
+				'<<$npcdesc>>叹了口气。“好吧，行。”'
+				'你松了口气，撕开包装，笨手笨脚地把避孕套套在他的阴茎上。'
+				gs 'sex_ev_virgin', 'start_with_condom'
+			end
+			gs 'sex_ev_virgin', 'no_condom_offer'
+		else
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/shared/sex/misc/condom_put.jpg"></center>'
+			'<<$npcdesc>>叹了口气。“好吧，行。”'
+			'你松了口气，撕开包装，笨手笨脚地把避孕套套在他的阴茎上。'
+			gs 'sex_ev_virgin', 'start_with_condom'
+		end
+	end
+
+	act '好吧……（不戴套）':
+		*clr & cla
+		sex_ev['npc_insist_no_condom'] = 1
+		$sex_ev['condom_motive'] = 'exception'
+		$sex_ev['bed_room']
+		'那股令人沉醉的情欲再次变得无法抗拒。你<i>渴望</i>感受到他在你体内，一想到哪怕只有一层薄薄的橡胶隔开他的鸡巴和你的小穴，你突然就觉得厌恶。这是你的第一次。你想感受<i>一切。</i>'
+		*nl
+		'“好吧，”你微笑着说。“就这一次。”'
+		sex_ev['no_condom'] = 1
+		gs 'sex_ev_condoms', 'virgin_condom2'
+	end
+
+	act '当然要（性病）':
+		cla & *nl
+		'“呃，<i>当然</i>要，”你带着怀疑的神情说。“我才不会第一次做爱就立刻染上性病。”'
+		'“性病？你怕的是这个？我很干净！这还用说！”'
+		act '我怎么知道':
+			cla & *nl
+			if npc_no_condoms_know[$npcID] = 1:
+				'“我他妈怎么知道那是真的？”你大声说。“你刚告诉我你不用安全套！那就说明你有风险！除非你现在身上带着一份阴性检测报告，不过我猜你没有。我不会就因为你让我‘相信你’就去冒这个险。”'
+				'“好吧，如果你想用安全套，那你就得自己提供一个，”他气呼呼地说。“因为我刚告诉过你：我不用那玩意儿。”'
+				gs 'sex_ev_condoms', 'virgin_npc_doesnt_condom'
+			else
+				'“我怎么知道！”你回敬道。“证据呢？你身上有阴性检测报告吗？我不会就因为你让我‘相信你’就去冒这个险。”'
+				'“行了行了，”他翻着白眼嘟囔道。你生了一会儿闷气，觉得他完全毁掉了气氛，而他则把安全套套到自己的鸡巴上。过了一会儿，他又回到了你双腿之间的位置。'
+				*nl
+				'片刻之后，<<$npcdesc>>夺走了你的童贞。'
+				sex_ev['condom'] = 1
+				gs 'sex_ev_virgin', 'miss_virg_start'
+			end
+		end
+
+		act '相信他':
+			*clr & cla
+			sex_ev['npc_insist_no_condom'] = 1
+			$sex_ev['bed_room']
+			'“既然你这么说……”你犹豫地说。他只是回以微笑。你忍不住有点生闷气，觉得他多少破坏了气氛。但你没多少时间想这些，因为片刻之后，<<$npcdesc>>夺走了你的童贞。'
+			gs 'sex_ev_virgin', 'miss_virg_start'
+		end
+	end
+
+	if birth_control['think_safe'] = 0:
+		act '当然要（怀孕）':
+			cla & *nl
+			'“呃，<i>当然</i>要，”你脸上带着明摆着的表情说。“我才不会冒怀孕的风险。<i>尤其</i>是第一次！”'
+			'“你担心的是这个？拜托，我会拔出来的。我保证。”'
+			act '没门！':
+				cla & *nl
+				'“想都别想！”你说。“我才不会因为你说会拔出来就信你能拔出来！就算你是真心的，也可能出意外。我不冒任何风险！”'
+				if npc_no_condoms_know[$npcID] = 1:
+					'“好吧，如果你想用安全套，那你就得自己提供一个，”他气呼呼地说。“因为我刚告诉过你：我不用那玩意儿。”'
+					gs 'sex_ev_condoms', 'virgin_npc_doesnt_condom'
+				else
+					sex_ev['pc_insist_condom'] = 1
+					'“行了行了，”他翻着白眼嘟囔道。你生了一会儿闷气，觉得他完全毁掉了气氛，而他则把安全套套到自己的鸡巴上。过了一会儿，他又回到了你双腿之间的位置。又过了一瞬，他夺走了你的童贞。'
+					gs 'sex_ev_stats', 'npc_condom_stats'
+					gs 'sex_ev_virgin', 'miss_virg_start'
+				end
+			end
+
+			act '相信他':
+				sex_ev['promise_no_creampie'] = 1
+				sex_ev['npc_insist_no_condom'] = 1
+				*clr & cla
+				$sex_ev['bed_room']
+				'“既然你这么说，”你叹了口气。“但你<i>绝对不能</i>射在我里面，好吗？”'
+				'他只是回以微笑。你忍不住有点生闷气，觉得他多少破坏了气氛。但你没多少时间想这些，因为片刻之后，他夺走了你的童贞。'
+				sex_ev['condom'] = 3
+				gs 'sex_ev_virgin', 'miss_virg_start'
+			end
+		end
+	end
+
+	gs 'sex_ev_condoms', 'virgin_safe_day_no_condoms'
+end
+
+
+if $ARGS[0] = 'virgin_safe_day_no_condoms':
+	if $stat['preg_risk'] = 'safe':
+		act '今天<i>确实</i>是安全期……':
+			$sex_ev['preg_risk'] = 'safe'
+			sex_ev['no_condom'] = 1
+			cla & *nl
+			'“我想……今天对我是安全期，所以……”你紧张地低声说。'
+			gs 'sex_ev_virgin', 'start_without_condom'
+		end
+	elseif $stat['preg_risk'] = 'prob_safe':
+		act '今天<i>大概</i>是安全期……':
+			$sex_ev['preg_risk'] = $stat['preg_risk']
+			sex_ev['no_condom'] = 1
+			cla & *nl
+			'“我想……今天对我来说应该不算太危险……”你紧张地低声说。'
+			gs 'sex_ev_virgin', 'start_without_condom'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_no_condom_shock1':
+	act '搞什么鬼？！':
+		*clr & cla
+		$sex_ev['bed_room']
+		'“搞什么鬼？！”你惊叫道，猛地夹紧双腿，从他身下退开。“你不用安全套？”'
+		'“对！我当然不用！”他说。“安全套烂透了。戴着那玩意儿什么都感觉不到。你想用一个妨碍快感的东西？”'
+		gs 'sex_ev_leave', 'no_condom_breakoff'
+	end
+
+	gs 'sex_ev_condoms', 'virgin_condom_ask3'
+end
+
+
+if $ARGS[0] = 'virgin_npc_doesnt_condom':
+	if mc_inventory['normal_condoms'] > 0 or (mc_inventory['equipped_condoms'] > 0 and preziktype = 0):
+		act '用你自带的避孕套':
+			'“行！给你！”你在包里翻找，掏出一个递给他。'
+			'他往上套的时候，你发出不满的声音，瞪着他。'
+			'“真是让我的第一次特别难忘，”你自言自语地嘟囔道。'
+			*nl
+			'安全套戴好之后，他又回到了你双腿之间的位置。'
+			*nl
+			'片刻之后，<<$npcdesc>>夺走了你的童贞。'
+			sex_ev['condom'] = 1
+			gs 'sex_ev_virgin', 'miss_virg_start'
+		end
+
+		gs 'sex_ev_leave', 'no_condom_breakoff'
+	else
+		'“可我也没有啊，”你低吼道。'
+		'“看看谁想戴着安全套干，现在却一个都没有，”<<$npcdesc>>翻了个白眼。'
+		act '尴尬':
+			*clr & cla
+			$sex_ev['bed_room']
+			'你脸涨得通红，把脸转开。'
+			'<i>我是处女！</i>你心想。<i>我为什么会有安全套？</i>'
+			'<i>你明明想做爱，</i>你心里的另一个声音想。<i>那你为什么<b>不</b>带安全套？</i>'
+			gs 'sex_ev_virgin', 'change_mind'
+		end
+
+		act '生气':
+			*clr & cla
+			$sex_ev['bed_room']
+			'“我他妈是个处女！”你大喊道。“我为什么会有安全套？！”'
+			gs 'sex_ev_after', 'quit2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_no_condom':
+	act '让他别戴安全套':
+		cla
+		act '第一次不戴':
+			cla & *nl
+			'“等等，”你说。“我不想让你戴安全套。我的第一次不要戴。”'
+			gs 'sex_ev_condoms', 'virgin_condom2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_condom2':
+	if mc_inventory['morning_after_pill'] > 0:
+		act '服用紧急避孕药':
+			sex_ev['ma_pill'] = 1
+			cla & *nl
+			'“再说，”你意有所指地看了看自己的包。“我有事后避孕药。”'
+			'<<$npcdesc>>对你挑了挑眉。'
+			if hour >= 18:
+				'“你今晚本来打算失去童贞吗？”'
+			else
+				'“你今天本来打算失去童贞吗？”'
+			end
+			if LudaQW['free_condoms'] = 1 and LudaQW['luda_ma_pill'] = 0:
+				if LudaQW['condom_give_day'] = daystart:
+					'“我姨妈今天给我的，”你说。“不过我想她没料到我这么快就用上……”'
+				elseif LudaQW['condom_give_day'] >= daystart - 7:
+					'“我姨妈这周早些时候给我的，”你说。“以备不时之需……”'
+				elseif LudaQW['condom_give_day'] >= daystart - 30:
+					'“我姨妈几周前给我的，”你说。“以防万一……”'
+				else
+					'“我姨妈很久以前给我的，”你说。“以防万一……”'
+				end
+				gs 'sex_ev_condoms', 'virgin_condom3'
+			else
+				act '没有':
+					cla & *nl
+					'“没有，”你脸涨得通红。不过你不确定他信不信你……'
+					gs 'sex_ev_condoms', 'virgin_condom3'
+				end
+
+				act '也许':
+					cla & *nl
+					'“也许吧……”你紧张地笑了笑。'
+					gs 'sex_ev_condoms', 'virgin_condom3'
+				end
+
+				act '是的':
+					cla & *nl
+					'“我真的很希望能……”你紧张地笑了笑。'
+					gs 'sex_ev_condoms', 'virgin_condom3'
+				end
+
+				act '强奸意外':
+					cla & *nl
+					'“女孩子得小心点，”你紧张地嘟囔道。“你知道外面有强奸犯……”'
+					gs 'sex_ev_condoms', 'virgin_condom3'
+				end
+			end
+		end
+	else
+		act '买事后避孕药':
+			sex_ev['ma_pill_tomorrow'] = 1
+			cla & *nl
+			'“再说，万一出了事我可以买事后避孕药，”你保证道。“就算没事我也可能会买一颗，保险起见。”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+	end
+
+	if $stat['preg_risk'] = 'safe':
+		act '今天是安全期':
+			cla & *nl
+			$sex_ev['preg_risk'] = 'safe'
+			'“今天是安全期，”你紧张地补充道。“我不会怀孕的。”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+
+		act '今天是安全期（内射）':
+			cla & *nl
+			sex_ev['virgin_creampie_request'] = 1
+			$sex_ev['preg_risk'] = 'safe'
+			'“而且是安全期，”你补充道。“你射在里面我也不会怀孕……”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+
+		act '今天是安全期（紧张地提出内射）':
+			cla & *nl
+			sex_ev['virgin_creampie_request'] = 1
+			$sex_ev['preg_risk'] = 'safe'
+			'“而且是安全期，”你犹豫地补充道。“你……如果你想射在里面，我也不会怀孕……”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+	elseif $stat['preg_risk'] = 'prob_safe':
+		act '今天大概是安全期':
+			$sex_ev['preg_risk'] = $stat['preg_risk']
+			cla & *nl
+			'“今天算是安全期吧，”你紧张地补充道。“我大概不会怀孕。”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+
+		act '今天大概是安全期（内射）':
+			cla & *nl
+			sex_ev['virgin_creampie_request'] = 1
+			$sex_ev['preg_risk'] = $stat['preg_risk']
+			'“而且今天应该算是安全期，”你补充道。“你射在里面我大概也不会怀孕……”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+
+		act '今天大概是安全期（紧张地提出内射）':
+			cla & *nl
+			sex_ev['virgin_creampie_request'] = 1
+			$sex_ev['preg_risk'] = $stat['preg_risk']
+			'“而且今天应该算是安全期，”你犹豫地补充道。“你……如果你想射在里面，我大概也不会怀孕……”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+	elseif $stat['preg_risk'] = 'danger':
+		act '别射在里面（危险期）':
+			cla & *nl
+			$sex_ev['preg_risk'] = 'danger'
+			'“只是……别射在里面，”你紧张地补充道。“今天对我来说是危险期……”'
+			gs 'sex_ev_condoms', 'virgin_condom3'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'virgin_condom3':
+	if $sex_ev['preg_risk'] = 'safe':
+		if npc_childfree[$npcID] = 1 and sex_ev['virgin_creampie_request'] = 1:
+			sex_ev['condom_bonus'] -= 15
+		else
+			sex_ev['condom_bonus'] -= 30
+		end
+	elseif $sex_ev['preg_risk'] = 'prob_safe':
+		if npc_childfree[$npcID] = 1 and sex_ev['virgin_creampie_request'] = 1:
+			sex_ev['condom_bonus'] -= 5
+		else
+			sex_ev['condom_bonus'] -= 20
+		end
+	elseif $sex_ev['preg_risk'] = 'danger':
+		if npc_childfree[$npcID] = 1 and sex_ev['virgin_creampie_request'] = 1:
+			sex_ev['condom_bonus'] += 30
+		else
+			sex_ev['condom_bonus'] -= 10
+		end
+	elseif npc_childfree[$npcID] = 1 and npc_condom_conscious[$npcID] > 0:
+		sex_ev['condom_bonus'] += 30
+	end
+	if sex_ev['condom_count'] = 0 or sex_ev['no_condom'] = 1:
+		if $npc_cum_pref[$npcID] = 'creampie' and sex_ev['virgin_creampie_request'] = 1:
+			'<<$npcdesc>>咽了口唾沫，显然因为想到要内射你而兴奋得发愣。过了好几秒，他才慢慢点头。'
+		else
+			'“好吧，”<<$npcdesc>>点了点头。'
+		end
+		gs 'sex_ev_virgin', 'start_without_condom'
+	elseif rand(npc_willpwr[$npcID], 100) + sex_ev['condom_bonus'] < pcs_persuas + npc_rel[$npcID] and npc_condom_conscious[$npcID] ! 2:
+		sex_ev['no_condom'] = 1
+		sex_ev['condom'] = 0
+		if sex_ev['virgin_creampie_request'] = 1: sex_ev['creampie_allowance'] = 1
+		'<<$npcdesc>>停下来，回头看了你一会儿，然后露出微笑。'
+		'“好吧，”他说着把安全套放回床头柜上。'
+		*nl
+		gs 'sex_ev_virgin', 'start_without_condom'
+	else
+		'“我们不该冒险，”<<$npcdesc>>摇着头说，还是拆开了安全套。“尤其是你的第一次。”'
+		act '等他':
+			sex_ev['condom'] = 1
+			gs 'sex_ev_stats', 'npc_condom_stats'
+			*clr & cla
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/misc/wait.mp4"></video></center>'
+			'他撕开包装，开始把避孕套套在他的阴茎上。你看着他，既焦虑又期待，想着接下来会发生什么。'
+			gs 'sex_ev_virgin', 'start_with_condom'
+		end
+	end
+end
+
+
+--- sex_ev_condoms ---------------------------------

@@ -1,0 +1,293 @@
+# therapist_home
+
+if trait_vars['sensitivity'] <= -2: trait_vars['sensitivity_override'] = 1
+
+!! locat['A186'] = 1		<- therapist is at the clinic
+!! locat['A186'] = 2		<- therapist is in the hotel room
+
+!! Leave after clearing therapist override
+if $ARGS[0] = 'leave':
+	if trait_vars['sensitivity_override'] = 1: trait_vars['sensitivity_override'] = 0
+	gt $ARGS[1], $ARGS[2]
+end
+
+
+if $ARGS[0] = 'hotel_enter':
+	if hotel_arrive <> daystart:
+		hotel_arrive = daystart
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/arrive.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/hotel_arrive4.jpg"></center>'
+	end
+
+	if locat['A186'] = 2:
+		'你回到你和丈夫住的酒店房间，看到他正在笔记本电脑上工作。你脱掉所有衣服，跪在他面前。他把一只手放在你头上，然后俯身亲吻你的嘴唇。'
+	else
+		'你回到你和丈夫住的酒店房间。你毫不犹豫地脱掉所有衣服。'
+	end
+
+	if $clothingworntype <> 'nude':
+		gs 'outfit', 'strip_all'
+	end
+
+	act '继续': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+end
+
+
+if $ARGS[0] = 'set_Hotelacts':
+	if hour >= 6 and hour <= 22:
+		if university['student'] = 1: act '学习（1:00)': gt 'therapist_home', 'study'
+		act '在笔记本电脑上玩': gs 'therapist_home', 'leave', 'komp', 'start'
+		if locat['A186'] = 2 and hour >= 21: act '和丈夫做爱': gt 'therapist_home', 'sex'
+	end
+	act '放松（1:00)': gt 'therapist_home', 'relax'
+end
+
+
+if $ARGS[0] = 'relax':
+	minut += 60
+	gs 'mood', 'raise', 'medium'
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/hotel_wait_tv.jpg"></center>'
+	'你躺在床上放松了一个小时。'
+
+	act '返回': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+end
+
+
+if $ARGS[0] = 'study':
+	minut += 60
+	gs 'exp_gain', 'intel', 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/hotel_wait_book.jpg"></center>'
+	'你坐到桌前，开始学习你的笔记。'
+	'你学习了一个小时，然后觉得需要休息一下。'
+
+	act '休息一下': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+	act '继续学习（1:00)':
+		*clr & cla
+		minut += 60
+		gs 'exp_gain', 'intel', 2
+		gs 'stat'
+
+		'你又学习了一个小时，然后觉得需要休息一下。'
+
+		act '休息一下': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+	end
+end
+
+
+if $ARGS[0] = 'wardrobe':
+	$loc = 'therapist_home'
+	$loc_arg = 'wardrobe'
+
+	if $ARGS[1] = 'start': gs 'therapist_home', 'leave', 'wardrobe', 'start'
+	if $clothingworntype = 'nude': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+
+	hotelWiFi = 0
+	gs 'therapist_home', 'leave', 'pav_hotel'
+end
+
+
+if $ARGS[0] = 'shower':
+	menu_off = 1
+	minut += 10
+	gs 'stat'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/hotel_shower1.mp4"></video></center>'
+	'你匆匆洗了个澡，然后回到主房间。'
+
+	noshampoo = 1
+	gs 'din_van', 'showerdin'
+	gs 'stat'
+
+	act '洗完澡':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/naked.jpg"></center>'
+		act '离开浴室': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+	end
+end
+
+
+if $ARGS[0] = 'cook':
+	minut += 20
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/shared/home/kitchen/cook.jpg"></center>'
+	'你走到厨房区域，为自己和丈夫做晚餐。这是一顿简单的晚餐：蔬菜、肉和土豆。'
+
+	act '吃做好的饭菜':
+		*clr & cla
+		menu_off = 1
+		minut += 15
+		gs 'food', 'medium_meal_stats'
+		gs 'food', 'medium_meal_text'
+		gs 'arousal', 'foreplay', 10, 'sub'
+		gs 'stat'
+
+		'你把盘子递给他，他在开吃前捏了捏你的胸部，然后你坐在他身后的床上，自己也吃了起来。'
+
+		act '吃完': gs 'therapist_home', 'leave', 'HotelRoom', 'therapist'
+	end
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               SLEEP                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'pre_sleep':
+	therapistQW['hotel_sleep_flag'] = 1
+	gt 'therapist_home', 'pre_sleep2'
+
+elseif $ARGS[0] = 'pre_sleep2':
+	if therapistQW['hotel_firstnight'] = 0: gt 'therapist_home', 'first_night'
+
+	'<center><img <<$set_imgh>> src="images/shared/sex/sleep/fondle1.jpg"></center>'
+	'你仰面躺在被子里，想睡上一觉。'
+	'夜里，你感觉有什么东西在和你做爱。'
+	'你的丈夫在你睡着时占有了你，这是身为你的男人的他所拥有的权利。'
+	act '继续':
+		if trait_vars['sensitivity_override'] = 1: trait_vars['sensitivity_override'] = 0
+		gs 'pre_sleep_events', 'event_end'
+	end
+
+elseif $ARGS[0] = 'wakeup':
+	if therapistQW['hotel_firstnight'] = 1: gt 'therapist_home', 'first_morning'
+	gt 'therapist_home', 'wakeup1'
+
+elseif $ARGS[0] = 'wakeup1':
+	'<center><img <<$set_imgh>> src="images/shared/sex/cum/vagcreampie/after1.jpg"></center>'
+	'你早上醒来，滑下床。'
+	'你活动伸展身体，驱散睡醒后的僵硬。'
+	'你走向厨房区域，给丈夫做了一些鸡蛋和培根，然后才去洗漱、开始新的一天，期间你能感到丈夫的精液从你体内流出来。'
+
+	act '做早餐': gs 'wakeup_events', 'exit' & gt 'therapist_home', 'cook'
+end
+
+
+if $ARGS[0] = 'sex':
+	gs 'boyStat', 'A186'
+	gs 'arousal', 'foreplay', -1
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/naked1.jpg"></center>'
+	'你躺在床上，揉捏着自己的乳房，期待着丈夫来到你身边。'
+
+	act '继续':
+		*clr & cla
+		gs 'arousal', 'foreplay', 10, 'sub'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/sex.jpg"></center>'
+		'你的丈夫走到床边，躺在你身边，开始用手揉搓你的乳房，还捏了捏。'
+		'他俯身吮吸你的乳头，让你轻声呻吟。他花了几分钟吸吮揉捏你的乳房，然后来到你的双腿之间，插了进去。'
+
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'vaginal', 20, 'sub'
+			gs 'arousal', 'foreplay', -20, 'sub'
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/sex2.jpg"></center>'
+			'没过多久他就开始和你做爱，一边爱抚你一边呻吟着你的名字。'
+
+			act '继续':
+				*clr & cla
+				gs 'arousal', 'vaginal', 5, 'sub'
+				gs 'cum_call', 0, 'A186', 2, 0, 15000, 60
+				$orgasm_or = 'yes'
+				gs 'arousal', 'end'
+
+				'<center><img <<$set_imgh>> src="images/shared/sex/cum/vagcreampie/after1.jpg"></center>'
+				'他呻吟一声，你感到他的种子进入你的子宫，然后他把头枕在你的乳房上，开始轻轻打起鼾来。'
+
+				act '去睡觉':
+					if trait_vars['sensitivity_override'] = 1: trait_vars['sensitivity_override'] = 0
+					gs 'shortgs', 'autosave'
+					gt 'pre_sleep', 'start'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'first_night':
+	therapistQW['hotel_firstnight'] = 1
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/naked1.jpg"></center>'
+	'你像往常一样躺在床上，准备睡过这一夜，这时你的丈夫加入了进来。'
+	act '继续':
+		*clr & cla
+		gs 'arousal', 'kiss', 10, 'sub'
+		gs 'arousal', 'foreplay', -10, 'sub'
+		gs 'arousal', 'vaginal', -5, 'sub'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/sex.jpg"></center>'
+		'他开始亲吻你的嘴唇和脖颈，双手移向你的乳房。落在你唇上的每一个吻，你都一一回应。没过多久，他就压在你身上，肉棒插在你体内，拼命抽插，仿佛他的生命就系于此。'
+
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'vaginal', 15, 'sub'
+			gs 'cum_call', 0, 'A186', 2, 0, 15000, 60
+			gs 'arousal', 'end'
+
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/sex2.jpg"></center>'
+			'你内心深处知道有些不对劲，但你只知道你能和他一起达到高潮，并且接受他表达爱的方式。他每抽插一下，你都会获得一次小小的高潮。几分钟后，你感到他把一大泡精液射进你体内，然后紧紧抱住你，没有拔出来。'
+			'<<$func(''wrap'', ''hypno'', ''"我们每晚、每一天都要这样做,直到我们中有一个先死掉。"'')>>他说这话更像是开玩笑。<<$func(''wrap'', ''hypno'', ''"除非我陪着你,否则你将无法入睡。你属于我,只属于我一个人。明白了吗,我的妻子?"'')>>他命令道。 <<$func(''wrap'', ''hypno'', ''"你每晚都要在我的床上。如果你不在,我会用我认为合适的方式惩罚你。"'')>>'
+
+			act '是的，先生':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/shared/sex/cum/vagcreampie/after1.jpg"></center>'
+				'<<$func(''wrap'', ''hypno'', ''"Good, now rest, for tomorrow, you will start your life as my wife"'')>>他说着把你搂在胸前，拉过一条毯子盖在你们两人身上，你便沉沉睡去。'
+				act '继续':
+					if trait_vars['sensitivity_override'] = 1: trait_vars['sensitivity_override'] = 0
+					gs 'pre_sleep_events', 'event_end'
+				end
+
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'first_morning':
+	therapistQW['hotel_firstnight'] = 2
+	pcs_energy = 100
+	pcs_hydra = 100
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/naked1.jpg"></center>'
+	'你醒来，看到丈夫已经醒了，正在笔记本电脑上忙着什么。"早上好，亲爱的。给我们做点早餐怎么样？"他说。你滑下床，走到小厨房开始给他做早餐。当你把盛着食物的盘子递给他时，你听到一声响指，然后你就一片空白了。'
+	'<<$func(''wrap'', ''hypno'', ''"我的妻子,每天早上你都要醒来,为我和我们的孩子做早餐。午餐我可以自己解决,晚餐也一样,但等我们搬到更大的地方,晚餐也要由你负责,明白吗?"'')>>他说，而你用单调的声音回答："是的，先生"'
+	'响指声再次响起，你眨了眨眼睛。"你没事吧，老婆？"他问道。'
+	'你点点头。"没事，只是走神了。"你回答。'
+	'"哦，那你去洗个澡，然后出去透透气吧。"他命令道。'
+
+	act '去洗个澡':
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/characters/pavlovsk/resident/therapist/hotel_shower1.mp4"></video></center>'
+		noshampoo = 1
+		gs 'din_van', 'showerdin'
+		'你站在淋浴下，任凭水流冲刷着你的身体。你思考着自己的人生。'
+		'你还是个少女，如今却已经结婚了。你记不清这一切是怎么发生的，但你既有些担心，又有些开心，就好像这只是初次的紧张不安。'
+		'你洗漱完穿好衣服。当你走进酒店房间时，发现丈夫已经出门了，于是你也自己出了门。'
+
+		act '离开酒店':
+			gs 'outfit', 'wear_last_worn'
+			gs 'wakeup_events', 'exit'
+			gs 'therapist_home', 'leave', 'pav_market'
+		end
+	end
+end
+
+
+--- therapist_home ---------------------------------

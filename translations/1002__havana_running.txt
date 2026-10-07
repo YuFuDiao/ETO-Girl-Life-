@@ -1,0 +1,617 @@
+# havana_running
+
+if $ARGS[0] = 'start':
+	menu_off = 1
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/pc/activities/exercises/gym/fit1.jpg"></center>'
+	'你在练习跑前做着拉伸和热身。你可以看到你的教练伊戈尔·尤里索维奇正在和其他运动员交谈。'
+
+	act '做几次练习跑':
+		*clr & cla
+		abonement -= 1
+		gs 'mood', 'raise', 'tiny'
+		gs 'exercise', 'tier2', 30, 'run'
+		'<center><img <<$set_imgh>> src="images/pc/activities/exercises/gym/fit5.jpg"></center>'
+		'你花了半个小时练习100米短跑以提高速度，还绕着体育场跑了几圈来锻炼耐力。'
+		'结束时你浑身是汗，但也感觉自己比以前进步了一点。'
+
+		act '去更衣室': gt $loc, $loc_arg
+	end
+
+	if runnerQW['joined_team'] > 0:
+		act '去找教练':
+			cla
+			'伊戈尔·尤里索维奇是你的教练，一个嗓音粗哑、似乎从不会厌倦那些激励人心的口号的男人。'
+			'"唯一能阻止你获胜的人就是你自己”，这是他目前最爱说的一句话。'
+
+			if pcs_run < 50:
+				'尽管看起来忙于其他学员，伊戈尔不仅看了你的练习跑，还给你计时了。不过他看起来不太高兴——当然，他从来也没高兴过。'
+				'"你得更刻苦地训练，姑娘。以这样的成绩，你会是垫底的。见鬼，你甚至连正赛的资格都拿不到！如果你想变得更好，就得注意饮食，也许训练后去蒸个俄式桑拿，但最重要的是：练习、练习、再练习！”'
+
+				act '离开': gt 'havana_running', 'start'
+			elseif pcs_run >= 50 and runnerQW['champ_gold'] = 0:
+				'尽管看起来忙于其他学员，伊戈尔不仅看了你的练习跑，还给你计时了。虽然你确信他天生就不懂得表现出兴奋甚至满意的表情，但你觉得他看你的眼神比平时少了几分严厉。'
+				'"你做得不错，姑娘。不只是不错；如果走对路子，你在田径上会有大好前途。如果你继续努力，你甚至有可能成为欧洲冠军，也许还不止。但记住，胜利的关键在于你的意志：只要心态正确，你就能做到任何事。”'
+
+				act '离开': gt 'havana_running', 'start'
+			else
+				'伊戈尔热切地观看你的练习跑，也给你计时。尽管他神情严峻，他还是对你的成绩赞许地点点头，当你创下个人最好成绩时，他甚至给了你一个拥抱。'
+				'"你做得太棒了，<<$pcs_nickname>>。我真的给不了你更多建议了，只能告诉你继续努力，让我们为你骄傲。”'
+
+				act '离开': gt 'havana_running', 'start'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           CHAMPIONSHIPS                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'race_start':
+	menu_off = 1
+	*clr & cla
+	minut += 30
+	runnerQW['comp_day'] = daystart
+	runnerQW['races_ran'] += 1
+	!! razdtumbler = 0	& !these do not appear anywhere else
+	!! begmon = month		& !these do not appear anywhere else
+	runnerQW['bmi_penalty'] = 0
+	gs 'stat'
+
+	if runnerQW['prof_stage'] = 0:
+		'你报名参加了一场业余比赛。比赛结果将决定你是否能加入俱乐部的青年队，进入半职业跑者圈。'
+
+		act '去田径场': gt 'havana_running', 'br'
+	elseif runnerQW['prof_stage'] = 1:
+		'作为俱乐部青年队的成员，你报名参加了一场半职业比赛。比赛结果将决定你是否能进入老将队。'
+
+		act '去田径场': gt 'havana_running', 'kms'
+	elseif runnerQW['prof_stage'] = 2:
+		'作为俱乐部老将队的成员，你报名参加了一场半职业比赛。比赛结果将决定你是否能进入职业跑者圈。'
+
+		act '去田径场': gt 'havana_running', 'ross'
+	elseif runnerQW['prof_stage'] >= 3 and runnerQW['prof_stage'] < 14:
+		'作为俱乐部最优秀的运动员之一，你可以参加职业圈的一系列资格赛。在11场比赛中赢得9场，就能获得圣彼得堡田径锦标赛的参赛资格。'
+		nl
+		'参加的资格赛：<<runnerQW[''prof_stage''] - 3>>'
+		'资格赛前3名完赛次数：<<runnerQW[''qualifiers'']>>'
+
+		act '去体育场': gt 'havana_running', 'kval'
+	elseif runnerQW['prof_stage'] = 14 and runnerQW['qualifiers'] < 9:
+		cla
+		runnerQW['qualifiers'] = 0
+		runnerQW['prof_stage'] = 3
+		'你没能获得圣彼得堡田径锦标赛的参赛资格。'
+
+		!! WD: Argument is 'dressing room'
+		act '回到更衣室': gt $loc, $loc_arg
+	elseif runnerQW['prof_stage'] = 14 and runnerQW['qualifiers'] >= 9:
+		cla
+		runnerQW['qualifiers'] = 0
+		runnerQW['prof_stage'] = 3
+		'你获得了<<year>>圣彼得堡田径锦标赛的参赛资格，本赛季将在 彼得罗夫斯基 体育场举行。'
+
+		act '去体育场': gt 'havana_running', 'evro'
+	end
+end
+
+
+if $ARGS[0] = 'br':
+	cla
+	gs 'exercise', 'tier2', 30, 'run'
+
+	runnerQW['bmi_penalty'] = 0
+	if pcs_bmi > 25:
+		runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+	elseif pcs_bmi < 20:
+		runnerQW['bmi_penalty'] = ((20 - pcs_bmi)*(20-pcs_bmi))
+	end
+	runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/race/ready.jpg"></center>'
+	'你的项目：女子400米短跑。'
+	'换上跑步装备后，你在比赛开始前花了一些时间在跑道旁热身。除了几个路过的旁观者和为你加油的熟人，这场比赛的观众寥寥无几。'
+	'当你和其他选手被叫到时，你走到起跑位置，紧张但准备就绪。'
+	wait 725
+	'你摆好姿势。然后，你听到发令枪响：比赛开始了！'
+	wait 725
+	'各就各位…'
+	wait 725
+	'预备…'
+	wait 725
+	'跑！'
+	wait 725
+
+	if runnerQW['result'] < 5:
+		grupvalue[2] -= 3
+		'你勉强到达终点，最后100米几乎是走完的。你以非常缓慢且尴尬的最后一名完赛，有点出丑了。'
+	elseif runnerQW['result'] < 10:
+		grupvalue[2] -= 2
+		'你表现不错，但还是得了最后一名。'
+	elseif runnerQW['result'] < 15:
+		grupvalue[2] -= 1
+		'你奋力拼搏，但只拿到了倒数第二名。'
+	elseif runnerQW['result'] < 20:
+		'你奋力拼搏，但只获得了第6名。'
+	elseif runnerQW['result'] < 35:
+		grupvalue[2] += 1
+		'你奋力拼搏，但只拿到了第五名。'
+	elseif runnerQW['result'] < 40:
+		grupvalue[2] += 2
+		'你奋力拼搏，但只获得了第4名。'
+	elseif runnerQW['result'] < 45:
+		grupvalue[2] += 3
+		gs 'fame', 'city', 'running', 14
+		runnerQW['bronze_medals'] += 1
+		gs 'money', 'earn', 150
+		'你奋力拼搏，成功获得第3名，赢得奖励：你获得一枚铜质徽章和一笔奖金<<$func(''money'', ''string_profit'', 150)>>'
+	elseif runnerQW['result'] < 50:
+		grupvalue[2] += 4
+		gs 'fame', 'city', 'running', rand(14, 15)
+		runnerQW['silver_medals'] += 1
+		gs 'money', 'earn', 300
+		'你奋力拼搏，成功获得第2名，赢得奖励：你获得一枚银质徽章和一笔奖金<<$func(''money'', ''string_profit'', 300)>>'
+	else
+		grupvalue[2] += 5
+		gs 'fame', 'city', 'running', rand(14, 16)
+		runnerQW['prof_stage'] = 1
+		runnerQW['gold_medals'] += 1
+		gs 'money', 'earn', 600
+		'你奋力拼搏，成功获得第1名！你获得一枚金牌徽章，一笔奖金<<$func(''money'', ''string_profit'', 600)>>并且现在成为了俱乐部青年队的一员，活跃在半职业级别。'
+	end
+
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'kms':
+	cla
+	gs 'exercise', 'tier2', 30, 'run'
+
+	runnerQW['bmi_penalty'] = 0
+	if pcs_bmi > 25:
+		runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+	elseif pcs_bmi < 20:
+		runnerQW['bmi_penalty'] = ((20 - pcs_bmi)*(20-pcs_bmi))
+	end
+	runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/race/ready.jpg"></center>'
+	'你的项目：女子400米短跑。'
+	'换上跑步装备后，你在比赛开始前花了一些时间在跑道旁热身。除了为你加油的熟人，你还能看到一些真正感兴趣的观众，有些人还带着相机，但即便如此，到场的观众也不到一百人。田径场远远没有坐满。'
+	'当你和其他选手被叫到时，你走到起跑位置，紧张但准备就绪。'
+	wait 725
+	'你摆好姿势。然后，你听到发令枪响：比赛开始了！'
+	wait 725
+	'各就各位…'
+	wait 725
+	'预备…'
+	wait 725
+	'跑！'
+	wait 725
+
+	if runnerQW['result'] < 20:
+		grupvalue[2] -= 2
+		runnerQW['prof_stage'] = 0 & '你勉强到达终点，最后100米几乎是走完的。你的表现实在太糟糕，教练决定把你降回业余组。'
+	elseif runnerQW['result'] < 25:
+		grupvalue[2] -= 1
+		'你奋力拼搏，但要想超越对手，前面还有很多路要走。你没能获得任何名次。'
+	elseif runnerQW['result'] < 30:
+		'你拼命战斗，但要想比对手更强，前面还有很多努力要做。你只得了最后一名。'
+	elseif runnerQW['result'] < 35:
+		'你奋力拼搏，但只拿到了倒数第二名。'
+	elseif runnerQW['result'] < 40:
+		grupvalue[2] += 1
+		'你奋力拼搏，但只获得了第6名。'
+	elseif runnerQW['result'] < 45:
+		grupvalue[2] += 2
+		'你奋力拼搏，但只拿到了第五名。'
+	elseif runnerQW['result'] < 50:
+		grupvalue[2] += 3
+		gs 'fame', 'city', 'running', 14
+		'你奋力拼搏，但只获得了第4名。'
+	elseif runnerQW['result'] < 55:
+		grupvalue[2] += 4
+		gs 'fame', 'city', 'running', rand(14, 15)
+		runnerQW['bronze_medals'] += 1
+		gs 'money', 'earn', 300
+		'你奋力战斗并取得第3名，赢得奖品：你得到一枚铜牌和奖金<<$func(''money'', ''string_profit'', 300)>>'
+	elseif runnerQW['result'] < 60:
+		grupvalue[2] += 5
+		gs 'fame', 'city', 'running', rand(14, 16)
+		runnerQW['silver_medals'] += 1
+		gs 'money', 'earn', 600
+		'你奋力战斗并取得第2名，赢得奖品：你得到一枚银牌和奖金<<$func(''money'', ''string_profit'', 600)>>'
+	else
+		grupvalue[2] += 6
+		gs 'fame', 'city', 'running', rand(14, 17)
+		runnerQW['prof_stage'] = 3
+		runnerQW['gold_medals'] += 1
+		gs 'money', 'earn', 1000
+		'你努力战斗并成功获得第一名！你得到一枚金牌，一份奖励为<<$func(''money'', ''string_profit'', 1000)>>并且成为了俱乐部老将队的一员，活跃在半职业级别。'
+	end
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'ross':
+	cla
+	gs 'exercise', 'tier2', 30, 'run'
+
+	runnerQW['bmi_penalty'] = 0
+	if pcs_bmi > 25:
+		runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+	elseif pcs_bmi < 20:
+		runnerQW['bmi_penalty'] = ((20 - pcs_bmi)*(20-pcs_bmi))
+	end
+	runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/race/ready.jpg"></center>'
+	'你的项目：女子400米短跑。'
+	'换上跑步装备后，你在比赛开始前花了一些时间在跑道旁热身。俱乐部的粉丝、田径爱好者和来校外活动的学生把场地挤得满满当当。你甚至看到一些摄影记者，他们都对这场比赛表现出真正的兴趣。粗略估计，观众人数有几百人。田径场座无虚席。'
+	'当你和其他选手被叫到时，你走到起跑位置，紧张但准备就绪。'
+	wait 725
+	'你摆好姿势。然后，你听到发令枪响：比赛开始了！'
+	wait 725
+	'各就各位…'
+	wait 725
+	'预备…'
+	wait 725
+	'跑！'
+	wait 725
+
+	if runnerQW['result'] < 30:
+		runnerQW['prof_stage'] = 1 & '你勉强到达终点，最后100米几乎是走完的。你的表现实在太糟糕，教练决定把你降回青年组。'
+	elseif runnerQW['result'] < 35:
+		'你奋力拼搏，但要想超越对手，前面还有很多路要走。你没能获得任何名次。'
+	elseif runnerQW['result'] < 40:
+		'你拼命战斗，但要想比对手更强，前面还有很多努力要做。你只得了最后一名。'
+	elseif runnerQW['result'] < 45:
+		grupvalue[2] += 1
+		'你奋力拼搏，但只拿到了倒数第二名。'
+	elseif runnerQW['result'] < 50:
+		grupvalue[2] += 2
+		'你奋力拼搏，但只获得了第6名。'
+	elseif runnerQW['result'] < 55:
+		grupvalue[2] += 3
+		gs 'fame', 'city', 'running', 14
+		'你奋力拼搏，但只拿到了第五名。'
+	elseif runnerQW['result'] < 60:
+		grupvalue[2] += 4
+		gs 'fame', 'city', 'running', rand(14, 15)
+		'你奋力拼搏，但只获得了第4名。'
+	elseif runnerQW['result'] < 65:
+		grupvalue[2] += 5
+		gs 'fame', 'city', 'running', rand(14, 16)
+		runnerQW['bronze_medals'] += 1
+		gs 'money', 'earn', 600
+		'你奋力战斗并取得第3名，赢得奖品：你得到一枚铜牌和奖金<<$func(''money'', ''string_profit'', 600)>>'
+	elseif runnerQW['result'] < 70:
+		grupvalue[2] += 6
+		gs 'fame', 'city', 'running', rand(14, 17)
+		runnerQW['silver_medals'] += 1
+		gs 'money', 'earn', 1000
+		'你奋力战斗并取得第2名，赢得奖品：你得到一枚银牌和奖金<<$func(''money'', ''string_profit'', 1000)>>'
+	else
+		grupvalue[2] += 7
+		gs 'fame', 'city', 'running', rand(14, 18)
+		runnerQW['prof_stage'] = 3
+		runnerQW['gold_medals'] += 1
+		gs 'money', 'earn', 1500
+		'你努力战斗并成功获得第一名！你得到一枚金牌，一份奖励为<<$func(''money'', ''string_profit'', 1500)>>并且获得了进入职业圈的资格。'
+	end
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'kval':
+	cla
+	gs 'exercise', 'tier2', 30, 'run'
+	runnerQW['prof_stage'] += 1
+	minut += 60
+
+	runnerQW['bmi_penalty'] = 0
+	if pcs_bmi > 25:
+		runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+	elseif pcs_bmi < 20:
+		runnerQW['bmi_penalty'] = ((20 - pcs_bmi)*(20-pcs_bmi))
+	end
+	runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/race/ready.jpg"></center>'
+	'你的项目：女子400米短跑。'
+	'到了职业级别，你的俱乐部会带你去 彼得罗夫斯基 体育场。换上跑步装备后，你在比赛开始前热身了一段时间，并观察了一下现场的上座情况。这才叫盛况。成千上万的人前来观看比赛，包括摄影记者、电视台工作人员和各类体育爱好者。即便如此，体育场也远未坐满，大概只有四分之一的上座率。'
+	!! Took the Krestovsky Stadium for reference. !!THX note. the Krestovsky Stadium is football-only. Better use the Petrovsky Stadium(20000), have track fields.
+	'当你和其他选手被叫到时，你走到起跑位置，紧张但准备就绪。'
+	wait 725
+	'你摆好姿势。然后，你听到发令枪响：比赛开始了！'
+	wait 725
+	'各就各位…'
+	wait 725
+	'预备…'
+	wait 725
+	'跑！'
+	wait 725
+
+	if runnerQW['result'] < 40:
+		grupvalue[2] -= 1
+		runnerQW['prof_stage'] = 2
+		runnerQW['qualifiers'] = 0
+		'你勉强到达终点，最后100米几乎是走完的。你的表现实在太糟糕，教练决定把你降回半职业组。'
+	elseif runnerQW['result'] < 45:
+		'你奋力拼搏，但要想超越对手，前面还有很多路要走。你没能获得任何名次。'
+	elseif runnerQW['result'] < 50:
+		'你拼尽全力，但要想超越对手，你前面还有很多路要走。你只得了最后一名。'
+	elseif runnerQW['result'] < 55:
+		grupvalue[2] += 2
+		'你拼尽全力，但只拿到了倒数第二名。'
+	elseif runnerQW['result'] < 60:
+		grupvalue[2] += 3
+		gs 'fame', 'city', 'running', 14
+		'你奋力拼搏，但只获得了第6名。'
+	elseif runnerQW['result'] < 65:
+		grupvalue[2] += 4
+		gs 'fame', 'city', 'running', rand(14, 15)
+		'你奋力拼搏，但只拿到了第五名。'
+	elseif runnerQW['result'] < 70:
+		grupvalue[2] += 5
+		gs 'fame', 'city', 'running', rand(14, 16)
+		'你奋力拼搏，但只获得了第4名。'
+	elseif runnerQW['result'] < 75:
+		grupvalue[2] += 6
+		gs 'fame', 'city', 'running', rand(14, 17)
+		runnerQW['qualifiers'] += 1
+		runnerQW['bronze_medals'] += 1
+		gs 'money', 'earn', 1000
+		'你奋力拼搏，成功获得第3名，赢得奖励。你得到一枚铜质徽章和一笔奖金<<$func(''money'', ''string_profit'', 1000)>>/ 然而，只有获得第1名才能让你有资格参加田径锦标赛。'
+	elseif runnerQW['result'] < 80:
+		grupvalue[2] += 7
+		gs 'fame', 'city', 'running', rand(14, 18)
+		runnerQW['qualifiers'] += 1
+		runnerQW['silver_medals'] += 1
+		gs 'money', 'earn', 1500
+		'你奋力战斗并取得第2名，赢得奖品。你得到一枚银牌和奖金<<$func(''money'', ''string_profit'', 1500)>>. 然而，只有获得第1名才能让你有资格参加田径锦标赛。'
+	else
+		grupvalue[2] += 8
+		gs 'fame', 'city', 'running', rand(14, 19)
+		runnerQW['qualifiers'] += 1
+		runnerQW['gold_medals'] += 1
+		gs 'money', 'earn', 2000
+		'你努力战斗并成功获得第一名！你得到一枚金牌，一份奖励为<<$func(''money'', ''string_profit'', 2000)>>并且离获得圣彼得堡田径锦标赛的参赛资格更近了一步。'
+	end
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'evro':
+	cla
+	gs 'exercise', 'tier2', 30, 'run'
+	minut += 120
+
+	runnerQW['bmi_penalty'] = 0
+	if pcs_bmi > 25:
+		runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+	elseif pcs_bmi < 20:
+		runnerQW['bmi_penalty'] = ((20 - pcs_bmi)*(20-pcs_bmi))
+	end
+	runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/race/ready.jpg"></center>'
+	'你的项目：女子400米短跑。'
+	'这是圣彼得堡地区最高级别的比赛。从这里开始，职业跑者将迈向地区级、国家级，最终是国际赛场。你终将到达那些级别，甚至有可能加入国家的奥运代表队，但眼下，你最好专注于赢得圣彼得堡锦标赛。'
+	'换上跑步装备后，你在比赛开始前热身了一段时间，并观察了一下现场的上座情况。很明显这是一场盛大的赛事，大约有一万名观众和记者到场。'
+	'当你和其他选手被叫到时，你走到起跑位置，紧张但准备就绪。'
+	wait 725
+	'你摆好姿势。然后，你听到发令枪响：比赛开始了！'
+	wait 725
+	'各就各位…'
+	wait 725
+	'预备…'
+	wait 725
+	'跑！'
+	wait 725
+
+	if runnerQW['result'] < 50:
+		grupvalue[2] -= 1
+		runnerQW['prof_stage'] = 2
+		runnerQW['qualifiers'] = 0
+		'你勉强到达终点，最后100米几乎是走完的。你的表现实在太糟糕，教练决定把你降回半职业组。'
+		gs 'fame', 'city', 'running', rand(14, 19)
+	elseif runnerQW['result'] < 55:
+		'你奋力拼搏，但要想超越对手，前面还有很多路要走。你没能获得任何名次。'
+		gs 'fame', 'city', 'running', rand(15, 21)
+	elseif runnerQW['result'] < 60:
+		gs 'fame', 'city', 'running', rand(16, 23)
+		'你拼命战斗，但要想比对手更强，前面还有很多努力要做。你只得了最后一名。'
+	elseif runnerQW['result'] < 65:
+		grupvalue[2] += 1
+		gs 'fame', 'city', 'running', rand(18, 25)
+		'你奋力拼搏，但只拿到了倒数第二名。'
+	elseif runnerQW['result'] < 70:
+		grupvalue[2] += 2
+		gs 'fame', 'city', 'running', rand(20, 25)
+		'你奋力拼搏，但只获得了第6名。'
+	elseif runnerQW['result'] < 75:
+		grupvalue[2] += 3
+		gs 'fame', 'city', 'running', rand(25, 50)
+		'你拼尽全力，但只拿到了第5名。'
+	elseif runnerQW['result'] < 80:
+		grupvalue[2] += 4
+		gs 'fame', 'city', 'running', rand(50, 100)
+		'你奋力拼搏，但只获得了第4名。'
+	elseif runnerQW['result'] < 85:
+		grupvalue[2] += 6
+		gs 'fame', 'city', 'running', 'BronzeMedal'
+		runnerQW['champ_bronze'] += 1
+		gs 'money', 'earn', 10000
+		'你奋力拼搏，成功获得第3名，赢得奖励。你得到一枚铜牌和一笔奖金<<$func(''money'', ''string_profit'', 10000)>>'
+	elseif runnerQW['result'] < 90:
+		grupvalue[2] += 8
+		gs 'fame', 'city', 'running', 'SilverMedal'
+		runnerQW['champ_silver'] += 1
+		gs 'money', 'earn', 15000
+		'你奋力战斗并取得第2名，赢得奖品。你得到一枚银牌和奖金<<$func(''money'', ''string_profit'', 15000)>>'
+	else
+		grupvalue[2] += 10
+		gs 'fame', 'city', 'running', 'GoldMedal'
+		runnerQW['champ_gold'] += 1
+		gs 'money', 'earn', 20000
+		'你奋力拼搏，成功获得第1名。你得到一枚金牌，一笔奖金<<$func(''money'', ''string_profit'', 20000)>>并且现在成为了 "圣彼得堡田径冠军"!'
+		act '继续': gt 'havana_running', 'Family extension'
+		exit
+	end
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'Family extension':
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/race/run_win.jpg"></center>'
+	if $home['current'] = 'parents_home':
+		minut += 10
+		gs 'stat'
+		'当你接受教练和对手们的祝贺时，你望向人群以示回应。你惊讶地看到母亲正疯狂地向你挥手，努力朝跑道边挤过来。'
+		'你咧开一个大大的笑容，小跑到栏杆边，探过身去和她相拥。'
+		'"干得漂亮，<<$pcs_nickname>>，那真是一场精彩的比赛！天哪！我的小女儿……圣彼得堡田径冠军！接下来呢，全国比赛？总之，我在本地报纸上看到参赛名单里有你的名字，就一定要来；我知道你一直在刻苦训练，但我从没想到你能达到这个水平！我真为你骄傲！再抱我一下！”'
+		'你探过身去拥抱母亲。“谢谢你来看比赛，<<$npc_nickname[''A29'']>>。我之前没提这事，因为我不确定自己能跑得多好，而且咱们家手头也不算宽裕，我不想给你压力让你非得来。”'
+		'母亲紧紧抱住你。“哦，<<$pcs_nickname>>，我当然会来！不管我们之间有过什么分歧，你都是我的女儿，我爱你，想给你最好的。”'
+		if npc_rel['A33'] > 50:
+			'这时，你感到手臂被轻轻捶了一下，抬起头看到安雅站在母亲身后，正冲你咧嘴笑。你们俩张开双臂，把她也拥进怀里。'
+			'"终于！我被一些人挡住了。总之，干得漂亮，<<$pcs_nickname>>！跑得太快了，离奥运成绩都不远了！”'
+			'你后退半步看着她们。“这值得好好庆祝一下！让我去冲个澡换身衣服，然后在外面见。我有个主意……”'
+		else
+			'拥抱过后，母亲环顾四周，好像在找什么人。'
+			'"你怎么了，<<$npc_nickname[''A29'']>>？你是在找谁吗？”'
+			'"嗯，安雅和我一起来的。我叫她来看看你，然后顺便买点东西，但我看不到她了。她准是下来的时候被堵住了。算了，至少我抱到了我的小女儿。你去冲个澡换身衣服，我在接待处等你和安雅。”'
+			'"好的，就这么办。我有个主意，我觉得这值得来点特别的。”'
+		end
+		act '去洗个澡':
+			*clr & cla
+			gs 'din_van', 'showerdin'
+			if deodorant_on = 1: gs 'sweat', 'remove_deo' & '你的除臭剂在淋浴时被冲掉了。'
+			pcs_hairbsh = 1
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+			'你冲了个澡，穿好衣服。'
+			minut += 10
+			gs 'stat'
+			act '去见你的家人':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/desk.jpg"></center>'
+				'在接待处见到母亲和姐姐后，你提出了你的主意。“如果我能安排好的话，来个特别款待怎么样？我们三个去巴别尔试试，看能不能进去吃顿饭？”'
+				'母亲和安雅都像看疯子一样看着你，然后母亲开口了：“<<$pcs_nickname>>！我们可没穿适合去那种地方的衣裳，就算穿了，我们也根本吃不起！”'
+				'你咧嘴一笑。“所以我才说‘如果我能安排好的话’。我们去试试，如果不行，我们总能去小餐馆吃。”'
+				'她们俩对视一眼，又看向你，什么也没说。“好吧，那我就当你们答应了。”'
+				'你们一起离开，向巴别尔走去。'
+				minut += 5
+				gs 'stat'
+				act '去餐厅':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/expensiverest/restoran.jpg"></center>'
+					'你走向领班。'
+					'不出所料，他起初拒绝你们一行人进入餐厅。你简短地解释说你刚刚成为圣彼得堡 400米田径冠军，并出示金牌作为证明，但他仍然将信将疑。“好吧，年轻的小姐，能请你告诉我你的名字吗？”'
+					'“<<$pcs_firstname>> <<$pcs_lastname>>。”你回答。'
+					'"好的，<<$pcs_lastname>>小姐，请稍等片刻。”'
+					'他转过身，走向大堂里摆着全国、国际和地方报纸的桌子，查了一下本地报纸，然后回到你面前。'
+					minut += 5
+					gs 'stat'
+					act '等他':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/expensiverest/maitredseat.jpg"></center>'
+						'几分钟后他回来了，示意你们跟他走。“通常我们有严格的着装要求，是不会放人进来的。不过，鉴于这种情况，我很高兴地告诉你们，非常欢迎你们在这里用餐，毕竟这是如此特别的场合。毕竟，圣彼得堡 400米田径冠军光临我们这家体面的餐厅，可不是天天都有的事。”'
+						'他继续说：“经理还让我告诉你们，今晚你们全部免费用餐，外加一瓶赠送的香槟。不过有一个条件……”'
+						*nl
+						'你略带警惕地看着他。“好的，谢谢。那条件是什么？”'
+						'他咧嘴一笑。“嗯，很简单。我们要给你拍一张展示金牌的照片，用在我们的广告里，说明你赢得比赛后和可爱的姐妹们在店里用过餐。”'
+						'这时你母亲脸红到脖子根，你回答：“没问题，这是我们的荣幸……只要我的<<$npc_nickname[''A29'']>>不再脸红、我姐姐不再偷笑就行！”'
+						'"你的母亲？”他问道。'
+						'"是的。”你回答，“不过我想你从她脸红的样子就能看出来，她显然很喜欢你的赞美。”'
+						'他继续说：“另外还要拍一张你的照片，我会请你签个名，好拿给我的孩子们看。”'
+						'"当然可以！趁我母亲恢复镇定的时候，我们把这事办了吧。”'
+						minut += 5
+						gs 'stat'
+						act '吃晚餐':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/expensiverest/seated.jpg"></center>'
+							'拍完照片后，领班带你们到餐桌旁坐下。'
+							'享用了一顿美餐，又因香槟而微醺之后，你们一起往外走。你停下来感谢领班的盛情，并请他代为转达你对经理免单的谢意。'
+							'到了外面，你们又拥抱了一次，你感谢她们俩前来观看比赛，然后才各自分开。'
+							'你姐姐朝你眨了眨眼，挥手道别：“谢啦。我从没想过能去那种地方吃饭。看来你已经开始习惯有点名气了！”'
+							'你母亲也表示赞同：“我也是。这真是一次特别的款待！不过别让这事冲昏了头脑。我还是希望你能努力学习，好的教育同样重要！”'
+							'你笑着回答：“好的，<<$npc_nickname[''A29'']>>，我知道了。待会儿见。”'
+							minut += 90
+							gs 'beverage', 'champagne_stats', 2
+							gs 'mood', 'raise', 'small'
+							gs 'food', 'medium_meal_stats'
+							act '去市中心': gt 'city_center'
+						end
+					end
+				end
+			end
+		end
+	else
+		if npc_rel['A33'] <= 50:
+			gt $loc, $loc_arg
+		else
+			'当你接受教练和对手们的祝贺时，你望向人群以示回应。你惊讶地看到你姐姐正疯狂地向你挥手，努力朝跑道边挤过来。'
+			'你咧开一个大大的笑容，小跑到栏杆边，探过身去和彼此拥抱。'
+			'"干得漂亮，姑娘！那真是一场精彩的比赛。我知道你爱跑步，但从没想过你能达到这个水平。干得好！”'
+			'"谢谢你来看比赛，姐。这对我意义重大。”'
+			'"你怎么不告诉我？算我走运知道了这事，上周我和罗曼他们在社区中心外面闲逛时，教练跟我提了一嘴。我怎么能错过和我小妹小小庆祝一下的机会呢？咱们去喝几杯啤酒吧！我知道一家不错的酒吧，坐地铁很快就到。”'
+			'"好啊，太好了。我正想去呢！让我先去冲个澡换身衣服。”'
+			'"行，别太慢，不然我可就要先走了！”'
+			act '去洗个澡':
+				*clr & cla
+				gs 'din_van', 'showerdin'
+				if deodorant_on = 1: gs 'sweat', 'remove_deo' & '你的除臭剂在淋浴时被冲掉了。'
+				pcs_hairbsh = 1
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+				'你冲了个澡，穿好衣服。'
+				*nl
+				'冲完澡后，你在接待处和安雅碰面，然后一起前往地铁。'
+				minut += 10
+				gs 'stat'
+				act '去酒吧':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/city/shared/metro/metro.jpg"></center>'
+					'你乘地铁来到工业区，朝工人酒吧走去。'
+					minut += 20
+					gs 'stat'
+					act '喝一杯':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/industrial/bar/bar.jpg"></center>'
+						'你们俩走到吧台前点了些啤酒，就在吧台边喝了起来。'
+						'你们俩喝完啤酒后，又点了一杯，然后走向台球桌。'
+						gs 'beverage', 'beer_stats'
+						minut += 15
+						gs 'stat'
+						act '和克谢尼娅交谈':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/city/industrial/bar/sex/pool/poolw.jpg"></center>'
+							'你们俩打了一局台球，打完球后，安雅去吧台再拿些啤酒。'
+							'与此同时，你摆好台球桌，准备再来一局。'
+							gs 'beverage', 'beer_stats'
+							minut += 15
+							gs 'stat'
+							act '再来一局':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/city/industrial/bar/sex/pool/pooll.jpg"></center>'
+								'你又花了几分钟打了一局，最后以一记关键球赢下了比赛。'
+								'"好了，<<$pcs_nickname>>，咱们各赢一局。再喝一杯啤酒，我就得走了。”'
+								'"听起来不错，姐。”'
+								'喝完最后一杯啤酒后，你们俩离开酒吧，安雅匆匆离去前给了你一个拥抱。“回头见，小妹！再次恭喜你！”'
+								gs 'beverage', 'beer_stats', 2
+								minut += 15
+								gs 'stat'
+								act '离开酒吧': gt 'city_industrial'
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+--- havana_running ---------------------------------

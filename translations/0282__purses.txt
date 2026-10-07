@@ -1,0 +1,412 @@
+# purses
+!! 2021/04/15
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_total':
+	if $mid($ARGS[1], 1, 2) = 'gm':
+		result = 20
+	elseif $mid($ARGS[1], 1, 4) = 'coco':
+		result = 60
+	elseif $mid($ARGS[1], 1, 5) = 'dolls':
+		result = 40
+	elseif $mid($ARGS[1], 1, 11) = 'fashionista':
+		result = 40
+	elseif $mid($ARGS[1], 1, 9) = 'flamingos':
+		result = 20
+	elseif $mid($ARGS[1], 1, 8) = 'nerdvana':
+		result = 60
+	elseif $mid($ARGS[1], 1, 4) = 'cats':
+		result = 20
+	elseif $mid($ARGS[1], 1, 5) = 'bomba':
+		result = 20
+	elseif $mid($ARGS[1], 1, 10) = 'danilovich':
+		result = 60
+	elseif $mid($ARGS[1], 1, 8) = 'moncheri':
+		result = 40
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'totals':
+	total = func('purses', 'get_total', $ARGS[1])
+	exit
+end
+
+
+!! $ARGS[1] set to outfit type
+!! ARGS[2] for outfit number
+!! ARGS[3] to skip attribute set
+if $ARGS[0] = 'not_wear_reason':
+	if arrsize('ARGS') = 1: $ARGS[1] = $currentpursetype
+	if arrsize('ARGS') = 2: ARGS[2] = currentpursenumber
+	if arrsize('ARGS') = 3: gs 'purse_attributes', $ARGS[1] + '_purses', ARGS[2]
+
+	$result = ''
+	if func('purses', 'is_immutable', $ARGS[1], ARGS[2]): exit
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]) = 0:
+		$result = 'not_owned'
+		exit
+	end
+	if func('purses', 'in_wardrobe', $ARGS[1], ARGS[2]) = 0:
+		$result = 'not_in_wardrobe'
+		exit
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'can_wear':
+	if arrsize('ARGS') = 1: $ARGS[1] = $currentpursetype
+	if arrsize('ARGS') = 2: ARGS[2] = currentpursenumber
+	if arrsize('ARGS') = 3: gs 'purse_attributes', $ARGS[1] + '_purses', ARGS[2]
+
+	result = ($func('purses', 'not_wear_reason', $ARGS[1], ARGS[2], 'attributes_set') = '')
+	exit
+end
+
+
+if $ARGS[0] = 'is_owned':
+	if arrsize('ARGS') = 1: $ARGS[1] = $currentpursetype
+	if arrsize('ARGS') = 2: ARGS[2] = currentpursenumber
+
+	result = dyneval("result = (<<$ARGS[1]>>_purses[<<ARGS[2]>>] > 0)")
+	exit
+end
+
+
+if $ARGS[0] = 'in_wardrobe':
+	if arrsize('ARGS') = 1: $ARGS[1] = $currentpursetype
+	if arrsize('ARGS') = 2: ARGS[2] = currentpursenumber
+
+	result = 0
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_pursesS[<<ARGS[2]>>] = 0)")
+	end
+	exit
+end
+
+if $ARGS[0] = 'in_storage':
+	if arrsize('ARGS') = 1: $ARGS[1] = $currentpursetype
+	if arrsize('ARGS') = 2: ARGS[2] = currentpursenumber
+
+	result = 0
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_pursesS[<<ARGS[2]>>] = 1)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'in_unwanted':
+	if arrsize('ARGS') = 1: $ARGS[1] = $currentpursetype
+	if arrsize('ARGS') = 2: ARGS[2] = currentpursenumber
+
+	result = 0
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_pursesS[<<ARGS[2]>>] = 2)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_wearing_any':
+	result = ($currentpursetype <> '' and $currentpursetype <> 'none')
+	exit
+end
+
+
+if $ARGS[0] = 'is_wearing':
+	result = ($currentpursetype = $ARGS[1] and currentpursenumber = ARGS[2])
+	exit
+end
+
+
+if $ARGS[0] = 'is_immutable':
+	result = 0
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             MANAGEMENT                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'add_item':
+	if $ARGS[1] = '': exit
+	if ARGS[2] = 0: exit
+
+	gs 'purse_attributes', $ARGS[1], ARGS[2]
+	if PursePrice = 0: exit
+
+	dynamic "
+		<<$ARGS[1]>>_purses[<<ARGS[2]>>] = 1
+	"
+	exit
+end
+
+
+if $ARGS[0] = 'remove_item':
+	if $ARGS[1] = '': $ARGS[1] = $currentpursetype
+	if ARGS[2] = 0: ARGS[2] = currentpursenumber
+
+	if $ARGS[1] = '' or $ARGS[1] = 'none': exit
+
+	dynamic "
+		<<$ARGS[1]>>_purses[<<ARGS[2]>>] = 0
+	"
+
+	if $ARGS[1] = $currentpursetype and ARGS[2] = currentpursenumber:
+		gs 'purses', 'strip'
+		gs 'outfit', 'set_derived_vars'
+		$lastwornpursetype = 'none'
+		lastwornpursenumber = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'reset_immutables':
+	exit
+end
+
+
+if $ARGS[0] = 'dispose':
+	gs 'purses', 'remove_item', $currentpursetype, currentpursenumber
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_wardrobe':
+	if $ARGS[1] = '': $ARGS[1] = $currentpursetype
+	if ARGS[2] = 0: ARGS[2] = currentpursenumber
+
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_pursesS[<<ARGS[2]>>] = 0"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_storage':
+	if $ARGS[1] = '': $ARGS[1] = $currentpursetype
+	if ARGS[2] = 0: ARGS[2] = currentpursenumber
+
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_pursesS[<<ARGS[2]>>] = 1"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_unwanted':
+	if $ARGS[1] = '': $ARGS[1] = $currentpursetype
+	if ARGS[2] = 0: ARGS[2] = currentpursenumber
+
+	if func('purses', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_pursesS[<<ARGS[2]>>] = 2"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'remove':
+	gs 'purses', 'strip'
+	exit
+end
+
+
+if $ARGS[0] = 'strip':
+	if $currentpursetype = '':
+		$currentpursetype = 'none'
+		currentpursenumber = 0
+	end
+
+	$purselastworntype = $currentpursetype
+	purselastwornnumber = currentpursenumber
+	gs 'purses', 'strip_code'
+	exit
+end
+
+
+if $ARGS[0] = 'strip_code':
+	$currentpursetype = 'none'
+	currentpursenumber = 0
+
+	gs 'purses', 'reset_PurseVars'
+	gs 'purses', 'reset_PPurseVars'
+	gs 'outfit', 'set_derived_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'reset_PurseVars':
+	PurseQuality = 0
+	PursePrice = 0
+	PurseStrength = 0
+	exit
+end
+
+
+if $ARGS[0] = 'reset_PPurseVars':
+	bag = 0
+	PPurseQuality = 0
+	PPursePrice = 0
+	PPurseStrength = 0
+	exit
+end
+
+
+!! $ARGS[1] - shoe type name / last worn
+!! $ARGS[2] - shoe index
+if $ARGS[0] = 'wear':
+	if $ARGS[1] = 'last_worn':
+		if $purselastworntype = '':
+			$purselastworntype = 'none'
+			purselastwornnumber = 0
+		end
+		$ARGS[1] = $purselastworntype
+		ARGS[2] = purselastwornnumber
+	end
+	if $ARGS[1] = '' or $ARGS[1] = 'none': exit
+
+	gs 'purses', 'strip'
+
+	gs 'purse_attributes', $ARGS[1], ARGS[2]
+
+	if PursePrice = 0:
+		msg '错误：手提包 "<<$ARGS[1]>>_purses[<<ARGS[2]>>]" 不存在'
+		exit
+	end
+
+	if arrpos('$ARGS', 'check') > 0:
+		$temp_not_wear_reason = $func('purses', 'not_wear_reason', $ARGS[1], ARGS[2], 'attributes_set')
+		if $temp_not_wear_reason <> '':
+			if $temp_not_wear_reason = 'not_owned':
+				msg '你没有这个手提包'
+			elseif $temp_not_wear_reason = 'not_in_wardrobe':
+				msg '这个手提包不在你的衣柜里'
+			end
+			killvar '$temp_not_wear_reason'
+			exit
+		end
+		killvar '$temp_not_wear_reason'
+	end
+
+	$currentpursetype = $ARGS[1]
+	currentpursenumber = ARGS[2]
+
+	bag = 1
+	PPurseQuality = PurseQuality
+	PPursePrice = PursePrice
+
+	gs 'outfit', 'set_derived_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'descriptions':
+	if $ARGS[1] = 'dolls':
+		'让这款完美的手提包释放你的个性吧，它专为追求另类生活方式的热辣独立女孩而设。'
+	elseif $ARGS[1] = 'bomba':
+		'没错，你很有态度，而拎上这个包，所有人都会看出来。'
+	elseif $ARGS[1] = 'coco':
+		'一款适合年轻人的时髦包包。'
+	elseif $ARGS[1] = 'flamingos':
+		'拎上这个包，你看起来就像个城里的时髦女孩。'
+	elseif $ARGS[1] = 'danilovich':
+		'一个用来装杂物的运动包。实用又耐用，但不够时髦。'
+	elseif $ARGS[1] = 'fashionista':
+		'一款适合所有时尚女性的时髦手提包！'
+	elseif $ARGS[1] = 'nerdvana':
+		'献给你内心的书呆子。'
+	elseif $ARGS[1] = 'gm':
+		'一款实用（虽说不太时髦）的手提包，能装下所有必需品。'
+	elseif $ARGS[1] = 'cats':
+		'这是包？是宠物？还是玩具？管它呢，反正你够抢眼、够可爱。'
+	elseif $ARGS[1] = 'moncheri':
+		'一款为品味挑剔的女士准备的高级时尚手提包。用这件昂贵的配饰展现你的高雅格调吧。'
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         WARDROBE AND SHOPS                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! DEPRECATED
+if $ARGS[0] = 'set_shop_display_exceptions':
+	gs 'purse_view', 'init', 'set_exceptions'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'view_purse_list':
+	!! $ARGS[1] - action type (clean, dirty, store, bathroom)
+	gt 'purse_view', 'view_grid', $ARGS[1]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'view_purse_item':
+	!! $ARGS[1] = action type (home, shop)
+	!! $ARGS[2] - purse type
+	!! ARGS[3] - purse index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gt 'purse_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest0':
+	!! $ARGS[1] = action type (home, shop)
+	!! $ARGS[2] - purse type
+	!! ARGS[3] - purse index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'purses', 'move_to_wardrobe', $ARGS[2], ARGS[3]
+	gt 'purse_view', 'view_grid', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest1':
+	!! $ARGS[1] = action type (home, shop)
+	!! $ARGS[2] - purse type
+	!! ARGS[3] - purse index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'purses', 'move_to_storage', $ARGS[2], ARGS[3]
+	gt 'purse_view', 'view_grid', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest2':
+	!! $ARGS[1] = action type (home, shop)
+	!! $ARGS[2] - purse type
+	!! ARGS[3] - purse index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'purses', 'move_to_unwanted', $ARGS[2], ARGS[3]
+	gt 'purse_view', 'view_grid', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+--- purses ---------------------------------

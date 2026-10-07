@@ -1,0 +1,180 @@
+# exp_gain
+!! 2022/08/07
+
+!! gosub that exp gain is run through to be able to modify exp gain by conditions of the player character
+
+!! use: gs 'exp_gain', 'skill', exp
+!! example: gs 'exp_gain', 'photoskl', rand(1,2)
+!! example: gs 'exp_gain', $ARGS[2], rand(3,5)
+
+if $ARGS[0] = '': exit
+if ARGS[1] <= 0: exit
+if no_exp_gain = 1: exit
+
+
+
+!!	Prevents EXP gain for stren_plus if its 50 or higher and Sveta ISNT using steroids
+if $ARGS[0] = 'stren_plus' and stren_plus_lvl >= 50 and drugVars['steroids_dose'] = 0:
+	exit
+end
+
+if $ARGS[0] = 'inhib':
+	inhib_exp += ARGS[1]
+	gs 'exp_notification', 'track_exp', 'inhib', ARGS[1]
+	exit
+end
+
+!! Combination skills
+if instr(';vball_block;vball_rec;vball_serve;vball_set;vball_spike;', ';<<$ARGS[0]>>;') > 0:
+	$expgainVars['statName'] = 'vball'
+	$expgainVars['attrArray'] = $ARGS[0]
+elseif arrpos('$skl_name', $ARGS[0]) >= 0:
+	$expgainVars['statName'] = $ARGS[0]
+	$expgainVars['attrArray'] = $ARGS[0]
+elseif arrpos('$att_name', $ARGS[0]) >= 0:
+	$expgainVars['statName'] = $ARGS[0]
+	$expgainVars['attrArray'] = ''
+else
+	$func('wrap', 'neg', '在 gs ''exp_gain'' 中出错：<<$ARGS[0]>>既不是技能也不是属性')
+	killvar 'expgainVars'
+	exit
+end
+
+expgainVars['exp_gain_mult'] = func('_difficulty', 'get_exp_gain')
+
+!! BONUSES
+!!	- Traits
+!!	- Difficulty
+
+!!	Traits:
+!!	- New Again
+!!	Inactive
+!!	- charming
+!!	- Flexible
+!!	- Logical
+!!	- Natural Athlete
+!!	- Natural Dancer
+!!	- Scholarly
+
+
+expgainVars['trait_index'] = 0
+:trait_loop
+	$expgainVars['trait'] = $traitattskl[expgainVars['trait_index']]
+	if $expgainVars['trait'] <> '':
+		expgainVars['exp_gain_mult'] += trait_vars[$expgainVars['trait'] + '-' + $expgainVars['statName'] + '-exp_gain']
+		expgainVars['exp_gain_mult'] += trait_vars['all-' + $expgainVars['statName'] + '-exp_gain']
+	end
+	expgainVars['trait_index'] += 1
+if expgainVars['trait_index'] < arrsize('$traitattskl'): jump 'trait_loop'
+
+!!	Stats:
+!!	- Exhaustion (lack of sleep and stamina)
+if pcs_stam <= 0:
+	if pcs_condition['lack_of_sleep'] >= 20:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 50 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 10:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 100 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 5:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 150 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 2:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 180 / 400
+	else
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 200 / 400
+	end
+elseif pcs_stam < stammax / 5:
+	if pcs_condition['lack_of_sleep'] >= 20:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 75 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 10:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 150 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 5:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 225 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 2:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 270 / 400
+	else
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 300 / 400
+	end
+else
+	if pcs_condition['lack_of_sleep'] >= 20:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 100 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 10:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 200 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 5:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 300 / 400
+	elseif pcs_condition['lack_of_sleep'] >= 2:
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 360 / 400
+	else
+		expgainVars['exp_gain_mult'] = expgainVars['exp_gain_mult'] * 400 / 400
+	end
+end
+
+
+if expgainVars['exp_gain_mult'] <= 0:
+	killvar 'expgainVars'
+	exit
+end
+
+
+dynamic "
+	<<$expgainVars['statName']>>_exp_frac += <<ARGS[1]>> * expgainVars['exp_gain_mult']
+	expgainVars['exp_gain'] = <<$expgainVars['statName']>>_exp_frac / 100
+	<<$expgainVars['statName']>>_exp_frac = <<$expgainVars['statName']>>_exp_frac mod 100
+"
+
+
+if expgainVars['exp_gain'] <= 0:
+	killvar 'expgainVars'
+	exit
+end
+
+
+!!	EXP Assignment. If at max just extends the period before degeneration of the stat starts.
+if no dyneval("result = (<<$expgainVars['statName']>>_lvl < 100 + <<$expgainVars['statName']>>_muta)"):
+	gs 'exp_deg', $ARGS[0], 'reset'
+else
+	if $expgainVars['statName'] = 'magik':
+		magik_adj += expgainVars['exp_gain']
+	else
+		dynamic "<<$expgainVars['statName']>>_exp += <<expgainVars['exp_gain']>>"
+	end
+	gs 'exp_notification', 'track_exp', $expgainVars['statName'], expgainVars['exp_gain']
+
+	if arrpos('$ARGS', 'no_bonus') < 0:
+		if $ARGS[0] = 'intel':
+			drugVars['mentats_expgain'] += expgainVars['exp_gain'] * drugVars['mentats_dose']
+		elseif $ARGS[0] = 'stren':
+			drugVars['steroids_stren_expgain'] += expgainVars['exp_gain'] * drugVars['steroids_dose']
+			drugVars['steroids_check'] = 1
+		elseif $ARGS[0] = 'vital':
+			drugVars['steroids_vital_expgain'] += expgainVars['exp_gain'] * drugVars['steroids_dose']
+			drugVars['steroids_check'] = 1
+		end
+	end
+end
+
+
+!!	The following code adds exp to derived attributes. It does add to a special variable which in cikl will add a fifth of the total of the value to the exp of the attribute
+if $expgainVars['attrArray'] ! '':
+	expgainVars['i'] = 0
+	expgainVars['maxi'] = arrsize($expgainVars['attrArray'])
+	if expgainVars['maxi'] > 0:
+		:attrib_loop
+			$expgainVars['attr'] = $dyneval("$result = $<<$expgainVars['attrArray']>>[expgainVars['i']]")
+			if arrpos('$att_name', $expgainVars['attr']) >= 0:
+				dynamic "
+					if <<$expgainVars['attr']>>_lvl < 100 + <<$expgainVars['attr']>>_muta:
+						<<$expgainVars['attr']>>_exp_skill_derived += 40 * <<expgainVars['exp_gain']>> / expgainVars['maxi']
+					else
+						gs 'exp_deg', '<<$expgainVars['attr']>>', 'reset'
+					end
+				"
+			end
+			expgainVars['i'] += 1
+		if expgainVars['i'] < expgainVars['maxi']: jump 'attrib_loop'
+	end
+end
+
+
+killvar 'expgainVars'
+
+
+--- exp_gain ---------------------------------

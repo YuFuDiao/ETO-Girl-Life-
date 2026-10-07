@@ -1,0 +1,1195 @@
+# journal
+
+!! Journal Menu
+!! Sections:
+!! 0 Magic (if enabled)
+!! 1 Calendar
+!! 2 Housing
+!! 3 Work - calls in journal_work
+!! 4 Quests - calls in journal_quest section
+!! 5 Relations / Current Group - pulls in various elements refactored from other areas to make tracking relationships easier. To be expanded on.
+!! 6 General Information
+!! 7 User Notes
+!! 8 Notification Log
+
+!! Menu Variables
+!! menutrack = tracks current menu position
+!! jumploc = call in the active menu section
+!! $tablebody = Container to create the menu body to work around QSP deadspace display issues.
+!! Section Variables
+!! employed[qw] = Work tracker if employed. To be set on starting or leaving a job.
+
+
+
+!! Header section start
+if $ARGS[0] = 'records':
+	*clr & cla
+	$BACKIMAGE = ''
+	gs 'housing', 'rent'
+	gs 'journal', 'journalmenu'
+!! records
+end
+
+
+if $ARGS[0] = 'journalmenu':
+	*clr & cla
+	gs 'stat'
+	*nl
+
+	$tablebody = '<tr>'
+	if $start_type['magic'] <> 'nomagic': $tablebody += '<th><a href="exec:menutrack = 0 & gs ''journal'', ''magictab''">魔法</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 1 & gt ''journal'', ''calendar''">日历</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 2 & gt ''journal'', ''housingtab''">住宿</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 3 & gt ''journal_work'', ''start''">工作</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 4 & gt ''journal_quests'', ''start''">任务</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 5 & gt ''journal'', ''relationstab''">关系</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 6 & gt ''journal'', ''generaltab''">游戏信息</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 7 & gt ''journal'', ''notestab''">笔记</a></th>'
+	$tablebody += '<th><a href="exec:menutrack = 8 & gt ''journal'', ''notification_log''">通知</a></th>'
+	!! $tablebody += '<th><a href="exec:menutrack = 9 & $glossary_caller = ''journal'' & gt ''glossary'', ''init''">Mechanics</a></th>'
+	$tablebody += '</tr>'
+
+	!! display the table here.
+
+	'<center><table width="90%" align="center" width="90%" cellspacing="0" cellpadding="0" valign="top"><tr><<$tablebody>></tr></table></center>'
+	killvar 'tablebody'
+
+
+	if $jumploc = 'worktab' and jclose = 1:
+		jclose = 0
+		menutrack = 3
+		gt 'journal_work', 'start'
+	elseif $jumploc = '' or jclose = 1:
+		jclose = 0
+		menutrack = 1
+		if $start_type['magic'] <> 'nomagic':
+			menutrack = 0
+			gt 'journal', 'magictab'
+		else
+			gt 'journal', 'calendar'
+		end
+	end
+	gs 'journal', 'leaveactions'
+
+
+!! Journal Menu
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              CALENDAR                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'calendar':
+	$jumploc = 'calendar'
+	gs 'calendar', 'show'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               MAGIC                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'magictab':
+	$jumploc = 'magictab'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>魔法</h2></center><br>'
+	'<center><h2>可施放的咒语</h2></center><br>'
+	func('spellBook', 'cast', '$nonComSpells', 'gt ''journal'', ''magictab''', 'jclose = 1')
+
+	'<br><center><h2>咒语学习</h2></center><br>'
+	'<br><center><h3>战斗</h3></center><br>'
+	func('spellBook', 'learn', '$combatSpells')
+	'<br><center><h3>故事</h3></center><br>'
+	func('spellBook', 'learn', '$storySpells')
+	'<br><center><h3>非战斗</h3></center><br>'
+	func('spellBook', 'learn', '$nonComSpells')
+
+	'<br><center><h2>已学会的咒语</h2></center><br>'
+	'<br><center><h3>战斗</h3></center><br>'
+	func('spellBook', 'list', '$combatSpells')
+	'<br><center><h3>故事</h3></center><br>'
+	func('spellBook', 'list', '$storySpells')
+	'<br><center><h3>非战斗</h3></center><br>'
+	func('spellBook', 'list', '$nonComSpells')
+
+	delact '没关系'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              HOUSING                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'housingtab':
+	$jumploc = 'housingtab'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>住宿</h2></center>'
+
+	*nl
+	if accessible_property['shared_apartment'] = 4: '你和另外三个人合住在巴甫洛夫斯克的一套公寓里。其他室友替你支付账单，作为交换，你在家里提供服务。'
+	if accessible_property['city_apartment'] = 1: '你在城市住宅区租了一套两居室的公寓。房租会自动从你的钱里扣除，金额为 <<func(''money'', ''string_price'', (func(''homes_properties'', ''get_rent_amount'', ''city_apartment'')))>>，外加每月25日的电费。你已预付了 <b><<func(''homes_properties'', ''get_rent_days'', ''city_apartment'')>></b> 天的房租。'
+	if accessible_property['city_apartment'] = 2: '你在城市住宅区拥有一套两居室的公寓。你的水电费账单在每月25日到期。'
+	if accessible_property['city_apartment'] = 3: '你在城市住宅区拥有一套两居室的公寓。目前有租客住在里面。'
+	if accessible_property['parents_home'] = 4: '你和父母及兄弟姐妹住在巴甫洛夫斯克的一套两居室公寓里。'
+	if accessible_property['village_cottage'] = 2 : '你在公共村庄拥有一座小度假屋，旁边还有一块自留地。'
+	if accessible_property['old_town_apartment'] = 1: '你在普希金租了一套两居室的公寓。房租会自动从你的钱里扣除，金额为 <<func(''money'', ''string_price'', (func(''homes_properties'', ''get_rent_amount'', ''old_town_apartment'')))>>，外加每月25日的电费。你已预付了 <b><<func(''homes_properties'', ''get_rent_days'', ''old_town_apartment'')>></b> 天的房租。'
+	if accessible_property['matryona_mansion'] = 2 and constructionstatus = 0: '你在城市郊区拥有一块空地。'
+	if accessible_property['matryona_mansion'] = 2 and constructionstatus = 1: '你在城市郊区拥有一块土地，正在上面盖房子。' + iif(banaMansion = 1, '你的水电费账单在每月25日到期。', '')
+	if accessible_property['matryona_mansion'] = 2 and constructionstatus = 2: '你在城市郊区拥有一座气派的公馆。 ' + iif(banaMansion = 1, '你的水电费账单在每月25日到期。', '')
+	if accessible_property['city_house'] = 2: '你在城市住宅区边缘拥有一栋漂亮的房子。你的水电费账单在每月25日到期。'
+	if accessible_property['meynold_household'] = 4: '你和维姬、卡佳、塔玛拉·梅诺尔德住在一起。你有自己的房间，帮忙做家务和/或与塔玛拉一起学习都可以赚取零花钱。'
+	*nl
+	if func('car_funcs', 'has_car'):
+		'<center><h2>汽车</h2></center>'
+		*nl
+		if func('car_funcs', 'is_here', 'city_residential', ''):
+			'你的车停在圣彼得堡的住宅区。'
+		elseif func('car_funcs', 'is_here', 'city_center', ''):
+			'你的车停在圣彼得堡市中心。'
+		elseif func('car_funcs', 'is_here', 'city_industrial', ''):
+			'你的车停在圣彼得堡的工业区。'
+		elseif func('car_funcs', 'is_here', 'city_lake', 'start'):
+			'你的车停在圣彼得堡的湖畔。'
+		elseif func('car_funcs', 'is_here', 'cty_park', 'start'):
+			'你的车停在圣彼得堡公园。'
+		elseif func('car_funcs', 'is_here', 'fuelstation', 'start', 'city'):
+			'你的车停在圣彼得堡工业区的加油站。'
+		elseif func('car_funcs', 'is_here', 'autoservisF', 'start'):
+			'你的车停在圣彼得堡的汽车修理厂。'
+		elseif func('car_funcs', 'is_here', 'city_house_res_misc', 'fronty'):
+			'你的车停在圣彼得堡住宅区的你家。'
+		elseif func('car_funcs', 'is_here', 'autotraidF', 'start'):
+			'你的车停在圣彼得堡的汽车经销店。'
+		elseif func('car_funcs', 'is_here', 'city_park', 'whore'):
+			'你的车停在圣彼得堡公园。'
+		elseif func('car_funcs', 'is_here', 'city_sauna', ''):
+			'你的车停在圣彼得堡的桑拿浴室。'
+		elseif func('car_funcs', 'is_here', 'obekt', ''):
+			'你的车停在建筑工地。'
+		elseif func('car_funcs', 'is_here', 'dachi', ''):
+			'你的车停在郊区合作社。'
+		elseif func('car_funcs', 'is_here', 'pushkin', ''):
+			'你的车停在普希金的老城区。'
+		elseif func('car_funcs', 'is_here', 'city_mansion_entrance', ''):
+			'你的车停在玛特廖娜公馆。'
+		elseif func('car_funcs', 'is_here', 'city_industrial_train', 'outside'):
+			'你的车停在圣彼得堡的工业火车站。'
+		elseif func('car_funcs', 'is_here', 'pav_residential', ''):
+			'你的车停在巴甫洛夫斯克的住宅区。'
+		elseif func('car_funcs', 'is_here', 'fuelstation', 'start', 'pav'):
+			'你的车停在巴甫洛夫斯克附近的加油站。'
+		elseif func('car_funcs', 'is_here', 'road'):
+			'你的车停在高速公路上。'
+		elseif func('car_funcs', 'is_here', 'gadukino', ''):
+			'你的车停在加杜基诺。'
+		elseif func('car_funcs', 'is_here', 'pav_commercial', ''):
+			'你的车停在巴甫洛夫斯克的商业区。'
+		elseif func('car_funcs', 'is_here', 'city_island', ''):
+			'你的车停在瓦西里岛。'
+		elseif func('car_funcs', 'is_here', 'pav_industrial', ''):
+			'你的车停在巴甫洛夫斯克的工业区。'
+		elseif func('car_funcs', 'is_here', 'city_redlight', 'start'):
+			'你的车停在圣彼得堡的红灯区。'
+		elseif func('car_funcs', 'is_here', 'city_suburbs', 'start'):
+			'你的车停在圣彼得堡的郊区。'
+		elseif func('car_funcs', 'is_here', 'gas_station_gp_117', 'outside'):
+			'你的车停在高速公路上的 加兹普罗姆石油 加油站附近。'
+		end
+	end
+!! housing
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           RELATIONSHIPS                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'relationstab':
+	$jumploc = 'relationstab'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>关系</h2></center>'
+	'<h2>家庭</h2>'
+
+	'母亲：'
+	gs 'journal', 'relindex', 'A29'
+
+	'继父：'
+	gs 'journal', 'relindex', 'A28'
+
+	'姐姐：'
+	gs 'journal', 'relindex', 'A33'
+
+	'弟弟：'
+	gs 'journal', 'relindex', 'A34'
+
+	'柳达姨妈：'
+	gs 'journal', 'relindex', 'A30'
+
+	if npc_known['A55'] = 1:
+		'奥卢：'
+		gs 'journal', 'relindex', 'A55'
+	end
+
+
+	if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0:
+
+		'<center><h2>按社交群体声望</h2></center>'
+
+		if grupTipe < 5 and grupvalue[grupTipe] > 700:
+			$journal_school_standing = ' 你在你的小圈子里备受尊敬和喜爱。'
+		elseif grupTipe < 5 and grupvalue[grupTipe] > 300:
+			$journal_school_standing = ' 你在你的小圈子里声誉良好。'
+		elseif grupTipe < 5:
+			$journal_school_standing = $func('wrap', 'neg', ' 你得努力提升在小圈子里的地位。你有被排挤出去的危险。')
+		end
+
+		if grupTipe = 0:
+			'你不属于任何特定的学校社交群体。' + $journal_school_standing
+		elseif grupTipe = 1:
+			'你的学校社交群体由受欢迎，酷且漂亮的人组成。' + $journal_school_standing
+		elseif grupTipe = 2:
+			'你的学校社交群体由运动员和天生的运动健将组成。' + $journal_school_standing
+		elseif grupTipe = 3:
+			'你的学校社交群体由书呆子，极客和好学生组成。' + $journal_school_standing
+			if nerd_game['game_day'] > daystart: '你被邀请参加 <<$weekName[(week + (nerd_game[''game_day''] - daystart))]>> 晚上的游戏之夜，时间为 ' + func('time', 'get_time_string', 20, 0) + '，地点在社区中心图书馆。'
+			if nerd_game['game_day'] = daystart: '你被邀请参加今晚的游戏之夜，时间为 ' + func('time', 'get_time_string', 20, 0) + '，地点在社区中心图书馆。'
+		elseif grupTipe = 4:
+			'你的学校社交群体由街头混混，叛逆者，朋克或惹麻烦的人组成。' + $journal_school_standing
+		elseif grupTipe = 5:
+			'你学校的社交群体由失败者、老师的宠儿、荡妇和丑八怪组成。'
+		end
+		*nl
+
+		!! Social group bars with standing interpretation text
+		i = 1
+		:grupbar_loop
+			!! Determine the group name
+			if i = 1: $grupbar_name = '酷小孩'
+			if i = 2: $grupbar_name = '运动健将'
+			if i = 3: $grupbar_name = '书呆子'
+			if i = 4: $grupbar_name = '戈普尼克'
+
+			!! Determine the standing text based on membership
+			if grupTipe = i:
+				!! Player is in this group — use member-tier thresholds
+				if grupvalue[i] / 10 < 20:
+					$grupbar_standing = '<font color="#FF0000">你将被踢出</font>'
+				elseif grupvalue[i] / 10 < 30:
+					$grupbar_standing = '<font color="#FF6600">最后警告</font>'
+				elseif grupvalue[i] / 10 < 40:
+					$grupbar_standing = '<font color="#0000FF">容忍</font>'
+				elseif grupvalue[i] / 10 < 60:
+					$grupbar_standing = '<font color="#00CED1">勉强算成员</font>'
+				elseif grupvalue[i] / 10 < 85:
+					$grupbar_standing = '<font color="#B3B300">成员</font>'
+				else
+					$grupbar_standing = '<font color="#00FF00">受欢迎成员</font>'
+				end
+			else
+				!! Outsider to this group
+				if grupvalue[i] / 10 < 10:
+					$grupbar_standing = '<font color="#FF0000">被厌恶</font>'
+				elseif grupvalue[i] / 10 < 20:
+					$grupbar_standing = '<font color="#FF6600">讨厌</font>'
+				elseif grupvalue[i] / 10 < 50:
+					$grupbar_standing = '<font color="#0000FF">容忍</font>'
+				elseif grupvalue[i] / 10 < 70:
+					$grupbar_standing = '<font color="#00CED1">喜欢</font>'
+				elseif grupvalue[i] / 10 < 80:
+					$grupbar_standing = '<font color="#B3B300">非常喜欢</font>'
+				else
+					$grupbar_standing = '<font color="#00FF00">将被邀请加入</font>'
+				end
+			end
+
+			'<<$grupbar_name>>'
+			*pl $func('progressbar', 'positive', grupvalue[i] / 10, 0, 0, 0, '', 'none', $iif(grupTipe = i, '20,40,60,85', '20,50,70,80')) + ' ' + $grupbar_standing
+
+			i += 1
+		if i <= 4: jump 'grupbar_loop'
+		killvar 'grupbar_name'
+		killvar 'grupbar_standing'
+		killvar 'i'
+
+		'<center><h2>人气学生关系</h2></center>'
+
+		if npc_known['A1'] = 1: '与迪姆卡的友谊：'		& gs 'journal', 'relindex', 'A1'
+		if npc_known['A4'] = 1: '与伊戈尔的友谊：'			& gs 'journal', 'relindex', 'A4'
+		if npc_known['A14'] = 1: '与卡佳的友谊：'		& gs 'journal', 'relindex', 'A14'
+		if npc_known['A15'] = 1: '与维姬的友谊：'		& gs 'journal', 'relindex', 'A15'
+		if npc_known['A17'] = 1: '与伊琳娜的友谊：'		& gs 'journal', 'relindex', 'A17'
+		if npc_known['A22'] = 1: '与贝拉的友谊：'		& gs 'journal', 'relindex', 'A22'
+		if npc_known['A146'] = 1: '与马库斯的友谊：'		& gs 'journal', 'relindex', 'A146'
+		if npc_known['A147'] = 1: '与安德烈的友谊：'		& gs 'journal', 'relindex', 'A147'
+		if npc_known['A148'] = 1: '与梅福季的友谊：'	& gs 'journal', 'relindex', 'A148'
+		if soniaQW['slut'] = 0 and npc_known['A25'] = 1: '与索尼娅的友谊：' & gs 'journal', 'relindex', 'A25'
+		if npc_known['A139'] = 1: '与斯塔西娅的友谊：'		& gs 'journal', 'relindex', 'A139'
+		if npc_known['A140'] = 1: '与莉扎维塔的友谊：'	& gs 'journal', 'relindex', 'A140'
+
+		'<center><h2>运动员关系</h2></center>'
+
+		if npc_known['A3'] = 1: '与伊万的友谊：'			& gs 'journal', 'relindex', 'A3'
+		if fedormasha = 0 and npc_known['A5'] = 1: '与费奥多尔的友谊：' & gs 'journal', 'relindex', 'A5'
+		if npc_known['A8'] = 1: '与斯维亚托斯拉夫的友谊：'	& gs 'journal', 'relindex', 'A8'
+		if npc_known['A13'] = 1: '与拉里斯卡的友谊：'		& gs 'journal', 'relindex', 'A13'
+		if npc_known['A18'] = 1: '与克里斯蒂娜的友谊：'	& gs 'journal', 'relindex', 'A18'
+		if npc_known['A19'] = 1: '与莉娜的友谊：'		& gs 'journal', 'relindex', 'A19'
+		if npc_known['A23'] = 1: '与阿尔比娜的友谊：'		& gs 'journal', 'relindex', 'A23'
+		if npc_known['A149'] = 1: '与拉扎尔的友谊：'		& gs 'journal', 'relindex', 'A149'
+		if npc_known['A150'] = 1: '与埃拉斯特的友谊：'		& gs 'journal', 'relindex', 'A150'
+		if npc_known['A141'] = 1: '与维罗妮卡的友谊：'	& gs 'journal', 'relindex', 'A141'
+		if npc_known['A165'] = 1: '与万尼亚的友谊：'		& gs 'journal', 'relindex', 'A165'
+
+		'<center><h2>书呆子关系</h2></center>'
+
+		if npc_known['A2'] = 1: '与阿尔乔姆的友谊：'		& gs 'journal', 'relindex', 'A2'
+		if npc_known['A6'] = 1: '与佩特卡的友谊：'		& gs 'journal', 'relindex', 'A6'
+		if npc_known['A12'] = 1: '与朱莉娅的友谊：'		& gs 'journal', 'relindex', 'A12'
+		if npc_known['A16'] = 1: '与娜塔莎的友谊：'		& gs 'journal', 'relindex', 'A16'
+		if npc_known['A151'] = 1: '与叶夫根尼的友谊：'		& gs 'journal', 'relindex', 'A151'
+		if npc_known['A152'] = 1: '与费奥凡的友谊：'		& gs 'journal', 'relindex', 'A152'
+		if npc_known['A153'] = 1: '与格拉西姆的友谊：'	& gs 'journal', 'relindex', 'A153'
+		if npc_known['A142'] = 1: '与季娜伊达的友谊：'	& gs 'journal', 'relindex', 'A142'
+		if npc_known['A240'] = 1: '与娜塔莉亚的友谊：'	& gs 'journal', 'relindex', 'A240'
+
+		'<center><h2>戈普尼克关系</h2></center>'
+
+		if npc_known['A9'] = 1: '与维泰克的友谊：'		& gs 'journal', 'relindex', 'A9'
+		if npc_known['A10'] = 1: '与丹的友谊：'			& gs 'journal', 'relindex', 'A10'
+		if npc_known['A11'] = 1: '与瓦西里的友谊：'		& gs 'journal', 'relindex', 'A11'
+		if npc_known['A20'] = 1: '与列娜的友谊：'		& gs 'journal', 'relindex', 'A20'
+		if npc_known['A21'] = 1: '与列拉的友谊：'		& gs 'journal', 'relindex', 'A21'
+		if npc_known['A24'] = 1: '与波琳的友谊：'		& gs 'journal', 'relindex', 'A24'
+		if npc_known['A154'] = 1: '与拉多米尔的友谊：'	& gs 'journal', 'relindex', 'A154'
+		if npc_known['A155'] = 1: '与拉夫连季的友谊：'	& gs 'journal', 'relindex', 'A155'
+		if npc_known['A156'] = 1: '与阿尔卡季的友谊：'		& gs 'journal', 'relindex', 'A156'
+		if npc_known['A157'] = 1: '与罗曼的友谊：'		& gs 'journal', 'relindex', 'A157'
+		if npc_known['A158'] = 1: '与瓦伦丁的友谊：'	& gs 'journal', 'relindex', 'A158'
+		if npc_known['A143'] = 1: '与阿廖娜的友谊：'		& gs 'journal', 'relindex', 'A143'
+		if npc_known['A144'] = 1: '与阿努什卡的友谊：'	& gs 'journal', 'relindex', 'A144'
+		if npc_known['A145'] = 1: '与卡秋莎的友谊：'	& gs 'journal', 'relindex', 'A145'
+		if npc_known['A189'] = 1: '与尼科的友谊：'		& gs 'journal', 'relindex', 'A189'
+
+		'<center><h2>被排斥者/独行侠关系</h2></center>'
+
+		if npc_known['A7'] = 1: '与列斯科的友谊：'		& gs 'journal', 'relindex', 'A7'
+		if npc_known['A159'] = 1: '与佩佳的友谊：'		& gs 'journal', 'relindex', 'A159'
+		if soniaQW['slut'] > 0 and npc_known['A25'] = 1: '与索尼娅的友谊：' & gs 'journal', 'relindex', 'A25'
+		if fedormasha = 1 and npc_known['A5'] = 1: '与费奥多尔的友谊：' & gs 'journal', 'relindex', 'A5'
+
+		'<center><h2>教师/教练/学校员工关系</h2></center>'
+
+		if npc_known['A26'] = 1: '与阿纳托利·察列夫的友谊（数学老师）：'		& gs 'journal', 'relindex', 'A26'
+		if npc_known['A69'] = 1: '与米哈伊尔·尼古拉耶维奇的友谊（排球教练）：' & gs 'journal', 'relindex', 'A69'
+		if npc_known['A128'] = 1: '与马卡尔·瓦西里耶夫的友谊（美术老师）：'		& gs 'journal', 'relindex', 'A128'
+		if npc_known['A129'] = 1: '与谢拉菲姆·伊万诺夫的友谊（计算机老师）：' & gs 'journal', 'relindex', 'A129'
+		if npc_known['A130'] = 1: '与伊利亚·叶诺廷的友谊（文学老师）：'	& gs 'journal', 'relindex', 'A130'
+		if npc_known['A131'] = 1: '与维克托·帕夫洛维奇的友谊（体育老师）：'	& gs 'journal', 'relindex', 'A131'
+		if npc_known['A132'] = 1: '与鲁斯兰·库兹涅佐夫的友谊（劳技老师）：'	& gs 'journal', 'relindex', 'A132'
+		if npc_known['A133'] = 1: '与罗兰·马特维耶夫的友谊（门卫）：'			& gs 'journal', 'relindex', 'A133'
+		if npc_known['A134'] = 1: '与亚历山德里娜·沃尔科夫的友谊（女校长）：'	& gs 'journal', 'relindex', 'A134'
+		if npc_known['A135'] = 1: '与叶娃·索科洛夫的友谊（地理老师）：'	& gs 'journal', 'relindex', 'A135'
+		if npc_known['A136'] = 1: '与奥尔加·亚历山德罗夫的友谊（校医）：'	& gs 'journal', 'relindex', 'A136'
+		if npc_known['A137'] = 1: '与瑞文·布拉克曼的友谊（英语老师）：'	& gs 'journal', 'relindex', 'A137'
+		if npc_known['A138'] = 1: '与阿丽娜·奥尔洛夫的友谊（生物老师）：'		& gs 'journal', 'relindex', 'A138'
+
+
+		!!! WD: Formatting
+		if npc_known['A93'] = 1 or npc_rel['A41'] > 0 or npc_rel['A42'] > 0 or npc_known['A43'] = 1 or gosh > 0 or npc_known['A220'] = 1 or npc_known['A219'] = 1 or npc_QW['A192'] > 0 or npc_known['A218'] = 1: *nl
+		*nl
+
+	end
+
+	if university['student'] = 1:
+		'<center><h2>来自巴甫洛夫斯克的大学生</h2></center>'
+		if npc_known['A149'] = 1:	'与拉扎尔的友谊：'		& gs 'journal', 'relindex', 'A149'
+		if npc_known['A1'] = 1:		'与迪马的友谊：'			& gs 'journal', 'relindex', 'A1'
+		if npc_known['A22'] = 1:	'与贝拉的友谊：'		& gs 'journal', 'relindex', 'A22'
+		if npc_known['A23'] = 1:	'与阿尔比娜的友谊：'		& gs 'journal', 'relindex', 'A23'
+		if npc_known['A17'] = 1:	'与伊琳娜的友谊：'		& gs 'journal', 'relindex', 'A17'
+		if npc_known['A144'] = 1:	'与阿努什卡的友谊：'		& gs 'journal', 'relindex', 'A144'
+		if npc_known['A155'] = 1:	'与拉夫连季的友谊：'		& gs 'journal', 'relindex', 'A155'
+		if npc_known['A15'] = 1:	'与维姬的友谊：'		& gs 'journal', 'relindex', 'A15'
+		if npc_known['A147'] = 1:	'与安德烈的友谊：'		& gs 'journal', 'relindex', 'A147'
+		if npc_known['A139'] = 1:	'与斯塔西娅的友谊：'		& gs 'journal', 'relindex', 'A139'
+		if npc_known['A146'] = 1:	'与马库斯的友谊：'		& gs 'journal', 'relindex', 'A146'
+		if npc_known['A16'] = 1:	'与娜塔莎的友谊：'		& gs 'journal', 'relindex', 'A16'
+		if npc_known['A152'] = 1:	'与费奥凡的友谊：'		& gs 'journal', 'relindex', 'A152'
+		if npc_known['A140'] = 1:	'与莉扎维塔的友谊：'		& gs 'journal', 'relindex', 'A140'
+		if npc_known['A2'] = 1:		'与阿尔乔姆的友谊：'		& gs 'journal', 'relindex', 'A2'
+		if npc_known['A18'] = 1:	'与克里斯蒂娜的友谊：'	& gs 'journal', 'relindex', 'A18'
+		if npc_known['A14'] = 1:	'与卡佳的友谊：'		& gs 'journal', 'relindex', 'A14'
+		if npc_known['A165'] = 1:	'与万尼亚的友谊：'		& gs 'journal', 'relindex', 'A165'
+		if npc_known['A153'] = 1:	'与格拉西姆的友谊：'		& gs 'journal', 'relindex', 'A153'
+		if npc_known['A12'] = 1:	'与朱莉娅的友谊：'		& gs 'journal', 'relindex', 'A12'
+		if npc_known['A6'] = 1:		'与佩特卡的友谊：'		& gs 'journal', 'relindex', 'A6'
+		if npc_known['A13'] = 1:	'与拉里斯卡的友谊：'		& gs 'journal', 'relindex', 'A13'
+		if npc_known['A19'] = 1:	'与莉娜的友谊：'			& gs 'journal', 'relindex', 'A19'
+		if npc_known['A25'] = 1:	'与索尼娅的友谊：'		& gs 'journal', 'relindex', 'A25'
+		if npc_known['A4'] = 1:		'与伊戈尔的友谊：'			& gs 'journal', 'relindex', 'A4'
+		if npc_known['A142'] = 1:	'与季娜伊达的友谊：'		& gs 'journal', 'relindex', 'A142'
+		if npc_known['A7'] = 1:		'与列斯科的友谊：'		& gs 'journal', 'relindex', 'A7'
+		if npc_known['A159'] = 1:	'与佩佳的友谊：'		& gs 'journal', 'relindex', 'A159'
+
+		'<center><h2>其他大学生</h2></center>'
+		if npc_known['A82'] = 1:	'与吉布里尔的友谊：'		& gs 'journal', 'relindex', 'A82'
+		if npc_known['A83'] = 1:	'与戈希的友谊：'		& gs 'journal', 'relindex', 'A83'
+		if npc_known['A77'] = 1:	'与特伦金的友谊：'		& gs 'journal', 'relindex', 'A77'
+		if npc_known['A242'] = 1:	'与莱博冈的友谊：'		& gs 'journal', 'relindex', 'A242'
+		if npc_known['A243'] = 1:	'与埃米亚斯的友谊：'		& gs 'journal', 'relindex', 'A243'
+		if npc_known['A244'] = 1:	'与法拉伊的友谊：'		& gs 'journal', 'relindex', 'A244'
+		if npc_known['A245'] = 1:	'与哈鲁娜的友谊：'		& gs 'journal', 'relindex', 'A245'
+		if npc_known['A246'] = 1:	'与阿伦德塞的友谊：'		& gs 'journal', 'relindex', 'A246'
+		if npc_known['A84'] = 1:	'与肯德拉的友谊：'		& gs 'journal', 'relindex', 'A84'
+		if npc_known['A247'] = 1:	'与莉莉娅的友谊：'		& gs 'journal', 'relindex', 'A247'
+		if npc_known['A267'] = 1:	'与米娅的友谊：'			& gs 'journal', 'relindex', 'A267'
+		if npc_known['A268'] = 1:	'与亚娜的友谊：'			& gs 'journal', 'relindex', 'A268'
+
+		'<center><h2>前巴甫洛夫斯克学生</h2></center>'
+		if npc_known['A148'] = 1:	'与梅福季的友谊：'		& gs 'journal', 'relindex', 'A148'
+		if npc_known['A3'] = 1:		'与伊万的友谊：'			& gs 'journal', 'relindex', 'A3'
+		if npc_known['A8'] = 1:		'与斯维亚托斯拉夫的友谊：'	& gs 'journal', 'relindex', 'A8'
+		if npc_known['A5'] = 1:		'与费奥多尔的友谊：'		& gs 'journal', 'relindex', 'A5'
+		if npc_known['A150'] = 1:	'与埃拉斯特的友谊：'		& gs 'journal', 'relindex', 'A150'
+		if npc_known['A141'] = 1:	'与维罗妮卡的友谊：'		& gs 'journal', 'relindex', 'A141'
+		if npc_known['A151'] = 1:	'与叶夫根尼的友谊：'		& gs 'journal', 'relindex', 'A151'
+		if npc_known['A240'] = 1:	'与娜塔莉亚的友谊：'		& gs 'journal', 'relindex', 'A240'
+		if npc_known['A9'] = 1:		'与维泰克的友谊：'		& gs 'journal', 'relindex', 'A9'
+		if npc_known['A10'] = 1:	'与丹的友谊：'			& gs 'journal', 'relindex', 'A10'
+		if npc_known['A11'] = 1:	'与瓦西里的友谊：'		& gs 'journal', 'relindex', 'A11'
+		if npc_known['A154'] = 1:	'与拉多米尔的友谊：'		& gs 'journal', 'relindex', 'A154'
+		if npc_known['A156'] = 1:	'与阿尔卡季的友谊：'		& gs 'journal', 'relindex', 'A156'
+		if npc_known['A157'] = 1:	'与罗曼的友谊：'		& gs 'journal', 'relindex', 'A157'
+		if npc_known['A158'] = 1:	'与瓦伦丁的友谊：'		& gs 'journal', 'relindex', 'A158'
+		if npc_known['A145'] = 1:	'与卡秋莎的友谊：'		& gs 'journal', 'relindex', 'A145'
+		if npc_known['A20'] = 1:	'与列娜的友谊：'			& gs 'journal', 'relindex', 'A20'
+		if npc_known['A21'] = 1:	'与列拉的友谊：'			& gs 'journal', 'relindex', 'A21'
+		if npc_known['A24'] = 1:	'与波琳的友谊：'		& gs 'journal', 'relindex', 'A24'
+		if npc_known['A143'] = 1:	'与阿廖娜的友谊：'		& gs 'journal', 'relindex', 'A143'
+		if npc_known['A189'] = 1:	'与尼古拉的友谊：'		& gs 'journal', 'relindex', 'A189'
+
+		'<center><h2>教授们</h2></center>'
+		if npc_known['A254'] = 1:	'与科瓦廖夫先生的友谊：'		& gs 'journal', 'relindex', 'A254'
+		if npc_known['A255'] = 1:	'与帕斯捷尔纳克先生的友谊：'	& gs 'journal', 'relindex', 'A255'
+		if npc_known['A256'] = 1:	'与科瓦尔丘克夫人的友谊：'	& gs 'journal', 'relindex', 'A256'
+		if npc_known['A269'] = 1:	'与马里诺娃小姐的友谊：'	& gs 'journal', 'relindex', 'A269'
+		if npc_known['A270'] = 1:	'与库杰琳娜女士的友谊：'		& gs 'journal', 'relindex', 'A270'
+		if npc_known['A271'] = 1:	'与鲍里索夫先生的友谊：'		& gs 'journal', 'relindex', 'A271'
+	end
+
+	'<center><h2>巴甫洛夫斯克关系</h2></center>'
+	if npc_known['A27'] = 1:	'与维拉的友谊：'				& gs 'journal', 'relindex', 'A27'
+	if npc_known['A54'] = 1:	'与米沙叔叔的友谊：'		& gs 'journal', 'relindex', 'A54'
+	if npc_known['A57'] = 1:	'与雷克斯的友谊：'				& gs 'journal', 'relindex', 'A57'
+	if npc_known['A217'] = 1:	'与帕夫林的友谊：'			& gs 'journal', 'relindex', 'A217'
+	if npc_known['A112'] = 1:	'与谢尔盖·舒尔金的友谊：'	& gs 'journal', 'relindex', 'A112'
+	if npc_known['A119'] = 1:	'与鲍里斯拉夫的友谊：'			& gs 'journal', 'relindex', 'A119'
+
+	'<center><h2>加杜基诺关系</h2></center>'
+	!! if npc_known['A31'] = 1: 'Friendship with Elena (your great-grandmother):' gs 'journal', 'relindex', 'A31'
+	!! if npc_known['A32'] = 1: 'Friendship with Zlatek (your great-grandfather):' & gs 'journal', 'relindex', 'A32'
+	if npc_known['A60'] = 1: '与米拉的友谊：'		& gs 'journal', 'relindex', 'A60'
+	if npc_known['A61'] = 1: '与科利亚姆巴的友谊：'	& gs 'journal', 'relindex', 'A61'
+	if npc_known['A62'] = 1: '与瓦西扬的友谊：'		& gs 'journal', 'relindex', 'A62'
+	if npc_known['A63'] = 1: '与米特卡的友谊：'		& gs 'journal', 'relindex', 'A63'
+	if npc_known['A64'] = 1: '与阿法纳西的友谊：'	& gs 'journal', 'relindex', 'A64'
+	if npc_known['A65'] = 1: '与维塔利的友谊：'		& gs 'journal', 'relindex', 'A65'
+	if npc_known['A221'] = 1: '与格里戈里的友谊：'	& gs 'journal', 'relindex', 'A221'
+	if npc_known['A172'] = 1: '与安德烈的友谊（猎人）：'	& gs 'journal', 'relindex', 'A172'
+	if npc_known['A173'] = 1: '与伊戈尔的友谊（猎人）：'		& gs 'journal', 'relindex', 'A173'
+	if npc_known['A174'] = 1: '与谢尔盖的友谊（猎人）：'	& gs 'journal', 'relindex', 'A174'
+
+	'<center><h2>圣彼得堡关系</h2></center>'
+	if npc_QW['A192']  > 0: '与娜斯佳的友谊：'		& gs 'journal', 'relindex', 'A192'
+	if npc_known['A218'] = 1: '与塔尼娅的友谊：'		& gs 'journal', 'relindex', 'A218'
+	if npc_known['A219'] = 1: '与凯特的友谊：'		& gs 'journal', 'relindex', 'A219'
+	if npc_known['A220'] = 1: '与维卡的友谊：'		& gs 'journal', 'relindex', 'A220'
+	if npc_known['A93'] = 1: '与伊拉的友谊：'			& gs 'journal', 'relindex', 'A93'
+	if npc_known['A43'] = 1: '与塔玛拉的友谊：'		& gs 'journal', 'relindex', 'A43'
+	if npc_known['A35'] = 1: '与米哈伊尔·库兹涅佐夫的友谊（你的生父）：' & gs 'journal', 'relindex', 'A35'
+	if npc_known['A169'] = 1: '与迪马的友谊：'		& gs 'journal', 'relindex', 'A169'
+	if npc_known['A89'] = 1: '与尤金的友谊：'		& gs 'journal', 'relindex', 'A89'
+	if npc_known['A216'] = 1: '与马丁的友谊：'		& gs 'journal', 'relindex', 'A216'
+
+	!! '<center><h2>Other Relations</h2></center>'
+	!! Uncomment if re-introduced into the game ensure you use NPC ID to update them
+	!! if alla > 0: 'Friendship with Alla <<alla>>'
+	!! if masha > 0: 'Friendship with Masha <<masha>>'
+	!! if npc_known['A41'] = 1: 'Friendship with Givi K. <<npc_rel[''A41'']>>'
+	!! if npc_known['A42'] = 1: 'Friendship with Ashot <<npc_rel[''A42'']>>'
+
+
+	if kid > 0 or arrsize('$lover') > 0:
+		'<center><h2>恋人与孩子</h2></center>'
+		if kid > 0:
+			i = 0
+			if kid = 1:
+				'你有一个孩子，一个 <<$polreb[0]>> 名叫 <<$kidname[0]>>. 出生 <<daykid[0]>>-<<monthkid[0]>>-<<yearkid[0]>>. 年龄 <<kidage[0]>>.'
+
+			else
+				'你有孩子：'
+				:LoopKidCounter
+				if i < kid:
+					'<br> 一个 <<$polreb[i]>> 名叫 <<$kidname[i]>>. 出生 <<daykid[i]>>-<<monthkid[i]>>-<<yearkid[i]>>. 年龄 <<kidage[i]>>.'
+					i += 1
+					jump 'LoopKidCounter'
+				end
+			end
+			*nl
+			*nl
+		end
+
+		jnl_i = 0
+		jnl_max_i = arrsize('$lover')
+		:loverjournalloop
+		if jnl_i < jnl_max_i:
+			gs 'npcStat', $lover[jnl_i], 'j'
+
+			if mid($npc_rel_type[$npcID10], 1, 2) = 'ex':
+				jnl_i += 1
+				jump 'loverjournalloop'
+			end
+
+			if $npc_rel_type[$npcID10] = 'husband':
+				'你结婚已有 <<daystart - spouseVars[''marry_day'']>> 天。你的丈夫 <<$npcdesc10>> 身高 <<$npcheight10>>，体型 <<$npcbuild10>>，发色 <<$npchair10>>. <<$npcdesc10>> 通常穿着 <<$npcClo10>>. 阴茎 <<$dick_desc10>>，周长 <<iif($dick_girth10=''skinny'',''极细'',iif($dick_girth10=''slim'',''偏细'',iif($dick_girth10=''well proportioned'',''标准'',iif($dick_girth10=''thicker than average'',''偏粗'',iif($dick_girth10=''thick'',''粗'',iif($dick_girth10=''massive'',''巨大'',iif($dick_girth10=''monstrous'',''骇人'',$dick_girth10)))))))>>. 关系值 <<npc_rel[$npcID10]>>.'
+			else
+				'你的 <<$npcrelat10>> <<$npcdesc10>> 身高 <<$npcheight10>>，体型 <<$npcbuild10>>，发色 <<$npchair10>>. <<$npcdesc10>> 通常穿着 <<$npcClo10>>. 你们的关系值是 <<npc_rel[$npcID10]>>，已经约会了 <<npc_dates[$npcID10]>> 次，交往了 <<daystart - npc_daygenerated[$npcID10]>> 天。'
+			end
+
+			*pl $func('progressbar', 'positive', npc_rel[$npcID10], 0, 0, 0, '', '', '10,35,60,80')
+
+			if npc_rel[$npcID10] > 1:
+				if npc_gentle[$npcID10] = 1:
+					'<<$Xec10>> 性格腼腆，缺乏自信。'
+				elseif npc_rough[$npcID10] = 0:
+					'<<$Xec10>> 性格开朗，善于交际。'
+				else
+					'<<$Xec10>> 脾气暴躁，为人严厉。'
+				end
+			end
+
+			*nl
+
+			jnl_i += 1
+			jump 'loverjournalloop'
+		end
+		killvar 'jnl_i'
+		killvar 'jnl_max_i'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                        GENERAL INFORMATION                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'generaltab':
+	$jumploc = 'generaltab'
+	gs 'journal', 'journalmenu'
+
+!! generaltab
+	'<center><h2>游戏信息</h2></center>'
+
+	if arrsize('$portfolio_locations') > 0 or arrsize('$portfolio_people') > 0:
+		act '查看你的摄影作品集': gt 'journal_portfolio'
+	end
+
+	'<br><center><a href="exec: gs ''journal'', ''locations''">地点</a></center>'
+	'<br><center><a href="exec: gs ''journal'', ''family''">家庭</a></center>'
+	'<br><center><a href="exec: gs ''journal'', ''pav_res''">巴甫洛夫斯克居民</a></center>'
+	'<br><center><a href="exec: gs ''journal'', ''gad_res''">加杜基诺居民</a></center>'
+	'<br><center><a href="exec: gs ''journal'', ''city_res''">城市居民</a></center>'
+	if ballet['blocker'] > 0 or balletqw['school'] > 0: '<br><center><a href="exec: gs ''journal'', ''ballet''">芭蕾生涯</a></center>'
+
+	if gschoolVars['school_diploma'] = 0 and $start_type['loc'] = 'sg' and gschoolVars['block'] = 0:
+		'<br><center><a href="exec: gs ''journal_school'', ''school''">学校</a></center>'
+		'<br><center><a href="exec: gs ''journal_school'', ''coursesinfo''">学校课程与成绩</a></center>'
+	end
+
+	!! Make this an elseif, add a third option to see where our friends end up in city-life??
+	if university['student'] = 1:
+		'<br><center><a href="exec: gs ''journal'', ''uni''">大学</a></center>'
+	end
+
+	'<br><center><a href="exec: gs ''journal'', ''clothing''">衣物信息</a></center>'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               NOTES                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'notestab':
+	$jumploc = 'notestab'
+	gs 'journal', 'journalmenu'
+	'<center><h2>笔记</h2></center>'
+
+	'创建笔记来记录你需要的任何信息。'
+	*nl
+
+	'<a href="exec: $zapis[] = input(''你想记录什么？'') & gt ''journal'',''notestab'' ">做笔记</a>'
+
+	jur_temp = 0
+	:jur_loop
+	if jur_temp < arrsize('$zapis'):
+		'<<$zapis[jur_temp]>> <a href="exec: dynamic ''killvar''''$zapis'''',<<jur_temp>> & gt ''''journal'''', ''''notestab'''''' ">删除</a>'
+		jur_temp += 1
+		jump 'jur_loop'
+	end
+	killvar 'jur_temp'
+
+!! notes
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           NOTIFICATIONS                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'notification_log':
+	$jumploc = 'notification_log'
+	gs 'journal', 'journalmenu'
+	'<center><h2>通知</h2></center>'
+	*nl
+	!! DEBUG
+	!! '<a href="exec: notif_debug_counter += 1 & gs ''notification'', ''add'', ''test message <<notif_debug_counter>>'' & gt ''journal'',''notification_log''">DEBUG</a>'
+	if arrsize('$notification_log') = 0:
+		'通知日志为空。'
+	else
+		notification_log_loop_index = arrsize('$notification_log') - 1
+		:notification_log_loop
+			*pl $notification_log[notification_log_loop_index]
+			*nl
+			notification_log_loop_index -= 1
+		if notification_log_loop_index >= 0: jump 'notification_log_loop'
+	end
+end
+
+
+!! -- Ballet School infor - only shown if active
+
+
+if $ARGS[0] = 'ballet':
+	$jumploc = 'ballet'
+	gs 'journal', 'journalmenu'
+	'<center><h1>芭蕾生涯</h1></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pushkin/ballet_events/dream_ballet.jpg"></center>'
+
+	'Пан или пропал （你要么成为大师，要么离开）。'
+
+	'这是一个以剧情驱动的模组和活动，专为舞者开局设计。主角获得了一笔助学金，可以参加为期6天的暑期强化课程，课程结束后会有考核，如果通过，就有机会参加每周的排练以及十二月的冬季舞蹈演出。'
+
+	'注意：这条故事线会持续很长时间，你的行动会产生一些起初并不明显的后果。其中部分内容取决于 Girl Life 主代码库的后续开发。'
+
+	'当前与规划中的功能：'
+
+	'   • 新增舞者开局选项，其他开局稍后开放，或大学/城市阶段付费加入。'
+	'   • 暑假期间的6天强化课程——留意父母厨房里的那封信，它会通知你。'
+	'   • 新的笔友，可以见面聚会，也可以与家人或伴侣一起度过剧院或芭蕾之夜。'
+	'   • 一位新的舞蹈老师，他的意图可能会阻止主角加入普希金芭蕾舞团，也可能对她本人和各个NPC角色产生深远的影响。'
+	'   • 新的舞蹈演出机会。每次排练时，如果你表现出色，就有机会获得当地剧院或市里的舞蹈工作。'
+
+	'附注：这个模组目前不包含性行为内容。如果你想基于这些内容创作此类场景，请通过 Girl Life 的 Discord 联系我。'
+
+	'<center><h2>纪念 — Hooded Silence.</h2></center>'
+	*nl
+	'这些内容作为 Hooded Silence 遗作的一部分得到维护。我还有大约1-2年的原创内容要补充，但如果你想参与贡献，请注意：按照他的笔记，这个模组至少要到第三年才会加入性内容。'
+	'这是游戏的一个剧情驱动型扩展，你的所作所为会影响你自己和其他人未来的命运。这些时刻很容易错过，但它们代表着你决策的后果，例如：'
+	*nl
+	'   • 违反寄宿学校的校规，或达不到学校的高标准。'
+	'   • 经常喝醉或怀孕——被赶出芭蕾舞团。'
+	'   • 疏于打理自己的形象——受到训斥或收入减少，最终被开除。'
+
+	*nl
+	'这些是显而易见的后果，但你与NPC的互动还会带来微妙的后果。这个模组意在让玩家在初次游玩时一无所知地体验，唯一的反馈就是那些不断变化的对话。'
+
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           OTHER SECTIONS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'clothing':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+	'<center>衣物信息</center>'
+	*nl
+	'衣物有耐久值，每穿一天就会减少1点。降到0时衣服就报废了，你必须把它扔掉。'
+	'当衣服耐久很低，且你的缝纫技能足够高时，你可以尝试修补衣物。你扔掉的衣服会重新出现在商店里。'
+	*nl
+	'衣物质量按以下顺序排列：'
+	'	劣质衣物'
+	'	很差的衣物'
+	'	较差的衣物'
+	'	一般的衣物'
+	'	尚可的衣物'
+	'	良好的衣物'
+	'	出色的衣物'
+
+	gs 'journal', 'leaveactions'
+end
+
+
+!! --- General Information -- University
+if $ARGS[0] = 'uni':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>大学</h2></center>'
+
+	if university['diploma'] > 0:
+		'你已从圣彼得堡大学毕业，专业为' + $func('uni_programs', 'get_program_name') + '。'
+	else
+		'你目前正在圣彼得堡大学攻读第' + $func('string', 'parse_number', university['enrolled_in_semester']) + '学期的' + $func('uni_programs', 'get_program_name') + '学位课程。'
+	end
+
+	if $university['elective1'] <> '' or $university['elective2'] <> '' or $university['elective3'] <> '':
+		*nl
+		'你这学期选了以下选修课：<<$university[''elective1'']>>, <<$university[''elective2'']>>, <<$university[''elective3'']>>。'
+	end
+
+	j = 1
+	:semester_loop
+		if j <= university['semester_passed']:
+			gs 'grades', 'assign_grade_description', 'uni_<<$university[''enrolled_in'']>>_semester_<<j>>'
+			*nl
+			'你通过了第' + $func('string', 'parse_number', j) + '学期的考试，成绩如下：'
+			k = 0
+			:class_loop
+				if $class_list_institution[k] = 'uni_<<$university[''enrolled_in'']>>_semester_<<j>>':
+					'<<$class_list_name[k]>>: <<$class_grade_desc[''<<$class_list_institution[k]>>_<<$class_list_name[k]>>_grade'']>>'
+				end
+				k += 1
+			if k < arrsize('class_list_institution'): jump 'class_loop'
+			killvar 'k'
+		end
+		j += 1
+	if j < 8: jump 'semester_loop'
+	killvar 'j'
+	if university['semester_passed'] = university['enrolled_in_semester'] and university['diploma'] = 0:
+		*nl
+		'你需要去大学行政楼注册下学期。'
+
+	elseif university['break'] = 1:
+		*nl
+		'你现在正处于学期之间的假期。'
+		if university['semester_week'] = -1:
+			'下学期将在下周开始。'
+		end
+
+		'<center><h2>下学期的课程表</h2></center>'
+
+		'周一：'		+ $func('uni_programs', 'get_first_period', 'monday'	) + ' ' + $func('uni_programs', 'get_second_period', 'monday'	) + ' ' + $func('uni_programs', 'get_third_period', 'monday'	)
+		'周二：'		+ $func('uni_programs', 'get_first_period', 'tuesday'	) + ' ' + $func('uni_programs', 'get_second_period', 'tuesday'	) + ' ' + $func('uni_programs', 'get_third_period', 'tuesday'	)
+		'周三：'	+ $func('uni_programs', 'get_first_period', 'wednesday'	) + ' ' + $func('uni_programs', 'get_second_period', 'wednesday') + ' ' + $func('uni_programs', 'get_third_period', 'wednesday'	)
+		'周四：'	+ $func('uni_programs', 'get_first_period', 'thursday'	) + ' ' + $func('uni_programs', 'get_second_period', 'thursday'	) + ' ' + $func('uni_programs', 'get_third_period', 'thursday'	)
+
+	elseif university['semester_week'] >  0:
+		*nl
+		if university['semester_week'] < 11:
+			'你在第' + $func('string', 'parse_number', university['semester_week']) + '周，学期共15周。'
+
+		else
+			'你在' + $str(university['semester_week']) + '周，学期共15周。'
+		end
+
+		'<center><h2>课程表</h2></center>'
+
+		'周一：'		+ $func('uni_programs', 'get_first_period', 'monday'	) + ' ' + $func('uni_programs', 'get_second_period', 'monday'	) + ' ' + $func('uni_programs', 'get_third_period', 'monday'	)
+		'周二：'		+ $func('uni_programs', 'get_first_period', 'tuesday'	) + ' ' + $func('uni_programs', 'get_second_period', 'tuesday'	) + ' ' + $func('uni_programs', 'get_third_period', 'tuesday'	)
+		'周三：'	+ $func('uni_programs', 'get_first_period', 'wednesday'	) + ' ' + $func('uni_programs', 'get_second_period', 'wednesday') + ' ' + $func('uni_programs', 'get_third_period', 'wednesday'	)
+		'周四：'	+ $func('uni_programs', 'get_first_period', 'thursday'	) + ' ' + $func('uni_programs', 'get_second_period', 'thursday'	) + ' ' + $func('uni_programs', 'get_third_period', 'thursday'	)
+
+		'<center><h2>成绩</h2></center>'
+
+		gs 'grades', 'assign_grade_description', 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>'
+
+		j = 0
+		:grade_loop
+			if $class_list_institution[j] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+				if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] >= (3 * university['semester_week'] + 52):
+					'你觉得你在<<$class_list_name[j]>>课上表现很好，如果保持下去，很可能会以最高分通过。'
+					if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']:
+						'到目前为止，你这周做的功课还不够；如果你不多去上课并在课上积极表现，或者不多在课外学习，你不仅会跟不上，而且还会让你拿好成绩的机会变得更小。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) < 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'你这周到目前为止投入的工作量不足以跟上进度，但至少你没有落后太多。'
+					else
+						'到目前为止，你这周投入的功课量足以跟上进度。'
+					end
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] > (2 * university['semester_week'] + 32):
+					'你把<<$class_list_name[j]>>这门课学得很好，如果保持下去很可能会以不错的成绩通过，但想拿最高分的话，还需要再努力一些。'
+					if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']:
+						'到目前为止，你这周做的功课还不够；如果你不多去上课并在课上积极表现，或者不多在课外学习，你不仅会跟不上，而且还会让你拿好成绩的机会变得更小。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) < 2 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'你这周到目前为止投入的工作量不足以跟上进度，但至少你没有落后太多。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) >= 4 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'这周你投入的学习量已经绰绰有余，你的状况正在改善。保持下去，你最终可能会拿到好成绩，而不仅仅是一般般的成绩。'
+					else
+						'到目前为止，你这周投入的功课量足以跟上进度。'
+					end
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] >= (1 * university['semester_week'] + 32):
+					'你很难跟上<<$class_list_name[j]>>这门课，但可能仍然能通过。如果你想拿好成绩，就真的需要采取行动了。'
+					if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']:
+						'到目前为止，你这周做的功课还不够；如果你不多去上课并在课上积极表现，或者不多在课外学习，你不仅会跟不上，而且还会让你拿好成绩的机会变得更小。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) < (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'你这周到目前为止投入的工作量不足以跟上进度，但至少你没有落后太多。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) >= 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'这周你投入的学习量已经绰绰有余，你的状况正在改善，很快可能就不再跟不上这门课了。'
+					else
+						'到目前为止，你这周投入的功课量足以跟上进度。'
+					end
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] < 40:
+					'你会挂掉你的<<$class_list_name[j]>>课，除非你现在就采取行动。现在可能已经太晚，赶不上了。'
+					if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']:
+						'到目前为止，你这周做的功课还不够；如果你不多去上课并在课上积极表现，或者不多在课外学习，你会离通过这门课越来越远。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) / (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) >= (40 - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade']):
+						'这周你投入的学习量已经足够，如果你在学期的剩余时间里保持下去，你觉得自己能通过这门课。'
+					else
+						'这周你到目前为止投入的学习量会提高你的通过几率，但仍不足以保证你能通过这门课。'
+					end
+				else
+					'你在你的<<$class_list_name[j]>>课上已经落后得无可救药，但可能还是能通过。任何拿好成绩的希望都需要你现在就开始做点什么。'
+					if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']:
+						'到目前为止，你这周做的功课还不够；如果你不多去上课并在课上积极表现，或者不多在课外学习，你不仅会跟不上进度，还会让自己通过这门课的几率变得更低。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) < (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'你这周到目前为止投入的工作量不足以跟上进度，但至少你没有落后太多。'
+					elseif 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain'] + class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_optional_weekly_grade_gain'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']) >= 3 * (class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_max'] - class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_weekly_grade_gain_breakeven_point']):
+						'这周你投入的学习量已经绰绰有余，你的状况正在改善。'
+					else
+						'这周你投入的学习量足以跟上进度，但并没有真正提升，以你目前的情况来看这并不乐观。'
+					end
+				end
+			end
+			j += 1
+		if j < arrsize('$class_list_institution'): jump 'grade_loop'
+		killvar 'j'
+
+	elseif university['exam_week'] > 0:
+		*nl
+		'你正处于两周考试期中的 ' + iif(university['exam_week'] = 1, '第一周', '第二周') + '。 ' + func('uni_programs', 'get_exam_schedule')
+		*nl
+
+		gs 'grades', 'assign_grade_description', 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>'
+
+		j = 0
+		:exam_loop
+			if $class_list_institution[j] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+				if class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_exam_done'] = 1:
+					'你完成了你的<<$class_list_name[j]>>考试，并认为你会得到<<$class_grade_desc[''<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'']>>。'
+
+				elseif func('uni_programs', 'is_exam_over', $class_list_name[j]) = 1:
+					'你的考试<<$class_list_name[j]>>已经结束，但你缺考了。这意味着你会挂掉这门课，从而挂掉整个学期。'
+
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] < 40:
+					'如果你的<<$class_list_name[j]>>考试在今天进行，你会不及格。如果你不想挂掉这个学期，是时候好好啃书了。'
+
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] < 70:
+					'你觉得你已经为<<$class_list_name[j]>>考试准备得足够充分，能通过考试，但如果你想拿好成绩，就需要认真复习。'
+
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] < 90:
+					'你觉得你已经为你的<<$class_list_name[j]>>考试准备得相当充分，成绩可能会是4分。再多学一点，你也许能拿5分。'
+
+				elseif class['<<$class_list_institution[j]>>_<<$class_list_name[j]>>_grade'] < 100:
+					'你觉得你已经为你的<<$class_list_name[j]>>考试，应该能以5分通过，但多学一点总没坏处。'
+
+				else
+					'你觉得你已经为你的<<$class_list_name[j]>>考试做好了充分准备，很可能会以最高分通过。'
+				end
+			end
+			j += 1
+		if j < arrsize('$class_list_institution'): jump 'exam_loop'
+		killvar 'j'
+	end
+
+	*nl
+	!! Added a link to the various Character Journal entries for location: journal_uni.
+	!! Should probably be put somewhere else. Blame Anjuna and Nutluck
+	'<center><h2>学生与教师</h2></center>'
+	'<br><center><a href="exec: gs ''journal_uni'', ''professors''">教授们</a></center>'
+	'<br><center><a href="exec: gs ''journal_uni'', ''pavlovsk_university_students''">来自巴甫洛夫斯克的大学生</a></center>'
+	'<br><center><a href="exec: gs ''journal_uni'', ''university_students''">其他大学生</a></center>'
+	*nl
+	'<br><center><a href="exec: gs ''journal_uni'', ''former_pavlovsk_students''">前巴甫洛夫斯克学生</a></center>'
+
+	act '回去': gt 'journal', 'generaltab'
+	gs 'journal', 'leaveactions'
+end
+
+
+!! --- General Information -- Locations
+
+
+if $ARGS[0] = 'locations':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>巴甫洛夫斯克</h2></center>'
+	'巴甫洛夫斯克是一个小镇。由于凯瑟琳宫和以前的宫殿庭园（如今已被改造成一个以火车站为中心的大公园），这里多少有点旅游陷阱的味道。火车站附近有一个全年开放的露天市场，可以淘到不少便宜货。你母亲工作的咖啡馆也在火车站附近，主要招待坐火车前来的游客。市中心分布着商铺和一些中产阶级住宅，而住宅区则是房屋和苏联时代旧公寓楼的混合体。'
+	*nl
+	'比较富裕的家庭住在镇郊公园附近的大房子里，而最贫穷的人家则住在老工业区附近，那里的几家工厂早已废弃。唯一还在营业的工厂是 G&M 服装厂，它还有一个临街店面，以及一位可以帮你改衣服的裁缝。工业区如今主要是妓女和毒贩的聚集地，晚上在那里走动被认为不安全。尽管是个旅游目的地，这个地区仍然相当贫穷，也没什么工作机会。'
+
+	'<center><h2>加杜基诺</h2></center>'
+	'你曾在祖父母的村庄里度过好几个夏天。那是一个小村庄，每个人都紧密团结。你记得自己在河边和当地孩子们玩耍，或者去那家应有尽有的小商店。曾祖父母年轻的时候，常常带你到树林里采蘑菇和浆果。曾祖父还带你参观过狩猎场，给你讲过许多关于来这里的猎人的故事。'
+
+	'<center><h2>圣彼得堡</h2></center>'
+	'你从家人和学校朋友那里听过很多关于这座城市的传闻。他们都说它既是个好地方，也是个坏地方。你仅有的几段记忆与那座大公园有关——你和家人曾去过一次，那里有一个很大的游乐场，有很多游乐设施。你也知道那所大学，因为你无意中听到过安雅和你母亲为它争吵。有时候，你母亲去美容院的时候，会硬拉着你和安雅一起去市里的商场。你记得自己在商店里跑来跑去，央求母亲给你买衣服。'
+
+	act '回去': gt 'journal', 'generaltab'
+	gs 'journal', 'leaveactions'
+end
+
+
+!! -- General Information -- Family
+
+
+if $ARGS[0] = 'family':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+	'<center><h2>家庭</h2></center>'
+
+	!! Mother
+	gs 'journal_NPC_information', 'A29'
+	*nl
+	!! Bio-father
+	gs 'journal_NPC_information', 'A35'
+	*nl
+	!! Step-Father
+	gs 'journal_NPC_information', 'A28'
+	*nl
+	!! Anya
+	gs 'journal_NPC_information', 'A33'
+	*nl
+	!! Kolka
+	gs 'journal_NPC_information', 'A34'
+	*nl
+	!! Aunt
+	gs 'journal_NPC_information', 'A30'
+	*nl
+	!! Olu
+	gs 'journal_NPC_information', 'A55'
+	*nl
+	!! Grandpa
+	gs 'journal_NPC_information', 'A31'
+	*nl
+	!! Grandmum
+	gs 'journal_NPC_information', 'A32'
+	*nl
+	!! Misha
+	gs 'journal_NPC_information', 'A54'
+
+	act '回去': gt 'journal', 'generaltab'
+	gs 'journal', 'leaveactions'
+
+
+elseif $ARGS[0] = 'pav_res':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>巴甫洛夫斯克居民</h2></center>'
+
+	!! Post Secondary school !!
+	if yearstart > 1:
+		!! Mefodiy
+		gs 'journal_NPC_information', 'A148', 'uni'
+		*nl
+		!! Ivan
+		gs 'journal_NPC_information', 'A3',   'uni'
+		*nl
+		!! Fedor
+		gs 'journal_NPC_information', 'A5',   'uni'
+		*nl
+		!! Erast Vagin
+		gs 'journal_NPC_information', 'A150', 'uni'
+		*nl
+		!! Veronika
+		gs 'journal_NPC_information', 'A141', 'uni'
+		*nl
+		!! Evgany
+		gs 'journal_NPC_information', 'A151', 'uni'
+		*nl
+		!! Natalia
+		gs 'journal_NPC_information', 'A240', 'uni'
+		*nl
+		!! Vitek
+		gs 'journal_NPC_information', 'A9',   'uni'
+		*nl
+		!! Dan
+		gs 'journal_NPC_information', 'A10',  'uni'
+		*nl
+		!! Vasily
+		gs 'journal_NPC_information', 'A11',  'uni'
+		*nl
+		!! Roman
+		gs 'journal_NPC_information', 'A157', 'uni'
+		*nl
+		!! Kayuska Maksimov
+		gs 'journal_NPC_information', 'A145', 'uni'
+		*nl
+		!! Pauline
+		gs 'journal_NPC_information', 'A24',  'uni'
+		*nl
+		!! Kikolai
+		gs 'journal_NPC_information', 'A189', 'uni'
+		*nl
+		!! Lena
+		gs 'journal_NPC_information', 'A20',  'uni'
+		*nl
+		!! Lera
+		gs 'journal_NPC_information', 'A21',  'uni'
+		*nl
+		!! Alyona
+		gs 'journal_NPC_information', 'A143', 'uni'
+		*nl
+	end
+
+	!! Sergey
+	gs 'journal_NPC_information', 'A112'
+
+	act '回去': gt 'journal', 'generaltab'
+	gs 'journal', 'leaveactions'
+
+
+elseif $ARGS[0] = 'gad_res':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>加杜基诺居民</h2></center>'
+	!! Grandpa
+	gs 'journal_NPC_information', 'A31'
+	*nl
+	!! Grandma
+	gs 'journal_NPC_information', 'A32'
+	*nl
+	!! Mira
+	if npc_known['A60'] = 1:
+		gs 'journal_NPC_information', 'A60'
+		*nl
+	end
+	!! Mitka
+	gs 'journal_NPC_information', 'A63'
+	*nl
+	!! Kolyamba
+	if GadBoy['first_drink'] > 1:
+		gs 'journal_NPC_information', 'A61'
+		*nl
+	end
+	!! Vasyan
+	if GadBoy['first_drink'] > 1:
+		gs 'journal_NPC_information', 'A62'
+		*nl
+	end
+	!! Afanasiy (Mira''s father)
+	if npc_known['A60'] = 1:
+		gs 'journal_NPC_information', 'A64'
+		*nl
+	end
+	!! Vtialiy (Mira''s brother)
+	if npc_known['A60'] = 1:
+		gs 'journal_NPC_information', 'A65'
+		*nl
+	end
+	!! Grigory
+	if npc_QW['A221'] > 0:
+		gs 'journal_NPC_information', 'A221'
+		*nl
+	end
+	!! Hunters
+	if hunterVars['were_met'] > 0:
+		gs 'journal_NPC_information', 'A172'
+		*nl
+		gs 'journal_NPC_information', 'A173'
+		*nl
+		gs 'journal_NPC_information', 'A174'
+		*nl
+	end
+
+	act '回去': gt 'journal', 'generaltab'
+	gs 'journal', 'leaveactions'
+
+
+elseif $ARGS[0] = 'city_res':
+	$jumploc = 'generalsub'
+	gs 'journal', 'journalmenu'
+
+	'<center><h2>城市居民</h2></center>'
+
+	!! Post Secondary school !!
+	if yearstart > 1:
+		!! Radomir
+		gs 'journal_NPC_information', 'A154', 'uni'
+		*nl
+		!! Arkadi
+		gs 'journal_NPC_information', 'A156', 'uni'
+		*nl
+		!! Valentin
+		gs 'journal_NPC_information', 'A158', 'uni'
+	end
+
+	act '回去': gt 'journal', 'generaltab'
+	gs 'journal', 'leaveactions'
+end
+
+
+!! Helper functions
+
+
+if $ARGS[0] = 'relindex':
+	*pl $func('progressbar', 'positive', npc_rel[$ARGS[1]], 0, 0, 0, '', '', '10,35,60,80')
+
+
+elseif $ARGS[0] = 'leaveactions':
+	act '放下你的笔记本':
+		killvar 'jumploc'
+		jclose = 1
+		gt $menu_loc, $menu_arg
+	end
+end
+
+
+
+--- journal ---------------------------------

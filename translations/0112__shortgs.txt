@@ -1,0 +1,1126 @@
+# shortgs
+
+!! make an autosave unless it is disabled
+if $ARGS[0] = 'autosave':
+	if cfg_vars['disable_autosave'] = 0:
+		if $start_type['loc'] = 'city':
+			savegame 'autosave_city_<<$weekName[week]>>.sav'
+		elseif $start_type['loc'] = 'uni':
+			savegame 'autosave_uni_<<$weekName[week]>>.sav'
+		else
+			savegame 'autosave_sg_<<$weekName[week]>>.sav'
+		end
+	end
+	exit
+end
+
+
+!{show table v2, by illume
+	this function will push $args[0] into $show_table with args[1] column, min=1, and count by st_count
+
+	st_count=0 & $show_table=''
+		if kat > 0:gs 'show_table', '凯特 <<kat>>','2'
+		if vika > 0:gs 'show_table', '维卡 <<vika>>','2'
+		…
+	if st_count > 0 :pl 'Relations:<BR><TABLE BORDER=1><<$show_table>></TR></TABLE>'
+!}
+
+
+if $ARGS[0] = 'show_table':
+	tab_tmp = max(1, val($ARGS[2]), ARGS[2])
+	$result = ''
+
+	if (st_count mod tab_tmp) = 0: $result += "<tr>"
+	$result += "<td><<$ARGS[1]>></td>"
+	if (st_count mod tab_tmp) + 1 = tab_tmp: $result += "</tr>"
+	$show_table += $result
+	st_count += 1
+	killvar 'tab_tmp'
+	exit
+end
+
+
+!! following function counts the number of guys which PC slept with.
+!! use func('shortgs','guy') or func('shortgs','guy',X) for subset (X can be any combination of 'A','B','C', and 'M'. e.g. 'AB', or 'ACM', etc.)
+if $ARGS[0] = 'guy':
+	if $ARGS[1] = '': $temptask = 'ABCM' else $temptask = $ARGS[1]
+	if $temptask = 'ABCM':
+		result = stat['male_sexual_partners']
+	else
+		result = func('npc', 'get_npc_count', 'npc_sexual', $ARGS[1], '0')
+	end
+	killvar 'temptask'
+	exit
+end & !! --- guy ---
+
+
+!! following function counts the number of girls which PC slept with.
+!! use func('shortgs','girl') or func('shortgs','girl',X) for subset (X can be any combination of 'A','B','C', and 'M'. e.g. 'AB', or 'ACM', etc.)
+if $ARGS[0] = 'girl':
+	if $ARGS[1] = '': $temptask = 'ABCM' else $temptask = $ARGS[1]
+	if $temptask = 'ABCM':
+		result = stat['female_sexual_partners']
+	else
+		result = func('npc', 'get_npc_count', 'npc_sexual', $ARGS[1], '1')
+	end
+	killvar 'temptask'
+	exit
+end & !! --- girl ---
+
+
+!! following procedure should be used when PC gets naked, but it should be paired with the reverse procedure
+!! use gs 'shortgs','undress'
+if $ARGS[0] = 'undress':
+	gs 'outfit', 'undress', $ARGS[1]
+	exit
+end & !! --- undress ---
+
+
+!! reverse procedure, it can be modified for lose or stolen panties later.
+!! use gs 'shortgs','dress'
+if $ARGS[0] = 'dress':
+	gs 'outfit', 'dress', $ARGS[1]
+	exit
+end & !! --- dress ---
+
+
+!! procedure, which prevents PC to leave a room naked.
+!! use gs 'shortgs', 'checkdress', ' <<$loc>>, <<$loc_arg>> ' or equivalent
+if $ARGS[0] = 'checkdress':
+	if $clothingworntype = 'nude':
+		msg $func('wrap', 'neg b', '出门前你需要穿好衣服。')
+		dynamic "gt <<$ARGS[1]>>"
+	end
+	exit
+end & !! --- checkdress ---
+
+
+!! this is an integer sqrt function
+!! call func('shortgs', 'sqrt', n)
+if $ARGS[0] = 'sqrt':
+	result = func('math', 'int_sqrt', ARGS[1])
+	exit
+end
+
+
+!! this function calculates modul of given arguments as it was coordinates in cartezian systeme
+!! use func('shortgs','modul',n1,n2,..n8)
+if $ARGS[0] = 'modul':
+	modul_sum = ARGS[1]*ARGS[1] + ARGS[2]*ARGS[2] + ARGS[3]*ARGS[3] + ARGS[4]*ARGS[4] + ARGS[5]*ARGS[5] + ARGS[6]*ARGS[6] + ARGS[7]*ARGS[7] + ARGS[8]*ARGS[8]
+	result = func('shortgs', 'sqrt', modul_sum)
+	killvar 'modul_sum'
+	exit
+end
+
+
+!! day of week 1 - Monday .. 7 - Sunday
+if $ARGS[0] = 'dow':
+	Y_dow = ARGS[1]
+	M_dow = ARGS[2]
+	D_dow = ARGS[3]
+	if Y_dow = 0: Y_dow = year
+	if M_dow = 0: M_dow = month
+	if D_dow = 0: D_dow = day
+
+	if Y_doy = year and M_doy = month and D_doy = day:
+		result = week
+	else
+		gs 'time', 'to_daystart', Y_dow, M_dow, D_dow
+		result = func('time', 'get_week_from_daystart', dateVars['daystart'])
+	end
+	killvar 'D_dow'
+	killvar 'M_dow'
+	killvar 'Y_dow'
+	exit
+end
+
+
+!! day of year
+!! use xdoy = func('shortgs','doy',year,month,day)
+!! https://astronomy.stackexchange.com/questions/2407/calculate-day-of-the-year-for-a-given-date
+if $ARGS[0] = 'doy':
+	Y_doy = ARGS[1]
+	M_doy = ARGS[2]
+	D_doy = ARGS[3]
+	if Y_doy = 0: Y_doy = year
+	if M_doy = 0: M_doy = month
+	if D_doy = 0: D_doy = day
+
+	if Y_doy = year and M_doy = month and D_doy = day:
+		result = day_of_year
+	else
+		gs 'time', 'to_daystart', Y_doy, M_doy, D_doy
+		gs 'time', 'to_date', dateVars['daystart']
+		result = dateVars['day_of_year']
+	end
+	killvar 'D_doy'
+	killvar 'M_doy'
+	killvar 'Y_doy'
+	exit
+	!! doy_N1 = 275 * ARGS[2] / 9
+	!! doy_N2 = (ARGS[2] + 9) / 12
+	!! doy_N3 = 1 + (ARGS[1] - (4 * (ARGS[1] / 4)) + 2) / 3
+	!! result = doy_N1 - (doy_N2 * doy_N3) + ARGS[3] - 30
+	!! killvar 'doy_N1'
+	!! killvar 'doy_N2'
+	!! killvar 'doy_N3'
+end
+
+!! DEPRECATED, remove in 0.10.0!
+if $ARGS[0] = 'mk1':
+	gs 'saveposition'
+	*clr & cla
+	$mk_subst['0'] = 'M'
+	$mk_subst['1'] = 'F'
+	$mk_subst['2'] = 'O'
+	$mk_subst['3'] = 'L'
+	$mk_subst['4'] = 'R'
+	$mk_subst['5'] = 'P'
+
+	'<center><font face="courier" size=1>'
+	'<table border = 1>'
+	'<tr><th>周一</th><th>周二</th><th>周三</th><th>周四</th><th>周五</th><th>周六</th><th>周日</th><th>周一</th><th>周二</th><th>周三</th><th>周四</th><th>周五</th><th>周六</th><th>周日</th>
+	<th>周一</th><th>周二</th><th>周三</th><th>周四</th><th>周五</th><th>周六</th><th>周日</th><th>周一</th><th>周二</th><th>周三</th><th>周四</th><th>周五</th><th>周六</th><th>周日</th></tr>'
+
+	i = arrsize('$MenCal')
+	empty0 = week + 29 - i - 1
+
+	empty1 = min(28, empty0)
+	full1 = max(0, 28 - empty0)
+
+	empty2 = max(0, empty0-28)
+	full2 = i - full1
+
+	empty3 = 28 - empty2 - full2
+	count = 0
+
+	$tabmc = '<tr>'
+		:tabmcl1
+		if empty1 > 0:
+			empty1 -= 1
+			$tabmc += '<td>&nbsp</td>'
+			jump 'tabmcl1'
+		end
+		if full1 > 0:
+			full1 -= 1
+			if $MenCal[count]='0':
+				$tabmc += '<td bgcolor="red"><<$mk_subst[$MenCal[count]]>></td>'
+			else
+				$tabmc += '<td><<$mk_subst[$MenCal[count]]>></td>'
+			end
+			count += 1
+			jump 'tabmcl1'
+		end
+	$tabmc += '</tr><tr>'
+		:tabmcl3
+		if empty2 > 0:
+			empty2 -= 1
+			$tabmc += '<td>&nbsp</td>'
+			jump 'tabmcl3'
+		end
+		:tabmcl4
+		if full2 > 0:
+			full2 -= 1
+			if $MenCal[count] = '0':
+				$tabmc += '<td bgcolor="red"><<$mk_subst[$MenCal[count]]>></td>'
+			else
+				$tabmc += '<td><<$mk_subst[$MenCal[count]]>></td>'
+			end
+			count += 1
+			jump 'tabmcl4'
+		end
+		:tabmcl5
+		if empty3 > 0:
+			empty3 -= 1
+			$tabmc += '<td></td>'
+			jump 'tabmcl5'
+		end
+	$tabmc += '</tr><table></font></center>'
+	*pl $tabmc
+
+	act '返回': gt 'restoreposition'
+
+	killvar 'tabmc'
+	killvar 'empty0'
+	killvar 'empty1'
+	killvar 'full1'
+	killvar 'empty2'
+	killvar 'full2'
+	killvar 'empty3'
+end
+
+
+!! DEPRECATED, remove in 0.10.0!
+!! use gs 'shortgs','mk'
+if $ARGS[0] = 'mk':
+	gs '$menu_calendar'
+	exit
+end
+
+
+!! gs 'shortgs','fonts'
+if $ARGS[0] = 'fonts':
+	gs '$menu_settings', 'fonts', $ARGS[1], $ARGS[2], $ARGS[3]
+	exit
+end
+
+
+!! use gs 'shortgs','ncp_update'
+if $ARGS[0] = 'ncp_update':
+	copyarr 'copy_npc_QW', 'npc_QW'
+	copyarr 'copy_npc_rel', 'npc_rel'
+	copyarr 'copy_npc_love', 'npc_love'
+	copyarr '$copy_npc_usedname', '$npc_usedname'
+	gs 'npcstatic1'
+	gs 'npcstatic2'
+	gs 'npcstatic3'
+	gs 'npcstatic4'
+	gs 'npcstatic5'
+	gs 'npcstatic6'
+	i = arrsize('copy_npc_QW')
+	j = 1
+	:loopnpcupdate
+		$temp_npcID = 'A<<j>>'
+		npc_QW[$temp_npcID] = copy_npc_QW[$temp_npcID]
+		npc_rel[$temp_npcID] = copy_npc_rel[$temp_npcID]
+		npc_love[$temp_npcID] = copy_npc_love[$temp_npcID]
+		$npc_usedname[$temp_npcID] = $copy_npc_usedname[$temp_npcID]
+		j += 1
+	if j <= i: jump 'loopnpcupdate'
+	killvar 'temp_npcID'
+	killvar 'copy_npc_QW'
+	killvar 'copy_npc_rel'
+	killvar 'copy_npc_love'
+	killvar 'copy_npc_usedname'
+	exit
+end
+
+
+!! Depracated !! moved to 'array'
+!! this function returns the numeric index of the array element which is indexed by string value.
+!! call func('shortgs', 'get_me_index', 'name of array','string index')
+!! the array can be both numeric or string: Be aware, for the search is used the value 'SearchTag' for string arrays and -2147483648 for numeric arrays.
+!! if the array consists such value, the fuction can mess the array content and return wrong value
+!! changed the value for detecting numeric element from -999 to -2147483648 (November 2020)
+if $ARGS[0] = 'get_me_index':
+	result = func('array', 'get_me_index', $ARGS[1], $ARGS[2])
+	exit
+end
+
+
+!! Depracated !! moved to 'array'
+!! call gs 'shortgs', 'remove_array_element', 'name of array','string index'
+if $ARGS[0] = 'remove_array_element':
+	gs 'array', 'remove_element', $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+if $ARGS[0] = 'testsize':
+	'$npc_firstname = '			+ arrsize('$npc_firstname')
+	'$npc_lastname = '			+ arrsize('$npc_lastname')
+	'$npc_nickname = '			+ arrsize('$npc_nickname')
+	'$npc_notes = '				+ arrsize('$npc_notes')
+	'$npc_occupation = '		+ arrsize('$npc_occupation')
+	'$npc_perstype = '			+ arrsize('$npc_perstype')
+	'$npc_pic = '				+ arrsize('$npc_pic')
+	'$npc_thdick = '			+ arrsize('$npc_thdick')
+	'$npc_usedname = '			+ arrsize('$npc_usedname')
+
+	'npc_apprnc = '				+ arrsize('npc_apprnc')
+	'npc_bust = '				+ arrsize('npc_bust')
+	'npc_outfit = '				+ arrsize('npc_outfit')
+	'npc_style = '				+ arrsize('npc_style')
+	'npc_dick = '				+ arrsize('npc_dick')
+	'npc_dob = '				+ arrsize('npc_dob')
+	'npc_drunk = '				+ arrsize('npc_drunk')
+	'npc_gender = '				+ arrsize('npc_gender')
+	'npc_haircol = '			+ arrsize('npc_haircol')
+	'npc_height = '				+ arrsize('npc_height')
+	'npc_horny = '				+ arrsize('npc_horny')
+	'npc_intel = '				+ arrsize('npc_intel')
+	'npc_love = '				+ arrsize('npc_love')
+	'npc_QW = '					+ arrsize('npc_QW')
+	'npc_rel = '				+ arrsize('npc_rel')
+	'npc_sex = '				+ arrsize('npc_sex')
+	'npc_sexskill = '			+ arrsize('npc_sexskill')
+	'npc_spermpot = '			+ arrsize('npc_spermpot')
+
+	'npc_herpes = '				+ arrsize('npc_herpes')
+	'npc_syth = '				+ arrsize('npc_syth')
+	'npc_gon = '				+ arrsize('npc_gon')
+	'npc_thrush = '				+ arrsize('npc_thrush')
+
+
+	'npc_apt_type = '			+ arrsize('npc_apt_type')
+	'npc_apt_number = '			+ arrsize('npc_apt_number')
+
+	'$npc_apt_bedroom = '		+ arrsize('$npc_apt_bedroom')
+	'$npc_apt_kitchen = '		+ arrsize('$npc_apt_kitchen')
+	'$npc_apt_livingroom = '	+ arrsize('$npc_apt_livingroom')
+	'$npc_apt_bathroom = '		+ arrsize('$npc_apt_bathroom')
+
+	'npc_perv = '				+ arrsize('npc_perv')
+	'npc_finance = '			+ arrsize('npc_finance')
+	'npc_humor = '				+ arrsize('npc_humor')
+	'npc_fav_pos = '			+ arrsize('npc_fav_pos')
+	'npc_tit_pref = '			+ arrsize('npc_tit_pref')
+	'npc_addit = '				+ arrsize('npc_addit')
+	'npc_doors = '				+ arrsize('npc_doors')
+
+	'npc_goal = '				+ arrsize('npc_goal')
+	'npc_fidelity = '			+ arrsize('npc_fidelity')
+
+	'npc_lover_days = '			+ arrsize('npc_lover_days')
+	'npc_lover_keys = '			+ arrsize('npc_lover_keys')
+
+	'$npc_index = '				+ arrsize('$npc_index')
+	exit
+end
+
+
+if $ARGS[0] = 'npctest':
+	' --- 初始化 --- '
+	gs 'shortgs', 'testsize'
+	gs 'npcgeneratec', 0, 'stranger', rand(18, 45), 1
+	*pl $func('npc_notes', $npclastgenerated)
+	*pl $npclastgenerated
+	' --- 生成 NPC C --- '
+	gs 'shortgs', 'testsize'
+	gs 'npcpreservec', $npclastgenerated
+	*pl $func('npc_notes', $npclastsaved)
+	*pl $npclastsaved
+	' --- 将 NPC C 保存为 NPC B --- '
+	gs 'shortgs', 'testsize'
+	gs 'npccleanc', $npclastsaved
+	' --- 删除 NPC B --- '
+	gs 'shortgs', 'testsize'
+	exit
+end
+
+
+if $ARGS[0] = 'replace header':
+	wait (ARGS[1])
+	RH_Count = ARGS[2]
+	$RH_temp = $maintxt
+	:RH_label
+		RH_temp_lenght = len($RH_temp)
+		RH_temp_LFpos = instr($RH_temp, '\n')
+		$RH_temp = $mid($RH_temp, RH_temp_LFpos + 1, RH_temp_lenght - RH_temp_LFpos)
+		RH_Count -= 1
+	if RH_Count > 0: jump 'RH_label'
+	*clr
+	$ARGS[3]
+	$ARGS[4]
+	$ARGS[5]
+	$ARGS[6]
+	$ARGS[7]
+	$RH_temp
+	killvar 'RH_temp'
+	killvar 'RH_Count'
+	killvar 'RH_temp_lenght'
+	killvar 'RH_temp_LFpos'
+	exit
+end
+
+
+if $ARGS[0]='img msg':
+	msg '<center><img height=280 src="<<$ARGS[1]>>"></center>'
+	exit
+end
+
+
+!! Depracated !! Moved to 'math'
+!! Used for dividing with accurate rounding up/down
+!! ARGS[1] = value you want divided
+!! ARGS[2] = divider
+!!  func('shortgs', 'round_divide', number, divider)
+!!  func('shortgs', 'round_divide', 12345, 7)
+if $ARGS[0] = 'round_divide':
+	result = func('math', 'int_divide', ARGS[1], ARGS[2])
+	exit
+end
+
+
+!! Depracated !! Moved to 'math'
+!! Used for rounding numbers to the nearest multiple of ARGS[2]
+!! ARGS[1] = value you want rounded
+!! ARGS[2] = nearest multiple to round to
+!!  func('shortgs', 'round_tool', number, multiple)
+!!  func('shortgs', 'round_tool', 12345, 10)
+if $ARGS[0] = 'round_tool':
+	result = func('math', 'int_round', ARGS[1], ARGS[2])
+	exit
+end
+
+
+!! Depracated !! Moved to 'random'
+!! Randomly picks one of the items plugged in
+!!
+!!  Option 1: (has 6 input limit)
+!!  $ARGS[1] =		'string' or 'number' to specify what you''re plugging in (can also be blank for numbers)
+!!  $ARGS[2-7] =	strings or numbers to pick from, limited to 6
+!!  Example 1: func('shortgs', 'rand_pick', 'string', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta')
+!!  Example 2: func('shortgs', 'rand_pick', '', 2, 3, 5, 7, 11, 13)
+!!
+!!  Option 2: (no limitations, has to be delimited)
+!!  $ARGS[1] =		'delimit' - used for larger numbers of items to pick from
+!!  $ARGS[2] =		'string' or 'number' to specify what you''re plugging in (can also be blank for numbers)
+!!  $ARGS[3] =		Delimited string to parse
+!!  $ARGS[4] =		Delimiter used (Default = '|' pipe)
+!!  Example 1: func('shortgs', 'rand_pick', 'delimit', 'string', 'alpha|beta|gamma|delta|epsilon|zeta')
+!!  Example 2: func('shortgs', 'rand_pick', 'delimit', 'number', '1-12-123-1234-12345-123456', '-')
+!!  Example 3: func('shortgs', 'rand_pick', 'delimit', '', '0.1.2.3.5.7.11', '.')
+if $ARGS[0] = 'rand_pick':
+	if $ARGS[1] = 'delimit':
+		if $ARGS[2] = 'string':
+			$result = $func('random', 'pick_from_delimited_string', $ARGS[3], $ARGS[4], 1)
+		else
+			result = func('random', 'pick_from_delimited_string', $ARGS[3], $ARGS[4])
+		end
+	else
+		if arrsize('ARGS') <= 2:
+			msg '<b>错误：''rand_pick'' 缺少 ARGS</b>在 shortgs, rand_pick'
+		else
+			if $ARGS[1] = 'string':
+				$result = $ARGS[rand(2, arrsize('$ARGS')-1)]
+			else
+				result = ARGS[rand(2, arrsize('ARGS')-1)]
+			end
+		end
+	end
+	exit
+end
+
+
+!! Depracated !! moved to 'string'
+!! Parse delimited string into an array
+!!	$ARGS[1] =		ArrayName (has to include $ for string values)
+!!	$ARGS[2] =		Delimited string to parse
+!!	$ARGS[3] =		Delimiter used (Default = '|' pipe)
+!!  Example 1: gs 'shortgs', 'parse_string', '$my_array', 'alpha|beta|gamma|delta|epsilon|zeta'
+!!  Example 2: gs 'shortgs', 'parse_string', 'my_array', '1-12-123-1234-12345-123456', '-'
+if $ARGS[0] = 'parse_string':
+	gs 'string', 'parse_string', $ARGS[1], $ARGS[2], $ARGS[3]
+	exit
+end
+
+
+if $ARGS[0] = 'clothing_state':
+	if $clothingworntype = 'nude':
+		if $braworntype <> 'none' and $pantyworntype <> 'none':
+			'你正穿着内衣。'
+		elseif $pantyworntype <> 'none':
+			'你只穿着内裤。'
+		elseif $braworntype <> 'none':
+			'你只穿着胸罩。'
+		else
+			'你全身赤裸。'
+		end
+	elseif PSwim:
+		'你穿着泳衣。'
+	elseif PSport:
+		'你穿着运动服和运动鞋。'
+	elseif ($braworntype = 'none' and PCloBra = 0) and ($pantyworntype = 'none' and PCloPanties = 0):
+		'你没有穿任何内衣。'
+	elseif $pantyworntype = 'none' and PCloPanties = 0:
+		'你没有穿内裤。'
+	elseif $braworntype = 'none' and PCloBra = 0:
+		'你没有穿胸罩。'
+	end
+	exit
+end
+
+
+!! 2024-07-05 clothing_status - fct to determine clothing status
+!! v.01 - Initial release
+!! v.02 - logic flow improved from Kevin.
+!! v.03 - Sports clothing changed from Danilovich only to use PCloStyle2 = 6 or PCloSport = 1
+if $ARGS[0] = 'clothing_status':
+	$apparel['panty'] = ''
+	$apparel['bra'] = ''
+	$apparel['status'] = ''
+	if $clothingworntype = 'nude':
+		if ($pantyworntype <> 'none' and $braworntype <> 'none'):
+			$apparel['status'] = 'underwear'
+		elseif $pantyworntype <> 'none':
+			$apparel['status'] = 'panties'
+		elseif $braworntype <> 'none':
+			$apparel['status'] = 'bra'
+		else
+			$apparel['status'] = 'nude'
+		end
+	elseif PSwim:
+		$apparel['status'] = 'swim'
+	elseif PSport:
+		$apparel['status'] = 'sport'
+	elseif $clothingworntype = 'ballet_secrets' and $shoeworntype = 'ballet_secrets':
+		$apparel['status'] = 'dance'
+	elseif $clothingworntype = 'moncheri_gown' and $shoeworntype = 'moncheri_shoes':
+		$apparel['status'] = 'ballgown'
+	else
+		$apparel['status'] = 'clothed'
+	end
+	exit
+end
+
+
+!! Author - Hooded Silence
+!! Date created - 26 Aug 22
+!! Payment system - Used to pay for items in various game locations
+!! v. 02 - Refactoring to make usage simpler using the epayments array
+
+!! command syntax: gs 'shortgs','payments'
+!! All variabls are initiated at point of origin
+!!
+!! epayments[value] = cost of goods. Required
+!! $epayments[method] = how it''s to be paid cash or card. leave blank for both. Optional
+!! $epayments[description] = Item Description - What''s been bought. Required
+!! $epayments[item_variable] = item variable to be purchased to be added to players inventory. Optional.
+!! epayments[quantity] = How many items to be added. Defaults to one - Optional.
+!! $epayments[loc] = Where do you want the character to go to, optional falls back to starting location if set. Optional
+!! $epayments[act] = If there''s a specific act to return to. Optional
+!! $epayments[banner] = banner image for the sale. Optional
+!! Optional with no content are ignored.
+!! epayments['paid'] is set to -1 when the payment is initiated and set to 0 when the payment is complete.
+!!		can be used in case multiple items are to be purchased with one payment to prevent getting the item by clicking 'Cancel Payment'
+
+
+!! Use stock image for the purchase screen?
+if $ARGS[0] = 'payments':
+	*clr & cla
+
+	if epayments['value'] = 0:
+		msg	'<b>错误，现金数额未设置</b>在 shortgs, payments.'
+		exit
+	end
+	if $epayments['description'] = '':
+		msg '<b>错误，物品描述未设置</b>在 shortgs, payments.'
+		exit
+	end
+
+	!! Construct payment call
+
+	if $epayments['item_variable'] <> '':
+		$construct_cash = '<a href="exec: $epayments[''method''] = ''cash'' & money -= <<epayments[''value'']>> & <<$epayments[''item_variable'']>> += <<epayments[''quantity'']>> & gs ''shortgs'', ''paymentcomplete'' ">现金</a>'
+		$construct_card = '<a href="exec: $epayments[''method''] = ''card'' & karta -= <<epayments[''value'']>> & <<$epayments[''item_variable'']>> += <<epayments[''quantity'']>> & gs ''shortgs'', ''paymentcomplete'' ">银行卡</a>'
+	else
+		$construct_cash = '<a href="exec: $epayments[''method''] = ''cash'' & money -= <<epayments[''value'']>> & gs ''shortgs'', ''paymentcomplete'' ">现金</a>'
+		$construct_card = '<a href="exec: $epayments[''method''] = ''card'' & karta -= <<epayments[''value'']>> & gs ''shortgs'', ''paymentcomplete'' ">银行卡</a>'
+	end
+
+	!! Use stock image for the purchase screen?
+	if $epayments['banner'] <> '':
+		'<center><img <<$set_imgh>> src="images/' + $epayments['banner'] + '"></center>'
+	end
+
+	if ($epayments['method'] <> 'cash' and $epayments['method'] <> 'card') and (epayments['value'] <= money and epayments['value'] <= karta):
+		'你想如何支付这个<<$epayments[''description'']>>? <<$construct_cash>>或<<$construct_card>>'
+	elseif ($epayments['method'] = 'cash' or $epayments['method'] = '') and epayments['value'] <= money:
+		'用<<$construct_cash>>支付<<$epayments[''description'']>>？'
+	elseif ($epayments['method'] = 'card' or $epayments['method'] = '') and epayments['value'] <= karta:
+		'用<<$construct_card>>支付<<$epayments[''description'']>>？'
+	else
+		'你的钱包或银行卡里没有足够的钱来买这件东西。'
+	end
+	epayments['paid'] = -1
+	act '取消付款': gt $loc, $loc_arg
+	exit
+end
+
+
+!! Payment complete
+if $ARGS[0] = 'paymentcomplete':
+	*clr & cla
+	epayments['paid'] = 0
+	'谢谢您的购买！期待再次见到您。'
+	*nl
+
+	'你支付了 ' + epayments['value'] + '<b>₽</b>' + iif($epayments['method'] = 'cash', '（现金）', '（银行卡）') + ' 用于购买' + $epayments['description']
+
+	gs 'stat'
+	!! clean up all the variables
+	killvar 'construct_cash'
+	killvar 'construct_card'
+	if $epayments['loc'] <> '':
+		act '完成付款': gt $epayments['loc'], $epayments['loc_arg']
+	else
+		act '完成付款': gt $loc, $loc_arg
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'calendar_display':
+	'<b><<$monthName>> <<day>></b>'
+	'<b><<$weekName>></b>'
+	'<b>' + $func('time', 'get_time_string') + '</b>'
+	exit
+end
+
+
+if $ARGS[0] = 'day_display':
+	'<b><<$weekName>></b>'
+	'<b>' + $func('time', 'get_time_string') + '</b>'
+	exit
+end
+
+
+!! Depracated !! moved to 'time'
+if $ARGS[0] = 'time_display':
+	'<b>' + $func('time', 'get_time_string') + '</b>'
+	exit
+end
+
+
+!! Depracated !! moved to 'core_library'
+if $ARGS[0] = 'setloc':
+	gs 'core_library', 'setloc', $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+!! Depracated !! moved to 'random'
+!! generates n rand numbers and selects min or max (max for lucky or min for unlucky)
+!! use: func('shortgs' 'roll', 'lucky' x, y, n)
+!! where x and y set range and n sets amount of rolls
+!! example: func('shortgs' 'roll', 'lucky' 0, 5)
+!! example: func('shortgs' 'roll', 'unlucky' 0, 100, 5)
+if $ARGS[0] = 'roll':
+	result = func('random', 'roll', $ARGS[1], ARGS[2], ARGS[3], ARGS[4])
+	exit
+end
+
+
+!! Depracated !! moved to 'math'
+!! limits a number to a range
+!! use: func('shortgs', 'clamp', var, min, max)
+!! returns min if var < min, returns max if var > max
+!! otherwise returns var
+!! example: func('shortgs', 'clamp', var, 0, 100)
+if $ARGS[0] = 'clamp':
+	result = func('math', 'int_clamp', ARGS[1], ARGS[2], ARGS[3])
+	exit
+end
+
+
+!! sets a stat or attribute level to a number
+!! use: gs 'shortgs', 'setStat', 'stat', number
+!! example: gs 'shortgs', 'setStat', 'stren', 70
+!! example: gs 'shortgs', 'setStat', 'inhib', 10
+if $ARGS[0] = 'setStat':
+	temp_input = func('shortgs', 'clamp', ARGS[2], 0, 100)
+	if temp_input > 1:
+		temp_xpprv = 1 + (146 * (temp_input - 1) * (temp_input - 1) / 91)
+	else
+		temp_xpprv = temp_input
+	end
+	temp_xpnxt = 1 + (146 * (temp_input) * (temp_input) / 91)
+	temp_max_deg = (102 - temp_input) * 100
+
+	!! magik is based on `orgasm` variable thus the need for `_adj`
+	if $ARGS[1] = 'magik':
+		dynamic "
+			<<$ARGS[1]>>_lvl = temp_input
+			<<$ARGS[1]>>_adj = temp_xpprv - orgasm
+			<<$ARGS[1]>>_exp = orgasm + <<$ARGS[1]>>_adj
+			<<$ARGS[1]>>_xpprv = temp_xpprv
+			<<$ARGS[1]>>_xpnxt = temp_xpnxt
+			<<$ARGS[1]>>_mem = <<$ARGS[1]>>_exp
+			<<$ARGS[1]>>_deg = temp_max_deg
+			<<$ARGS[1]>>_lvlst = <<$ARGS[1]>>_lvl
+			<<$ARGS[1]>>_flr = <<$ARGS[1]>>_lvl / 5
+		"
+	!! inhib needs its `_flr` set at `_lvl` and not `_lvl / 5`
+	elseif $ARGS[1] = 'inhib':
+		dynamic "
+			<<$ARGS[1]>>_lvl = temp_input
+			<<$ARGS[1]>>_exp = temp_xpprv
+			<<$ARGS[1]>>_mem = temp_xpprv
+			<<$ARGS[1]>>_xpprv = temp_xpprv
+			<<$ARGS[1]>>_xpnxt = temp_xpnxt
+			<<$ARGS[1]>>_deg = temp_max_deg
+			<<$ARGS[1]>>_lvlst = <<$ARGS[1]>>_lvl
+			<<$ARGS[1]>>_flr = <<$ARGS[1]>>_lvl
+		"
+	!! `stren` and `stren_plus` changes should also update strenbuf
+	elseif $ARGS[1] = 'stren' or $ARGS[1] = 'stren_plus':
+		dynamic "
+			<<$ARGS[1]>>_lvl = temp_input
+			<<$ARGS[1]>>_exp = temp_xpprv
+			<<$ARGS[1]>>_mem = temp_xpprv
+			<<$ARGS[1]>>_xpprv = temp_xpprv
+			<<$ARGS[1]>>_xpnxt = temp_xpnxt
+			<<$ARGS[1]>>_deg = temp_max_deg
+			<<$ARGS[1]>>_lvlst = <<$ARGS[1]>>_lvl
+			<<$ARGS[1]>>_flr = <<$ARGS[1]>>_lvl / 5
+		"
+		strenbuf = stren_lvl + stren_plus_lvl
+		gs 'body', 'DailyUpdate'
+	elseif $ARGS[1] = 'agil' or $ARGS[1] = 'vital':
+		dynamic "
+			<<$ARGS[1]>>_lvl = temp_input
+			<<$ARGS[1]>>_exp = temp_xpprv
+			<<$ARGS[1]>>_mem = temp_xpprv
+			<<$ARGS[1]>>_xpprv = temp_xpprv
+			<<$ARGS[1]>>_xpnxt = temp_xpnxt
+			<<$ARGS[1]>>_deg = temp_max_deg
+			<<$ARGS[1]>>_lvlst = <<$ARGS[1]>>_lvl
+			<<$ARGS[1]>>_flr = <<$ARGS[1]>>_lvl / 5
+			<<$ARGS[1]>>buf = <<$ARGS[1]>>_lvl
+		"
+		gs 'body', 'DailyUpdate'
+	else
+		dynamic "
+			<<$ARGS[1]>>_lvl = temp_input
+			<<$ARGS[1]>>_exp = temp_xpprv
+			<<$ARGS[1]>>_mem = temp_xpprv
+			<<$ARGS[1]>>_xpprv = temp_xpprv
+			<<$ARGS[1]>>_xpnxt = temp_xpnxt
+			<<$ARGS[1]>>_deg = temp_max_deg
+			<<$ARGS[1]>>_lvlst = <<$ARGS[1]>>_lvl
+			<<$ARGS[1]>>_flr = <<$ARGS[1]>>_lvl / 5
+		"
+	end
+	killvar 'temp_input'
+	killvar 'temp_xpprv'
+	exit
+end
+
+
+!! Depracated !! moved to 'math'
+!! Recursively computes a simple exponent - https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+!! use: func('shortgs', 's_pow', var, exp)
+!! returns var ^ exp
+!! exp must be an integer >= 0
+!! example: func('shortgs', 's_pow', 2, 3)
+if $ARGS[0] = 's_pow' or $ARGS[0] = 's_pow2':
+	result = func('math', 'int_power', ARGS[1], ARGS[2])
+	exit
+end
+
+
+!! Depracated !! moved to 'array'
+!! Takes multiple arrays and sorts them based on the first one.
+!! Sorts the key_array (which must only have value entries) in ascending order.
+!! gs 'shortgs', 'coupled_array_sort'. 'key_array', 'array1', 'array2', 'array3', …
+!!
+!! String arrays must start with a $ otherwise the numeric values will be copied instead.
+!!
+!! examples:
+!!		example 1: we want to sort a single array with values called values_array
+!!				gs 'shortgs', 'coupled_array_sort', 'values_array'
+!!		example 2: we have an array filled with days (called trigger_days), and a coupled array filled with npc_codes (called $trigger_npc_codes)
+!!				gs 'shortgs', 'coupled_array_sort', 'trigger_days', '$trigger_npc_codes'
+if $ARGS[0] = 'coupled_array_sort':
+	gs 'array', 'coupled_sort', $ARGS[1], $ARGS[2], $ARGS[3], $ARGS[4], $ARGS[5], $ARGS[6], $ARGS[7], $ARGS[8]
+	exit
+end
+
+
+!! converts decimal integer to hexadecimal string
+!! main use - convert rgb color to hex color (to use with HTML)
+!!	use: func('shortgs', 'int_to_hex_str', number)
+!!	example: func('shortgs', 'int_to_hex_str', 192)
+!!	example: func('shortgs', 'int_to_hex_str', BColorBase)
+if $ARGS[0] = 'int_to_hex_str':
+	:int_to_hex_loop
+		$result = $mid('0123456789ABCDEF', 1 + (ARGS[1] mod 16), 1) + $result
+		ARGS[1] /= 16
+	if ARGS[1] > 0: jump 'int_to_hex_loop'
+	exit
+end
+
+
+!! converts hexadecimal string to decimal integer
+!! main use - convert hex color to rgb color (to use with HTML)
+!!	use: func('shortgs', 'hex_str_to_int', $hex_string)
+!!	example: func('shortgs', 'hex_str_to_int', 'A1C')
+!!	example: func('shortgs', 'hex_str_to_int', $bcolor)
+if $ARGS[0] = 'hex_str_to_int':
+	$ARGS[1] = $ucase($ARGS[1])
+	shortgs_i = 1
+	:hex_to_int_loop
+		result = result * 16 + instr('123456789ABCDEF', mid($ARGS[1], shortgs_i, 1))
+		shortgs_i += 1
+	if shortgs_i <= len($ARGS[1]): jump 'hex_to_int_loop'
+	killvar 'shortgs_i'
+	exit
+end
+
+
+!! converts ABGR integer (generated by rgb() func) to hex string
+!! OMITS ALPHA CHANNEL
+!!	use: func('shortgs', 'rgb_to_hex', number)
+!!	example: func('shortgs', 'rgb_to_hex', bcolor)
+!!	example: func('shortgs', 'rgb_to_hex', lcolor)
+if $ARGS[0] = 'rgb_to_hex':
+	temp_input = ARGS[1]
+
+	if temp_input >= 0:
+		temp_red = temp_input mod 256
+		temp_green = (temp_input / 256) mod 256
+		temp_blue = (temp_input / 65536) mod 256
+	else
+		!! Red (lowest 8 bits) - this always works with mod
+		temp_work = (temp_input mod 256) + 256
+		temp_red = temp_work mod 256
+
+		!! Green (bits 8-15)
+		temp_work = (temp_input mod 65536) + 65536
+		temp_green = (temp_work / 256) mod 256
+
+		!! Blue (bits 16-23) - same approach
+		temp_work = (temp_input mod 16777216) + 16777216
+		temp_blue = (temp_work / 65536) mod 256
+
+		killvar 'temp_work'
+	end
+
+	!! Convert to hex
+	$red_hex	= $func('shortgs', 'int_to_hex_str', temp_red)
+	$green_hex	= $func('shortgs', 'int_to_hex_str', temp_green)
+	$blue_hex	= $func('shortgs', 'int_to_hex_str', temp_blue)
+
+	$result = $mid('00' + $red_hex,	1 + len($red_hex))
+	$result += $mid('00' + $green_hex,	1 + len($green_hex))
+	$result += $mid('00' + $blue_hex,	1 + len($blue_hex))
+	$result = '#' + $result
+
+	!! Clean up
+	killvar 'temp_input'
+	killvar 'temp_blue'
+	killvar 'temp_green'
+	killvar 'temp_red'
+	killvar 'red_hex'
+	killvar 'green_hex'
+	killvar 'blue_hex'
+	killvar 'temp_work'
+	exit
+end
+
+
+!! Inverts a hexidecimal color (f.e. #31A4E2)
+!! func('shortgs', 'invert_color', $color)
+!! if you want to get either white or black, furthest away from the given color. Use:
+!! func('shortgs', 'invert_color', $color, 'bw')
+!! https://stackoverflow.com/questions/35969656/how-can-i-generate-the-opposite-color-according-to-current-color
+if $ARGS[0] = 'invert_color':
+	if $ARGS[2] = 'bw':
+		if func('shortgs', 'color_is_dark', $ARGS[1]) = 1:
+			$result = '#FFFFFF'
+		else
+			$result = '#000000'
+		end
+	else
+		$ARGS[1] = ucase(replace(trim($ARGS[1]), '#'))
+		shortgs_r_int = 255 - func('shortgs', 'hex_str_to_int', mid($ARGS[1], 1, 2))
+		shortgs_g_int = 255 - func('shortgs', 'hex_str_to_int', mid($ARGS[1], 3, 2))
+		shortgs_b_int = 255 - func('shortgs', 'hex_str_to_int', mid($ARGS[1], 5, 2))
+
+		$shortgs_r = func('shortgs', 'int_to_hex_str', shortgs_r_int)
+		$shortgs_g = func('shortgs', 'int_to_hex_str', shortgs_g_int)
+		$shortgs_b = func('shortgs', 'int_to_hex_str', shortgs_b_int)
+
+		$shortgs_r = mid('0' + $shortgs_r, len($shortgs_r), 2)
+		$shortgs_g = mid('0' + $shortgs_g, len($shortgs_g), 2)
+		$shortgs_b = mid('0' + $shortgs_b, len($shortgs_b), 2)
+		$result = '#' + $shortgs_r + $shortgs_g + $shortgs_b
+
+		killvar 'shortgs_r'
+		killvar 'shortgs_g'
+		killvar 'shortgs_b'
+		killvar 'shortgs_r_int'
+		killvar 'shortgs_g_int'
+		killvar 'shortgs_b_int'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'color_is_dark':
+	$ARGS[1] = ucase(replace(trim($ARGS[1]), '#'))
+	shortgs_cid_r = func('shortgs', 'hex_str_to_int', mid($ARGS[1], 1, 2))
+	shortgs_cid_g = func('shortgs', 'hex_str_to_int', mid($ARGS[1], 3, 2))
+	shortgs_cid_b = func('shortgs', 'hex_str_to_int', mid($ARGS[1], 5, 2))
+	result = 2126 * shortgs_cid_r * shortgs_cid_r + 7152 * shortgs_cid_g * shortgs_cid_g + 722 * shortgs_cid_b * shortgs_cid_b
+	result = iif(result > 162562500, 0, 1)
+
+	killvar 'shortgs_cid_r'
+	killvar 'shortgs_cid_g'
+	killvar 'shortgs_cid_b'
+	exit
+end
+
+
+!! Depracated !! moved to 'string'
+!! func('shortgs', 'enumerate_list', '$arrname', {start}, {number}, ', ', ' and ', ', and ')
+!! returns a string with the array entries listed:
+!! $arr[0] = 'Sidisi'	-> returns: 'Sidisi'
+!! $arr[1] = 'Eriette'	-> returns: 'Sidisi and Eriette'
+!! $arr[2] = 'Dynaheir'	-> returns: 'Sidisi, Eriette, and Dynaheir'
+!!
+!!  ARGS[2] indicates where the enumeration start (Defaults to the first item)
+!!  ARGS[3] indicates how many items are enumerated (Defaults to the end of the list)
+!! $ARGS[4] is the small separator (defaults to ', ')
+!! $ARGS[5] is the final separator for 2 items (defaults to ' and ')
+!! $ARGS[6] is the final separator for more items (defaults to ', and ')
+!!
+!! If you want to list the entries of an array, you can use
+!! $func('shortgs', 'enumerate_list', '$arrname', 0, 0, '<br>', '<br>', '<br>')
+if $ARGS[0] = 'enumerate_list':
+	$result = $func('string', 'enumerate_list', $ARGS[1], ARGS[2], ARGS[3], $ARGS[4], $ARGS[5], $ARGS[6])
+	exit
+end
+
+
+if $ARGS[0] = 'get_number_suffix':
+	!! Get the selected number and apply an appropriate suffix - takes a valid number int from ARGS[1]
+
+	if ARGS[1] < 0:
+		query_number = (-ARGS[1]) mod 100
+	else
+		query_number = ARGS[1] mod 100
+	end
+
+	if query_number >= 4 and query_number <= 20:
+		$result = ''
+	elseif query_number mod 10 = 1:
+		$result = ''
+	elseif query_number mod 10 = 2:
+		$result = ''
+	elseif query_number mod 10 = 3:
+		$result = ''
+	else
+		$result = ''
+	end
+
+	killvar 'query_number'
+	exit
+end
+
+
+if $ARGS[0] = 'convert_dob':
+	temp_npcVars['day'] = (npc_dob[$ARGS[1]] mod 100)
+	temp_npcVars['month'] = (npc_dob[$ARGS[1]] / 100) mod 100
+	temp_npcVars['year'] = npc_dob[$ARGS[1]] / 10000
+
+	$result = $func('time', 'get_date_string', temp_npcVars['year'], temp_npcVars['month'], temp_npcVars['day'])
+	killvar 'temp_npcVars'
+	exit
+end
+
+
+if $ARGS[0] = 'dob_to_age':
+	temp_npcVars['day'] = (npc_dob[$ARGS[1]] mod 100)
+	temp_npcVars['month'] = (npc_dob[$ARGS[1]] / 100) mod 100
+	temp_npcVars['year'] = npc_dob[$ARGS[1]] / 10000
+
+	result = func('time', 'get_age', temp_npcVars['year'], temp_npcVars['month'], temp_npcVars['day'])
+	killvar 'temp_npcVars'
+	exit
+end
+
+
+if $ARGS[0] = 'generate_dick_sizes':
+	if ARGS[1] > 100: ARGS[1] = 100
+	shortgsVars['maxi'] = ARGS[1]
+	shortgsVars['i'] = 0
+	$temp_table = '<center><table rules="rows" cellpadding="1" style="width: 50%; text-align: center; border-bottom: 1px solid black">'
+	$temp_table += '<tr><th>编号</th><th>长度</th><th>粗细</th><th>鸡巴粗细</th><th>等级</th><th>描述</th></tr>'
+	:gen_dicks_loop
+		gs 'npcgeneratec', 'gen_dick'
+		$temp_table +=	'<tr>'
+		$temp_table +=		'<td><<shortgsVars[''i'']+1>>:</td><td><<npcgeneratecVars[''dick_length'']>></td><td><<npcgeneratecVars[''dick_girth'']>></td><td><<$npcgeneratecVars[''thdick'']>></td><td><<$npcgeneratecVars[''dick_class'']>></td><td><<$npcgeneratecVars[''dick_desc'']>></td>'
+		$temp_table +=	'</tr>'
+		shortgsVars['i'] += 1
+	if shortgsVars['i'] < shortgsVars['maxi']: jump 'gen_dicks_loop'
+	$temp_table += '</table></center>'
+	'<<$temp_table>>'
+
+	killvar 'npcgeneratecVars'
+	killvar 'shortgsVars'
+	killvar 'temp_table'
+	exit
+end
+
+
+!! '+func('shortgs', 'unit_string', dick, CheatVar[MetImp])+'
+!! '+func('shortgs', 'unit_string', npc_height['A173'], 1)+' -> " 5' 11'' "
+!! '+func('shortgs', 'unit_string', npc_height['A173'], 0)+' -> 1.82 m
+if $ARGS[0] = 'unit_string':
+	if ARGS[1] <= 0:
+		$result = '错误：无效的公制数值。'
+		msg 'shortgs 的 unit_string 出错：请联系开发者。ARGS[1] = <<ARGS[1]>> ARGS[2] = <<ARGS[2]>><br>地点：<<$curloc>>' + iif($loc_arg <> '', 'ARGS[0]: <<$loc_arg>>', '')
+		exit
+	end
+
+	if ARGS[2] = 1:
+		!! Convert Metric to Imperial (why ever anyone would do something like that)
+
+		metric_value = ARGS[1]
+
+		!! Calculate the integer part (feet)
+		imperial_value_int = (metric_value * 328) / 10000 & !! Convert centimeters to feet (1 cm = 0.0328084 feet)
+
+		!! Calculate the decimal part (in inches)
+		imperial_value_float = ((metric_value * 3937) / 10000) mod 12 & !! Convert remaining centimeters to inches
+
+		!! Return the result based on the values
+		if imperial_value_float > 0:
+			$result = "<<imperial_value_int>>' <<imperial_value_float>>''"
+		else
+			$result = "<<imperial_value_int>>'"
+		end
+		killvar 'metric_value'
+		killvar 'imperial_value_int'
+		killvar 'imperial_value_float'
+	elseif ARGS[1] < 100:
+		$result = '<<ARGS[1]>> cm'
+	else
+		if ARGS[1] mod 100 = 0:
+			$result = '<<ARGS[1] / 100>> m'
+		else
+			metervalue = ARGS[1] / 100
+			meterdecimal = ARGS[1] mod 100
+			$result = '<<metervalue>>.<<meterdecimal>> m'
+			killvar 'metervalue'
+			killvar 'meterdecimal'
+		end
+	end
+	exit
+end
+
+
+!! Depracated !! moved to 'string'
+!! Function to convert number to text
+!! func('shortgs', 'num2txt', 6276345) -> 'six million two hundred and seventy-six thousand three hundred and forty-five'
+!! func('shortgs', 'num2txt', -65) -> 'negative sixty-five'
+if $ARGS[0] = 'num2txt':
+	if $ARGS[1] = '':
+		num = ARGS[1]
+	else
+		if isnum($ARGS[1]):
+			num = val($ARGS[1])
+		else
+			msg 'shortgs 的 num2txt 出错：输入无效'
+			exit
+		end
+	end
+
+	$result = $func('string', 'parse_number', num)
+	exit
+end
+
+
+!! Depracated !! moved to 'money'
+!! Call: $func('shortgs', 'format_price_string', ARGS[1])
+!! ARGS[1] - the price (as a number)
+if $ARGS[0] = 'format_price_string':
+	$result = $func('money', 'format', ARGS[1], 1)
+	exit
+end
+
+
+
+--- shortgs ---------------------------------

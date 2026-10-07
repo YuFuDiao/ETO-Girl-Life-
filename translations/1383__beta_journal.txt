@@ -1,0 +1,227 @@
+# beta_journal
+!! Date Created: October, 2024
+!! Version: .01 - initial release
+!! Author: Hooded Silence
+!! Purpose: Game Journal interface - contains the modules and libraries required.
+
+!! Quest progress icons:
+!! <font color = "green">✓</font> - green tick
+!! <font color = "red">🗴</font> Red cross
+
+!! Initialise arrays and functions:
+
+if $ARGS[0] = 'init':
+	$loc_id = 'beta_journal'
+	*clr & cla
+	gs 'stat'
+	*nl
+	gs $loc_id, 'init_array'
+	$hot_link = 'default'
+	gs $loc_id, 'nav_construct'
+	if $hot_link = '':
+		gs $loc_id, 'default'
+	else
+		gs $loc_id, $hot_link
+	end
+end
+
+
+if $ARGS[0] = 'init_array':
+	!! Create an array to allow expansion in future
+	$array_tab[1] = '首页'
+	$array_link[1] = 'beta_journal'
+	$array_tab[2] = '住宿'
+	$array_link[2] = 'beta_journal_home'
+	$array_tab[3] = '工作'
+	$array_link[3] = 'beta_journal_work'
+	$array_tab[4] = '关系'
+	$array_link[4] = 'beta_journal_relationships'
+	$array_tab[5] = '任务'
+	$array_link[5] = 'beta_journal_quests'
+	$array_tab[6] = '魔法'
+	$array_link[6] = 'beta_journal_magic'
+	$array_tab[7] = '通知'
+	$array_link[7] = 'beta_journal_notifications'
+	$array_tab[8] = '词汇表'
+	$array_link[8] = 'beta_journal_glossary'
+	!! $array_tab[9] = 'Mechanics'
+	!! $array_link[9] = 'glossary'
+	$nav_banner = '<<$pcs_nickname>>的任务和关系'
+end
+
+
+if $ARGS[0] = 'default':
+	*clr & cla
+	$hot_link = $ARGS[0]
+	!! Initial menu page containing alerts and tips
+	gs $loc_id, 'nav_construct'
+	'<center>'
+	gs $loc_id, 'game_events'
+	gs $loc_id, 'gametips'
+	'</center>'
+end
+
+!! Core functions for tabs and menu creation
+
+
+!! Navigation bar constructor:
+if $ARGS[0] = 'nav_construct':
+	if $nav_banner = '': $nav_banner = "<<$pcs_firstname>>的任务和关系"
+	!! Set up the navigation body
+	!! Create the navigation - remember to deduct -1 as magic option is removed
+	!! Reset the table creation vars.
+	killvar 'tablebody'
+	nav_i = arrsize('$array_tab')
+	if $start_type['magic'] = 'nomagic':
+		nav_i -= 1
+	end
+	i = 0
+	:jmp_navigation_gen
+		if $start_type['magic'] ! 'nomagic' and $array_tab[i] = '魔法':
+			!! null magic menu
+		elseif $hot_link ! $array_link[i]:
+			$tablebody += '<th><a href="exec:gs ''<<$array_link[i]>>'', ''init''"><<$array_tab[i]>></a></th>'
+		else
+			$tablebody += '<th><<$array_tab[i]>></th>'
+		end
+		i += 1
+	if i < nav_i: jump 'jmp_navigation_gen'
+	killvar 'i'
+	killvar 'nav_i'
+
+	!! display the table here.
+	*clr & cla
+	'<center><h1><<$nav_banner>></h1>'
+	'<table width="90%" align="center" width="90%" cellspacing="0" cellpadding="0" valign="top"><tr><<$tablebody>></tr></table></center>'
+	gs 'journal', 'leaveactions'
+end
+
+!! Events that are happening in the near future that require the player to be aware of, to compliment sidebar.
+
+
+if $ARGS[0] = 'game_events':
+	!! TODO: Work in progress, will require several dev cycles to port all events across and provide the necessary additional information.
+	'<center><h3>即将发生的事件</h3></center>'
+	'开发中 - 尚未配置或发生任何事件'
+end
+
+
+!! Random game tips to help new players find their way
+if $ARGS[0] = 'gametips':
+	gs $loc_id, 'tips_init'
+
+	rnd_tip = rand(0, arrsize('$tip_body')-1)
+	'<center><h3>女孩生活随机提示</h3>'
+	$tip_body[rnd_tip]
+	'</center>'
+	killvar 'rnd_tip'
+	killvar 'tip_body'
+end
+
+
+if $ARGS[0] = 'tips_init':
+	$tip_body[0] = '喝醉时要小心。'
+	$tip_body[1] = '如果你的现代舞技能达到50或更高，并且阿尔比娜喜欢你，就可能有机会加入新星.'
+	$tip_body[2] = '梦雪丽（Mon Cheri）是圣彼得堡最负盛名的服装店。价格也与之匹配。'
+	$tip_body[3] = '游戏中有些部分仅限于18岁以上，例如上驾驶课，在赌场赌博和其他区域。有传言说有些工作室对遵守法律不太讲究。'
+	$tip_body[4] = '城市公园在夜间是一个危险的地方。准备好自卫。'
+	$tip_body[5] = '对于青少年来说，找到高薪的零花钱工作很难，除非你有创意。'
+	$tip_body[6] = '巴甫洛夫斯克社区中心不是唯一可以学习舞蹈或运动技能的地方。'
+	$tip_body[7] = "当心Fae的礼物。"
+	$tip_body[8] = '探索可以带来有趣的事件或惊喜。'
+	$tip_body[9] = '照顾好自己，因为你的仰慕者会根据社交兴趣，你的外表，你照顾自己的程度以及你的穿着来评价你的美丽。'
+end
+
+!! Table Generator for npcs and locations
+
+
+if $ARGS[0] = 'table_gen':
+	!! Original code by Anjuna
+	entry_counter_i = 1
+	entry_counter_j = 1
+	table_counter = 0
+	if ARGS[1] = 0:
+		table_columns = 3
+	else
+		table_columns = ARGS[1]
+	end
+
+	$bjq_temp_table = '<center><table cellspacing="3" bgcolor="<<$theme_hex[''table_bg_alt'']>>" width="80%" align="center">'
+
+	:jmp_table_gen
+						!! CREATE ROW
+
+		$bjq_temp_table +=	'<tr width="100px">'
+		:jmp_table_gen2
+							!! CREATE CELL
+			$bjq_temp_table +=		'<td align="left">'
+			$bjq_temp_table +=			'<a href="exec: gt ''<<$loc_id>>'' ,''<<$loc_shortname[entry_counter_i]>>''">'
+			$bjq_temp_table +=				'<img height="100" src="<<$loc_path[entry_counter_i]>>">'
+			$bjq_temp_table +=			'</a>'
+			$bjq_temp_table +=		'</td>'
+							!! END CELL
+			entry_counter_i += 1
+		if entry_counter_i <= table_gen_max and (entry_counter_i mod table_columns) ! 0: jump 'jmp_table_gen2'
+		$bjq_temp_table +=	'</tr>'
+						!! END ROW
+
+						!! CREATE ROW
+		$bjq_temp_table +=	'<tr width="100px">'
+		:jmp_table_gen3
+								!! CREATE CELL
+			$bjq_temp_table +=		'<td align="left">'
+			$bjq_temp_table +=			$loc_name[entry_counter_j]
+			$bjq_temp_table +=		'</td>'
+								!! END CELL
+			entry_counter_j += 1
+		if entry_counter_j <= table_gen_max and (entry_counter_j mod table_columns) ! 0: jump 'jmp_table_gen3'
+		$bjq_temp_table +=	'</tr>'
+						!! END ROW
+
+		table_counter += 1
+		if table_counter = 5:
+						!! ADD BLANK ROW
+			$bjq_temp_table += '<tr></tr>'
+			table_counter = 0
+		end
+
+	if entry_counter_i < table_gen_max: jump 'jmp_table_gen'
+
+	$bjq_temp_table += '</table></center>'
+	'<<$bjq_temp_table>>'
+
+	killvar 'bjq_temp_table'
+	killvar 'entry_counter_i'
+	killvar 'entry_counter_j'
+	killvar 'table_columns'
+	killvar 'table_counter'
+	killvar 'table_gen_max'
+end
+
+
+if $ARGS[0] = 'leaveactions':
+	act '放下你的笔记本':
+		killvar 'jumploc'
+		jclose = 1
+		gt $loc, $loc_arg
+	end
+end
+
+!! Error Functions:
+
+
+if $ARGS[0] = 'failure':
+	!! Debug sections
+	if $ARGS[1] = 'id':
+		$debug['journal'] = 'NPC ID 未设置，vcard 未生成。'
+	elseif $ARGS[1] = 'quest_body':
+		$debug['journal'] = '任务主体未设置，任务详情未设置。'
+	elseif $ARGS[1] = 'nav_forward':
+		$debug['journal'] = '未设置向前导航 - 请确保你已在quest_data中设置该变量'
+	elseif $ARGS[1] = 'nav_back':
+		$debug['journal'] = '未设置向后导航 - 请确保你已在quest_data中设置该变量'
+	end
+	'vcard 初始化失败：' + $debug['journal']
+end
+
+--- beta_journal ---------------------------------

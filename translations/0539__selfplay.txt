@@ -1,0 +1,2254 @@
+# selfplay
+
+!{
+dildonumber - the currently selected dildo
+selfplaytime - checks how long you''ve been playing in the bathroom
+vaginaTemp - gives an extra increase to pcs_vag after a certain play threshold has been reached, for long sessions with or without orgasm.
+analplay - gives an extra increase to pcs_ass after a certain play threshold has been reached, for long sessions with or without orgasm.
+Checking org_temp = orgasm seems to end the session once an orgasm has been reached.
+Checking pcs_horny > 0 instead allows chaining of orgasms.
+
+pussycap - calculates pussy capacity for dildo play, used for more dynamic scene descriptions
+analcap - calculates anal capacity for dildo play, used for more dynamic scene descriptions
+!}
+
+if $ARGS[0] = 'start':
+	if dildonumber = 0: dildohand = 0
+	if dildonumber > 0: dildohand = (dildonumber + 1) * 5
+	if mastrOnce = 0:
+		mastrOnce = 1
+		org_temp = orgasm
+		if pcs_inhib < 30: inhib_exp += rand(1, 3)
+	end
+
+	gs 'stat'
+
+	if $loc = 'bedrPar' or $loc = 'gad_gpbarn': '<center><img <<$set_imgh>> src="images/shared/sex/mast/start.jpg"></center>'
+	if $loc = 'vanrPar': '<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/mast/startvann.mp4"></video></center>'
+
+	if sisboytrio > 0 and sis_watch = 0 and $loc = 'bedrPar':
+		sis_watch = 1
+		if locat['Anya_inroom'] = 1: sis_watch = 2 & '安雅微笑着，默许你继续。'
+	end
+
+	!! then the calculation invasio
+	!! if $loc = 'vanrPar':
+	!!	if selfplaytime >= 60:
+	!!	end
+	!! end
+
+	gs 'selfplay', 'sis_prov'
+
+	gs 'selfplay', 'hole_cap_calc'
+
+	gs 'selfplay', 'dildo_options'
+
+	if pcs_horny > 0:
+		act '爱抚你的阴蒂': gs 'selfplay', 'clit_play'
+		act '把一根手指插进屁股里': gs 'selfplay', 'anal_fingering'
+		act '把一根手指放进小穴里': gs 'selfplay', 'fingering'
+	end
+
+	if pcs_horny > 10:
+		if mc_inventory['dildo_small'] >= 1 or mc_inventory['dildo_normal'] = 1 or mc_inventory['dildo_big'] = 1 or mc_inventory['dildo_large'] = 1 or mc_inventory['dildo_huge'] = 1 or mc_inventory['dildo_enormous'] = 1 or mc_inventory['dildo_gigantic'] = 1:
+
+			if dildonumber > 0:
+				gs 'boyStat', 'D<<dildonumber>>'
+
+				if pussycap < 2 or (succubusflag = 1 and sucskill >= 4):
+					act '用假阳具操你的小穴':
+						if func('pcs_has_attr', 'sex_virgin'):
+							cla
+							$func('wrap', 'neg b', '你确定吗？这样做很可能会弄破你的处女膜。')
+							act '做吧':
+								*clr & cla
+								selfplaytime += 15
+								gs 'selfplay', 'sis_prov'
+
+								if $husID <> '' and spouseVars['drink'] <> 10 and $loc = 'bedr': gt 'husbsex', 'husb_mastr_vtor'
+
+								!! if $loc = 'bedrPar':'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+								if $loc = 'vanrPar':
+									'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildovann.jpg"></center>'
+								else
+									'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+								end
+
+								gs 'selfplay', 'vagmast_dildo_start'
+								gs 'stat'
+								'<<$AnyaMsg>>'
+
+								act '别操你的小穴了': gt 'selfplay', 'start'
+							end
+							act '不': gt 'selfplay', 'start'
+						else
+							*clr & cla
+							selfplaytime += 15
+							gs 'selfplay', 'sis_prov'
+
+							if $husID <> '' and spouseVars['drink'] <> 10 and $loc = 'bedr': gt 'husbsex', 'husb_mastr_vtor'
+
+							!! if $loc = 'bedrPar':'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+							if $loc = 'vanrPar':
+								'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildovann.jpg"></center>'
+							else
+								'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+							end
+
+							gs 'selfplay', 'vagmast_dildo_start'
+							gs 'stat'
+							'<<$AnyaMsg>>'
+
+							act '别操你的小穴了': gt 'selfplay', 'start'
+						end
+					end
+				end
+				if analcap <= 2 or (succubusflag = 1 and sucskill >= 4):
+					act '用假阳具操你的屁股': gs 'selfplay', 'anal_dildo_start'
+				end
+			end
+		end
+	end
+
+	if mc_inventory['comb'] = 1:
+		act '把梳子柄插进你的小穴':
+			if func('pcs_has_attr', 'sex_virgin'):
+				cla
+				$func('wrap', 'neg b', '你确定吗？这样做很可能会弄破你的处女膜。')
+				act '做吧': gt 'selfplay', 'brushplay'
+				act '不': gt 'selfplay', 'start'
+			else
+				gt 'selfplay', 'brushplay'
+			end
+		end
+	end
+
+	if $loc = 'vanrPar' and selfplaytime >= 60: gs 'selfplay', 'van_vtor'
+
+	act '停止自慰': gt 'selfplay', 'stop'
+
+	if $loc = 'gad_gpbarn':
+		npc_horny['A66'] += 1
+		'班迪特这只狗正好奇地看着你。'
+	end
+end
+
+
+!! Descriptions of what current dildo will do to a hole based on capacity. Can maybe add random descriptions in future - Dobbiboy
+if $ARGS[0] = 'hole_cap_desc':
+	$pussy_cap_desc = ''
+	if (succubusflag = 1 and sucskill >= 4):
+		if pussycap = 3:
+			$pussy_cap_desc = '看着你的小穴，人们会以为这根巨大的假阳具永远不会适合你，但你作为魅魔的本性让一切都变得完美契合你的小穴。'
+		elseif pussycap > 0:
+			$pussy_cap_desc = '看着你的小穴，人们会以为这根大假阳具会给你带来很多痛苦，但你作为魅魔的本性让一切都变得完美契合你的小穴。'
+		elseif pussycap = 0:
+			$pussy_cap_desc = '它会很舒服地填满你的小穴。'
+		elseif pussycap < 0:
+			$pussy_cap_desc = '人们会以为这根假阳具根本不会填满你，但你作为魅魔的本性让它完美地填满你的小穴。'
+		end
+	else
+		if auto_vag_lube = 1 and mc_inventory['lubricant'] > 0:
+			if pussycap = 3:
+				$pussy_cap_desc = '即使用润滑剂，你的小穴现在也绝对吃不下这么大的东西。你<i>真的</i>不该尝试。'
+			elseif pussycap = 2:
+				$pussy_cap_desc = '你猜如果有足够的润滑剂，也许能把它塞进小穴，但即便如此它还是大得让人不舒服，也不会有什么快感。'
+			elseif pussycap = 1:
+				$pussy_cap_desc = '当你使用一些润滑剂时仍会有点撑，但你知道你的小穴能承受。'
+			elseif pussycap = 0:
+				$pussy_cap_desc = '添加的一些润滑剂会使它非常舒适地填满你的小穴。'
+			elseif pussycap = -1:
+				$pussy_cap_desc = '它正好能插进你的小穴。润滑剂会让它滑进去得非常轻松，但也会让它感觉比你平时习惯承受的尺寸小一些。'
+			elseif pussycap = -2:
+				$pussy_cap_desc = '当你涂上润滑剂，你猜你可以用它操你的小穴，即使它比你习惯承受的尺寸<i>小得多</i>。'
+			elseif pussycap = -3:
+				$pussy_cap_desc = '更大一点的东西会更有意思。用它只是在浪费润滑剂，也是在侮辱你小穴的容量。'
+			end
+		elseif auto_vag_lube = 0 or mc_inventory['lubricant'] = 0:
+			if pussycap = 3:
+				$pussy_cap_desc = '你的小穴现在还绝对吃不下这么大的东西！如果你用些润滑剂，它<i>也许</i>能行，但暂时你<i>真的</i>不该尝试。'
+			elseif pussycap = 2:
+				$pussy_cap_desc = '你猜你可以把它塞进小穴，但它还是大得让人不舒服，也不会有什么快感。不过如果你用点润滑剂，会顺畅得多。'
+			elseif pussycap = 1:
+				$pussy_cap_desc = '这会有点撑，但你知道你的小穴能承受。如果你用一些润滑剂，它会更容易进入，不过。'
+			elseif pussycap = 0:
+				$pussy_cap_desc = '它会很舒服地填满你的小穴。'
+			elseif pussycap = -1:
+				$pussy_cap_desc = '它正好能插进你的小穴，虽然比你习惯承受的尺寸小了一点。'
+			elseif pussycap = -2:
+				$pussy_cap_desc = '你猜你可以用它操你的小穴，即使它比你习惯承受的尺寸<i>小得多</i>。'
+			elseif pussycap = -3:
+				$pussy_cap_desc = '更大的东西会更有趣。用这个操你的小穴几乎是一种侮辱。'
+			end
+		end
+	end
+	$anal_cap_desc = ''
+	if succubusflag = 1 and sucskill >= 4:
+		if analcap = 3:
+			$anal_cap_desc = '看着你的肛门，人们会以为这根巨大的假阳具永远不会适合你，但你作为魅魔的本性让一切都变得完美契合你的后穴。'
+		elseif analcap > 0:
+			$anal_cap_desc = '看着你的肛门，人们会以为这根大假阳具会给你带来很多痛苦但你作为魅魔的本性让一切都变得完美契合你的后穴。'
+		elseif analcap = 0:
+			$anal_cap_desc = '它会很舒服地填满你的屁股。'
+		elseif analcap < 0:
+			$anal_cap_desc = '人们会以为这根假阳具根本不会填满你，但你作为魅魔的本性让它完美地填满你的后穴。'
+		end
+	else
+		if trait_vars['buttslut'] < 2:
+			if auto_anal_lube = 1 and mc_inventory['lubricant'] > 0:
+				if analcap = 3:
+					$anal_cap_desc = '即使用润滑剂，你的屁股现在也绝对吃不下这么大的东西。你<i>真的</i>不该尝试。'
+				elseif analcap = 2:
+					$anal_cap_desc = '你猜如果有足够的润滑剂，也许能把它塞进屁股，但即便如此它还是大得让人不舒服，也不会有什么快感。'
+				elseif analcap = 1:
+					$anal_cap_desc = '当你使用一些润滑剂时仍会有点撑，但你知道你的后穴能承受。'
+				elseif analcap = 0:
+					$anal_cap_desc = '添加的一些润滑剂会使它非常舒适地填满你的后穴。'
+				elseif analcap = -1:
+					$anal_cap_desc = '它正好能插进你的屁股。润滑剂会让它滑进去得非常轻松，但也会让它感觉比你平时习惯承受的尺寸小一些。'
+				elseif analcap = -2:
+					$anal_cap_desc = '当你涂上润滑剂，你猜你可以用它操你的后穴，即使它比你习惯承受的尺寸<i>小得多</i>。'
+				elseif analcap = -3:
+					$anal_cap_desc = '更大一点的东西会更有意思。用它只是在浪费润滑剂，也是在侮辱你屁股的容量。'
+				end
+			else
+				if analcap = 3:
+					$anal_cap_desc = '你的屁股现在还绝对吃不下这么大的东西。如果你用些润滑剂，它<i>也许</i>能行，但暂时你<i>真的</i>不该尝试。'
+				elseif analcap = 2:
+					$anal_cap_desc = '你猜你可以把它塞进屁股，但它还是大得让人不舒服，也不会有什么快感。不过如果你用点润滑剂，会顺畅得多。'
+				elseif analcap = 1:
+					$anal_cap_desc = '这会有点撑，但你知道你的后穴能承受。如果你用一些润滑剂，它会更容易进入，不过。'
+				elseif analcap = 0:
+					$anal_cap_desc = '它会很舒服地填满你的屁股。'
+				elseif analcap = -1:
+					$anal_cap_desc = '它正好能插进你的屁股，虽然比你习惯承受的尺寸小了一点。'
+				elseif analcap = -2:
+					$anal_cap_desc = '你猜你可以用它操你的后穴，即使它比你习惯承受的尺寸<i>小得多</i>。'
+				elseif analcap = -3:
+					$anal_cap_desc = '更大的东西会更有趣。用这个操你的后穴几乎是一种侮辱。'
+				end
+			end
+		elseif trait_vars['buttslut'] > 1:
+			if auto_anal_lube = 1 and mc_inventory['lubricant'] > 0:
+				if analcap = 3:
+					$anal_cap_desc = '尽管你很喜欢屁股被塞满，但即使用了润滑剂，你的屁股也绝对吃不下这么大的东西……<i>暂时</i>还不行。'
+				elseif analcap = 2:
+					$anal_cap_desc = '你确实喜欢后穴被填满，但这个尺寸太大不太舒服。润滑剂是你唯一还能让它进入的办法。'
+				elseif analcap = 1:
+					$anal_cap_desc = '你知道这根会把你的屁股好好撑开，而你已经够后庭骚货了，对此充满期待。加点润滑剂确实能让你玩得更开。'
+				elseif analcap = 0:
+					$anal_cap_desc = '你喜欢后穴被插入并且你知道它会相当舒适地填满你。'
+				elseif analcap = -1:
+					$anal_cap_desc = '你喜欢被操屁股，它正好能插进去。润滑剂会让它滑进去得非常轻松，但也会让它感觉比你习惯承受的尺寸小一些。'
+				elseif analcap = -2:
+					$anal_cap_desc = '你是个后庭骚货，总是很乐意让人从后面操你，即使这根比你习惯承受的尺寸<i>小得多</i>。用润滑剂也行，但并不是很有必要。'
+				elseif analcap = -3:
+					$anal_cap_desc = '虽然像你这样的后庭骚货总是乐于被操屁眼，但你知道再大一点会让你更爽。用润滑剂感觉有点浪费。'
+				end
+			elseif auto_anal_lube = 0 or mc_inventory['lubricant'] = 0:
+				if analcap = 3:
+					$anal_cap_desc = '尽管你很喜欢屁股被塞满，但你的屁股绝对吃不下这么大的东西……<i>暂时</i>还不行。如果你用些润滑剂，这<i>也许</i>能行。'
+				elseif analcap = 2:
+					$anal_cap_desc = '你确实喜欢后穴被填满，但这个尺寸太大不太舒服，尽管你仍然可以放进去。如果你用一些润滑剂，会容易得多，不过。'
+				elseif analcap = 1:
+					$anal_cap_desc = '你知道这根会把你的屁股好好撑开，而你已经够后庭骚货了，对此充满期待。不过如果你用点润滑剂，会顺畅得多。'
+				elseif analcap = 0:
+					$anal_cap_desc = '你喜欢后穴被插入并且你知道它会相当舒适地填满你。'
+				elseif analcap = -1:
+					$anal_cap_desc = '你喜欢被操屁股，它正好能插进去，虽然比你习惯承受的尺寸小了一点。'
+				elseif analcap = -2:
+					$anal_cap_desc = '你是个后庭骚货，总是很乐意让人从后面操你，即使这根比你习惯承受的尺寸<i>小得多</i>。'
+				elseif analcap = -3:
+					$anal_cap_desc = '虽然像你这样的后庭骚货总是乐于被操屁眼，但你知道再大一点会让你更爽。'
+				end
+			end
+		end
+	end
+end
+
+
+!! Checks how well your holes can handle the selected dildo. 0 fits perfectly, if higher toy is bigger than hole can take, if lower toy is smaller than hole can take - Dobbiboy
+if $ARGS[0] = 'hole_cap_calc':
+	!! Calculate base pussy capacity for dildo option descriptions.
+	vag_temp = pcs_vag
+	if auto_vag_lube = 1 and mc_inventory['lubricant'] > 0:
+		vag_temp += 8
+	end
+	if dildohand < vag_temp + 5 and dildohand > vag_temp - 5:
+		pussycap = 0
+	end
+	if dildohand < vag_temp:
+		if dildohand <= vag_temp - 15:
+			pussycap = -3
+		elseif dildohand <= vag_temp - 10:
+			pussycap = -2
+		elseif dildohand <= vag_temp - 5:
+			pussycap = -1
+		end
+	end
+	if dildohand > vag_temp:
+		if dildohand >= vag_temp + 15:
+			pussycap = 3
+		elseif dildohand >= vag_temp + 10:
+			pussycap = 2
+		elseif dildohand >= vag_temp + 5:
+			pussycap = 1
+		end
+	end
+	!! Calculate base anal capacity for dildo option descriptions.
+	ass_temp = pcs_ass
+	if auto_anal_lube = 1 and mc_inventory['lubricant'] > 0:
+		ass_temp += 8
+	end
+	if dildohand < ass_temp + 5 and dildohand > ass_temp - 5:
+		analcap = 0
+	end
+	if dildohand < ass_temp:
+		if dildohand <= ass_temp - 15:
+			analcap = -3
+		elseif dildohand <= ass_temp - 10:
+			analcap = -2
+		elseif dildohand <= ass_temp - 5:
+			analcap = -1
+		end
+	end
+	if dildohand > ass_temp:
+		if dildohand >= ass_temp + 15:
+			analcap = 3
+		elseif dildohand >= ass_temp + 10:
+			analcap = 2
+		elseif dildohand >= ass_temp + 5:
+			analcap = 1
+		end
+	end
+end
+
+
+!! For the dildo descriptions, possibly add random flavor descriptions for each size in the future - Dobbiboy
+if $ARGS[0] = 'dildosize_desc':
+	$dildo_desc = ''
+	if dildonumber = 1: $dildo_desc = '小巧的、10厘米长的假阳具'
+	if dildonumber = 2: $dildo_desc = '普通的、15厘米长的假阳具'
+	if dildonumber = 3: $dildo_desc = '中上等的、20厘米长的假阳具'
+	if dildonumber = 4: $dildo_desc = '大型的、25厘米长的假阳具'
+	if dildonumber = 5: $dildo_desc = '巨大的、30厘米长的假阳具'
+	if dildonumber = 6: $dildo_desc = '庞大的、35厘米长的假阳具'
+	if dildonumber = 7: $dildo_desc = '绝对巨大的、40厘米长的假阳具'
+end
+
+
+if $ARGS[0] = 'dildo_options':
+
+	gs 'selfplay', 'hole_cap_calc'
+	gs 'selfplay', 'hole_cap_desc'
+	gs 'selfplay', 'dildosize_desc'
+
+	if dildonumber ! 0: *pl & *pl '你决定玩弄你的<<$dildo_desc>>。<<$pussy_cap_desc>> <<$anal_cap_desc>>'
+
+	*pl
+
+	if mc_inventory['dildo_small'] = 1:
+		if dildonumber = 1:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你小巧的、10厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 1 & gs ''boyStat'', ''D1'' & gt ''selfplay'', ''start''">开始</a>使用你小巧的、10厘米长的假阳具。'
+		end
+	end
+
+	if mc_inventory['dildo_normal'] = 1:
+		if dildonumber = 2:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你普通的、15厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 2 & gs ''boyStat'', ''D2'' & gt ''selfplay'', ''start''">开始</a>使用你普通的、15厘米长的假阳具。'
+		end
+	end
+
+	if mc_inventory['dildo_big'] = 1:
+		if dildonumber = 3:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你中上等的、20厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 3 & gs ''boyStat'', ''D3'' & gt ''selfplay'', ''start''">开始</a>使用你中上等的、20厘米长的假阳具。'
+		end
+	end
+
+	if mc_inventory['dildo_large'] = 1:
+		if dildonumber = 4:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你大型的、25厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 4 & gs ''boyStat'', ''D4'' & gt ''selfplay'', ''start''">开始</a>使用你大型的、25厘米长的假阳具。'
+		end
+	end
+
+	if mc_inventory['dildo_huge'] = 1:
+		if dildonumber = 5:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你巨大的、30厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 5 & gs ''boyStat'', ''D5'' & gt ''selfplay'', ''start''">开始</a>使用你巨大的、30厘米长的假阳具。'
+		end
+	end
+
+	if mc_inventory['dildo_enormous'] = 1:
+		if dildonumber = 6:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你庞大的、35厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 6 & gs ''boyStat'', ''D6'' & gt ''selfplay'', ''start''">开始</a>使用你庞大的、35厘米长的假阳具。'
+		end
+	end
+
+	if mc_inventory['dildo_gigantic'] = 1:
+		if dildonumber = 7:
+			*pl '<a href="exec:dildonumber = 0 & gt ''selfplay'', ''start''">停止</a>使用你绝对巨大的、40厘米长的假阳具。'
+		else
+			*pl '<a href="exec:dildonumber = 7 & gs ''boyStat'', ''D7'' & gt ''selfplay'', ''start''">开始</a>使用你绝对巨大的、40厘米长的假阳具。'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'brushplay':
+	gs 'boyStat', 'D1'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/gym/sex/christina/dildobj17.jpg"></center>'
+
+	if $ARGS[1] = 'brush_keepgoing':
+		'你继续用梳子柄操着小穴，随着性奋逐渐累积，时而加快时而放慢，尝试不同的角度和深度。当你顶到那些正好的点时，发出轻柔的呻吟和细小的喘息，同时用手指摩擦阴蒂来增加刺激。'
+		gs 'arousal', 'clit_finger', -5, 'masturbate'
+		gs 'stat'
+	else
+		if func('pcs_has_attr', 'sex_virgin'):
+			pcs_horny -= 15
+			gs 'mood', 'lower', 'tiny'
+			if mesec = 0:
+				'当这件临时凑合的玩具撕裂你的处女膜时，突如其来的疼痛让你猛地一缩，本能地把它抽了出来，梳子柄上沾了一点血。虽然疼，但没有你想象的那么疼。还好你没有用更大的东西。'
+			elseif mesec > 0:
+				gs 'mood', 'lower', 'tiny'
+				'当这件临时凑合的玩具撕裂你的处女膜时，突如其来的疼痛让你猛地一缩，本能地把它抽了出来，梳子柄上沾了一点血。大部分大概是你月经的血，但你确定其中也有一些来自你破裂的处女膜。虽然疼，但没有你想象的那么疼。还好你没有用更大的东西。'
+			end
+		end
+		'当梳子柄滑进你的小穴时，你轻声呻吟。你闭上眼睛享受了一会儿小穴被填满的感觉。你等小穴适应了一会儿，才慢慢开始抽动，让梳子柄几乎完全滑出你的穴口，然后再把它推回去……'
+	end
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'stat'
+
+	if org_temp = orgasm:
+		act '继续玩弄梳子柄': gt 'selfplay', 'brushplay', 'brush_keepgoing'
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+!! For the innitial penetration of your pussy with a dildo
+if $ARGS[0] = 'vagmast_dildo_start':
+	frost = 0
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+	gs 'selfplay', 'hole_cap_calc'
+	gs 'selfplay', 'hole_cap_desc'
+	gs 'selfplay', 'dildosize_desc'
+	$lubemessage = ''
+	if auto_vag_lube = 1 and mc_inventory['lubricant'] > 0:
+		if mesec = 0:
+			$lubemessage = '你拿起一管润滑剂并挤出一些到指尖上。你把它揉在小穴唇之间并伸进一根手指以确保你的洞又滑又湿。'
+		elseif mesec > 0:
+			gs 'mood', 'lower', 'tiny'
+			$lubemessage = '你拿出一管润滑剂，挤了一些在指尖上。你把它抹在阴唇之间，还伸进一根手指确认穴里足够湿滑。当你把手指抽出来时，看到上面沾满了润滑剂和月经血的混合物。'
+		end
+		$lube_txt = ''
+		gs 'arousal', 'auto_lube', 'vag', 'custom'
+	elseif auto_vag_lube = 0:
+		$lubemessage = '你用手指沿着阴蒂和阴唇之间来回摩擦，让自己流出爱液，确保开始前能更湿润一些。'
+	elseif auto_vag_lube = 1 and mc_inventory['lubricant'] = 0:
+		$lubemessage = '既然你现在没有额外的润滑剂，你用手指在下体的缝隙间摩擦，让自己流出爱液，确保开始前足够湿润。'
+	end
+	'<<$lubemessage>>判定你的小穴已经尽可能准备好了，你把它对准<<$dildo_desc>>，抵在穴口。'
+	*nl
+
+	if func('pcs_has_attr', 'sex_virgin'):
+		if pcs_horny < 80:
+			pcs_horny -= 20
+			gs 'mood', 'lower', 'medium'
+			if mesec = 0:
+				'当假阳具撕裂你的处女膜时，你痛得咬住嘴唇，眼泪开始从眼中涌出。你叫了一声，本能地把它抽了出来，假阳具上沾了一点血。也许你并没有自己想象的那么准备好。你现在大概该停下来了。'
+			elseif mesec > 0:
+				gs 'mood', 'lower', 'tiny'
+				'当假阳具撕裂你的处女膜时，你痛得咬住嘴唇，眼泪开始从眼中涌出。你叫了一声，本能地把它抽了出来，假阳具上沾了血。大部分大概是你月经的血，但你确定其中也有一些来自你破裂的处女膜。也许你并没有自己想象的那么准备好。你现在大概该停下来了。'
+			end
+		else
+			pcs_horny -= 10
+			gs 'mood', 'lower', 'tiny'
+			'当假阳具撕裂你的处女膜时，突如其来的疼痛让你猛地一缩。虽然疼，但没有你想象的那么疼。'
+		end
+	end
+
+	$temp_mens = ''
+	if mesec > 0:
+		$temp_mens = '经血从你的小穴里渗出，被假阳具挤压出来。'
+	end
+	$entry_message = ''
+	if pussycap = 2:
+		$entry_message = '当那个<<$dildo_desc>>缓缓进入你的小穴时，你不由自主地叫了一声，痛得咬住嘴唇，因为它把你填满、撑开得比你习惯的程度更大。<<$temp_mens>>'
+	elseif pussycap = 1:
+		$entry_message = '你轻声呻吟，当那个<<$dildo_desc>>慢慢插入你的小穴。确实感觉很舒服，但填满并撑开你紧致的小穴时，还是有一点疼。 <<$temp_mens>>'
+	elseif pussycap = 0:
+		$entry_message = '你低声呻吟，当那个<<$dildo_desc>>滑入你的小穴。你闭上了一会儿眼睛，享受着被完全填满的感觉。 <<$temp_mens>>'
+	elseif pussycap < 0:
+		$entry_message = '早已习惯了这种尺寸， <<$dildo_desc>>轻松滑入你的小穴。你轻声呻吟，咬着嘴唇，期待着给自己来一场猛烈的操弄。<<$temp_mens>>'
+	end
+
+	'<<$entrymessage>>当它的一部分长度进入后，你停了一会儿，让自己适应这件把你撑开的玩具的长度和粗细。没过多久你就慢慢开始抽动，让假阳具几乎完全滑出你的小穴，然后准备再把它推回去……'
+
+	mast_vag = dildonumber + 1
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'stat'
+
+	killvar 'entrymessage'
+	killvar 'temp_mens'
+
+	if pcs_horny > 0:
+		act '继续用假阳具操你的小穴': gt 'selfplay', 'pussy_dildo_mast'
+		if org_temp < orgasm:
+			act '停止自慰': gt 'selfplay', 'stop'
+			exit
+		else
+			act '换个方式自慰':
+				killvar 'mast_vag'
+				gt 'selfplay', 'start'
+			end
+		end
+	else
+		act '停止自慰': gt 'selfplay', 'stop'
+	end
+
+	killvar 'lubemessage'
+end
+
+
+!! For fucking your pussy with a dildo, after innitial penetration
+if $ARGS[0] = 'pussy_dildo_mast':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+	gs 'selfplay', 'hole_cap_calc'
+	$assslutmessage = ''
+	if trait_vars['buttslut'] > 1:
+		$assslutmessage = ' 当你享受着假阳具在小穴里进进出出的感觉时，你有一瞬间在想，是不是该把它插进屁股里更好。不过快感很快就把这个念头赶走了……你也许是个后庭骚货，但小穴被玩弄也一样有趣。'
+	end
+	if $ARGS[1] = 'vag_keepgoing':
+		if pcs_horny >= 85:
+			if dildonumber < 3:
+				'你继续着。你现在太性奋了，除了用这根橡胶鸡巴操自己的小穴，脑子里什么都想不了。你一遍又一遍地撞击着小穴，把假阳具越来越快地在小穴里抽插，一边揉着乳房或者拨弄阴蒂' +iif(trait_vars['buttslut'] > 1, ', 甚至用一根手指摩擦你敏感的屁眼', '') + ' 当你追逐高潮时。你闭着眼睛，大声喘息呻吟，伴随着玩具拍打在小穴上的淫靡声响。'
+				$orgasm_txt = '快感和热意在双腿间积聚，直到你终于将假阳具一插到底，在它上面猛烈高潮。你的阴道壁紧紧收缩，能感受到那根橡胶阴茎在你小穴里的整个形状。你呻吟着喘息着，将底座抵着阴部研磨，在高潮中起伏，尽可能延长快感，直到过度刺激让你停下。'
+				if vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你继续着。你现在太性奋了，除了用这根大橡胶鸡巴操自己的小穴，脑子里什么都想不了。你一遍又一遍地撞击着小穴，把假阳具越来越快地在小穴里抽插，一边揉着乳房或者拨弄阴蒂' +iif(trait_vars['buttslut'] > 1, ', 甚至用一根手指摩擦你敏感的屁眼', '') + ' 当你追逐高潮时。你闭着眼睛，大声喘息呻吟，伴随着大玩具在你湿漉漉的小穴里抽插发出的淫靡咕啾声。'
+				$orgasm_txt = '快感和热意在双腿间积聚，直到你终于将假阳具一插到底，在它上面猛烈高潮。你的阴道壁紧紧收缩，能感受到那根大玩具在你小穴里的整个形状。你喘息、颤抖、收缩，在被那根大橡胶阴茎贯穿时度过高潮。'
+				if vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber > 5:
+				'你继续着。你现在太性奋了，除了用这根巨大橡胶鸡巴操自己的小穴，脑子里什么都想不了。你一遍又一遍地撞击着小穴，把沉重的假阳具越来越快地在小穴里抽插，一边揉着乳房或者拨弄阴蒂' +iif(trait_vars['buttslut'] > 1, ', 甚至用一根手指摩擦你敏感的屁眼', '') + ' 当你追逐高潮时。你闭着眼睛，大声喘息呻吟，伴随着巨大玩具在你湿漉漉、被撑得大开的小穴里抽插发出的淫靡咕啾声。'
+				$orgasm_txt = '快感和热意在双腿间积聚，直到你终于最后一次将假阳具插到最深。你爆炸般地高潮了，被大大撑开的阴道壁更紧地收缩着，几乎让那个巨大的玩具在体内显得更大了。你喘息、颤抖、收缩，在高潮中起伏，每一次抽搐都让它持续更久，直到你精疲力竭地倒下。'
+				if vgape = 2:
+					vgape = 3
+				elseif vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			end
+		else
+			if dildonumber < 3:
+				'你继续用假阳具操着小穴，随着性奋逐渐累积，时而加快时而放慢，尝试不同的角度和深度。当你顶到那些正好的点时，偶尔发出轻柔的呻吟，享受着橡胶鸡巴的睾丸随着它在阴唇间进出而拍打在你两腿之间的感觉。'
+				if vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你继续用大假阳具操着小穴，随着性奋逐渐累积，时而加快时而放慢，尝试不同的角度和深度。当你顶到那些正好的点时，偶尔发出轻柔的呻吟；或者当整根橡胶鸡巴都插进体内、把你填满撑开时，为那种感觉倒吸一口气。'
+				if vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber > 5:
+				'你继续用巨大的假阳具操着小穴，随着性奋逐渐累积，时而加快时而放慢，艰难地尝试着不同的角度和深度。每一次深深的顶入都把你撑得大开、填得满满当当，它摩擦着你体内每一处敏感点，让你忍不住呻吟出声。'
+				if vgape = 2:
+					vgape = 3
+				elseif vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			end
+		end
+	else
+		$temp_mens = ''
+		if mesec > 0:
+			gs 'mood', 'lower', 'tiny'
+			$temp_mens = ' 你的玩具上沾满了各种体液的混合物，其中还有你月经的血。你现在真的努力不去想这件事。'
+		end
+		if pcs_horny >= 85:
+			if dildonumber < 3:
+				'你太性奋了，根本没想过要慢慢开始。你把假阳具猛地捅进湿淋淋的小穴，在快感中倒吸着气，感受着整根没入、底座抵在你胯下的感觉。<<$assslutmessage>><<$temp_mens>>'
+				$orgasm_txt = '快感和热意在双腿间积聚，直到你终于将假阳具一插到底，在它上面猛烈高潮。你的阴道壁紧紧收缩，能感受到那根橡胶阴茎在你小穴里的整个形状。你呻吟着喘息着，将底座抵着阴部研磨，在高潮中起伏，尽可能延长快感，直到过度刺激让你停下。'
+				if vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你太性奋了，根本没想过要慢慢开始。你开始把大假阳具猛地捅进湿淋淋的小穴，仅仅几下抽插，它就几乎整根没入你饥渴的穴里。你一边倒吸气一边呻吟，享受着大玩具多出来的长度和粗细撑开、填满你的小穴。<<$assslutmessage>><<$temp_mens>>'
+				$orgasm_txt = '快感和热意在双腿间积聚，直到你终于将假阳具一插到底，在它上面猛烈高潮。你的阴道壁紧紧收缩，能感受到那根大玩具在你小穴里的整个形状。你喘息、颤抖、收缩，在被那根大橡胶阴茎贯穿时度过高潮。'
+				if vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber > 5:
+				'你太性奋了，尽管这玩具尺寸巨大，你根本没想过要慢慢开始。你开始把假阳具猛地捅进湿淋淋的小穴，不太在意控制，只想尽快用这沉重的玩具把穴塞满。你一边倒吸气一边呻吟，极端的长度和粗细把你完全填满，小穴被紧紧撑开。玩具很大一部分根本塞不进去，但这丝毫不妨碍你一次又一次地把它狠狠捅回去。<<$assslutmessage>><<$temp_mens>>'
+				$orgasm_txt = '快感和热意在双腿间积聚，直到你终于最后一次将假阳具插到最深。你爆炸般地高潮了，被大大撑开的阴道壁更紧地收缩着，几乎让那个巨大的玩具在体内显得更大了。你喘息、颤抖、收缩，在高潮中起伏，每一次抽搐都让它持续更久，直到你精疲力竭地倒下。'
+				if vgape = 2:
+					vgape = 3
+				elseif vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			end
+		else
+			if dildonumber < 3:
+				'你让假阳具在小穴里进进出出，慢慢加快速度，每一次抽插都插得更深。没过多久，底座就已经顶在了你的胯下。<<$assslutmessage>><<$temp_mens>>'
+				if vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你让大假阳具在小穴里进进出出，逐渐加快速度，每次抽插都插得更深，感受自己的穴被撑开，享受额外的长度和粗度。你尽全力尽可能将其整根吞入。<<$assslutmessage>><<$temp_mens>>'
+				if vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			elseif dildonumber > 5:
+				'你让巨大的假阳具在小穴里进进出出，这件沉重的玩具不太容易控制，你慢慢加快速度，每一次抽插都插得更深。极端的长度和粗细把你的小穴完全塞满、撑得大开。你的小穴被撑得极宽、塞得极满，可这玩具仍有太多部分根本塞不进你体内。<<$assslutmessage>><<$temp_mens>>'
+				if vgape = 2:
+					vgape = 3
+				elseif vgape = 1:
+					vgape = 2
+				elseif vgape = 0:
+					vgape = 1
+				end
+			end
+		end
+		killvar 'temp_mens'
+	end
+	*nl
+	mast_anal = dildonumber + 1
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'stat'
+
+	if pcs_horny > 0:
+		act '继续操你的小穴': gt 'selfplay', 'pussy_dildo_mast', 'vag_keepgoing'
+		if org_temp < orgasm:
+			act '停止自慰': gt 'selfplay', 'stop'
+			exit
+		else
+			act '换个方式自慰':
+				killvar 'mast_vag'
+				gt 'selfplay', 'start'
+			end
+		end
+	else
+		act '停止自慰': gt 'selfplay', 'stop'
+	end
+end
+
+
+!! For the innitial penetration of your asshole with a dildo
+if $ARGS[0] = 'anal_dildo_start':
+	*clr & cla
+	frost = 0
+	gs 'selfplay', 'hole_cap_calc'
+	gs 'selfplay', 'hole_cap_desc'
+	gs 'selfplay', 'dildosize_desc'
+
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildoanal.jpg"></center>'
+	$virginmessage = ''
+	if stat['think_virgin'] = 1:
+		if trait_vars['buttslut'] < 2:
+			if pcs_ass >= 15:
+				$virginmessage = '现在操自己的屁股对你来说已经是家常便饭，而且显然你很享受。你并不太在意自己还是个处女。'
+			elseif pcs_ass < 15:
+				$virginmessage = '你已经相当习惯操自己的屁股了。你还没有失去处女之身，但你觉得也没必要，因为肛交已经挺有趣了。'
+			elseif pcs_ass < 7:
+				$virginmessage = '你往屁股里塞玩具还算是新手，但你已经意识到这不失为一种不错的自慰方式。而且它还能让你保住处女之身。'
+			elseif func('pcs_has_attr', 'sex_anal_virgin'):
+				$virginmessage = '你从没想过自己第一个塞进比手指更大东西的穴会是屁眼。你希望用这种方式保住处女之身是值得的。'
+			end
+		else
+			$virginmessage = '第一次操自己屁股的时候，你从没想到自己会变得这么喜欢这件事。你是个自豪的处女，也是个快乐而经验丰富的后庭骚货。'
+		end
+	end
+
+	$plugmessage = ''
+	if analPlugIn = 1:
+		if pcs_ass < 15:
+			$plugmessage = '你小心地把肛门塞从你狭窄紧致的屁眼里拔出来。'
+			analPlugIn = 0 & analPlugOut = 1
+		else
+			$plugmessage = '你轻轻拽了一下屁股里的肛门塞，轻松地把它从你的穴里拔了出来。'
+			analPlugIn = 0 & analPlugOut = 1
+		end
+	end
+
+	$lubemessage = ''
+	if auto_anal_lube = 1 and mc_inventory['lubricant'] > 0:
+		$lubemessage = '你拿出一管润滑剂，挤了一点在指尖上。你把它涂在屁眼周围，还伸进一根手指确认里面润滑到位。'
+		$lube_txt = ''
+		gs 'arousal', 'auto_lube', 'anal', 'custom'
+	elseif auto_anal_lube = 0:
+		$lubemessage = '你往手指上吐口水，用唾液润滑你的屁眼。'
+		gs 'arousal', 'anal_finger', 1, 'spit'
+	elseif auto_anal_lube = 1 and mc_inventory['lubricant'] = 0:
+		$lubemessage = '既然你已经没有润滑剂了，你往手指上吐了些口水，用唾液来润滑自己的肛门。'
+		gs 'arousal', 'anal_finger', 1, 'spit'
+	end
+
+	$warmupmessage = ''
+	if dildonumber < 3:
+		if analcap = 2:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，先塞进一根，然后再塞进第二根。有点疼，你能感觉到你的屁眼紧紧夹住它们。'
+		elseif analcap = 1:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，先塞进一根，然后再塞进第二根。你能感觉到屁眼紧紧夹住它们。'
+		elseif analcap = 0:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，先滑入一根，再滑入第二根。它们相当容易就进去了，你感到屁眼好好地合拢在周围。'
+		elseif analcap = -1:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，轻松滑入两根。你感到屁眼舒服地合拢在周围，甚至可以稍微转动它们。'
+		elseif analcap <= -2:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，几乎毫不费力就滑入两根。你决定再塞进第三根手指试试，只是为了再次感受那种紧致。'
+		end
+	end
+	if dildonumber >= 3 and dildonumber < 5:
+		if analcap = 2:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，先塞进两根，然后再塞进第三根。有点疼，你能感觉到屁眼紧紧夹住它们。'
+		elseif analcap = 1:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，先塞进两根，然后再塞进第三根。你能感觉到屁眼紧紧夹住它们。'
+		elseif analcap = 0:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，很快就往屁股里塞进了三根手指。它们相当容易就滑了进去，你感到屁眼舒服地包裹着它们。'
+		elseif analcap = -1:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，很快就往屁股里塞进了三根手指。你感到屁眼舒服地合拢在周围，甚至可以稍微转动它们。'
+		elseif analcap <= -2:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，几乎毫不费力就把两根然后三根滑入屁股。你决定再塞进第四根手指试试，只是为了再次感受那种紧致。'
+		end
+	end
+	if dildonumber >= 5:
+		if analcap = 2:
+			$warmupmessage = '你花时间用手指按摩、撑开你的屁眼，用三根手指撑开洞口，然后再塞进第四根。有点疼，你能感觉到屁眼紧紧夹住它们。'
+		elseif analcap = 1:
+			$warmupmessage = '你花了些时间用手指按摩和撑开你的屁眼，先用三根手指撑开你的穴，再插入第四根。你能感觉到你的肛门紧紧夹住它们。'
+		elseif analcap = 0:
+			$warmupmessage = '你花了些时间用手指按摩和撑开屁眼，很快就塞了四根手指进你的屁股。它们相当顺滑地滑入，你能感觉到肛门舒适地包裹着它们。'
+		elseif analcap = -1:
+			$warmupmessage = '你花了些时间用手指按摩和撑开屁眼，很快就塞了四根手指进你的屁股。你感到肛门舒适地合拢在它们周围，你稍稍玩了一下，在你经验丰富的穴里扭动和转动它们。'
+		elseif analcap <= -2:
+			$warmupmessage = '你花时间用手指按摩、撑开自己的屁眼，几乎毫不费力地先伸进三根、再伸进四根手指。你决定不试五根，因为你已经迫不及待想让玩具既<i>撑开</i>又填满你淫荡的穴。'
+		end
+	end
+
+	'<<$virginmessage>><<$plugmessage>><<$lubemessage>><<$warmupmessage>>又用手指抠了一会儿你的屁股后，你把手抽出来，把<<$dildo_desc>>抵在你的穴口。'
+	*nl
+
+	!! Entry reactions
+	$entrymessage = ''
+	$assslutmessage = ''
+	if trait_vars['buttslut'] > 1:
+		if analcap = 2:
+			$assslutmessage = '尽管你很喜欢被操屁股，但你也明白，一上来就用太大的东西并不那么有趣。'
+		elseif analcap = 1:
+			$assslutmessage = '尽管这根玩具比你现在的屁股能轻松容纳的尺寸要大一点，你内心深处的淫荡屁眼还是一样享受。'
+		elseif analcap = 0:
+			$assslutmessage = '这件玩具正好契合地插在里面，当你的屁眼收紧夹住它时，你在快感中轻轻颤抖。做后庭骚货真是太爽了。'
+		elseif analcap < 0:
+			$assslutmessage = '以你这种经验的后庭骚货，当然会更欣赏稍大一点的东西，不过只要能操上屁股，你其实也不太在意它小了点。'
+		end
+	end
+	if analcap = 2:
+		$entrymessage = '当那个<<$dildo_desc>>缓缓进入你的屁股时，你不由自主地叫了一声，痛得咬住嘴唇，因为它把你填满、撑开得比你习惯的程度更大。<<$assslutmessage>> '
+	elseif analcap = 1:
+		$entrymessage = '你轻声呻吟，当那个<<$dildo_desc>>慢慢插入你的屁眼。感觉确实很爽，但在填满和撑开你紧致穴道的时候还是有点疼。<<$assslutmessage>> '
+	elseif analcap = 0:
+		$entrymessage = '你低声呻吟，当那个<<$dildo_desc>>滑入你的屁股。你闭上一会儿眼睛，享受屁股被塞满的感觉。<<$assslutmessage>> '
+	elseif analcap < 0:
+		$entrymessage = '对这种尺寸早已习惯，这个<<$dildo_desc>>轻松地滑进了你的屁眼。 <<$assslutmessage>>你轻声呻吟，咬着嘴唇，期待着自己的屁股被狠狠操弄一番。'
+	end
+	'<<$entrymessage>>当它大部分长度都进入你的穴里后，你停了一会儿，让自己适应这件把你撑开的玩具的长度和粗细。没过多久你就慢慢开始抽动，让假阳具几乎完全滑出你的屁股，然后再把它推回去……'
+
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+	killvar 'virginmessage'
+	killvar 'plugmessage'
+	killvar 'lubemessage'
+	killvar 'warmupmessage'
+	killvar 'assslutmessage'
+	killvar 'entrymessage'
+
+	$orgasm_txt = '你太性奋了，仅仅是一点点手指抽插和假阳具的初步插入，就已经让你达到了高潮。'
+	gs 'arousal', 'anal_dildo', 5, 'masturbate'
+	gs 'stat'
+
+	if pcs_horny > 0:
+		act '继续用假阳具操你的屁股': gt 'selfplay', 'anal_dildo_mast'
+		if org_temp < orgasm:
+			act '停止自慰': gt 'selfplay', 'stop'
+			exit
+		else
+			act '换个方式自慰':
+				killvar 'mast_anal'
+				gt 'selfplay', 'start'
+			end
+		end
+	else
+		act '停止自慰': gt 'selfplay', 'stop'
+	end
+end
+
+
+!! For fucking your asshole with a dildo, after innitial penetration
+if $ARGS[0] = 'anal_dildo_mast':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildoanal.jpg"></center>'
+	gs 'selfplay', 'hole_cap_calc'
+	$assslutmessage = ''
+	if trait_vars['buttslut'] > 1:
+		$assslutmessage = '你停了一会儿，享受着你那淫荡的屁眼被玩具完全塞在臀缝间、撑开并填满的感觉…'
+	end
+	if $ARGS[1] = 'anal_keepgoing':
+		if pcs_horny >= 85:
+			if dildonumber < 3:
+				'你继续着。你现在太性奋了，除了用这根橡胶鸡巴操自己的屁股，脑子里什么都想不了。你一遍又一遍地撞击着屁股，把假阳具越来越快地在你屁股里抽插，一边揉着乳房、捏着乳头' +iif(trait_vars['buttslut'] < 2, ' 或者把手伸到两腿之间揉搓小穴', ', 无视你的阴道，专注于你淫荡屁股的感受') + ' 当你追寻高潮时。你闭着眼睛，大声喘息和呻吟，伴随着玩具在你的臀瓣间啪啪作响的淫靡声音。'
+				$orgasm_txt = '快感和热意在两腿之间积聚，直到你把假阳具整根捅进屁股里，终于狠狠地达到了高潮。你的屁眼紧紧收缩，你专注于玩具在臀瓣之间摩擦的感觉。你呻吟喘息，更加用力地往下磨蹭，一边延续着高潮，尽量让它持续得久一些，直到过度刺激让你不得不停下。'
+				if agape = 0:
+					agape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你继续着。你现在太性奋了，感觉除了用这根大橡胶鸡巴操自己的屁股以外，什么都想不了。你一遍又一遍地砸着自己的屁股。以越来越快的速度把假阳具在你的穴里抽进抽出，抓着你的乳房，捏着你的乳头' +iif(trait_vars['buttslut'] < 2, '，或者把手伸到两腿之间揉搓小穴', ', 无视你的阴道，专注于你淫荡屁股的感受') + ' 当你追寻高潮时。你闭着眼睛，大声喘息和呻吟，伴随着大玩具在你被操透的屁股里进进出出发出的淫靡唧咕声。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到你把这根大假阳具一路顶进屁股最深处，终于猛烈地高潮了。你的屁眼紧紧夹住，你专注于玩具在你两瓣屁股之间摩擦、填满你体内的感觉。你喘着气、颤抖着、收缩着，在被这根大橡胶鸡巴贯穿的同时度过高潮。'
+				if agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			elseif dildonumber > 5:
+				'你继续着。你现在太性奋了，感觉除了用这根巨大橡胶鸡巴操自己的屁股以外，什么都想不了。你一遍又一遍地砸着自己的屁股。以越来越快的速度把沉重的假阳具在你的穴里抽进抽出，抓着你的乳房，捏着你的乳头' +iif(trait_vars['buttslut'] < 2, '，或者把手伸到两腿之间揉搓小穴', ', 无视你的阴道，专注于你淫荡屁股的感受') + ' 当你追寻高潮时。你闭着眼睛，大声喘息和呻吟，伴随着巨大的玩具在你被操透的屁股里进进出出发出的淫靡唧咕声。'
+				$orgasm_txt = '快感和热浪在你的双腿间积聚，直到你猛地向下坐去，再次把那根巨大的假阳具整根吞入屁眼深处，终于达到高潮。你猛烈地高潮了，被撑得大开的肛门尽可能紧地夹住那根橡胶怪物，头向后仰，眼睛翻白，整根阳具在小腹里鼓起轮廓。你喘息着、颤抖着、收缩着，享受高潮的余韵，每一次抽动都让它持续得更久，直到你 '+iif(rand(0, 2) = 1, '在精疲力竭的狂喜中瘫倒在旁，玩具随着一声淫靡的轻响从你的穴中滑出。', '在精疲力竭的狂喜中瘫软下来。')
+				if agape = 2:
+					agape = 3
+				elseif agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			end
+		else
+			if dildonumber < 3:
+				'你继续用假阳具操着自己的屁股，随着性奋的积累，时快时慢，尝试着不同的角度和深度。偶尔顶到正好的地方时，你会发出轻轻的呻吟，享受着橡胶鸡巴的蛋蛋在你两瓣屁股之间滑进滑出时拍打你胯下的感觉。'
+				if agape = 0:
+					agape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你继续用大假阳具操着自己的屁股，随着性奋的积累，时快时慢，尝试着不同的角度和深度。偶尔顶到正好的地方时，你会发出轻轻的呻吟，或者当整根橡胶鸡巴都进到体内、把你撑开填满时，舒服得倒吸一口气。'
+				if agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			elseif dildonumber > 5:
+				'你继续在那根巨大的假阳具上上下弹动，随着性奋的积累，时快时慢，试探着不同的深度。每一次深深的抽插都把你撑得大开、填得满满的，当它在你的两瓣屁股之间滑动、磨过你体内每一个敏感点的时候，你忍不住呻吟出声……'
+				if agape = 2:
+					agape = 3
+				elseif agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			end
+		end
+	else
+		if pcs_horny >= 85:
+			if dildonumber < 3:
+				'你太性奋了，根本没想过要慢慢开始。你把假阳具猛地捅进抽动着的屁眼，爽得倒吸一口气，整根没入，感觉它的蛋蛋拍在你的胯下，屁眼一直把它吞到根部。<<$assslutmessage>>'
+				$orgasm_txt = '快感悄悄袭来，你突然猛烈地高潮了。你的屁眼紧紧夹住，你专注于玩具在你两瓣屁股之间摩擦的感觉。你呻吟着、喘息着，更用力地往下磨，度过你的高潮，尽量让它拖得久一些，直到过度刺激逼得你不得不停下。'
+				if agape = 0:
+					agape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你太性奋了，根本没想过要慢慢开始。你开始把那根大假阳具往你渴望的屁眼里猛捅，只抽插了几下，就把它整根顶进了饥渴的穴里。你喘息着、呻吟着，享受着这根大玩具多出来的长度和粗度把你屁股撑开、填满的感觉。<<$assslutmessage>>'
+				$orgasm_txt = '快感悄悄袭来，你突然猛烈地高潮了。你的屁眼紧紧夹住，你专注于玩具在你两瓣屁股之间摩擦、填满你体内的感觉。你喘着气、颤抖着、收缩着，在被这根大橡胶鸡巴贯穿的同时度过高潮。'
+				if agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			elseif dildonumber > 5:
+				if analcap <= 0 and rand(0, 4) = 1:
+					'你太性奋了，根本没想过要慢慢开始，你把巨大的玩具往地上一放，然后蹲到它上面，再一次把它吞进去。可你兴奋的急躁反而害了你，你的腿一滑，让你就这么……掉了下去。随着一声沉重的闷哼，你发现自己坐在了地板上，眼睛向后翻，屁眼瞬间被塞满，被一根巨大的橡胶鸡巴紧紧地撑开。你缓过气来，大声呻吟，一只手放在现在鼓起来的肚子上。感谢上帝，你的穴很有经验……而且你事先撑开过。<<$assslutmessage>>'
+					$orgasm_txt = '当那一瞬间的震惊消退后，'+iif(trait_vars['buttslut'] = 3, '你那淫荡的屁眼被如此突然、如此彻底地塞满，这份快感让你达到了高潮。', '快感悄悄袭来，你达到了高潮。') +' 你猛烈地高潮了，被大大撑开的屁眼尽可能紧地夹住这个橡胶怪物，头向后仰，眼睛向上翻，整根长度在你的肚子里鼓出来。你喘息着、颤抖着、紧缩着，度过这突如其来的高潮，每一次抽动都让高潮持续更久，然后你 '+iif(rand(0, 2) = 1, '在精疲力竭的狂喜中瘫倒在旁，玩具随着一声淫靡的轻响从你的穴中滑出。', '在精疲力竭的狂喜中瘫软下来。')
+					if trait_vars['buttslut'] = 3: $orgasm_or = 'yes'
+				else
+					'你太性奋了，根本没想过要慢慢开始，你把巨大的玩具往地上一放，然后坐回去，再一次把它吞进去。你现在唯一在意的就是尽可能多、尽可能快地把渴望的屁眼塞满。没过多久，你就完全坐了下去，那根巨大的橡胶鸡巴整根埋在你的后穴里。你大声呻吟，把手放在鼓起来的肚子上，屁眼被它极粗的尺寸紧紧撑开。<<$assslutmessage>>'
+					$orgasm_txt = '快感和热浪在你的双腿间积聚，直到你猛地向下坐去，再次把那根巨大的假阳具整根吞入屁眼深处，终于达到高潮。你猛烈地高潮了，被撑得大开的肛门尽可能紧地夹住那根橡胶怪物，头向后仰，眼睛翻白，整根阳具在小腹里鼓起轮廓。你喘息着、颤抖着、收缩着，享受高潮的余韵，每一次抽动都让它持续得更久，直到你 '+iif(rand(0, 2) = 1, '在精疲力竭的狂喜中瘫倒在旁，玩具随着一声淫靡的轻响从你的穴中滑出。', '在精疲力竭的狂喜中瘫软下来。')
+				end
+				if agape = 2:
+					agape = 3
+				elseif agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			end
+		else
+			if dildonumber < 3:
+				'你把假阳具在你的屁股里抽进抽出，慢慢加快速度，每一次抽插都进得更深。没过多久，它的蛋蛋就拍打在你的胯下，你的屁眼一直把它吞到根部。<<$assslutmessage>>'
+				if agape = 0:
+					agape = 1
+				end
+			elseif dildonumber >= 3 and dildonumber < 5:
+				'你把大假阳具在你的屁股里抽进抽出，慢慢加快速度，每一次抽插都进得更深，享受着多出来的长度和粗度，感觉屁眼被它撑开。没过多久，它的蛋蛋就拍打在你的胯下，你的屁眼把这根大玩具一直吞到根部。<<$assslutmessage>>'
+				if agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			elseif dildonumber > 5:
+				'那根巨大的假阳具立在你身后的地板上，你向后坐下，把它在你的屁股里抽进抽出，光是它的尺寸就让它不太容易轻松进去，随着它越滑越深，你慢慢加快速度。你的屁眼被它极粗的尺寸紧紧撑开，你能感觉到它的长度顶得你的肚子鼓了起来。没过多久，你就完全坐了下去，那根巨大的橡胶鸡巴整根埋在你的屁股里。<<$assslutmessage>>'
+				if agape = 2:
+					agape = 3
+				elseif agape = 1:
+					agape = 2
+				elseif agape = 0:
+					agape = 1
+				end
+			end
+		end
+	end
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+
+	gs 'arousal', 'anal_dildo', 5, 'masturbate'
+	gs 'stat'
+
+	if pcs_horny > 0:
+		act '继续操你的屁股': gt 'selfplay', 'anal_dildo_mast', 'anal_keepgoing'
+		if org_temp < orgasm:
+			act '停止自慰': gt 'selfplay', 'stop'
+			exit
+		else
+			act '换个方式自慰':
+				killvar 'mast_anal'
+				gt 'selfplay', 'start'
+			end
+		end
+	else
+		act '停止自慰': gt 'selfplay', 'stop'
+	end
+end
+
+!! TODO: For using the suction dildo in the kitchen?
+!{if $ARGS[0] = 'dildo':
+	*clr & cla
+	if pcs_inhib < 30:inhib_exp += rand(1,3)
+	gs 'mood', 'raise', 'small'
+	gs 'arousal_funcs', 'stretch', 'vaginal'
+
+	if $husID <> '' and spouseVars['drink'] <> 10:
+		if week >= 6 or hour >= 17:
+			gt 'husbsex', 'husb_mastr_vtor'
+		else
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/mast/mastr.mp4"></video></center>'
+			'你无法控制自己，立刻伸手去拿你的假阳具，以便满足你的欲望。你毫不耽误地将假阳具的吸盘底座固定在地板上，然后慢慢坐下去。'
+			'一阵战栗顺着你的脊椎爬下，你感受到粗大的头部撑开你的阴唇，很快整根阳具开始深深滑入你的小穴。当假阳具在你的体内完全顶到底时，一声低沉的呻吟充满了整个房间。'
+			'挪了挪腿，让自己更舒服一些之后，你开始摆动臀部，在它上面上下颠簸，随着你不断提高抽插的力量和速度，呻吟声也越来越大。你的屁股随着每一次抽插都狠狠撞在地板上，仅仅几分钟你就达到了高潮，脚趾紧紧蜷起，整个身体被快感淹没。'
+			'你的汁液顺着假阳具流下，在你身下的地板上汇聚成一滩。你深深吸了几口气，脸上露出满足的笑容。这正是你需要的！'
+		end
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/mast/mastr.mp4"></video></center>'
+		'你无法控制自己，立刻伸手去拿你的假阳具，以便满足你的欲望。你毫不耽误地将假阳具的吸盘底座固定在地板上，然后慢慢坐下去。'
+		'一阵战栗顺着你的脊椎爬下，你感受到粗大的头部撑开你的阴唇，很快整根阳具开始深深滑入你的小穴。当假阳具在你的体内完全顶到底时，一声低沉的呻吟充满了整个房间。'
+		'挪了挪腿，让自己更舒服一些之后，你开始摆动臀部，在它上面上下颠簸，随着你不断提高抽插的力量和速度，呻吟声也越来越大。你的屁股随着每一次抽插都狠狠撞在地板上，仅仅几分钟你就达到了高潮，脚趾紧紧蜷起，整个身体被快感淹没。'
+		'你的汁液顺着假阳具流下，在你身下的地板上汇聚成一滩。你深深吸了几口气，脸上露出满足的笑容。这正是你需要的！'
+	end
+	$orgasm_or = 'yes'
+	gs 'arousal', 'vaginal_dildo', 10, 'masturbate'
+	gs 'arousal', 'end'
+
+	act '呼吸': gt 'kuhr2x'
+end !}
+
+!! WIP: For finding a phallic veggie to play with while alone in the kitchen. Need to find good images/videos to write the events for - Dobbiboy
+!{if $ARGS[0] = 'veggie_mast':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/system/image_needed.png"></center>'
+	if $ARGS[1] = 'pick_veg':
+		temp_rand = rand(0,2)
+		if temp_rand = 0:
+			'（待办）你在厨房里翻找，找到了一根（在这里插入阴茎状蔬菜 1）。'
+		elseif temp_rand = 1:
+			'（待办）你在厨房里翻找，找到了一根（在这里插入阴茎状蔬菜 2）。'
+		else
+			'（待办）你在厨房里翻找，找到了一根（在这里插入阴茎状蔬菜 3）。'
+		end
+		act '（待办）用这个自慰':
+			if temp_rand = 0:
+				'（待办）饥渴的小穴；把蔬菜 1 喂给你的小穴'
+			elseif temp_rand = 1:
+				'（待办）美味的蔬菜；把蔬菜 2 喂给你的小穴'
+			else
+				'（待办）健康生活；把蔬菜 3 喂给你的小穴'
+			end
+			gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+			gs 'stat'
+		end
+		act '（待办）决定不自慰': gt 'selfplay','stop'
+		killvar 'temp_rand'
+
+	!!Fuck yourself with the veggie
+	elseif $ARGS[1] = 'keepgoing':
+		if temp_rand = 0:
+			'（待办）饥渴的小穴；你一直操着自己的小穴，直到高潮'
+		elseif temp_rand = 1:
+			'（待办）美味的蔬菜；你一直操着自己的小穴，直到高潮'
+		else
+			'（待办）健康生活；你一直操着自己的小穴，直到高潮'
+		end
+		killvar 'temp_rand'
+		gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+		gs 'stat'
+		if pcs_horny > 0:
+			if locat['Mom_athome'] = 0 and locat['sdad_athome'] = 0:
+				act '继续喂你的小穴': gt 'selfplay','veggie_mast','keepgoing'
+
+			elseif locat['Mom_athome'] = 1 or locat['sdad_athome'] = 1:
+				$func('wrap', 'neg b', '待办：父母要来了或醒着，你停下来装作正常，继续你的一天。也许想办法把证据藏起来。')
+				act '别再玩了，装作正常': gt 'selfplay', 'stop'
+			end
+		else
+			act '停止自慰': gt 'selfplay', 'stop'
+		end
+	end
+end !}
+
+!! Bathroom Dildo Info
+!! bathtub_suction_dildo - dildo that is applied on the low wall of a bathtub
+!! bath_shower_dildo - dildo that is applied onto the wall of a bathtub that also has a shower
+!! glass_shower_dildo - dildo applied to glass wall of a shower with no tub
+
+
+if $ARGS[0] = 'suction_dildo':
+	*nl
+	if dyneval('result = <<$loc>>_bathtub_dildo') = 1:
+		'你的<a href="exec:gs ''selfplay'',''bath_suction_dildo''">吸盘假阳具</a>粘在浴缸上。'
+	elseif mc_inventory['dildo_suction'] > 0:
+		'你可以把你的吸盘假阳具粘到<a href="exec:gs ''selfplay'',''bathtub_suction_dildo_apply'' & gt $loc, $loc_arg">浴缸</a>上来玩弄。'
+	end
+	if dyneval('result = <<$loc>>_bath_shower_dildo') = 1 or dyneval('result = <<$loc>>_glass_shower_dildo') = 1:
+		'你的吸盘假阳具<a href="exec:gt ''selfplay'',''shower_suction_dildo''">在淋浴间里</a>。'
+	elseif mc_inventory['dildo_suction'] > 0:
+		'你也可以把一个吸盘假阳具塞进<a href="exec:gs ''selfplay'',''shower_suction_dildo_apply'' & gt $loc, $loc_arg">淋浴间</a>.'
+	end
+end
+
+
+if $ARGS[0] = 'bathtub_suction_dildo_apply':
+	dynamic '<<$loc>>_bathtub_dildo = 1'
+	dynamic '<<$loc>>_suction_dildo += 1'
+	mc_inventory['dildo_suction'] -= 1
+end
+
+
+if $ARGS[0] = 'bathtub_suction_dildo_remove':
+	dynamic '<<$loc>>_bathtub_dildo = 0'
+	dynamic '<<$loc>>_suction_dildo -= 1'
+	mc_inventory['dildo_suction'] += 1
+end
+
+
+if $ARGS[0] = 'shower_suction_dildo_apply':
+	dynamic '<<$loc>>_suction_dildo += 1'
+	if $bathtype = 'bathtub shower':
+		dynamic '<<$loc>>_bath_shower_dildo = 1'
+	elseif $mid($bathtype, 1, 12) = 'glass shower':
+		dynamic '<<$loc>>_glass_shower_dildo = 1'
+	end
+	mc_inventory['dildo_suction'] -= 1
+end
+
+
+if $ARGS[0] = 'shower_suction_dildo_remove':
+	dynamic '<<$loc>>_suction_dildo -= 1'
+	if $bathtype = 'bathtub shower':
+		dynamic '<<$loc>>_bath_shower_dildo = 0'
+	elseif $mid($bathtype, 1, 12) = 'glass shower':
+		dynamic '<<$loc>>_glass_shower_dildo = 0'
+	end
+	mc_inventory['dildo_suction'] += 1
+end
+
+
+if $ARGS[0] = 'bathtub_dildo_check':
+	if dyneval('result = <<$loc>>_bathtub_dildo') = 1:
+		act '骑上你的浴缸假阳具': gt 'selfplay', 'bath_bathtub_suction_dildo_ride'
+	end
+end
+
+
+if $ARGS[0] = 'shower_dildo_check':
+	if dyneval('result = <<$loc>>_bathtub_dildo') = 1:
+		act '骑上你的浴缸假阳具': gt 'selfplay', 'shower_bathtub_suction_dildo_ride'
+	end
+	if dyneval('result = <<$loc>>_glass_shower_dildo') = 1:
+		act '骑上你壁挂式的假阳具': gt 'selfplay', 'glass_shower_suction_dildo_fuck'
+	elseif dyneval('result = <<$loc>>_bath_shower_dildo') = 1:
+		act '骑上你壁挂式的假阳具': gt 'selfplay', 'shower_bathtub_wall_dildo_fuck'
+	end
+end
+
+
+if $ARGS[0] = 'bath_suction_dildo':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/home/bathroom/bathtub_dildo.jpg"></center>'
+	'你的吸盘假阳具目前粘在浴缸上。'
+	act '把它留在那里': gt $loc, $loc_arg
+	act '取下来': gs 'selfplay', 'bathtub_suction_dildo_remove' & gt $loc, $loc_arg
+	act '骑上去': gt 'selfplay', 'bath_suction_dildo_ride'
+end
+
+
+if $ARGS[0] = 'shower_suction_dildo':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/home/bathroom/shower_dildo.jpg"></center>'
+	'你的吸盘假阳具目前粘在淋浴间的墙上。'
+	act '把它留在那里': gt $loc, $loc_arg
+	act '取下来': gs 'selfplay', 'shower_suction_dildo_remove' & gt $loc, $loc_arg
+end
+
+
+!! for using a dildo suctioned to the BATHTUB when not bathing
+if $ARGS[0] = 'bath_suction_dildo_ride':
+	*clr & cla
+	pcs_horny += 20
+	gs 'boyStat', 'D2'
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/bath_dildo.mp4"></video></center>'
+	if dildo_timer = 0:
+		dildo_timer = 1
+		dildo_start_minute = minut
+		dildo_start_hour = hour
+	end
+	if func('pcs_has_attr', 'sex_virgin'):
+		'你疼得皱起眉头，坐下去的时候假阳具撕裂了你的处女膜。给自己一分钟适应之后，你试探性地在它上面上下弹动，直到你开始享受起来。'
+	elseif dildo_start_minute = minut and dildo_start_hour = hour:
+		'你花 5 分钟在固定在浴缸壁上的假阳具上上下弹动，玩得很开心。'
+	else
+		'你又开心地在固定在浴缸上的假阳具上上下弹动了 5 分钟。'
+	end
+	*nl
+	$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你喘着气、颤抖着、收缩着，在被浴缸上的假阳具贯穿的同时度过高潮。'
+	gs 'selfplay', 'dildo_masturbate_options', 1
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+end
+
+
+!! this is riding a dildo mounted on the low wall of a bath tub during a SHOWER
+if $ARGS[0] = 'shower_bathtub_suction_dildo_ride':
+	*clr & cla
+	vaginal_slip = 10
+	pcs_horny += 20
+	gs 'boyStat', 'D2'
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shower_bath_dildo1.mp4"></video></center>'
+	if dildo_timer = 0:
+		dildo_timer = 1
+		dildo_start_minute = minut
+		dildo_start_hour = hour
+	end
+	*nl
+	if func('pcs_has_attr', 'sex_virgin'):
+		'让淋浴继续开着，你拉开浴帘，缓缓坐到你安装在浴缸上的橡胶阴茎上。'
+		*nl
+		'它撕裂了你的处女膜，你疼得皱起眉头，还在湿滑的浴缸底部滑了一下，突然发现自己屁股贴在浴缸上、整根东西捅进了小穴，不由得大声倒吸一口气。'
+		*nl
+		'<i>嗷！嗷！嗷！嗷！我本来没想一下子就把它整根吞进去的！</i>'
+		*nl
+		'你用力咬住嘴唇，给自己一分钟适应，让穴壁撑开。最终你觉得自己勇敢了一些，试探性地在它上面上下弹动。一次弹动变成两次，两次变成十二次，突然你就毫无顾忌地在上面跳上跳下，非常享受你这根大橡胶鸡巴。'
+	elseif dildo_start_minute = minut and dildo_start_hour = hour:
+		'让淋浴继续开着，你拉开浴帘，缓缓坐到你安装在浴缸上的橡胶阴茎上。'
+		*nl
+		if $loc = 'vanrPar':
+			'<i>啊哈~！嗯~！呣~！唔嗯~！</i>'
+			*nl
+			if locat['Fam_inGad'] = 1:
+				'你愉悦的叫声在浴室墙壁之间回荡，你骑着自己的假阳具，彻彻底底地享受着，也享受着家人周末都不在的事实。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你喘着气、颤抖着、收缩着，大声叫了出来，在你的声音从墙壁弹回来的时候度过高潮。'
+			else
+				'你在假阳具上上下弹动，允许自己舒服地轻轻呻吟，相当确定淋浴的水声应该能盖住你大部分的声音。也许只是水汽的缘故，但你觉得你比平时享受得多得多。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你喘着气、颤抖着、收缩着，在被浴缸上的假阳具贯穿的同时度过高潮，尽最大努力不让自己叫出声，免得家人知道你在干什么。'
+			end
+		else
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			'你骑在按摩棒上，愉悦的叫声在浴室的墙壁间回荡，你完全沉浸其中，确保墙那边的人也知道你正享受。'
+
+			$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你在高潮中大声叫喊，沉浸在释放的极乐之中，然后才慢慢平息下来。'
+		end
+	else
+		if $loc = 'vanrPar':
+			'<i>嗯~！嗯嗯~！唔~！呣~！</i>'
+			*nl
+			'你继续在假阳具上上下弹动，还享受着的时候不愿意结束你的淋浴。'
+		else
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			'你骑在按摩棒上，愉悦的叫声在浴室的墙壁间回荡，你完全沉浸其中，确保墙那边的人也知道你正享受。'
+		end
+	end
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'selfplay', 'dildo_masturbate_options', 2
+end
+
+
+!! this is riding a dildo mounted on the low wall of a bath tub during a BATH
+if $ARGS[0] = 'bath_bathtub_suction_dildo_ride':
+	*clr & cla
+	vaginal_slip = 10
+	pcs_horny += 20
+	gs 'boyStat', 'D2'
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shower_bath_dildo2.mp4"></video></center>'
+	if dildo_timer = 0:
+		dildo_timer = 1
+		dildo_start_minute = minut
+		dildo_start_hour = hour
+	end
+	if func('pcs_has_attr', 'sex_virgin'):
+		'你从浴缸里起身，把屁股朝向吸盘固定的假阳具，慢慢让小穴套上去。'
+		*nl
+		'它撕裂了你的处女膜，你疼得皱起眉头，还滑了一下，浴缸里的水因你突然的动作四处晃荡。等你回过神来，你已经在大声倒吸冷气——你突然发现自己屁股贴在浴缸上，整根假阳具一直捅进你的小穴深处。'
+		*nl
+		'<i>嗷！嗷！嗷！嗷！我本来没想一下子就把它整根吞进去的！</i>'
+		*nl
+		'你用力咬住嘴唇，给自己一分钟适应，让穴壁撑开。最终你觉得自己勇敢了一些，试探性地在它上面上下弹动。一次弹动变成两次，两次变成十二次，突然你就毫无顾忌地在上面跳上跳下，在浴缸的水里激起小小的波浪，非常享受你这根大橡胶鸡巴。'
+	elseif dildo_start_minute = minut and dildo_start_hour = hour:
+		'你从浴缸里出来，决定该换一种放松方式了，于是慢慢坐下去，套上固定在浴缸上的橡胶鸡巴。'
+		if $loc = 'vanrPar':
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			if locat['Fam_inGad'] = 1:
+				'你在假阳具上上下弹动，动作在浴缸的水里晃出一阵阵水波，大声呻吟，利用着家人周末都不在的事实。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你的双腿颤抖，把浴缸里的水溅得到处都是，你在被假阳具贯穿的同时度过高潮，大声叫喊，声音在浴室墙壁之间回荡。'
+			else
+				'<i>啊哈~！嗯~！呣~！唔嗯~！</i>'
+			*nl
+				'你在假阳具上上下弹动，动作在浴缸的水里激起阵阵涟漪。你用极小的声音轻轻呻吟，尽了最大努力，却还是没法完全忍住。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你的双腿颤抖，把浴缸里的水溅得到处都是，你在被浴缸上的假阳具贯穿的同时度过高潮，艰难地喘息着不让自己叫出声，免得家人知道你在干什么。'
+			end
+		else
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			'你骑在按摩棒上，愉悦的叫声在浴室的墙壁间回荡，你完全沉浸其中，确保墙那边的人也知道你正享受。'
+			$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你在高潮中大声叫喊，沉浸在释放的极乐之中，然后它才慢慢平息下来。'
+		end
+	else
+		if $loc = 'vanrPar':
+			if locat['Fam_inGad'] = 1:
+				'<i>啊~！啊啊啊~！啊~！啊啊啊啊~！</i>'
+				*nl
+				'你继续在假阳具上上下弹动，还享受着的时候不愿意结束你的淋浴。也许只是房间里的水汽，但你的身体现在感觉像着了火，你忍不住大声叫了出来，太高兴家人周末都不在。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你的双腿颤抖，把浴缸里的水溅得到处都是，你大声呻吟着，在被假阳具贯穿的同时度过高潮。'
+			else
+				'<i>嗯~！嗯嗯~！唔~！呣~！</i>'
+				*nl
+				'你继续在假阳具上上下弹动，还享受着的时候不愿意结束你的淋浴。也许只是房间里的水汽，但你的身体现在感觉像着了火，要忍住不叫出声、不让声音传到走廊里实在太难了。'
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你猛地一路坐到底，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能感觉到体内那根橡胶鸡巴完整的形状。你的双腿颤抖，把浴缸里的水溅得到处都是，你在被假阳具贯穿的同时度过高潮，艰难地喘息着不让自己叫出声，免得家人知道你在干什么。'
+			end
+		else
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			'你骑在按摩棒上，愉悦的叫声在浴室的墙壁间回荡，你完全沉浸其中，确保墙那边的人也知道你正享受。'
+		end
+	end
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'selfplay', 'dildo_masturbate_options', 3
+end
+
+
+!! this is using a dildo mounted on WALL the shower in a bathtub during a SHOWER
+if $ARGS[0] = 'shower_bathtub_wall_dildo_fuck':
+	*clr & cla
+	vaginal_slip = 10
+	gs 'mood', 'raise', 1
+	pcs_horny += 20
+	gs 'boyStat', 'D2'
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shower_dildo2.mp4"></video></center>'
+	$orgasm_txt = '你再也忍不住了，用尽全力往后坐到假阳具上，把它整根吞入体内。你拿着淋浴喷头对着阴蒂喷水，即使高潮让你颤抖得一塌糊涂、踮起脚尖，身体被快感激荡，也没有停下。'
+	if dildo_timer = 0:
+		dildo_timer = 1
+		dildo_start_minute = minut
+		dildo_start_hour = hour
+	end
+	if func('pcs_has_attr', 'sex_virgin'):
+		'你让淋浴一直开着，弯下腰，把屁股朝向固定在墙上的假阳具。你觉得是时候试试这玩意儿了。'
+		*nl
+		'对准你的小穴，你慢慢向后坐下去，感觉它撑开你、深入你，直到你感到它抵住处女膜。深吸一口气后，你用力把屁股往后压，当感觉它撕裂你的处女膜时，立刻发出一声痛苦的呜咽。'
+		*nl
+		'你狠狠咬着嘴唇，给自己一分钟适应，让阴道壁扩张开来。终于你感觉大胆了一些，试探性地滑出来，再坐回去。用又大又长的幅度，你完全拔出再慢慢坐回，直到被填满，感到屁股碰到墙壁。很快这开始变得舒服，你加快了节奏。然后你抓起淋浴喷头，对着阴蒂喷水，同时在橡胶阴茎上猛烈地来回摆动。'
+		*nl
+		'<i>噢噢噢噢……耶耶耶耶……我会习惯这个的……</i>'
+	elseif dildo_start_minute = minut and dildo_start_hour = hour:
+		if $loc = 'vanrPar':
+			'你用浴缸壁借力，一边用力呼吸，一边在固定在墙上的假阳具上前后来回推着自己的屁股。淋浴的热水从上面浇下来，水汽弥漫在空气里，你玩起了和浴缸壁捉迷藏的游戏，用屁股后面一下又一下地拍打它，同时你的小穴被橡胶塞满。'
+			*nl
+			if locat['Fam_inGad'] = 1:
+				'<b>啪</b><b>啪</b><b>啪</b><b>啪'
+				*nl
+				'<i>啊~！啊啊啊~！啊~！啊啊啊啊~！</i>'
+				*nl
+				'你的呻吟声和屁股拍打的声音在淋浴间的墙壁之间回荡，你开心地利用着家人周末都不在的事实。'
+
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你把屁股一路顶到墙上，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能完美地感觉到体内整根橡胶鸡巴的形状。你的双腿颤抖，膝盖努力不软下去，你在被淋浴假阳具贯穿的同时度过高潮，尖叫出来的高潮大概从你的房间里都能听到。'
+			else
+				'<i>啊哈~！嗯~！呣~！唔嗯~！</i>'
+				*nl
+				'虽然呜咽和喘息不断从你唇间溢出，你还是尽力控制住自己的声音，免得家人抓到你在淋浴间里自慰。'
+
+				$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你把屁股一路顶到墙上，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能完美地感觉到体内整根橡胶鸡巴的形状。你的双腿颤抖，膝盖努力不软下去，你在被淋浴假阳具贯穿的同时度过高潮，用急促的喘息代替尖叫，免得家人知道你在干什么。'
+			end
+		else
+			'<b>啪</b><b>啪</b><b>啪</b><b>啪'
+			*nl
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			'你愉悦的叫声在浴室墙壁之间回荡，你把自己的屁股前后来回拍打在淋浴间的墙上，彻底享受着此刻正在你体内抽插的假阳具。'
+
+			$orgasm_txt = '快感和热浪在你的双腿之间积聚，直到最后你把屁股一路顶到墙上，在假阳具上猛烈地高潮。你的穴壁紧紧收缩，你能完美地感觉到体内整根橡胶鸡巴的形状。你在高潮中大声叫喊，双腿颤抖，膝盖努力不软下去，沉浸在极乐之中度过高潮。'
+		end
+	else
+		if $loc = 'vanrPar':
+			if locat['Fam_inGad'] = 1:
+				'<b>啪</b><b>啪</b><b>啪</b><b>啪'
+				*nl
+				'<i>啊~！啊啊啊~！啊~！啊啊啊啊~！</i>'
+				*nl
+				'淋浴的水不断浇在你身上，你也不停地操着固定在墙上的假阳具，偶尔随着你抽插的力道把它上下滑动，发出啧啧的水声。大声的喘息从你唇间溢出，你太高兴家人现在不在。'
+			else
+				'<i>嗯~！嗯嗯~！唔~！呣~！</i>'
+				*nl
+				'你还没完。淋浴的水不断浇在你身上，你也不停地操着固定在墙上的假阳具，偶尔随着你抽插的力道把它上下滑动，发出啧啧的水声。也许只是房间里的水汽，但你的身体现在感觉像着了火，要忍住不叫出声、不让声音传到走廊里实在太难了。'
+			end
+		else
+			'<i><b>啪</b></i> <i><b>啪</b></i> <i><b>啪</b></i> <i><b>啪</b></i>'
+			'<i>啊哈~！嗯~！唔嗯~！唔嗯~！啊~！</i>'
+			*nl
+			'你骑在按摩棒上，愉悦的叫声在浴室的墙壁间回荡，你完全沉浸其中，确保墙那边的人也知道你正享受。'
+		end
+	end
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'selfplay', 'dildo_masturbate_options', 4
+end
+
+
+!! this is for using a dildo mounted of the glass WALL of a SHOWER with no tub
+if $ARGS[0] = 'glass_shower_suction_dildo_fuck':
+	*clr & cla
+	gs 'mood', 'raise', 1
+	pcs_horny += 20
+	vaginal_slip = 10
+	gs 'boyStat', 'D2'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/shower_dildo1.mp4"></video></center>'
+	$orgasm_txt = '你再也忍不住了，用尽全力往后坐到假阳具上，把它整根吞入体内。你拿着淋浴喷头对着阴蒂喷水，即使高潮让你颤抖得一塌糊涂、踮起脚尖，身体被快感激荡，也没有停下。'
+	if dildo_timer = 0:
+		dildo_timer = 1
+		dildo_start_minute = minut
+		dildo_start_hour = hour
+	end
+	if func('pcs_has_attr', 'sex_virgin'):
+		'你把屁股挪向固定在墙上的假阳具，觉得是时候试试这玩意儿了。'
+		*nl
+		'对准你的小穴，你慢慢向后坐下去，感觉它撑开你、深入你，直到你感到它抵住处女膜。深吸一口气后，你用力把屁股往后压，当感觉它撕裂你的处女膜时，立刻发出一声痛苦的呜咽。'
+		*nl
+		'你狠狠咬着嘴唇，给自己一分钟适应，让阴道壁扩张开来。终于你感觉大胆了一些，试探性地滑出来，再坐回去。用又大又长的幅度，你完全拔出再慢慢坐回，直到被填满，感到屁股碰到墙壁。很快这开始变得舒服，你加快了节奏。然后你抓起淋浴喷头，对着阴蒂喷水，同时在橡胶阴茎上猛烈地来回摆动。'
+		*nl
+		'<i>噢噢噢噢……耶耶耶耶……我会习惯这个的……</i>'
+	elseif dildo_start_minute = minut and dildo_start_hour = hour:
+		'"啊哈~!" <i>啪</i> "嗯~!" <i>啪</i> "唔嗯~!" <i>啪</i> "唔嗯~!" <i>啪</i> "啊~!"'
+		*nl
+		'愉悦的叫声在淋浴间里回荡，你一次又一次地把身体往后撞向固定在墙上的假阳具。每次你把自己顶到假阳具的根部，你的屁股都会发出砰的一声，除此之外唯一的声音就是淋浴头喷在你阴蒂上的白噪音。'
+	else
+		'"唔嗯~!" <i><b>啪</b></i> "嗯嗯~!" <i><b>啪</b></i> "唔嗯~!" <i><b>啪</b></i> "呣嗯~!" <i><b>啪</b></i> "啊~!!</i>'
+		*nl
+		'你的屁股撞在墙上的闷响现在更大了，你的声音也一样。在你脑海深处，你模糊地想着，要是你得向房东解释你因为操一根吸在淋浴间上的橡胶鸡巴而把它撞碎了，那该有多尴尬。'
+	end
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'selfplay', 'dildo_masturbate_options', 5
+end
+
+
+if $ARGS[0] = 'dildo_masturbate_options':
+	dildo_type = ARGS[1]
+	if pcs_horny >= 90: *nl & $orgasm_or = 'yes'
+	*nl
+	gs 'arousal', 'vaginal_dildo', 5, 'masturbate'
+	gs 'stat'
+
+	if dildo_type = 1:
+		act '继续自慰': killvar 'dildo_type' & gt 'selfplay', 'bath_suction_dildo_ride'
+	elseif dildo_type = 2:
+		act '继续自慰': killvar 'dildo_type' & gt 'selfplay', 'shower_bathtub_suction_dildo_ride'
+	elseif dildo_type = 3:
+		act '继续自慰': killvar 'dildo_type' & gt 'selfplay', 'bath_bathtub_suction_dildo_ride'
+	elseif dildo_type = 4:
+		act '继续自慰': killvar 'dildo_type' & gt 'selfplay', 'shower_bathtub_wall_dildo_fuck'
+	elseif dildo_type = 5:
+		act '继续自慰': killvar 'dildo_type' & gt 'selfplay', 'glass_shower_suction_dildo_fuck'
+	end
+
+	act '完成自慰' + iif(dildo_type = 1, '', '，然后擦干身体'):
+		dildo_timer = 0
+		gs 'arousal', 'end'
+		!! Shower or Bath
+		if dildo_type ! 1: mirror_steam = hour
+		killvar 'dildo_type'
+		gt $loc, $loc_arg
+	end
+
+	act '完成自慰' + iif(dildo_type = 1, '，并从假阳具上下来', '，从假阳具上下来，出去擦干身体'):
+		dildo_timer = 0
+		if dildo_type >= 1 and dildo_type < 4:
+			gs 'selfplay', 'bathtub_suction_dildo_remove'
+		else
+			gs 'selfplay', 'shower_suction_dildo_remove'
+		end
+
+		gs 'arousal', 'end'
+
+		!! Shower or Bath
+		if dildo_type ! 1: mirror_steam = hour
+		killvar 'dildo_type'
+		gt $loc, $loc_arg
+	end
+end
+
+
+!! Anya schedule check
+if $ARGS[0] = 'sis_prov':
+	$AnyaMsg = ''
+	if $loc = 'bedrPar':
+		gs 'family_schedule'
+		if locat['Anya_Gad'] = 0:
+			if locat['Anya_inroom'] = 0 and proverkasisterhere = 0:
+				proverkasisterhere = 1
+			end
+
+			if locat['Anya_inroom'] = 1:
+				if sisboytrio > 0 and sis_watch = 1:
+					sis_watch = 2
+					gs 'selfplay', 'sis_react'
+				else
+					if proverkasisterhere = 2 and rand(1, 3) = 3:
+						SisterKnowMastr += 1
+						$AnyaMsg = $func('wrap', 'neg b', '安雅看见你自慰了。')
+					end
+
+					if proverkasisterhere = 1:
+						proverkasisterhere = 2
+						$AnyaMsg = $func('wrap', 'neg b', '你听到有脚步声靠近你的房间。')
+					end
+				end
+			end
+		end
+	end
+end
+
+
+!! Anya caught reactions
+!! mast_anal or vag: 1 Fingers, 2 to 8 dildo sizes, 9 fisting
+if $ARGS[0] = 'sis_react':
+	if mast_anal = 1:
+		$AnyaMsg = '安雅走进房间，看到你在用手指抠屁股。她微笑着向你挥手，让你继续。'
+	elseif mast_anal = 2 or mast_anal = 3:
+		$AnyaMsg = '安雅走进房间，撞见你屁股里插着假阳具。"别因为我停下来，<<$pcs_nickname>>。你在练习玩屁股，这是好事。"'
+	elseif mast_anal = 4 or mast_anal = 5:
+		$AnyaMsg = '安雅走进房间，撞见你屁股里插着假阳具。"别让我打扰你，<<$pcs_nickname>>。看来你也开始真正享受肛交了。"'
+	elseif mast_anal >= 6 or mast_anal <= 8:
+		$AnyaMsg = '安雅走进房间，突然停下脚步，看到你塞在屁股里的玩具尺寸，眼睛都睁大了。"天啊姐姐，你彻底变成肛门尺寸女王了对吧？我就……看点书什么的。你继续享受吧。"'
+	elseif mast_anal = 9:
+		$AnyaMsg = '安雅走进房间，突然停下脚步，撞见你把拳头塞进屁股里。"天啊姐姐，你到底是怎么绕过去够到那儿的？我就……看点书什么的。你继续享受吧。"'
+	end
+
+	if mast_vag = 1:
+		$AnyaMsg = '安雅走进房间看到你在用手指插弄自己的小穴。她只是微笑着向你挥手让你继续。'
+	elseif mast_vag = 2 or mast_vag = 3:
+		$AnyaMsg = '安雅走进房间，撞见你把假阳具插在小穴里。"别因为我停下来，<<$pcs_nickname>>。我很高兴你发现了被鸡巴插有多舒服。"'
+	elseif mast_vag = 4 or mast_vag = 5:
+		$AnyaMsg = '安雅走进房间，撞见你正用假阳具操自己的小穴。"别让我打扰你，<<$pcs_nickname>>。我们偶尔都需要好好释放一下。"'
+	elseif mast_vag >= 6 or mast_vag <= 8:
+		$AnyaMsg = '安雅走进房间，突然停下脚步，看到你往小穴里塞的玩具尺寸，眼睛都睁大了。"天啊姐姐，你彻底变成尺寸女王了对吧？我就……看点书什么的。你继续享受吧。"'
+	elseif mast_vag = 9:
+		$AnyaMsg = '安雅走进房间，突然停下脚步，撞见你把拳头塞进穴里。"天啊姐姐，你把自己撑开到那种程度花了多长时间？我就……看点书什么的。你继续享受吧。"'
+	end
+end
+
+
+!! WD: Masturbating at night only has 10% chance to be discovered
+if $ARGS[0] = 'van_vtor':
+	if locat['Fam_inGad'] = 0 and (hour >= 6 or rand(1, 10) = 1):
+		*clr & cla
+		pcs_horny -= 50
+		gs 'mood', 'lower', 'small'
+		gs 'stat'
+		'你听到浴室门外传来喊声。'
+		'"<<$pcs_nickname>>？怎么这么久？快点出来！"'
+
+		act '从浴缸里出来，把身上擦干':	gt 'selfplay', 'stop'
+
+		exit
+	else
+		selfplaytime -= 15
+	end
+end
+
+
+!! For playing with your clit
+if $ARGS[0] = 'clit_play':
+	*clr & cla
+	selfplaytime += 5
+	mast_vag = 1
+	gs 'selfplay', 'sis_prov'
+
+	!! if $loc = 'bedrPar':'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/mast/klit.mp4"></video></center>'
+
+	if $loc = 'vanrPar':
+		'<center><img <<$set_imgh>> src="images/shared/sex/mast/klitvann.jpg"></center>'
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/mast/klit.mp4"></video></center>'
+	end
+
+	if pcs_mood >= 20:
+		pcs_horny += rand(5, 10)
+		'你把手伸到两腿之间，用手指轻轻摩擦你的胯下。手指在你的小穴唇之间滑动，你摸索到自己的阴蒂，反复用指尖轻轻划过它。这样做带给你的感觉好极了，你感觉一阵愉悦的暖意在下方蔓延开来。'
+	else
+		pcs_horny += rand(0, 1)
+		'你用手指抚弄着阴蒂。感觉不错，但你心情实在太糟了，分了神，根本没法真正享受。'
+	end
+	$orgasm_txt = '突然，你恰到好处地搓揉着阴蒂，整个身体开始在高潮中颤抖。高潮的强度几乎让你尖叫出来，但你咬住嘴唇，尽力压住呻吟，不让任何人听见。'
+	*nl
+	minut += 5
+	gs 'arousal', 'clit_finger', -20, 'masturbate'
+	gs 'stat'
+
+	'<<$AnyaMsg>>'
+
+	if org_temp = orgasm:
+		gs 'selfplay', 'fingering'
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+!! For fingering your pussy
+if $ARGS[0] = 'fingering':
+	*clr & cla
+	selfplaytime += 2
+	mast_vag = 1
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/finger.jpg"></center>'
+	if mesec > 0:
+		gs 'mood', 'lower', 'small'
+		'你的小穴上有些经期留下的干涸血迹。你试着把手指塞进去，但一想到就觉得有点恶心，于是打消了念头。'
+	elseif mesec <= 0:
+		if func('pcs_has_attr', 'sex_virgin'):
+			'你用一根手指滑过自己柔软湿润的阴唇，然后慢慢试着把它滑进小穴。当你先滑入一根手指时，你感到处女膜被撑开了一点，一分钟后，第二根也进去了。'
+		else
+			'你用几根手指滑过自己柔软湿润的阴唇，稍微润滑一下，然后继续把一根滑进去，紧接着第二根也跟了进去。'
+		end
+		if pcs_vag < 5 or func('pcs_has_attr', 'sex_virgin'):
+			pcs_horny += rand(2, 5)
+			'你感到小穴紧紧地箍住你的手指。'
+		elseif pcs_vag < 10:
+			pcs_horny += rand(5, 10)
+			'你感到湿滑的小穴内壁包裹着手指。感觉又好又紧。'
+		else
+			pcs_horny += rand(2, 5)
+			'手指插在小穴里的感觉不错，但并不是很紧。你觉得还能塞进更多。'
+		end
+		gs 'selfplay', 'sis_prov'
+		*nl
+		'<<$AnyaMsg>>'
+		gs 'arousal', 'vaginal_finger', 2, 'masturbate'
+		gs 'stat'
+		if $loc = 'vanrPar' and selfplaytime >= 60:
+			gs 'selfplay', 'van_vtor'
+		end
+		if org_temp = orgasm:
+			act '用手指操自己': gs 'selfplay', 'fingering2'
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'fingering2':
+	*clr & cla
+	selfplaytime += 10
+	mast_vag = 1
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/finger.jpg"></center>'
+	if args[1] = 2:
+		'你换回只用两根手指，继续让它们进进出出。这样舒服多了，你重新开始一边自慰一边轻轻捏着乳头。'
+	elseif args[1] = 1:
+		'你继续用手指操着自己，揉捏按摩着乳房。'
+	else
+		'你开始让手指进进出出，一边自慰一边轻轻捏着乳头。'
+	end
+	*nl
+	if pcs_vag <= 12 or func('pcs_has_attr', 'sex_virgin'):
+		'你的小穴壁被手指操弄得舒服地撑开，你感到一股愉悦的暖意在身体下半部蔓延。'
+	elseif pcs_vag > 12:
+		'你的小穴相当松，你得费好大劲才能从中得到足够的快感。'
+	end
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'vaginal_finger', 10, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		act '继续用手指操自己': gs 'selfplay', 'fingering2', 1
+		if func('pcs_has_attr', 'sex_virgin'):
+			gs 'willpower', 'misc', 'self', 'medium'
+			if pcs_willpwr < will_cost:
+				act '把四根手指插入你的小穴' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '把四根手指插入你的小穴' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'misc', 'self', 'medium'
+					gs 'willpower', 'pay', 'self'
+					gs 'stat'
+					gs 'selfplay', 'fingering3'
+				end
+			end
+		else
+			act '把四根手指插入你的小穴': gs 'selfplay', 'fingering3'
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'fingering3':
+	*clr & cla
+	selfplaytime += 2
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/hand.jpg"></center>'
+	'你决定玩得更狠一点，把四根手指塞进小穴。'
+	if pcs_vag < 10:
+		if vgape < 3:
+			vgape += 1
+		end
+		pcs_horny -= 10
+		gs 'mood', 'lower', 'small'
+		vaginaTemp += 1
+		'你把四根手指塞进紧窄的小穴，感到它被撑开得远超舒适的程度。实际上相当疼。'
+		act '回到用两根手指': gt 'selfplay', 'fingering2', 2
+	elseif pcs_vag < 15 or func('pcs_has_attr', 'sex_virgin'):
+		pcs_horny += rand(1, 3)
+		vaginaTemp += 1
+		'你把四根手指塞进紧窄的小穴，感到内壁紧紧夹住它们。不算疼，但感觉也不太好。'
+	elseif pcs_vag < 20:
+		pcs_horny += rand(3, 6)
+		'你把四根手指插进紧窄的小穴，感到小穴内壁紧紧夹住它们。'
+	else
+		pcs_horny += rand(6, 12)
+		'你迅速把四根手指插进小穴，感到它美妙地包裹住它们。你获得了愉快的充实感。'
+	end
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'vaginal_finger', 2, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		act '用你的手指操自己': gs 'selfplay', 'fingering4'
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'fingering4':
+	*clr & cla
+	selfplaytime += 10
+	mast_vag = 1
+	if pcs_vag < 10:
+		if vgape < 3:
+			vgape += 1
+		end
+		pcs_horny -= 10
+		gs 'mood', 'lower', 'small'
+	end
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/hand.jpg"></center>'
+	if args[1] = 2:
+		'你把手从小穴里抽出来，等着那阵剧痛消退。然后你开始一根接一根地重新加回去，直到又有四根手指塞在自己体内。'
+	elseif args[1] = 1:
+		'你继续动着手，一次又一次地把手指抽插进小穴，偶尔用拇指拨弄阴蒂，同时还在揉搓乳房。'
+	else
+		'你开始慢慢动起手来，让手指在小穴里进进出出，同时用另一只手玩弄乳房。'
+	end
+	if pcs_vag <= 15 or func('pcs_has_attr', 'sex_virgin'):
+		pcs_horny -= 10
+		gs 'mood', 'lower', 'small'
+		vaginaTemp += 1
+		'你把小穴撑到相当疼痛的地步，却从中得不到任何快感。'
+	else
+		pcs_horny += rand(10, 20)
+		if pcs_vag < 20:
+			vaginaTemp += 1
+		end
+		'你的小穴壁被手指操弄得舒服地撑开，你感到一股愉悦的暖意在身体下半部蔓延。'
+	end
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'vaginal_finger', 10, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		act '用你的手指操自己': gs 'selfplay', 'fingering4', 1
+		if pcs_vag > 10:
+			if func('pcs_has_attr', 'sex_virgin') = 0:
+				act '把整只手塞进你的小穴': gs 'selfplay', 'self_fisting_1'
+			else
+				gs 'willpower', 'misc', 'self', 'hard'
+				if pcs_willpwr < will_cost:
+					act '把整只手塞进你的小穴' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '把整只手塞进小穴（弄破处女膜）' + $func('willpower', 'get_willcost_string'):
+						gs 'willpower', 'misc', 'self', 'hard'
+						gs 'willpower', 'pay', 'self'
+						gs 'stat'
+						gs 'selfplay', 'self_fisting_1'
+					end
+				end
+			end
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+!! For the process of stuffing your fist up your pussy
+if $ARGS[0] = 'self_fisting_1':
+	*clr & cla
+	selfplaytime += 2
+	mast_vag = 9
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/self_fisting.jpg"></center>'
+	if pcs_vag < 15:
+		if vgape < 3:
+			vgape += 1
+		end
+		pcs_horny -= 10
+		gs 'mood', 'lower', 'small'
+		vaginaTemp += 1
+		'你把所有手指并拢，整只手往上塞进紧窄的小穴，但感到它被撑开得远超舒适的程度。实际上相当疼。'
+		act '回到用四根手指': gs 'selfplay', 'fingering4', 2
+	elseif pcs_vag < 20:
+		pcs_horny += rand(1, 3)
+		vaginaTemp += 1
+		'你把所有手指并拢，整只手往上塞进紧窄的小穴。不算疼，但感觉也不太好。'
+	elseif pcs_vag < 25:
+		pcs_horny += rand(3, 6)
+		'你把所有手指并拢，整只手往上塞进紧窄的小穴，感到内壁紧紧夹住它。'
+	else
+		pcs_horny += rand(6, 12)
+		'你把所有手指并拢，轻松地把整只手塞进紧窄的小穴。你获得了愉快的充实感。'
+	end
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'self_fisting', 2, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		act '开始用拳头操自己': gs 'selfplay', 'self_fisting_2'
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+!! For fisting your pussy
+if $ARGS[0] = 'self_fisting_2':
+	*clr & cla
+	selfplaytime += 10
+	mast_vag = 9
+	if pcs_vag < 15:
+		if vgape < 3:
+			vgape += 1
+		end
+		pcs_horny -= 10
+		gs 'mood', 'lower', 'small'
+	end
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/self_fisting.jpg"></center>'
+	if args[1] = 1:
+		'你继续动着手臂，双腿抬起并尽量张开，不断用拳头塞满小穴……一次又一次。'
+	else
+		'你慢慢开始动起手臂，抬起双腿好让拳头更容易塞进小穴，一遍又一遍。'
+	end
+	if pcs_vag > 20:
+		if pcs_vag < 25:
+			vaginaTemp += 1
+		end
+		pcs_horny += rand(10, 20)
+		'你的小穴内壁被拳头撑得很舒服，你感到下半身蔓延开一阵愉快的暖意。'
+	else
+		pcs_horny -= 10
+		gs 'mood', 'lower', 'small'
+		'你把小穴撑到相当疼痛的地步，却从中得不到任何快感。'
+	end
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'self_fisting', 10, 'masturbate'
+	gs 'stat'
+
+	if pcs_horny > 0:
+		act '继续用拳头操小穴': gs 'selfplay', 'self_fisting_2', 1
+		if org_temp < orgasm:
+			act '停止自慰': gt 'selfplay', 'stop'
+			exit
+		else
+			act '换个方式自慰':
+				killvar 'mast_vag'
+				gt 'selfplay', 'start'
+			end
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+!! For fingering your asshole
+if $ARGS[0] = 'anal_fingering':
+	*clr & cla
+	selfplaytime += 5
+	mast_anal = 1
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/1.jpg"></center>'
+	*nl
+	$plugmessage = ''
+	if analPlugIn = 1:
+		if pcs_ass < 15:
+			$plugmessage = '你小心地把肛门塞从你狭窄紧致的屁眼里拔出来。'
+			analPlugIn = 0 & analPlugOut = 1
+		else
+			$plugmessage = '你轻轻拽了一下屁股里的肛门塞，轻松地把它从你的穴里拔了出来。'
+			analPlugIn = 0 & analPlugOut = 1
+		end
+	end
+	if ARGS[1] = 2:
+		'你把两根手指从屁股里抽出来，等着那阵剧痛消退。然后你慢慢开始只把一根手指重新推进屁眼。'
+	elseif ARGS[1] = 1:
+		if pcs_ass >= 5:
+			'你继续用一根手指操着屁眼。它很轻松地滑了进去。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你用一根手指挑逗自己敏感的穴，时常加快速度来一次真正的手指抽插，或者整根抽出来，只为享受它重新穿过闭合的穴口滑回去的感觉。'
+			end
+		else
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你继续用一根手指操着屁眼。你的肛门紧紧夹着手指。'
+		end
+	else
+		if pcs_ass >= 5:
+			'你把一根手指抵在屁眼上推了进去。它很轻松地滑了进去。'
+		else
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你把一根手指抵在紧窄的屁眼上推了进去。你的肛门紧紧夹着手指。'
+		end
+	end
+
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'anal_finger', 5, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		act '继续用手指操屁股': gt 'selfplay', 'anal_fingering', 1
+		act '加入第二根手指': gt 'selfplay', 'anal_fingering2'
+		act '选择另一种自慰方式':
+			killvar 'mast_anal'
+			gt 'selfplay', 'start'
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'anal_fingering2':
+	*clr & cla
+	selfplaytime += 5
+	mast_anal = 1
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/2.jpg"></center>'
+
+	if ARGS[1] = 2:
+		'你把三根手指从屁股里抽出来，等着那阵剧痛消退。然后你慢慢地把一根、接着第二根重新推进屁眼。'
+	elseif ARGS[1] = 1:
+		if pcs_ass >= 10:
+			'你继续用两根手指操着屁眼。它们滑进去相当轻松。'
+			if agape < 1:
+				agape += 1
+			end
+			if trait_vars['buttslut'] > 1:
+				*nl & '你用几根手指挑逗自己敏感的穴，时常加快速度来一次真正的手指抽插，或者整根抽出来，在已被使用过的穴口周围揉弄，再把它们塞回自己饥渴的后庭。'
+			end
+		elseif pcs_ass >= 5 and pcs_ass < 10:
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你继续用两根手指操着屁眼。你能感到肛门紧紧夹着你的手指。'
+			if agape < 1:
+				agape += 1
+			end
+		else
+			pcs_ass -= 1
+			pcs_horny -= 40
+			gs 'mood', 'lower', 'small'
+			'用两根手指操自己已经酸痛的屁眼是个坏主意。疼得厉害，你觉得把它弄得更伤了。'
+			act '重新只使用一根手指': gt 'selfplay', 'anal_fingering'
+		end
+	else
+		if pcs_ass >= 10:
+			'你放松下来，把第二根手指挨着第一根挤了进去。它滑进去相当轻松。'
+			if agape < 1:
+				agape += 1
+			end
+			if trait_vars['buttslut'] > 1:
+				*nl & '你非常享受手指在自己屁股里进进出出的感觉。'
+			end
+		elseif pcs_ass >= 5 and pcs_ass < 10:
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你把第二根手指滑进屁眼。你能感到肛门紧紧夹着你的手指。'
+			if agape < 1:
+				agape += 1
+			end
+		else
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			pcs_horny -= 20
+			'当第二根手指滑进去时，你感到肛门一阵剧痛。也许你试得太狠、太快了。'
+			act '重新只使用一根手指': gt 'selfplay', 'anal_fingering', 2
+		end
+	end
+	gs 'selfplay', 'sis_prov'
+	*nl
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'anal_finger', 5, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		if pcs_ass < 25:
+			act '继续用两根手指操屁股': gt 'selfplay', 'anal_fingering2', 1
+		end
+		act '把第三根手指插进屁股': gt 'selfplay', 'anal_fingering3'
+		act '选择另一种自慰方式':
+			killvar 'mast_anal'
+			gt 'selfplay', 'start'
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'anal_fingering3':
+	*clr & cla
+	selfplaytime += 5
+	mast_anal = 1
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/3.jpg"></center>'
+	if ARGS[1] = 2:
+		'你从肛门里抽出两根手指，让穴口收缩回剩下的两根手指周围，等待即刻的疼痛消退。然后你缓慢地开始把第三根手指推回肛门里。'
+	elseif ARGS[1] = 1:
+		if pcs_ass >= 15:
+			'你继续用三根手指操着屁股。你的屁眼相当松，你没费多少力气就让三根手指全部进进出出。'
+			if agape < 2:
+				agape += 1
+			end
+			if trait_vars['buttslut'] > 1:
+				*nl & '你用几根手指挑逗自己敏感的穴，时常加快速度来一次真正的手指抽插，或者整根抽出来，在已被使用过的穴口周围揉弄，再把它们塞回自己饥渴的后庭。'
+			end
+		elseif pcs_ass >= 10 and pcs_ass < 15:
+			if agape < 2:
+				agape += 1
+			end
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你继续用三根手指操着屁股。当手指进进出出时，你能感到自己的穴紧紧夹着它们。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你用几根手指挑逗自己敏感的穴，时常加快速度来一次真正的手指抽插，或者整根抽出来，在紧窄的穴口周围揉弄，再把它们塞回自己快乐的后庭。'
+			end
+		else
+			pcs_ass -= 1
+			pcs_horny -= 20
+			'用三根手指操自己已经酸痛的屁眼是个坏主意。疼得厉害，你觉得把它弄得更伤了。'
+			act '回到用两根手指': gt 'selfplay', 'anal_fingering2', 2
+		end
+	else
+		if pcs_ass >= 15:
+			'你的屁眼相当松，你没费多少力气就把三根手指滑了进去。'
+			if agape < 2:
+				agape += 1
+			end
+			if trait_vars['buttslut'] > 1:
+				*nl & '你简直爱死了手指如此轻松地在自己屁股里进进出出的感觉。'
+			end
+		elseif pcs_ass >= 10 and pcs_ass < 15:
+			if agape < 2:
+				agape += 1
+			end
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你把三根手指滑进屁眼。你能感到肛门紧紧夹着你的手指。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你非常享受自己紧窄的屁眼在手指进进出出时紧紧夹住它们的感觉。'
+			end
+		else
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			pcs_horny -= 20
+			'当三根手指滑进去时，你感到肛门一阵剧痛。也许你试得太狠、太快了。'
+			act '回到用两根手指': gt 'selfplay', 'anal_fingering2', 2
+		end
+	end
+	*nl
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'anal_finger', 5, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm and agape < 3:
+		if pcs_ass < 30:
+			act '继续用三根手指操屁股': gt 'selfplay', 'anal_fingering3', 1
+		end
+		act '把第四根手指推进屁眼': gt 'selfplay', 'anal_fingering4'
+		act '选择另一种自慰方式':
+			killvar 'mast_anal'
+			gt 'selfplay', 'start'
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'anal_fingering4':
+	*clr & cla
+	selfplaytime += 5
+	mast_anal = 1
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/4.jpg"></center>'
+	if ARGS[1] = 2:
+		'你从肛门里抽出两根手指，让穴口收缩回剩下的两根手指周围，等待即刻的疼痛消退。然后你缓慢地开始把第三根手指推回肛门里。'
+	elseif ARGS[1] = 1:
+		if pcs_ass >= 20:
+			'你继续用四根手指操着屁股。你的屁眼感觉相当松，你没费多少力气就让四根手指全部进进出出。'
+			if agape < 3:
+				agape += 1
+			end
+			if trait_vars['buttslut'] > 1:
+				*nl & '你用几根手指挑逗自己敏感的穴，时常加快速度来一次真正的手指抽插，或者整根抽出来，在已被使用过的穴口周围揉弄，再把它们塞回自己饥渴的后庭。'
+			end
+		elseif pcs_ass >= 15 and pcs_ass < 20:
+			if agape < 3:
+				agape += 1
+			end
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你继续用四根手指操着屁股。当手指进进出出时，你能感到自己的穴紧紧夹着它们。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你用几根手指挑逗自己敏感的穴，时常加快速度来一次真正的手指抽插，或者整根抽出来，在紧窄的穴口周围揉弄，再把它们塞回自己快乐的后庭。'
+			end
+		else
+			pcs_ass -= 1
+			pcs_horny -= 20
+			gs 'mood', 'lower', 'small'
+			'用四根手指操自己已经酸痛的屁眼是个坏主意。疼得厉害，你觉得把它弄得更伤了。'
+
+			act '继续用三根手指': gt 'selfplay', 'anal_fingering3', 2
+		end
+	else
+		if pcs_ass >= 20:
+			'你的屁眼非常松，你成功地把四根手指推进去。'
+			if agape < 3:
+				agape += 1
+			end
+			if trait_vars['buttslut'] > 1:
+				*nl & '你简直爱死了手指如此轻松地在自己屁股里进进出出的感觉。'
+			end
+		elseif pcs_ass >= 15 and pcs_ass < 20:
+			if agape < 3:
+				agape += 1
+			end
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你成功地把四根手指推进屁眼。你能感到肛门紧紧夹着你的手指。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你非常享受自己紧窄的屁眼在手指进进出出时紧紧夹住它们的感觉。'
+			end
+		else
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			pcs_horny -= 20
+			'当四根手指滑进去时，你感到肛门一阵剧痛。也许你试得太狠、太快了。'
+
+			act '继续用三根手指': gt 'selfplay', 'anal_fingering3', 2
+		end
+	end
+	*nl
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'anal_finger', 5, 'masturbate'
+	gs 'stat'
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if org_temp = orgasm:
+		if pcs_ass < 35:
+			act '继续用四根手指操屁股': gt 'selfplay', 'anal_fingering4', 1
+		end
+		act '把整只手塞进去': gt 'selfplay', 'anal_fisting'
+		act '选择另一种自慰方式':
+			killvar 'mast_anal'
+			gt 'selfplay', 'start'
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+!! For stuffing and fucking your asshole with your fist
+if $ARGS[0] = 'anal_fisting':
+	*clr & cla
+	SelfFisting += 1
+	selfplaytime += 5
+	mast_anal = 9
+	'<center><img <<$set_imgh>> src="images/shared/sex/mast/5.jpg"></center>'
+	if ARGS[1] = 1:
+		if pcs_ass >= 25:
+			'你继续把手往屁股里塞。虽然还有些阻力，但以你经验丰富的屁眼，现在已经能相当轻松地前后移动拳头了。被撑得这么开、以及屁股里面被摩擦的感觉真是无比幸福。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你因为能把自己塞得这么满而兴奋得发抖。不只是因为尺寸，还因为为了达到这一步，你在自己淫荡的屁股上花了多少功夫。屁眼发出的淫靡的咕叽声和噗噗声，与你快乐的呻吟交织在一起。'
+			end
+		elseif pcs_ass >= 20 and pcs_ass < 25:
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你继续把手往屁股里塞。虽然还有很大的阻力，但当拳头还在屁股里时，你已经能前后移动它了。被撑得这么开、以及屁股里面被摩擦的感觉真是无比幸福。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你因为能把自己塞得这么满而兴奋得发抖。不只是因为尺寸，还因为为了达到这一步，你在自己淫荡的屁股上花了多少功夫。每次拳头噗地塞进去、又被挤出来时，你都会发出快乐的闷哼和轻轻的抽气声。'
+			end
+		else
+			pcs_ass -= 1
+			pcs_horny -= 40
+			gs 'mood', 'lower', 'small'
+			'你继续试着把手往屁股里塞，希望尽管很疼也能感觉舒服。但似乎并没有什么效果。'
+
+			act '回到用四根手指': gt 'selfplay', 'anal_fingering4', 2
+		end
+	else
+		if pcs_ass >= 25:
+			'你把五根手指并拢成锥形，开始往里推。缓慢而确实地，你成功地把整只手塞进了屁股。你感到肛口舒适地箍住你的手腕。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你几乎不敢相信自己居然做到了，当肛口在你手腕周围抽动时，你淫荡地呻吟着。'
+			end
+		elseif pcs_ass >= 20 and pcs_ass < 25:
+			analplay += 1
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			'你把五根手指并拢成锥形，开始往里推。这费了很大的力气，但在几分钟的时间里，你成功地把整只手弄进了屁股。你感到肛门紧紧夹住你的手腕。'
+			if trait_vars['buttslut'] > 1:
+				*nl & '你几乎不敢相信自己居然做到了，当肛口在你手腕周围抽动时，你淫荡地呻吟着。'
+			end
+		else
+			pcs_ass -= 1
+			pcs_horny -= 20
+			gs 'mood', 'lower', 'small'
+			'你把五根手指并拢成锥形，开始往里推。这费了很大的力气，但当你的手推进屁眼时，你感到肛门一阵剧痛。也许你试得太狠、太快了。'
+			act '回到用四根手指': gt 'selfplay', 'anal_fingering4', 2
+		end
+	end
+	*nl
+	gs 'selfplay', 'sis_prov'
+	'<<$AnyaMsg>>'
+	gs 'arousal', 'self_fisting_anal', 5, 'masturbate'
+	gs 'stat'
+
+	if $loc = 'vanrPar' and selfplaytime >= 60:
+		gs 'selfplay', 'van_vtor'
+	end
+	if pcs_horny > 0:
+		act '继续用拳头操自己': gt 'selfplay', 'anal_fisting', 1
+		if org_temp < orgasm:
+			act '停止自慰': gt 'selfplay', 'stop'
+			exit
+		else
+			act '换个方式自慰':
+				killvar 'mast_anal'
+				gt 'selfplay', 'start'
+			end
+		end
+	end
+	act '停止自慰': gt 'selfplay', 'stop'
+end
+
+
+if $ARGS[0] = 'stop':
+	selfplaytime = 0
+	mastrOnce = 0
+	proverkasisterhere = 0
+	killvar 'ass_temp'
+	killvar 'vag_temp'
+	killvar 'mast_vag'
+	killvar 'mast_anal'
+	if vaginaTemp > pcs_vag * 2:
+		gs 'arousal_funcs', 'stretch', 'vaginal'
+		vaginaTemp = 0
+	end
+	if analplay > pcs_ass * 2:
+		gs 'arousal_funcs', 'stretch', 'anal', 1
+		analplay = 0
+	end
+	gs 'arousal', 'end'
+	if trait_vars['buttslut'] > 1 and analPlugOut = 1:
+		'<center><img <<$set_imgh>> src="images/pc/body/analplug.jpg"></center>'
+		'你玩弄自己屁股玩得很开心，并期待着再做一次。不过现在这么空着感觉不对劲，于是你迅速把肛塞重新塞回它该在的淫荡穴里。保持被撑开和被填满的状态实在<i>好</i>太多了。'
+		analPlugIn = 1
+		killvar 'analPlugOut'
+		act '继续': gt $loc, $loc_arg
+	else
+		killvar 'analPlugOut'
+		gt $loc, $loc_arg
+	end
+
+end
+
+
+--- selfplay ---------------------------------

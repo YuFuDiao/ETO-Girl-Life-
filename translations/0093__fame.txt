@@ -1,0 +1,570 @@
+# fame
+
+!! For adding to the PC fame; using the following type of gosub call fame will be added,
+!! and the spread of fame over the regions will be taken care of:
+
+!! gs 'fame', 'location', 'act', 'value', 'local'
+
+!! $ARGS[0] is for the main location for the activity that gives the fame,
+!! remember that the algorithm below will take care of the spread of fame to the other locations,
+!! so for a given event you need to decide which is the main location and call the gosub using this location.
+!! IMPORTANT do not call this gosub for different location for the same event, the algorithm will take care of the fame being added the other locations.
+!! The following locations are possible: pav, city, pushkin or village
+!! If it is something that is supposed to make the PC famous in all the locations use the location city.
+
+!! $ARGS[1] is for the act that is adding to fame, listed below:
+!! acting, dance, painting, music, ballet, modelling, porn, stripping, prostitute, sex, flash, kickboxing, running, volleyball, chess, teaching
+
+!! ARGS[2] is the value of the increase this can be an integer or one on the following keywords:
+!! tiny (Adding a small amount of fame which even at low level of fame only will make the fame grow if the are performed daily)
+!! small (Adding a small amount of fame, that at low level of fame will make the fame grow if done a couple times a week, but for medium levels of fame need to be done daily)
+!! medium (Adding a medium amount of fame, that at low level of fame can make the fame grow if done once a week, and even at high levels can make the fame grow if done daily.)
+!! large (Adding a large amount of fame which will make the fame grow fast at low level of fame, and even at high level of fame it will make the fame grow if performed a couple of times a week.)
+!! huge (Adding a large amount of fame will increase the fame drastically at low levels of fame, make it grow if done weekly at high levels of fame and even keep the fame steady at extreme levels of fame.)
+!! GoldMedal (Adding an extraordinary amount of fame, to be used for one time events or things that can be repeated very really, for example the PC winning the St. Burg championship in running or a talent competition in Pavlovsk.)
+!! SilverMedal (Adding an extraordinary amount of fame, used in the same way as GoldMedal above, but with the PC being the runner up instead of the winner.)
+!! BronzeMedal (Adding an extraordinary amount of fame, used in the same way as GoldMedal and SilverMedal above, but with the PC begin number 3.)
+
+!! ARGS[3] is an optional argument, which will make it so that the fame given do not spread to other locations. If ARGS[3] is not 'local' then the fame will be added so that is can spread to other regions.
+
+!! The different values of fame have the following interpretations:
+!! 0-100 not famous - no one knows you
+!! 100-200 some people know of you - if a porn star you are new and only hard core porn viewers of that niche are likely to know you
+!! 200-300 some people notice you - if a porn star you are new and only hard core porn viewers or those who are into the niche you are in would know you.
+!! 300-400 often recognized - most people who watch a lot of porn would recognize you.
+!! 400-500 Moderately famous - think Sasha Gray even a lot of people that do not watch porn know who she is.
+!! 500-700 Famous - actress in movies/tv but supporting roles in main stream tv and movies
+!! 700-1000 Very famous - has been a lead actress in main stream tv and movies
+!! Above 1000 A star - A list actress that gets top billing in their movies.
+!! But remember these are local fame. So this is how people in the local area sees you. Not global or even with Russian or the greater region. The fame fame spread to the other regions, so it is always
+
+
+!! To use the fame the call is fame['pav_dance']. Since 1000 is a soft cap on fame, DO NOT compare fame['pav_dance'] to a number higher than 1000.
+!! That is fame['pav_dance']> 1000 is fine but fame['pav_dance'] > 1050 should not be used.
+
+!! Sex and Prostitution fame is always local and will not spread to other locations. These are more of describing the PC reputation for these acts locally than actually being famous.
+!! In particular they are the component the slut fame, which is used to determine how many npc will react to the pc base on rumors.
+!! The sex in slut fame is for sexual encounters of a slutty nature, so things like public sex or being used for sex by the Gopniks.
+!! It is not for regular sex in a normal relationship and anything secret that can be subject to rumors.
+
+!! guide to values for slut fame
+!! talking about having sex/flirting in public = 1
+!! boy/girl brags about sex to his/her friends after private sex = 1
+!! Sveta and a boy/girl seen flirting and then going off together = 2
+!! Sveta and a boy/girl seen flirting and then going off together and then the boy/girl bragging a = 3
+!! group sex with multiple boy/girls bragging about it = 3
+!! Sveta and a group seen flirting and then going off together and then the boy/girls bragging a = 4
+!! Sveta having cum on her face in public a = 4
+!! Sveta seen having sex = 5
+
+
+!! Technical note: When gs 'fame', 'dance', 'pav' 5 is called it do not directly add 5 to fame['pav_dance'], but adds 5 to fame['pav_dance_core'] (or fame['pav_dance_local'] if the optional parameter 'local' is uesd)
+!! It then calculates fame['pav_dance'] using the variables fame['pav_dance_core'], fame['pav_dance_local'], fame['city_dance_core'], fame['pushkin_dance_core'] and fame['village_dance_core'].
+!! In particular, using the command fame['pav_dance'] += 5 will only add 5 to fame['pav_dance'] until the next time gs 'fame' is called, and then it will be forgotten. So don''t do this.
+!! Always use the gs 'fame', 'pav', 'dance' to add pav dance fame.
+
+!! Notice that fame['pav_dance'] and fame['pav_dance_core'] can never be a negative number, but fame['pav_dance_local'] can.
+!! This can be used to make fame in a location lower than it would be from spread of fame from other regions.
+!! For example if one would make a spell such that everybody in the village cannot remember Sveta is a model, then one could include a gs 'fame' 'village' 'modelling' -5000 'local', and then fame['village_modeling'] should always be 0.
+
+!! sex, prostitute, and flash fames are only local, and thus do not use the local-core system
+if $ARGS[0] = 'check_if_only_local':
+	result = ($ARGS[1] = 'sex' or $ARGS[1] = 'prostitute' or $ARGS[1] = 'flash')
+end
+
+
+if $ARGS[0] = 'deg':
+!! degradation calculation applied overnight
+	$fameregion = 'pav'
+	:famedegloop
+		if fame['<<$fameregion>>_sex']				> 2:	fame['<<$fameregion>>_sex']					-= rand(-1, 3)
+		if fame['<<$fameregion>>_prostitute']		> 2:	fame['<<$fameregion>>_prostitute']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_flash']			> 2:	fame['<<$fameregion>>_flash']				-= rand(-1, 3)
+
+
+		if fame['<<$fameregion>>_acting_core']		> 2:	fame['<<$fameregion>>_acting_core']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_dance_core']		> 2:	fame['<<$fameregion>>_dance_core']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_painting_core']	> 2:	fame['<<$fameregion>>_painting_core']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_music_core']		> 2:	fame['<<$fameregion>>_music_core']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_ballet_core']		> 2:	fame['<<$fameregion>>_ballet_core']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_modelling_core']	> 2:	fame['<<$fameregion>>_modelling_core']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_porn_core']		> 2:	fame['<<$fameregion>>_porn_core']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_stripping_core']	> 2:	fame['<<$fameregion>>_stripping_core']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_kickboxing_core']	> 2:	fame['<<$fameregion>>_kickboxing_core']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_running_core']		> 2:	fame['<<$fameregion>>_running_core']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_volleyball_core']	> 2:	fame['<<$fameregion>>_volleyball_core']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_chess_core']		> 2:	fame['<<$fameregion>>_chess_core']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_teaching_core']	> 2:	fame['<<$fameregion>>_teaching_core']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_media_core']		> 2:	fame['<<$fameregion>>_media_core']			-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_acting_local']		> 2:	fame['<<$fameregion>>_acting_local']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_dance_local']		> 2:	fame['<<$fameregion>>_dance_local']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_painting_local']	> 2:	fame['<<$fameregion>>_painting_local']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_music_local']		> 2:	fame['<<$fameregion>>_music_local']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_ballet_local']		> 2:	fame['<<$fameregion>>_ballet_local']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_modelling_local']	> 2:	fame['<<$fameregion>>_modelling_local']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_porn_local']		> 2:	fame['<<$fameregion>>_porn_local']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_stripping_local']	> 2:	fame['<<$fameregion>>_stripping_local']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_kickboxing_local']	> 2:	fame['<<$fameregion>>_kickboxing_local']	-= rand(-1, 3)
+		if fame['<<$fameregion>>_running_local']	> 2:	fame['<<$fameregion>>_running_local']		-= rand(-1, 3)
+		if fame['<<$fameregion>>_volleyball_local']	> 2:	fame['<<$fameregion>>_volleyball_local']	-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_chess_local']		> 2:	fame['<<$fameregion>>_chess_local']			-= rand(-1, 3)
+		if fame['<<$fameregion>>_teaching_local']	> 2:	fame['<<$fameregion>>_teaching_local']		-= rand(-1, 3)
+
+		if fame['<<$fameregion>>_media_local']		> 2:	fame['<<$fameregion>>_media_local']			-= rand(-1, 3)
+	if $fameregion = 'pav':
+		$fameregion = 'city'
+		jump 'famedegloop'
+	elseif $fameregion = 'city':
+		$fameregion = 'village'
+		jump 'famedegloop'
+	elseif $fameregion = 'village':
+		$fameregion = 'pushkin'
+		jump 'famedegloop'
+	else
+		killvar 'fameregion'
+	end
+
+	gs 'fame', 'calculate', 'acting'
+	gs 'fame', 'calculate', 'dance'
+	gs 'fame', 'calculate', 'painting'
+	gs 'fame', 'calculate', 'music'
+	gs 'fame', 'calculate', 'ballet'
+	gs 'fame', 'calculate', 'modelling'
+	gs 'fame', 'calculate', 'porn'
+	gs 'fame', 'calculate', 'stripping'
+	gs 'fame', 'calculate', 'kickboxing'
+	gs 'fame', 'calculate', 'running'
+	gs 'fame', 'calculate', 'volleyball'
+	gs 'fame', 'calculate', 'chess'
+	gs 'fame', 'calculate', 'teaching'
+	gs 'fame', 'calculate', 'media'
+
+	gs 'fame', 'calculateGroups'
+end
+
+
+if $ARGS[0] = 'city' or $ARGS[0] = 'pav' or $ARGS[0] = 'pushkin' or $ARGS[0] = 'village':
+	!! addition of fame
+
+	$temp_fame_arg = $ARGS[0] + '_' + $ARGS[1]
+
+	!! sex and prostitute fame do not use the core-local system
+	if no func('fame', 'check_if_only_local', $ARGS[1]):
+		if $ARGS[3] ! 'local': $ARGS[3] = 'core'
+		$temp_fame_arg += '_' + $ARGS[3]
+	end
+
+	if fame[$temp_fame_arg] > 1000:
+		if $ARGS[2] = 'tiny':
+			fame[$temp_fame_arg] += 0
+		elseif $ARGS[2] = 'small':
+			fame[$temp_fame_arg] += 0
+		elseif $ARGS[2] = 'medium':
+			fame[$temp_fame_arg] += rand(0, 1)
+		elseif $ARGS[2] = 'large':
+			fame[$temp_fame_arg] += rand(1, 2)
+		elseif $ARGS[2] = 'huge':
+			fame[$temp_fame_arg] += rand(1, 4)
+		elseif $ARGS[2] = 'BronzeMedal':
+			fame[$temp_fame_arg] += rand(15, 25)
+		elseif $ARGS[2] = 'SilverMedal':
+			fame[$temp_fame_arg] += rand(25, 35)
+		elseif $ARGS[2] = 'GoldMedal':
+			fame[$temp_fame_arg] += rand(35, 45)
+		else
+			fame[$temp_fame_arg] += ARGS[2] / 10
+		end
+	elseif fame[$temp_fame_arg] > 700:
+		if $ARGS[2] = 'tiny':
+			fame[$temp_fame_arg] += rand(0, 1)
+		elseif $ARGS[2] = 'small':
+			fame[$temp_fame_arg] += rand(1, 2)
+		elseif $ARGS[2] = 'medium':
+			fame[$temp_fame_arg] += rand(1, 4)
+		elseif $ARGS[2] = 'large':
+			fame[$temp_fame_arg] += rand(6, 12)
+		elseif $ARGS[2] = 'huge':
+			fame[$temp_fame_arg] += rand(10, 24)
+		elseif $ARGS[2] = 'BronzeMedal':
+			fame[$temp_fame_arg] += rand(25, 60)
+		elseif $ARGS[2] = 'SilverMedal':
+			fame[$temp_fame_arg] += rand(60, 100)
+		elseif $ARGS[2] = 'GoldMedal':
+			fame[$temp_fame_arg] += rand(100, 150)
+		else
+			if fame[$temp_fame_arg] + ARGS[2] / 6 < 1000:
+				fame[$temp_fame_arg] += ARGS[2] / 6
+			else
+				fame[$temp_fame_arg] = 1000 + (3 * (fame[$temp_fame_arg] + ARGS[2] / 6 - 1000)) / 5
+			end
+		end
+	elseif fame[$temp_fame_arg] > 400:
+		if $ARGS[2] = 'tiny':
+			fame[$temp_fame_arg] += rand(1, 2)
+		elseif $ARGS[2] = 'small':
+			fame[$temp_fame_arg] += rand(1, 4)
+		elseif $ARGS[2] = 'medium':
+			fame[$temp_fame_arg] += rand(6, 12)
+		elseif $ARGS[2] = 'large':
+			fame[$temp_fame_arg] += rand(10, 24)
+		elseif $ARGS[2] = 'huge':
+			fame[$temp_fame_arg] += rand(20, 50)
+		elseif $ARGS[2] = 'BronzeMedal':
+			fame[$temp_fame_arg] += rand(50, 100)
+		elseif $ARGS[2] = 'SilverMedal':
+			fame[$temp_fame_arg] += rand(100, 150)
+		elseif $ARGS[2] = 'GoldMedal':
+			fame[$temp_fame_arg] += rand(150, 200)
+		else
+			if fame[$temp_fame_arg] + ARGS[2] / 3 < 700:
+				fame[$temp_fame_arg] += ARGS[2] / 3
+			elseif fame[$temp_fame_arg] + ARGS[2] / 3 < 1300:
+				fame[$temp_fame_arg] = 700 + (fame[$temp_fame_arg] + ARGS[2] / 3 - 700) / 2
+			else
+				fame[$temp_fame_arg] = 1000 + (3 * ((fame[$temp_fame_arg] + ARGS[2] / 3 - 700) / 2 - 300)) / 5
+			end
+		end
+	else
+		if $ARGS[2] = 'tiny':
+			fame[$temp_fame_arg] += rand(1, 4)
+		elseif $ARGS[2] = 'small':
+			fame[$temp_fame_arg] += rand(6, 12)
+		elseif $ARGS[2] = 'medium':
+			fame[$temp_fame_arg] += rand(10, 24)
+		elseif $ARGS[2] = 'large':
+			fame[$temp_fame_arg] += rand(20, 50)
+		elseif $ARGS[2] = 'huge':
+			fame[$temp_fame_arg] += rand(40, 70)
+		elseif $ARGS[2] = 'BronzeMedal':
+			fame[$temp_fame_arg] += rand(150, 250)
+		elseif $ARGS[2] = 'SilverMedal':
+			fame[$temp_fame_arg] += rand(250, 350)
+		elseif $ARGS[2] = 'GoldMedal':
+			fame[$temp_fame_arg] += rand(350, 450)
+		else
+			if fame[$temp_fame_arg] + ARGS[2] < 400:
+				fame[$temp_fame_arg] += ARGS[2]
+			elseif fame[$temp_fame_arg] + ARGS[2] < 1300:
+				fame[$temp_fame_arg] = 400 + (fame[$temp_fame_arg] + ARGS[2] - 400) / 3
+			elseif (fame[$temp_fame_arg] + ARGS[2]) < 3100:
+				fame[$temp_fame_arg] = 700 + ((fame[$temp_fame_arg] + ARGS[2] - 400) / 3 - 300) / 2
+			else
+				fame[$temp_fame_arg] = 1000 + (3 * (((fame[$temp_fame_arg] + ARGS[2] - 400) / 3 - 300) / 2 - 300)) / 5
+			end
+		end
+	end
+	killvar 'temp_fame_arg'
+
+	if no func('fame', 'check_if_only_local', $ARGS[1]):
+		if fame['<<$ARGS[0]>>_<<$ARGS[1]>>_core'] < 0: fame['<<$ARGS[0]>>_<<$ARGS[1]>>_core'] = 0
+		gs 'fame', 'calculate', $ARGS[1]
+	end
+	gs 'fame', 'calculateGroups'
+end
+
+
+if $ARGS[0] = 'set_contributions':
+	!! sex and prostitution fame does NOT spread:
+	if func('fame', 'check_if_only_local', $ARGS[1]):
+		exit
+	end
+
+	!! First we calculate the value of fame taking the spread of fame from the different localtions into account.
+	!! The formulas generally works such that a little fame in one location do not effect the fame in other locations much, on the other hands if you start to become fameous in on location it will be noticed in the others.
+	!! Especially fame in the city will be dominating if it is high. If you are a star in the city you are a star everywhere. Fame in the village on the other hand is not noticed anywhere outside Gadukino.
+
+	!! First we calculate the contributions the fame in one place will have in an other region.
+
+	!! Fame from pav will spread slowly to the city, and since St. Petersburg is a very big city even being a star in pav will not get you very noticed in city.
+
+	if fame['pav_<<$ARGS[1]>>_core'] >= 2000:
+		fame['pav_<<$ARGS[1]>>_contribution_low'] = 525
+	else
+		fame['pav_<<$ARGS[1]>>_contribution_low'] = 1050 - (42000000 / ((fame['pav_<<$ARGS[1]>>_core'] / 10) * (fame['pav_<<$ARGS[1]>>_core'] / 10) + 40000))
+	end
+
+	!! Fame in the pav will spread by the same level as fame from pav spread to old town. ( The formula is +(fame_pushkin*(1050-525000000/(500000+(fame_pushkin/10)^4)))/1050 )
+	if fame['pav_<<$ARGS[1]>>_core'] >= 1005:
+		fame['pav_<<$ARGS[1]>>_contribution_high'] = 1050
+	else
+		fame['pav_<<$ARGS[1]>>_contribution_high'] = (fame['pav_<<$ARGS[1]>>_core'] * (1050 - 525000000 / (500000 + (fame['pav_<<$ARGS[1]>>_core'] / 10) * (fame['pav_<<$ARGS[1]>>_core'] / 10) * (fame['pav_<<$ARGS[1]>>_core'] / 10) * (fame['pav_<<$ARGS[1]>>_core'] / 10)))) / 1050
+	end
+
+	!! The fame from pav takes even longer before it starts being noticed in the village, but after that it spread just as fast as from the city.
+	if fame['pav_<<$ARGS[1]>>_core'] >= 2000:
+		fame['pav_<<$ARGS[1]>>_contribution_medium'] = 1050
+	elseif fame['pav_<<$ARGS[1]>>_core'] >= 400:
+		fame['pav_<<$ARGS[1]>>_contribution_medium'] = 1050 - (672000000 / ((fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) + 640000))
+	else
+		fame['pav_<<$ARGS[1]>>_contribution_medium'] = 0
+	end
+
+
+	!! Fame in the city will take a little while before it start being noticed in other places. But then it will start spreading much faster than in the city. (The formula is +1050-52500000/(50000+(fame_city/10)^3) if the player is Sveta, but will spread a little slower for non-Sveta starts using the formula +fame_city^2/1000)
+	if fame['city_<<$ARGS[1]>>_core'] >= 2000:
+		fame['city_<<$ARGS[1]>>_contribution_high'] = 1050
+	else
+		fame['city_<<$ARGS[1]>>_contribution_high'] = 1050 - (52500000 / ((fame['city_<<$ARGS[1]>>_core'] / 10) * (fame['city_<<$ARGS[1]>>_core'] / 10) * (fame['city_<<$ARGS[1]>>_core'] / 10) + 50000))
+	end
+	!! The below is the code used for a non Sveta start, but since the unification of the starts this is not used. Leaving it here out comented for the case non Sveta starts are reintroduced.
+	!! else
+	!!	if fame['city_<<$ARGS[1]>>_core'] >= 1000:
+	!!		fame['city_<<$ARGS[1]>>_contribution_high'] = 1000
+	!!	else
+	!!		fame['city_<<$ARGS[1]>>_contribution_high'] = ((fame['city_<<$ARGS[1]>>_core']) * (fame['city_<<$ARGS[1]>>_core'])) / 1000
+	!!	end
+	!! end
+
+	!! Fame in the city will spread to old town with a little delay, but catch up as you reach star status. (The formula is +fame_city^2/1000)
+	if fame['city_<<$ARGS[1]>>_core'] >= 1000:
+		fame['city_<<$ARGS[1]>>_contribution_medium'] = 1000
+	else
+		fame['city_<<$ARGS[1]>>_contribution_medium'] = ((fame['city_<<$ARGS[1]>>_core']) * (fame['city_<<$ARGS[1]>>_core'])) / 1000
+	end
+
+	!! The fame from city takes some time before it starts being noticed in the village, but after that it spreads very fast (the formula is +1050 -672000000/(640000+(fame_city/10-20)^4) if the player is Sveta and +1050 -672000000/(640000+(fame_city/10-40)^4) in other starts).
+	if fame['city_<<$ARGS[1]>>_core'] >= 2000:
+		fame['city_<<$ARGS[1]>>_contribution_low'] = 1050
+	elseif fame['city_<<$ARGS[1]>>_core'] >= 200:
+		fame['city_<<$ARGS[1]>>_contribution_low'] = 1050 - (672000000 / ((fame['city_<<$ARGS[1]>>_core'] / 10 -20) * (fame['city_<<$ARGS[1]>>_core'] / 10 - 20) * (fame['city_<<$ARGS[1]>>_core'] / 10 - 20) * (fame['city_<<$ARGS[1]>>_core'] / 10 - 20) + 640000))
+	else
+		fame['city_<<$ARGS[1]>>_contribution_low'] = 0
+	end
+	!! The below is the code used for a non Sveta start, but since the unification of the starts this is not used. Leaving it here out comented for the case non Sveta starts are reintroduced.
+	!! else
+	!!	if fame['pav_<<$ARGS[1]>>_core'] >= 2000:
+	!!		fame['city_<<$ARGS[1]>>_contribution_low'] = 1050
+	!!	elseif fame['city_<<$ARGS[1]>>_core'] >= 400:
+	!!		fame['city_<<$ARGS[1]>>_contribution_low'] = 1050 - (672000000 / ((fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pav_<<$ARGS[1]>>_core'] / 10 - 40) + 640000))
+	!!	else
+	!!		fame['city_<<$ARGS[1]>>_contribution_low'] = 0
+	!!	end
+	!! end
+
+
+	!! Fame in the old town will spread fast to pav, at almost the same level. (The formula is +(fame_pushkin*(1050-525000000/(500000+(fame_pushkin/10)^4)))/1050)
+	if fame['pushkin_<<$ARGS[1]>>_core'] >= 1005:
+		fame['pushkin_<<$ARGS[1]>>_contribution_high'] = 1050
+	else
+		fame['pushkin_<<$ARGS[1]>>_contribution_high'] = (fame['pushkin_<<$ARGS[1]>>_core'] * (1050 - 525000000 / (500000 + (fame['pushkin_<<$ARGS[1]>>_core'] / 10) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10)))) / 1050
+	end
+
+	!! Fame from old town spreads to the city at the same rate as the spread from pav.
+	if fame['pushkin_<<$ARGS[1]>>_core'] >= 2000:
+		fame['pushkin_<<$ARGS[1]>>_contribution_low'] = 525
+	else
+		fame['pushkin_<<$ARGS[1]>>_contribution_low'] = 1050 - (42000000 / ((fame['pushkin_<<$ARGS[1]>>_core'] / 10) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10) + 40000))
+	end
+
+	!! The fame from old town spreads as the fame from pav.
+	if fame['pushkin_<<$ARGS[1]>>_core'] >= 2000:
+		fame['pushkin_<<$ARGS[1]>>_contribution_medium'] = 1050
+	elseif fame['pushkin_<<$ARGS[1]>>_core'] >= 400:
+		fame['pushkin_<<$ARGS[1]>>_contribution_medium'] = 1050 - (672000000 / ((fame['pushkin_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10 - 40) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10 -40) * (fame['pushkin_<<$ARGS[1]>>_core'] / 10 - 40) + 640000))
+	else
+		fame['pushkin_<<$ARGS[1]>>_contribution_medium'] = 0
+	end
+
+
+	!! Village fame do not matter much anywhere outside the viallage.
+	fame['village_<<$ARGS[1]>>_contribution'] = fame['village_<<$ARGS[1]>>_core'] / 100
+end
+
+
+if $ARGS[0] = 'calculate':
+	!! sex and prostitution fame does NOT spread; does not use local or core:
+	if func('fame', 'check_if_only_local', $ARGS[1]):
+		exit
+	end
+
+!!	! Calculates the fame after it has been modified.
+	gs 'fame', 'set_contributions', $ARGS[1]
+
+	!! This calculates fame in Pavlovks. Adding the core and local and the contributions trom other places. Each time we add two numbers we do it weigthed by the formula [(1000*pav_fame+(1000-pav_fame)*contribution)/1000 = (1000-pav_fame)*contribution/1000] with a chech such that pav_fame never decrease in a step. Excepte in the first if pav_fame_local is negative.
+	if fame['pav_<<$ARGS[1]>>_core'] >= 1000:
+		fame['pav_<<$ARGS[1]>>'] = fame['pav_<<$ARGS[1]>>_core'] + fame['pav_<<$ARGS[1]>>_local'] / 1000
+	else
+		fame['pav_<<$ARGS[1]>>'] = (1000 * fame['pav_<<$ARGS[1]>>_core'] + (1000 - fame['pav_<<$ARGS[1]>>_core']) * fame['pav_<<$ARGS[1]>>_local']) / 1000
+	end
+
+	if fame['pav_<<$ARGS[1]>>'] >= 1000:
+		fame['pav_<<$ARGS[1]>>'] += fame['city_<<$ARGS[1]>>_contribution_high'] / 1000
+		fame['pav_<<$ARGS[1]>>'] += fame['pushkin_<<$ARGS[1]>>_contribution_high'] / 1000
+		fame['pav_<<$ARGS[1]>>'] += fame['village_<<$ARGS[1]>>_contribution'] / 1000
+	else
+		fame['pav_<<$ARGS[1]>>'] += ((1000 - fame['pav_<<$ARGS[1]>>']) * fame['city_<<$ARGS[1]>>_contribution_high']) / 1000
+		fame['pav_<<$ARGS[1]>>'] += ((1000 - fame['pav_<<$ARGS[1]>>']) * fame['pushkin_<<$ARGS[1]>>_contribution_high']) / 1000
+		fame['pav_<<$ARGS[1]>>'] += ((1000 - fame['pav_<<$ARGS[1]>>']) * fame['village_<<$ARGS[1]>>_contribution']) / 1000
+	end
+
+	if fame['pav_<<$ARGS[1]>>'] < 0: fame['pav_<<$ARGS[1]>>'] = 0
+	if fame['pav_<<$ARGS[1]>>'] > 1200: fame['pav_<<$ARGS[1]>>'] = 1200
+
+	!! This calculates fame city.
+	if fame['city_<<$ARGS[1]>>_core'] >= 1000:
+		fame['city_<<$ARGS[1]>>'] = fame['city_<<$ARGS[1]>>_core'] + fame['city_<<$ARGS[1]>>_local'] / 1000
+	else
+		fame['city_<<$ARGS[1]>>'] = (1000 * fame['city_<<$ARGS[1]>>_core'] + (1000 - fame['city_<<$ARGS[1]>>_core']) * fame['city_<<$ARGS[1]>>_local']) / 1000
+	end
+
+	if fame['city_<<$ARGS[1]>>'] >= 1000:
+		fame['city_<<$ARGS[1]>>'] += fame['pav_<<$ARGS[1]>>_contribution_low'] / 1000
+		fame['city_<<$ARGS[1]>>'] += fame['pushkin_<<$ARGS[1]>>_contribution_low'] / 1000
+		fame['city_<<$ARGS[1]>>'] += fame['village_<<$ARGS[1]>>_contribution'] / 1000
+	else
+		fame['city_<<$ARGS[1]>>'] += ((1000 - fame['city_<<$ARGS[1]>>']) * fame['pav_<<$ARGS[1]>>_contribution_low']) / 1000
+		fame['city_<<$ARGS[1]>>'] += ((1000 - fame['city_<<$ARGS[1]>>']) * fame['pushkin_<<$ARGS[1]>>_contribution_low']) / 1000
+		fame['city_<<$ARGS[1]>>'] += ((1000 - fame['city_<<$ARGS[1]>>']) * fame['village_<<$ARGS[1]>>_contribution']) / 1000
+	end
+
+	if fame['city_<<$ARGS[1]>>'] < 0: fame['city_<<$ARGS[1]>>'] = 0
+	if fame['city_<<$ARGS[1]>>'] > 1200: fame['city_<<$ARGS[1]>>'] = 1200
+
+	!! This calculates fame in Old Town.
+	if fame['pushkin_<<$ARGS[1]>>_core'] >= 1000:
+		fame['pushkin_<<$ARGS[1]>>'] = fame['pushkin_<<$ARGS[1]>>_core'] + fame['pushkin_<<$ARGS[1]>>_local'] / 1000
+	else
+		fame['pushkin_<<$ARGS[1]>>'] = (1000 * fame['pushkin_<<$ARGS[1]>>_core'] + (1000 - fame['pushkin_<<$ARGS[1]>>_core']) * fame['pushkin_<<$ARGS[1]>>_local']) / 1000
+	end
+
+	if fame['pushkin_<<$ARGS[1]>>'] >= 1000:
+		fame['pushkin_<<$ARGS[1]>>'] += fame['pav_<<$ARGS[1]>>_contribution_high'] / 1000
+		fame['pushkin_<<$ARGS[1]>>'] += fame['city_<<$ARGS[1]>>_contribution_high'] / 1000
+		fame['pushkin_<<$ARGS[1]>>'] += fame['village_<<$ARGS[1]>>_contribution'] / 1000
+	else
+		fame['pushkin_<<$ARGS[1]>>'] += ((1000 - fame['pushkin_<<$ARGS[1]>>']) * fame['pav_<<$ARGS[1]>>_contribution_high']) / 1000
+		fame['pushkin_<<$ARGS[1]>>'] += ((1000-fame['pushkin_<<$ARGS[1]>>']) * fame['city_<<$ARGS[1]>>_contribution_high']) / 1000
+		fame['pushkin_<<$ARGS[1]>>'] += ((1000 - fame['pushkin_<<$ARGS[1]>>']) * fame['village_<<$ARGS[1]>>_contribution']) / 1000
+	end
+
+	if fame['pushkin_<<$ARGS[1]>>'] < 0: fame['pushkin_<<$ARGS[1]>>'] = 0
+	if fame['pushkin_<<$ARGS[1]>>'] > 1200: fame['pushkin_<<$ARGS[1]>>'] = 1200
+
+	!! This calculates fame in Gadukino.
+	if fame['village_<<$ARGS[1]>>_core'] >= 1000:
+		fame['village_<<$ARGS[1]>>'] = fame['village_<<$ARGS[1]>>_core'] + fame['village_<<$ARGS[1]>>_local'] / 1000
+	else
+		fame['village_<<$ARGS[1]>>'] = (1000 * fame['village_<<$ARGS[1]>>_core'] + (1000 - fame['village_<<$ARGS[1]>>_core']) * fame['village_<<$ARGS[1]>>_local']) / 1000
+	end
+
+	if fame['village_<<$ARGS[1]>>'] >= 1000:
+		fame['village_<<$ARGS[1]>>'] += fame['pav_<<$ARGS[1]>>_contribution_medium'] / 1000
+		fame['village_<<$ARGS[1]>>'] += fame['city_<<$ARGS[1]>>_contribution_low'] / 1000
+		fame['village_<<$ARGS[1]>>'] += fame['pushkin_<<$ARGS[1]>>_contribution_medium'] / 1000
+	else
+		fame['village_<<$ARGS[1]>>'] += ((1000 - fame['village_<<$ARGS[1]>>']) * fame['pav_<<$ARGS[1]>>_contribution_medium']) / 1000
+		fame['village_<<$ARGS[1]>>'] += ((1000 - fame['village_<<$ARGS[1]>>']) * fame['city_<<$ARGS[1]>>_contribution_low']) / 1000
+		fame['village_<<$ARGS[1]>>'] += ((1000 - fame['village_<<$ARGS[1]>>']) * fame['pushkin_<<$ARGS[1]>>_contribution_medium']) / 1000
+	end
+
+	if fame['village_<<$ARGS[1]>>'] < 0: fame['village_<<$ARGS[1]>>'] = 0
+	if fame['village_<<$ARGS[1]>>'] > 1200: fame['village_<<$ARGS[1]>>'] = 1200
+end
+
+
+if $ARGS[0] = 'calculateGroups':
+	$fameregion = 'pav'
+	:fameregionloop
+		fame['<<$fameregion>>_performer'] = 0
+		if fame['<<$fameregion>>_acting']		> 30:	fame['<<$fameregion>>_performer'] += (fame['<<$fameregion>>_acting'] - 30) / 3
+		if fame['<<$fameregion>>_dance']		> 30:	fame['<<$fameregion>>_performer'] += (fame['<<$fameregion>>_dance'] - 30) / 3
+		if fame['<<$fameregion>>_painting']		> 30:	fame['<<$fameregion>>_performer'] += (fame['<<$fameregion>>_painting'] - 30) / 3
+		if fame['<<$fameregion>>_music']		> 30:	fame['<<$fameregion>>_performer'] += (fame['<<$fameregion>>_music'] - 30) / 3
+		if fame['<<$fameregion>>_ballet']		> 30:	fame['<<$fameregion>>_performer'] += (fame['<<$fameregion>>_ballet'] - 30) / 3
+		if fame['<<$fameregion>>_modelling']	> 30:	fame['<<$fameregion>>_performer'] += (fame['<<$fameregion>>_modelling'] - 30) / 3
+
+		fame['<<$fameregion>>_sexind'] = 0
+		if fame['<<$fameregion>>_porn']			> 30:	fame['<<$fameregion>>_sexind'] += (fame['<<$fameregion>>_porn'] - 30) / 2
+		if fame['<<$fameregion>>_stripping']	> 30:	fame['<<$fameregion>>_sexind'] += (fame['<<$fameregion>>_stripping'] - 30) / 2
+
+		fame['<<$fameregion>>_slut'] = 0
+		if fame['<<$fameregion>>_sex']			> 30:	fame['<<$fameregion>>_slut'] += (fame['<<$fameregion>>_sex'] - 30) / 2
+		if fame['<<$fameregion>>_prostitute']	> 30:	fame['<<$fameregion>>_slut'] += (fame['<<$fameregion>>_prostitute'] - 30) / 2
+		if fame['<<$fameregion>>_flash']		> 30:	fame['<<$fameregion>>_slut'] += min(fame['<<$fameregion>>_flash'] - 30, 100) / 4
+
+		fame['<<$fameregion>>_sport'] = 0
+		if fame['<<$fameregion>>_kickboxing']	> 30:	fame['<<$fameregion>>_sport'] += (fame['<<$fameregion>>_kickboxing'] - 30) / 3
+		if fame['<<$fameregion>>_running']		> 30:	fame['<<$fameregion>>_sport'] += (fame['<<$fameregion>>_running'] - 30) / 3
+		if fame['<<$fameregion>>_volleyball']	> 30:	fame['<<$fameregion>>_sport'] += (fame['<<$fameregion>>_volleyball'] - 30) / 3
+
+		fame['<<$fameregion>>_int'] = 0
+		if fame['<<$fameregion>>_chess']		> 30:	fame['<<$fameregion>>_int'] += (fame['<<$fameregion>>_chess'] - 30) / 2
+		if fame['<<$fameregion>>_teaching']		> 30:	fame['<<$fameregion>>_int'] += (fame['<<$fameregion>>_teaching'] - 30) / 3
+
+		fame['<<$fameregion>>_social'] = 0
+		if fame['<<$fameregion>>_media']		> 30:	fame['<<$fameregion>>_social'] += (fame['<<$fameregion>>_media'] - 30) / 2
+
+	if $fameregion = 'pav':
+		$fameregion = 'city'
+		jump 'fameregionloop'
+	elseif $fameregion = 'city':
+		$fameregion = 'village'
+		jump 'fameregionloop'
+	elseif $fameregion = 'village':
+		$fameregion = 'pushkin'
+		jump 'fameregionloop'
+	else
+		killvar 'fameregion'
+	end
+
+
+
+	if fame['pav_slut'] < 25:
+		$gnikname = ''
+	elseif fame['pav_slut'] < 50:
+		$gnikname = '爱调情的小妞'
+	elseif fame['pav_slut'] < 75:
+		$gnikname = '撩人的小骚货'
+	elseif fame['pav_slut'] < 100:
+		$gnikname = '狐狸精'
+	elseif fame['pav_slut'] < 125:
+		$gnikname = '骚狐狸'
+	elseif fame['pav_slut'] < 150:
+		$gnikname = '勾人的妖精'
+	elseif fame['pav_slut'] < 175:
+		$gnikname = '迷恋鸡巴的骚货'
+	elseif fame['pav_slut'] < 200:
+		$gnikname = '男孩们的玩物'
+	elseif fame['pav_slut'] < 225:
+		$gnikname = '荡妇'
+	elseif fame['pav_slut'] < 250:
+		$gnikname = '色情狂'
+	elseif fame['pav_slut'] < 275:
+		$gnikname = '婊子'
+	elseif fame['pav_slut'] < 300:
+		$gnikname = '镇上人人骑的货色'
+	else
+		$gnikname = '精液便器'
+	end
+end
+
+
+if $ARGS[0] = 'calculateSlut':
+	!! Calculates the slut fame after sex or prostitution has been modified.
+	gs 'fame', 'calculateGroups'
+end
+
+
+if $ARGS[0] = 'church_reduction':
+!! Special gs for reducing sex and prostitution fame by doing activities at the local church
+	fame['<<$ARGS[1]>>_sex'] -= ARGS[2]
+	fame['<<$ARGS[1]>>_prostitute'] -= ARGS[2]
+	fame['<<$ARGS[1]>>_flash'] -= 2 * ARGS[2]
+
+	if fame['<<$ARGS[1]>>_sex'] < 0: fame['<<$ARGS[1]>>_sex'] = 0
+	if fame['<<$ARGS[1]>>_prostitute'] < 0: fame['<<$ARGS[1]>>_prostitute'] = 0
+	if fame['<<$ARGS[1]>>_flash'] < 0: fame['<<$ARGS[1]>>_flash'] = 0
+
+	gs 'fame', 'calculateGroups'
+end
+
+
+--- fame ---------------------------------

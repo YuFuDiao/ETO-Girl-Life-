@@ -1,0 +1,60 @@
+# exp_deg
+
+!! gosub used to run skill/attribute degradation so you can modify exp degradation based on player character conditions
+!! another use is to reset the degradation
+
+!! use: gs 'exp_deg', 'skill', days
+!! example: gs 'exp_deg', 'photoskl', rand(1,2)
+!! example: gs 'exp_deg', $ARGS[2], rand(3,5)
+!! example: gs 'exp_deg', 'heels', 'reset'
+
+!! Combination skills
+if $ARGS[1] = '': exit
+if ARGS[2] <= 0 and $ARGS[2] <> 'reset': exit
+
+expdegVars['deg_loss_mult'] = func('_difficulty', 'get_deg_loss')
+if instr(';vball_block;vball_rec;vball_serve;vball_set;vball_spike;', ';<<$ARGS[0]>>;') > 0:
+	$expdegVars['statName'] = 'vball'
+	$expdegVars['attrArray'] = $ARGS[0]
+	expdegVars['deg_loss_mult'] = 75 * expdegVars['deg_loss_mult'] / 100
+elseif arrpos('$skl_name', $ARGS[0]) >= 0:
+	$expdegVars['statName'] = $ARGS[0]
+	$expdegVars['attrArray'] = $ARGS[0]
+	expdegVars['deg_loss_mult'] = 75 * expdegVars['deg_loss_mult'] / 100
+elseif arrpos('$att_name', $ARGS[0]) >= 0:
+	$expdegVars['statName'] = $ARGS[0]
+	$expdegVars['attrArray'] = ''
+else
+	$func('wrap', 'neg', 'gs ''exp_deg'' 错误：<<$ARGS[0]>>既不是技能也不是属性')
+	killvar 'expdegVars'
+	exit
+end
+
+
+if $ARGS[1] = 'reset':
+	dynamic "
+		<<$expdegVars['statName']>>_deg = max(200, (102 - min(100, <<$expdegVars['statName']>>_lvl) + <<$expdegVars['statName']>>_muta) * 100)
+	"
+	killvar 'expdegVars'
+	exit
+end
+
+
+temp_sklattrib['trait_index'] = 0
+:traitdegloop
+	$temp_sklattrib['trait'] = $traitattskl[temp_sklattrib['trait_index']]
+	if $temp_sklattrib['trait'] <> '':
+		expdegVars['deg_loss_mult'] += trait_vars[$temp_sklattrib['trait'] + '-' + $expdegVars['statName'] + '-deg_loss']
+		expdegVars['deg_loss_mult'] += trait_vars['all-' + $expdegVars['statName'] + '-deg_loss']
+	end
+	temp_sklattrib['trait_index'] += 1
+if temp_sklattrib['trait_index'] < arrsize('$traitattskl'): jump 'traitdegloop'
+
+
+dynamic "
+	<<$expdegVars['statName']>>_deg -= expdegVars['deg_loss_mult']
+"
+
+
+
+--- exp_deg ---------------------------------

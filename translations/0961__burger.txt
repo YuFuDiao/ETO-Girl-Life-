@@ -1,0 +1,882 @@
+# burger
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'burger', 'start'
+	$location_type = 'public_indoors'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center b', '比斯特罗什卡餐厅')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/burger.jpg"></center>'
+	'墙上明亮的广告牌写着："全县最有营养的食物"'
+	'有一个<a href="exec:gt ''butoilet''">WC</a>供访客使用。'
+
+	if BurgerQW['BossSlut'] > 0: '<a href="exec:gt ''burger'', ''boss''">主任办公室</a>阿纳托利·鲍里索维奇'
+
+	act '离开餐馆': minut += 1 & gt 'city_center'
+
+	act '从菜单点餐 (0:05)': gs 'food_menu'
+	act '点外卖 (0:20)' + $func('money', 'get_cost_string', 315):
+		if func('money', 'can_afford', 315) = 0:
+			$noMoney
+		else
+			gs 'money', 'pay', 315
+			gt 'food', 'fast_food'
+		end
+	end
+
+	if BurgerQW['IlyQW'] = 2: act '去办公室找阿纳托利·鲍里索维奇': gt 'burger', 'office'
+
+	!! Work actions — gated by job status
+	!! 'Ask about work' shows if player has never been employed as dishwasher
+	!! 'Go to the manager' shows if player has 3+ total diner shifts but hasn''t unlocked floor washing yet
+	!! Dish washing: must be employed, once per day, not blocked
+	!! Floor washing: must be employed, once per day, before 10:00, not blocked
+	if $job_status['city_diner_dishwasher'] = '':
+		act '询问工作': gt 'burger', 'apply'
+	elseif job_shifts_total['city_diner_dishwasher'] >= 3 and $job_status['city_diner_floor_washer'] = '':
+		act '去找经理': gt 'burger', 'manager'
+	end
+
+	if $job_status['city_diner_secretary'] <> 'employed':
+		if $job_status['city_diner_dishwasher'] = 'employed' and job_last_work_day['city_diner_dishwasher'] ! daystart and func('jobs', 'is_arrival_time', 'city_diner_dishwasher') = 1:
+			act '洗盘子<<$func(''money'', ''string_profit'', 70)>> (1:00)': gt 'burger', 'dishes'
+		end
+		if $job_status['city_diner_floor_washer'] = 'employed' and job_last_work_day['city_diner_floor_washer'] ! daystart and func('jobs', 'is_arrival_time', 'city_diner_floor_washer') = 1:
+			act '洗地板<<$func(''money'', ''string_profit'', 70)>> (1:00)': gt 'burger', 'floor'
+		end
+	end
+
+end
+
+
+if $ARGS[0] = 'office':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'burger', 'office'
+	$location_type = 'public_indoors'
+
+	*clr & cla
+	gs 'stat'
+	minut += 5
+	'你走进老板的办公室。他坐在办公桌前，处理着你的文件。阿纳托利·鲍里索维奇看着你说道："怎么？有什么消息吗？"'
+
+	act '离开': gt 'burger', 'start'
+
+	act '偿还债务' + $func('money', 'get_cost_string', 650000):
+		if func('money', 'can_afford', 650000) = 0:
+			$noMoney
+		else
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			gs 'money', 'pay', 650000
+			BurgerQW['IlyQW'] = 5
+			gs 'stat'
+			'你拿出钱，递给阿纳托利·鲍里索维奇。他数了数，承诺不再追究你。'
+
+			act '离开': gt 'burger', 'start'
+		end
+	end
+
+	if BurgerQW['IlyQWEvidence'] = 1:
+		act '出示证据':
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			BurgerQW['IlyQW'] = 6
+			BurgerQW['IlyQWTatianaHelp'] = 0
+			BurgerQW['IlyQWEvidence'] = 0
+			gs 'stat'
+			'你向阿纳托利·鲍里索维奇展示了录音，里面伊柳什金承认了罪行并承诺还钱。阿纳托利·鲍里索维奇接过录音，说他明白了，会把证词交给警方。'
+
+			act '离开': gt 'burger', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'apply':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'burger', 'apply'
+	$location_type = 'public_indoors'
+	cla
+	minut += 5
+	'你走进经理办公室，见到一个精明的女孩。她开始告诉你，你几乎每天都可以来工作："随时过来，经营小吃店并洗盘子一小时。你会立刻拿到<<$func(''money'', ''string_profit'', 70)>>。"'
+
+	act '拒绝并离开': gt 'burger', 'start'
+
+	act '接受工作':
+		cla
+		menu_off = 1
+		gs 'jobs', 'set_employed', 'city_diner_dishwasher'
+		'你同意工作。'
+
+		act '离开': gt 'burger', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'manager':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'burger', 'manager'
+	$location_type = 'public_indoors'
+
+	cla
+	minut += 5
+	'你走进经理办公室。女孩向经理夸奖你工作出色，并给你介绍另一份兼职："你可以在早上8点到9点擦地板。擦地板一小时，你就能立刻拿到<<$func(''money'', ''string_profit'', 70)>>。"'
+
+	act '拒绝并离开': gt 'burger', 'start'
+
+	act '同意工作':
+		cla
+		menu_off = 1
+		gs 'jobs', 'set_employed', 'city_diner_floor_washer'
+		BurgerQW['sergeyQWServiced1'] = 0
+		BurgerQW['sergeyQWServiced2'] = 0
+		'你同意工作。'
+
+		act '离开': gt 'burger', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'dishes':
+	menu_off = 1
+	*clr & cla
+	minut += 60
+	gs 'mood', 'lower', 'medium'
+	gs 'jobs', 'clock', 'city_diner_dishwasher'
+	gs 'jobs', 'paycheck', 'city_diner_dishwasher'
+	gs 'sweat', 'add', 10
+
+	if BurgerQW['Level'] = 10: BurgerQW['Level'] = 0
+
+	'<center><img <<$set_imgh>> src="images/shared/home/kitchen/dirt.jpg"></center>'
+	'你花了一小时清洗脏盘子上的食物残渣和油污。之后你得到了<<$func(''money'', ''string_profit'', 70)>>作为工作的报酬。'
+
+	!! Boss encounter gate: 7+ total diner shifts (dishes + floor) and appearance >= 80
+	if pcs_apprnc >= 80 and (job_shifts_total['city_diner_dishwasher'] + job_shifts_total['city_diner_floor_washer']) >= 7 and BurgerQW['Level'] < 10:
+		if BurgerQW['Level'] = 1:
+			'小餐馆的老板从他的办公室出来，对你微笑。"<<$pcs_nickname>>。我的提议仍然有效。你愿意去餐厅吗？"'
+		elseif BurgerQW['Level'] = 0:
+			BurgerQW['Level'] = 1
+			'小餐馆的老板从办公室出来，差点撞到你。'
+			'"哦，抱歉。我怎么会没看到这么迷人的姑娘。"'
+			'"别担心"，你微笑着回应。'
+			'"我们见过吗？我是阿纳托利·鲍里索维奇。"'
+			'"<<$pcs_nickname>>."'
+			'阿纳托利握住你的手，亲吻了一下。'
+			'"你愿意离开这个破地方，去外面用餐吗？"'
+		end
+
+		gs 'willpower', 'misc', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gt 'burger', 'start'
+			end
+		end
+
+		act '同意':
+			*clr & cla
+			BurgerQW['Level'] = 10
+			'"我们先去商店，给你挑一条漂亮的裙子。穿别的，餐厅可不让你进。"阿纳托利边说边带你走向他的车。'
+			gs 'npcStat', 'A74'
+
+			act '上车':
+				*clr & cla
+				minut += 15
+				BurgerQW['Level'] = 20
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/shared/car.jpg"></center>'
+				'在车上，阿纳托利握住你的手，一路上都没有松开。'
+				'你来到一家名字是法语、价格非常昂贵的精品店。'
+				'阿纳托利让你挑一条裙子。'
+				'给他看了几条裙子后，他挑了一条，让你去试衣间。'
+
+				act '走进试衣间':
+					*clr & cla
+					minut += 15
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/butic.jpg"></center>'
+					'你脱下衣服，开始端详这条裙子。'
+					'突然，阿纳托利走进了试衣间。'
+					'"抱歉，我实在忍不住想欣赏一下你的美。"'
+					'看着裙子，阿纳托利说道， '
+					'"我觉得你应该选这条。这是最贵的一条。而且我觉得，<<$pcs_nickname>>，你应该对这样的礼物非常感激。"'
+					'阿纳托利的目光落在自己的裤子上，暗示着他想从你这里得到什么。'
+
+					act '给他口交':
+						*clr & cla
+						BurgerQW['Level'] = 50
+						guy += 1
+						gs 'clothing', 'add_item', 'cats_dress', 23
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj.jpg"></center>'
+						'你在阿纳托利面前蹲下，他解开裤子，掏出阴茎。你俯身凑近他硬挺的鸡巴，亲吻它，感受它的温热。你的舌头沿着他的鸡巴舔弄，最后把它含进你湿润的大嘴里，开始吮吸他的鸡巴。'
+						'很快阿纳托利呻吟起来，你感到一股温热的液体射进嘴里。你尽力吞下他所有的精液，努力不让自己呛到。阿纳托利整理好衣服离开了。'
+						'走出试衣间寻找阿纳托利时，你感到有点头晕。'
+						'他微笑着向售货员示意，售货员接过裙子。'
+
+						gs 'arousal', 'bj', 15, 'sub'
+						gs 'cum_call', 'mouth_swallow', 'A74', 1
+						gs 'stat'
+
+						act '离开精品店':
+							*clr & cla
+							minut += 15
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/city/shared/car.jpg"></center>'
+							'"呼，<<$pcs_nickname>>。我有点累了。我们改天再去餐厅吧。"阿纳托利说着，牵着你的手把你领向他的车。你很快回到家里，阿纳托利向你道别。'
+
+							gs 'arousal', 'end'
+
+							act '下车': gt 'city_residential'
+						end
+					end
+
+					act '犹豫':
+						*clr & cla
+						minut += 15
+						gs 'stat'
+						'你犹豫着，不知道该怎么办。阿纳托利·鲍里索维奇抓住你的肩膀把你按下去，让你无助地蹲在他面前。他解开裤子，掏出已经硬了的鸡巴。'
+
+						act '惊恐地看着他':
+							*clr & cla
+							minut += 1
+							BurgerQW['Level'] = 50
+							guy += 1
+							gs 'clothing', 'add_item', 'cats_dress', 24
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/pr.jpg"></center>'
+							'你惊讶地抬头看他，注意到他鸡巴滚烫的头部正抵在你的嘴唇上。阿纳托利把鸡巴凑到你的唇边。"别害羞，宝贝，用你的舌头舔它。"'
+
+							act '开始舔':
+								*clr & cla
+								gs 'arousal', 'bj', 2, 'sub'
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/pr1.jpg"></center>'
+								'你犹豫地伸出舌头，一次又一次地舔着那紫红的头部。很快，你的舌头便沿着他鸡巴的整个长度来回舔弄，用唾液把它弄湿。'
+
+								act '继续舔他的鸡巴':
+									*clr & cla
+									gs 'stat'
+									'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/pr2.jpg"></center>'
+									'你继续舔他的鸡巴，阿纳托利·鲍里索维奇把手按在你脑后，把你的头按向他的胯间。你感到他的鸡巴几乎塞满了你的嘴，你湿润的嘴唇张开，容纳下他炽热而坚硬的肉棒。"就是这样，宝贝，现在吸它。"阿纳托利·鲍里索维奇说着开始摆动臀部，慢慢操着你的嘴。你紧紧含住他的肉棒，随着他的抽插越来越猛烈，努力不让自己呛到。'
+
+									gs 'arousal', 'bj', 2, 'sub', 'deepthroat'
+									gs 'stat'
+
+									act '来点跑酷！并且挡住她的路！':
+										*clr & cla
+										'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/pr3.jpg"></center>'
+										'你卖力地吮吸他的鸡巴，感到下巴开始发酸。突然一股热流射进你的嘴里。你惊讶地吐出他的肉棒，一股精液喷到你的鼻子上。精液从你嘴里溢出，挂在你的下巴上。阿纳托利·鲍里索维奇抓住你的头，把肉棒重新塞回你嘴里，让你把上面的精液清理干净。'
+
+										gs 'arousal', 'bj', 4, 'sub', 'humiliation'
+										gs 'npcStat', 'A74'
+										gs 'cum_call', 'mouth_swallow', 'A74', 1, 0, 10000, 13
+
+										gs 'cum_call', 'face', 'A74', 1, 0, 10000, 27
+										gs 'stat'
+
+										act '坐到地板上':
+											*clr & cla
+											minut += 2
+											gs 'stat'
+											cumspclnt = 11
+											gs 'cum_cleanup'
+											'<center><img <<$set_imgh>> src="images/pc/body/cum/cumface/custom/3.jpg"></center>'
+											'终于，阿纳托利·鲍里索维奇停了下来，把清理干净的鸡巴塞回裤子里，开始扣上纽扣。你坐在地板上，惊得发愣，精液顺着你的脸滴落。你尝到嘴里那股浓郁的精液味道。阿纳托利·鲍里索维奇扶你站起来，然后快步走出试衣间。你努力擦去脸上的精液痕迹。'
+
+											act '离开试衣间':
+												*clr & cla
+												minut += 2
+												gs 'stat'
+												!! '<center><img <<$set_imgh>> src="images/pc/body/cum/cumface/custom/3.jpg"></center>'
+												'你走出试衣间，羞愧得满脸通红。你觉得所有人都已经知道你刚才在公共场合吮吸了一个男人的鸡巴。阿纳托利·鲍里索维奇告诉女店员他要给你买下这条裙子并付了钱。女店员把裙子包好递给你，你感觉到她的目光停留在你的脸上。'
+
+												act '离开精品店':
+													*clr & cla
+													minut += 15
+													gs 'stat'
+													'<center><img <<$set_imgh>> src="images/locations/city/shared/car.jpg"></center>'
+													'你和阿纳托利·鲍里索维奇一起走出精品店。"呼，<<$pcs_nickname>>。我有点累了。我们改天再去餐厅吧。"阿纳托利说着，牵着你的手把你领向他的车。你很快回到家里，阿纳托利向你道别。'
+
+													gs 'arousal', 'end'
+
+													act '下车': gt 'city_residential'
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+
+					gs 'willpower', 'bj', 'resist', 'medium'
+					if pcs_willpwr < will_cost:
+						act '非常感谢。（拒绝）' + $func('willpower', 'get_willcost_string'): $noWillpower
+					else
+						act '非常感谢。（拒绝）' + $func('willpower', 'get_willcost_string'):
+							*clr & cla
+							gs 'willpower', 'pay', 'resist'
+							gs 'stat'
+							'你咧嘴一笑，说道："非常感谢。"阿纳托利涨红了脸，强调道："你知道我是什么意思。"他解开裤子，掏出硬邦邦的肉棒。'
+							'你大笑道："哦，是的，我完全明白。如果你以为我会为每个自以为是世界之王的有钱肥佬张开双腿，那你大可以自己穿上这条裙子。别侮辱我的智商，把你那丑陋的鸡巴塞回裤子里。如果你以为给我买条裙子我就会给你口交，那你比我以为的还要蠢。你以为你是谁？卡萨诺瓦吗？你他妈是认真的吗？"'
+							'阿纳托利气得满脸通红，开始威胁你："是的，我就是！我要炒了你！"'
+							'你当着他的面大笑："哦，我好害怕。好啊，炒了我吧，然后把这条裙子当抹布去洗碗。"'
+							'阿纳托利脸色苍白、涨得通红，气呼呼地冲出试衣间，身后传来你响亮的大笑。'
+
+							act '离开':
+								minut += 1
+								gt 'city_center'
+							end
+						end
+					end
+				end
+			end
+		end
+
+		exit
+	elseif BurgerQW['Level'] = 20:
+		bisrand = rand(0, 10)
+
+		if bisrand = 10: '老板的办公室里走出阿纳托利·鲍里索维奇。看到你，他带着傲慢的神情转过身去。'
+	elseif BurgerQW['Level'] = 56:
+		'你刚忙完，经理伊柳什金就突然走到你面前。"好吧，<<$pcs_nickname>>。对不起。我之前看错你了。我也不知道自己当时是怎么了。我们目前正在物色一名副经理。我觉得你能胜任，你有这个天赋。怎么样？你意下如何？"'
+
+		act '是的':
+			*clr & cla
+			gs 'stat'
+			'你同意了成为伊柳什金副经理的提议。伊柳什金立刻满脸幸福地冲你笑。"那么，这是你的第一个工作任务。这是阿纳托利·鲍里索维奇办公室的钥匙。回家时带上它们。去他的办公室，打开保险柜，取出里面的信封。之后别忘了关上保险柜。把信封带给我。都听明白了吗？那就去吧！"'
+
+			act '我改变主意了':
+				*clr & cla
+				BurgerQW['Level'] = 57
+				gs 'stat'
+				'你拒绝了伊柳什金的提议，注意到他脸上闪过一丝不快。他失望地对你说："好吧，提议仍然有效。"'
+
+				act '离开': gt 'burger', 'start'
+			end
+
+			act '拿上钥匙，走进阿纳托利·鲍里索维奇的办公室':
+				*clr & cla
+				BurgerQW['Level'] = 111
+				gs 'stat'
+				'你从伊柳什金手里接过钥匙，走向老板的办公室。你打开门，走进办公室，来到保险柜前。打开保险柜，你看到一些文件和一只厚厚的信封。'
+
+				act '查看信封':
+					*clr & cla
+					$BurgerQW['IlySecurityCamDesc'] = '你往信封里看了看。然后你关上保险柜，走向出口。'
+					gs 'stat'
+					'你往信封里看了看，看到一沓厚厚的钞票。你估计大约有五十万。你惊讶地吹了一声口哨。'
+
+					act '把信封交给伊柳什金':
+						*clr & cla
+						BurgerQW['IlyQWDay'] = daystart
+						BurgerQW['IlyQW'] = 1
+						!! Fire from both diner cleaning jobs — accused of theft, permanent ban
+						gs 'jobs', 'set_fired', 'city_diner_dishwasher'
+						if $job_status['city_diner_floor_washer'] = 'employed': gs 'jobs', 'set_fired', 'city_diner_floor_washer'
+						gs 'stat'
+						'走出办公室，你看到伊柳什金站在走廊里的饮水机旁打电话。看到你，他招手让你过去。你走上前，把信封交给伊柳什金。他迅速接过去，塞进夹克口袋里。之后他点了点头。你可以走了。你想把办公室的钥匙还给他，但伊柳什金摇了摇头，握紧手对你说："钥匙你带回家吧。明天再来，我们讨论一下你新职务的细节。"'
+
+						act '离开': gt 'burger', 'start'
+					end
+				end
+
+				act '把信封交给伊柳什金':
+					*clr & cla
+					$BurgerQW['IlySecurityCamDesc'] = '你拿起信封，关上保险柜，走了出去。'
+					BurgerQW['IlyQWDay'] = daystart
+					BurgerQW['IlyQW'] = 1
+					!! Fire from both diner cleaning jobs — accused of theft, permanent ban
+					gs 'jobs', 'set_fired', 'city_diner_dishwasher'
+					if $job_status['city_diner_floor_washer'] = 'employed': gs 'jobs', 'set_fired', 'city_diner_floor_washer'
+					gs 'stat'
+					'走出办公室，你看到伊柳什金站在走廊里的饮水机旁打电话。看到你，他招手让你过去。你走上前，把信封交给伊柳什金。他迅速接过去，塞进夹克口袋里。之后他点了点头。你可以走了。你想把办公室的钥匙还给他，但伊柳什金摇了摇头，握紧手对你说："钥匙你带回家吧。明天再来，我们讨论一下你新职务的细节。"'
+
+					act '离开': gt 'burger', 'start'
+				end
+			end
+		end
+
+		act '不':
+			*clr & cla
+			BurgerQW['Level'] = 57
+			gs 'stat'
+			'你拒绝了伊柳什金的提议，注意到他脸上闪过一丝不快。他失望地对你说："好吧，提议仍然有效。"'
+			act '离开': gt 'burger', 'start'
+		end
+
+		exit
+	elseif BurgerQW['Level'] = 50:
+		'工作期间，你得知阿纳托利·鲍里索维奇出差办事去了，由伊柳什金代理经理一职。正当你准备去上班时，伊柳什金从经理办公室走出来，用神秘兮兮的语气说："怎么样，<<$pcs_nickname>>，你显然不想为了几个小钱工作吧？来找我做点特别的工作吧。特别的工作，配特别的薪水。"'
+
+		act '去经理办公室':
+			*clr & cla
+			minut += 15
+			BurgerQW['Level'] = 55
+			gs 'npcStat', 'A76'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj1.jpg"></center>'
+			'你走进办公室，关上门。伊柳什金坐在你面前的椅子上，一副悠闲自得的样子。当你走向经理，等着看他要做什么时，他朝你冷笑一声，灵巧地抓住你的手，把你拉向他。'
+
+			act '弯下腰':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj2.jpg"></center>'
+				'你弯下腰，与伊柳什金面对面，他一边解开裤子一边低语："宝贝，用你的嘴开始干活吧"'
+
+				act '用你的嘴':
+					*clr & cla
+					guy += 1
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj3.jpg"></center>'
+					'仍然站在伊留什金面前，你弯下腰，甚至更轻柔地用舌头舔他的阴茎，一遍又一遍。最后你的嘴唇包住他的鸡巴开始吮吸。每一次动作，他卷曲的阴毛都挠着你的鼻子，你把他的整根阴茎含进嘴里。'
+					'伊柳什金终于发出响亮的呻吟，毫无预兆地开始在你嘴里射精。一股滚烫的液体击中你的口腔。你睁大了眼睛，但还是继续吮吸着他喷射精液的鸡巴，直到你嘴里满是精液。你的嘴再也含不住了，精液溢上你的嘴唇，顺着伊柳什金的肉棒流下。'
+
+					gs 'arousal', 'bj', 3, 'sub', 'prostitution'
+					gs 'stat'
+
+					act '吞下精液并清理他的鸡巴':
+						*clr & cla
+						minut += 2
+						gs 'cum_call', 'mouth_swallow', 'A76', 1
+						gs 'money', 'earn', 500
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj4.jpg"></center>'
+						'你蹲在经理面前，吞下他的精液，然后舔掉残留在那根依然挺立、却正在迅速软下去的阴茎上的精液。'
+						'终于伊柳什金心满意足地仰靠回去，给了你<<$func(''money'', ''string_profit'', 500)>>作为你工作的报酬。'
+
+						gs 'arousal', 'end'
+
+						act '离开': gt 'burger', 'start'
+					end
+				end
+			end
+
+			gs 'willpower', 'sex', 'resist', 'medium'
+			if pcs_willpwr < will_cost:
+				act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '离开' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					BurgerQW['Level'] = 56
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj1.jpg"></center>'
+					'你挣脱了伊柳什金的手，他显然没料到你会这样反应。他瞪着你："你给鲍里索维奇口交，却对他的副手挑三拣四？"你被这些话惊住了。他怎么知道试衣间里发生的事。显然你的心思都写在了脸上，伊柳什金轻笑道："没错，是鲍里索维奇自己炫耀的。如果你以为鲍里索维奇不会告诉任何人，那你就是傻瓜。但我不会告诉任何人。而且我给你的报酬很可观。所以，做个乖女孩，让我看看你这张嘴能干什么。"'
+					gs 'willpower', 'bj', 'resist', 'medium'
+					if pcs_willpwr < will_cost:
+						act '放屁！' + $func('willpower', 'get_willcost_string'): $noWillpower
+					else
+						act '放屁！' + $func('willpower', 'get_willcost_string'):
+							*clr & cla
+							gs 'willpower', 'pay', 'resist'
+							gt 'burger', 'start'
+						end
+					end
+					act '用你的嘴':
+						*clr & cla
+						BurgerQW['Level'] = 55
+						guy += 1
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj3.jpg"></center>'
+						'仍然站在伊留什金面前，你弯下腰，甚至更轻柔地用舌头舔他的阴茎，一遍又一遍。最后你的嘴唇包住他的鸡巴开始吮吸。每一次动作，他卷曲的阴毛都挠着你的鼻子，你把他的整根阴茎含进嘴里。'
+						'伊柳什金终于发出响亮的呻吟，毫无预兆地开始在你嘴里射精。一股滚烫的液体击中你的口腔。你睁大了眼睛，但还是继续吮吸着他喷射精液的鸡巴，直到你嘴里满是精液。你再也含不住了，精液溢上你的嘴唇，顺着伊柳什金的肉棒流下。'
+
+						gs 'arousal', 'bj', 3, 'sub', 'deepthroat', 'prostitution'
+						gs 'stat'
+
+						act '吞下他的精液并清理他的鸡巴':
+							*clr & cla
+							minut += 2
+							gs 'cum_call', 'mouth_swallow', 'A76', 1
+							gs 'money', 'earn', 500
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj4.jpg"></center>'
+							'你蹲在经理面前，吞下他的精液，同时开始舔掉残留在那根依然挺立、却正在迅速软下去的阴茎上的精液。'
+							'终于伊柳什金心满意足地仰靠回去，给了你<<$func(''money'', ''string_profit'', 500)>>作为你工作的报酬。'
+
+							gs 'arousal', 'end'
+
+							act '离开': gt 'burger', 'start'
+						end
+					end
+				end
+			end
+
+			exit
+		end
+	elseif BurgerQW['Level'] = 55:
+		'伊柳什金走到你面前说："到我办公室来见我。"'
+
+		act '去经理办公室':
+			*clr & cla
+			BurgerQW['Level'] = 60
+			'你走进办公室，伊柳什金正坐在桌旁，示意你钻到桌子下面去。你立刻明白了他想要什么。'
+
+			act '爬到桌子底下':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bjud.jpg"></center>'
+				'你爬到桌子下面，伊柳什金把阴茎掏出来，摆在你面前。你含住它开始吮吸，努力把它尽可能深地送进嘴里。桌子下面又挤又难受，但你忍住了，娴熟地吮吸了几分钟后，你让伊柳什金把精液射进了你嘴里。你赶紧开始吞咽，以免弄脏衣服。'
+				'之后，伊柳什金拿出<<$func(''money'', ''string_profit'', 500)>>递给你。'
+
+				gs 'money', 'earn', 500
+				gs 'npcStat', 'A76'
+				gs 'arousal', 'bj', 3, 'sub', 'prostitution'
+				gs 'cum_call', 'mouth_swallow', 'A76', 1
+				gs 'arousal', 'end'
+
+				act '离开': gt 'burger', 'start'
+			end
+		end
+	elseif BurgerQW['Level'] = 60:
+		'哪里都看不到伊柳什金，他也没有来找你，于是你决定去他的办公室看看。'
+
+		act '去经理办公室':
+			*clr & cla
+			BurgerQW['Level'] = 65
+			'你来到办公室，但门关着。副经理走到你面前，咯咯笑着对你说："怎么了，<<$pcs_nickname>>？没有鸡巴就干不了活吗？你和我们总经理的事我可一清二楚。不过他要到周末才回来。如果你不想让我把你是怎么谋生的事告诉别人，那你就去办公室伺候我吧。"'
+
+			act '顺从地点头':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj21.jpg"></center>'
+				'你走进办公室，在副经理面前跪下。他掏出肉棒，凑到你的脸上，一股没洗过的胯下的气味扑面而来。你舔了舔那咸咸的鸡巴，绝望地叹了口气，开始吮吸。这个满脸痘痘的混蛋只撑过了你几个动作，就猛地射在你嘴里。你嘴里装不下他所有的精液，它顺着你的嘴唇流了下来。'
+
+				guy += 1
+				gs 'npcStat', 'A75'
+				gs 'arousal', 'bj', 3, 'sub'
+				gs 'cum_call', 'mouth_swallow', 'A75', 1
+
+				gs 'cum_call', 'face', 'A75', 1
+				gs 'arousal', 'end'
+
+				act '离开': gt 'burger', 'start'
+			end
+
+			act '打发他走':
+				*clr & cla
+				'你轻蔑地告诉这个小子，让他带着他的威胁滚蛋。'
+				'"哈，听着，骚货！我父亲才是这家小餐馆真正的老板，鲍里索维奇不过是个雇来的经理。如果他知道了你随时让鲍里索维奇操你，那对你来说会很糟糕！所以，如果你想让我闭嘴……"'
+				'说完这些话，他叫来两个搬运工，说'
+				'"兄弟们，想不想在这小骚货身上泄泄火？别担心，她很享受。她就是来伺候人的。我说得对吗，<<$pcs_nickname>>？'
+
+				gs 'willpower', 'group', 'resist', 'medium'
+				if pcs_willpwr < will_cost:
+					act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '拒绝' + $func('willpower', 'get_willcost_string'):
+						gs 'willpower', 'pay', 'resist'
+						BurgerQW['Level'] = 61
+						gt 'burger', 'start'
+					end
+				end
+
+				act '是的':
+					*clr & cla
+					BurgerQW['Level'] = 70
+					guy += 3
+					!! gruzsex += 1
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/tri.jpg"></center>'
+					'你站在三个男人面前，浑身发抖，含糊地说："是的。"搬运工们笑了，你很快被抓住手带到了仓库。他们帮你脱掉衣服，让你跪下。然后他们掏出鸡巴，等着你伺候他们。'
+					'你开始卖力地吮吸和抚摸这三个男人的鸡巴。很快他们就呻吟起来，其中一个一只手抓住你的头，另一只手握着他勃起的鸡巴。'
+					gs 'npcStat', 'A75', 'a'
+					gs 'npcgeneratec', 0, '第一个搬运工', rand(18, 40)
+					$BurgerQW['GroupSex1'] = $npclastgenerated
+					gs 'npcStat', $BurgerQW['GroupSex1'], 'b'
+					gs 'npcgeneratec', 0, '第二个搬运工', rand(18, 40)
+					$BurgerQW['GroupSex2'] = $npclastgenerated
+					gs 'npcStat', $BurgerQW['GroupSex2'], 'c'
+
+					gs 'arousal', 'bj', 3, $npcID1, 'sub', 'group'
+					gs 'arousal', 'bj', -1, $npcID2, 'sub', 'group'
+					gs 'arousal', 'bj', -1, $npcID3, 'sub', 'group'
+					gs 'arousal', 'hj', -1, $npcID1, 'sub', 'group'
+					gs 'arousal', 'hj', -1, $npcID2, 'sub', 'group'
+					gs 'arousal', 'hj', -1, $npcID3, 'sub', 'group'
+					gs 'stat'
+
+					act '让他们射在你身上':
+						*clr & cla
+						gs 'cum_call', 'face', 'A75', 1
+						gs 'cum_call', 'face', $BurgerQW['GroupSex1']
+						gs 'cum_call', 'face', $BurgerQW['GroupSex2']
+						stat['facial'] += 3
+						'<center><img <<$set_imgh>> src="images/shared/sex/group/gopdbj3.jpg"></center>'
+						'滚烫的精液喷射到你的脸上，你闭上眼睛，感受着那腥臭的液体溅在皮肤上。很快喷射停止了，你的脸上糊了厚厚一层黏稠的精液。男人们露出满意的神情，嘲笑着你。随后他们离开仓库，留下你一个人。'
+
+						gs 'arousal', 'end'
+
+						act '离开': gt 'burger', 'start'
+					end
+				end
+			end
+		end
+	elseif BurgerQW['Level'] >= 65 and BurgerQW['sergeyQWServiced1'] ! 3:
+		'那个满脸痘痘的副经理走到你面前，牵着你的手把你带进他的办公室。'
+		'办公室里，他坐到椅子上，掏出鸡巴，让你趴在他面前。'
+
+		act '用你的嘴':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/sex/bj31.jpg"></center>'
+			'你跪在坐在椅子上的小子面前，开始卖力地吮吸他的鸡巴。你用舌头爱抚他的鸡巴和睾丸，同时用手撸动他的茎身。'
+
+			gs 'npcStat', 'A75'
+			gs 'arousal', 'bj', 3, 'sub', 'prostitution'
+			gs 'arousal', 'hj', -3, 'sub', 'prostitution'
+			gs 'stat'
+
+			act '继续':
+				*clr & cla
+				gs 'money', 'earn', 300
+				BurgerQW['sergeyQWServiced2'] += 1
+				if BurgerQW['sergeyQWServiced2'] = 10: BurgerQW['sergeyQWServiced1'] = 3
+				'<center><img <<$set_imgh>> src="images/shared/sex/cum/mouth/cum19.jpg"></center>'
+				'一股滚烫的精液射到你嘴上，而你继续抚摸着他的阴茎。你小心翼翼地不让一滴这难闻的液体从嘴里漏出。最后精液流尽，你将其吞下。他咧嘴一笑，扔出<<$func(''money'', ''string_profit'', 300)>>在地板上。你捡起它们，藏进口袋，然后从膝盖上站起来，离开了办公室。'
+
+				gs 'cum_call', 'mouth_swallow', 'A75', 1
+				gs 'arousal', 'end'
+
+				act '离开': gt 'burger', 'start'
+			end
+		end
+
+		exit
+	elseif (BurgerQW['Level'] = 57 and BurgerQW['BossSlut'] = 0) or (BurgerQW['Level'] >= 65 and BurgerQW['BossSlut'] = 0 and BurgerQW['sergeyQWServiced1'] = 3):
+		BurgerQW['BossSlut'] = 1
+
+		if BurgerQW['sergeyQWServiced1'] = 3: BurgerQW['sergeyQWServiced1'] = 4
+
+		'你完事后，看到阿纳托利·鲍里索维奇。他点点头对你说："你好，<<$pcs_nickname>>，忙完了就来找我。"'
+
+		act '离开': gt 'burger', 'start'
+
+		exit
+	end
+
+	act '离开': gt 'burger', 'start'
+end
+
+
+if $ARGS[0] = 'floor':
+	menu_off = 1
+	*clr & cla
+	minut += 60
+	gs 'mood', 'lower', 'medium'
+	gs 'jobs', 'clock', 'city_diner_floor_washer'
+	gs 'jobs', 'paycheck', 'city_diner_floor_washer'
+	gs 'sweat', 'add', 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener1.jpg"></center>'
+	'你花了一个小时擦洗小餐馆的地板。之后你得到了<<$func(''money'', ''string_profit'', 70)>>作为工作的报酬。'
+
+	act '离开': gt 'burger', 'start'
+end
+
+
+if $ARGS[0] = 'boss':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'burger', 'boss'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	if BurgerQW['BossSlut'] = 10:
+		gt 'burger', 'bossSlut_10'
+	elseif BurgerQW['BossSlut'] = 1:
+		gt 'burger', 'bossSlut_01'
+
+	elseif BurgerQW['BossSlut'] = 2 and BurgerQW['BossSlutLastServed'] = daystart:
+		'你敲了敲门，走进办公室去见阿纳托利·鲍里索维奇。他生气地看着你："我说了，滚出去。"'
+
+		act '离开': gt 'burger', 'start'
+
+	elseif BurgerQW['BossSlut'] = 2:
+		BurgerQW['BossSlutLastServed'] = daystart
+		'你敲了敲门，走进办公室，来到阿纳托利·鲍里索维奇面前。他阴郁地看着你，掏出<<$func(''money'', ''string_profit'', 300)>>, "跪下开始干活，骚货。"'
+		gs 'willpower', 'bj', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '离开' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gt 'burger', 'start'
+			end
+		end
+
+		act '跪下':
+			*clr & cla
+			menu_off = 1
+			gs 'money', 'earn', 300
+			BurgerQW['BossSlutLastServed'] = daystart
+			'<center><img <<$set_imgh>> src="images/characters/city/anatoly/sex/bj2.jpg"></center>'
+			'你跪下，从地板上捡起钱。阿纳托利·鲍里索维奇掏出已经硬了的肉棒，举到你面前。你含住它开始吮吸，硬邦邦的鸡巴塞满了你的嘴。阿纳托利·鲍里索维奇爽得咬牙切齿："吸吧，骚货，别忘了把最后一滴都吞下去！"你感到他的精液射进嘴里，连忙快速吞咽，以免呛到。完事后，阿纳托利·鲍里索维奇把鸡巴塞回裤子里。"现在滚出去。"'
+
+			gs 'npcStat', 'A74'
+			gs 'arousal', 'bj', 5, 'sub', 'prostitution'
+			gs 'cum_call', 'mouth_swallow', $npcID, 1
+			gs 'arousal', 'end'
+
+			act '离开': gt 'burger', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'bossSlut_01':
+	'你走进经理办公室。阿纳托利·鲍里索维奇正坐在桌前研究文件。看到你，他把文件放到一边，邀请你坐到椅子上。'
+
+	act '坐到椅子上':
+		*clr & cla
+		menu_off = 1
+		minut += 1
+		BurgerQW['BossSlut'] = 10
+		gs 'stat'
+
+		if BurgerQW['Level'] = 57:
+			mc_inventory['cosmetics'] += 200
+			'你坐到椅子上，阿纳托利·鲍里索维奇对你微笑。"真高兴这该死的出差终于结束了。我真的很想你。顺便说一句，我不是空手来的，这是礼物。"说着，阿纳托利·鲍里索维奇把一些昂贵的化妆品放到桌上。"而且，我得告诉你一些事实。我已经结婚了，还有孩子。所以别想结婚的事，那是不可能的。我妻子是一位很有权势的议员的女儿，目前我只是这家破餐馆的经理。很快我就能当上建设部副部长，但现在我还得在这里做好我的工作。所以，别惹麻烦。我需要忠诚的人，我想让你当我的秘书。你拿到秘书课程的文凭了吗？"'
+
+			if license['secretary'] = 1:
+				act '是的，我有文凭':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'你告诉他，你已经有了秘书文凭。阿纳托利·鲍里索维奇笑了。"很好。听着，我要打几个电话，你先走吧。"'
+
+					act '离开': gt 'burger', 'start'
+				end
+
+			elseif license['secretary'] = 0 and license['secretary_enrolled'] > 0:
+				act '我没有文凭，但有秘书经验':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'你告诉他，你没有文凭，但有做秘书的工作经验。阿纳托利·鲍里索维奇笑了。"很好。学完后来找我。听着，我现在要打几个电话，你先走吧。"'
+
+					act '离开': gt 'burger', 'start'
+				end
+
+			elseif license['secretary'] = 0 and license['secretary_enrolled'] = 0:
+				act '不':
+					*clr & cla
+					license['secretary_enrolled'] = 1
+					minut += 1
+					gs 'stat'
+					'你摇了摇头。阿纳托利·鲍里索维奇笑了。"没关系，我会为你的培训买单，等你学完了，就来我这里。"'
+
+					act '离开': gt 'burger', 'start'
+				end
+			end
+
+		elseif BurgerQW['Level'] >= 65:
+			'你坐到椅子上，阿纳托利·鲍里索维奇冷冷地看着你。"没想到你这么廉价。你的价码是多少？口交一次<<$func(''money'', ''string_profit'', 300)>>？"他从口袋里掏出<<$func(''money'', ''string_profit'', 300)>>扔到地板上。"跪下干你的活，骚货。"'
+			gs 'willpower', 'bj', 'resist', 'medium'
+			if pcs_willpwr < will_cost:
+				act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '离开' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					gt 'burger', 'start'
+				end
+			end
+			act '跪下':
+				*clr & cla
+				gs 'money', 'earn', 300
+				BurgerQW['BossSlut'] = 2
+				BurgerQW['BossSlutLastServed'] = daystart
+				'<center><img <<$set_imgh>> src="images/characters/city/anatoly/sex/bj2.jpg"></center>'
+				'你跪下，从地板上捡起钱。阿纳托利·鲍里索维奇掏出已经硬了的肉棒，举到你面前。你含住它开始吮吸，硬邦邦的鸡巴塞满了你的嘴。阿纳托利·鲍里索维奇爽得咬牙切齿："吸吧，骚货，别忘了把最后一滴都吞下去！"你感到他的精液射进嘴里，连忙快速吞咽，以免呛到。完事后，阿纳托利·鲍里索维奇把鸡巴塞回裤子里。"现在滚出去。"'
+
+				gs 'npcStat', 'A74'
+				gs 'arousal', 'bj', 5, 'sub', 'prostitution'
+				gs 'cum_call', 'mouth_swallow', $npcID, 1
+				gs 'arousal', 'end'
+
+				act '离开': gt 'burger', 'start'
+			end
+		else
+			'这不应该发生！'
+			'在 BurgerQW[''Level''] = <<BurgerQW[''Level'']>>的情况下，你不应该能到达这里'
+			act '离开': gt 'burger', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'bossSlut_10':
+	if func('jobs', 'is_work_day', 'city_diner_secretary', daystart) = 0:
+		'今天是周末，阿纳托利·鲍里索维奇不在这里。'
+	elseif func('jobs', 'is_work_time', 'city_diner_secretary') = 0:
+		'阿纳托利·鲍里索维奇不在这里。'
+	else
+		'阿纳托利·鲍里索维奇正坐在桌前跟人通电话。'
+	end
+
+	act '离开': gt 'burger', 'start'
+
+	if $job_status['city_diner_secretary'] = 'fired':
+		if func('jobs', 'is_arrival_time', 'city_diner_secretary') = 1: '阿纳托利·鲍里索维奇严厉地看着你："<<$pcs_nickname>>，你被解雇了。走吧，我们到此为止，比起你，我更爱我的妻子。"'
+	elseif $job_status['city_diner_secretary'] = 'employed':
+		if func('jobs', 'is_arrival_time', 'city_diner_secretary') = 1:
+			if POffice = 0:
+				'阿纳托利·鲍里索维奇严厉地看着你："<<$pcs_nickname>>，你怎么没穿好正装？回家去，明天穿得体面点再来，你今天不用上班了！"'
+			else
+				act '工作': gt 'burgerWork', 'start'
+
+				act '辞职':
+					gs 'jobs', 'set_terminated', 'city_diner_secretary'
+					minut += 20
+
+					gt 'burger', 'start'
+				end
+			end
+		end
+
+	elseif func('jobs', 'is_work_day', 'city_diner_secretary', daystart) = 1:
+		if license['secretary'] = 1:
+			act '出示你的秘书文凭':
+				*clr & cla
+				menu_off = 1
+				minut += 1
+				gs 'stat'
+				'你向阿纳托利·鲍里索维奇出示你的文凭，他问你："你想为我工作吗？"'
+
+				act '不':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'你告诉他，你已经在别处工作了。阿纳托利·鲍里索维奇微微一笑："我要怎么做才能让你辞掉现在的工作来为我工作？你可以考虑一下，我不会强迫你，但我会付给你一份像样的薪水。你每天能拿到<<$func(''money'', ''string_profit'', 1250)>>。"'
+
+					act '离开': gt 'burger', 'start'
+				end
+
+				if $job_status['city_diner_secretary'] = '' and func('jobs', 'check_employment_possible', 'city_diner_secretary') = 1:
+					act '询问工作':
+						*clr & cla
+						minut += 1
+						gs 'stat'
+						'你询问了工作的事。阿纳托利·鲍里索维奇微微一笑："你可以考虑一下，我不会强迫你，但我会付给你一份像样的薪水。你每天能拿到<<$func(''money'', ''string_profit'', 1250)>>。我要的是忠诚、勤奋，以及严格服从我的指示。"'
+
+						act '离开': gt 'burger', 'start'
+
+						act '接受这份工作':
+							*clr & cla
+							minut += 1
+							gs 'jobs', 'set_employed', 'city_diner_secretary'
+							gs 'stat'
+							'你同意成为阿纳托利·鲍里索维奇的秘书。他收下你的简历，复印了你的护照和文凭，然后告诉你："以后每个工作日都来这里上班，不晚于 '+func('time', 'get_time_string', 9, 0)+'，你必须穿着职业装。你将接听电话、收信件、复印文件，并且必须按要求做任何其他一般办公室工作。你将要工作到 '+func('time', 'get_time_string', 17, 0)+'，你的薪水将每月存入你的银行账户。"'
+
+							act '离开': gt 'burger', 'start'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+--- burger ---------------------------------

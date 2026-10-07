@@ -1,0 +1,315 @@
+# gp_zlatek_schedule
+!! Date Created: 15th May, 2024
+!! Version: .01
+!! Author: Myles Croft
+!!
+!! Sveta''s Grandfather in Gad npc id A32
+!!
+
+	!! locat['A32'] tells us where Zlatek is Located
+	!! ----------------------------------------------
+	!! locat['A32'] = 100		Bedroom
+
+	!! locat['A32'] = 110		Livingroom
+	!! locat['A32'] = 111		Livingroom - Reading a book
+	!! locat['A32'] = 112		Livingroom - Watching tv
+
+	!! locat['A32'] = 120		Kitchen - Reading
+
+	!! locat['A32'] = 200		Garden - gardening
+
+	!! locat['A32'] = 210		Sauna - Bathing
+
+	!! locat['A32'] = 220		Stables
+
+
+	!! locat['A32'] = 300		Village
+
+	!! locat['A32'] = 310		Church
+
+	!! locat['A32'] = 320		River - Fishing
+
+	!! locat['A32'] = 330		Fields
+
+if $ARGS[0] = 'is_here':
+	if arrsize('ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('ARGS') = 2: $ARGS[2] = $loc_arg
+
+	result = func('gp_zlatek_schedule', 'here_core', $ARGS[1], $ARGS[2], $locat['A32_loc'], $locat['A32_arg'])
+	exit
+end
+
+
+if $ARGS[0] = 'was_here':
+	if arrsize('ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('ARGS') = 2: $ARGS[2] = $loc_arg
+
+	result = func('gp_zlatek_schedule', 'here_core', $ARGS[1], $ARGS[2], $locat['A32_loc_prev'], $locat['A32_arg_prev'])
+	exit
+end
+
+
+if $ARGS[0] = 'here_core':
+	result = ($ARGS[3] = $ARGS[1] and $ARGS[4] = $ARGS[2])
+	exit
+end
+
+
+if $ARGS[0] = 'cikl':
+	locat['A32_rand'] = rand(0, 239)
+end
+
+
+if $ARGS[0] = '':
+	$locat['A32_loc_prev'] = $locat['A32_loc']
+	$locat['A32_arg_prev'] = $locat['A32_arg']
+	$locat['A32_arg1_prev'] = $locat['A32_arg1']
+
+	gs 'gp_zlatek_schedule', 'update_locat'
+end
+
+
+if $ARGS[0] = 'update_locat':
+	!! scheduled weekday events.
+	temp_zlatek_locat = func('gp_zlatek_schedule', 'get_base_schedule')
+
+	if sunWeather = 0:
+		if temp_zlatek_locat = 200 or temp_zlatek_locat = 320 or temp_zlatek_locat = 330: temp_zlatek_locat = 110
+	end
+
+	temp_zlatek_locat = func('gp_zlatek_schedule', 'get_random_schedule', temp_zlatek_locat)
+
+	gs 'gp_zlatek_schedule', 'set_locats', temp_zlatek_locat
+	killvar 'temp_zlatek_locat'
+end
+
+
+if $ARGS[0] = 'get_base_schedule':
+	if hour <= 5:
+		!! Bedroom
+		result = 100
+	elseif hour = 6:
+		!! Kitchen
+		result = 120
+	elseif hour = 7:
+		!! Livingroom + Random
+		result = 110
+	elseif hour = 8:
+		if week < 4:
+			!! Random
+			result = 0
+		elseif week = 4:
+			!! Livingroom + Random
+			result = 110
+		else
+			!! Fields
+			result = 330
+		end
+	elseif hour < 12:
+		if week < 4:
+			!! Random
+			result = 0
+		elseif week = 4:
+			!! Livingroom + Random
+			result = 110
+		elseif week = 5 or week = 6:
+			!! Fields
+			result = 330
+		else
+			!! Church
+			result = 310
+		end
+	elseif hour = 12:
+		!! Kitchen
+		result = 120
+	elseif hour = 13:
+		if week = 7:
+			!! Kitchen
+			result = 120
+		else
+			!! Sauna
+			result = 210
+		end
+	elseif hour = 14:
+		if week = 7:
+			!! Kitchen
+			result = 120
+		else
+			!! Livingroom + Random
+			result = 110
+		end
+	elseif hour < 18:
+		!! Livingroom + Random
+		result = 110
+	elseif hour = 18:
+		!! Kitchen
+		result = 120
+	elseif hour < 21:
+		if week = 6:
+			!! Church
+			result = 310
+		else
+			!! Livingroom + Random
+			result = 110
+		end
+	else
+		!! Bedroom
+		result = 100
+	end
+end
+
+
+if $ARGS[0] = 'get_random_schedule':
+	result = ARGS[1]
+	if result = 0:
+		if hour / 2 mod 2 = 0:
+			if locat['A32_rand'] mod 4 = 0:
+				!! Livingroom + Random
+				result = 110
+			elseif locat['A32_rand'] mod 4 = 1:
+				!! Garden
+				result = 200
+			elseif locat['A32_rand'] mod 4 = 2:
+				!! Stables
+				result = 220
+			else
+				!! River
+				result = 320
+			end
+		else
+			if locat['A32_rand'] / 4 mod 4 = 0:
+				!! Livingroom + Random
+				result = 110
+			elseif locat['A32_rand'] / 4 mod 4 = 1:
+				!! Garden
+				result = 200
+			elseif locat['A32_rand'] / 4 mod 4 = 2:
+				!! Stables
+				result = 220
+			else
+				!! River
+				result = 320
+			end
+		end
+	end
+
+	if result = 110:
+		!! temp_subloc = 0: Reading a book
+		!! temp_subloc = 1: Watching TV
+
+		if hour < 9:
+			temp_subloc = locat['A32_rand'] / 16 mod 2
+		elseif hour < 11:
+			temp_subloc = locat['A32_rand'] / 32 mod 2
+		elseif hour < 13:
+			temp_subloc = locat['A32_rand'] / 64 mod 2
+		elseif hour < 15:
+			temp_subloc = locat['A32_rand'] / 128 mod 2
+		elseif hour < 17:
+			temp_subloc = locat['A32_rand'] / 48 mod 2
+		elseif hour < 19:
+			temp_subloc = locat['A32_rand'] / 96 mod 2
+		elseif hour < 21:
+			temp_subloc = locat['A32_rand'] / 80 mod 2
+		end
+		result = 111 + temp_subloc
+		killvar 'temp_subloc'
+	end
+end
+
+
+if $ARGS[0] = 'set_locats':
+	if ARGS[1] = 100:
+		$locat['A32_loc'] = 'gad_gphouse'
+		$locat['A32_arg'] = 'gp_room'
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 110:
+		$locat['A32_loc'] = 'gad_gphouse'
+		$locat['A32_arg'] = 'main'
+		$locat['A32_arg1'] = ''
+	elseif ARGS[1] = 111:
+		$locat['A32_loc'] = 'gad_gphouse'
+		$locat['A32_arg'] = 'main'
+		$locat['A32_arg1'] = 'reading'
+	elseif ARGS[1] = 112:
+		$locat['A32_loc'] = 'gad_gphouse'
+		$locat['A32_arg'] = 'main'
+		$locat['A32_arg1'] = 'watching_tv'
+
+	elseif ARGS[1] = 120:
+		$locat['A32_loc'] = 'gad_gphouse'
+		$locat['A32_arg'] = 'kitchen'
+		$locat['A32_arg1'] = 'reading'
+
+	elseif ARGS[1] = 200:
+		$locat['A32_loc'] = 'gad_gpyard'
+		$locat['A32_arg'] = 'garden'
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 210:
+		$locat['A32_loc'] = 'gad_gpbath'
+		$locat['A32_arg'] = 'start'
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 220:
+		$locat['A32_loc'] = 'gad_gpbarn'
+		$locat['A32_arg'] = ''
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 300:
+		$locat['A32_loc'] = 'gadukino'
+		$locat['A32_arg'] = ''
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 310:
+		$locat['A32_loc'] = 'gad_church'
+		$locat['A32_arg'] = 'start'
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 320:
+		$locat['A32_loc'] = 'gad_river'
+		$locat['A32_arg'] = 'start'
+		$locat['A32_arg1'] = ''
+
+	elseif ARGS[1] = 330:
+		$locat['A32_loc'] = 'gad_field'
+		$locat['A32_arg'] = 'field'
+		$locat['A32_arg1'] = ''
+	end
+end
+
+
+if $ARGS[0] = 'getLocation':
+	gs 'gp_zlatek_schedule', 'update_locat'
+
+	if $locat['A32_loc'] = 'gad_gphouse':
+		if $locat['A32_arg'] = 'gp_room':
+			$npcLocation['A32'] = '你的祖父在他的卧室里'
+
+		elseif $locat['A32_arg'] = 'main':
+			$npcLocation['A32'] = '你的祖父在他的起居室里'
+		elseif $locat['A32_arg'] = 'kitchen':
+			$npcLocation['A32'] = '你的祖父在他的厨房里'
+		end
+	elseif $locat['A32_loc'] = 'gad_gpyard':
+		$npcLocation['A32'] = '你的祖父在他的花园里'
+	elseif $locat['A32_loc'] = 'gad_gpbath':
+		$npcLocation['A32'] = '你的祖父正在他的桑拿房里洗澡'
+	elseif $locat['A32_loc'] = 'gad_gpbarn':
+		$npcLocation['A32'] = '你的祖父在他的马厩里'
+
+	elseif $locat['A32_loc'] = 'gad_gpgadukino':
+		$npcLocation['A32'] = '你的祖父在加杜基诺四处走动'
+	elseif $locat['A32_loc'] = 'gad_church':
+		$npcLocation['A32'] = '你的祖父在他的教堂里'
+	elseif $locat['A32_loc'] = 'gad_river':
+		$npcLocation['A32'] = '你的祖父在河边钓鱼'
+	elseif $locat['A32_loc'] = 'gad_field':
+		$npcLocation['A32'] = '你的祖父在田里'
+
+	end
+end
+
+
+--- gp_zlatek_schedule ---------------------------------

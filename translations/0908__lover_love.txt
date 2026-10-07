@@ -1,0 +1,121 @@
+# lover_love
+
+if $ARGS[0] = '':
+	if npc_love[$npcID] = 1:
+		if pcs_makeup > 1 and ($clothingworntype = 'fashionista_dress' or $clothingworntype = 'moncheri_gown' or $clothingworntype = 'moncheri_dress') and curly > 0:
+			if npc_gentle[$npcID] = 1:
+				'<<$npcdesc>>看起来非常兴奋。 <<$Xec>>认为你现在可以见<<$xyr>>的母亲了。'
+				act '见家长': gt 'love', 'mother'
+			elseif npc_rough[$npcID] = 0 and $pantyworntype ! 'none':
+				'<<$npcdesc>>打量着你，认为你已经准备好见<<$xyr>>的朋友们了。'
+				act '遇见<<$xyr>>的朋友们': gt 'love', 'frends'
+			end
+		end
+	elseif npc_love[$npcID] = 2:
+		'<<$npcdesc>>看起来非常兴奋，突然从盒子里掏出一枚戒指。'
+		'<<$npcdesc>>说 "<<$pcs_nickname>>. 我向你献上我的手和心。你愿意嫁给我吗？"'
+
+			act '不 （拒绝<<$xem>>)':
+				minut += 60
+				pregtalk = 0
+				gs 'lover', 'remove_' + $npc_rel_type[$npcID], $npcID
+				gt 'homes_properties', 'go_home'
+			end
+
+		act '愿意':
+			cla
+			'你同意了把戒指戴到你的手指上。 <<$npcdesc>>欣喜若狂，高兴地拥抱并亲吻你。'
+			'<<$npcdesc>>说 "现在你需要去找一件婚纱。"'
+
+			act '去找礼服':
+				cla
+				minut += 60
+				npc_love[$npcID] = 3
+				if npcGender = 0:
+					'你和你的准丈夫坐上一辆出租车去商店选择一件礼服。你选择了一件昂贵而奢华的礼服。 <<$npcdesc>>付了钱。'
+					'漫长的一天过后你感到疲惫并请<<$npcdesc>>送你回家，并提醒他下次见面你们就要结婚了。'
+				else
+					'你和你的准妻子坐上一辆出租车去商店选择一件礼服。你选择了一件昂贵而奢华的礼服。 <<$npcdesc>>付了钱。'
+					'漫长的一天过后你感到疲惫并请<<$npcdesc>>送你回家，并提醒她下次见面你们就要结婚了。'
+				end
+				act '回家': gt 'homes_properties', 'go_home'
+			end
+		end
+	elseif npc_love[$npcID] = 3:
+		'<<$npcdesc>>租了一辆婚礼豪华轿车，它正在外面等你。就是今天了，你今天就要结婚了。'
+
+		act '坐进豪华轿车':
+			cla
+			'你坐进豪华轿车，它开走了。很快你到达婚礼现场，<<$npcdesc>>正等你走过红毯。'
+
+			if npcGender = 0:
+				act '嫁给丈夫':
+					cla
+					minut += 60
+					gs 'lover_love', 'marry', $npcID
+					'婚宴在一家咖啡馆举行。客人不多，因为你和新郎都没有多少朋友或家人。现场充满了祝贺、祝酒、欢闹和泪水。到了晚上，所有人都喝醉了，你和你的丈夫跌跌撞撞地坐上一辆出租车回家。'
+
+					act '新婚之夜': gt 'husbsex', 'room'
+				end
+			else
+				act '娶妻子':
+					cla
+					minut += 60
+					gs 'lover_love', 'marry', $npcID
+					'婚宴在一家咖啡馆举行。客人不多，因为你和新娘都没有多少朋友或家人。现场充满了祝贺、祝酒、欢闹和泪水。到了晚上，所有人都喝醉了，你和你的妻子跌跌撞撞地坐上一辆出租车回家。'
+
+					!! act 'Wedding night': gt 'husbsex', 'room'
+					act '新婚之夜': gt 'bedr'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'marry':
+	if $husID <> '' or $wifID <> '':
+		msg '你已经结婚了，这不应该触发！'
+	else
+		if npc_gender[$ARGS[1]] = 0 or npc_gender[$ARGS[1]] = 3:
+			gs 'lover', 'add_husband', $ARGS[1]
+			stat['boyfriends_current'] -= 1
+			stat['total_lovers_current'] -= 1
+		else
+			gs 'lover', 'add_wife', $ARGS[1]
+			stat['girlfriends_current'] -= 1
+			stat['total_lovers_current'] -= 1
+		end
+
+		spouseVars['marry_day'] = daystart
+		spouseVars['eat_day'] = daystart
+		spouseVars['wash_day'] = daystart
+		spouseVars['clean_day'] = daystart
+		spouseVars['men_fucked_before'] = stat['men_fucked']
+		spouseVars['women_fucked_before'] = stat['women_fucked']
+		!! gs 'rings', 'wear', ???
+		PRinStyle = 1
+		PRinStyle2 = 1
+	end
+end
+
+
+if $ARGS[0] = 'divorce':
+	if $husID <> '':
+		gs 'lover', 'remove_husband'
+	elseif $wifID <> '':
+		gs 'lover', 'remove_wife'
+	else
+		exit
+	end
+
+	divorced += 1
+	if PRinStyle2 = 1:
+		!! gs 'rings', 'strip'
+		PRinStyle = 0
+		PRinStyle2 = 0
+	end
+end
+
+
+--- lover_love ---------------------------------

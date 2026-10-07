@@ -1,0 +1,281 @@
+# bedrPar
+
+*clr & cla
+menu_off = 0
+!! minut += 1
+!! day check so mom doesn''t think you have been out all night if you get up very early
+motherworry[1] = daystart
+gs 'core_library', 'setloc', 'bedrPar', $ARGS[0]
+$location_type = 'private'
+$locclass = 'bedr'
+gs 'themes', 'indoors'
+gs 'stat'
+gs 'family_schedule'
+gs 'music_actions', 'clear_restrictions'
+
+!! This is runs only once, just to make sure that Sveta can sing from the start, does not have to wait a whole day for `cikl` to run.
+if ml_performance['max_perform_minutes'] = 0: ml_performance['max_perform_minutes'] = pcs_instrmusic + pcs_vokal
+
+if $ARGS[0] = '' or $ARGS[0] = 'start':
+	if locat['Mother'] = 26 and $prevloc = 'bedrPar' and func('homes_properties', 'can_live_here'):
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/prost1.jpg"></center>'
+		if motherKnowSpravka = 0 and mc_inventory['equipped_condoms'] > 0 and rand(1, 3) = 1 and mom['condoms'] = 0:
+			gt 'mother', 'condom_find'
+		elseif mc_inventory['dildo_small'] + mc_inventory['dildo_normal'] + mc_inventory['dildo_big'] + mc_inventory['dildo_large'] + mc_inventory['dildo_huge'] + mc_inventory['dildo_enormous'] + mc_inventory['dildo_gigantic'] > 0 and motherQW['seen_dildos'] ! 1 and rand(1, 3) = 1:
+			gt 'mother', 'dildo_find'
+		elseif mc_inventory['buttplug'] = 1 and analPlugIn = 0 and motherQW['seen_plug'] ! 1 and rand(1, 3) = 1:
+			gt 'mother', 'plug_find'
+		else
+			'你走进卧室，发现你的母亲正在打扫房间、掸去灰尘，叠好衣服、把它们收好，还整理着床铺。'
+			act '打开衣柜':
+				$loc = 'korrPar'
+				$loc_arg = ''
+				gt 'wardrobe', 'start'
+			end
+			act '离开': minut += 1 & gt 'korrPar'
+		end
+	elseif ParrotQW['Level'] = 2 and func('homes_properties', 'is_current_home'):
+		*clr & cla
+		menu_off = 1
+		'你一进房间，就冲到<<$ParrotQW[''Name2'']>>的笼子前，把瓶子里的东西倒进他的水碗里。你希望这会奏效，让他不再泄露你和你姐姐卧室里的秘密。'
+		ParrotQW['Level'] = 3
+		ParrotQW['Day'] = 3
+
+		act '继续': minut += 1 & gt $loc, $loc_arg
+	elseif ParrotQW['SisterReleaseParrotDay'] + 3 < daystart and ParrotQW['Level'] = 1 and func('homes_properties', 'is_current_home'):
+		*clr & cla
+		menu_off = 1
+		'当你进入房间，你注意到<<$ParrotQW[''Name2'']>>的笼子是开着的，他已经不见了。'
+		'一定是安雅放走了他，因为你没能及时找到解决办法。'
+		ParrotQW['Owned2'] = 0
+		ParrotQW['Level'] = 0
+		ParrotQW['Day'] = 2
+		ParrotQW['Failed'] = 0
+		gs 'stat'
+
+		act '继续': minut += 1 & gt $loc, $loc_arg
+	elseif pcs_magik >= 6 and spellbefshild = 1 and tobiQW = 0 and locat['Anya_inroom'] = 0 and func('homes_properties', 'can_live_here'):
+		gt 'tobiQW', 'start'
+
+	elseif locat['Anya'] = 11 and func('homes_properties', 'can_live_here'):
+		gt 'sisterQW', 'sisboyQW_expel'
+
+	elseif locat['Anya_inroom'] = 1 and ParrotQW['Owned2'] = 1 and ParrotQW['SisKeepParrot'] = 0 and func('homes_properties', 'is_current_home'):
+		*clr & cla
+		menu_off = 1
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/sister2.jpg"></center>'
+		'"那是什么？" 安雅指着笼子里的<<$ParrotQW[''Name2'']>>问道。'
+		'"我去商场买了这只鸟。他是不是超可爱？"'
+		if npc_rel['A33'] > 50:
+			'"倒也不是，但我看得出你真的很想要它。只要它别太吵，我就不介意。"'
+			ParrotQW['SisKeepParrot'] = 1
+		end
+		if npc_rel['A33'] <= 50:
+			'"它一点也不可爱，我建议你把它弄走。我可不想和一只鸟共用一个房间！"'
+			'你有点难过，但你能理解。你买它之前应该先问问她。'
+			'你走到窗边，打开窗户，把鸟放走了。'
+			ParrotQW['Owned2'] = 0
+		end
+		gs 'stat'
+
+		act '离开': minut += 1 & gt 'korrPar'
+	else
+		if func('homes_properties', 'can_live_here'):
+			$func('wrap', 'header center h1', '你的卧室')
+		else
+			$func('wrap', 'header center h1', '你的旧卧室')
+		end
+		!! WD: Correct Image path ~ "images/qwest/alter/<<$loc>>.jpg"
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/bedrpar.jpg"></center>'
+		*nl
+		if func('homes_properties', 'is_current_home'):
+			'这是你和你姐姐安雅共用的小卧室。房间的一侧有一个<a href="exec:gt ''wardrobe'', ''start''">衣柜</a>, 你可以在那里挑选服装、整理衣物。'
+			*nl
+			'你的<a href="exec:gt ''bed'', ''start''">床</a>立在大衣柜对面，还有你的<a href="exec:gt ''stol'' ,''start''">书桌</a>就在它旁边'+iif(mc_inventory['strapon'] = 1, '. 你把你的假阳具放在里面。', '。')+' 你姐姐的床在另一个角落。'
+		else
+			'这间小卧室是你过去和姐姐安雅共用的。家具又旧又简陋。'
+		end
+		*nl
+		if $ml_guitar['location'] = $loc: '你的吉他放在床边的架子上。'
+
+		if ParrotQW['Owned2'] = 1 and func('homes_properties', 'is_current_home'):
+			'<a href="exec:gt ''popu'',''start2''"><<$ParrotQW[''Name2'']>></a>正蹲在他的笼子里'
+			if daystart - ParrotQW['BuyDate'] <= 10:
+				'当你进入房间时，<<$ParrotQW[''Name2'']>>开始冲你嘎嘎叫。'
+			elseif daystart - ParrotQW['BuyDate'] <= 20:
+				'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。听起来几乎像是在说 "<b>你好<<$pcs_nickname>>!</b>"'
+			elseif daystart - ParrotQW['BuyDate'] <= 30:
+				'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他清楚地是在说 "<b>你好<<$pcs_nickname>>!</b>"'
+			elseif daystart - ParrotQW['BuyDate'] <= 35:
+				'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b><<$pcs_nickname>>非常漂亮！</b>"'
+			elseif daystart - ParrotQW['BuyDate'] <= 40:
+				'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>好身材，<<$pcs_nickname>>!</b>"'
+			elseif daystart - ParrotQW['BuyDate'] <= 50:
+				'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>你是最棒的，安雅！</b>"'
+			elseif daystart - ParrotQW['BuyDate'] <= 55:
+				'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>对，就是这样安雅！全都吞下去！</b>"'
+			else
+				if ParrotQW['Level'] < 3:
+					'当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>你的小穴味道好极了，安雅！</b>"'
+				else
+					parfixrand = rand(0, 9)
+					if parfixrand = 0: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>你刚才对我说什么？</b>"'
+					if parfixrand = 1: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>3.1415926535897932384…</b>"'
+					if parfixrand = 2: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>靠近一点，我的朋友。</b>"'
+					if parfixrand = 3: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>过来小猫咪，小猫咪！</b>"'
+					if parfixrand = 4: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>我才刚认识你，这太疯狂了！</b>"'
+					if parfixrand = 5: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>在我面前低头！</b>"'
+					if parfixrand = 6: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>他只是个朋友，真的！</b>"'
+					if parfixrand = 7: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>你对我的袜子做了什么？</b>"'
+					if parfixrand = 8: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>她就是这么说的！</b>"'
+					if parfixrand = 9: '当<<$ParrotQW[''Name2'']>>看到你时，他开始 ''说话''。他在说 "<b>救命！他们把我变成了鹦鹉！</b>"'
+					killvar 'parfixrand'
+				end
+			end
+			*nl
+		end
+
+		if func('homes_properties', 'can_live_here'):
+			'<table><tr><td valign="top">'
+			func('alarmclock', 'base_alarmclock_text')
+
+			if mc_inventory['contraceptive_pill'] > 0 and mc_inventory['equipped_condoms'] + mc_inventory['normal_condoms'] + mc_inventory['sabotaged_condoms'] > 0:
+				'你的<a href="exec:gt ''stol'', ''bc''">避孕药</a>藏在你的一个书桌抽屉里，同样还有你的<a href="exec:gt ''stol'', ''bc''">避孕套</a>。'
+			elseif mc_inventory['contraceptive_pill'] > 0:
+				'你的<a href="exec:gt ''stol'', ''bc''">避孕药</a>藏在你的一个书桌抽屉里。'
+			elseif mc_inventory['equipped_condoms'] + mc_inventory['normal_condoms'] + mc_inventory['sabotaged_condoms'] > 0:
+				'你的<a href="exec:gt ''stol'', ''bc''">避孕套</a>藏在你的一个书桌抽屉里。'
+			end
+
+			if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and week = 6 and hour > 4 and hour < 9 and detention_set = 1 and detention_warning ! daystart:
+				detention_warning = daystart
+				msg '你今天早上有留堂，并且到校时间不得晚于 '+func('time', 'get_time_string', 9, 0)+'。'
+			end
+
+			if mc_inventory['tech_computer'] = 1: '你的<a href="exec: gt ''komp'',''start''">电脑</a>在书桌上。'
+
+			if npc_QW['A33'] > 10: npc_QW['A33'] = 10
+		end
+
+		if locat['Anya_Gad'] = 0:
+			if sisboyparty_day + 1 = daystart and sisboyparty = -1 and hour = 22:
+				*clr & cla
+				menu_off = 1
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/rekshome/party/sisboyqwparty_6_<<rand(1,7)>>.jpg"></center>'
+				'安雅醉醺醺、衣衫不整地冲进房间。你注意到她的头发和衣服上沾满了精液，但她似乎毫不在意，倒在床上就立刻睡着了。'
+				sisboyparty = 1
+				act '走开': gt $loc
+			else
+				sisterdialog = 1
+
+				if locat['Anya'] = 26 or (locat['Anya'] = 1 and locat['Anya_party_day'] >= daystart - 1):
+					if sisboypartyQW = 1: sisboypartyQW = 2
+					if sisboyparty = -1: sisboyparty = 1
+					'一个醉醺醺的<a href="exec:gt ''sistersleep'', ''drunk_after_party''">安雅</a>在自己的床上睡得很沉。'
+				elseif locat['Anya'] = 1:
+					'<a href="exec:gt ''sistersleep'', ''sister_sleep''">安雅</a>在自己的床上睡着了。'
+				elseif locat['Anya'] = 4:
+					sisterdialog = 3
+					'<a href="exec:gt ''sister_chat'', ''talking''">安雅</a>正准备出门。'
+				elseif locat['Anya'] = 15:
+					if anyaQW['bathroom_dildos'] > 0:
+						gt 'sister_chat', 'bathroom_dildo_talk1'
+					elseif sisterQW['sex_room'] > 0:
+						gt 'sister_chat', 'sex_room_talk1'
+					end
+					'<a href="exec:gt ''sister_chat'', ''talking''">安雅</a>正坐在她的床上，读着一本书。'
+				end
+			end
+		end
+
+		act '走出房间':
+			if (locat['Anya'] = 4 or locat['Anya'] = 15) and daystart - ParrotQW['BuyDate'] > 55 and ParrotQW['Owned2'] = 1 and ParrotQW['SisterReleaseParrotDay'] = 0 : gt 'sister_chat', 'pargone'
+			minut += 1 & gt 'korrPar'
+		end
+
+		!! allows quick change to and from default school and sports clothing
+		gs 'wardrobe', 'default_clothing_options'
+
+		if func('homes_properties', 'can_live_here'):
+			act '在床上放松': gt 'bed', 'start'
+			act '打开衣柜': gt 'wardrobe', 'start'
+			gs 'daily_routine', 'offer_here'
+			gs 'prostitution_functions', 'prostitute_outfit_at_home'
+
+			if mc_inventory['mag_porn'] > 0: '你把色情杂志藏在了床垫下面。'
+			!! Masturbation, allowed after sister threesome (when sis_watch is used for a message) or sister not here.
+			sis_watch = 0
+
+			if locat['Anya_inroom'] = 0 or sisboytrio > 0:
+				gs 'library_functions', 'set_read_porn_act'
+				if rexCarCount >= 9 and hour < 3 and rexSmsDay ! daystart and smsForRex < 13:
+					act '给雷克斯发条短信': gt 'rex_events', 'sms'
+				end
+				if pcs_horny >= 50:
+					act '自慰': gt 'selfplay', 'start'
+				end
+
+				if mc_inventory['vintage_card'] > 0: act '查看你的复古色情卡片': card_deck = 0 & gt 'card'
+				if mc_inventory['card'] > 0: act '查看你的新色情卡片': card_deck = 1 & gt 'card'
+			end
+
+			gs 'library_functions', 'set_home_read_acts'
+
+			if mc_inventory['trinkets_home'] > 0: '你目前有<<mc_inventory[''trinkets_home'']>>件小饰品可在车站出售。你最多能携带30件。'
+
+			if locat['Anya_inroom'] = 0: gs 'din_van', 'palelady'
+
+			gs 'exercise', 'start'
+
+			if mc_inventory['sewing_kit'] = 1:
+				'你的<a href="exec:gt ''sewing'',''start''">缝纫工具箱</a>整齐地存放在你的床下。'
+				*nl
+				if mc_inventory['sewing_fabric'] <= 0: '你没有任何布料。'
+				if pcs_sewng >= 80:
+					if newgobelen = 0 and mc_inventory['sewing_fabric'] > 0:
+						act '开始一幅新的挂毯': gt 'sewing', 'tapestry'
+					elseif newgobelen >= 1:
+						'你的挂毯已经完成了<<newgobelen/10>>%。'
+						act '织挂毯': gt 'sewing', 'tapestry'
+					end
+				end
+				if mc_inventory['tapestry'] > 0: '你有<<mc_inventory[''tapestry'']>>件完成的挂毯。'
+			end
+
+			!! Computer, music and internet use.
+			gs 'internet_mobile', 'get_access'
+			if locat['Anya_inroom'] = 1:
+				gs 'music_actions', 'not_alone'
+
+				if sisboytrio = 0:
+					gs 'internet_mobile', 'add_limitation', 'noporn', '你姐姐在房间里时你不该看色情内容。她肯定会发现的！'
+				end
+				gs 'internet_mobile', 'add_limitation', 'nocamshow', '你姐姐在房间里时你不能做任何摄像头直播！'
+			end
+
+			if locat['Anya_inroom'] = 0 and mc_inventory['breast_pump'] = 1 and bp_unbox <= 0:
+				'<a href="exec: gt ''lact_bp'', ''bp_unbox_event''">开箱</a>你的吸乳器'
+			elseif kid >= 1 and mc_inventory['breast_pump'] = 1 and bp_unbox <= 0:
+				'<a href="exec: gt ''lact_bp'', ''bp_unbox_event''">开箱</a>你的吸乳器'
+			elseif locat['Anya_inroom'] = 0 and mc_inventory['breast_pump'] = 1 and bp_unbox = 1 and pcs_inhib > 40:
+				'<a href="exec: gt ''lact_bp'', ''bp_unbox_event''">试试</a>你的吸乳器'
+			elseif kid >= 1 and mc_inventory['breast_pump'] = 1 and bp_unbox = 1 and pcs_inhib > 30:
+				'<a href="exec: gt ''lact_bp'', ''bp_unbox_event''">试试</a>你的吸乳器'
+			end
+			gs 'lact_bp', 'massage'
+			gs 'blackmailer', 'open_package_act'
+		end
+
+		'</td><td width = "100" valign="top"></td><td>'
+		if func('homes_properties', 'is_current_home'): gs 'subkid'
+		'</td></tr></table>'
+
+		!! NOTE: This has to go here, otherwise gs 'subkid' removes the icon.
+		gs 'music_actions', 'start'
+	end
+end
+
+
+--- bedrPar ---------------------------------

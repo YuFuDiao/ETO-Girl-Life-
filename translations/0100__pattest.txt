@@ -1,0 +1,93 @@
+# pattest
+!! It is called like "gs 'pattest','Kolka'", or "gs 'pattest',$boy"
+!! It needs some automatic call, usable when a named guy has cum in or on you, and only his cum is in/on the area (do not call this with "rapist", "unknown" or "gopnik")
+!! Calls should be done with unique IDs 'A34' for Kolka etc.
+!!	$ChildFath : array for names of the childs biological father. This should be the absolute truth, not readily available information for the characters.
+!!	$ChildThFath : array for the IDs of the childs believed father (can be different from the biological father and should be in form of ID ie. 'A34' or 'unknown' if Sveta has no idea) Do not use for pregnancy events as it is only updated when going to labor. This is probably the variable you want to work with when doing paternity tests, or if father reacts to physical traits not matching despite Sveta claiming they are the dad.
+
+!! There needs to be an option to call it selectively when certain circumstances are met ($boy gives sample voluntarily).
+
+if ARGS[1] ! 1 and pattest > 0:
+	j = 0
+	p ''
+	clr
+	if kid > 0 and arrpos('surefather', '0') ! kid:
+		pl '<br>选择你想与<<$ARGS[0]>>比对的孩子：<br>'
+		$papa = $ARGS[0]
+		:kiddieloop
+			kidid[j] = j
+			value = kidid[j]
+			if surefather[j] = 0: pl '    <a href="exec:func(''pattest'', value, 1) & pattest -= 1 & gs ''stat''"><<$kidname[j]>></a>'
+		if j < kid-1: j += 1 & jump 'kiddieloop'
+	elseif kid = 0:
+		msg '你还没有孩子！'
+		gs 'stat'
+	else
+		msg '你确定自己每个孩子的父亲是谁！'
+		gs 'stat'
+	end
+	killvar 'j'
+	killvar 'kidid'
+elseif ARGS[1] ! 1:
+	msg '你没有可用的亲子鉴定！'
+	gs 'stat'
+end
+
+if ARGS[1] = 1:
+	testresDay[ARGS[0]] = 2147483647
+	if $ChildFath[ARGS[0]] = $papa: testresRes[ARGS[0]] = 1 else testresRes[ARGS[0]] = 0
+	$testresPotfath[ARGS[0]] = $papa
+	testresKid[ARGS[0]] = ARGS[0]
+	purse_pattest[ARGS[0]] = 1
+	used_pattest += 1
+	killvar 'papa'
+end
+
+!! Just shows the kid and the tested father
+$test_purse = {
+	j = 0
+	$msg = '你包里的测试：'
+	:pursekid
+		if purse_pattest[j] = 1:$msg += '<br><<$testresPotfath[j]>>对<<$kidname[j]>>的亲子鉴定。'
+	if j < kid-1:j += 1 & jump 'pursekid'
+	msg $msg
+	killvar 'msg'
+}
+
+!! used: dynamic $send_test, <kidnumber>
+$send_test = {
+	j = 0
+	:kloop
+		kidid[j] = j
+		if patpack[j] = 1:'    <a href="exec: testresDay[kidid[j]] = daystart+rand(5,7) & patpack[kidid[j]] = 0 & used_pattest -= 1 & gs ''money'', ''pay'', 20000">$kidname[j]</a>'
+	if j < kid - 1: j += 1 & jump 'kloop'
+	testresDay[ARGS[0]] = daystart+rand(5,7)
+	purse_pattest[ARGS[0]] = 0
+	used_pattest -= 1
+}
+
+$sms_testresult = {
+	cyc = 0
+	:testloop
+		if testresKid[cyc] ! 1:cyc += 1 & jump 'testloop'
+		if daystart >= testresDay[cyc]:
+			c2 = arrsize('SMS_msg')
+			$SMS_msg[c2] = '检测结果：<br>'
+			if testresRes[cyc] = 1: $SMS_msg[c2] += 'DNA 匹配' else $SMS_msg[c2] += 'DNA 不匹配'
+			$SMS_msg[c2] += '<br>在<<$testresPotfath[cyc]>>和<<$kidname[testresKid[cyc]]>>之间。'
+
+			$SMS_effect[c2] = {
+				if testresRes[cyc] = 1:
+					surefather[testresKid[cyc]] = 1
+					$ChildThFath[testresKid[cyc]] = $ChildFath[testresKid[cyc]]
+				else
+					if $ChildThFath[testresKid[cyc]] = $testresPotfath[testresKid[cyc]]:$ChildThFath[testresKid[cyc]] = 'unknown'
+				end
+			}
+			testresKid[cyc] = 0
+		end
+	if cyc < kid-1: cyc += 1 & jump 'testloop'
+	killvar 'cyc'
+	killvar 'c2'
+}
+--- pattest ---------------------------------

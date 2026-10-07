@@ -1,0 +1,356 @@
+# indik
+
+!! ═══════════════════════════════════════════════════════════════════════
+!!  DEPRECATED — Use $func('progressbar', ...) instead.
+!!  ARGS[0] = type: '1'=positive, '2'=negative, '3'=neutral-centre, '4'=group rel
+!!  ARGS[1] = value (0–100)
+!!  ARGS[2] = label text
+!!  ARGS[3] = phantom endpoint value (type 2) or grupTipe (type 4)
+!! ═══════════════════════════════════════════════════════════════════════
+
+if $ARGS[0] = '1':
+	!! Positive bar — fills left→right, green at high values
+	$result = $func('progressbar', 'positive', ARGS[1])
+	$ind = $result
+	exit
+end
+
+if $ARGS[0] = '2':
+	!! Negative bar — fills left→right, red at high values; phantom = ARGS[3]
+	$result = $func('progressbar', 'negative', ARGS[1], 0, ARGS[3])
+	$ind = $result
+	exit
+end
+
+if $ARGS[0] = '3':
+	!! Neutral-centre bar — bidirectional from 50 (lower is worse)
+	$result = $func('progressbar', 'smooth_positive', ARGS[1])
+	$ind = $result
+	exit
+end
+
+if $ARGS[0] = '4':
+	!! Group-relation bar — positive gradient
+	$result = $func('progressbar', 'positive', ARGS[1])
+	$ind = $result
+	exit
+end
+
+!! Fallback for unknown type — treat as positive
+$result = $func('progressbar', 'positive', ARGS[1])
+$ind = $result
+exit
+
+!{
+
+!! 1: npc_rel
+!! 4: group rel
+
+
+if $ARGS[0] = '': $ARGS[0] = str(ARGS[0])
+ARGS[1] = min(max(0, ARGS[1]), 100)
+if $ARGS[2] = '': $ARGS[2] = str(ARGS[2])
+
+
+if instr(';1;2;4;', ';<<$ARGS[0]>>;'):
+	if stat_cfg['android']:
+		if $ARGS[0] = '2':
+			$result = $func('progressbar', 'text_only', 'android_negative', ARGS[1], $ARGS[2])
+		else
+			$result = $func('progressbar', 'text_only', 'android_positive', ARGS[1], $ARGS[2])
+		end
+	else
+		if $ARGS[0] = '1':
+			$result = $func('progressbar', 'text', 'theme_positive', ARGS[1], $ARGS[2])
+		elseif $ARGS[0] = '2':
+			$result = $func('progressbar', 'text', 'reds', ARGS[1], $ARGS[2], ARGS[3])
+		elseif $ARGS[0] = '4':
+			if grupTipe = ARGS[3]:
+				if ARGS[1] < 20:
+					$temp_indik_text = '你将被踢出'
+				elseif ARGS[1] < 30:
+					$temp_indik_text = '最后警告'
+				elseif ARGS[1] < 40:
+					$temp_indik_text = '容忍'
+				elseif ARGS[1] < 60:
+					$temp_indik_text = '勉强算成员'
+				elseif ARGS[1] < 85:
+					$temp_indik_text = '成员'
+				else
+					$temp_indik_text = '受欢迎成员'
+				end
+			else
+				if ARGS[1] < 10:
+					$temp_indik_text = '被厌恶'
+				elseif ARGS[1] < 20:
+					$temp_indik_text = '讨厌'
+				elseif ARGS[1] < 50:
+					$temp_indik_text = '容忍'
+				elseif ARGS[1] < 70:
+					$temp_indik_text = '喜欢'
+				elseif ARGS[1] < 80:
+					$temp_indik_text = '非常喜欢'
+				else
+					$temp_indik_text = '除非你是荡妇否则会被要求加入'
+				end
+			end
+			$result = $func('progressbar', 'text', 'primary', ARGS[1], $temp_indik_text)
+			killvar 'temp_indik_text'
+		end
+	end
+	$ind = $result
+	exit
+end
+
+
+
+!{
+if Enable_scalepic:
+	!! 0=reverse, 1=100%, 2=value. copy from 1.2.5, modify by illume
+
+	ARGS[1] = min(max(1, ARGS[1]), 100)
+	! scalewidth default = 120px
+
+	if Enable_scalewidth > 0:
+		max_width = Enable_scalewidth
+	else
+		max_width = 120
+	end
+	if Enable_scaleheight > 0:
+		_height = Enable_scaleheight
+	else
+		_height = 15
+	end
+	_width = ARGS[1] * max_width / 100
+	if ARGS[1] < 30:
+		$_color = iif(ARGS[0] > 0, 'green', 'red')
+	elseif ARGS[1] < 50:
+		$_color = iif(ARGS[0] > 0, 'yellow', 'blue')
+	elseif ARGS[1] < 70:
+		$_color = iif(ARGS[0] > 0, 'orange', 'blue')
+	else
+		$_color = iif(ARGS[0] > 0, 'red', 'green')
+	end
+	$ind = ' <img src="images/system/icons/<<$_color>>.png" height=<<_height>> width=<<_width>>><img src="images/system/icons/blank.png" height=<<_height>> width=<<(max_width-_width)>>> <font color=<<$_color>>><<ARGS[2]>></font> '
+	$result = $ind
+	killvar 'max_width'
+	killvar '_width'
+	killvar '_height'
+	killvar '_color'
+	exit
+end
+!}
+
+if instr(';1;2;3;4;', ';<<$ARGS[0]>>;'):
+	!{
+	if Enable_Android = 1:
+		if $ARGS[0] = '2':
+			if ARGS[1] < 25:
+				$ind = $func('wrap', 'accent', '<<ARGS[2]>>')
+			elseif ARGS[1] < 45:
+				$ind = $func('wrap', 'v_pos', '<<ARGS[2]>>')
+			elseif ARGS[1] < 65:
+				$ind = '<font color="yellow"><<ARGS[2]>></font>'
+			elseif ARGS[1] < 85:
+				$ind = '<font color="orange"><<ARGS[2]>></font>'
+			else
+				$ind = $func('wrap', 'neg', '<<ARGS[2]>>')
+			end
+		else
+			if ARGS[1] < 35:
+				$ind = $func('wrap', 'neg', '<<ARGS[2]>>')
+			elseif ARGS[1] < 65:
+				$ind = $func('wrap', 'accent', '<<ARGS[2]>>')
+			else
+				$ind = $func('wrap', 'v_pos', '<<ARGS[2]>>')
+			end
+		end
+		$result = $ind
+		exit
+	end
+	!}
+
+	if cheatStatusBars = 1:
+		indik_text_size = 2
+	else
+		indik_text_size = 3
+	end
+
+	if Enable_statfsize > 0 and Enable_statfsize < indik_text_size: indik_text_size = Enable_statfsize
+
+	indix_counter_increase = 5
+	indik_counter = 0
+	indik_stop_looping = 0
+	$ind = '<font face="courier new" size = <<indik_text_size>>> '
+
+	!{
+	if $ARGS[0] = '1':
+		:indik
+			if indik_counter < ARGS[1]:
+				$ind += '█'
+			elseif indik_counter < 100:
+				$ind += '_'
+			end
+			indik_counter += indix_counter_increase
+		if indik_counter < 100: jump 'indik'
+
+		$ind += ' </font>'
+		if ARGS[1] < 10:
+			$ind = $func('wrap', 'v_neg', $ind + '<<ARGS[2]>>')
+		elseif ARGS[1] < 20:
+			$ind = $func('wrap', 'neg', $ind + '<<ARGS[2]>>')
+		elseif ARGS[1] < 50:
+			$ind = $func('wrap', 'neutral', $ind + '<<ARGS[2]>>')
+		elseif ARGS[1] < 70:
+			$ind = $func('wrap', 'accent', $ind + '<<ARGS[2]>>')
+		elseif ARGS[1] < 85:
+			$ind = $func('wrap', 'pos', $ind + '<<ARGS[2]>>')
+		else
+			$ind = $func('wrap', 'v_pos', $ind + '<<ARGS[2]>>')
+		end
+	end
+
+	if $ARGS[0] = '2':
+		:indik2
+			if indik_counter < ARGS[1]:
+				$ind += '█'
+			elseif indik_counter < ARGS[3]:
+				$ind += '░'
+			elseif indik_counter < 100:
+				$ind += '_'
+			else
+				indik_stop_looping = 1
+			end
+			indik_counter += indix_counter_increase
+		if indik_stop_looping = 0: jump 'indik2'
+
+		$ind += ' </font>'
+		if ARGS[1] < 10:
+			$ind = '<font color="#998080">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 20:
+			$ind = '<font color="#B38080">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 30:
+			$ind = '<font color="#CC8080">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 40:
+			$ind = '<font color="#E68080">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 50:
+			$ind = '<font color="#FF8080">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 60:
+			$ind = '<font color="#FF6666">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 70:
+			$ind = '<font color="#FF4D4D">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 80:
+			$ind = '<font color="#FF3333">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 90:
+			$ind = '<font color="#FF1A1A">' + $ind + '<<ARGS[2]>></font>'
+		else
+			$ind = '<font color="#FF0000">' + $ind + '<<ARGS[2]>></font>'
+		end
+	end
+	!}
+
+	if $ARGS[0] = '3':
+		:indik3
+			if ARGS[1] < 50:
+				if indik_counter < ARGS[1]:
+					$ind += '_'
+				elseif indik_counter < 50:
+					$ind += '█'
+				elseif indik_counter < 100:
+					$ind += '_'
+				else
+					indik_stop_looping = 1
+				end
+			elseif ARGS[1] < 55:
+				if indik_counter < 45:
+					$ind += '_'
+				elseif indik_counter < 55:
+					$ind += '▓'
+				elseif indik_counter < 100:
+					$ind += '_'
+				else
+					indik_stop_looping = 1
+				end
+			else
+				if indik_counter < 50:
+					$ind += '_'
+				elseif indik_counter < ARGS[1]:
+					$ind += '█'
+				elseif indik_counter < 100:
+					$ind += '_'
+				else
+					indik_stop_looping = 1
+				end
+			end
+			indik_counter += 5
+		if indik_stop_looping = 0: jump 'indik3'
+
+		$ind += ' </font>'
+		if ARGS[1] < 10:
+			$ind = '<font color="#B3B300">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] < 30:
+			$ind = '<font color="#00CED1">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] <= 70:
+			$ind = '<font color="#0000FF">' + $ind + '<<ARGS[2]>></font>'
+		elseif ARGS[1] <= 90:
+			$ind = '<font color="#00CED1">' + $ind + '<<ARGS[2]>></font>'
+		else
+			$ind = '<font color="#B3B300">' + $ind + '<<ARGS[2]>></font>'
+		end
+	end
+
+	!{
+	if $ARGS[0] = '4':
+		:indik4
+			if indik_counter < ARGS[1]:
+				$ind += '█'
+			elseif indik_counter < 100:
+				$ind += '_'
+			else
+				indik_stop_looping = 1
+			end
+			indik_counter += 5
+		if indik_stop_looping = 0: jump 'indik4'
+
+		$ind += ' </font>'
+		if grupTipe = ARGS[3]:
+			if ARGS[1] < 20:
+				$ind = '<font color="#FF0000">' + $ind + '你将被踢出</font>'
+			elseif ARGS[1] < 30:
+				$ind = '<font color="#ff6600">' + $ind + '最后警告</font>'
+			elseif ARGS[1] < 40:
+				$ind = '<font color="#0000FF">' + $ind + '容忍</font>'
+			elseif ARGS[1] < 60:
+				$ind = '<font color="#00CED1">' + $ind + '勉强算成员</font>'
+			elseif ARGS[1] < 85:
+				$ind = '<font color="#B3B300">' + $ind + '成员</font>'
+			else
+				$ind = '<font color="#00FF00">' + $ind + '受欢迎成员</font>'
+			end
+		else
+			if ARGS[1] < 10:
+				$ind = '<font color="#FF0000">' + $ind + '被厌恶</font>'
+			elseif ARGS[1] < 20:
+				$ind = '<font color="#FF6600">' + $ind + '讨厌</font>'
+			elseif ARGS[1] < 50:
+				$ind = '<font color="#0000FF">' + $ind + '容忍</font>'
+			elseif ARGS[1] < 70:
+				$ind = '<font color="#00CED1">' + $ind + '喜欢</font>'
+			elseif ARGS[1] < 80:
+				$ind = '<font color="#B3B300">' + $ind + '非常喜欢</font>'
+			else
+				$ind = '<font color="#00FF00">' + $ind + '除非你是荡妇否则会被要求加入</font>'
+			end
+		end
+	end
+	!}
+
+	$result = $ind
+	killvar 'indik_stop_looping'
+	killvar 'indik_counter'
+	killvar 'indik_damage'
+	killvar 'indik_text_size'
+end
+!}
+
+--- indik ---------------------------------

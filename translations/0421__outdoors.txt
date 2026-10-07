@@ -1,0 +1,439 @@
+# outdoors
+
+
+
+!! DayLengthMin = 177 &! Minutes from dawn to noon
+!! DayLengthMax = 563
+
+if $ARGS[0] =  'set_weather_TempFall':
+	!! Temperature based on:
+	!!     - https://en.wikipedia.org/wiki/Climate_of_Saint_Petersburg
+	!!     - http://www.pogodaiklimat.ru/climate/26063.htm
+	!! weatherMeanTemp: Mean temperure
+	!! weatherTempDelta: mean difference in temperature
+	!! weatherFallM: mean chance of rain
+	!! weatherFallDelta: mean difference in chance of rain
+	!!
+	!! weatherMeanTemp gets an additional bonus at the bottom so Sveta can be sluttier
+
+	if arrsize('ARGS') = 1: ARGS[1] = month
+
+	if ARGS[1] = 1:
+		weatherMeanTemp		= -48
+		weatherTempDelta	= 47
+		weatherFallM		= 50
+		weatherFallDelta	= 25
+	elseif ARGS[1] = 2:
+		weatherMeanTemp		= -50
+		weatherTempDelta	= 52
+		weatherFallM		= 40
+		weatherFallDelta	= 20
+	elseif ARGS[1] = 3:
+		weatherMeanTemp		= -10
+		weatherTempDelta	= 63
+		weatherFallM		= 30
+		weatherFallDelta	= 20
+	elseif ARGS[1] = 4:
+		weatherMeanTemp		= 52
+		weatherTempDelta	= 78
+		weatherFallM		= 20
+		weatherFallDelta	= 15
+	elseif ARGS[1] = 5:
+		weatherMeanTemp		= 115
+		weatherTempDelta	= 91
+		weatherFallM		= 20
+		weatherFallDelta	= 15
+	elseif ARGS[1] = 6:
+		weatherMeanTemp		= 161
+		weatherTempDelta	= 83
+		weatherFallM		= 10
+		weatherFallDelta	= 10
+	elseif ARGS[1] = 7:
+		weatherMeanTemp		= 191
+		weatherTempDelta	= 80
+		weatherFallM		= 5
+		weatherFallDelta	= 5
+	elseif ARGS[1] = 8:
+		weatherMeanTemp		= 174
+		weatherTempDelta	= 75
+		weatherFallM		= 10
+		weatherFallDelta	= 10
+	elseif ARGS[1] = 9:
+		weatherMeanTemp		= 124
+		weatherTempDelta	= 65
+		weatherFallM		= 20
+		weatherFallDelta	= 15
+	elseif ARGS[1] = 10:
+		weatherMeanTemp		= 62
+		weatherTempDelta	= 46
+		weatherFallM		= 20
+		weatherFallDelta	= 15
+	elseif ARGS[1] = 11:
+		weatherMeanTemp		= 9
+		weatherTempDelta	= 37
+		weatherFallM		= 30
+		weatherFallDelta	= 20
+	else
+		weatherMeanTemp		= -25
+		weatherTempDelta	= 40
+		weatherFallM		= 40
+		weatherFallDelta	= 20
+	end
+
+	!! Warmer weather so Sveta can be sluttier
+	weatherMeanTemp += 40
+	exit
+end
+
+
+if $ARGS[0] = 'weather':
+	if weatherDay <> daystart:
+		gs 'outdoors', 'set_weather_TempFall', month
+		weatherTemper = weatherMeanTemp + (rand(-weatherTempDelta, weatherTempDelta) + rand(-weatherTempDelta, weatherTempDelta)) / 2
+		weatherFall = weatherFallM + rand(-weatherFallDelta, weatherFallDelta)
+	end
+	weatherDay = daystart
+
+	if totminut < sunWeather[1]-240: sunWeather[1] = totminut	& !! Time cheat
+	if totminut > sunWeather[1]:
+		sunWeather[1] = totminut + rand(30, 150)
+		sunWeather = iif(rand(0, 99) < weatherFall, 0, 1)
+	end
+
+	!! magic 30s for rounding
+	temper = (totminut mod 1440)
+	if temper < 210:
+		temper = -120 - temper
+	elseif temper < 930:
+		temper -= 540
+	else
+		temper = 1320 - temper
+	end
+
+	!! in tenths of degrees
+	temper = weatherTemper + (weatherTempDelta * temper) / 360
+	temper[1] = temper mod 10
+	temper[0] = temper / 10
+	if temper[0] <> 0 and temper[1] < 0: temper[1] *= -1
+
+
+	if temper < -5:
+		if weatherFall < 30 :
+			if sunWeather = 1:
+				$osadki = '晴朗无云。'
+			else
+				$osadki = '晴空，但飘着小雪。'
+			end
+		elseif weatherFall < 60:
+			if sunWeather = 1:
+				$osadki = '局部多云，微风。'
+			else
+				$osadki = '多云，正在下雪。'
+			end
+		else
+			if sunWeather = 1:
+				$osadki = '满天乌云，寒风刺骨。'
+			else
+				$osadki = '大风夹着大雪。'
+			end
+		end
+	elseif temper < 5:
+		if weatherFall < 30:
+			if sunWeather = 1:
+				$osadki = '晴朗无云。'
+			else
+				$osadki = '微湿的雪。'
+			end
+		elseif weatherFall < 60:
+			if sunWeather = 1:
+				$osadki = '局部多云，微风。'
+			else
+				$osadki = '多云，湿雪。'
+			end
+		else
+			if sunWeather = 1:
+				$osadki = '乌云密布，狂风呼啸。'
+			else
+				$osadki = '大雪，粘湿的雪。'
+			end
+		end
+	else
+		if weatherFall < 30:
+			if sunWeather = 1:
+				$osadki = '晴朗无云。'
+			else
+				$osadki = '蘑菇细雨。'
+			end
+		elseif weatherFall < 60:
+			if sunWeather = 1:
+				$osadki = '局部多云。'
+			else
+				$osadki = '正在下雨。'
+			end
+		else
+			if sunWeather = 1:
+				$osadki = '乌云密布，狂风呼啸。'
+			else
+				$osadki = '狂风暴雨。'
+			end
+		end
+	end
+
+	$temperature = $func('outdoors', 'get_temp_string', temper[0], temper[1])
+
+	if month = 1:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街上有雪。'
+	elseif month = 2:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街上有雪。'
+	elseif month = 3:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街上有雪。'
+	elseif month = 4:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街上的雪正在融化。'
+	elseif month = 5:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街上积雪留下的水坑，冬天用泥土和碎屑覆盖了一切，有些地方新草长出，绿意喜人。'
+	elseif month = 6:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>绿草沿街生长。'
+	elseif month = 7:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>绿草沿街生长。'
+	elseif month = 8:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>草是绿的，树上的叶子已经开始变黄。'
+	elseif month = 9:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街道两旁绿草如茵，黄叶可见。'
+	elseif month = 10:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>草地正在褪色，变得斑驳，黄色和棕色的叶子从树上落下，泥泞和水坑点缀着街道。'
+	elseif month = 11:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街道很脏，覆盖着一层薄雪。'
+	elseif month = 12:
+		$weather = '<<$osadki>>温度是<<$temperature>>.<br>街道被雪覆盖。'
+	end
+end
+
+
+if $ARGS[0] = 'get_temp_string':
+	!! ── Arguments ───────────────────────────────────────────────────
+	!! ARGS[1] = integer part of °C (signed)
+	!! ARGS[2] = tenths digit (usually 0-9; may be negative ONLY when ARGS[1] = 0,
+	!!           signalling a temperature between -0.9 and -0.1°C that integer
+	!!           truncation would otherwise render sign-less)
+	!! ARGS[3] = scale override (optional; defaults to stat_cfg['temp_scale'] when absent)
+	!!           0=°C  1=°F  2=K  3=°De  4=😡
+
+	temp_sd_scale = iif(arrsize('ARGS') <= 3, stat_cfg['temp_scale'], ARGS[3])
+	temp_sd_isneg = (ARGS[1] < 0) or (ARGS[1] = 0 and ARGS[2] < 0)
+	temp_sd_frac = iif(ARGS[2] < 0, -ARGS[2], ARGS[2])
+	$temp_sd_signprefix = iif(ARGS[1] = 0 and ARGS[2] < 0, "-", "")
+
+	!! ── Build value string ───────────────────────────────────────────
+	!! Celsius
+	if temp_sd_scale = 0:
+		$result = '<<$temp_sd_signprefix>><<ARGS[1]>>.<<temp_sd_frac>>°C'
+	!! Fahrenheit
+	elseif temp_sd_scale = 1:
+		$result = '<<(1625 + 90*ARGS[1] + 9*ARGS[2])/50>>°F'
+	!! Kelvin
+	elseif temp_sd_scale = 2:
+		$result = '<<(ARGS[1]*10 + ARGS[2] + 2732)/10>>.<<(ARGS[1]*10 + ARGS[2] + 2732) mod 10>> K'
+	!! Delisle — Goes down as temperature goes up. Water boils at 0°De.
+	!! Used in Russia until the 1800s because of course it was.
+	elseif temp_sd_scale = 3:
+		$result = '<<(1000 - ARGS[1]*10 - ARGS[2])*3/20>>°De'
+
+	!! 😡 Emoji anger scale - a rigorous scientific measurement system
+	elseif temp_sd_scale = 4:
+		if ARGS[1] < -10:
+			$result = '❄️🧊'
+		elseif ARGS[1] < -5:
+			$result = '🥶😬'
+		elseif ARGS[1] < 5:
+			$result = '🌨️😐'
+		elseif ARGS[1] < 15:
+			$result = '🌤️🙂'
+		elseif ARGS[1] < 22:
+			$result = '☀️😊'
+		elseif ARGS[1] < 28:
+			$result = '🌞😅'
+		elseif ARGS[1] < 33:
+			$result = '🔆😤'
+		elseif ARGS[1] < 38:
+			$result = '🔥😡'
+		else
+			$result = '☢️🤬'
+		end
+		!! Emoji scale skips the theme colouring
+		killvar 'temp_sd_scale'
+		killvar 'temp_sd_isneg'
+		killvar 'temp_sd_frac'
+		killvar 'temp_sd_signprefix'
+		exit
+	else
+		!! Unknown scale — fall back to Celsius
+		$result = '<<$temp_sd_signprefix>><<ARGS[1]>>.<<temp_sd_frac>>°C'
+	end
+
+	!! ── Apply temperature theme colouring ───────────────────────────
+	if temp_sd_isneg:
+		$result = $func('wrap', 'accent', $result)
+	elseif ARGS[1] < 10:
+		$result = $func('wrap', 'v_pos', $result)
+	elseif ARGS[1] < 20:
+		$result = $func('wrap', 'pos', $result)
+	elseif ARGS[1] < 30:
+		$result = $func('wrap', 'neg', $result)
+	else
+		$result = $func('wrap', 'v_neg', $result)
+	end
+
+	killvar 'temp_sd_scale'
+	killvar 'temp_sd_isneg'
+	killvar 'temp_sd_frac'
+	killvar 'temp_sd_signprefix'
+	exit
+end
+
+
+if $ARGS[0] = 'main':
+	!! BColorBase is updated in Time.
+
+	$weatherImage = '<img height = <<stat_cfg[''weather_height'']>> src="images/system/weather/wthr<<DayStage>>'
+	if temper < -10 :
+		$weatherImage += '1'
+	elseif temper <= 5 :
+		$weatherImage += '2'
+	elseif temper <= 19 :
+		$weatherImage += '3'
+	else
+		$weatherImage += '4'
+	end
+	if weatherFall < 30 :
+		$weatherImage += '1'
+	elseif weatherFall < 60 :
+		$weatherImage += '2'
+	else
+		$weatherImage += '3'
+	end
+	if sunWeather = 1 :
+		$weatherImage += '1'
+	else
+		$weatherImage += '2'
+	end
+	$weatherImage += '.jpg">'
+
+!!	clr
+!!	pl $weatherImage
+!!	pl
+!!	pl $weather
+!!	pl $osadki
+
+	if $location_type = 'public_outdoors' or $location_type = 'secluded' or $location_type = 'event_outdoors':
+		location_type['is_outdoors'] = 1
+		gs 'themes', 'outdoors'
+		if sunWeather = 0 and mc_inventory['umbrella'] = 0:
+			*NL '天在下雨，而你没有带伞。'
+			if pcs_makeup > cosmetic_tattoo + 1:
+				pcs_makeup = 0
+				*p ' 雨水毁掉了你的妆容。'
+			end
+
+			if pcs_hairbsh = 1:
+				pcs_hairbsh = 0
+
+				if curly > 0: curly -= 1
+
+				*p ' 你的头发湿透了。'
+			end
+			*nl
+		end
+
+		if temper <= 0:
+			!! fix for time cheat
+			if Time15Minute > totminut: Time15Minute = totminut
+			if (totminut - Time15Minute) >= 15:
+				!! reset Time15Minute
+				if frost = 0: Time15Minute = totminut
+				!! begin Loop
+				:Time15MinuteLoop
+
+				if $coatworntype = 'none':
+					coatQualityBonus = 0
+				else
+					coatQualityBonus = PCoatQuality - 2
+				end
+
+				if $coatworntype = 'none':
+					if temper < 0: frost += 1
+					if temper < -20: frost += 2
+					if temper < -30: frost += 5
+					if pcs_energy < 20: frost += 1
+					if pcs_hydra < 20: frost += 1
+					if $pantyworntype = 'none': frost += 1
+					if pcs_sweat > 20: frost += 1
+				elseif temper < -10 and PCoatWarm = 1:
+					if temper < -30:
+						frost += 2
+					else
+						frost += 1
+					end
+					if pcs_energy < 20: frost += 1
+					if pcs_hydra < 20: frost += 1
+					if $pantyworntype = 'none': frost += 1
+					if pcs_sweat > 20: frost += 1
+				elseif temper < -20 and PCoatWarm = 2:
+					frost += 1
+					if pcs_energy < 20: frost += 1
+					if pcs_hydra < 20: frost += 1
+					if pcs_sweat > 20: frost += 1
+				elseif temper < -30 and PCoatWarm = 3:
+					frost += 1
+				end
+
+				if frost >= 12: sickstage = 1
+
+				Time15Minute += 15
+
+				if (totminut - Time15Minute) >= 15: jump 'Time15MinuteLoop'
+			end
+		end
+
+!! 15 minute check to stop refreshes causing early gameover and cheating at exhibitionism
+		if outdoors_checks + 15 < totminut:
+			outdoors_checks = totminut
+			if isprok = 0 and isprokp = 0 and mesec > 0 and preg = 0 and $loc ! 'gad_gpyard' and (isprok_lastday = 0 or (hour > 4 and isprok_lastday = 1)):
+				if $pantyworntype = 'none':
+					if PCloSkirt > 0:
+						$func('wrap', 'neg b', '你有血顺着双腿流下，弄脏了衣服。')
+					else
+						$func('wrap', 'neg b', '你的私处在流血，弄脏了裤子。')
+					end
+				end
+				gs 'sweat', 'add', 10
+				if pcs_mood > 20: gs 'mood', 'lower', 'medium'
+				gs 'clothing', 'decrease_cur_strength', rand(500, 1500)
+			end
+
+!! Exhibitionism
+
+			if PCloInhibit >= pcs_inhib - 10 and $loc ! 'gad_gpyard':
+				exhibition_outdoors += 1
+				if pcs_inhib < 45 and PCloPanties > 0: exhibition_outdoors += 1
+			end
+
+			if $pantyworntype = 'none' and $loc ! 'gad_gpyard':
+				if PCloSkirt = 3:
+					exhibition_outdoors += 1
+				elseif PCloSkirt = 4:
+					exhibition_outdoors += 2
+				elseif PCloSkirt = 5:
+					exhibition_outdoors += 3
+				elseif PCloSkirt = 6:
+					exhibition_outdoors += 4
+				end
+			end
+		end
+	else
+		location_type['is_outdoors'] = 0
+		gs 'themes', 'indoors'
+	end
+end
+
+
+--- outdoors ---------------------------------

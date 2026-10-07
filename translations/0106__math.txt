@@ -1,0 +1,473 @@
+# math
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              INTEGER                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! this is an integer sqrt function
+!! call func('math', 'int_sqrt', n)
+if $ARGS[0] = 'int_sqrt':
+	if ARGS[1] = 0:
+		result = 0
+		exit
+	end
+
+	sqrtnum = ARGS[1]
+	sqrtn = 1 + sqrtnum / 2
+	sqrtn1 = (sqrtn + sqrtnum / sqrtn) / 2
+	:sqrtloop
+	if sqrtn1 < sqrtn:
+		sqrtn = sqrtn1
+		sqrtn1 = (sqrtn + sqrtnum / sqrtn) / 2
+		jump 'sqrtloop'
+	end
+	result = sqrtn
+	killvar 'sqrtnum'
+	killvar 'sqrtn'
+	killvar 'sqrtn1'
+	exit
+end
+
+
+!! Used for dividing with accurate rounding up/down
+!! ARGS[1] = value you want divided
+!! ARGS[2] = divider
+!!  func('math', 'int_divide', number, divider)
+!!  func('math', 'int_divide', 12345, 7)
+if $ARGS[0] = 'int_divide':
+	if ARGS[2] = 0:
+		msg '<b>错误：不能除以0! 你想让宇宙消失吗？</b>在 math 中，int_round_divide'
+		exit
+	end
+
+	result = (ARGS[1] + (ARGS[2] / 2)) / ARGS[2]
+	exit
+end
+
+
+!! Used for rounding numbers to the nearest multiple of ARGS[2]
+!! ARGS[1] = value you want rounded
+!! ARGS[2] = nearest multiple to round to
+!!  func('math', 'int_round', number, multiple)
+!!  func('math', 'int_round', 12345, 10)
+if $ARGS[0] = 'int_round':
+	if ARGS[2] = 0:
+		msg '<b>错误：不能四舍五入到0!</b>在 math 中，int_round'
+		exit
+	end
+
+	result = ARGS[2] * func('math', 'int_divide', ARGS[1], ARGS[2])
+	exit
+end
+
+
+!! limits a number to a range
+!! use: func('math', 'int_clamp', var, min, max)
+!! returns min if var < min, returns max if var > max
+!! otherwise returns var
+!! example: func('math', 'int_clamp', var, 0, 100)
+if $ARGS[0] = 'int_clamp':
+	result = min(max(ARGS[1], ARGS[2]), ARGS[3])
+	exit
+end
+
+
+!! Improved exponent calculation based on - https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+!! use: func('math', 'int_power', var, exp)
+!! returns var ^ exp
+!! if exp < 0, returns 0
+!! example: func('math', 'int_power', 2, 3) -> 8
+if $ARGS[0] = 'int_power':
+	if ARGS[2] = 0:
+		result = 1
+	elseif ARGS[2] < 0:
+		result = 0
+
+	elseif ARGS[2] = 1:
+		result = ARGS[1]
+	elseif ARGS[2] = 2:
+		result = ARGS[1] * ARGS[1]
+	elseif ARGS[2] = 3:
+		result = ARGS[1] * ARGS[1] * ARGS[1]
+
+	elseif (ARGS[2] mod 2) = 0:
+		result = func('math', 'int_power', ARGS[1] * ARGS[1], ARGS[2] / 2)
+	else
+		result = ARGS[1] * func('math', 'int_power', ARGS[1] * ARGS[1], ARGS[2] / 2)
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                LONG                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                   LONG SUPPORT FUNCTIONS                   !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'convert_to_long':
+	if $ARGS[1] = '': $ARGS[1] = '<<ARGS[1]>>'
+	$result = $ARGS[1]
+end
+
+
+if $ARGS[0] = 'convert_to_int':
+	if $ARGS[1] <> '': ARGS[1] = val($ARGS[1])
+	result = ARGS[1]
+end
+
+
+if $ARGS[0] = 'trim_long':
+	if $ARGS[1] = '': $ARGS[1] = '<<ARGS[1]>>'
+	$result = $ARGS[1]
+	:trim_long_loop
+	if len($result) > 1:
+		if $mid($result, 1, 1) = '0':
+			$result = $mid($result, 2)
+			jump 'trim_long_loop'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pad_long':
+	if $ARGS[1] = '': $ARGS[1] = '<<$ARGS[1]>>'
+	$result = $ARGS[1]
+	:pad_long_loop
+	if ARGS[2] > 0:
+		$result = '0' + $result
+		ARGS[2] -= 1
+		jump 'pad_long_loop'
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         LONG MATHS                         !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'long_add':
+	if $ARGS[1] = '': $ARGS[1] = '<<ARGS[1]>>'
+	if $ARGS[2] = '': $ARGS[2] = '<<ARGS[2]>>'
+	killvar 'temp_add_sign'
+	if $mid($ARGS[1], 1, 1) = '-':
+		temp_add_sign[1] = 1
+		$ARGS[1] = $mid($ARGS[1], 2)
+	end
+	if $mid($ARGS[2], 1, 1) = '-':
+		temp_add_sign[2] = 1
+		$ARGS[2] = $mid($ARGS[2], 2)
+	end
+	if temp_add_sign[1] ! temp_add_sign[2]:
+		if temp_add_sign[1] = 0:
+			$result = $func('math', 'long_sub', $ARGS[1], $ARGS[2])
+		else
+			$result = $func('math', 'long_sub', $ARGS[2], $ARGS[1])
+		end
+		jump 'long_add_cleanup'
+	elseif temp_add_sign[1] = 1:
+		temp_add_sign[0] = 1
+	end
+
+	if len($ARGS[1]) < len($ARGS[2]):
+		$ARGS[1] = func('math', 'pad_long', $ARGS[1], len($ARGS[2]) - len($ARGS[1]))
+	elseif len($ARGS[1]) > len($ARGS[2]):
+		$ARGS[2] = func('math', 'pad_long', $ARGS[2], len($ARGS[1]) - len($ARGS[2]))
+	end
+
+	math_i = max(len($ARGS[1]), len($ARGS[2]))
+	killvar 'temp_add_res'
+	killvar 'temp_add_carry'
+	:long_add_loop2
+		temp_add_res = val($mid($ARGS[1], math_i, 1)) + val($mid($ARGS[2], math_i, 1)) + temp_add_carry
+		if temp_add_res > 9:
+			temp_add_carry = 1
+			temp_add_res = (temp_add_res mod 10)
+		else
+			temp_add_carry = 0
+		end
+		$result = '<<temp_add_res>>' + $result
+		math_i -= 1
+	if math_i > 0: jump 'long_add_loop2'
+	if temp_add_carry > 0: $result = '<<temp_add_carry>>' + $result
+	$result = $func('math', 'trim_long', $result)
+	if temp_add_sign[0] = 1: $result = '-' + $result
+
+	:long_add_cleanup
+	killvar 'math_i'
+	killvar 'temp_add_sign'
+	killvar 'temp_add_res'
+	killvar 'temp_add_carry'
+end
+
+
+if $ARGS[0] = 'long_sub':
+	if $ARGS[1] = '': $ARGS[1] = '<<ARGS[1]>>'
+	if $ARGS[2] = '': $ARGS[2] = '<<ARGS[2]>>'
+	killvar 'temp_sub_sign'
+	if $mid($ARGS[1], 1, 1) = '-':
+		temp_sub_sign[1] = 1
+		$ARGS[1] = $mid($ARGS[1], 2)
+	end
+	if $mid($ARGS[2], 1, 1) = '-':
+		temp_sub_sign[2] = 1
+		$ARGS[2] = $mid($ARGS[2], 2)
+	end
+	if temp_sub_sign[1] = 0:
+		if temp_sub_sign[2] = 1:
+			$result = $func('math', 'long_add', $ARGS[1], $ARGS[2])
+			jump 'long_sub_cleanup'
+		end
+	else
+		if temp_sub_sign[2] = 0:
+			$result = $func('math', 'long_add', $ARGS[1], $ARGS[2])
+			$result = '-' + $result
+		else
+			$result = $func('math', 'long_sub', $ARGS[2], $ARGS[1])
+		end
+		jump 'long_sub_cleanup'
+	end
+
+	killvar 'temp_flip_know'
+	if len($ARGS[1]) < len($ARGS[2]):
+		temp_flip_know = 1
+		$ARGS[1] = func('math', 'pad_long', $ARGS[1], len($ARGS[2]) - len($ARGS[1]))
+	elseif len($ARGS[1]) > len($ARGS[2]):
+		$ARGS[2] = func('math', 'pad_long', $ARGS[2], len($ARGS[1]) - len($ARGS[2]))
+	end
+	if temp_flip_know = 1:
+		$temp_sub_res = $ARGS[2]
+		$ARGS[2] = $ARGS[1]
+		$ARGS[1] = $temp_sub_res
+		temp_sub_sign[0] = 1
+	end
+
+	$result = ''
+	math_i = max(len($ARGS[1]), len($ARGS[2]))
+	killvar 'temp_sub_res'
+	killvar 'temp_sub_carry'
+	:long_sub_loop2
+		temp_sub_res = (val($mid($ARGS[1], math_i, 1)) - val($mid($ARGS[2], math_i, 1))) - temp_sub_carry
+		if temp_sub_res < 0:
+			temp_sub_carry = 1
+			temp_sub_res = (temp_sub_res+100) mod 10
+		else
+			temp_sub_carry = 0
+		end
+		$result = '<<temp_sub_res>>' + $result
+		math_i -= 1
+	if math_i > 0: jump 'long_sub_loop2'
+
+	if temp_sub_carry > 0:
+		temp_sub_sign[0] = 1 - temp_sub_sign[0]
+		math_i = len($result)
+		temp_sub_carry = 1
+		$ARGS[1] = $result
+		$result = ''
+		:long_sub_flip
+			temp_sub_res = 9 - val($mid($ARGS[1], math_i, 1)) + temp_sub_carry
+			if temp_sub_res < 10:
+				temp_sub_carry = 0
+			else
+				temp_sub_res = 0
+			end
+			$result = '<<temp_sub_res>>' + $result
+			math_i -= 1
+		if math_i > 0: jump 'long_sub_flip'
+	end
+	$result = $func('math', 'trim_long', $result)
+	if temp_sub_sign[0] = 1: $result = '-' + $result
+
+	:long_sub_cleanup
+	killvar 'math_i'
+	killvar 'temp_sub_sign'
+	killvar 'temp_sub_res'
+	killvar 'temp_sub_carry'
+	killvar 'temp_flip_know'
+end
+
+
+if $ARGS[0] = 'long_mult':
+	if $ARGS[1] = '': $ARGS[1] = '<<ARGS[1]>>'
+	if $ARGS[2] = '': $ARGS[2] = '<<ARGS[2]>>'
+	killvar 'temp_mult_sign'
+	if $mid($ARGS[1], 1, 1) = '-':
+		temp_mult_sign[1] = 1
+		$ARGS[1] = $mid($ARGS[1], 2)
+	end
+	if $mid($ARGS[2], 1, 1) = '-':
+		temp_mult_sign[2] = 1
+		$ARGS[2] = $mid($ARGS[2], 2)
+	end
+	temp_mult_sign[0] = ((temp_mult_sign[1] + temp_mult_sign[2]) mod 2)
+
+	math_i = 0
+	killvar 'long'
+	:long_mult_loop1
+		math_j = 0
+		:long_mult_loop2
+			long[math_i+math_j+1] += val($mid($ARGS[1], math_i+1, 1)) * val($mid($ARGS[2], math_j+1, 1))
+			math_j += 1
+		if math_j < len($ARGS[2]): jump 'long_mult_loop2'
+		math_i += 1
+	if math_i < len($ARGS[1]): jump 'long_mult_loop1'
+
+	$result = ''
+	math_i = arrsize('long') - 1
+	:long_mult_loop3
+		if long[math_i] > 9:
+			long[math_i-1] += long[math_i] / 10
+			long[math_i] = (long[math_i] mod 10)
+		end
+		$result = '<<long[math_i]>>' + $result
+		math_i -= 1
+	if math_i > 0: jump 'long_mult_loop3'
+	$result = '<<long[0]>>' + $result
+	$result = $func('math', 'trim_long', $result)
+
+	if temp_mult_sign[0] = 1: $result = '-' + $result
+
+	killvar 'math_i'
+	killvar 'math_j'
+	killvar 'long'
+	killvar 'temp_mult_sign'
+end
+
+
+if $ARGS[0] = 'long_div':
+	if $ARGS[1] = '': $ARGS[1] = '<<ARGS[1]>>'
+	if $ARGS[2] = '': $ARGS[2] = '<<ARGS[2]>>'
+
+	if strpos($ARGS[2], '1|2|3|4|5|6|7|8|9') = 0:
+		!! only 0s in the denominator
+		msg "错误：长除法除以 0！"
+		$result = '0'
+		exit
+	end
+
+	killvar 'temp_div_sign'
+	if $mid($ARGS[1], 1, 1) = '-':
+		temp_div_sign[1] = 1
+		$ARGS[1] = $mid($ARGS[1], 2)
+	end
+	if $mid($ARGS[2], 1, 1) = '-':
+		temp_div_sign[2] = 1
+		$ARGS[2] = $mid($ARGS[2], 2)
+	end
+	temp_div_sign[0] = ((temp_div_sign[1] + temp_div_sign[2]) mod 2)
+
+	temp_n = len($ARGS[1]) - len($ARGS[2])
+	$div_mult = '1'
+	if temp_n < 0:
+		$result = '0'
+		jump 'long_div_cleanup'
+	elseif temp_n > 0:
+		:long_div_loop1
+			$ARGS[2] = $ARGS[2] + '0'
+			$div_mult = $div_mult + '0'
+			temp_n -= 1
+		if temp_n > 0: jump 'long_div_loop1'
+	end
+
+
+	$result = '0'
+	:long_div_loop2
+		$temp_div_res = $func('math', 'long_sub', $ARGS[1], $ARGS[2])
+	if $mid($temp_div_res, 1, 1) ! '-':
+		$ARGS[1] = $temp_div_res
+		$result = $func('math', 'long_add', $result, $div_mult)
+		jump 'long_div_loop2'
+	elseif len($div_mult) > 1:
+		$ARGS[2] = $mid($ARGS[2], 1, len($ARGS[2])-1)
+		$div_mult = $mid($div_mult, 1, len($div_mult)-1)
+		temp_n -= 1
+		jump 'long_div_loop2'
+	end
+
+	if temp_div_sign[0] = 1:
+		$result = '-' + $result
+	end
+
+	:long_div_cleanup
+	killvar 'temp_div_sign'
+	killvar 'temp_div'
+	killvar 'temp_n'
+	killvar 'div_mult'
+	killvar 'temp_res'
+end
+
+
+!! ── hex_byte: convert a 0–255 integer to a zero-padded 2-char hex ────
+if $ARGS[0] = 'hex_byte':
+	$math_hb = $func('shortgs', 'int_to_hex_str', ARGS[1])
+	if len($math_hb) < 2: $math_hb = '0' + $math_hb
+	$result = $math_hb
+	killvar 'math_hb'
+	exit
+end
+
+
+!! ── color_mix: linearly interpolate between two '#RRGGBB' colors ─────
+!! Returns the mixed color as a '#RRGGBB' string.
+!!
+!!	use: $func('math', 'color_mix', $color_a, $color_b, ratio)
+!!	ratio 0 → color_a, ratio 100 → color_b
+!!	example: $func('math', 'color_mix', '#FF0000', '#0000FF', 50)  !! → purple
+
+if $ARGS[0] = 'color_mix':
+	!! Hex parse/reassemble is inlined below rather than calling
+	!! shortgs.hex_str_to_int / math.hex_byte / shortgs.int_to_hex_str.
+	!! Parse color A (named hexa/hexb, not a/b, so these string vars cannot
+	!! collide with the numeric math_mix_a/math_mix_b channel-style names)
+	$math_mix_hexa = $ucase($ARGS[1])
+	math_mix_ra = instr('123456789ABCDEF', mid($math_mix_hexa, 2, 1)) * 16 + instr('123456789ABCDEF', mid($math_mix_hexa, 3, 1))
+	math_mix_ga = instr('123456789ABCDEF', mid($math_mix_hexa, 4, 1)) * 16 + instr('123456789ABCDEF', mid($math_mix_hexa, 5, 1))
+	math_mix_ba = instr('123456789ABCDEF', mid($math_mix_hexa, 6, 1)) * 16 + instr('123456789ABCDEF', mid($math_mix_hexa, 7, 1))
+
+	!! Parse color B
+	$math_mix_hexb = $ucase($ARGS[2])
+	math_mix_rb = instr('123456789ABCDEF', mid($math_mix_hexb, 2, 1)) * 16 + instr('123456789ABCDEF', mid($math_mix_hexb, 3, 1))
+	math_mix_gb = instr('123456789ABCDEF', mid($math_mix_hexb, 4, 1)) * 16 + instr('123456789ABCDEF', mid($math_mix_hexb, 5, 1))
+	math_mix_bb = instr('123456789ABCDEF', mid($math_mix_hexb, 6, 1)) * 16 + instr('123456789ABCDEF', mid($math_mix_hexb, 7, 1))
+
+	!! Interpolate: a + (b - a) * ratio / 100
+	math_mix_t = ARGS[3]
+	math_mix_r = math_mix_ra + (math_mix_rb - math_mix_ra) * math_mix_t / 100
+	math_mix_g = math_mix_ga + (math_mix_gb - math_mix_ga) * math_mix_t / 100
+	math_mix_b = math_mix_ba + (math_mix_bb - math_mix_ba) * math_mix_t / 100
+
+	!! Clamp
+	math_mix_r = min(max(0, math_mix_r), 255)
+	math_mix_g = min(max(0, math_mix_g), 255)
+	math_mix_b = min(max(0, math_mix_b), 255)
+
+	!! Reconstruct hex (values are clamped to 0-255, so each channel is
+	!! always exactly 2 hex digits — no zero-pad-after-the-fact needed)
+	$result = '#'
+	$result += mid('0123456789ABCDEF', 1 + math_mix_r / 16, 1) + mid('0123456789ABCDEF', 1 + math_mix_r mod 16, 1)
+	$result += mid('0123456789ABCDEF', 1 + math_mix_g / 16, 1) + mid('0123456789ABCDEF', 1 + math_mix_g mod 16, 1)
+	$result += mid('0123456789ABCDEF', 1 + math_mix_b / 16, 1) + mid('0123456789ABCDEF', 1 + math_mix_b mod 16, 1)
+
+	killvar 'math_mix_hexa' & killvar 'math_mix_hexb'
+	killvar 'math_mix_ra' & killvar 'math_mix_ga' & killvar 'math_mix_ba'
+	killvar 'math_mix_rb' & killvar 'math_mix_gb' & killvar 'math_mix_bb'
+	killvar 'math_mix_r' & killvar 'math_mix_g' & killvar 'math_mix_b'
+	killvar 'math_mix_t'
+	exit
+end
+
+
+--- math ---------------------------------

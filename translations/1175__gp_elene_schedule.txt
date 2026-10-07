@@ -1,0 +1,294 @@
+# gp_elene_schedule
+!! Date Created: 15th May, 2024
+!! Version: .01
+!! Author: Myles Croft
+!!
+!! Sveta''s Grandmother in Gad npc id A31
+!!
+
+	!! locat['A31'] tells us where Elene is Located
+	!! ----------------------------------------------
+	!! locat['A31'] = 100		Bedroom
+
+	!! locat['A31'] = 110		Livingroom
+	!! locat['A31'] = 111		Livingroom - Reading a book
+	!! locat['A31'] = 112		Livingroom - Watching tv
+	!! locat['A31'] = 113		Livingroom - Repearing some clothes
+	!! locat['A31'] = 114		Livingroom - knitting
+
+	!! locat['A31'] = 120		Kitchen - Cooking
+	!! locat['A31'] = 121		Kitchen - Reading?
+
+	!! locat['A31'] = 200		Garden - gardening
+
+	!! locat['A31'] = 210		Sauna - Bathing
+
+	!! locat['A31'] = 300		Village
+
+	!! locat['A31'] = 310		Church
+
+
+
+!! scheduled weekday events.
+
+if $ARGS[0] = 'is_here':
+	if arrsize('ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('ARGS') = 2: $ARGS[2] = $loc_arg
+
+	result = func('gp_elene_schedule', 'here_core', $ARGS[1], $ARGS[2], $locat['A31_loc'], $locat['A31_arg'])
+	exit
+end
+
+
+if $ARGS[0] = 'was_here':
+	if arrsize('ARGS') = 1: $ARGS[1] = $loc
+	if arrsize('ARGS') = 2: $ARGS[2] = $loc_arg
+
+	result = func('gp_elene_schedule', 'here_core', $ARGS[1], $ARGS[2], $locat['A31_loc_prev'], $locat['A31_arg_prev'])
+	exit
+end
+
+
+if $ARGS[0] = 'here_core':
+	result = ($ARGS[3] = $ARGS[1] and $ARGS[4] = $ARGS[2])
+	exit
+end
+
+
+if $ARGS[0] = 'cikl':
+	locat['A31_rand'] = rand(0, 839)
+end
+
+
+if $ARGS[0] = '':
+	$locat['A31_loc_prev'] = $locat['A31_loc']
+	$locat['A31_arg_prev'] = $locat['A31_arg']
+	$locat['A31_arg1_prev'] = $locat['A31_arg1']
+
+	gs 'gp_elene_schedule', 'update_locat'
+end
+
+
+if $ARGS[0] = 'update_locat':
+	temp_elene_locat = func('gp_elene_schedule', 'get_base_schedule')
+
+	if sunWeather = 0:
+		if temp_elene_locat = 200: temp_elene_locat = 110
+	end
+
+	temp_elene_locat = func('gp_elene_schedule', 'get_random_schedule', temp_elene_locat)
+
+	gs 'gp_elene_schedule', 'set_locats', temp_elene_locat
+	killvar 'temp_elene_locat'
+end
+
+
+if $ARGS[0] = 'get_base_schedule':
+	if hour <= 5:
+		!! Bedroom
+		result = 100
+	elseif hour = 6:
+		!! Kitchen - Cooking
+		result = 120
+	elseif hour = 7:
+		!! Livingroom + ranoom
+		result = 110
+	elseif hour = 8:
+		if week < 4:
+			!! Random
+			result = 0
+		elseif week = 4:
+			!! Livingroom + ranoom
+			result = 110
+		else
+			!! Gadukino
+			result = 300
+		end
+	elseif hour <= 11:
+		if week < 4:
+			!! Random
+			result = 0
+		elseif week = 4:
+			!! Livingroom + ranoom
+			result = 110
+		elseif week = 5 or week = 6:
+			!! Gadukino
+			result = 300
+		else
+			!! Church
+			result = 310
+		end
+	elseif hour = 12:
+		!! Kitchen - Cooking
+		result = 120
+	elseif hour = 13:
+		if week = 7:
+			!! Kitchen - Cooking
+			result = 120
+		else
+			!! Sauna
+			result = 210
+		end
+	elseif hour = 14:
+		if week = 7:
+			!! Kitchen - Cooking
+			result = 120
+		else
+			!! Livingroom + ranoom
+			result = 110
+		end
+	elseif hour < 18:
+		!! Livingroom + ranoom
+		result = 110
+	elseif hour = 18:
+			!! Kitchen - Cooking
+		result = 120
+	elseif hour < 21:
+		if week = 6:
+			!! Church
+			result = 310
+		else
+			!! Livingroom + ranoom
+			result = 110
+		end
+	else
+		!! Bedroom
+		result = 100
+	end
+end
+
+
+if $ARGS[0] = 'get_random_schedule':
+	result = ARGS[1]
+	if result = 0:
+		if hour / 2 mod 2 = 0:
+			if locat['A31_rand'] mod 2 = 0:
+				!! Livingroom + random
+				result = 110
+			else
+				!! Garden - gardening
+				result = 200
+			end
+		else
+			if locat['A31_rand'] / 2 mod 2 = 0:
+				!! Livingroom + random
+				result = 110
+			else
+				!! Garden - gardening
+				result = 200
+			end
+		end
+	end
+
+	if result = 110:
+		!! temp_subloc = 0: Reading a book
+		!! temp_subloc = 1: Watching tv
+		!! temp_subloc = 2: Repairing clothes
+		!! temp_subloc = 3: Knitting
+		if hour < 9:
+			temp_subloc = locat['A31_rand'] / 4 mod 4
+		elseif hour < 11:
+			temp_subloc = locat['A31_rand'] / 16 mod 4
+		elseif hour < 13:
+			temp_subloc = locat['A31_rand'] / 12 mod 4
+		elseif hour < 15:
+			temp_subloc = locat['A31_rand'] / 48 mod 4
+		elseif hour < 17:
+			temp_subloc = locat['A31_rand'] / 20 mod 4
+		elseif hour < 18:
+			temp_subloc = locat['A31_rand'] / 80 mod 4
+		elseif hour < 21:
+			temp_subloc = locat['A31_rand'] / 28 mod 4
+		end
+		result = 111 + temp_subloc
+		killvar 'temp_subloc'
+	end
+end
+
+
+if $ARGS[0] = 'set_locats':
+	if ARGS[1] = 100:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'gp_room'
+		$locat['A31_arg1'] = ''
+
+	elseif ARGS[1] = 110:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'main'
+		$locat['A31_arg1'] = ''
+	elseif ARGS[1] = 111:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'main'
+		$locat['A31_arg1'] = 'reading'
+	elseif ARGS[1] = 112:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'main'
+		$locat['A31_arg1'] = 'watching_tv'
+	elseif ARGS[1] = 113:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'main'
+		$locat['A31_arg1'] = 'repearing_clothes'
+	elseif ARGS[1] = 114:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'main'
+		$locat['A31_arg1'] = 'knitting'
+
+	elseif ARGS[1] = 120:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'kitchen'
+		$locat['A31_arg1'] = 'cooking'
+	elseif ARGS[1] = 121:
+		$locat['A31_loc'] = 'gad_gphouse'
+		$locat['A31_arg'] = 'kitchen'
+		$locat['A31_arg1'] = 'reading'
+
+	elseif ARGS[1] = 200:
+		$locat['A31_loc'] = 'gad_gpyard'
+		$locat['A31_arg'] = 'garden'
+		$locat['A31_arg1'] = ''
+
+	elseif ARGS[1] = 210:
+		$locat['A31_loc'] = 'gad_gpbath'
+		$locat['A31_arg'] = 'start'
+		$locat['A31_arg1'] = ''
+
+	elseif ARGS[1] = 300:
+		$locat['A31_loc'] = 'gadukino'
+		$locat['A31_arg'] = ''
+		$locat['A31_arg1'] = ''
+
+	elseif ARGS[1] = 310:
+		$locat['A31_loc'] = 'gad_church'
+		$locat['A31_arg'] = 'start'
+		$locat['A31_arg1'] = ''
+	end
+end
+
+
+if $ARGS[0] = 'getLocation':
+	gs 'gp_elene_schedule', 'update_locat'
+
+	if $locat['A31_loc'] = 'gad_gphouse':
+		if $locat['A31_arg'] = 'gp_room':
+			$npcLocation['A31'] = '你奶奶在她的卧室里'
+
+		elseif $locat['A31_arg'] = 'main':
+			$npcLocation['A31'] = '你奶奶在她的客厅里'
+		elseif $locat['A31_arg'] = 'kitchen':
+			$npcLocation['A31'] = '你奶奶在她的厨房里'
+		end
+
+	elseif $locat['A31_loc'] = 'gad_gpyard':
+		$npcLocation['A31'] = '你奶奶在她的菜园里'
+	elseif $locat['A31_loc'] = 'gad_gpbath':
+		$npcLocation['A31'] = '你奶奶正在她的桑拿房里洗澡'
+
+	elseif $locat['A31_loc'] = 'gadukino':
+		$npcLocation['A31'] = '你奶奶外出在加杜基诺走动'
+	elseif $locat['A31_loc'] = 'gad_church':
+		$npcLocation['A31'] = '你奶奶在她的教堂里'
+	end
+end
+
+
+--- gp_elene_schedule ---------------------------------

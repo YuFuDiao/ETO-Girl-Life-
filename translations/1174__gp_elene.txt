@@ -1,0 +1,1477 @@
+# gp_elene
+
+!! Quest Variables - Grandma
+!! -------------------------
+!! grandmaQW['chore_type']						Variable for storage of the rand() that picks which chore to assign.
+!!
+!! For all of the Grandma chores where 0/1/2/3 are possible values:
+!! 0 = not active
+!! 1 = assigned but not done yet
+!! 2 = done but not turned in/reported yet
+!! 3 = not done in time, triggers Grandma disappointment. cikl takes any chore in state 1 or 2 and turns it into state 3.
+!!
+!! grandmaQW['chore_clean_floor']				0/1/2/3 - is the "clean the floor" quest active?
+!! grandmaQW['chore_collect_fruit']				0/1/2/3 - is the "collect fruit" quest active?
+!! grandmaQW['chore_collect_strawberries']		0/1/2/3 - is the "collect strawberries" quest active?
+!! grandmaQW['chore_feed_chickens']				0/1/2/3 - is the "feed the chickens" quest active?
+!! grandmaQW['chore_harvest_garden']			0/1/2/3 - is the "harvest veggies from the garden" quest active?
+!! grandmaQW['chore_milk_cow']					0/1/2/3 - is the "milk the cow" quest active?
+!! grandmaQW['chore_wash_clothes']				0/1/2/3 - is the "wash Grandpa's clothes" quest active?
+!! grandmaQW['chore_water_garden']				0/1/2/3 - is the "water the garden" quest active?
+!! grandmaQW['chore_work_in_garden']			0/1/2/3 - is the "work in the garden" quest active?
+!! grandmaQW['chore_mushrooms_given']			How many kg of mushrooms has Sveta collected for Grandma? Used with chore_can_mushrooms.
+!! grandmaQW['chore_berries_given']				How many kg of berries has Sveta collected for Grandma? Used with chore_can_berries.
+!! grandmaQW['chore_harvest_done']				Has Sveta harvested veggies from the garden? Used with chore_can_veggies.
+!! grandmaQW['chore_gather_mushrooms']			0/1/2/3 - is the "gather mushrooms" quest active?
+!! grandmaQW['chore_gather_berries']			0/1/2/3 - is the "gather berries" quest active?
+!! grandmaQW['chore_gather_both']				0/1/2/3 - is the "gather mushrooms and berries" quest active?
+!! grandmaQW['chore_mushroom_quantity']			How many kg of mushrooms does Grandma want?
+!! grandmaQW['chore_berry_quantity']			How many kg of berries does Grandma want?
+
+!! Other Variables - Grandma
+!! -------------------------
+!! grandmaQW['help_amount']						Semi-abstract representation of how helpful Sveta has been. Longer, more arduous tasks get more points. Affects monthly allowance.
+!! grandmaQW['last_day_asked_for_story']		The most recent day Sveta asked Grandma to tell her a story. Checked against daystart (i.e. was it today?)
+!! grandmaQW['last_day_helped']					The most recent day Sveta asked Grandma if she could help her with anything.
+!! grandmaQW['last_day_talked']					The most recent day Sveta chatted with Grandma.
+!! grandmaQW['last_hour_talked']				The most recent hour Sveta chatted with Grandma. Checked against hour, allows for several chats through the day.
+!! grandmaQW['last_month_paid']					The most recent month Grandma paid Sveta for her help (i.e. was it the current month?)
+!! grandmaQW['nudity_trouble']					Semi-abstract representation of how annoyed Grandma is by Svetas exhibitionism. grandmaQW['nudity_trouble'] is subtracted from grandmaQW['help_amount'] and then reset to 0
+!! grandmaQW['nudity_trouble_limit']			Limit based on fame/reputation before Grandma reprimands Sveta about her behavior
+!! grandmaQW['nudity_trouble_base']				Base based on how many times Sveta has been reprimanded by Grandma about her behavior. Starts at 10. Goes up by 1 each time grandmaQW['nudity_trouble'] hits grandmaQW['nudity_trouble_limit']
+!! grandmaQW['block']							0/1 - has Sveta been caught sinning so much Grandma kicks her out
+!! grandmaQW['talked_about_gadukino']			0/1 - has Sveta asked Grandma about Gadukino? Makes the "Ask about Gadukino" option a one-time thing.
+!! grandmaQW['disappointment']					0/1 - marks if you failed a chore and Grandma is disappointed in you. Causes a lecture and -1 to help_amount
+!! grandmaQW['first_visit']						0/1 - triggers first converstion and gift from Grandma. Only get free money from Grandma once. Monthly payments are now only based on grandmaQW['help_amount']
+
+
+if $ARGS[0] = 'talk':
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+	'你奶奶年纪很大了，很少出门。平时不是坐在床上看电视，就是慢慢腾腾地收拾东西。'
+	if $clothingworntype = 'nude':
+		'奶奶看着有点吃惊，不过这种事她也不是没见过。'
+		'“去把衣服穿上，亲爱的。要是让你可怜的爷爷看到，他会心脏病发作的。”'
+
+		act '还是先穿好衣服再跟她说话吧': gt 'gp_elene', 'return'
+		exit
+	end
+
+	act '别管她': gt 'gp_elene', 'return'
+
+	if grigory_flower > 0 and grigory_flower < 10: act '和她聊聊那些花': gt 'grigory', 'flower4'
+
+	gs 'gp_elene', 'set_report_chores_acts'
+	gs 'gp_elene', 'get_random_chore_act'
+	gs 'gp_elene', 'set_talk_acts'
+end
+
+
+if $ARGS[0] = 'return':
+	if $locat['A31_loc'] <> 'gad_gphouse':
+		gt $locat['A31_loc'], $locat['A31_arg']
+	elseif $locat['A31_arg'] = 'gp_room':
+		gt 'gad_gphouse', 'main'
+	else
+		gt 'gad_gphouse', $locat['A31_arg']
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              TALKING                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_talk_acts':
+	if grandmaQW['talked_about_gadukino'] = 0:
+		act '打听村子的事 (0:10)':
+			*clr & cla
+			grandmaQW['talked_about_gadukino'] = 1
+			minut += 10
+			gs 'mood', 'raise', 'tiny'
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'你在奶奶身边坐下，很想听她再多讲讲村里的事。'
+			'“你不记得了吗，<<$pcs_nickname>>？你来看过我们好多次了，”奶奶说。'
+			'“我上次来这里的时候还很小。当然，我还记得一些房子，但最清晰的记忆是和米特卡一起去游泳，”你回答。'
+			'“看看你长得多大了！瞧瞧你。”奶奶笑着说。'
+			'她便开始给你讲起村里的事。'
+			'“你也知道，村子很小。你大概能在河边或沙滩上找到米佳，那里可以游泳和晒太阳。村里现在还有些渔夫。要是你想钓鱼，就找人问问斯捷潘，他会借你一根钓竿。”'
+			'“村子本身没什么有趣的。哦对……我刚想起来……最近搬来了一户新人家，一个单亲父亲带着他女儿。你能想象居然有新的人搬来吗？那女孩和你差不多大。她父亲在城里工作，据我听到的传言，他很少在这儿，因为工作让他大部分时间都得待在城里。你在村里散步时大概会碰到她。”'
+			'“村子边上有一片牧场，牛群在那里吃草，牧场过去就是森林。你通常能在林子里找到我们当地的猎人安德烈。他经常带朋友来打猎，他们常常在那儿待上好几天。据说他在林子里某个地方盖了间小屋。所以，如果你在外面遇到安德烈和他的朋友们，别害怕。要是你想去森林，先问问爷爷。”'
+			'“你要是喜欢跑步，可以沿着通往森林的那条路跑。或者骑我们那辆旧自行车。我敢肯定车就在棚子里。如果你有兴趣，记得去找找。还有，如果你想保持身材，就去园子里吃点水果。它和你吃的那些减肥餐一样健康，甚至更健康。”'
+			'“差不多就这些了，我亲爱的孙女。现在去吧，别再打扰我了。我的肥皂剧《圣巴巴拉》要开始了。我一秒都不想错过。”'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+
+	if 24 * (daystart - grandmaQW['last_day_talked']) + (hour - grandmaQW['last_hour_talked']) >= 3:
+		act '和奶奶聊天 (0:10)':
+			*clr & cla
+			grandmaQW['last_hour_talked'] = hour
+			grandmaQW['last_day_talked'] = daystart
+			minut += 10
+			gs 'mood', 'raise', rand(5, 10)
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'你陪奶奶聊了一会儿。她说话有时不太好懂，牙几乎掉光了，吐字很费劲。不过她絮絮叨叨说的大多是同一个意思：人年轻的时候，日子要有意思得多！'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+
+	if grandmaQW['last_day_asked_for_story'] <> daystart:
+		act '让她给你讲个故事 (0:20)':
+			*clr & cla
+			grandmaQW['last_day_asked_for_story'] = daystart
+			minut += 20
+			gs 'mood', 'raise', rand(10, 15)
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big32.jpg"></center>'
+			'你请奶奶讲个故事，她先嘟囔了几句。可没过一两秒，她就想好了今天要讲的故事，慢慢说了起来。'
+
+			temp = rand(0, 7)
+
+			if temp = 0:
+				'“有一次，我父母允许我在朋友家过夜。夜里下了好大的雪……然后我们听到门上传来轻轻的敲击声！”她用不祥的语气说。'
+				'“我们仔细听了听，却只听到风穿过树林的呼啸声……于是我们决定继续睡。然后我们又听到了那敲击声！”'
+				'“我们冲到窗边，但除了雪什么也看不见。最后，敲击声变得越发执着，一个小女孩的声音恳求我们开门！我和朋友挪到房间中央，紧紧抱在一起……我们吓坏了！”'
+				'“敲击声一直持续到早上，连暴风雪停了都还在响。听起来像是有人在惊慌求救，但早上我们告诉父母时，他们根本不信。我们走到外面……雪地上竟然没有任何脚印！就好像什么都没发生过一样！”'
+				'“那之后我们再没听到那声音或敲击声，但我仍然为没有下楼开门而感到难受。万一真的有个女孩在那里，恳求我们的帮助呢？我希望她没事……”'
+			elseif temp = 1:
+				'“我年轻时有个朋友，”她用不祥的语气说。“她的丈夫死在她家里。他是个酒鬼混蛋。有一天他喝醉了，就在那同一栋房子里死于酒精中毒。”'
+				'“有一天她下班回家，地板突然开始吱吱作响！透过走廊门上的玻璃，她能看到一个男人的轮廓。看起来和她已故的丈夫惊人地相似！”'
+				'“她吓坏了！她赶紧离开家，直到我答应陪她一起才回去……当然，我们什么也没找到。你相信鬼吗，<<$pcs_nickname>>？因为从那时起，我就信了……”'
+			elseif temp = 2:
+				'“我不是在加杜基诺出生的。我在另一个村子长大，”奶奶开始说。“顺便说一句，这是真事！”'
+				'“我还是个小女孩的时候，我们的一个邻居死了。然后不到两个星期，他的一个兄弟也死了！正如传说所言，死亡总是三度降临……”'
+				'“他唯一活着的妹妹吓坏了。她是我的朋友，但她父母不让她出家门。”'
+				'“那时已是深冬，人们只能坐雪橇去别的镇子。所以他们等了四十天……就在他们快要接受这个传说也许不是真的时，他们找到了她的一个亲戚。死了。我记得他叫穆日克，被发现时冻得硬邦邦的，简直就是一块冰！他想去参加表亲的葬礼，却为此丢了性命！”'
+				'“死亡可不是能随便开玩笑的，<<$pcs_nickname>>……她父母把她藏起来很明智。不然，死的可能就是她了！”'
+			elseif temp = 3:
+				'“这是真事！”奶奶向你保证。“我像你这么大时……那还是战后不久。那时候没人信迷信之类的东西。那是艰难的岁月。大家关心的只是怎么给家人弄到下一顿饭。”'
+				'“我们都上床睡了，可我们的猫一直冲我叫！它就是不让我睡，一连好几个小时！”'
+				'“等我终于睡着、第二天早上醒来时，父亲就在我床边。他说他清理炉子里的灰时，在里面发现了我们那只死猫的残骸！”'
+				'你看到她的眼眶湿了。“没人知道她是怎么进去的……谁都没注意到任何异常！除了我。直到今天，我都相信她是在试图警告我，在向我求助……”'
+				'奶奶耸耸肩，擦掉眼角的泪。你把手轻轻放在她膝盖上想安慰她，却不知道该说什么好。'
+			!! 125s
+			elseif temp = 4:
+				'“我给你讲一件发生在我长大的那个村子里的事。有一天，一个女人从苏联北部很远的地方搬到了我们村。”'
+				'“那女人独自住着，养了一条非常漂亮的狗。那狗是白色的，个头挺大，安静得像老鼠。可是过了一阵狗死了，那女人却不愿把它埋掉。”'
+				'“她总说这么好的皮毛扔掉太可惜了。于是她琢磨能用这张皮做什么。过了一阵，她决定用这张皮做个毛领子。”'
+				'“大概过了两个月，她病得很重……我和其他人去看望她，乍一看一切正常。可我一关上门，她就开始行为失常、出现幻觉。这些是狂犬病的症状。不幸的是，她独自居住，等有人注意到时已经太晚，救不回她的命了……”'
+			elseif temp = 5:
+				'“我年轻时的一个圣诞假期晚上，我和闺蜜们在厨房里待着。当然，都是学校的同学，所以我们总在搞些恶作剧。”'
+				'“我们独自在家，一个朋友说服我们搞一场降神会。她说有个算命先生教过她怎么召唤灵魂。于是我们点上几根蜡烛，开始念咒，请灵魂现身。”'
+				'“我成功召唤出了一个男人的侧影。他手里拿着像是花束的东西。我第二个朋友召唤出了一个像水壶的物件，而我最后一个朋友居然召唤出了一个婴儿，把我们吓坏了。”'
+				'“我们没被吓退，反而对这次能召唤出什么感到兴奋，决定再试一次。这次我召唤出一艘大轮船。我第二个朋友没召唤出什么特别的东西，但我第三个朋友又召唤出了同一个婴儿。不同的是，这次婴儿坐在婴儿车里。”'
+				'“我们结束了降神会，又回去做平常的事。突然我们听到敲门声，是降神会上出现的那个年轻人。他掏出一束漂亮的玫瑰送给我。我问他为什么，他只说他觉得自己应该给这个村子里的一个女孩送花。那之后我浑身发冷，因为我想起了降神会上那个拿着花束的男人。”'
+				'“最有趣的是，降神会几个月后，那个召唤出婴儿的朋友怀孕了。到那年年底，她15岁就有了孩子。所以要当心，遇到算命先生时，你永远不知道会发生什么……”'
+			elseif temp = 6:
+				'“我记得就像我们现在这样坐着，”奶奶开始说，但突然像是想起了什么，她悲伤地叹了口气。“再也没有那种火柴了……”'
+				'你困惑地看着她，不明白她在说什么。“厨房里确实有火柴，或者如果你愿意，我可以跑去商店买一些。”'
+				'“你不明白，<<$pcs_nickname>>。现在的火柴比不上很久以前做的那种。我很怀念伟大卫国战争时期我们用的那种火柴，那是在他们不得不把工厂迁到远东之前……那些火柴简直是魔法，不像现在这种垃圾……唉……”'
+
+			!! Keep the word brigade if you want to change the text. It''s what the people working on the kolkhoz were called.
+			elseif temp = 7:
+				'“有一天，我母亲——愿她安息——把我们四个兄弟姐妹派到森林里去采浆果，”奶奶开始讲。“我们带上采浆果的家什就出发了。很快就到了森林入口，我们觉得最好分开行动，这样能更快完成任务。因为对那片地方很熟，我们各自散开去自己心仪的地点，开始采浆果。”'
+				'“我最喜欢的地方是一块被茂密灌木围住的小空地，中间有个巨大的树桩。那是个好地方，我走近时发现那里有好多熟透的草莓。一想到能比兄弟们采得多，我就高兴起来，慢慢地把浆果采下来放进采浆果的容器里。然后，我突然听到灌木后面有窸窣声。我转向声音传来的方向，却只遇到一片寂静。我没看到任何人，但那种诡异的感觉怎么也甩不掉。”'
+				'“我甩掉那种诡异的感觉，重新开始采草莓。突然，我有一种奇怪的感觉……我抬头一看，看到一个人蹲在树桩上。他一动不动，只是盯着我看。我吓坏了，尖叫着哭喊着朝兄弟们跑去。他们想拦住我、让我冷静下来，可我一直跑。兄弟们开始追着我跑，努力跟上。我听到大哥喊着让我往集体农庄跑。你看，<<$pcs_firstname>>，很久以前我们有那种中央集体农场，叫做集体农庄。”'
+				'“我们很幸运，农场离森林很近，不用在林子里跑太久。我不停地回头看那个人有没有追上来，但看不到他的踪影。当我们看到生产队的农民时，就知道自己安全了。我和兄弟们跑到队长那儿，把事情经过告诉了他。他立刻抓起电话打给了什么人。其他农民安慰我们说现在已经安全了。等我们平静下来，就被送回了家。母亲在家等着我们，她给我们吃的，还安慰了我。”'
+				'“第二天我们得知，有人在拉托姆卡火车站不远处发现了被拆下的铁轨。显然，那是我在森林里遇到的那个人干的。当时我并不知情，但战前我们这一带经常遭到渗透者破坏。他们很容易藏身，因为这片地区森林密布，一直延伸到边境。”'
+				'“从那天起，我所经历的那种恐惧就再没消失过，我一生都感觉得到它。我会带着这份恐惧度过余生……”'
+			end
+			!! 125e
+			act '谢谢她讲故事': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            CHORE EVENTS                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_random_chore_act':
+	if daystart <> grandmaQW['last_day_helped']:
+		act '主动提出帮忙':
+			*clr & cla
+			menu_off = 1
+			grandmaQW['last_day_helped'] = daystart
+			frost = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/grandmahelp.jpg"></center>'
+			'你问奶奶有没有什么能帮上忙的事。奶奶转过头，对你说：'
+
+			if month <= 4 or month >= 10:
+				grandmaQW['chore_type'] = rand(0, 6)
+			elseif month = 5:
+				grandmaQW['chore_type'] = rand(0, 9)
+			elseif month >= 6 and month <= 9:
+				grandmaQW['chore_type'] = rand(0, 14)
+			end
+
+			if grandmaQW['chore_type'] = 0:
+				xgt 'gp_elene', 'chore_cleanfloor'
+			elseif grandmaQW['chore_type'] = 1:
+				xgt 'gp_elene', 'chore_washclothes'
+			elseif grandmaQW['chore_type'] = 2 and hour < 9 and hour > 20:
+				xgt 'gp_elene', 'chore_milkcows'
+			elseif grandmaQW['chore_type'] = 3:
+				xgt 'gp_elene', 'chore_groceries'
+			elseif grandmaQW['chore_type'] = 4 and boletus_stored >= 5:
+				xgt 'gp_elene', 'chore_can_mushrooms'
+			elseif grandmaQW['chore_type'] = 5 and bilberry_stored >= 5:
+				xgt 'gp_elene', 'chore_can_berries'
+			elseif grandmaQW['chore_type'] = 6 and grandmaQW['chore_harvest_done'] = 1:
+				xgt 'gp_elene', 'chore_can_veggies'
+			elseif grandmaQW['chore_type'] = 7:
+				xgt 'gp_elene', 'chore_feedchickens'
+			elseif grandmaQW['chore_type'] = 8 and sunWeather = 1:
+				xgt 'gp_elene', 'chore_checkplants'
+			elseif grandmaQW['chore_type'] = 9 and sunWeather = 1:
+				xgt 'gp_elene', 'chore_waterplants'
+			elseif grandmaQW['chore_type'] = 10 and sunWeather = 1 and month >= 6 and month <= 9:
+				xgt 'gp_elene', 'chore_harvest_switch'
+			elseif grandmaQW['chore_type'] = 11 and boletus_stored <= 18:
+				xgt 'gp_elene', 'chore_gathermushrooms'
+			elseif grandmaQW['chore_type'] = 12 and bilberry_stored <= 18:
+				xgt 'gp_elene', 'chore_gatherberries'
+			elseif grandmaQW['chore_type'] = 13 and ((boletus_stored + bilberry_stored) <= 16):
+				xgt 'gp_elene', 'chore_gatherboth'
+			end
+
+			'“今天没什么要做的，<<$pcs_nickname>>。今天就休息吧。'
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'chore_harvest_switch':
+	if month = 7:
+		xgt 'gp_elene', 'chore_collectstrawberries'
+	elseif month = 8 or month = 9:
+		xgt 'gp_elene', 'chore_collectfruit'
+	elseif month = 6:
+		xgt 'gp_elene', 'chore_harvestgarden'
+	end
+end
+
+
+if $ARGS[0] = 'set_report_chores_acts':
+	gs 'gp_elene', 'set_help_can_mushrooms_act'
+	gs 'gp_elene', 'set_help_can_berries_act'
+	gs 'gp_elene', 'set_help_can_veggies_act'
+
+	gs 'gp_elene', 'set_report_cleanfloor_act'
+	gs 'gp_elene', 'set_report_washclothes_act'
+	gs 'gp_elene', 'set_report_milkcow_act'
+	gs 'gp_elene', 'set_report_groceries_act'
+	gs 'gp_elene', 'set_report_feedchickens_act'
+	gs 'gp_elene', 'set_report_checkplants_act'
+	gs 'gp_elene', 'set_report_waterplants_act'
+	gs 'gp_elene', 'set_report_collectstrawberries_act'
+	gs 'gp_elene', 'set_report_collectfruit_act'
+	gs 'gp_elene', 'set_report_harvestgarden_act'
+	gs 'gp_elene', 'set_report_gathermushrooms_act'
+	gs 'gp_elene', 'set_report_gatherberries_act'
+	gs 'gp_elene', 'set_report_gatherboth_act'
+end
+
+
+if $ARGS[0] = 'check_for_chores':
+	if $ARGS[1] = 'livingroom':
+		if grandmaQW['chore_clean_floor'] = 1:
+			act '帮奶奶打扫地板 (1:00)': gt 'gp_elene', 'event_cleanfloor'
+		end
+		if grandmaQW['chore_wash_clothes'] = 1:
+			act '替奶奶洗爷爷的衣服 (1:00)': gt 'gp_elene', 'event_washclothes'
+		end
+	elseif $ARGS[1] = 'garden':
+		if grandmaQW['chore_work_in_garden'] = 1:
+			act '在菜园里干活 (3:00)': gt 'gp_elene', 'event_checkplants'
+		end
+		if grandmaQW['chore_water_garden'] = 1:
+			act '给植物浇水 (1:00)': gt 'gp_elene', 'event_waterplants'
+		end
+		if grandmaQW['chore_harvest_garden'] = 1:
+			act '收割 (3:00)': gt 'gp_elene', 'event_harvestgarden'
+		end
+	elseif $ARGS[1] = 'chickens':
+		if grandmaQW['chore_feed_chickens'] = 1:
+			act '喂鸡': gt 'gp_elene', 'event_feedchickens'
+		end
+	elseif $ARGS[1] = 'strawberry':
+		if grandmaQW['chore_collect_strawberries'] = 1:
+			act '采草莓 (3:00)': gt 'gp_elene', 'event_collectstrawberries'
+		end
+	elseif $ARGS[1] = 'fruit_garden':
+		if grandmaQW['chore_collect_fruit'] = 1:
+			act '采摘水果 (3:00)': gt 'gp_elene', 'event_collectfruit'
+		end
+	elseif $ARGS[1] = 'cow':
+		if grandmaQW['chore_milk_cow'] = 1:
+			act '挤牛奶 (0:30)': gt 'gp_elene', 'event_milkcow'
+		end
+	elseif $ARGS[1] = 'store':
+		if grandmaQW['chore_groceries'] = 1:
+			act '照奶奶的清单去采买东西 (0:30)': gt 'gp_elene', 'event_groceries'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                        CLEAN FLOORS                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_cleanfloor':
+	'“总有事情要做，<<$pcs_nickname>>。我年纪大了，力气也不如从前了。你能帮我打扫一下地板吗？”'
+
+	grandmaQW['chore_clean_floor'] = 1
+	act '告诉她你很快就做': gt 'gp_elene', 'talk'
+	act '答应并开始打扫 (1:00)': gt 'gp_elene', 'event_cleanfloor'
+end
+
+
+if $ARGS[0] = 'event_cleanfloor':
+	*clr & cla
+	menu_off = 1
+	minut += 60
+	grandmaQW['chore_clean_floor'] = 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/washfloor.jpg"></center>'
+	'你拎起水桶和抹布，跪在地上擦起地板来。不到一个小时，地板就擦得发亮，你对自己的成果挺满意。你把清洁用具收进角落，接着忙自己的事去。'
+
+	gs 'archetypes', 'gain', 'prude', 'tiny', '帮奶奶：擦地板', 7
+	act '继续': gt 'gad_gphouse', 'start'
+	act '回到你祖母那里': gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_cleanfloor_act':
+	if grandmaQW['chore_clean_floor'] = 2:
+		act '告诉她你打扫了地板':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_clean_floor'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'“奶奶，地板都打扫干净了！”你自豪地说。'
+			'“谢谢你，孩子，”奶奶说，“你可让我的手和膝盖少疼了不少。”'
+			'你冲她温和地笑了笑，接着忙自己的事去了。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        WASH CLOTHES                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_washclothes':
+	'“当然可以，<<$pcs_nickname>>，你能帮我洗一下你爷爷的脏衣服吗？”'
+
+	grandmaQW['chore_wash_clothes'] = 1
+	act '跟她说你待会儿就去洗': gt 'gp_elene', 'talk'
+	act '答应她这就去洗衣服 (1:00)': gt 'gp_elene', 'event_washclothes'
+end
+
+
+if $ARGS[0] = 'event_washclothes':
+	*clr & cla
+	menu_off = 1
+	minut += 60
+	grandmaQW['chore_wash_clothes'] = 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/washclothes1.jpg"></center>'
+	'你抱起爷爷的脏衣服走到屋外，在铁盆里泡上一个小时。'
+
+	act '晾衣服':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/washclothes2.jpg"></center>'
+		'衣服洗完，你走到晾衣绳前，把衣服一件件仔细挂好晾上。'
+
+		gs 'archetypes', 'gain', 'prude', 'tiny', '帮奶奶：洗衣服', 7
+		act '继续': gt 'gad_gpyard', 'start'
+		act '回到你祖母那里': gt 'gp_elene', 'talk'
+	end
+end
+
+
+if $ARGS[0] = 'set_report_washclothes_act':
+	if grandmaQW['chore_wash_clothes'] = 2:
+		act '告诉她你洗了衣服':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_wash_clothes'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'“奶奶，我把爷爷的脏衣服洗完了，”你告诉她。'
+			'“谢谢你，<<$pcs_nickname>>。我真不知道那男人怎么弄得这么脏！”'
+			'你和奶奶都笑了，你抱了抱她，接着去忙别的。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         MILK COWS                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_milkcows':
+	'“<<$pcs_nickname>>，去谷仓挤牛奶。”'
+
+	grandmaQW['chore_milk_cow'] = 1
+	act '跟她说你待会儿就去做': gt 'gp_elene', 'talk'
+	act '答应并去谷仓 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/go_yard.jpg"></center>'
+		'你走到养牛的谷仓。'
+
+		act '继续': gt 'gad_gpbarn', 'cow'
+	end
+end
+
+
+if $ARGS[0] = 'event_milkcow':
+	*clr & cla
+	minut += 30
+	grandmaQW['chore_milk_cow'] = 2
+	gs 'exp_gain', 'hndiwrk', rand(1, 3)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/milk_cow.jpg"></center>'
+	'你开始给黎明挤奶，手一次比一次熟练。'
+
+	gs 'archetypes', 'gain', 'prude', 'tiny', '帮奶奶：挤牛奶', 7
+	act '完成': gt 'gad_gpbarn', 'cow'
+	act '回到你祖母那里': minut += 3 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_milkcow_act':
+	if grandmaQW['chore_milk_cow'] = 2:
+		act '告诉她你挤了牛奶':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_milk_cow'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'“奶奶，我给黎明挤了奶，把牛奶收好了，”你告诉她。'
+			'“谢谢你，<<$pcs_nickname>>。她可真是个可爱的小东西，对吧？”奶奶慈爱地问道。'
+			'“呃，是的，作为一头奶牛她确实很好，”你笑着说。“她是我认识的最好的奶牛。”'
+			'奶奶听了，意味深长地点点头，你咧嘴一笑，接着忙自己的事去了。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         GROCERIES                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_groceries':
+	'“哦对了，<<$pcs_nickname>>。我今天本来要去商店买些杂货，但我的膝盖疼。你能替我去一趟，把东西买回来吗？我列了一张需要的清单，杂货商会晚些时候来收钱。”'
+
+	grandmaQW['chore_groceries'] = 1
+	act '告诉她你晚点去商店': gt 'gp_elene', 'talk'
+	act '答应并去商店 (0:15)':
+		*clr & cla
+		minut += 15
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/izba.jpg"></center>'
+		'奶奶拖着步子翻找了半天，总算把清单找出来交给你。你拎起篮子，出门往商店去。'
+		act '继续': gt 'gad_store'
+	end
+end
+
+
+if $ARGS[0] = 'event_groceries':
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	grandmaQW['chore_groceries'] = 2
+	grandmaQW['help_amount'] += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/market.jpg"></center>'
+	'你掏出奶奶给的清单，对着货架一样样找她要的东西。差不多半个小时后，清单上的东西总算买齐了。'
+	*nl
+	'你把一篮子东西提到收银台，说是替奶奶买的。'
+	'“当然可以！你直接把这些带回家给她吧。告诉她我今晚会去收她的钱。我知道她现在出门不容易了……”'
+
+	gs 'archetypes', 'gain', 'prude', 'tiny', '帮奶奶：买杂货', 7
+	act '谢谢他并离开': minut += 5 & gt 'gadukino'
+	act '谢过他，把东西带回去给奶奶 (0:10)': minut += 10 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_groceries_act':
+	if grandmaQW['chore_groceries'] = 2:
+		act '把杂货给她':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_groceries'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'你把一袋袋东西提给奶奶看，说店主晚些时候会送过来。'
+			'“谢谢你，<<$pcs_nickname>>。他是个不错的年轻人。你知道吗，我从小看着他长大的。”'
+			'“是啊，他人很好，”你说，“不过你想让我把这些东西放哪儿？”'
+			'“哦对，对，”她说，好像忘了你还抱着一堆杂货站在那里。“就放到厨房吧，小家伙。我一会儿就收拾。”'
+			'你把袋子拎进厨房，往桌上一放，才回到奶奶身边。'
+			'“还需要别的吗，奶奶？”你问道。'
+			'“不用了，就这些，<<$pcs_nickname>>，”她说着轻轻拍了拍你的背。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       CAN MUSHROOMS                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_can_mushrooms':
+	'“我得把这些蘑菇做成罐头，<<$pcs_nickname>>，这样才好存放。你能帮我一起处理吗？”'
+
+	grandmaQW['chore_can_mushrooms'] = 1
+	act '跟她说你过一会儿就来帮忙': gt 'gp_elene', 'talk'
+	gs 'gp_elene', 'set_help_can_mushrooms_act'
+end
+
+
+if $ARGS[0] = 'set_help_can_mushrooms_act':
+	if grandmaQW['chore_can_mushrooms'] = 1:
+		act '帮奶奶把蘑菇装罐 (2:00)':
+			*clr & cla
+			minut += 45
+			boletus_stored -= 5
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/cleaning_mushrooms.jpg"></center>'
+			'你跟奶奶说，现在就可以帮她装蘑菇罐头了。'
+			'她笑了笑，递给你一篮蘑菇。你收拾了好一阵，把蘑菇择干净、洗好切块，为装罐做准备。'
+
+			act '继续':
+				*clr & cla
+				minut += 60
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/village/canning.jpg"></center>'
+				'处理妥当后，你帮着把蘑菇装进玻璃罐。等罐子准备好，奶奶把它们放进高压锅煮一个小时。'
+				act '继续':
+					*clr & cla
+					minut += 15
+					gs 'stat'
+
+					grandmaQW['chore_can_mushrooms'] = 0
+					grandmaQW['help_amount'] += 2
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/village/canned_mushrooms.jpg"></center>'
+					'最后，你帮奶奶把罐头从高压锅里取出，搁在一旁晾凉。'
+					'“谢谢你，<<$pcs_nickname>>，”她说。“为艰难的冬季储存食物很重要。当然，现在你可以走到商店买任何想要的东西，但以前可不是这样！”'
+
+					act '完成': gt 'gp_elene', 'return'
+				end
+			end
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        CAN BERRIES                         !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_can_berries':
+	'“该把这些浆果做成罐头了，<<$pcs_nickname>>。你能帮我一下吗？我的手指没以前那么灵便了。”'
+
+	grandmaQW['chore_can_berries'] = 1
+	act '跟她说你过一会儿就来帮忙': gt 'gp_elene', 'talk'
+	gs 'gp_elene', 'set_help_can_berries_act'
+end
+
+
+if $ARGS[0] = 'set_help_can_berries_act':
+	if grandmaQW['chore_can_berries'] = 1:
+		act '帮奶奶把浆果装罐 (2:00)':
+			*clr & cla
+			minut += 45
+			bilberry_stored -= 5
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/cleaning_berries.jpg"></center>'
+			'奶奶递给你一篮浆果，你收拾了好一阵，择干净、掐掉果梗，把干瘪和坏掉的都挑出去。'
+			act '继续':
+				*clr & cla
+				minut += 60
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/village/canning.jpg"></center>'
+				'处理妥当后，你帮着把浆果倒进玻璃罐。等罐子准备好，奶奶把它们放进高压锅煮一个小时。'
+				act '继续':
+					*clr & cla
+					minut += 15
+					grandmaQW['chore_can_berries'] = 0
+					grandmaQW['help_amount'] += 2
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/village/canned_berries.jpg"></center>'
+					'最后，你帮奶奶把罐头从高压锅里取出，搁在一旁晾凉。'
+					'“好了，这样冬天就有浆果吃了，”她说。“我觉得你爷爷光靠这些浆果都能活下去！他会很感激你帮了我。”'
+
+					act '完成': gt 'gp_elene', 'return'
+				end
+			end
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        CAN VEGGIES                         !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_can_veggies':
+	'“今年我们的菜园收成不错，<<$pcs_nickname>>。但现在得赶在蔬菜坏掉之前把它们做成罐头。你能帮我吗？”'
+
+	grandmaQW['chore_can_veggies'] = 1
+	act '跟她说你过一会儿就来帮忙': gt 'gp_elene', 'talk'
+	gs 'gp_elene', 'set_help_can_veggies_act'
+end
+
+
+if $ARGS[0] = 'set_help_can_veggies_act':
+	if grandmaQW['chore_can_veggies'] = 1:
+		act '帮奶奶把蔬菜装罐 (3:00)':
+			*clr & cla
+			minut += 75
+			gs 'stat'
+
+			grandmaQW['chore_harvest_done'] = 0
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/cleaning_veggies.jpg"></center>'
+			'你和奶奶一起把菜园里收的蔬菜分门别类理了一遍。理好之后，你开始清洗、切块、择掉茎叶，为装罐做准备。'
+			act '继续':
+				*clr & cla
+				minut += 90
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/village/canning.jpg"></center>'
+				'这活儿很磨人，不过你们到底还是干完了，你帮奶奶把菜都装进罐子里。随后你守在一旁看她煮罐子，需要的时候帮她把罐子从高压锅里取出来，再换上新的。'
+				act '继续':
+					*clr & cla
+					minut += 15
+					gs 'stat'
+
+					grandmaQW['chore_can_veggies'] = 0
+					grandmaQW['help_amount'] += 3
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/village/canned_veggies.jpg"></center>'
+					'最后，你帮奶奶把最后几个罐子从高压锅里取出，搁在一旁晾凉。'
+					'“你知道吗，<<$pcs_nickname>>，如果你懂得自己做食物罐头，就能熬过多年歉收的日子，”她说。'
+					'“我和你爷爷年轻时吃过很多苦，但只要有机会就把收成储存起来，这才让我们在艰难的时候没有饿死。你最好记住这一点，小姑娘！”'
+					act '完成': gt 'gp_elene', 'return'
+				end
+			end
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       FEED CHICKENS                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_feedchickens':
+	'“当然可以，<<$pcs_nickname>>。你能好心去喂一下鸡吗？”'
+
+	grandmaQW['chore_feed_chickens'] = 1
+	act '跟她说你待会儿就去做': gt 'gp_elene', 'talk'
+	act '答应并去院子 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/feed_chickens.jpg"></center>'
+		'你拎上喂鸡的谷物饲料，往院子里走去。'
+
+		act '继续': gt 'gad_gpyard', 'chickens'
+	end
+end
+
+
+if $ARGS[0] = 'event_feedchickens':
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	grandmaQW['chore_feed_chickens'] = 2
+	gs 'exp_gain', 'hndiwrk', rand(0, 3)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/chickens2.jpg"></center>'
+	'你决定去喂鸡。你提起一桶鸟食和谷物饲料，撒在地上。鸡立刻冲过来，贪婪地啄个不停。你看了一会儿，才去忙自己的事。'
+
+	gs 'archetypes', 'gain', 'prude', 'tiny', '帮奶奶：喂鸡', 7
+	act '完成': gt 'gad_gpyard', 'start'
+	act '回到你祖母那里': minut += 1 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_feedchickens_act':
+	if grandmaQW['chore_feed_chickens'] = 2:
+		act '告诉她你喂了鸡':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_feed_chickens'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'“奶奶，我喂过鸡了，”你告诉她。'
+			'“很好，谢谢你，<<$pcs_nickname>>，”她说。“肥鸡才是快乐的鸡，快乐的鸡下的蛋最好。”'
+			'她自顾自地点点头，像是说了什么至理名言。'
+			'“呃，那个，我很乐意帮忙，奶奶，”你说着快速抱了她一下。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        CHECK PLANTS                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_checkplants':
+	'“<<$pcs_nickname>>，你能去菜园里干点活吗？”'
+
+	grandmaQW['chore_work_in_garden'] = 1
+	act '告诉她你晚点去做': gt 'gp_elene', 'talk'
+	act '答应并去菜园 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/go_yard.jpg"></center>'
+		'你去了菜园。'
+
+		act '继续': gt 'gad_gpyard', 'garden'
+	end
+end
+
+
+if $ARGS[0] = 'event_checkplants':
+	*clr & cla
+	menu_off = 1
+	minut += 180
+	gs 'sweat', 'add', 10
+	grandmaQW['chore_work_in_garden'] = 2
+	gs 'exp_gain', 'stren', 1
+	fat -= rand(1, 5)
+	gs 'exp_gain', 'hndiwrk', rand(3, 9)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/work_garden'+rand(1, 5)+'.jpg"></center>'
+	'你在菜园里忙活了一阵。'
+	act '完成': gt 'gad_gpyard', 'garden'
+	act '回到你祖母那里': minut += 2 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_checkplants_act':
+	if grandmaQW['chore_work_in_garden'] = 2:
+		act '跟她说你在菜园里干过活了':
+			*clr & cla
+			minut += 4
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_work_in_garden'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'“奶奶，我在菜园里的活干完了。”'
+			'“很好，谢谢你，<<$pcs_nickname>>，”她说。“杂草都拔干净了吗？”'
+			'“拔干净了，”你说，“我还给所有植物浇了水，检查了虫害和其他一切。”'
+			'“好，好，”她点点头。“照料好自己的菜园至关重要，<<$pcs_nickname>>。在没人管我们的时候，这就是我们养活自己的方式。”'
+			'你听了她的建议，点点头，她笑了。'
+			'“你知道吗，你让我想起你母亲，”她说。“她们像你这么大时，她跟柳达总是谈论菜园的事。”'
+			if npc_QW['A29'] < 2:
+				'“真的吗？”你问道，试着想象母亲在旧菜园里干活的样子。'
+				'“哦，是的，是的，”奶奶说。“尤其是你母亲。娜塔莎会说：‘柳达，柳达，我得去菜园了’，而柳达会说：‘可是姐姐，你昨天才去过菜园！’”'
+				'她抿了抿嘴唇，继续说：“恐怕她不太擅长园艺。不管她看上去在那儿待了多久，我总还是能发现杂草和害虫。”'
+			else
+				'你努力忍住笑。“哦对，<<$npc_nickname[''A29'']>>都跟我说过那个‘菜园’的事了，奶奶。真是有其母必有其女啊！”'
+				'奶奶点点头。“是啊，我想也是这样。不过她算不上什么园艺好手——不管她在那里待多久，我总是能找到杂草和害虫。”'
+			end
+			'你咧嘴一笑，心想<<$npc_nickname[''A29'']>>在你这个年纪时又会是什么样子。'
+			'“总之，”她继续说，“谢谢你替我做了这件事，<<$pcs_nickname>>。我这把老骨头一做这些就疼。”'
+			'她在你脸上亲了一下，打发你走了。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        WATER PLANTS                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_waterplants':
+	'“亲爱的<<$pcs_nickname>>，你能去给菜园里的植物浇水吗？”'
+
+	grandmaQW['chore_water_garden'] = 1
+	act '跟她说你过一会儿去做': gt 'gp_elene', 'talk'
+	act '答应并去菜园 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/go_yard.jpg"></center>'
+		'你提着浇水壶去了菜园。'
+
+		act '继续': gt 'gad_gpyard', 'garden'
+	end
+end
+
+
+if $ARGS[0] = 'event_waterplants':
+	*clr & cla
+	menu_off = 1
+	gs 'sweat', 'add', 10
+	minut += 60
+	grandmaQW['chore_water_garden'] = 2
+	gs 'exp_gain', 'vital', 1
+	fat -= rand(1, 2)
+	gs 'exp_gain', 'hndiwrk', rand(0, 3)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/water_garden.jpg"></center>'
+	'你给菜园浇了一个小时的水。'
+	act '完成': gt 'gad_gpyard', 'garden'
+	act '回到你祖母那里': minut += 1 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_waterplants_act':
+	if grandmaQW['chore_water_garden'] = 2:
+		act '跟她说你给菜园浇过水了':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_water_garden'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'“奶奶，我给菜园里所有植物都浇了水，”你告诉她。'
+			'“谢谢你，<<$pcs_nickname>>，”她说。“健康的植物总是口渴。所以如果你想做个健康的女孩，也该多喝点水。”'
+			'“也许吧。你还需要别的什么吗？”'
+			'“不用了，乖孩子。今天就够了，”她说着轻轻拍了拍你的手臂。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                    COLLECT STRAWBERRIES                    !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_collectstrawberries':
+	'“亲爱的<<$pcs_nickname>>，草莓熟了。你今天能去那块地摘一些回来吗？”'
+
+	grandmaQW['chore_collect_strawberries'] = 1
+	act '告诉她你一会儿就做': gt 'gp_elene', 'talk'
+	act '答应并去草莓地 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/go_yard.jpg"></center>'
+		'你拎着篮子，走到菜园里的草莓地。'
+
+		act '继续': gt 'gad_gpyard', 'strawberry'
+	end
+end
+
+
+if $ARGS[0] = 'event_collectstrawberries':
+	*clr & cla
+	menu_off = 1
+	minut += 180
+	gs 'sweat', 'add', 10
+	grandmaQW['chore_collect_strawberries'] = 2
+	gs 'exp_gain', 'agil', 1
+	fat -= 1
+	gs 'exp_gain', 'hndiwrk', rand(3, 9)
+	gs 'stat'
+
+	if PCloSkirt = 0:
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/collect_strawberries.jpg"></center>'
+	elseif $pantyworntype <> 'none':
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/collect_strawberries_ski.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/collect_strawberries_tanga.jpg"></center>'
+	end
+	'你在地里转了好几个小时，专挑熟透的草莓摘下来放进篮子。'
+
+	act '完成': gt 'gad_gpyard', 'strawberry'
+	act '回到你祖母那里': minut += 3 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_collectstrawberries_act':
+	if grandmaQW['chore_collect_strawberries'] = 2:
+		act '把你摘的草莓给她':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_collect_strawberries'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'你走到奶奶跟前，把一篮草莓递给她。'
+			'“奶奶，我把能找到的草莓都摘了，”你说。'
+			'“哦，<<$pcs_nickname>>，”她惊叹道，“这些草莓看起来是不是棒极了？今年它们又饱满又多汁。”'
+			'你笑着说：“味道也相当不错！”'
+			'奶奶带着无奈的神情看着你，说：“我可不记得有让你吃草莓，孩子。”'
+			'不过她装不下去，忍不住笑了。“我自己也从来抵不住诱惑，总要从藤上摘几颗新鲜的吃。”'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       COLLECT FRUIT                        !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_collectfruit':
+	'“亲爱的<<$pcs_nickname>>，果子熟了，该开始采摘了。你今天能去一趟吗？”'
+
+	grandmaQW['chore_collect_fruit'] = 1
+	act '告诉她你一会儿就做': gt 'gp_elene', 'talk'
+	act '答应并去果园 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/go_yard.jpg"></center>'
+		'你拎着篮子，走向果园。'
+
+		act '继续': gt 'gad_gpyard', 'fruit_garden'
+	end
+end
+
+
+if $ARGS[0] = 'event_collectfruit':
+	*clr & cla
+	menu_off = 1
+	minut += 180
+	gs 'sweat', 'add', 10
+	grandmaQW['chore_collect_fruit'] = 2
+	gs 'exp_gain', 'agil', 1
+	fat -= rand(1, 3)
+	gs 'exp_gain', 'hndiwrk', rand(3, 9)
+	gs 'stat'
+
+	if PCloSkirt = 0:
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/fruit_collect.jpg"></center>'
+	elseif $pantyworntype <> 'none':
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/fruit_collect_ski.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/fruit_collect_tanga.jpg"></center>'
+	end
+	'你在果园里转了一圈，把树上熟透的果子摘下来。'
+
+	act '完成': gt 'gad_gpyard', 'fruit_garden'
+	act '回到你祖母那里': minut += 3 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_collectfruit_act':
+	if grandmaQW['chore_collect_fruit'] = 2:
+		act '把你采的水果给她':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_collect_fruit'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'你走到奶奶跟前，把一篮水果递给她。'
+			'“我把够得着的果子都摘了，”你说。'
+			'“谢谢你，<<$pcs_nickname>>，”她说。“我已经不能像以前那样伸手弯腰了，你帮了我大忙。”'
+			'你笑着抱了抱奶奶，接着忙自己的事去了。'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       HARVEST GARDEN                       !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_harvestgarden':
+	'“亲爱的<<$pcs_nickname>>，你今天能去菜园一趟吗？该收成了。”'
+
+	grandmaQW['chore_harvest_garden'] = 1
+	act '告诉她你一会儿就做': gt 'gp_elene', 'talk'
+	act '答应并去菜园 (0:10)':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/go_yard.jpg"></center>'
+		'你带上收菜的工具，往菜园去了。'
+
+		act '继续': gt 'gad_gpyard', 'garden'
+	end
+end
+
+
+if $ARGS[0] = 'event_harvestgarden':
+	*clr & cla
+	menu_off = 1
+	minut += 180
+	gs 'sweat', 'add', 10
+	grandmaQW['chore_harvest_garden'] = 2
+	gs 'exp_gain', 'stren', 1
+	fat -= rand(1, 3)
+	gs 'exp_gain', 'hndiwrk', rand(3, 9)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/harvest_garden'+rand(1, 5)+'.jpg"></center>'
+	'你在菜园里收了几个小时的菜。'
+	act '完成': gt 'gad_gpyard', 'garden'
+	act '回到你祖母那里': minut += 1 & gt 'gp_elene', 'talk'
+end
+
+
+if $ARGS[0] = 'set_report_harvestgarden_act':
+	if grandmaQW['chore_harvest_garden'] = 2:
+		act '把菜园里的蔬菜给她':
+			*clr & cla
+			minut += 2
+			grandmaQW['help_amount'] += 1
+			grandmaQW['chore_harvest_garden'] = 0
+			grandmaQW['chore_harvest_done'] = 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+			'你把菜园里的一篮篮蔬菜搬进厨房放上桌，再回到奶奶身边。'
+			'“奶奶，我把菜园里能收的都收了，”你告诉她。“实在太多了！”'
+			'“是啊，孩子，”她说。“今年菜园收成好，是我们的福气。可惜过去有很多次我们没这么幸运。”'
+			'你的笑容僵了一下，不知道该怎么接这话。'
+			'“哦，别多想，小<<$pcs_nickname>>，”她说着用手捧住你的脸颊。“原谅一个老太婆的多愁善感吧。有你这么善良的孙女帮我们收庄稼，是我们的福气。”'
+			'你把年轻的手覆在她干枯的手上，朝她微笑。“我很乐意帮忙，奶奶。你还需要别的什么吗？”'
+			'“不用了，孩子，你今天做的已经够多了。当然，过阵子我们还得把这些蔬菜保存起来，免得坏掉，但现在你可以休息了。”'
+
+			act '继续': gt 'gp_elene', 'talk'
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                      GATHER MUSHROOMS                      !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_gathermushrooms':
+	grandmaQW['chore_gather_mushrooms'] = 1
+	grandmaQW['chore_mushroom_quantity'] = rand(1, 2)
+	'“<<$pcs_nickname>>，现在是蘑菇季。你愿意去森林里给我们采一些回来吗？”'
+	'“我们需要多少，奶奶？”你问道。'
+	'“哦，我想你至少应该能采到<<grandmaQW[''chore_mushroom_quantity'']>>公斤，”奶奶回答。'
+
+	act '跟她说你很快就去弄些回来': gt 'gp_elene', 'talk'
+	act '答应并去森林 (1:00)':
+		*clr & cla
+		if hour >= 6 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/gadroad.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/gadroad_night.jpg"></center>'
+		end
+		'你觉得现在做正合适。你拎起篮子出门，往森林走去。'
+		minut += 60
+		act '继续': gt 'gad_forest', 'forest_edge'
+	end
+end
+
+
+if $ARGS[0] = 'set_report_gathermushrooms_act':
+	if grandmaQW['chore_gather_mushrooms'] = 2 and boletus >= grandmaQW['chore_mushroom_quantity'] and hour >= 6 and hour < 20:
+		if grandmaQW['disappointment'] = 2:
+			act '把奶奶要的蘑菇给她':
+				*clr & cla
+				minut += 5
+				boletus -= grandmaQW['chore_mushroom_quantity']
+				boletus_stored += grandmaQW['chore_mushroom_quantity']
+				grandmaQW['help_amount'] += 1
+				grandmaQW['chore_gather_mushrooms'] = 0
+				grandmaQW['chore_mushroom_quantity'] = 0
+				grandmaQW['disappointment'] = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+				'你把那篮蘑菇拿到奶奶面前，说：“奶奶，你要的蘑菇在这儿！”'
+				'她接过去。“谢谢你，我的好姑娘。晚到总比不到好。我希望你在森林里没出事。得先把它们放到地窖里，等到要做罐头时再拿出来。”'
+				'“你觉得这些够吗？”'
+				'她笑了。“哦，有你爷爷在，永远都不够！”'
+				'“你要是想要，我可以再去采些。”'
+				'“不用了，小家伙，”她咂咂嘴说。“你已经做得够多了。”'
+				'你随手抱了她一下，算是回应，接着忙别的去了。'
+
+				act '继续': gt 'gp_elene', 'talk'
+			end
+		else
+			act '把奶奶要的蘑菇给她':
+				*clr & cla
+				minut += 5
+				boletus -= grandmaQW['chore_mushroom_quantity']
+				boletus_stored += grandmaQW['chore_mushroom_quantity']
+				grandmaQW['help_amount'] += 3
+				grandmaQW['chore_gather_mushrooms'] = 0
+				grandmaQW['chore_mushroom_quantity'] = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+				'你把那篮蘑菇拿到奶奶面前，说：“奶奶，你要的蘑菇在这儿！”'
+				'她笑着接过去。“谢谢你，我的好姑娘。得先把它们放到地窖里，等到要做罐头时再拿出来。”'
+				'“你觉得这些够吗？”'
+				'她笑了。“哦，有你爷爷在，永远都不够！”'
+				'“你要是想要，我可以再去采些。”'
+				'“不用了，小家伙，”她咂咂嘴说。“你今天已经做得够多了。”'
+				'你随手抱了她一下，算是回应，接着忙别的去了。'
+
+				act '继续': gt 'gp_elene', 'talk'
+			end
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       GATHER BERRIES                       !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_gatherberries':
+	grandmaQW['chore_gather_berries'] = 1
+	grandmaQW['chore_berry_quantity'] = rand(1, 2)
+	'“<<$pcs_nickname>>，野浆果熟了。我们该趁现在赶紧采一些。”'
+	'“你想要多少，奶奶？”你问道。'
+	'“先采<<grandmaQW[''chore_berry_quantity'']>>公斤就不错，”奶奶回答。'
+
+	act '跟她说你很快就去弄些回来': gt 'gp_elene', 'talk'
+	act '答应并去森林 (1:00)':
+		*clr & cla
+		if hour >= 6 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/gadroad.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/gadroad_night.jpg"></center>'
+		end
+		'你觉得现在做正合适。于是你拎起篮子出门，往森林走去。'
+		minut += 60
+		act '继续': gt 'gad_forest', 'forest_edge'
+	end
+end
+
+
+if $ARGS[0] = 'set_report_gatherberries_act':
+	if grandmaQW['chore_gather_berries'] = 2 and bilberry >= grandmaQW['chore_berry_quantity'] and hour >= 6 and hour < 20:
+		if grandmaQW['disappointment'] = 2:
+			act '把奶奶要的浆果给她':
+				*clr & cla
+				minut += 5
+				bilberry -= grandmaQW['chore_berry_quantity']
+				bilberry_stored += grandmaQW['chore_berry_quantity']
+				grandmaQW['help_amount'] += 1
+				grandmaQW['chore_gather_berries'] = 0
+				grandmaQW['chore_berry_quantity'] = 0
+				grandmaQW['disappointment'] = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+				'你走到奶奶身边，把沉甸甸的一篮浆果放在她脚边。'
+				'“奶奶，我把浆果都采回来了！”'
+				'“哦，谢谢你，<<$pcs_nickname>>，”奶奶回答。“这些看起来不错，就是有点晚了。得先把它们放到地窖里，等到要做罐头时再拿出来。”'
+				'你把篮子提起来搬进厨房，然后走回奶奶身边问道：“你觉得这些够过冬吗？”'
+				'“哦，不够，亲爱的，”奶奶说，“冬天又长又冷，你得趁能采的时候尽量多采。”'
+				'看到你脸上沮丧的表情，她又说：“不过今天就够了！我知道这活比看起来要累。你现在可以休息了，孩子。”'
+				'你松了口气，在奶奶脸上亲了一下，接着忙别的去了。'
+
+				act '继续': gt 'gp_elene', 'talk'
+			end
+		else
+			act '把奶奶要的浆果给她':
+				*clr & cla
+				minut += 5
+				bilberry -= grandmaQW['chore_berry_quantity']
+				bilberry_stored += grandmaQW['chore_berry_quantity']
+				grandmaQW['help_amount'] += 3
+				grandmaQW['chore_gather_berries'] = 0
+				grandmaQW['chore_berry_quantity'] = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+				'你走到奶奶身边，把沉甸甸的一篮浆果放在她脚边。'
+				'“奶奶，我把浆果都采回来了！”'
+				'“哦，谢谢你，<<$pcs_nickname>>，”奶奶回答。“这些看起来好极了。得先把它们放到地窖里，等到要做罐头时再拿出来。”'
+				'你把篮子提起来搬进厨房，然后走回奶奶身边问道：“你觉得这些够过冬吗？”'
+				'“哦，不够，亲爱的，”奶奶说，“冬天又长又冷，你得趁能采的时候尽量多采。”'
+				'看到你脸上沮丧的表情，她又说：“不过今天就够了！我知道这活比看起来要累。你现在可以休息了，孩子。”'
+				'你松了口气，在奶奶脸上亲了一下，接着忙别的去了。'
+
+				act '继续': gt 'gp_elene', 'talk'
+			end
+		end
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        GATHER BOTH                         !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'chore_gatherboth':
+	grandmaQW['chore_gather_both'] = 1
+	grandmaQW['chore_mushroom_quantity'] = rand(1, 2)
+	grandmaQW['chore_berry_quantity'] = rand(1, 2)
+	'“现在正是森林赐予我们礼物的季节，<<$pcs_nickname>>。你能去给我们采些蘑菇和浆果回来吗？”'
+	'“每样要采多少？”你问道。'
+	'“如果可以的话，尽量采<<grandmaQW[''chore_mushroom_quantity'']>>公斤蘑菇和<<grandmaQW[''chore_berry_quantity'']>>公斤浆果，”奶奶回答。“趁能采的时候囤起来很重要。”'
+
+	act '跟她说你很快就去弄些回来': gt 'gp_elene', 'talk'
+	act '答应并去森林 (1:00)':
+		*clr & cla
+		if hour >= 6 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/gadroad.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/gadroad_night.jpg"></center>'
+		end
+		'你觉得现在做正合适。于是你拎起篮子出门，往森林走去。'
+		minut += 60
+		act '继续': gt 'gad_forest', 'forest_edge'
+	end
+end
+
+
+if $ARGS[0] = 'set_report_gatherboth_act':
+	if grandmaQW['chore_gather_both'] = 2 and boletus >= grandmaQW['chore_mushroom_quantity'] and bilberry >= grandmaQW['chore_berry_quantity'] and hour >= 6 and hour < 20:
+		if grandmaQW['disappointment'] = 2:
+			act '把奶奶要的蘑菇和浆果交给她':
+				*clr & cla
+				minut += 5
+				boletus -= grandmaQW['chore_mushroom_quantity']
+				bilberry -= grandmaQW['chore_berry_quantity']
+				boletus_stored += grandmaQW['chore_mushroom_quantity']
+				bilberry_stored += grandmaQW['chore_berry_quantity']
+				grandmaQW['help_amount'] += 1
+				grandmaQW['chore_gather_berries'] = 0
+				grandmaQW['chore_berry_quantity'] = 0
+				grandmaQW['chore_gather_both'] = 0
+				grandmaQW['chore_gather_mushrooms'] = 0
+				grandmaQW['chore_mushroom_quantity'] = 0
+				grandmaQW['disappointment'] = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+				'你提着满满一篮从林子里采的蘑菇和浆果，走到奶奶跟前。'
+				'“奶奶，蘑菇和浆果都在这儿，就跟你要求的一样！”'
+				'“哦，谢谢你，<<$pcs_nickname>>。我都开始以为你把我忘了。得先把它们放到地窖里，等到要做罐头时再拿出来，”奶奶回答。'
+				'“我还得再跑一趟吗，还是你觉得这些够了？”'
+				'“嗯，小家伙，”奶奶说，“‘够了’和‘今天够了’是两回事。”'
+				'“哦……”你说，不知道该怎样理解她的回答。'
+				'她温柔地笑了笑，拍拍你的头。“你今天已经做得够多了，孩子。”'
+				'你尴尬地笑了笑，还是没太明白，不过还是在奶奶脸上亲了一下，接着忙自己的事去了。'
+
+				act '继续': gt 'gp_elene', 'talk'
+			end
+		else
+			act '把奶奶要的蘑菇和浆果交给她':
+				*clr & cla
+				minut += 5
+				boletus -= grandmaQW['chore_mushroom_quantity']
+				bilberry -= grandmaQW['chore_berry_quantity']
+				boletus_stored += grandmaQW['chore_mushroom_quantity']
+				bilberry_stored += grandmaQW['chore_berry_quantity']
+				grandmaQW['help_amount'] += 3
+				grandmaQW['chore_gather_berries'] = 0
+				grandmaQW['chore_berry_quantity'] = 0
+				grandmaQW['chore_gather_both'] = 0
+				grandmaQW['chore_gather_mushrooms'] = 0
+				grandmaQW['chore_mushroom_quantity'] = 0
+				grandmaQW['disappointment'] = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/grandparents/grandma.jpg"></center>'
+				'你提着满满一篮从林子里采的蘑菇和浆果，走到奶奶跟前。'
+				'“奶奶，蘑菇和浆果都在这儿，就跟你要求的一样！”'
+				'“哦，非常感谢你，<<$pcs_nickname>>。得先把它们放到地窖里，等到要做罐头时再拿出来，”奶奶回答。'
+				'“我还得再跑一趟吗，还是你觉得这些够了？”'
+				'“嗯，小家伙，”奶奶说，“‘够了’和‘今天够了’是两回事。”'
+				'“哦……”你说，不知道该怎样理解她的回答。'
+				'她温柔地笑了笑，拍拍你的头。“你今天已经做得够多了，孩子。”'
+				'你尴尬地笑了笑，还是没太明白，不过还是在奶奶脸上亲了一下，接着忙自己的事去了。'
+
+				act '继续': gt 'gp_elene', 'talk'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            STAT DISPLAY                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'stat_display':
+	if grandmaQW['chore_clean_floor'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她家擦地板。</b>'
+	elseif grandmaQW['chore_clean_floor'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你替奶奶把地板擦好了——该去告诉她一声了。</b>'
+	elseif grandmaQW['chore_wash_clothes'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她洗衣服。</b>'
+	elseif grandmaQW['chore_wash_clothes'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶把衣服洗好了，该去告诉她一声了。</b>'
+	elseif grandmaQW['chore_milk_cow'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她在谷仓里挤牛奶。</b>'
+	elseif grandmaQW['chore_milk_cow'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶把牛奶挤好了，该去告诉她一声了。</b>'
+	elseif grandmaQW['chore_groceries'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她把东西买回来。</b>'
+	elseif grandmaQW['chore_groceries'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你替奶奶把东西买回来了，该给她送去了。</b>'
+	elseif grandmaQW['chore_can_mushrooms'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她装蘑菇罐头。</b>'
+	elseif grandmaQW['chore_can_berries'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她装浆果罐头。</b>'
+	elseif grandmaQW['can_veggies'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她装蔬菜罐头。</b>'
+	elseif grandmaQW['chore_feed_chickens'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要帮她喂鸡。</b>'
+	elseif grandmaQW['chore_feed_chickens'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶把鸡喂了，该去告诉她一声了。</b>'
+	elseif grandmaQW['chore_work_in_garden'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你答应过奶奶，今天要去菜园里干活。</b>'
+	elseif grandmaQW['chore_work_in_garden'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶在菜园里干了活 - 你应该告诉她已经完成了。</b>'
+	elseif grandmaQW['chore_water_garden'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你今天答应奶奶要给菜园里的植物浇水。</b>'
+	elseif grandmaQW['chore_water_garden'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶给菜园里的植物浇了水 - 你应该告诉她已经完成了。</b>'
+	elseif grandmaQW['chore_collect_strawberries'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你今天答应奶奶要帮她从菜园里摘草莓。</b>'
+	elseif grandmaQW['chore_collect_strawberries'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶摘了草莓 - 你应该把它们给她。</b>'
+	elseif grandmaQW['chore_collect_fruit'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你今天答应奶奶要帮她从菜园里采摘水果。</b>'
+	elseif grandmaQW['chore_collect_fruit'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶摘了水果 - 你应该把它们给她。</b>'
+	elseif grandmaQW['chore_harvest_garden'] = 1:
+		$stat_texts['gadukino'] += '<br><b>你今天答应奶奶要帮她从菜园里收获蔬菜。</b>'
+	elseif grandmaQW['chore_harvest_garden'] = 2:
+		$stat_texts['gadukino'] += '<br><b>你帮奶奶收获了蔬菜 - 你应该把它们给她。</b>'
+	elseif grandmaQW['chore_gather_mushrooms'] > 0 and grandmaQW['chore_gather_mushrooms'] < 3:
+		if boletus < grandmaQW['chore_mushroom_quantity']:
+			grandmaQW['chore_gather_mushrooms'] = 1
+			$stat_texts['gadukino'] += '<br><b>你答应过奶奶今天要给她采<<grandmaQW[''chore_mushroom_quantity'']>>公斤蘑菇。</b>'
+		else
+			grandmaQW['chore_gather_mushrooms'] = 2
+			$stat_texts['gadukino'] += '<br><b>你已选好<<grandmaQW[''chore_mushroom_quantity'']>>公斤奶奶要的蘑菇 - 你应该把它们给她。</b>'
+		end
+	elseif grandmaQW['chore_gather_berries'] > 0 and grandmaQW['chore_gather_berries'] < 3:
+		if bilberry < grandmaQW['chore_berry_quantity']:
+			grandmaQW['chore_gather_berries'] = 1
+			$stat_texts['gadukino'] += '<br><b>你答应过奶奶今天要给她采<<grandmaQW[''chore_berry_quantity'']>>公斤浆果。</b>'
+		else
+			grandmaQW['chore_gather_berries'] = 2
+			$stat_texts['gadukino'] += '<br><b>你已选好<<grandmaQW[''chore_berry_quantity'']>>公斤奶奶要的浆果 - 你应该把它们给她。</b>'
+		end
+	elseif grandmaQW['chore_gather_both'] > 0 and grandmaQW['chore_gather_both'] < 3:
+		if bilberry < grandmaQW['chore_berry_quantity'] or boletus < grandmaQW['chore_mushroom_quantity']:
+			grandmaQW['chore_gather_both'] = 1
+			$stat_texts['gadukino'] += '<br><b>你答应过奶奶今天要给她采<<grandmaQW[''chore_mushroom_quantity'']>>公斤蘑菇和<<grandmaQW[''chore_berry_quantity'']>>公斤浆果。</b>'
+		else
+			grandmaQW['chore_gather_both'] = 2
+			$stat_texts['gadukino'] += '<br><b>你已选好<<grandmaQW[''chore_mushroom_quantity'']>>公斤蘑菇和<<grandmaQW[''chore_berry_quantity'']>>公斤奶奶要的浆果 - 你应该把它们给她。</b>'
+		end
+	end
+end
+
+
+--- gp_elene ---------------------------------

@@ -1,0 +1,795 @@
+# city_mansion_entrance
+
+!! Delayed construction variant of the original mansion entrance.
+!! The original location flow is preserved; only construction and furnishing timing were refactored.
+!! Changes made here:
+!! - construction no longer completes instantly; it now advances through staged phases
+!! - staged, weekday-only mansion construction
+!! - the build path is split into foundation/utilities -> shell/finishing -> room shell -> room decoration
+!! - parallel room furnishing tasks
+!! - completion SMS notifications for each finished phase, delivered via telefon_schedules
+!! - dedicated in-game sender identity for construction updates: kirsinova_construction
+!! Why:
+!! - keep the location content 1:1 with the original while making the build process feel slower and more alive
+!! - SMS delivery uses the game´s native SetInSMSSchedule mechanism via telefon_schedules.qsrc
+!! - telefon_schedules checks on each day-change whether any construction is due and schedules
+!!   a single SMS handler for a random time that day (09:00-19:00)
+!! - the SMS handler performs state changes and sends the completion SMS in one pass
+!! - construction_tick remains as a fallback for state changes when the player visits the location
+!! Construction and furnishing only advance on working days (Monday-Friday).
+
+if $ARGS[0] = 'calc_workday_ready_day':
+	!! Returns the daystart when the requested number of working days has elapsed.
+	!! ARGS[1] = start daystart
+	!! ARGS[2] = number of working days to wait
+	temp_mansion_ready_day = ARGS[1]
+	temp_mansion_work_days = ARGS[2]
+	if temp_mansion_work_days < 1: temp_mansion_work_days = 1
+	:matryona_mansion_workday_loop
+		temp_mansion_ready_day += 1
+		temp_mansion_weekday = func('time', 'get_week_from_daystart', temp_mansion_ready_day)
+		if temp_mansion_weekday <= 5:
+			temp_mansion_work_days -= 1
+		end
+		if temp_mansion_work_days > 0: jump 'matryona_mansion_workday_loop'
+	result = temp_mansion_ready_day
+	killvar 'temp_mansion_ready_day'
+	killvar 'temp_mansion_work_days'
+	killvar 'temp_mansion_weekday'
+	exit
+end
+
+if $ARGS[0] = 'calc_workdays_until_day':
+	!! Returns how many working days remain until the given daystart is reached.
+	!! ARGS[1] = target daystart
+	temp_mansion_calc_target = ARGS[1]
+	temp_mansion_calc_remaining = 0
+	if temp_mansion_calc_target > daystart:
+		temp_mansion_calc_day = daystart
+		:matryona_mansion_remaining_loop
+			temp_mansion_calc_day += 1
+			if temp_mansion_calc_day <= temp_mansion_calc_target:
+				temp_mansion_calc_weekday = func('time', 'get_week_from_daystart', temp_mansion_calc_day)
+				if temp_mansion_calc_weekday <= 5:
+					temp_mansion_calc_remaining += 1
+				end
+				jump 'matryona_mansion_remaining_loop'
+			end
+	end
+	result = temp_mansion_calc_remaining
+	killvar 'temp_mansion_calc_target'
+	killvar 'temp_mansion_calc_remaining'
+	killvar 'temp_mansion_calc_day'
+	killvar 'temp_mansion_calc_weekday'
+	exit
+end
+
+if $ARGS[0] = 'check_construction_due':
+	!! Returns 1 if any construction completion is due today.
+	!! Called by telefon_schedules on day-change to decide whether to schedule an SMS.
+	result = 0
+	if matryona_mansion_phase_pending = 1 and daystart >= matryona_mansion_phase_ready_day:
+		result = 1
+	end
+	if matryona_mansion_sauna_pending = 1 and daystart >= matryona_mansion_sauna_ready_day:
+		result = 1
+	end
+	if matryona_mansion_pool_pending = 1 and daystart >= matryona_mansion_pool_ready_day:
+		result = 1
+	end
+	temp_mansion_check_idx = 3
+	:matryona_mansion_due_room_loop
+		if temp_mansion_check_idx <= 12 and result = 0:
+			if matryona_mansion_room_pending[temp_mansion_check_idx] = 1 and daystart >= matryona_mansion_room_ready_day[temp_mansion_check_idx]:
+				result = 1
+			end
+			temp_mansion_check_idx += 1
+			jump 'matryona_mansion_due_room_loop'
+		end
+	killvar 'temp_mansion_check_idx'
+	exit
+end
+
+if $ARGS[0] = 'queue_build_phase':
+	!! Queue a delayed construction phase.
+	!! ARGS[1] = 'foundation' | 'shell' | 'sauna' | 'pool'
+	!! ARGS[2] = working-day duration
+	if $ARGS[1] = 'foundation':
+		if matryona_mansion_phase_pending = 1: exit
+		matryona_mansion_phase_pending = 1
+		matryona_mansion_phase_ready_day = func('city_mansion_entrance', 'calc_workday_ready_day', daystart, ARGS[2])
+	elseif $ARGS[1] = 'shell':
+		if matryona_mansion_phase_pending = 1: exit
+		matryona_mansion_phase_pending = 1
+		matryona_mansion_phase_ready_day = func('city_mansion_entrance', 'calc_workday_ready_day', daystart, ARGS[2])
+	elseif $ARGS[1] = 'sauna':
+		if matryona_mansion_sauna_pending = 1: exit
+		matryona_mansion_sauna_pending = 1
+		matryona_mansion_sauna_ready_day = func('city_mansion_entrance', 'calc_workday_ready_day', daystart, ARGS[2])
+	elseif $ARGS[1] = 'pool':
+		if matryona_mansion_pool_pending = 1: exit
+		matryona_mansion_pool_pending = 1
+		matryona_mansion_pool_ready_day = func('city_mansion_entrance', 'calc_workday_ready_day', daystart, ARGS[2])
+	end
+	exit
+end
+
+if $ARGS[0] = 'queue_room_task':
+	!! Queue a room renovation or decoration step independently.
+	!! This allows furnishing work to run in parallel with other construction tasks.
+	!! ARGS[1] = room index (3..12)
+	!! ARGS[2] = target ymanrem stage to set when the work finishes
+	!! ARGS[3] = working-day duration
+	if matryona_mansion_room_pending[ARGS[1]] = 1: exit
+	matryona_mansion_room_pending[ARGS[1]] = 1
+	matryona_mansion_room_target[ARGS[1]] = ARGS[2]
+	matryona_mansion_room_ready_day[ARGS[1]] = func('city_mansion_entrance', 'calc_workday_ready_day', daystart, ARGS[3])
+	exit
+end
+
+if $ARGS[0] = 'process_construction_completions':
+	!! Process all due construction completions: advance state and send SMS.
+	!! Called by both construction_tick (location visit) and sms_construction_complete (scheduled SMS).
+	!! Idempotent — each item checks its *_pending flag before doing anything.
+
+	!! Ensure contact exists for SMS delivery
+	if arrpos('$contact', 'kirsinova_construction') < 0:
+		gs 'telefon', 'AddContact', 'kirsinova_construction', 'icon_na', 1
+	end
+	$npc_nickname['kirsinova_construction'] = '基尔萨诺娃建筑公司'
+
+	!! Phase (foundation / shell)
+	if matryona_mansion_phase_pending = 1 and daystart >= matryona_mansion_phase_ready_day:
+		matryona_mansion_phase_pending = 0
+		matryona_mansion_phase_ready_day = 0
+		gs 'homes_properties', 'progress_construction_status', 'matryona_mansion'
+		gs 'telefon', 'add_sms', 'kirsinova_construction', '[玛特廖娜庄园] 地基和管线工程已完成。现在可以完成豪宅主体了。'
+		gs 'stat'
+	end
+
+	!! Sauna
+	if matryona_mansion_sauna_pending = 1 and daystart >= matryona_mansion_sauna_ready_day:
+		matryona_mansion_sauna_pending = 0
+		matryona_mansion_sauna_ready_day = 0
+		banaMansion = 1
+		gs 'telefon', 'add_sms', 'kirsinova_construction', '[玛特廖娜庄园] 桑拿房建造完成。'
+		gs 'stat'
+	end
+
+	!! Pool
+	if matryona_mansion_pool_pending = 1 and daystart >= matryona_mansion_pool_ready_day:
+		matryona_mansion_pool_pending = 0
+		matryona_mansion_pool_ready_day = 0
+		bassMansion = 1
+		gs 'telefon', 'add_sms', 'kirsinova_construction', '[玛特廖娜庄园] 泳池区建造完成。'
+		gs 'stat'
+	end
+
+	!! Rooms (3-12)
+	temp_mansion_room_idx = 3
+	:matryona_mansion_room_completion_loop
+		if temp_mansion_room_idx <= 12:
+			if matryona_mansion_room_pending[temp_mansion_room_idx] = 1 and daystart >= matryona_mansion_room_ready_day[temp_mansion_room_idx]:
+				temp_mansion_room_stage = matryona_mansion_room_target[temp_mansion_room_idx]
+				matryona_mansion_room_pending[temp_mansion_room_idx] = 0
+				matryona_mansion_room_ready_day[temp_mansion_room_idx] = 0
+				ymanrem[temp_mansion_room_idx] = temp_mansion_room_stage
+				if temp_mansion_room_idx = 3:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 主厅翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 主厅装修完成。'
+					end
+				elseif temp_mansion_room_idx = 4:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 卧室翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 卧室装修完成。'
+					end
+				elseif temp_mansion_room_idx = 5:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 浴室翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 浴室装修完成。'
+					end
+				elseif temp_mansion_room_idx = 6:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 厨房翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 厨房装修完成。'
+					end
+				elseif temp_mansion_room_idx = 7:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 客厅翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 客厅装修完成。'
+					end
+				elseif temp_mansion_room_idx = 8:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 壁炉房翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 壁炉房装修完成。'
+					end
+				elseif temp_mansion_room_idx = 9:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 育婴室翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 育婴室装修完成。'
+					end
+				elseif temp_mansion_room_idx = 10:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 书房翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 书房装修完成。'
+					end
+				elseif temp_mansion_room_idx = 11:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 健身房翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 健身房装修完成。'
+					end
+				elseif temp_mansion_room_idx = 12:
+					if temp_mansion_room_stage = 1:
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 办公室翻新完成。'
+					else
+						$temp_mansion_sms_text = '[玛特廖娜庄园] 办公室装修完成。'
+					end
+				end
+				if temp_mansion_room_idx = 7 and temp_mansion_room_stage = 2 and mc_inventory['plasma_tv'] < 1: mc_inventory['plasma_tv'] = 1
+				if temp_mansion_room_idx = 12 and temp_mansion_room_stage = 2 and mc_inventory['tech_computer'] < 1: mc_inventory['tech_computer'] = 1
+				matryona_mansion_room_target[temp_mansion_room_idx] = 0
+				gs 'telefon', 'add_sms', 'kirsinova_construction', $temp_mansion_sms_text
+				killvar '$temp_mansion_sms_text'
+				killvar 'temp_mansion_room_stage'
+			end
+			temp_mansion_room_idx += 1
+			jump 'matryona_mansion_room_completion_loop'
+		end
+	killvar 'temp_mansion_room_idx'
+	exit
+end
+
+if $ARGS[0] = 'sms_construction_complete':
+	!! Handler called by IncomingSMSCheck via SetInSMSSchedule.
+	!! Processes all due completions and sends SMS for each.
+	gs 'city_mansion_entrance', 'process_construction_completions'
+	exit
+end
+
+if $ARGS[0] = 'construction_tick':
+	!! Fallback: advance construction state when the player visits the location.
+	!! Idempotent — process_construction_completions checks *_pending before doing anything.
+	if $ARGS[1] = 'matryona_mansion':
+		gs 'city_mansion_entrance', 'process_construction_completions'
+	end
+	exit
+end
+
+if $ARGS[0] = '':
+	$loc_arg = ''
+	$loc = 'city_mansion_entrance'
+	$menu_loc = 'city_mansion_entrance'
+	$menu_arg = ''
+	menu_off = 0
+	$region = 'city'
+	gs 'stat'
+
+	*clr & cla
+	property_construction_status = func('homes_properties', 'get_property_construction_status', 'matryona_mansion')
+	property_owned = func('homes_properties', 'is_property_of_status', 'owned', 'matryona_mansion')
+	gs 'city_mansion_entrance', 'construction_tick', 'matryona_mansion'
+
+	if property_construction_status = 0:
+		'<center><h4>你的土地</h4></center>'
+		'<center><img <<$set_imgh>> src="images/locations/city/suburb/mansion/o_empty_field.jpg"></center>'
+		'<center>你拥有的一块空地，适合建造大型住宅。</center>'
+	elseif property_construction_status = 1:
+		'<center><h4>你的豪宅</h4></center>'
+		'<center><img <<$set_imgh>> src="images/locations/city/suburb/mansion/o_foundation.jpg"></center>'
+		'<center>你的豪宅框架已经立在这里了，还需要继续施工。</center>'
+	elseif property_construction_status = 2:
+		'<center><h4>玛特廖娜宅邸</h4></center>'
+		'<center><img <<$set_imgh>> src="images/locations/city/suburb/mansion/matryona_mansion.jpg"></center>'
+		'<center>你已建成的豪宅矗立在这里。</center>'
+	end
+
+	*nl
+	if property_owned:
+		'<center><b>方案：分阶段施工</b></center>'
+		if matryona_mansion_phase_pending = 1:
+			if week >= 6:
+				'<center>施工订单已下达，但施工队只在工作日干活。预计还需<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', matryona_mansion_phase_ready_day)>>个工作日。</center>'
+			else
+				'<center>施工正在进行中。预计还需<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', matryona_mansion_phase_ready_day)>>个工作日。</center>'
+			end
+		end
+		if matryona_mansion_sauna_pending = 1:
+			if week >= 6:
+				'<center>桑拿房工程已开工，但施工队只在工作日干活。预计还需<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', matryona_mansion_sauna_ready_day)>>个工作日。</center>'
+			else
+				'<center>桑拿房工程正在进行中。预计还需<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', matryona_mansion_sauna_ready_day)>>个工作日。</center>'
+			end
+		end
+		if matryona_mansion_pool_pending = 1:
+			if week >= 6:
+				'<center>泳池区工程已开工，但施工队只在工作日干活。预计还需<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', matryona_mansion_pool_ready_day)>>个工作日。</center>'
+			else
+				'<center>泳池区工程正在进行中。预计还需<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', matryona_mansion_pool_ready_day)>>个工作日。</center>'
+			end
+		end
+		temp_mansion_pending_rooms = 0
+		temp_mansion_pending_room_count = 0
+		temp_mansion_next_room_ready = 0
+		temp_mansion_room_idx = 3
+		:matryona_mansion_pending_room_loop
+			if matryona_mansion_room_pending[temp_mansion_room_idx] = 1:
+				temp_mansion_pending_rooms = 1
+				temp_mansion_pending_room_count += 1
+				if temp_mansion_next_room_ready = 0 or matryona_mansion_room_ready_day[temp_mansion_room_idx] < temp_mansion_next_room_ready:
+					temp_mansion_next_room_ready = matryona_mansion_room_ready_day[temp_mansion_room_idx]
+				end
+			end
+			temp_mansion_room_idx += 1
+		if temp_mansion_room_idx <= 12: jump 'matryona_mansion_pending_room_loop'
+		if temp_mansion_pending_rooms = 1:
+			if week >= 6:
+				'<center>室内装修正在<<temp_mansion_pending_room_count>>个房间中同步进行，但施工队只在工作日干活。下一个房间将在<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', temp_mansion_next_room_ready)>>个工作日后完工。</center>'
+			else
+				'<center>室内装修正在<<temp_mansion_pending_room_count>>个房间中同步进行。下一个房间将在<<func(''city_mansion_entrance'', ''calc_workdays_until_day'', temp_mansion_next_room_ready)>>个工作日后完工。</center>'
+			end
+		end
+		killvar 'temp_mansion_pending_rooms'
+		killvar 'temp_mansion_pending_room_count'
+		killvar 'temp_mansion_next_room_ready'
+		killvar 'temp_mansion_room_idx'
+	end
+
+	*nl
+	if func('car_funcs', 'is_here'):
+		'<a href="exec:gs ''carF'', ''start''">你的<<$car[''name'']>></a>停在这里。'
+	end
+
+	act '去郊区':
+		minut += 10
+		gt 'city_suburbs', 'start'
+	end
+
+	if func('homes_properties', 'is_current_home'):
+		if vladimirQW['day'] = daystart and vladimirQW['stage'] = 30 and hour >= 16 and week = 6: '<a href="exec:gt ''vladimirQW_meet'',''2''">一辆奥迪停在你家豪宅前，你注意到站在车旁的弗拉基米尔</a>。'
+		if vladimirQW['day'] = daystart and vladimirQW['stage'] = 40 and hour >= 16 and week = 6: '<a href="exec:gt ''vladimirQW_meet'',''3''">一辆奥迪停在你家豪宅前，你注意到站在车旁的弗拉基米尔</a>。'
+
+		if arrsize('$lover') > 0:
+			temp_i = 0
+			temp_max_i = arrsize('$lover')
+			:lover_pickup_loop
+				$temp_npcid = $lover[temp_i]
+				if npc_meetday[$temp_npcid] = daystart and npc_meethour[$temp_npcid] = hour:
+					'<b><a href="exec: gt ''lover_meet'', ''start'', ''<<$temp_npcid>>''"><<$npc_usedname[$temp_npcid]>></a>正在你家豪宅门口等着。</b>'
+				end
+				temp_i += 1
+			if temp_i < temp_max_i: jump 'lover_pickup_loop'
+			killvar 'temp_i'
+			killvar 'temp_max_i'
+		end
+	end
+
+	if property_owned:
+		if property_construction_status = 2: act '走进豪宅': minut += 4 & gt 'city_mansion_residence_1', 'yfoyer'
+
+		if property_construction_status = 0 and matryona_mansion_phase_pending = 0:
+			act '订购地基和管线' + $func('money', 'get_cost_string', 500000):
+				if func('money', 'can_afford', 500000) = 0:
+					$noMoney
+				else
+					cls
+					gs 'money', 'pay', 500000
+					gs 'city_mansion_entrance', 'queue_build_phase', 'foundation', 3
+					minut += 5
+					menu_off = 1
+					gs 'stat'
+					'承包商已经开工。地基和管线将在短暂延迟后完工。'
+					act '离开': gt $curloc
+				end
+			end
+		end
+
+		if property_construction_status = 1 and matryona_mansion_phase_pending = 0:
+			act '订购精装修' + $func('money', 'get_cost_string', 1500000):
+				if func('money', 'can_afford', 1500000) = 0:
+					$noMoney
+				else
+					cls
+					gs 'money', 'pay', 1500000
+					gs 'city_mansion_entrance', 'queue_build_phase', 'shell', 5
+					minut += 5
+					menu_off = 1
+					gs 'stat'
+					'施工队现在正在进行主体和精装修阶段。结果稍后会出现。'
+					act '离开': gt $curloc
+				end
+			end
+		end
+
+		if property_construction_status = 2:
+			if ymanrem[3] = 0 and matryona_mansion_room_pending[3] = 0:
+				act '支付房间建造费用' + $func('money', 'get_cost_string', 500000):
+					if func('money', 'can_afford', 500000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 500000
+						gs 'city_mansion_entrance', 'queue_room_task', 3, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'你支付了房间建造费用。工程完成后，你就可以开始设计豪宅的内部了。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[3] = 1 and matryona_mansion_room_pending[3] = 0:
+				act '支付主厅翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 3, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'你支付了主厅的翻新费用。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[3] = 2 and matryona_mansion_room_pending[3] = 0:
+				act '装修主厅' + $func('money', 'get_cost_string', 150000):
+					if func('money', 'can_afford', 150000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 150000
+						gs 'city_mansion_entrance', 'queue_room_task', 3, 3, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'主厅装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[4] = 0 and matryona_mansion_room_pending[4] = 0:
+				act '支付卧室翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 4, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'卧室翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[4] = 1 and matryona_mansion_room_pending[4] = 0:
+				act '装修卧室' + $func('money', 'get_cost_string', 300000):
+					if func('money', 'can_afford', 300000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 300000
+						gs 'city_mansion_entrance', 'queue_room_task', 4, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'卧室装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[5] = 0 and matryona_mansion_room_pending[5] = 0:
+				act '支付浴室翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 5, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'浴室翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[5] = 1 and matryona_mansion_room_pending[5] = 0:
+				act '装修浴室' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 5, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'浴室装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[6] = 0 and matryona_mansion_room_pending[6] = 0:
+				act '支付厨房翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 6, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'厨房翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[6] = 1 and matryona_mansion_room_pending[6] = 0:
+				act '装修厨房' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 6, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'厨房装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[7] = 0 and matryona_mansion_room_pending[7] = 0:
+				act '支付客厅翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 7, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'客厅翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[7] = 1 and matryona_mansion_room_pending[7] = 0:
+				act '装修客厅' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 7, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'客厅装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[8] = 0 and matryona_mansion_room_pending[8] = 0:
+				act '支付壁炉房翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 8, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'壁炉房翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[8] = 1 and matryona_mansion_room_pending[8] = 0:
+				act '装修壁炉房' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 8, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'壁炉房装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[9] = 0 and matryona_mansion_room_pending[9] = 0:
+				act '支付育婴室翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 9, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'育婴室翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[9] = 1 and matryona_mansion_room_pending[9] = 0:
+				act '装修育婴室' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 9, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'育婴室装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[10] = 0 and matryona_mansion_room_pending[10] = 0:
+				act '支付书房翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 10, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'书房翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[10] = 1 and matryona_mansion_room_pending[10] = 0:
+				act '装修书房' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 10, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'书房装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[11] = 0 and matryona_mansion_room_pending[11] = 0:
+				act '支付健身房翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 11, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'健身房翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[11] = 1 and matryona_mansion_room_pending[11] = 0:
+				act '装修健身房' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 11, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'健身房装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if ymanrem[12] = 0 and matryona_mansion_room_pending[12] = 0:
+				act '支付办公室翻新费用' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 12, 1, 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'办公室翻新已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			elseif ymanrem[12] = 1 and matryona_mansion_room_pending[12] = 0:
+				act '装修办公室' + $func('money', 'get_cost_string', 250000):
+					if func('money', 'can_afford', 250000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 250000
+						gs 'city_mansion_entrance', 'queue_room_task', 12, 2, 1
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'办公室装修已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+		end
+
+		if property_construction_status > 0:
+			if banaMansion = 0 and matryona_mansion_sauna_pending = 0:
+				act '支付桑拿房建造费用' + $func('money', 'get_cost_string', 800000):
+					if func('money', 'can_afford', 800000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 800000
+						gs 'city_mansion_entrance', 'queue_build_phase', 'sauna', 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'桑拿房建造已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+
+			if bassMansion = 0 and matryona_mansion_pool_pending = 0:
+				act '支付泳池区建造费用' + $func('money', 'get_cost_string', 500000):
+					if func('money', 'can_afford', 500000) = 0:
+						$noMoney
+					else
+						cls
+						gs 'money', 'pay', 500000
+						gs 'city_mansion_entrance', 'queue_build_phase', 'pool', 2
+						minut += 5
+						menu_off = 1
+						gs 'stat'
+						'泳池区建造已委托施工。完成后的效果稍后会出现。'
+						act '离开': gt $curloc
+					end
+				end
+			end
+		end
+	end
+	killvar 'property_construction_status'
+	killvar 'property_owned'
+	killvar 'temp_i'
+	killvar 'temp_max_i'
+	killvar '$temp_npcid'
+	killvar 'temp_mansion_pending_rooms'
+	killvar 'temp_mansion_room_idx'
+end
+
+--- city_mansion_entrance ---------------------------------

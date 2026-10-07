@@ -1,0 +1,1033 @@
+# intro_character_creation
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                            HELPER FUNCTIONS                            ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!! Unified birthday handler.
+!!   ARGS[1] = 'link' : inline link renderer (gs-called from start2).
+!!   ARGS[1] = ''     : full picker screen (gs-called for internal date/month links,
+!!                      or gt-navigated from the inline link / intro_character_custom).
+!!                      Done routes back via gt $locM, $locM_arg.
+if $ARGS[0] = 'core_birthday':
+	if birthday = 0: gs 'intro_functions', 'set_default', 'birthday'
+	gs 'time', 'init_monthnames'
+	if $ARGS[1] = 'link':
+		!! Inline summary link shown on start2 screens
+		if $start_type['magic'] = 'tg':
+			$startdob = '她的生日：<b><<mid(100 + birthday, 2, 2)>>/<<mid(100 + birthmonth, 2, 2)>>/<<birthyear>></b> (DD/MM/YYYY)'
+		else
+			$startdob = '你的生日：<b><<mid(100 + birthday, 2, 2)>>/<<mid(100 + birthmonth, 2, 2)>>/<<birthyear>></b> (DD/MM/YYYY)'
+		end
+		'<a href="exec:gt ''intro_character_creation'', ''core_birthday''"><<$startdob>></a>.'
+		killvar 'startdob'
+	else
+		!! Full picker screen
+		cls
+		$func('wrap', 'header center b', '生日选择器')
+		if $start_type['loc'] = 'sg' and $start_type['magic'] = 'tg':
+			'<center><img <<$set_imgh>> src="images/system/1_openings/4_csb/16.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="<<FUNC(''$face_image'')>>"></center>'
+		end
+		'<center>选择你的出生日期：</center>'
+		*nl
+
+		if birthmonth = 2:
+			if (birthyear mod 4 = 0 and birthyear mod 100 <> 0) or (birthyear mod 400 = 0):
+				monthdays = 29
+			else
+				monthdays = 28
+			end
+		elseif birthmonth = 4 or birthmonth = 6 or birthmonth = 9 or birthmonth = 11:
+			monthdays = 30
+		else
+			monthdays = 31
+		end
+
+		birthmonth = func('math', 'int_clamp', birthmonth, 1, 12)
+		birthday = func('math', 'int_clamp', birthday, 1, monthdays)
+
+		'<center><<iif($start_type[''magic''] = ''tg'', ''她'', ''你'')>>生日：<b><<birthyear>>年<<$monthName[birthmonth]>><<birthday>><<$func(''shortgs'', ''get_number_suffix'', birthday)>>日</b></center>'
+		*nl
+		'<center><a href="exec:birthday += 5 & gs ''intro_character_creation'', ''core_birthday''">+5 天</a></center>'
+		'<center><a href="exec:birthday += 1 & gs ''intro_character_creation'', ''core_birthday''">+1 天</a></center>'
+		'<center><a href="exec:birthday -= 1 & gs ''intro_character_creation'', ''core_birthday''">-1 天</a></center>'
+		'<center><a href="exec:birthday -= 5 & gs ''intro_character_creation'', ''core_birthday''">-5 天</a></center>'
+
+		$bm_td     = 'border:1px solid ' + $theme_hex['goth'] + '; background-color:' + $theme_hex['table_bg_alt'] + '; padding:6px 12px; text-align:center;'
+		$bm_td_sel = 'border:1px solid ' + $theme_hex['goth'] + '; background-color:' + $theme_hex['accent']      + '; padding:6px 12px; text-align:center; color:#ffffff;'
+		bm_i = 1
+		:bm_build_loop
+			$bm_lnk[bm_i] = '<td style="' + $bm_td + '"><a href="exec:birthmonth = ' + $str(bm_i) + ' & gs ''intro_character_creation'', ''core_birthday''">' + $monthName[bm_i] + '</a></td>'
+			bm_i += 1
+		if bm_i <= 12: jump 'bm_build_loop'
+		killvar 'bm_i'
+		$bm_lnk[birthmonth] = '<td style="' + $bm_td_sel + '"><b>' + $monthName[birthmonth] + '</b></td>'
+		*p '<center><table style="border:2px solid ' + $theme_hex['goth'] + '; background-color:' + $theme_hex['table_bg'] + '; border-spacing:4px; margin:6px;" cellpadding="0" cellspacing="0">'
+		*p '<tr><<$bm_lnk[1]>><<$bm_lnk[2]>><<$bm_lnk[3]>></tr>'
+		*p '<tr><<$bm_lnk[4]>><<$bm_lnk[5]>><<$bm_lnk[6]>></tr>'
+		*p '<tr><<$bm_lnk[7]>><<$bm_lnk[8]>><<$bm_lnk[9]>></tr>'
+		*p '<tr><<$bm_lnk[10]>><<$bm_lnk[11]>><<$bm_lnk[12]>></tr>'
+		*p '</table></center>'
+		killvar 'bm_lnk'
+		killvar 'bm_td'
+		killvar 'bm_td_sel'
+
+		act '<b>完成</b>': gt $locM, $locM_arg
+		killvar 'monthdays'
+	end
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                              QUICK START                               ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'quick_start':
+	if $currentpursetype <> '' and $currentpursetype <> 'none':
+		dynamic $currentpursetype + '_purses[<<currentpursenumber>>] = 1'
+	end
+	tsg = iif($start_type['loc'] = 'sg', 1, 0)
+	gs 'intro_functions', 'reset_all'
+	if $start_type['loc'] = 'sg':
+		gs 'homes_properties', 'give_access', 'parents_home'
+		gs 'homes_properties', 'set_home', 'parents_home'
+		kanikuli = 5
+	end
+
+	if $pcs_firstname = '': gs 'intro_functions', 'set_default', 'name'
+
+	gs 'npcstatic1'
+	gs 'npcstatic2'
+	gs 'npcstatic3'
+	gs 'npcstatic4'
+	gs 'npcstatic5'
+	gs 'npcstatic6'
+	gs 'npcstatic_dildos'
+
+
+	if $start_type['loc'] = 'sg' and $start_type['magic'] = 'tg':
+		gs 'intro_character_templates', 'set_template', 'goodgirl'
+	end
+
+	if birthday = 0: gs 'intro_functions', 'set_default', 'birthday'
+
+	daystart_start = func('intro_character_creation', 'get_random', 'daystart')
+	gs 'intro_initialization', 'init_time'
+
+	if $start_type['loc'] = 'sg':
+		start_location = func('intro_character_creation', 'get_random', 'location')
+	end
+
+	gs 'intro_character_templates', 'set_random_template'
+	gt 'intro_overview'
+end
+
+if $ARGS[0] = 'get_random':
+	if $ARGS[1] = 'daystart':
+		if $start_type['loc'] = 'sg':
+			temp_rand = rand(0, 3)
+			if temp_rand = 0:
+				result = 153
+			elseif temp_rand = 1:
+				result = 183
+			elseif temp_rand = 2:
+				result = 214
+			else
+				result = 239
+			end
+		elseif $start_type['loc'] = 'uni':
+			result = 603
+		else
+			result = 521
+		end
+	elseif $ARGS[1] = 'location':
+		if $start_type['loc'] = 'sg':
+			result = rand(0, 3)
+			if knowpreg = 1 or kid > 0:
+				if result = 3:
+					result = func('intro_character_creation', 'get_random', 'location')
+					exit
+				end
+			end
+		else
+			result = 0
+		end
+	end
+
+	killvar 'temp_rand'
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                                 START                                  ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'start':
+	!! $ARGS[1] = destination after core setup
+	!! ARGS[2] = stage of core setup
+	gs 'themes', 'indoors'
+	if ARGS[2] = 0:
+		!! Preserve any purse set before character creation (e.g. from a mod)
+		if $currentpursetype <> '' and $currentpursetype <> 'none':
+			dynamic $currentpursetype + '_purses[<<currentpursenumber>>] = 1'
+		end
+		tsg = iif($start_type['loc'] = 'sg', 1, 0)
+		gs 'intro_functions', 'reset_all'
+		if $start_type['loc'] = 'sg':
+			gs 'homes_properties', 'give_access', 'parents_home'
+			gs 'homes_properties', 'set_home', 'parents_home'
+			kanikuli = 5
+		end
+		gs 'npcstatic1'
+		gs 'npcstatic2'
+		gs 'npcstatic3'
+		gt 'intro_character_creation', 'start', $ARGS[1], 1
+
+	elseif ARGS[2] = 1:
+		if $start_type['loc'] = 'sg' and $start_type['magic'] = 'tg':
+			!! npcstatic must be called here (as it is for non-TG at stage 1) so that
+			!! aarraynumber and npc_grupTipe are set before default() runs at stage 2.
+			!! Without this, the default() loop is a no-op (aarraynumber=0) and
+			!! socialgroup_setting in templates silently skips every NPC.
+			gt 'intro_character_creation', 'start', $ARGS[1], 2
+		else
+			if $pcs_firstname = '': gs 'intro_functions', 'set_default', 'name'
+			$temp = input('你的名字是什么？（留空则使用 "<<$pcs_firstname>>")')
+			if $temp <> '': $pcs_firstname = $temp
+			$temp = input('你的姓氏是什么？（留空则使用 "<<$pcs_lastname>>")')
+			if $temp <> '': $pcs_lastname = $temp
+			$temp = input('你的昵称是什么？（留空则使用 "<<$pcs_nickname>>")')
+			if $temp <> '': $pcs_nickname = $temp
+			killvar '$temp'
+
+			'<center><img <<$set_imgh>> src="images/system/1_openings/shared/pre_1.jpg"></center>'
+			'你是<<$pcs_firstname>> <<$pcs_lastname>>，大家简称你为<<$pcs_nickname>>。'
+			'你母亲的名字是<<$npc_firstname[''A29'']>>，而你的亲生父亲在你还是个婴儿时就离开了，你的母亲不久之后嫁给了你的继父<<$npc_firstname[''A28'']>>。'
+			'<<$npc_firstname[''A33'']>>是你的姐姐，她比你大两岁，仍然住在家里，在当地的一家杂货店工作。她选择不上大学，而是把大部分空闲时间花在喝酒和跟朋友聚会上，这让你母亲非常不满。'
+			'你还有一个同母异父的弟弟，<<$npc_firstname[''A34'']>>, 他非常喜欢运动，尤其是足球，正在成长为一个出色的运动员。他比你小一岁，他的父亲是你的继父。'
+			if $start_type['loc'] = 'sg': '你的<<$npc_usedname[''A30'']>>和你住在同一栋楼里，不过除了在楼梯间碰上，你很少见到她。她是你母亲的姐姐。大家都叫他<<$npc_usedname[''A54'']>>，他是你继父最好的朋友。你的童年好友<<$npc_firstname[''A11'']>> <<$npc_lastname[''A11'']>>和你同岁，从小住在你楼上那一层。他的父亲<<$npc_firstname[''A112'']>>是你母亲的老朋友。'
+			act '继续': gt 'intro_character_creation', 'start', $ARGS[1], 2
+			act '重新输入姓名': gt 'intro_character_creation', 'start', $ARGS[1], 1
+		end
+
+	elseif ARGS[2] = 2:
+		gs 'npcstatic4'
+		gs 'npcstatic5'
+		gs 'npcstatic6'
+		gs 'npcstatic_dildos'
+		gs 'npc_relationship', 'default'
+		gs 'npc_relationship', 'default_family_friends'
+		gs 'npc_relationship', 'set', 'A18', 1
+
+		if $start_type['loc'] = 'sg' and $start_type['magic'] = 'tg':
+			!! Apply a visual baseline for the M2F intro preview using a temp var.
+			!! Do NOT assign to $start_type[group/cat] here — the player has not yet
+			!! made their character selection. Setting them now would overrule custom
+			!! setup because intro_character_custom only assigns them when empty.
+			$tg_init_cat = 'goodgirl'
+			gs 'intro_character_templates', 'set_template', $tg_init_cat
+			killvar 'tg_init_cat'
+		end
+		gt 'intro_character_creation', 'start2', $ARGS[1]
+	end
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                       BIRTHDAY / DATE SELECTION                        ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'start2':
+	*clr & cla
+	!! $ARGS[1] = next location after start location and time, used by sg_tg path. Defaults to charselect.
+	$locM = 'intro_character_creation'
+	$locM_arg = 'start2'
+	!! Persist the post-location destination across birthday picker round-trips.
+	$start2_dest = $ARGS[1]
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/pre_2.jpg"></center>'
+
+	gs 'intro_character_creation', 'core_birthday', 'link'
+
+	act '确认':
+		cls
+		if $start_type['loc'] <> 'sg':
+			gs 'intro_initialization', 'init_time'
+			gt 'intro_character_creation', 'charselect'
+		else
+			cls
+			'<center><img <<$set_imgh>> src="images/system/1_openings/shared/pre_3.jpg"></center>'
+			*nl
+			'关于开始游戏，你有四个选项：'
+			*nl
+			'1. 从八月开始，正值暑假结束、新学期即将开始之际<i>（推荐新手选择）</i>'
+			'2. 从八月一日开始，距新学期开始还有一个月。'
+			'3. 从七月一日开始，暑假刚开始一个月。'
+			'4. 从六月一日开始，正值暑假之初（芭蕾内容需要）。'
+
+			act '八月底开局':
+				daystart_start = 239
+				gs 'intro_initialization', 'init_time'
+				gt 'intro_character_creation', 'start3', $start2_dest
+			end
+
+			act '八月初开局':
+				daystart_start = 214
+				gs 'intro_initialization', 'init_time'
+				gt 'intro_character_creation', 'start3', $start2_dest
+			end
+
+			act '七月初开局':
+				daystart_start = 183
+				gs 'intro_initialization', 'init_time'
+				gt 'intro_character_creation', 'start3', $start2_dest
+			end
+
+			act '六月初开局':
+				daystart_start = 153
+				gs 'intro_initialization', 'init_time'
+				gt 'intro_character_creation', 'start3', $start2_dest
+			end
+		end
+	end
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                    SG LOCATION SELECTION (SG ONLY)                     ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'start3':
+	!! SG only
+	!! $ARGS[1] = next location after start location, used by sg_tg path. Defaults to charselect.
+	$temp_dest = iif($ARGS[1] = '', 'charselect', $ARGS[1])
+
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/pre_3.jpg"></center>'
+	*nl & '你可以从两个开局地点中选择：'
+	*nl & '选择巴甫洛夫斯克开局，你可以在巴甫洛夫斯克这座外省小镇中选择住所<i>（推荐新手选择）</i>。'
+	'选择加杜基诺开局，你正在加杜基诺这座小农耕村庄里拜访祖父母的房子。'
+
+	act '巴甫洛夫斯克开局':
+		*clr & cla
+		'<center><h2>巴甫洛夫斯克</h2></center>'
+		'<center><img <<$set_imgh>> src="images/system/1_openings/shared/site_pavlovsk.jpg"></center>'
+		*nl
+		'<center>俄罗斯农村地区的一个外省小镇，看起来与该地区所有其他城镇十分相似。人口：15,000.</center>'
+		'你在这里有3个选项：'
+		'"和父母同住"——你在父母家中醒来<i>（推荐新手选择）</i>。'
+		'"在普希金租房"——你将在邻近的普希金镇拥有自己的公寓，并且每月需要支付房租。'
+		'"和几个男孩合住"——你被赶出父母家后，和3个男孩合住在一套公寓里。'
+
+		act '和父母同住':
+			*clr & cla
+			'<center><h2>巴甫洛夫斯克</h2></center>'
+			'<center><img <<$set_imgh>> src="images/system/1_openings/shared/site_pavlovsk.jpg"></center>'
+			*nl
+			'<center>俄罗斯农村地区的一个外省小镇，看起来与该地区所有其他城镇十分相似。人口：15,000.</center>'
+			start_location = 0
+			act '确认地点': gt 'intro_character_creation', $temp_dest
+			act '更换地点': gt 'intro_character_creation', 'start3', $ARGS[1]
+		end
+
+		act '在普希金租房':
+			*clr & cla
+			'<center><h2>普希金</h2></center>'
+			'<center><img <<$set_imgh>> src="images/locations/pushkin/liam.jpg"></center>'
+			*nl
+			'<center>一座以叶卡捷琳娜宫和帕维尔宫闻名的小旅游城镇。它与巴甫洛夫斯克相连，大部分设施都在那里。</center>'
+			start_location = 2
+			act '确认地点': gt 'intro_character_creation', $temp_dest
+			act '更换地点': gt 'intro_character_creation', 'start3', $ARGS[1]
+		end
+
+		if knowpreg = 0 and kid = 0:
+			!! Cannot live in the shared appartment while pregnant. Is not an issue, yet.
+			act '和几个男孩合住':
+				*clr & cla
+				'<center><h2>巴甫洛夫斯克</h2></center>'
+				'<center><img <<$set_imgh>> src="images/system/1_openings/shared/site_pavlovsk.jpg"></center>'
+				*nl
+				'<center>俄罗斯农村地区的一个外省小镇，看起来与该地区所有其他城镇十分相似。人口：15,000.</center>'
+				'<center>你家里不再欢迎你回去，只能和3个男孩住在一起。</center>'
+				start_location = 3
+				act '确认地点': gt 'intro_character_creation', $temp_dest
+				act '更换地点': gt 'intro_character_creation', 'start3', $ARGS[1]
+			end
+		end
+		act '更换地点': gt 'intro_character_creation', 'start3', $ARGS[1]
+	end
+
+	act '加杜基诺开局':
+		*clr & cla
+		'<center><h2>加杜基诺村</h2></center>'
+		'<center><img <<$set_imgh>> src="images/system/1_openings/shared/site_gadukino.jpg"></center>'
+		*nl
+		'<center>一个小农耕村庄，破旧的旧木屋和废墟一样遍布风景。这个村庄早已风光不再。</center>'
+		start_location = 1
+		act '确认地点': gt 'intro_character_creation', $temp_dest
+		act '更换地点': gt 'intro_character_creation', 'start3', $ARGS[1]
+	end
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                         PERSONALITY SELECTION                          ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'charselect':
+	gs 'themes', 'indoors'
+	tsg = iif($start_type['loc'] = 'sg', 1, 0)
+	$temp_verb = iif(tsg, '我是', '我曾是')
+	$temp_have = iif(tsg, '有', '曾有')
+	*clr & cla
+	killvar 'temp_dest'
+
+	if $ARGS[1] = '':
+		killvar 'ballet'
+		killvar 'locM'
+		killvar 'locM_arg'
+		killvar 'start2_dest'
+
+		'<center><img <<$set_imgh>> src="images/system/1_openings/shared/pre_4.jpg"></center>'
+		'选择你的性格/社交群体。你的社交群体将对你的学校生活产生重大影响，并决定你的初始朋友，特质和整体形象。虽然之后你随时可以改变群体，但这需要时间和精力，所以请明智选择。'
+		*nl & '书呆子、极客和好学生——这类学生在学校里通常成绩不错，深受老师和成年人的喜爱。然而，他们在自己的社交群体之外往往朋友不多，有时还会被欺负或霸凌。他们在运动方面表现平平，也比其他群体更不看重外表和社交技巧。'
+		*nl & '运动员和天生体育健将——这类学生在自己选择的运动上很有天赋，运动细胞发达。这意味着他们通常体格健壮、身材很好，往往比其他许多学生更帅气漂亮。他们和其他运动员相处融洽，受到酷孩子们的尊重，而书呆子和失败者则畏惧他们。他们不重视学业成绩，可能会与戈普尼克们和其他捣蛋鬼发生冲突。'
+		*nl & '人气高、酷且漂亮的——这类学生通常天生擅长社交，往往还天生丽质。因此他们被许多人羡慕，大多数人都想和他们交朋友。比起其他任何群体，他们更有能力毁掉一个人的名声、让那个人成为社交圈的弃儿，这让他们受到许多学生的畏惧。酷和好看就是他们看重的一切，所以他们在运动和学业上往往都很平庸。'
+		*nl & '戈普尼克、叛逆者、朋克和捣蛋鬼——这类学生不按规矩办事，事实上，只要有机会，他们还会高高兴兴地践踏规矩。长年的打架斗殴和惹是生非让他们体格不错，但对喝酒、抽烟和毒品的偏爱往往又在一定程度上抵消了这一点。他们不是最受欢迎的学生；老师和家长都对他们没什么好印象，当地警察也一样。大多数学生都怕他们，要么是因为多年来的霸凌，要么是因为戈普尼克们一言不合就动手的作风。有些学生暗暗羡慕他们无忧无虑的态度，以及他们面对其他学生常常遭遇的社交陷阱时那种嗤之以鼻、挥手赶开的本事。'
+		*nl & '失败者、老师的宠儿、荡妇和丑八怪——这类学生是被排斥的人，没人喜欢和他们待在一起，除非是为了欺负他们。也许他们只是不善社交，从没交到多少朋友，打破了某条不成文的社交规则，长得丑，爱打小报告，是个骚货，和/或是个被出柜的男同性恋。不管怎样，他们都有一个共同点：很容易成为被欺负和嘲弄的对象。'
+
+		act '书呆子':											gt 'intro_character_creation', 'charselect', 'nerd'
+		act '运动员':											gt 'intro_character_creation', 'charselect', 'jock'
+		act '人气':										gt 'intro_character_creation', 'charselect', 'cool'
+		act '戈普尼克':										gt 'intro_character_creation', 'charselect', 'gopnik'
+		act '边缘人':										gt 'intro_character_creation', 'charselect', 'outcast'
+		act '完全自定义设置':							gt 'intro_character_custom', 'start'
+		act '随机性格':							gt 'intro_character_creation', 'random_start'
+
+	elseif $ARGS[1] = 'cool':
+		gs 'intro_character_creation', 'group_desc', 'cool'
+		act '我<<$temp_have>>很多朋友':			gs 'intro_character_creation', 'group_desc', 'cool', 'socialite'
+		act '<<$temp_verb>>美丽':					gt 'intro_character_creation', 'group_desc', 'cool', 'beautiful'
+		act '<<$temp_verb>>勉强撑着':		gt 'intro_character_creation', 'group_desc', 'cool', 'anorexic'
+		act '<<$temp_verb>>比如，活泼又火辣':		gt 'intro_character_creation', 'group_desc', 'cool', 'bimbo'
+
+	elseif $ARGS[1] = 'jock':
+		gs 'intro_character_creation', 'group_desc', 'jock'
+		act '<<$temp_verb>>狂热的排球运动员':	gt 'intro_character_creation', 'group_desc', 'jock', 'volleyball'
+		act '<<$temp_verb>>狂热的舞者':				gt 'intro_character_creation', 'group_desc', 'jock', 'dancer'
+		act '<<$temp_verb>>狂热的跑步爱好者':				gt 'intro_character_creation', 'group_desc', 'jock', 'runner'
+		act '<<$temp_verb>>狂热的足球运动员': 	gt 'intro_character_creation', 'group_desc', 'jock', 'football'
+
+	elseif $ARGS[1] = 'nerd':
+		gs 'intro_character_creation', 'group_desc', 'nerd'
+		act '<<$temp_verb>>书呆子女王！':		gt 'intro_character_creation', 'group_desc', 'nerd', 'nerdqueen'
+		act '<<$temp_verb>>好学生':				gt 'intro_character_creation', 'group_desc', 'nerd', 'goodstudent'
+		act '<<$temp_verb>>电脑极客':				gt 'intro_character_creation', 'group_desc', 'nerd', 'computergeek'
+		act '<<$temp_verb>>狂热的国际象棋爱好者':		gt 'intro_character_creation', 'group_desc', 'nerd', 'chessplayer'
+
+	elseif $ARGS[1] = 'gopnik':
+		gs 'intro_character_creation', 'group_desc', 'gopnik'
+		act '<<$temp_verb>>一个戈普尼克':					gt 'intro_character_creation', 'group_desc', 'gopnik', 'gopnikstart'
+		act '<<$temp_verb>>一个朋克或捣蛋鬼':		gt 'intro_character_creation', 'group_desc', 'gopnik', 'troublemaker'
+		act '<<$temp_verb>>一个另类的，派对女孩或叛逆者': gt 'intro_character_creation', 'group_desc', 'gopnik', 'alternative'
+		if tsg:
+			act '<<$temp_verb>><<$npc_nickname[''A9'']>>的女朋友': gt 'intro_character_creation', 'group_desc', 'gopnik', 'vitekgf'
+		end
+
+	elseif $ARGS[1] = 'outcast':
+		gs 'intro_character_creation', 'group_desc', 'outcast'
+		act '我<<$iif(tsg, ''没有'', ''那时没有'')>>朋友':					gt 'intro_character_creation', 'group_desc', 'outcast', 'friendless'
+		act '<<$temp_verb>>丑小鸭':			gt 'intro_character_creation', 'group_desc', 'outcast', 'uglyduckling'
+		act '<<$temp_verb>>好女孩':					gt 'intro_character_creation', 'group_desc', 'outcast', 'goodgirl'
+		act '<<$temp_verb>>荡妇':						gt 'intro_character_creation', 'group_desc', 'outcast', 'slut'
+		act '<<$temp_verb>>常驻哥特':			gt 'intro_character_creation', 'group_desc', 'outcast', 'goth'
+		act '<<$temp_verb>>穷孩子':				gt 'intro_character_creation', 'group_desc', 'outcast', 'poor'
+	end
+
+	if $ARGS[1] <> '':
+		act '返回初始选项': gt 'intro_character_creation', 'charselect'
+	end
+	killvar 'temp_verb'
+	killvar 'temp_have'
+	exit
+end
+
+
+if $ARGS[0] = 'group_desc':
+	*clr & cla
+	if $ARGS[1] = 'cool':
+		if $ARGS[2] = '':
+			$func('wrap', 'header center h4', '人气')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/popular_0.jpg"></center>'
+			'你的童年大部分时间都在户外度过，和其他男孩女孩一起玩耍。因此，你相当健康，并且深知如何让自己摆脱麻烦（或者把责任推给别人）。然而，你从来都对学习和运动不太感兴趣，只是个成绩平庸的学生。你的高人气对你和<<$npc_firstname[''A11'']>>的关系产生了负面影响，而且<<iif(tsg, "你", "你当时")>>不再像从前那么亲近了。<<iif(tsg, "现在", "你那时之所以受欢迎,是因为")>>……'
+
+		elseif $ARGS[2] = 'socialite':
+			$func('wrap', 'header center h4', '善于社交')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/popular_1.jpg"></center>'
+			'<<iif(tsg, "你", "你曾")>>和学校里所有重要的孩子交朋友，这才是真正<<iif(tsg, "重要", "重要")>>. 你成长过程中非常善于社交，喜欢和人待在一起，常常成为众人瞩目的中心。'
+			'你总是知道在合适的时机说合适的话，这让许多其他学生想和你交朋友。只要你稍微用心，几乎能和任何人相处。'
+			if tsg = 0: '如今你身处大城市，再也不觉得自己是小池塘里那条重要的大鱼了。每个人都更忙碌，而且人实在太多了。'
+
+		elseif $ARGS[2] = 'beautiful':
+			$func('wrap', 'header center h4', '美丽')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/popular_2.jpg"></center>'
+			'你可能不是<<iif(tsg, "", "")>>最聪明、最擅长社交、最擅长运动，或<<iif(tsg, "", "")>>最坚强的态度——但你<<iif(tsg, "", "")>>有天生丽质。那可不是你能靠努力得来的！'
+			'你比大多数女孩更早成熟，男孩们都注意到了<<iif(tsg, ",尤其是<<$npc_firstname[''A11'']>>，他对待你的态度开始变得不一样", "")>>. 随着年龄的增长，你的容貌只会更好，而且你<<iif(tsg, "现在", "当时")>>常被认为是最漂亮的女孩之一<<iif(tsg, "无论走到哪里", "在学校里")>>. 你<<iif(tsg, "现在", "当时")>>尤其受酷孩子和运动员的欢迎。'
+			if tsg = 0:	'如今你身在城市，你仍比大多数女孩好看，但你不禁注意到偶尔会有比你更漂亮的女孩。男孩们似乎也不像以前那样为你的容貌倾倒了。'
+
+		elseif $ARGS[2] = 'anorexic':
+			$func('wrap', 'header center h4', '勉强撑住')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/popular_3.jpg"></center>'
+			'你从小长得好看，自然而然地和那群酷孩子混在了一起。你喜欢成为众人瞩目的中心，并痴迷于模仿你在社交媒体和杂志上看到的模特。你开始节食，但做得太过火，结果体重急剧下降，这让你的一些同学开始对你议论纷纷，还时不时拿你开玩笑。这形成了一个恶性循环，随着你的容貌变差，玩笑也变得更难听，而这只会让你更加变本加厉。'
+			'你的家人和一些朋友，尤其是<<$npc_nickname[''A15'']>>和<<$npc_nickname[''A148'']>>变得担心，并且在他们的支持下，你得以开始恢复。现在你和母亲、姐姐关系良好，也有<<$npc_nickname[''A15'']>>和<<$npc_nickname[''A148'']>>为你辩护，让你免于变成被排斥的人。 <<iif($start_type[''loc''] = ''sg'', "你", "离开学校时你")>>仍然是你那个圈子的成员，尽管只是勉强算。'
+
+		elseif $ARGS[2] = 'bimbo':
+			$func('wrap', 'header center h4', '绝美')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/popular_4.jpg"></center>'
+			'年少时，你喜欢玩娃娃，给它们穿上你最喜欢的颜色——粉色。高中时，你长得不错，自然加入了学校里的酷孩子群体。你渴望成为<<iif(tsg, "", "")>>众人瞩目的焦点，而这影响了你与他人的关系。'
+			'你喜欢打扮和化妆，这几乎占据了你所有的空闲时间，也渐渐影响了你的学业，因为你在课上花很多时间玩手机看最新潮流。这也让你和同学的关系因此受到了影响。 <<iif(tsg, "你", "离开学校时你")>>仍然是你那个小圈子的成员，但与圈内大多数其他孩子的关系不如理想状态。'
+			if tsg = 0: '除此之外，你的成绩也受到了影响；虽然你勉强通过了，但分数只够你进入大学而已。'
+		end
+
+	elseif $ARGS[1] = 'jock':
+		if $ARGS[2] = '':
+			$func('wrap', 'header center h4', '运动员')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/jock_0.jpg"></center>'
+			'在你成长的过程中，你几乎把所有空闲时间都花在户外。你喜欢运动、跑步、骑车和远足。这让你保持了相当好的身材，也让你多年来在各种团队运动中保持社交活跃。然而，这样做对你与<<$npc_firstname[''A11'']>>的关系产生了影响。随着你们长大，他变成了一个街头混混，你们俩慢慢开始不那么常在一起玩，尽管你仍然认为<<iif(tsg,"","")>>彼此是朋友。在所有可参与的运动中，你<<iif(tsg, "是", "曾是")>>一个…'
+
+		elseif $ARGS[2] = 'volleyball':
+			$func('wrap', 'header center h4', '排球运动员')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/jock_1.jpg"></center>'
+			'自从你第一次打排球，你就爱上了这项运动。你花了很多闲暇时间来提高水平，功夫不负有心人；你现在其实相当厉害了！然而，你对排球的痴迷对你的学业产生了一些影响。 <<iif(tsg, "你", "你曾")>>一个中等偏下的学生，而且<<iif(tsg, "", "")>>除了同为运动员的伙伴外没交到什么朋友。'
+			if tsg:
+				'你尤其亲近<<$npc_firstname[''A13'']>>和你的教练。'
+			else
+				'现在你到了大城市，你的排球天赋似乎不那么受重视了。也许是时候找一个体育之外的热爱了？'
+			end
+
+		elseif $ARGS[2] = 'dancer':
+			$func('wrap', 'header center h4', '狂热舞者')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/jock_2.jpg"></center>'
+			'你从小爱上跳舞，从此一发不可收拾。你花了很多闲暇时间提高技艺，功夫不负有心人；你现在其实相当出色了！然而，你对跳舞的痴迷，<<iif(tsg, "", "")>>对你的学业产生了一些影响。 <<iif(tsg, "你", "你曾")>>一个平庸的学生，而你<<iif(tsg, "", "")>>除了同为运动员的伙伴外没交到什么朋友。'
+			if tsg:
+				'<<$npc_firstname[''A11'']>>好心地指出，跳舞还有一个额外的好处，就是能大幅提高你的柔韧性（这当然是<<$npc_firstname[''A11'']>>的典型作风）。你和<<$npc_firstname[''A23'']>>特别亲近，那个人和你一样热爱跳舞，你们互相尊重彼此的技艺和能力。'
+				'学年结束时，你参加了一次芭蕾舞评估，正在等待著名芭蕾舞学院的来信，看你是否被他们的暑期学校录取。注意：芭蕾目前正在积极开发中，事件由角色驱动，可能会导致无法逃脱的事件。你必须从六月开始才能激活此内容。'
+			else
+				'你和阿尔宾娜·巴洛夫斯卡娅曾是好朋友，她是一个比你更热爱跳舞的女孩。现在你到了大城市，你的舞蹈天赋似乎不那么受重视了。也许是时候找一个体育之外的热爱了？'
+			end
+
+		elseif $ARGS[2] = 'runner':
+			$func('wrap', 'header center h4', '田径运动员')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/jock_3.jpg"></center>'
+			'自从你第一次尝试田径，你就爱上了这项运动。跑步时，整个世界都消失了，你会体验到一种无与伦比的自然快感。你花了很多闲暇时间来提升自己，功夫不负有心人；你现在其实相当厉害了！然而，你对跑步的痴迷对你的学业产生了一些影响。 <<iif(tsg, "你", "你曾")>>一个平庸的学生，而你<<iif(tsg, "", "")>>除了同为运动员的伙伴和你的教练外没交到什么朋友。'
+			if tsg = 0: '如今你身处大城市，你的跑步天赋似乎不那么受重视了。也许是时候找一个体育之外的热爱了？'
+
+		elseif $ARGS[2] = 'football':
+			$func('wrap', 'header center h4', '足球运动员')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/jock_4.jpg"></center>'
+			'自从你第一次踢足球，你就爱上了这项运动。你花了很多闲暇时间来提高水平，功夫不负有心人；你现在其实相当厉害了！然而，你对足球的痴迷对你的学业产生了一些影响，而且<<iif(tsg, "你现在", "你当时")>>一个平庸的学生。 <<iif(tsg, "你没交到多少朋友,除了", "你没交到多少朋友,除了")>>体育生，尤其是<<$npc_firstname[''A149'']>>和你的教练。'
+			if tsg = 0: '如今你身处大城市，你的足球天赋似乎不那么受重视了。也许是时候找一个体育之外的热爱了？'
+		end
+
+	elseif $ARGS[1] = 'nerd':
+		if $ARGS[2] = '':
+			$func('wrap', 'header center h4', '书呆子')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/nerd_0.jpg"></center>'
+			'从小到大，你几乎所有空闲时间都在家里度过，从事各种脑力活动。这些可能包括看漫画，奇幻或科幻书籍，学习国际象棋或电脑，或和其他书呆子一起打牌，玩桌游和角色扮演游戏，此外还老老实实上学。虽然你从中获得了大量知识，但小时候缺乏运动兴趣让你的身体有些虚弱。'
+			'长时间在昏暗的光线下阅读也损害了你的视力，现在你需要戴眼镜。你对脑力活动的追求也对你与<<$npc_firstname[''A11'']>>随着你长大，他变成了一个街头混混，你们俩慢慢开始不那么经常一起玩，尽管你仍然认为<<iif(tsg,"","")>>彼此是朋友。从好的方面看，学业出色让你的父母很高兴，也让你有了一些额外的零花钱作为努力学习的回报。 <<iif(tsg, "现在", "当时")>>...'
+
+		elseif $ARGS[2] = 'nerdqueen':
+			$func('wrap', 'header center h4', '书呆子女王')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/nerd_1.jpg"></center>'
+			'虽然你喜欢所有书呆子气或极客风格的东西，你<<iif(tsg, "", "")>>最大乐趣就是和你的书呆子伙伴们一起出去玩，一起做书呆子的事情。这让你作为一个书呆子相当善于社交，知识面也更加广博。随着年龄增长，你开始发育成女人，这也让你比大多数书呆子更清楚地认识到自己的性意识。因此，你比大多数人更加培养了这种意识，并且<<iif(tsg, "现在", "当时")>>比其他书呆子更能坦然面对自己的身体。'
+			'按照书呆子的标准，你<<iif(tsg, "很", "很")>>自信，充满活力且富有魅力，这使你成为朋友圈中的领袖。因此你更容易被其他社交群体接受，尤其是那些酷孩子，他们<<iif(tsg, "似乎", "似乎")>>尊重你的社交技巧和外表。'
+
+		elseif $ARGS[2] = 'goodstudent':
+			$func('wrap', 'header center h4', '好学生')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/nerd_2.jpg"></center>'
+			'你只是<<iif(tsg, "喜欢", "喜欢")>>上学，而你的成绩<<iif(tsg, "好得", "好得")>>足以让你毕业后进入心仪的大学<<iif(tsg, "——你只需要别让它们下滑", "")>>. 你总是试图吸收每一点可能的知识，并且<<iif(tsg, "尽了一切努力", "尽了一切努力")>>在学业上表现出色。虽然这种态度为你赢得了其他书呆子的很多尊重，但并没有为你赢得多少朋友，而且你从未找到时间进行体育运动。'
+			'你<<iif(tsg, "也", "也")>>经常被请去做家教，有时<<iif(tsg, "会", "会")>>自己被迫替别人做作业。'
+			if tsg:
+				'你的成绩非常优秀，你母亲为你感到骄傲。她用金钱奖励你，以此表达对你努力学习的赞赏。'
+			else
+				'现在你身在大城市，这里有全新的世界等你吸收，尽管你心中有一部分已经开始想念学校了。'
+			end
+
+		elseif $ARGS[2] = 'computergeek':
+			$func('wrap', 'header center h4', '电脑极客')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/nerd_3.jpg"></center>'
+			'你一直对电脑很着迷，无论是通过玩电子游戏、拆解电脑，还是学习编程甚至黑客技术。你热爱电脑的一切，但这份热情让你几乎没有时间交朋友——至少是现实生活中的朋友。你设法结识了许多在线玩家，你<<iif(tsg, "会", "会")>>在玩各种电子游戏时与之聊天，然而，你很少<<iif(tsg, "", "")>>花任何时间在户外，也不花钱买衣服或其他女孩用的东西。你<<iif(tsg, "", "")>>对攒钱买更好的电脑、玩更好的游戏更感兴趣。'
+			if tsg:
+				'你考虑过主持一个关于电子游戏或视频博客的网络剧 - 你甚至花时间学习了视频剪辑 - 但你不确定是否想那样把自己公开出去。'
+			else
+				'现在你独自一人身处大城市，你需要把大部分钱用来维持生活。'
+			end
+
+		elseif $ARGS[2] = 'chessplayer':
+			$func('wrap', 'header center h4', '国际象棋爱好者')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/nerd_4.jpg"></center>'
+			'你从小就喜欢国际象棋，研究过所有伟大的棋手。你能够说出他们所有人的名字，以及他们最喜欢的策略！你觉得没有什么比在棋局中与他人斗智斗勇更有趣的了。这让你比大多数人更能预见自己行为的后果，因为你习惯多看几步。'
+			'这一切都让你几乎没有时间结交很多朋友， <<iif(tsg, "也很少花", "也很少花")>>户外时间。'
+			if tsg = 0: '如今你独自生活在大城市。你原本已经规划好了一切，但既然来到了这里，你发现选择比想象中更多。你可以现在就找份工作，或者去上大学接受更好的教育，就像你原本计划的那样。'
+		end
+
+	elseif $ARGS[1] = 'gopnik':
+		if $ARGS[2] = '':
+			$func('wrap', 'header center h4', '戈普尼克')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/gopnik_0.jpg"></center>'
+			'你的童年大部分时间都在户外度过，和其他男孩女孩一起玩耍。因此，你非常健康。长大后，你不再在意融入群体 - 现在你只做自己的事，谁要有意见，你随时准备让他们滚蛋。'
+			'当你和<<$npc_firstname[''A11'']>>走着相似的道路，你们的友谊纽带更加深厚。这对你的学业成绩产生了一些影响；你是一个成绩平庸的学生。这也带来了一些不太愉快的后果，让你卷入过多的打架斗殴，在家里惹出各种麻烦，并在学校陷入困境。你甚至还和当地警察发生过几次冲突。大多数人认为<<iif(tsg,"","")>>你……'
+
+		elseif $ARGS[2] = 'gopnikstart':
+			$func('wrap', 'header center h4', '戈普尼克')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/gopnik_1.jpg"></center>'
+			'你<<iif(tsg, "是", "曾是")>>一个戈普尼克<<iif(tsg, "", "(在校时)")>>. 虽然你<<iif(tsg, "", "")>>在戈普尼克的等级体系中仍然不高，你<<iif(tsg, "", "")>>已经向他们证明了自己，他们大多数人<<iif(tsg, "", "")>>把你当作平等的人。你<<iif(tsg, "有", "有过")>>在家和学校的麻烦是因为你的反社会行为，尤其是与你的母亲和继父，他们<<iif(tsg, "认为", "认为")>>你正走上歧途。'
+			if tsg:
+				'那些运动员和你们以及其他戈普尼克之间存在着不太友好的竞争关系。虽然你们相处不来，但他们中有些人也互相尊重你。然而，阿尔宾娜似乎对你和你的戈普尼克伙伴们深恶痛绝。'
+			else
+				'现在你身在大城市，一个全新的寻找麻烦的游乐场。'
+			end
+
+		elseif $ARGS[2] = 'troublemaker':
+			$func('wrap', 'header center h4', '捣蛋鬼')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/gopnik_2.jpg"></center>'
+			'你<<iif(tsg, "是", "曾是")>>一个捣蛋鬼<<iif(tsg, "", "(在校时)")>>. 没有什么<<iif(tsg, "", "")>>能让你比制造麻烦更开心的了，无论是小偷小摸、打架斗殴还是破坏公物。你<<iif(tsg, "活着就", "活着就")>>是为了打破规则的刺激感。你<<iif(tsg, "", "")>>和戈普尼克们相处得相当不错，他们<<iif(tsg, "", "")>>把你视为同道中人， <<iif(tsg, "", "")>>乐于自找麻烦<<iif(tsg, ",这让日子充满乐趣", "")>>。'
+			'你<<iif(tsg, "有", "有过")>>在家和学校的麻烦是因为你的反社会行为，尤其是与你的母亲和继父，他们<<iif(tsg, "认为", "认为")>>你正走上歧途。'
+			if tsg:
+				'你在老师和警察那里都名声在外，而且阿尔宾娜似乎对你和你的戈普尼克伙伴们深恶痛绝。'
+			else
+				'现在你身在大城市，一个全新的寻找麻烦的游乐场。'
+			end
+
+		elseif $ARGS[2] = 'alternative':
+			$func('wrap', 'header center h4', '另类')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/gopnik_4.jpg"></center>'
+			'你<<iif(tsg, "", "")>>按照自己的节拍行事。你<<iif(tsg, "做", "做")>>你想要<<iif(tsg, "", "")>>的事，在你<<iif(tsg, "想", "想")>>的时候，而且<<iif(tsg, "", "")>>以一种去他妈的的态度对待它。戈普尼克们<<iif(tsg, "尊重", "尊重")>>你，大部分时候你<<iif(tsg, "", "")>>和他们一起。你<<iif(tsg, "并", "当时并")>>不是他们中的一员，而是一个想要走自己的路，并沿途惹点小麻烦的同路人。'
+			if tsg:
+				'和戈普尼克们不同，你对打架或惹麻烦的兴趣要小得多，你只是想找乐子 - 你喜欢派对胜过一切。酷孩子们并没有完全看不起你。即使他们不赞成你的穿着，他们也尊重你爱打扮，爱玩乐的心。然而，阿尔宾娜似乎对你和其他戈普尼克们怀恨在心。'
+				'由于你的行为，你在家里和学校也有麻烦。尤其是你的母亲和继父，他们认为你在误入歧途。'
+			else
+				'由于你的行为，你在家里和学校遇到过麻烦，尤其是你的母亲和继父，他们认为你当时在误入歧途。'
+				'现在已经无所谓了，因为你独自在城市里，可以做任何想做的事。'
+			end
+
+		elseif $ARGS[2] = 'vitekgf':
+			!! SG-only: Vitek stayed in Pavlovsk so this choice only makes sense in SG
+			$func('wrap', 'header center h4', '维捷克的女朋友')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/gopnik_3.jpg"></center>'
+			'你是<<$npc_nickname[''A9'']>>的女朋友。你喜欢和戈普尼克们混在一起的刺激和危险，即使你自己缺乏真正的态度。你是在他和<<$npc_firstname[''A11'']>>成为朋友之后遇到<<$npc_nickname[''A9'']>>的。他身上的坏男孩气质吸引了你，你很快就发现自己爱上了他。'
+			'随着你渐渐长大，他也开始对你产生兴趣，你们很快就开始约会了。严格来说你并不是戈普尼克 - 你被认为是更像一个模仿者 - 但其他戈普尼克们似乎还是接受了你。'
+			'你不确定如果你和<<$npc_nickname[''A9'']>>, 然而，作为他的女朋友，和其他戈普尼克们混在一起，让你失去了他们群体之外任何真正亲密的朋友。尤其是阿尔比娜，显然对你有意见，也看不惯其他戈普尼克。'
+		end
+
+	elseif $ARGS[1] = 'outcast':
+		if $ARGS[2] = '':
+			$func('wrap', 'header center h4', '被排斥的人')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_0.jpg"></center>'
+			'你从来都没有真正融入过。你就是那种无论出于选择还是环境，都从未真正和其他孩子合得来的人。随着你长大，情况只会变得更糟，而且<<iif(tsg,"你现在","你当时")>>被视为被排斥的人，就像荡妇、失败者、同性恋男孩之类的人一样。'
+			'作为一个被排斥的人，也对你与<<$npc_firstname[''A11'']>>的关系产生了影响。随着你长大，他变成了一个戈普尼克，你们两个慢慢不再像以前那样常在一起，尽管你仍然认为<<iif(tsg,"","")>>彼此是朋友——即使只是勉强算是。你<<iif(tsg,"","")>>没有其他真正的朋友，而你<<iif(tsg,"","")>>总是被人欺负和取笑，因为……'
+
+		elseif $ARGS[2] = 'friendless':
+			$func('wrap', 'header center h4', '没有朋友')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_1.jpg"></center>'
+			'你从来都不太合群，也没学会如何交朋友<<iif(tsg, ",所以", "。")>>在你成长过程中，经常被其他孩子取笑或欺负。于是，你自然而然地躲避他们，这只会让你更加孤立。'
+			if tsg:
+				'如今，多年以后，你还没有交到任何真正的朋友 - 即使是瓦西里，这个最接近朋友的人，也算不上特别亲密。在公开场合，他和其他人一样嘲笑你，但在私下里会稍微好一点。'
+			else
+				'既然你已经搬到了城市，你有机会以不同的方式做事，结交新朋友。'
+			end
+
+		elseif $ARGS[2] = 'uglyduckling':
+			$func('wrap', 'header center h4', '丑小鸭')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_2.jpg"></center>'
+			'有些女孩早熟，有些天生丽质——你两者都没有。事实上，你似乎被诅咒般长了一张雌雄莫辨的脸和<<iif(tsg, "身材", "肥胖的身材")>>, 并且被误认为是男孩的次数多得你都不愿承认。'
+			if tsg: '你的身体似乎发育得不太协调，让你一生中大部分时间都看起来怪怪的，最多也只能算不吸引人。如今进入青春期，你的身体开始慢慢长开，但你仍然非常中性化，仍然被认为很丑。'
+			'你外貌上的欠缺<<iif(tsg, "让", "让")>>你成了社交弃儿<<iif(tsg, "", "(在校时)")>>. 无名小卒<<iif(tsg, "", "当时")>>愿意和你待在一起，除非他们<<iif(tsg, "", "")>>是在取笑你。'
+			if tsg = 0: '如今你已经搬到了城市，你希望这一切都将改变。'
+
+		elseif $ARGS[2] = 'goodgirl':
+			$func('wrap', 'header center h4', '好女孩')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_3.jpg"></center>'
+			'你<<iif(tsg, "是", "曾是")>>一个好女孩 - 那种父母，老师和成年人都喜欢的<<iif(tsg, "那种女孩", "那种女孩")>>, 但其他孩子<<iif(tsg, "却讨厌", "却讨厌")>>. 你总是提醒老师布置作业并且会对任何人做的任何事打小报告。你还经常参加<<iif(tsg, "", "")>>教堂。'
+			if tsg:
+				'你喜欢来自成年人的关注，虽然有时会感到孤独，但知道自己是个好女孩，你相当开心。书呆子们似乎最能容忍你，很可能是因为他们几乎从不捣蛋，而且反正总是会做作业。'
+			else
+				'现在你身在大城市，突然发现没有老师或成年人需要讨好了。事实上，你一辈子都在讨好成年人，这似乎已经成了一种阻碍。'
+			end
+
+		elseif $ARGS[2] = 'slut':
+			$func('wrap', 'header center h4', '荡妇')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_4.jpg"></center>'
+			'你比同龄的其他孩子更早对性产生了好奇。你远在同年级其他人之前就开始自慰，而且非常喜欢那种感觉，以至于你想知道真正的性爱会有多爽，成为同年级第一个失去处女之身的女孩。'
+			if tsg:
+				'男孩子们利用你的性需求，让你给他们打飞机，后来发展成在课间和放学后，在露天看台下给他们口交。你总是细细品味吞下他们精液的感觉，喜欢它的味道。'
+				'然而，你的性瘾让你成了社交界的人人喊打的对象。女孩们都鄙视你，男孩们公开嘲笑你，尽管他们不介意利用你。书呆子们完全避开你，而小混混们似乎最能容忍你，很可能是因为他们喜欢占你便宜。'
+			else
+				'然而，你对性的成瘾让你成为社交界的弃儿，经常被同龄人嘲笑。现在你身在大城市，没有人认识你，这让你有机会要么重新开始，要么继续你放荡的生活。'
+			end
+
+		elseif $ARGS[2] = 'goth':
+			$func('wrap', 'header center h4', '哥特')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_5.jpg"></center>'
+			'每所学校都有自己的怪人，你的情况 - 你。你从没觉得自己合群，至少直到你看了一些美国电影，看到了一些哥特人并且突然觉得自己属于这里。你很快用光了所有零花钱去买新衣服和化妆品从而最终能让自己感觉好起来。你的家人和同学们<<iif($start_type["loc"] = "sg", "不赞成,但你并不在乎。", "不赞成,但你当时并不在乎。")>>'
+			if $start_type['loc'] = 'sg':
+				'你是学校里的常驻哥特。所有男孩都暗地里梦想的黑暗妖女，编织病态诗歌和自杀契约的人。每个人似乎都以为你要献祭某人或自杀，而你的同学也好不到哪儿去，那些所谓的"酷女孩"带头对你发起排斥运动。'
+				'幸运的是，并不是所有人都听他们的。书呆子们喜欢你的阅读嗜好，而且你对他们感兴趣的一些东西也有同好；你觉得他们甚至可能有一天会邀请你参加他们的游戏之夜。有几个小混混喜欢你的派对态度，尤其是乐队里的那些人，他们似乎尊重你的艺术气质。或者，他们的主唱只是想跟你上床。这很难说。'
+			else
+				'学业结束后，你搬到了这座城市，在这里你感觉更容易被接受，尽管人们仍然偶尔会用奇怪的眼光看你。'
+			end
+
+		elseif $ARGS[2] = 'poor':
+			$func('wrap', 'header center h4', '贫穷')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/2_sg/outcast_6.jpg"></center>'
+			'你发现住在家里很困难，因为你与妈妈专横的态度抗争。于是你叛逆起来，经常和她争吵。不仅如此，你开始打架，经常鼻青脸肿地回家。这导致你和她以及继父的关系变得非常紧张。有时你姐姐不得不把你拉开，防止事情升级得太厉害，而且她特别在晚上跟你谈话，大概是因为她也和你妈妈处不来。你和姐姐关系很好。你弟弟通常躲得远远的，所以你和他并没有真正的交集。'
+			'你的家庭生活质量也影响了你在学校的表现，因为你总是惹麻烦，而且大部分课都不太认真。你在性方面也有些名声，因为你并不介意用嘴赚几个卢布来弥补手头拮据。你的行为加上你从来没什么钱，也导致你被那些看不起你的酷孩子和变得对你警惕的书呆子们排斥。你和大多数小混混相处得来，但从未太努力加入他们，不过你和你最好的朋友瓦西里关系很好，和他的朋友维捷克、丹也处得不错。'
+			'你母亲得知了你的性名声，认为你是个婊子。当你试图告诉她你还是处女时，她并不相信你，这引发了更多争吵，直到最后你不再费心为自己辩解，只是尽量躲着她。'
+			'你还和阿廖娜建立了亲密关系，很可能因为她的家庭生活比你的还糟糕，所以你们算是同病相怜。她也见过你几次打架后的样子，建议你开始训练，这样你就能保护自己。你接受了她的建议，开始练习踢拳和跑步，并发现后者很棒，因为训练时你会感到平静。结果，小混混们相当喜欢你，而体育生们也能容忍你。'
+			'这种新找到的专注也帮助了你的学业开始略有进步。你母亲注意到这一点，便试着鼓励你，给你买了几套新衣服，并告诉你这是对你学习努力的奖励。你和你父母的关系仍然紧张，但至少你们可以不带争吵地交谈了。'
+			if tsg = 0: '你确实勉强通过了学业。考虑到和父母的关系，学校一结束你就决定搬到大城市，并考虑是否按父母的意愿去上大学——尽管你觉得这对你来说可能非常困难，或者干脆找份工作。'
+		end
+	end
+
+	if $ARGS[1] <> '' and $ARGS[2] <> '': gs 'intro_character_creation', 'setup_personality', $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+if $ARGS[0] = 'random_start':
+	temp_rand = rand(0, 21)
+	if temp_rand = 0:
+		gs 'intro_character_creation', 'group_desc', 'nerd', 'nerdqueen'
+	elseif temp_rand = 1:
+		gs 'intro_character_creation', 'group_desc', 'nerd', 'goodstudent'
+	elseif temp_rand = 2:
+		gs 'intro_character_creation', 'group_desc', 'nerd', 'computergeek'
+	elseif temp_rand = 3:
+		gs 'intro_character_creation', 'group_desc', 'nerd', 'chessplayer'
+	elseif temp_rand = 4:
+		gs 'intro_character_creation', 'group_desc', 'jock', 'volleyball'
+	elseif temp_rand = 5:
+		gs 'intro_character_creation', 'group_desc', 'jock', 'dancer'
+	elseif temp_rand = 6:
+		gs 'intro_character_creation', 'group_desc', 'jock', 'runner'
+	elseif temp_rand = 7:
+		gs 'intro_character_creation', 'group_desc', 'jock', 'football'
+	elseif temp_rand = 8:
+		gs 'intro_character_creation', 'group_desc', 'cool', 'socialite'
+	elseif temp_rand = 9:
+		gs 'intro_character_creation', 'group_desc', 'cool', 'beautiful'
+	elseif temp_rand = 10:
+		gs 'intro_character_creation', 'group_desc', 'cool', 'anorexic'
+	elseif temp_rand = 11:
+		gs 'intro_character_creation', 'group_desc', 'cool', 'bimbo'
+	elseif temp_rand = 12:
+		gs 'intro_character_creation', 'group_desc', 'gopnik', 'gopnikstart'
+	elseif temp_rand = 13:
+		gs 'intro_character_creation', 'group_desc', 'gopnik', 'troublemaker'
+	elseif temp_rand = 14:
+		if $start_type['loc'] <> 'sg':
+			gs 'intro_character_creation', 'random_start'
+			exit
+		end
+		gs 'intro_character_creation', 'group_desc', 'gopnik', 'vitekgf'
+	elseif temp_rand = 15:
+		gs 'intro_character_creation', 'group_desc', 'gopnik', 'alternative'
+	elseif temp_rand = 16:
+		gs 'intro_character_creation', 'group_desc', 'outcast', 'friendless'
+	elseif temp_rand = 17:
+		gs 'intro_character_creation', 'group_desc', 'outcast', 'uglyduckling'
+	elseif temp_rand = 18:
+		gs 'intro_character_creation', 'group_desc', 'outcast', 'goodgirl'
+	elseif temp_rand = 19:
+		gs 'intro_character_creation', 'group_desc', 'outcast', 'slut'
+	elseif temp_rand = 20:
+		gs 'intro_character_creation', 'group_desc', 'outcast', 'goth'
+	else
+		gs 'intro_character_creation', 'group_desc', 'outcast', 'poor'
+	end
+	killvar 'temp_rand'
+	exit
+end
+
+
+if $ARGS[0] = 'setup_personality':
+	!! ARGS[1] = group(cool, jock), ARGS[2] = category (goth, beautiful)
+	cla
+	$temp_group = $ARGS[1]
+	$temp_cat = $ARGS[2]
+	act '<b>确认这个起始选项</b>':
+		$start_type['cat'] = $temp_cat
+		killvar 'temp_group'
+		killvar 'temp_cat'
+		gs 'intro_character_templates', 'set_template', $start_type['cat']
+		gt 'intro_character_creation', 'appearance_hub'
+	end
+	act '随机选择另一个开局': gt 'intro_character_creation', 'random_start'
+	act '返回到<<iif($temp_group = ''cool'', ''人气'', iif($temp_group = ''jock'', ''运动员'', iif($temp_group = ''nerd'', ''书呆子'', iif($temp_group = ''gopnik'', ''戈普尼克'', ''边缘人''))))>>选项': gt 'intro_character_creation', 'charselect', $temp_group
+	act '返回初始选项': gt 'intro_character_creation', 'charselect'
+	exit
+end
+
+
+if $ARGS[0] = 'mod_set_exit_acts':
+	!! Handy for mods
+	act '随机选择另一个开局': gt 'intro_character_creation', 'random_start'
+	dynamic "
+		act '返回到<<iif($ARGS[1] = 'cool','人气', iif($ARGS[1] = 'jock','运动员', iif($ARGS[1] = 'nerd','书呆子', iif($ARGS[1] = 'gopnik','戈普尼克','边缘人'))))>>选项': gt 'intro_character_creation', 'charselect', '<<$ARGS[1]>>'
+	"
+	act '返回初始选项': gt 'intro_character_creation', 'charselect'
+end
+
+
+if $ARGS[0] = 'mod_continue_after_charselect':
+	!! Handy for mods
+	gt 'intro_character_creation', 'appearance_hub'
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                                SETTINGS                                ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!! Called after stat application to finish SG-specific world state setup.
+!! City start does not call this label.
+if $ARGS[0] = 'sg_settings':
+	gs 'intro_initialization', 'sg_settings'
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                        APPEARANCE CUSTOMIZATION                        ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!! Consolidated appearance hub — hair/eye links use gs so they return here.
+!! Done routes to the next intro step based on $start_type, no $loc/$locM needed.
+if $ARGS[0] = 'appearance_hub':
+	*clr & cla
+	$loc = 'intro_character_creation'
+	$loc_arg = 'appearance_hub'
+	killvar 'temp_dest'
+	$func('wrap', 'header center b', '外观自定义')
+	'<center><b>允许你修改头发和眼睛，如果正在使用固定的个人资料图片，可用来与其匹配。</b></center>'
+
+	if $start_type['magic'] = 'tg' and $start_type['loc'] = 'sg':
+		if face_style['type'] = 1:
+			'<center><img <<$set_imgh>> src="<<FUNC(''$face_image'')>>"></center>'
+			'她长得和她发给你的照片一模一样。'
+		else
+			'<center><img <<$set_imgh>> src="images/system/1_openings/shared/character_creation_2.jpg"></center>'
+		end
+	elseif $start_type['magic'] = 'tg':
+		'<center><img <<$set_imgh>> src="images/system/1_openings/shared/character_creation_2.jpg"></center>'
+		'当你在昏迷中飘荡时，一个女人的印象在你脑海中形成。她的外貌有许多地方都模糊不清，但有一些东西是你能辨认出来的。'
+	else
+		'<center><img <<$set_imgh>> src="images/system/1_openings/shared/character_creation_2.jpg"></center>'
+		'当你看着镜子，你的脸逐渐清晰起来。虽然你的外貌有些方面已经确定，但现在你可以定义其他部分了。'
+	end
+	*nl
+
+	'<center>自定义你的：</center>'
+	'<center><a href="exec:gs ''intro_character_creation'', ''hair''"><img src="images/system/1_openings/shared/icon_hair.png"></a> <a href="exec:gs ''intro_character_creation'', ''eyes''"><img src="images/system/1_openings/shared/icon_eye.png"></a></center>'
+	*nl
+
+	if $start_type['magic'] = 'tg' and $start_type['loc'] <> 'sg':
+		'关于她的其他一切都模糊不清…'
+	end
+
+	if $start_type['magic'] = 'tg' and $start_type['loc'] = 'sg':
+		act '见她':
+			!! If the player skipped charselect/custom entirely, apply goodgirl as the
+			!! default preset now. Custom-path players will already have cat/group set.
+			if $start_type['cat']   = '': $start_type['cat']   = 'goodgirl'
+			if $start_type['group'] = '': $start_type['group'] = 'outcast'
+			gt 'intro_overview'
+		end
+	else
+		act '完成': gt 'intro_overview'
+	end
+end
+
+
+if $ARGS[0] = 'hair':
+	cls
+	pcs_hairbsh = 1
+	$func('wrap', 'header center b', '外观自定义')
+	'<center><img <<$set_imgh>> src="<<func(''$face_image'')>>"></center>'
+	*nl
+
+	if face_style['type'] = 1:
+		'<center>调整你的头发以匹配你的头像。</center>'
+		'<center>请注意，这个选项只有一次机会，不重新开始新游戏的话，你将无法更改！</center>'
+	end
+
+	*nl
+
+	!! body_desc sets $hair (full prose), $pcs_haircolor, $curly_txt, $pc_desc['hair length'], etc.
+	gs 'body_desc', 'hair'
+
+	if face_style['type'] = 1: '<center><i><<$hair>></i>如果你愿意，也可以<a href="exec: $face_style[''avatar_hair''] = input(''输入你的发型描述:'') & gs ''intro_character_creation'', ''hair''">手动输入描述</a>。</center>'
+	*nl
+
+	!! Length cycle: compute the next bracket target value and show a single change link
+	gs 'intro_character_creation', 'set_hair_next_prev'
+	'<center>头发长度：<<$pc_descWordy[''hair length'']>> — <a href="exec:pcs_hairlng = <<hairlng_next>> & gs ''intro_character_creation'', ''hair''">改变长度</a></center>'
+	killvar 'hairlng_next'
+	killvar 'hairlng_prev'
+
+	!! Color / texture controls
+	if curly <= 0:
+		'<center>发型：<a href="exec:defcurly = 1 & curly = 2147483647 & gs ''intro_character_creation'', ''hair''">直发</a>, <a href="exec: pcs_haircol = (pcs_haircol + 1) mod 4 & gs ''intro_character_creation'', ''hair''"><<$pcs_haircolor_zh>></a></center>'
+	else
+		'<center>发型：<a href="exec:defcurly = 0 & curly = 0 & gs ''intro_character_creation'', ''hair''">卷发</a>, <a href="exec: pcs_haircol = (pcs_haircol + 1) mod 4 & gs ''intro_character_creation'', ''hair''"><<$pcs_haircolor_zh>></a></center>'
+	end
+	act '<b>完成</b>': gt $loc, $loc_arg
+	exit
+end
+
+
+if $ARGS[0] = 'eyes':
+	cls
+	$func('wrap', 'header center b', '角色自定义')
+
+	!! Delegate all description building to body_desc
+	gs 'body_desc', 'eye_color'
+	gs 'body_desc', 'eyelashes'
+	gs 'body_desc', 'glasses'
+	gs 'body_desc', 'eye_size'
+	$glacol2 = $pcs_eyecolor
+
+	if face_style['type'] = 1:
+		'<center><img <<$set_imgh>> src="<<func(''$face_image'')>>"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/pc/body/eyes/<<$pcs_eyecolor>>.jpg"></center>'
+	end
+	*nl
+	if face_style['type'] = 1:
+		'<center>调整你的眼睛和睫毛以匹配你的头像。</center>'
+	end
+	*nl
+	'<center><i><<$pc_descFull[''eyes'']>></i></center>'
+	*nl
+	'<center><a href="exec: pcs_eyecol = (pcs_eyecol + 1) mod 4 & gs ''intro_character_creation'', ''eyes''">更换眼睛颜色 (<<$pcs_eyecolor>>)</a></center>'
+	if pcs_lashes < 2:	'<center><a href="exec:pcs_lashes += 1 & gs ''intro_character_creation'', ''eyes''">加长睫毛</a></center>'
+	if pcs_lashes > 0:	'<center><a href="exec:pcs_lashes -= 1 & gs ''intro_character_creation'', ''eyes''">缩短睫毛</a></center>'
+	if pcs_eyesize < 3:	'<center><a href="exec:pcs_eyesize += 1 & gs ''intro_character_creation'', ''eyes''">更大的眼睛</a></center>'
+	if pcs_eyesize > 0:	'<center><a href="exec:pcs_eyesize -= 1 & gs ''intro_character_creation'', ''eyes''">更小的眼睛</a></center>'
+	if glass = 0:		'<center><a href="exec:glass = 1 & gs ''intro_character_creation'', ''eyes''">戴上眼镜</a></center>'
+	if glass = 1:		'<center><a href="exec:glass = 0 & gs ''intro_character_creation'', ''eyes''">摘下眼镜</a></center>'
+
+	act '<b>完成</b>': gt $loc, $loc_arg
+	exit
+end
+
+
+if $ARGS[0] = 'lip':
+	cls
+	$func('wrap', 'header center b', '角色自定义')
+	'<center><img <<$set_imgh>> src="<<func(''$face_image'')>>"></center>'
+	*nl
+
+	!! Delegate description building to body_desc
+	gs 'body_desc', 'lips'
+
+	'<center>调整嘴唇大小以配合你的<a href="exec: view func(''$face_image'')">图片</a>:</center>'
+	*nl
+	'<center><i><<$pc_descFull[''lip'']>></i></center>'
+	*nl
+	if pcs_lip < 4: '<center><a href="exec:pcs_lip += 1 & gs ''intro_character_creation'', ''lip''">嘴唇更丰满</a></center>'
+	if pcs_lip > 0: '<center><a href="exec:pcs_lip -= 1 & gs ''intro_character_creation'', ''lip''">嘴唇更薄</a></center>'
+	act '<b>完成</b>': gt $loc, $loc_arg
+	exit
+end
+
+
+if $ARGS[0] = 'set_hair_next_prev':
+	temp_norm_hair = pcs_hairlng * 165 / pcs_hgt
+	if temp_norm_hair > 970:
+		hairlng_next = 15
+		hairlng_prev = 920 * pcs_hgt / 165
+	elseif temp_norm_hair > 870:
+		hairlng_next = min(985 * pcs_hgt / 165, 1000)
+		hairlng_prev = 805 * pcs_hgt / 165
+	elseif temp_norm_hair > 740:
+		hairlng_next = 920 * pcs_hgt / 165
+		hairlng_prev = 690 * pcs_hgt / 165
+	elseif temp_norm_hair > 640:
+		hairlng_next = 805 * pcs_hgt / 165
+		hairlng_prev = 590 * pcs_hgt / 165
+	elseif temp_norm_hair > 540:
+		hairlng_next = 690 * pcs_hgt / 165
+		hairlng_prev = 480 * pcs_hgt / 165
+	elseif temp_norm_hair > 420:
+		hairlng_next = 590 * pcs_hgt / 165
+		hairlng_prev = 340 * pcs_hgt / 165
+	elseif temp_norm_hair > 260:
+		hairlng_next = 480 * pcs_hgt / 165
+		hairlng_prev = 225 * pcs_hgt / 165
+	elseif temp_norm_hair > 190:
+		hairlng_next = 340 * pcs_hgt / 165
+		hairlng_prev = 155 * pcs_hgt / 165
+	elseif temp_norm_hair > 120:
+		hairlng_next = 225 * pcs_hgt / 165
+		hairlng_prev = 100 * pcs_hgt / 165
+	elseif temp_norm_hair > 80:
+		hairlng_next = 155 * pcs_hgt / 165
+		hairlng_prev = 55 * pcs_hgt / 165
+	elseif pcs_hairlng > 30:
+		hairlng_next = 100 * pcs_hgt / 165
+		hairlng_prev = 15
+	else
+		hairlng_next = 55 * pcs_hgt / 165
+		hairlng_prev = min(985 * pcs_hgt / 165, 1000)
+	end
+	exit
+end
+
+
+--- intro_character_creation ---------------------------------

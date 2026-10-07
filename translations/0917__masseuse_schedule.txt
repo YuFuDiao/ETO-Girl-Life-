@@ -1,0 +1,325 @@
+# masseuse_schedule
+
+if $ARGS[0] = 'schedule_reset':
+	if masseuse['shifts_required'] > 0:
+		masseuse['schedule_update'] = daystart
+		ms_i = 1
+		:loop_masseuse_sched_part
+			ms_j = 1
+			:loop_masseuse_sched_inner
+				!! Promote next-week taken slots to current week
+				masseuse['<<ms_i>>_shift_<<ms_j>>_taken'] = masseuse['next_<<ms_i>>_shift_<<ms_j>>_taken']
+				if masseuse['<<ms_i>>_shift_<<ms_j>>_taken'] <> 1:
+					masseuse['<<ms_i>>_shift_<<ms_j>>_taken'] = iif(rand(0, 2 + masseuse['shifts_required'] / 2) = 0, 1, 0)
+				end
+				!! Randomize next-week taken slots
+				masseuse['next_<<ms_i>>_shift_<<ms_j>>_taken'] = iif(rand(0, 2 + masseuse['shifts_required'] / 2) = 0, 1, 0)
+				ms_j += 1
+			if ms_j < 4: jump 'loop_masseuse_sched_inner'
+			ms_i += 1
+		if ms_i < 8: jump 'loop_masseuse_sched_part'
+		killvar 'ms_i'
+		killvar 'ms_j'
+	end
+end
+
+
+if $ARGS[0] = 'exit_schedule':
+	act '完成排班': gt 'salon', 'receptionist'
+end
+
+
+!! ARGS[1] = week day (1: monday, …, 7: sunday)
+!! ARGS[2] = shift slot (1: 9-13, 2: 13-17, 3: 17-21)
+!! ARGS[3] = week (0: this week, 1: next week)
+if $ARGS[0] = 'display_single_shift':
+	if ARGS[3] = 0:
+		$ms_taken_key = '<<ARGS[1]>>_shift_<<ARGS[2]>>_taken'
+		ms_target_day = daystart - (week - 1) + (ARGS[1] - 1)
+		$ms_return_arg = 'set_schedule'
+	elseif ARGS[3] = 1:
+		$ms_taken_key = 'next_<<ARGS[1]>>_shift_<<ARGS[2]>>_taken'
+		ms_target_day = daystart - (week - 1) + 7 + (ARGS[1] - 1)
+		$ms_return_arg = 'next_week_set_schedule'
+	end
+
+	if ARGS[2] = 1:
+		$ms_time_string = '9:00-13:00'
+		ms_hour1 = 9
+		ms_hour2 = 13
+	elseif ARGS[2] = 2:
+		$ms_time_string = '13:00-17:00'
+		ms_hour1 = 13
+		ms_hour2 = 17
+	elseif ARGS[2] = 3:
+		$ms_time_string = '17:00-21:00'
+		ms_hour1 = 17
+		ms_hour2 = 21
+	end
+
+	ms_slot = ARGS[2] - 1
+	ms_booked = iif($job_booking['city_salon_masseuse, ' + $str(ms_target_day) + ', ' + $str(ms_slot)] <> '', 1, 0)
+	ms_worked = masseuse['worked_<<ms_target_day>>_<<ARGS[2]>>']
+	ms_taken = masseuse[$ms_taken_key]
+	ms_past = iif(ms_target_day < daystart, 1, 0)
+
+	$result += '<tr><td>'
+	if ms_worked = 1:
+		$result += '<<$ms_time_string>>班次'
+		$result += '</td></tr><tr><td>'
+		$result += '<i>已工作过</i>'
+	elseif ms_booked = 1:
+		$result += '<<$ms_time_string>>班次'
+		$result += '</td></tr><tr><td>'
+		$result += '<a href="exec:gs ''jobs'', ''cancel_booking'', ''city_salon_masseuse'', <<ms_target_day>>, <<ms_slot>> & gs ''masseuse_schedule'', ''<<$ms_return_arg>>''">取消班次</a>'
+	elseif ms_taken = 1 or ms_past = 1 or (week = ARGS[1] and hour >= ms_hour1 and hour < ms_hour2):
+		$result += '<<$ms_time_string>> shift'
+		$result += '</td></tr><tr><td>'
+		$result += '<i>不可用</i>'
+	else
+		$result += '<a href="exec:gs ''jobs'', ''book_slot'', ''city_salon_masseuse'', <<ms_target_day>>, <<ms_slot>>, ''<<ARGS[2]>>'' & gs ''masseuse_schedule'', ''<<$ms_return_arg>>''"><<$ms_time_string>>班次</a>'
+	end
+	$result += '</td></tr>'
+
+	killvar 'ms_taken_key'
+	killvar 'ms_return_arg'
+	killvar 'ms_time_string'
+	killvar 'ms_hour1'
+	killvar 'ms_hour2'
+	killvar 'ms_slot'
+	killvar 'ms_booked'
+	killvar 'ms_worked'
+	killvar 'ms_taken'
+	killvar 'ms_past'
+	killvar 'ms_target_day'
+end
+
+
+if $ARGS[0] = 'random_masseuse_name':
+	temp_rand = rand(0, 7)
+	if temp_rand = 0:
+		$result = '<i>卡佳</i>'
+	elseif temp_rand = 1:
+		$result = '<i>Natasha</i>'
+	elseif temp_rand = 2:
+		$result = '<i>阿纳斯塔西娅</i>'
+	elseif temp_rand = 3:
+		$result = '<i>娜塔莉亚</i>'
+	elseif temp_rand = 4:
+		$result = '<i>基拉</i>'
+	elseif temp_rand = 5:
+		$result = '<i>米拉</i>'
+	elseif temp_rand = 6:
+		$result = '<i>安雅</i>'
+	else
+		$result = '<i>萨沙</i>'
+	end
+	killvar 'temp_rand'
+end
+
+
+if $ARGS[0] = 'set_schedule_base':
+	if masseuse['schedule_update'] = 0:
+		gs 'masseuse_schedule', 'schedule_reset'
+	end
+	gs 'stat'
+
+	$temp_table =	'<table border=1>'
+	$temp_table +=		'<tr>'
+	$temp_table +=			'<th></th>'
+	$temp_table +=			'<th>星期日</th>'
+	$temp_table +=			'<th>星期一</th>'
+	$temp_table +=			'<th>星期二</th>'
+	$temp_table +=			'<th>星期三</th>'
+	$temp_table +=			'<th>星期四</th>'
+	$temp_table +=			'<th>星期五</th>'
+	$temp_table +=			'<th>星期六</th>'
+	$temp_table +=		'</tr>'
+
+	!! ---------------------------------------------- 9:00 Shifts ---------------------------------------------------------------------------------
+
+	$temp_table +=		'<tr>'
+	$temp_table +=			'<th>第一班</th>'
+
+	!! First Sunday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 7, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! First Monday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 1, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! First Tuesday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 2, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! First Wednesday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 3, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! First Thursday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 4, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! First Friday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 5, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! First Saturday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 6, 1, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	$temp_table +=		'</tr>'
+
+	!! ---------------------------------------------- 13:00 Shifts ---------------------------------------------------------------------------------
+
+	$temp_table +=		'<tr>'
+	$temp_table +=			'<th>第二班</th>'
+
+	!! Second Sunday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 7, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Monday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 1, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Tuesday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 2, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Wednesday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 3, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Thursday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 4, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Friday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 5, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Saturday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 6, 2, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	$temp_table +=		'</tr>'
+
+	!! ---------------------------------------------- 17:00 Shifts ---------------------------------------------------------------------------------
+
+	$temp_table +=		'<tr>'
+	$temp_table +=			'<th>第三班</th>'
+
+	!! Second Sunday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 7, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Monday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 1, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Tuesday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 2, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Wednesday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 3, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Thursday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 4, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Friday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 5, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	!! Second Saturday Shift
+	$temp_table +=			'<td>'
+	$temp_table +=				'<table>'
+	$temp_table +=					func('masseuse_schedule', 'display_single_shift', 6, 3, ARGS[1])
+	$temp_table +=				'</table>'
+	$temp_table +=			'</td>'
+
+	$temp_table +=		'</tr>'
+	$temp_table +=	'</table>'
+
+	'<<$temp_table>>'
+	killvar 'temp_table'
+end
+
+
+if $ARGS[0] = 'set_schedule':
+	*clr
+	gs 'masseuse_schedule', 'set_schedule_base', 0
+end
+
+
+if $ARGS[0] = 'next_week_set_schedule':
+	*clr
+	gs 'masseuse_schedule', 'set_schedule_base', 1
+end
+
+
+--- masseuse_schedule ---------------------------------

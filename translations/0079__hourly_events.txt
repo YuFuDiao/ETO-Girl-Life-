@@ -1,0 +1,346 @@
+# hourly_events
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           HOURLY EVENTS                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+gs 'traits', 'hourly'
+
+if obkvsdam > 0: obkvsdam = rand(2, 5)
+if scpopt > 1: scpopt = 0
+
+if mirror_steam ! hour: mirror_steam = -1
+
+if inSleep = 1:
+	pcs_energy -= (8 + succublvl) / 2
+	pcs_hydra -= (16 + succublvl) / 2
+
+	pcs_stam += iif(pcs_sleep > 90, stammax/2, iif(pcs_sleep > 80, stammax/4, stammax/8))
+
+	if alko > 0: alko -= 1
+
+	pcs_willpower_feeder += willpowermax * 4
+	pcs_willpwr += pcs_willpower_feeder / 100
+	pcs_willpower_feeder = pcs_willpower_feeder mod 100
+
+else
+	pcs_energy -= 8 + succublvl
+	pcs_hydra -= 16 + succublvl
+
+
+	if hypnoWithdrawal > 0: gs 'dina', 'hypnoAddiction'
+
+	if sleepVars['no_sleep_loss'] = 0:
+		if trait_vars['sleep_duration'] = 1:
+			!! Short sleeper
+			pcs_sleep -= 4
+			if rand(0, 1) = 0: pcs_sleep -= 1
+		elseif trait_vars['sleep_duration'] = -1:
+			!! Long sleeper
+			pcs_sleep -= 5
+			if rand(0, 2) <= 1: pcs_sleep -= 1
+		else
+			pcs_sleep -= 5
+		end
+	else
+		sleepVars['no_sleep_loss'] = 0
+	end
+
+	if pcs_sleep <= 0 and succublvl = 0:
+		pcs_condition['lack_of_sleep'] += 2
+		if pcs_mood_effects['slpredcheck'] = 1: gs 'mood', 'lower', 'tiny'
+		pcs_mood_effects['slpredcheck'] = 1
+	else
+		pcs_mood_effects['slpredcheck'] = 0
+	end
+
+
+	if pcs_energy <= 0:
+		if pcs_mood_effects['nrgredcheck'] = 1: gs 'mood', 'lower', 'tiny'
+		pcs_mood_effects['nrgredcheck'] = 1
+	else
+		pcs_mood_effects['nrgredcheck'] = 0
+	end
+
+	if pcs_hydra <= 0:
+		if pcs_mood_effects['hydredcheck'] = 1: gs 'mood', 'lower', 'tiny'
+		pcs_mood_effects['hydredcheck'] = 1
+	else
+		pcs_mood_effects['hydredcheck'] = 0
+	end
+
+	if $arch_vars['main_active'] = 'prude' and pcs_faith <= 25:
+		if pcs_mood_effects['faithredcheck'] = 1: gs 'mood', 'lower', 'tiny'
+		pcs_mood_effects['faithredcheck'] = 1
+	else
+		pcs_mood_effects['faithredcheck'] = 0
+	end
+
+
+	if pcs_stam <= 0:
+		gs 'mood', 'lower', rand(5, 10)
+		pcs_sleep -= rand(3, 6)
+	elseif pcs_stam < stammax / 5 and stammax > 50:
+		gs 'mood', 'lower', rand(2, 5)
+	end
+
+	if pcs_energy > 20: pcs_stam += stammax / max(5, 110-pcs_energy)
+	pcs_willpower_feeder += willpowermax*4/3
+	pcs_willpwr += pcs_willpower_feeder/100
+	pcs_willpower_feeder = pcs_willpower_feeder mod 100
+end
+
+gs 'drugs', 'hourly_events'
+
+
+		!!------------------------------------------------------------!!
+		!!                         Willpower                          !!
+		!!------------------------------------------------------------!!
+
+
+if pcs_willpwr > willpowermax: pcs_willpwr = willpowermax
+if pcs_mood <= 20: will_counter -= 2
+
+
+if willpowermax > 100:
+	if pcs_willpwr < 25: will_counter -= 1
+else
+	if pcs_willpwr < willpowermax/4: will_counter -= 1
+end
+
+if will_counter <= -10:
+	willpowermax -= 1
+	will_counter = 0
+end
+
+if pcs_stam > stammax: pcs_stam = stammax
+
+
+		!!------------------------------------------------------------!!
+		!!                         FERTILITY                          !!
+		!!------------------------------------------------------------!!
+
+
+gs 'femcyc'
+
+if hour = birth_control['auto_hour'] and birth_control['auto_hour'] > 0 and inSleep = 0:
+	gs 'fertility', 'birth_control_status_update'
+elseif hour = 8:
+	gs 'fertility', 'birth_control_status_update'
+elseif birth_control['auto_hour'] = 0 and birth_control['status_update'] <= daystart - 1:
+	gs 'fertility', 'birth_control_status_update'
+end
+
+if inSleep = 1:
+	pcs_period['period_warning'] = 0
+else
+	if pcs_period['period_warning'] = 0 and placebopart > 0 and lutH > 0 and knowpreg = 0:
+		pcs_period['period_warning'] = 1
+		msg '你的肚子突然一阵抽痛，肌肉绷得太紧，开始痉挛。看来你的月经快要来了。'
+	elseif pcs_period['period_warning'] = 1 and lutH_max - lutH <= 2:
+		pcs_period['period_warning'] = 2
+		if isprok = 1:
+			msg '你的肚子又抽痛起来。又是一阵绞痛。这肯定意味着你的月经快来了。还好你已经塞了卫生棉条。'
+		elseif $location_type = 'private' and isprokp = 1:
+			msg '你的肚子又抽痛起来。又是一阵绞痛。你很清楚这是怎么回事，不过还是趁着没人拉下内裤确认了一下；果然。卫生巾上已经有血迹，说明月经马上就要来了。还好你已经做好了准备。'
+		elseif $location_type = 'private' and $pantyworntype ! 'none':
+			msg '你的肚子又抽痛起来。又是一阵绞痛。你很清楚这是怎么回事，不过还是趁着没人拉下内裤确认了一下；果然。内裤上已经有血迹。月经马上就要来了。'
+		else
+			msg '你的肚子又抽痛起来。又是一阵绞痛。这肯定意味着你的月经快来了。你真的得赶紧塞个卫生棉条进去。'
+		end
+	elseif mesec > 0:
+		pcs_period['period_warning'] = 0
+	end
+end
+
+
+!! code to trigger vomitting based on morning sickness, hangovers, or just plain bad luck
+if inSleep = 0:
+	vomit['daily_check'] = 0
+else
+	if vomit['daily_check'] = 0:
+		vomit['daily_check'] = 1
+
+		if alko > 4:
+			vomit['hangover'] = 1
+
+		elseif pregChem > 600 and pregChem < 2160 and rand(1, 4) = 4:
+			vomit['morning_sick'] = 1
+
+		elseif rand(1, 1000) = 1:
+			vomit['unlucky'] = 1
+		end
+	end
+end
+
+!! Mana regen
+pcs_mana += manamax / 20
+
+
+if alko > 0 and alkoblock = 0:
+	if alko >= 6:
+		gs 'exp_deg', 'run', 1
+		gs 'exp_deg', 'vball', 1
+
+		if alko >= 10:
+			gs 'exp_deg', 'stren', 1
+			gs 'exp_deg', 'vital', 1
+			gs 'exp_deg', 'int', 1
+
+			alko -= rand(0, 1)
+		end
+	end
+
+	alko -= rand(0, 1)
+elseif alko < 0:
+	alko = 0
+end
+
+if shame > 0:
+	shame -= 1
+	gs 'mood', 'lower', 'tiny'
+end
+
+
+if trait_vars['panty_preference'] >= 2:
+	mosol = 0
+elseif $pantyworntype = 'none' and PCloPanties = 0 and $clothingworntype ! 'nude' and (PCloPants > 0 or (PCloSkirt > 0 and trait_vars['panty_preference'] = 0)):
+	mosol += max(0, 2 - trait_vars['panty_preference'])
+	if mosol >= 100: gs 'mood', 'lower', 'tiny'
+	if mosol >= 60 and pain['pubic'] < 80: gs 'pain', 1, 'pubic', 'ache'
+elseif mosol > 0:
+	mosol -= rand(0, 1)
+end
+
+
+if pcs_energy <= (10 + vitalbuf / 20) and fat > (2 + vitalbuf / 20):
+	fat -= 2
+	pcs_energy += 6
+elseif pcs_energy <= (25 + vitalbuf / 10) and fat > 0:
+	fat -= 1
+	pcs_energy += 3
+elseif pcs_energy > 100:
+	fat += (pcs_energy - 100) / 4
+	pcs_energy = 100
+end
+
+if pcs_hydra > 200: pcs_hydra = 200
+
+if pcs_lipbalm > 0: pcs_lipbalm -= 1
+
+if sickstage = 1:
+	sick += 1
+	sicktimer += 1
+
+	if sicktimer >= 80:
+		sickstage = 2
+		sicktimer = 0
+	end
+end
+
+if sickstage = 2:
+	if sick > 0: sick -= 1
+	if sick <= 0:
+		sick = 0
+		sickstage = 0
+	end
+end
+
+if perkice > 0: perkice -= 1
+if frost > 0: frost -= 1
+
+if KGOLpers > 0:
+	if KGHP < KGHPMAX: KGHP += 10
+	if KGMana < KGManaMax: KGMana += 10
+end
+
+gs 'mood', 'raise', func('outfit', 'hourly_mood_bonus')
+
+
+!! Arousal adjustments
+if pcs_horny < 25 and (PPanThinness >= 5 and PBraThinness >= 5):
+	pcs_horny += 10
+elseif pcs_horny < 10 and (PPanThinness >= 5 or PBraThinness >= 5):
+	pcs_horny += 5
+end
+
+if $pantyworntype ! 'none' and clit_size >= 40 and pcs_horny < 60:
+	pcs_horny += 20
+end
+
+if inSleep = 0:
+	gs 'sweat', 'add', rand(0, 1)
+	if temper >= 20: gs 'sweat', 'add', rand(0, 1)
+end
+
+!! Leg and pubes hair growth
+if lashair = 1:
+	pcs_pubes = 0
+	pcs_leghair = 0
+	gs 'body_desc', 'pube_desc_update'
+else
+	temp_hair_interval = iif(trait_vars['body_hair_growth_rate'] = 1, 720, iif(trait_vars['body_hair_growth_rate'] = 0, 1440, 1800))
+	if totminut > stat['leg_hair_growth_timer'] + temp_hair_interval:
+		stat['leg_hair_growth_timer'] = totminut
+		pcs_leghair += 1
+	end
+	if totminut > stat['pube_growth_timer'] + temp_hair_interval * 2:
+		stat['pube_growth_timer'] = totminut
+		pcs_pubes += 1
+	end
+	killvar 'temp_hair_interval'
+		!! Pubic hair growth at 1/2 per night
+	gs 'body_desc', 'pube_desc_update'
+end
+
+gs 'komp_cam_functions', 'hourly_events'
+
+
+!! vovan edition, from 1.2.5
+if hunterVars['Andreisex'] > 0:	hunterVars['Andreisex'] -= 1
+if hunterVars['Sergeisex'] > 0:	hunterVars['Sergeisex'] -= 1
+if hunterVars['Igorsex'] > 0:	hunterVars['Igorsex'] -= 1
+if huntslutsex > 0:				huntslutsex -= 1
+if MiraVars['follow_time'] > 0:	MiraVars['follow_time'] -= 1
+
+if npc_drunk['A60'] > 0 and $locat['A60_loc'] ! 'mitkabuh_group': npc_drunk['A60'] -= 1
+
+gs 'katja_procedural', 'hourly'
+
+
+		!!------------------------------------------------------------!!
+		!!                       HOTEL CHECKOUT                       !!
+		!!------------------------------------------------------------!!
+
+
+!! pav_hotel.qsrc / city_hotel.qsrc also check on-visit; this is the
+!! catch-all for players who do not revisit the hotel page that day.
+if HotelRoom['pav'] > 0:
+	if hotelRoomDays['pav'] = daystart and hour >= 11:
+		HotelRoom['pav'] = 0
+	end
+end
+
+if HotelRoom['city'] > 0:
+	if hotelRoomDays['city'] = daystart and hour >= 11:
+		HotelRoom['city'] = 0
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       GSCHOOL ABSENCE                      !!
+		!!------------------------------------------------------------!!
+
+
+if hour >= 8 and hour < 14 and week < 6 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and kanikuli = 0 and gschoolVars['last_absence'] <> daystart:
+	gschoolVars['absence_count'] += 1
+	gschoolVars['last_absence'] = daystart
+end
+
+
+--- hourly_events ---------------------------------

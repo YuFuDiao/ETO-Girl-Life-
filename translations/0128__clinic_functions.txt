@@ -1,0 +1,1583 @@
+# clinic_functions
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                              APPOINTMENTS                              ║
+!! ║                                                                        ║
+!! ╠════════════════════════════════════════════════════════════════════════╣
+!! ║                                                                        ║
+!! ║  Built on top of the generic 'appointments' module, as the             ║
+!! ║  $none_func/$arrive_func handlers passed to its 'render_acts' (see the ║
+!! ║  module header in appointments.qsrc).                                  ║
+!! ║                                                                        ║
+!! ║  $category also doubles as the doctor type shown to the player, unless ║
+!! ║  it names a specific doctor below. Allowed values:                     ║
+!! ║  '全科医生', 'Gynecologist', 'Dentist', 'Optometrist',     ║
+!! ║  'Therapist', '整形外科医生', 'Pediatrician'.                      ║
+!! ║                                                                        ║
+!! ║  Also allows individual doctors, if the PC knows them, only in their   ║
+!! ║  own clinic:                                                           ║
+!! ║    'Pavlov'    - Pavlovsk Therapist                                    ║
+!! ║    'Ninel'     - City Dr. Ninel                                        ║
+!! ║    'Petrovich' - Pavlovsk Gyno                                         ║
+!! ║                                                                        ║
+!! ║  Usage:                                                                ║
+!! ║    gs 'clinic_functions', 'request_appointment', $category             ║
+!! ║                                                                        ║
+!! ║  Example:                                                              ║
+!! ║    gs 'clinic_functions', 'request_appointment', 'Gynecologist'        ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'reception_option_label':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                    reception_option_label                      │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ $result = func('clinic_functions', 'reception_option_label',   │
+	!! │     $category, $subject)                                       │
+	!! │                                                                │
+	!! │ Act label for a reception category: a booking prompt if there  │
+	!! │ is no appointment yet, or a bolded check-in/attend prompt with │
+	!! │ the time once one is already on the books - it is misleading   │
+	!! │ to invite the player to "book" a slot they already have. Dr.   │
+	!! │ Pavlov is the recurring weekly therapist slot once             │
+	!! │ hypnoSchedule = 1, not a one-off booking through the           │
+	!! │ appointments module, hence the special case. Usable at any     │
+	!! │ clinic.                                                        │
+	!! └────────────────────────────────────────────────────────────────┘
+	$temp_rol_recur = iif($ARGS[1] = 'Pavlov' and hypnoSchedule = 1, 'therapist_appointment', '')
+	$temp_rol_state = $func('appointments', 'get_state', $ARGS[1], $temp_rol_recur)
+
+	if $temp_rol_state = 'none':
+		$result = '预约：' + $ARGS[2]
+	else
+		$temp_rol_id = iif($temp_rol_recur <> '', $temp_rol_recur, func('appointments', 'get_appointment_id', $ARGS[1]))
+		$temp_rol_time = func('calendar_query', 'ts_to_str', func('appointments', 'get_event_display_ts', $temp_rol_id))
+		if $temp_rol_state = 'pending':
+			temp_rol_daystart = iif($temp_rol_recur <> '', daystart, event_daystart[$temp_rol_id])
+			if temp_rol_daystart = daystart:
+				$result = '查看与' + $ARGS[2] + '的预约（' + $temp_rol_time + '）'
+			else
+				$result = '查看与' + $ARGS[2] + '的预约（' + func('calendar_query', 'format_relative_day', temp_rol_daystart) + '）'
+			end
+		else
+			$result = '<b>前往与' + $ARGS[2] + '的预约（' + $temp_rol_time + '）</b>'
+		end
+	end
+
+	killvar 'temp_rol_recur'
+	killvar 'temp_rol_state'
+	killvar 'temp_rol_id'
+	killvar 'temp_rol_time'
+	killvar 'temp_rol_daystart'
+	exit
+end
+
+
+if $ARGS[0] = 'reception_attend':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                        reception_attend                        │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'reception_attend', $category, $intro   │
+	!! │                                                                │
+	!! │ $intro is the line the caller already printed telling the      │
+	!! │ receptionist what the player wants ("I would like to book...") │
+	!! │ - 'request_appointment' stashes it so the offer table can      │
+	!! │ reprint it if the player picks a slot and the screen redraws.  │
+	!! │                                                                │
+	!! │ Thin wrapper around 'appointments' 'render_acts' for a clinic  │
+	!! │ reception screen: hands off to 'request_appointment' /         │
+	!! │ 'attend_appointment' above. Usable at any clinic.              │
+	!! └────────────────────────────────────────────────────────────────┘
+	menu_off = 1
+	$temp_ra_recur = iif($ARGS[1] = 'Pavlov' and hypnoSchedule = 1, 'therapist_appointment', '')
+	$appt_intro_line = $ARGS[2]
+	gs 'appointments', 'render_acts', $ARGS[1], 'clinic_functions', 'request_appointment', 'attend_appointment', $temp_ra_recur
+	killvar 'temp_ra_recur'
+	killvar 'appt_intro_line'
+	exit
+end
+
+
+if $ARGS[0] = 'reception_book_or_check':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                    reception_book_or_check                     │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'reception_book_or_check', $category,   │
+	!! │     $subject, $recurring_event_id                              │
+	!! │                                                                │
+	!! │ Shared receptionist boilerplate for every clinic booking act   │
+	!! └────────────────────────────────────────────────────────────────┘
+	$temp_rbc_intro = '"我想预约' + $ARGS[2] + '，"你对前台说。'
+	if $func('appointments', 'get_state', $ARGS[1], $ARGS[3]) = 'none':
+		$temp_rbc_intro
+		'"当然可以，让我看看还有哪些空位，"她一边翻着预约簿一边回答。'
+	else
+		'"我与' + $ARGS[2] + '有预约，"你对前台说。'
+		'"我帮你查一下，"她一边翻着预约簿一边回答。'
+	end
+	gs 'clinic_functions', 'reception_attend', $ARGS[1], $temp_rbc_intro
+	killvar 'temp_rbc_intro'
+	exit
+end
+
+
+if $ARGS[0] = '_category_name':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                         _category_name                         │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ $result = func('clinic_functions', '_category_name', $category)│
+	!! │                                                                │
+	!! │ Named-doctor display name, or '' for a generic category with no│
+	!! │ specific doctor.                                               │
+	!! │                                                                │
+	!! │ Shared by 'request_appointment' ($doctorname) and              │
+	!! │ '_category_desc', so a new named doctor only needs to be added │
+	!! │ here.                                                          │
+	!! └────────────────────────────────────────────────────────────────┘
+	if $ARGS[1] = 'Pavlov':
+		$result = '帕夫洛夫医生'
+	elseif $ARGS[1] = 'Ninel':
+		$result = '尼内尔医生'
+	elseif $ARGS[1] = 'Petrovich':
+		$result = '彼得罗维奇医生'
+	else
+		$result = ''
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_category_desc':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                         _category_desc                         │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ $result = func('clinic_functions', '_category_desc', $category)│
+	!! │                                                                │
+	!! │ Player-facing description of who a category refers to - shared │
+	!! │ by 'request_appointment', 'request_appointment_offer', and     │
+	!! │ 'attend_appointment' to keep the naming consistent.            │
+	!! └────────────────────────────────────────────────────────────────┘
+	$temp_cd_name = func('clinic_functions', '_category_name', $ARGS[1])
+	if $temp_cd_name <> '':
+		$result = $temp_cd_name
+	elseif $ARGS[1] = 'Optometrist':
+		$result = iif(instr('|City Dentist|Dentist|', '|' + $ARGS[1] + '|') > 0, '牙医', iif(instr('|City Optometrist|Optometrist|', '|' + $ARGS[1] + '|') > 0, '验光师', iif($ARGS[1] = '全科医生', '全科医生', iif($ARGS[1] = 'Gynecologist', '妇科医生', iif($ARGS[1] = 'Therapist', '心理治疗师', iif($ARGS[1] = '整形外科医生', '整形外科医生', iif($ARGS[1] = 'Pediatrician', '儿科医生', $ARGS[1])))))))
+	else
+		$result = iif(instr('|City Dentist|Dentist|', '|' + $ARGS[1] + '|') > 0, '牙医', iif(instr('|City Optometrist|Optometrist|', '|' + $ARGS[1] + '|') > 0, '验光师', iif($ARGS[1] = '全科医生', '全科医生', iif($ARGS[1] = 'Gynecologist', '妇科医生', iif($ARGS[1] = 'Therapist', '心理治疗师', iif($ARGS[1] = '整形外科医生', '整形外科医生', iif($ARGS[1] = 'Pediatrician', '儿科医生', $ARGS[1])))))))
+	end
+	killvar 'temp_cd_name'
+	exit
+end
+
+
+if $ARGS[0] = 'request_appointment':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                      request_appointment                       │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'request_appointment', $category        │
+	!! │                                                                │
+	!! │ The 'appointments' render_acts 'none' handler - the player has │
+	!! │ no appointment yet. Checks whether a same-day slot exists, then│
+	!! │ hands off to 'request_appointment_offer' to show it alongside  │
+	!! │ the regular scheduled slots - free on a small lucky roll, or   │
+	!! │ available any time for a fee as an expedited appointment.      │
+	!! └────────────────────────────────────────────────────────────────┘
+	cla
+	menu_off = 1
+	gs 'stat'
+	$appt_offer_intro = $appt_intro_line
+
+	if $ARGS[1] = 'Pavlov' and hypnoSchedule = 1:
+		!! Recurring weekly slot has locked in - no more ad-hoc booking, only Thursdays.
+		'"巴甫洛夫医生只在周四接诊，时间是 ' + func('time', 'get_time_string', 18, 0) + ' 到 ' + func('time', 'get_time_string', 19, 0) + '，"前台告诉你。"到时候再来吧。"'
+		act '离开': gt $loc, $loc_arg
+		exit
+	end
+
+	$doctorname = func('clinic_functions', '_category_name', $ARGS[1])
+	if $ARGS[1] = 'Pavlov':
+		$doctortype = 'Therapist'
+	elseif $ARGS[1] = 'Ninel':
+		$doctortype = '全科医生'
+	elseif $ARGS[1] = 'Petrovich':
+		$doctortype = 'Gynecologist'
+	else
+		$doctortype = $ARGS[1]
+	end
+	$doc_category = $ARGS[1]
+	$doc_loc = iif($region[1] <> 'pav', '城市诊所（City Clinic）', '巴甫洛夫斯克诊所（巴甫洛夫斯克诊所）')
+	$doc_title = iif($doctorname = '', $doctortype, $doctorname) + ' Appointment'
+	tmp_doc_seed = func('random', 'string_hash', $ARGS[1] + '_' + $region[1])
+	tmp_doc_duration = 4
+	tmp_doc_range_min = 27
+	!!tmp_doc_range_min = iif($start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and kanikuli = 0, 56, 34)
+
+	!! Same-day slot check: on a small lucky roll it comes free; any day it exists it
+	!! can also be booked for a fee as an expedited appointment. 'request_appointment_offer'
+	!! folds whichever applies into the regular offer screen below.
+	appointment_offer_duration = tmp_doc_duration
+	appointment_offer_buffer = 2
+	temp_lucky_end = (totminut mod 1440) / 15 + rand(1, 3)
+	if temp_lucky_end >= tmp_doc_range_min and temp_lucky_end <= 82 and func('appointments', 'check_conflict', daystart, temp_lucky_end) = 0:
+		same_day_window_end = temp_lucky_end
+		same_day_free = iif(rand(0,99) < 15, 1, 0)
+	else
+		same_day_window_end = -1
+		same_day_free = 0
+	end
+	killvar 'temp_lucky_end'
+
+	gs 'clinic_functions', 'request_appointment_offer'
+end
+
+
+if $ARGS[0] = 'request_appointment_offer':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                   request_appointment_offer                    │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ Internal to 'request_appointment'. A self-looping page (same   │
+	!! │ pattern as 'wait_for_appointment_wait' below): first entry     │
+	!! │ remembers where to return once a slot is booked or the player  │
+	!! │ leaves; the slot-selection links in '_offer_row' re-enter via  │
+	!! │ 'gt' on every click, which this redraws from scratch. Offers 6 │
+	!! │ conflict-free, deterministic candidate slots as a selectable   │
+	!! │ table, plus the same-day slot from 'request_appointment' (if   │
+	!! │ any) - free of charge if same_day_free = 1, otherwise bookable │
+	!! │ as a paid expedited appointment. The scheduled slots are       │
+	!! │ picked via the table links and committed with Continue; the    │
+	!! │ same-day slot and leaving are separate, immediate-commit acts  │
+	!! │ shown below it.                                                │
+	!! └────────────────────────────────────────────────────────────────┘
+	if $appt_ret_loc = '':
+		$appt_ret_loc = $loc
+		$appt_ret_arg = $loc_arg
+		appointment_selected_index = -1
+		!! Rolled once here rather than on every redraw below, so the nurse's line doesn't
+		!! change out from under the player each time they pick a different slot.
+		appt_offer_flavor_choice = rand(0,4)
+	else
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+		$appt_offer_intro
+		'"当然可以，让我看看还有哪些空位，"她一边翻着预约簿一边回答。'
+	end
+
+	gs 'appointments', 'offer_slots', 6, tmp_doc_seed, 14, tmp_doc_duration, 2, tmp_doc_range_min, 82, 1
+
+	same_day_offer_index = -1
+	if same_day_window_end >= 0:
+		same_day_offer_index = appointment_offer_count
+		appointment_offer_day[same_day_offer_index] = daystart
+		appointment_offer_window_end[same_day_offer_index] = same_day_window_end
+	end
+
+	$temp_doc_desc = func('clinic_functions', '_category_desc', $doc_category)
+
+	if appt_offer_flavor_choice = 1:
+		'"与<<$temp_doc_desc>>的预约，我们有几个可选时间："'
+	elseif appt_offer_flavor_choice = 2:
+		'"目前与<<$temp_doc_desc>>的预约还有几个空位："'
+	elseif appt_offer_flavor_choice = 3:
+		'"关于与<<$temp_doc_desc>>的体检，以下是一些可选时间："'
+	elseif appt_offer_flavor_choice = 4:
+		'护士微笑着说："本周与<<$temp_doc_desc>>的预约还有几个空位："'
+	else
+		'"与<<$temp_doc_desc>>的预约，我们有以下可选时间："'
+	end
+
+	'<table cellspacing=0 cellpadding=4 border=0><tr><th align=left>日期</th><th align=left>时间</th><th align=left>备注</th></tr>'
+	temp_roff_i = 0
+	:request_offer_loop
+	if temp_roff_i < appointment_offer_count:
+		if appointment_offer_day[temp_roff_i] >= 0:
+			gs 'clinic_functions', '_offer_row', temp_roff_i
+		end
+		temp_roff_i += 1
+		jump 'request_offer_loop'
+	end
+	killvar 'temp_roff_i'
+	'</table>'
+
+	if same_day_offer_index >= 0:
+		if same_day_free = 1:
+			'"其实今天晚些时候好像也空出了一个位置。如果你不想提前预约，可以免费等候<<$temp_doc_desc>>。"'
+		else
+			'"如果你不想等这些时间，我们今天也提供付费的加急预约，可以更快见到<<$temp_doc_desc>>。"'
+		end
+	end
+	killvar 'temp_doc_desc'
+
+	!! Commits the table selection above - nags instead if nothing is picked yet.
+	if appointment_selected_index >= 0:
+		act '继续':
+			$temp_appt_dest_loc = $appt_ret_loc
+			$temp_appt_dest_arg = $appt_ret_arg
+			gs 'clinic_functions', 'book_appointment_confirm', appointment_selected_index
+			gt $temp_appt_dest_loc, $temp_appt_dest_arg
+		end
+	else
+		act '继续' + $func('wrap', 'v_neg', '（请选择预约时间）'):
+			msg '请选择预约时间。'
+		end
+	end
+
+	!! Same-day slot: resolved and attended immediately, unlike the scheduled slots above
+	if same_day_offer_index >= 0:
+		if same_day_free = 1:
+			act '免费等候今天的空位':
+				temp_wait_minutes = appointment_offer_window_end[same_day_offer_index] * 15 - (totminut mod 1440)
+				gs 'clinic_functions', 'book_appointment_confirm', same_day_offer_index
+				gs 'appointments', 'resolve', $doc_category
+				gs 'clinic_functions', 'wait_for_appointment', $doc_category, temp_wait_minutes
+				killvar 'temp_wait_minutes'
+			end
+		else
+			act '支付加急预约费用' + $func('money', 'get_cost_string', 1000):
+				if func('money', 'can_afford', 1000) = 0:
+					$noMoney
+				else
+					gs 'money', 'pay', 1000
+					temp_wait_minutes = appointment_offer_window_end[same_day_offer_index] * 15 - (totminut mod 1440)
+					gs 'clinic_functions', 'book_appointment_confirm', same_day_offer_index
+					gs 'appointments', 'resolve', $doc_category
+					gs 'clinic_functions', 'wait_for_appointment', $doc_category, temp_wait_minutes
+					killvar 'temp_wait_minutes'
+				end
+			end
+		end
+	end
+
+	act '返回':
+		$temp_appt_dest_loc = $appt_ret_loc
+		$temp_appt_dest_arg = $appt_ret_arg
+		gs 'clinic_functions', 'book_appointment_cleanup'
+		gt $temp_appt_dest_loc, $temp_appt_dest_arg
+	end
+
+	!! Not killed here: the same-day acts above read it live at click-time, which is a
+	!! later turn than this render - clearing it now would zero it out from under them
+	!! before the player ever clicks. 'book_appointment_cleanup' clears it once the flow
+	!! actually ends.
+	exit
+end
+
+
+if $ARGS[0] = '_offer_row':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                          _offer_row                            │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ Internal to 'request_appointment_offer'. ARGS[1] = slot index. │
+	!! │ Prints one <tr> whose day/time cells are both links picking    │
+	!! │ that slot - since appointment_selected_index is a single       │
+	!! │ value, not a set, picking one always clears any previous       │
+	!! │ selection. Clicking re-enters 'request_appointment_offer' via  │
+	!! │ 'gt' to redraw the table with the new selection highlighted.   │
+	!! └────────────────────────────────────────────────────────────────┘
+	temp_or_i = ARGS[1]
+	temp_or_offset = appointment_offer_day[temp_or_i] - daystart
+	$temp_or_rel = $iif(temp_or_offset = 0, 'Today', $iif(temp_or_offset = 1, 'in 1 day', 'in ' + temp_or_offset + ' days'))
+	!! week runs 1-7 (Monday-Sunday); normalize so a multiple-of-7 offset lands on 7, not 0.
+	$temp_or_label = $weekName[(week + temp_or_offset - 1) mod 7 + 1] + ' (' + $temp_or_rel + ')'
+	$temp_or_time = func('calendar_query', 'ts_to_str', appointment_offer_window_end[temp_or_i]) + '–' + func('calendar_query', 'ts_to_str', appointment_offer_window_end[temp_or_i] + appointment_offer_duration)
+	$temp_or_note = $func('clinic_functions', '_offer_row_conflicts', temp_or_i)
+
+	$temp_or_link = '<a href="exec: appointment_selected_index = ' + temp_or_i + ' & gt ''clinic_functions'', ''request_appointment_offer''" style="display:block;">'
+
+	*p '<tr' + $iif(appointment_selected_index = temp_or_i, ' style="font-weight:bold;"', '') + '><td>' + $temp_or_link + $temp_or_label + '</a></td><td>' + $temp_or_link + $temp_or_time + '</a></td><td>' + $temp_or_note + '</td></tr>'
+
+	killvar 'temp_or_i'
+	killvar 'temp_or_offset'
+	killvar 'temp_or_rel'
+	killvar 'temp_or_label'
+	killvar 'temp_or_time'
+	killvar 'temp_or_note'
+	killvar 'temp_or_link'
+	exit
+end
+
+
+if $ARGS[0] = '_offer_row_conflicts':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                     _offer_row_conflicts                       │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ $result = func('clinic_functions', '_offer_row_conflicts', i)  │
+	!! │                                                                │
+	!! │ Notes-column text for slot i: 'Conflict: Title (start-end), …' │
+	!! │ or '' if none. Queries the same non-blocking overlaps as       │
+	!! │ 'appointments' '_offer_conflict_note', but that one is         │
+	!! │ formatted as a sentence fragment for the old one-line-per-slot │
+	!! │ description - this is its own format for a standalone column.  │
+	!! └────────────────────────────────────────────────────────────────┘
+	temp_orc_i = ARGS[1]
+	gs 'calendar_query', 'get_events_for_time_range', appointment_offer_day[temp_orc_i], appointment_offer_window_end[temp_orc_i] - appointment_offer_buffer, appointment_offer_buffer + appointment_offer_duration
+	copyarr '$temp_orc_events', '$query_events_for_time_range'
+
+	$result = ''
+	if arrsize('$temp_orc_events') > 0:
+		$result = 'Conflict: '
+		temp_orc_k = 0
+		:offer_row_conflicts_loop
+		if temp_orc_k < arrsize('$temp_orc_events'):
+			if temp_orc_k > 0: $result += ', '
+			gs 'calendar_query', 'get_event_display_range', $temp_orc_events[temp_orc_k], appointment_offer_day[temp_orc_i]
+			$result += $event_vars['title'] + ' (' + $func('calendar_query', 'ts_to_str', result_start_ts) + '-' + $func('calendar_query', 'ts_to_str', result_end_ts) + ')'
+			temp_orc_k += 1
+			jump 'offer_row_conflicts_loop'
+		end
+		killvar 'temp_orc_k'
+	end
+
+	killvar 'temp_orc_i'
+	killvar 'temp_orc_events'
+	exit
+end
+
+
+if $ARGS[0] = 'attend_appointment':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                       attend_appointment                       │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'attend_appointment', $category,        │
+	!! │ wait_minutes, $recurring_event_id                              │
+	!! │                                                                │
+	!! │ The 'appointments' render_acts arrive handler - both on-time   │
+	!! │ and late (wait_minutes negative) arrivals. Shows a             │
+	!! │ go-to-appointment act; clicking it tells the receptionist and, │
+	!! │ if late, rolls via 'check_in' whether the booking still holds -│
+	!! │ a lost slot means same-day entry is gone and the player must   │
+	!! │ reschedule. Works at any clinic.                               │
+	!! └────────────────────────────────────────────────────────────────┘
+	$appt_attend_category = $ARGS[1]
+	appt_attend_wait = ARGS[2]
+	$appt_attend_recur = $ARGS[3]
+	$appt_attend_desc = $func('clinic_functions', '_category_desc', $ARGS[1])
+
+	act "去赴与<<$appt_attend_desc>>的预约":
+		cla
+		if appt_attend_wait < -4:
+			'"你迟到了！"护士说着，一脸不高兴。"我看看<<$appt_attend_desc>>还能不能给你安排。"'
+			$appt_attend_outcome = $func('appointments', 'check_in', $appt_attend_category, $appt_attend_recur)
+			if $appt_attend_outcome = 'missed':
+				'"抱歉，你的号已经给了别人，"护士告诉你。"你需要重新预约。"'
+				act '重新预约': gs 'clinic_functions', 'request_appointment', $appt_attend_category
+			else
+				'"你运气不错，他们还能给你看，"护士说。'
+				gs 'clinic_functions', 'wait_for_appointment', $appt_attend_category, appt_attend_wait
+			end
+		else
+			gs 'appointments', 'resolve', $appt_attend_category
+			'你走到前台，礼貌地说明你与<<$appt_attend_desc>>有预约。'
+			gs 'clinic_functions', 'wait_for_appointment', $appt_attend_category, appt_attend_wait
+		end
+		killvar 'appt_attend_category'
+		killvar 'appt_attend_wait'
+		killvar 'appt_attend_recur'
+		killvar 'appt_attend_outcome'
+		killvar 'appt_attend_desc'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'waiting_generic_scene':
+	cla & *clr
+	temp_wgs_rand = rand(0, 8)
+	if temp_wgs_rand = 0:
+		'你在候诊区耐心地等待。'
+	elseif temp_wgs_rand = 1:
+		'你翻着一本卷了角的杂志，其实一个字也没看进去。'
+	elseif temp_wgs_rand = 2:
+		'走廊那头，电话响个不停。'
+	elseif temp_wgs_rand = 3:
+		'对面的一位老妇人不停地瞟着墙上的钟。'
+	elseif temp_wgs_rand = 4:
+		'一名护士拿着写字板匆匆走过，连看都没看你一眼。'
+	elseif temp_wgs_rand = 5:
+		'你又一次看了看手机，感觉这已经是第十次了。'
+	elseif temp_wgs_rand = 6:
+		'你挪动身子想坐得舒服些，椅子在身下吱呀作响。'
+	elseif temp_wgs_rand = 7:
+		'广播里传来一阵模糊的播报声，但你听不清说的是什么。'
+	else
+		'几个座位外有人咳嗽。你尽量不去在意。'
+	end
+	killvar 'temp_wgs_rand'
+	!!TODO: expand with more substantial events
+end
+
+if $ARGS[0] = 'wait_for_appointment':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                      wait_for_appointment                      │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'wait_for_appointment', $category,      │
+	!! │ wait_minutes                                                   │
+	!! │                                                                │
+	!! │ Generic waiting-room step, usable at any clinic - replaces the │
+	!! │ old pav_clinic.qsrc 'reception3'/'reception3_wait', which      │
+	!! │ hardcoded that location.                                       │
+	!! │                                                                │
+	!! │ wait_minutes is how long is actually left until the appointment│
+	!! │ - capped at 5 minutes with a bit of noise either way, floored  │
+	!! │ at 0 (a late-but-accepted arrival means the doctor is ready    │
+	!! │ now, not that time should run backward).                       │
+	!! └────────────────────────────────────────────────────────────────┘
+	menu_off = 1
+	cla
+	if ARGS[2] > 0:
+		'"请在候诊区坐下。医生一有空我们就会叫你。"护士回答着，在她的文件上做了个标记。'
+		$tmp_doc = $ARGS[1]
+		tmp_remain = ARGS[2]
+		act '在候诊区坐下': gs 'clinic_functions', 'wait_for_appointment_wait', $tmp_doc, tmp_remain
+	else
+		'"来得正好，医生可以给你看了。"护士回答着，在她的文件上做了个标记。'
+		gs 'clinic_functions', 'wait_for_appointment_end', $ARGS[1]
+	end
+end
+
+if $ARGS[0] = 'wait_for_appointment_wait':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                    wait_for_appointment_wait                   │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'wait_for_appointment_wait', $category, │
+	!! │ wait_minutes                                                   │
+	!! │                                                                │
+	!! │ Generic waiting-room step to actually wait, usable at any      │
+	!! │ clinic                                                         │
+	!! │                                                                │
+	!! │ wait_minutes is how long is actually left until the appointment│
+	!! │ - capped at 5 minutes with a bit of noise either way, floored  │
+	!! │ at 0 (a late-but-accepted arrival means the doctor is ready    │
+	!! │ now, not that time should run backward).                       │
+	!! └────────────────────────────────────────────────────────────────┘
+
+	tmp_minut = max(0, min(ARGS[2], rand(1, 30)))
+	tmp_remain = ARGS[2] - tmp_minut
+	$tmp_doc = $ARGS[1]
+	gs 'stat'
+
+	if tmp_remain > 0:
+		if $global_appointment_custom_wait_call ! '':
+			$tmp_appointment_wait = ''
+			gs 'string', 'parse_string', '$tmp_appointment_wait', $global_appointment_custom_wait_call, ';'
+			gs $tmp_appointment_wait[0], $tmp_appointment_wait[1], $tmp_appointment_wait[2], $tmp_appointment_wait[3], $tmp_appointment_wait[4], $tmp_appointment_wait[5], $tmp_appointment_wait[6], $tmp_appointment_wait[7], $tmp_appointment_wait[8]
+		else
+			gs 'clinic_functions', 'waiting_generic_scene'
+		end
+		act '等待 (<<tmp_minut>>)': minut += tmp_minut & gt 'clinic_functions' , 'wait_for_appointment_wait', $tmp_doc, tmp_remain
+	else
+		killvar 'tmp_minut'
+		killvar 'tmp_remain'
+		'"医生现在可以给你看了。"护士朝你喊道'
+		gs 'clinic_functions', 'wait_for_appointment_end', $tmp_doc
+	end
+end
+
+if $ARGS[0] = 'wait_for_appointment_end':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                    wait_for_appointment_end                    │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ gs 'clinic_functions', 'wait_for_appointment_end', $category   │
+	!! │                                                                │
+	!! │ The wait is over - routes to the right doctor scene per        │
+	!! │ category, usable at any clinic. Replaces the old               │
+	!! │ pav_clinic.qsrc 'reception3'/'reception3_wait', which          │
+	!! │ hardcoded that location.                                       │
+	!! └────────────────────────────────────────────────────────────────┘
+	menu_off = 1
+	cla
+	killvar 'tmp_doc'
+	!! 'Petrovich'/'Pavlov' are named Pavlovsk-only doctors, so routing them straight to
+	!! pav_clinic/therapist is intentional, not a location assumption in general. Likewise,
+	!! '市立全科医生' routing into the city_clinic ninel/ninel2 scenes when the
+	!! player is sick is a deliberate city_clinic-only detour, not a generic pattern - plain
+	!! '全科医生' (Pavlovsk) has no such doctor to detour to. drPP is reserved
+	!! for the cumcondslip urgent walk-in below, not offered here anymore.
+	if $ARGS[1] = 'General practitioner' or $ARGS[1] = '全科医生':
+		gs 'clinic_functions', 'set_general_act'
+	elseif $ARGS[1] = 'City General practitioner' or $ARGS[1] = '市立全科医生':
+		if sick > 0:
+			if ninelsex = 0:
+				act '去看医生': gt 'city_clinic', 'ninel'
+			else
+				act '去看医生': gt 'city_clinic', 'ninel2'
+			end
+		else
+			gs 'clinic_functions', 'set_general_act'
+		end
+	elseif $ARGS[1] = 'Petrovich':
+		act '去看医生': gt 'pav_clinic', 'Petrovich1'
+	elseif $ARGS[1] = 'Pavlov':
+		act '去看医生': gt 'therapist', 'start'
+	elseif $ARGS[1] = 'Therapist':
+		gs 'clinic_functions', 'set_psycologist_act'
+	elseif $ARGS[1] = 'Dentist' or $ARGS[1] = 'Dentist':
+		gs 'clinic_functions', 'set_dentist_act'
+	elseif $ARGS[1] = 'Optometrist' or $ARGS[1] = 'Optometrist':
+		gs 'clinic_functions', 'set_optometrist_acts'
+	elseif $ARGS[1] = 'Pediatrician':
+		gs 'clinic_functions', 'set_pediatrician_act'
+	else
+		act '返回': gt $loc, $loc_arg
+	end
+	exit
+end
+
+if $ARGS[0] = 'book_appointment_confirm':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                    book_appointment_confirm                    │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ ARGS[1] = index of the chosen slot from the last 'offer_slots' │
+	!! │ call.                                                          │
+	!! └────────────────────────────────────────────────────────────────┘
+	gs 'appointments', 'book', $doc_category, ARGS[1], $doc_title, $doc_loc
+	gs 'clinic_functions', 'book_appointment_cleanup'
+end
+
+if $ARGS[0] = 'book_appointment_cleanup':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                    book_appointment_cleanup                    │
+	!! ├────────────────────────────────────────────────────────────────┤
+	!! │ Shared cleanup for both the offer flow and the 'lucky slot'    │
+	!! │ shortcut - clears every global                                 │
+	!! │ 'request_appointment'/'offer_slots' left behind.               │
+	!! └────────────────────────────────────────────────────────────────┘
+	killvar 'doctortype'
+	killvar 'doctorname'
+	killvar 'tmp_doc_seed'
+	killvar 'tmp_doc_range_min'
+	killvar 'doc_category'
+	killvar 'doc_loc'
+	killvar 'doc_title'
+	killvar 'appointment_offer_day'
+	killvar 'appointment_offer_window_end'
+	killvar 'appointment_offer_desc'
+	killvar 'appointment_offer_count'
+	killvar 'appointment_offer_duration'
+	killvar 'appointment_offer_buffer'
+	killvar 'appointment_offer_late_limit'
+	killvar 'same_day_window_end'
+	killvar 'same_day_free'
+	killvar 'same_day_offer_index'
+	killvar 'appointment_selected_index'
+	killvar 'appt_ret_loc'
+	killvar 'appt_ret_arg'
+	killvar 'appt_offer_intro'
+	killvar 'appt_offer_flavor_choice'
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              ABORTION                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_abortion_act':
+	if preg = 1 and pregChem < 1863 and knowpreg = 1:
+		act '堕胎' + $func('money', 'get_cost_string', 15000):
+			if func('money', 'can_afford', 15000) = 0:
+				$noMoney
+			else
+				xgt 'clinic_functions', 'get_abortion'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'get_abortion':
+	gs 'money', 'pay', 15000
+
+	minut += 60
+	if $region = 'city':
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/abort.jpg"></center>'
+	end
+	'你以一种看不到正在发生什么的角度躺在妇科检查椅上。当护士递给你一片阿司匹林和一杯浑浊的水让你咽下去时，你感到恶心和被侵犯。'
+
+	gs 'medical_din', 'abortion'
+
+	gs 'stat'
+	act '返回入口': gt $loc, $loc_arg
+end
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          GENERAL PRACTITIONER                      !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+if $ARGS[0] = 'set_general_act':
+	act '去看医生 (1:00)':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/experiments/doc<<rand(1,2)>>.jpg"></center>'
+		if (pcs_health < healthmax / 2 or pain['total'] >= 70) and clinic['docheal'] ! daystart:
+			menu_off = 1
+			minut += 60
+			clinic['docheal'] = daystart
+			gs 'medical_din', 'healthTreatment'
+			gs 'stat'
+			'简单询问了你的健康状况后，医生给你打了一针由止痛药、类固醇和维生素混合而成的针剂，这不仅能缓解疼痛，还能加快你的康复速度，减少你当前的疼痛并提升你的健康。你立刻感觉好多了，接下来几天你的健康恢复也会更快。'
+			general_treated = 1
+		end
+		if sick >= 1:
+			menu_off = 1
+			minut += 15
+			sick = 0
+			gs 'stat'
+			'医生快速为你做了检查，确认你得了感冒。他给你开了一些药片，并建议你外出时穿暖一点，以免再次着凉。'
+			general_treated = 1
+		end
+		if general_treated = 0:
+			menu_off = 1
+			minut += 15
+			gs 'stat'
+			'医生给你做了快速检查，没有发现任何问题。他建议你继续照顾好自己，如果有什么变化就再来。'
+		end
+		killvar 'general_treated'
+		act '返回入口': gt $loc, $loc_arg
+	end
+end
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              GYNOCOLONIST                          !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+if $ARGS[0] = 'set_gynocolonist_act':
+	act '去看医生 (1:00)':
+		if $region[1] = 'pav':
+			gt 'pav_clinic','Petrovich1'
+		else
+			'<br><b><font color="red">开发者警告："clinic_functions","set_gynocolonist_act" 在巴甫洛夫斯克以外的地区尚未实现。</font></b>'
+		end
+		act '返回入口': gt $loc, $loc_arg
+	end
+end
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              PSYCOLOGIST                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+if $ARGS[0] = 'set_psycologist_act':
+	act '去看心理医生 (1:00)':
+		if $region[1] = 'pav':
+			if therapistQW['met'] = 0:
+				gt 'therapist', 'intro'
+			else
+				gt 'therapist', 'start'
+			end
+		else
+			'<br><b><font color="red">开发者警告："clinic_functions","set_psycologist_act" 在巴甫洛夫斯克以外的地区尚未实现。</font></b>'
+		end
+		act '返回入口': gt $loc, $loc_arg
+	end
+end
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            PEDIATRICIAN                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+if $ARGS[0] = 'set_pediatrician_act':
+	'<br><b><font color="red">开发者警告："clinic_functions","set_pediatrician_act" 被调用但尚未实现。</font></b>'
+	act '返回入口': gt $loc, $loc_arg
+end
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              DENTIST                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_dentist_act':
+	act '去看牙医': gs 'clinic_functions', 'dentist_inspection'
+end
+
+if $ARGS[0] = 'dentist_inspection':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/shared/clinic/dentist.jpg"></center>'
+	menu_off = 1
+	minut += 10
+	gs 'stat'
+	
+	if pcs_missing_teeth > 0:
+		zubpay = func('clinic_functions', 'get_fix_teeth_price_missing_teeth')
+		$tmp_brace_txt = ''
+		if pcs_brace = 1:
+			$tmp_brace_txt = ' 并矫正你的牙套'
+		end
+		if pcs_missing_teeth = 1:
+			'牙医给你检查后说，换掉这颗牙需要 ' + $func('money', 'string_price', zubpay) + '<<$tmp_brace_txt>>。'
+		else
+			'牙医给你检查后说，填补这些缝隙需要 ' + $func('money', 'string_price', zubpay) + '<<$tmp_brace_txt>>。'
+		end
+		killvar 'tmp_brace_txt'
+		act '修复缺失的牙齿' + $func('money', 'get_cost_string', zubpay):
+			if func('money', 'can_afford', zubpay) = 0:
+				$noMoney
+			else
+				gs 'money', 'pay', zubpay
+				gs 'clinic_functions', 'fix_missing_teeth'
+			end
+		end
+	end
+
+	if (pcs_teeth >= 0 and (daystart > dentistday or dentistday = 0)):
+		if zubpay > 0:
+			'之后他又检查了你其余的牙齿。'
+		end
+		if pcs_brace = 1:
+			pcs_brace = 0
+			pcs_teeth -= 1
+			minut += 15
+			'牙医花了 15 分钟取下你的牙套并做了清理。之后你照了照镜子，你的牙齿 '+iif(pcs_teeth = 0, '现在变整齐了', '更整齐了，但还可以再进一步矫正。')
+			gs 'AppearanceSystem', 'UpdateBaseAppearance'
+			gs 'stat'
+		else
+			zubpay = func('clinic_functions', 'get_fix_teeth_price')
+			if pcs_teeth > 0:
+				'牙医检查后说，矫正你的牙齿需要 ' + $func('money', 'string_price', zubpay) + '，而且你得戴六个月的牙套。不过他声明，不能保证一次治疗就能让牙齿完全整齐。'
+			elseif pcs_teeth = 0:
+				'牙医检查后说，美白抛光你的牙齿需要 ' + $func('money', 'string_price', zubpay) + '。'
+			end
+			act '矫正歪斜的牙齿' + $func('money', 'get_cost_string', zubpay):
+				if func('money', 'can_afford', zubpay) = 0:
+					$noMoney
+				else
+					gs 'money', 'pay', zubpay
+					gt 'clinic_functions', 'fix_teeth'
+				end
+			end
+		end
+	end
+	if zubpay = 0:
+		'牙医检查了你的牙齿，没有发现任何问题。'
+	end
+	if pcs_brace = 1 and dentistday > 0 and daystart < dentistday:
+		tmp_brace_days = (dentistday - daystart)
+		if tmp_brace_days > 30:
+			$tmp_brace_txt = '还要一个月'
+			if tmp_brace_days > 60:
+				$tmp_brace_txt = "还有 <<func('string', 'parse_number', tmp_brace_days/30)>> 个月"
+			end
+		elseif tmp_brace_days > 21:
+			$tmp_brace_txt = '三周'
+		elseif tmp_brace_days > 14:
+			$tmp_brace_txt = '两周'
+		else
+			$tmp_brace_txt = '<<tmp_brace_days>>天'
+		end
+		'"很遗憾，你的牙套大概还要戴<<$tmp_brace_txt>>。"牙医说。'
+		killvar 'tmp_brace_days'
+		killvar 'tmp_brace_txt'
+	end
+	act '返回入口': killvar 'zubpay' & gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'fix_teeth':
+	minut += 50
+	if pcs_teeth > 0:
+		dentistday = daystart + 180
+		pcs_brace = 1
+		'你付钱让牙医矫正你的牙齿。经过一小时的工作，他给你的牙齿装上了牙套，并告诉你六个月后再来取下。'
+	else
+		dentistday = daystart + 90
+		pcs_teeth = -1
+		'你付钱让牙医美白抛光你的牙齿，一小时后，你的笑容更加明亮动人了。'
+	end
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	if pcs_missing_teeth > 0:
+		act '修复其余的牙齿': gs 'clinic_functions', 'dentist_inspection'
+	end
+	act '返回入口': killvar 'zubpay' & gt $loc, $loc_arg
+end
+
+if $ARGS[0] = 'fix_missing_teeth':
+	minut += 50
+	if pcs_missing_teeth > 0:
+		pcs_missing_teeth = 0
+		'你付钱让牙医修复牙齿，不到一小时他就让你重新露出了迷人的笑容。'
+	end
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	if pcs_teeth > 0 and pcs_brace = 1:
+		act '修复其余的牙齿': gs 'clinic_functions', 'dentist_inspection'
+	end
+	act '返回入口': killvar 'zubpay' & gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'get_fix_teeth_price_missing_teeth':
+	result = pcs_missing_teeth * 30000
+	exit
+end
+
+if $ARGS[0] = 'get_fix_teeth_price':
+	result = 0
+	if pcs_teeth > 0:
+		result = 4500
+	elseif pcs_teeth = 0:
+		result = 3000
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            OPTOMETRIST                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_optometrist_acts':
+	act '去看验光师 (1:00)':
+		*clr & cla
+		menu_off = 1
+		minut += 60
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/optometrist.jpg"></center>'
+		'验光师为你做了一系列检查，测量你眼睛的状况。'
+		if glassqw = 1 or glass > 0:
+			'他看你的眼神就像是要告诉你什么坏消息。“嗯，你可能已经预料到了，但你的视力确实明显下降了。你需要配眼镜才能看清东西。我给你开的处方是一副简单的带框眼镜，你可以在离开前到前台领取。”'
+			'他递给你一张纸。“当然，如果你想要更好看的眼镜，也可以去别处配，你需要哪种眼镜的详细信息都在你的处方上。如果你真的不想戴眼镜，也可以做激光视力矫正，但我跟你说实话：那是个非常昂贵的手术。”'
+			trait_vars['bookworm_exp'] += 1
+			glassqw = 2
+			glass = 1
+			blizoruk += 1
+		else
+			'他看着你。"嗯，你的视力没有变差。"'
+		end
+		if glass > 0:
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/optometrist.jpg"></center>'
+			'验光师检查了你的眼睛说可以为你进行激光眼科手术费用为 ' + $func('money', 'string_price', 75000) + '. 当然，读书可能会导致你的视力再次下降。'
+
+			if glass = 1: '验光师还告诉你，可以买眼镜，价格是 ' + $func('money', 'string_price', 4500) + '.'
+
+
+			if glass = 1:
+				act '配眼镜' + $func('money', 'get_cost_string', 4500):
+					if func('money', 'can_afford', 4500) = 0:
+						$noMoney
+					else
+						xgt 'clinic_functions', 'buy_stylish_glasses'
+					end
+				end
+			end
+
+			if glass <> 0:
+				act '支付激光矫正费用' + $func('money', 'get_cost_string', 75000):
+					if func('money', 'can_afford', 75000) = 0:
+						$noMoney
+					else
+						xgt 'clinic_functions', 'buy_laser_correction'
+					end
+				end
+			end
+		end
+		act '返回入口': gt $loc, $loc_arg
+	end	
+end
+
+
+if $ARGS[0] = 'buy_stylish_glasses':
+	gs 'money', 'pay', 4500
+	minut += 60
+	glass = 2
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	'你买了一副新的、更时尚的眼镜。'
+
+	act '返回入口': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'buy_laser_correction':
+	gs 'money', 'pay', 75000
+	minut += 60
+	blizoruk = 0
+	glass = 0
+	gs 'body_desc'
+	gs 'stat'
+	'你接受了激光眼科手术。现在你的视力好多了。'
+	act '返回入口': gt $loc, $loc_arg
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                STDS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_std_herpes_shot_act':
+	if GerpesNapr > 0 and GerpesUkolDay <> daystart:
+		act '打疱疹针' + $func('money', 'get_cost_string', 450) + ' 你还需要注射<<GerpesNapr>>次才能完成治疗':
+			if func('money', 'can_afford', 450) = 0:
+				$noMoney
+			else
+				xgt 'clinic_functions', 'herpes_shot'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_std_gonorrhea_shot_act':
+	if TriperNapr > 0 and TriperUkolDay <> daystart:
+		act '打淋病针' + $func('money', 'get_cost_string', 750) + ' 你还需要注射<<TriperNapr>>次才能完成治疗':
+			if func('money', 'can_afford', 750) = 0:
+				$noMoney
+			else
+				xgt 'clinic_functions', 'gonorrhea_shot'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_std_syphilis_shot_act':
+	if SifNapr = 1:
+		act '打梅毒针' + $func('money', 'get_cost_string', 1000):
+			if func('money', 'can_afford', 1000) = 0:
+				$noMoney
+			else
+				xgt 'clinic_functions', 'syphilis_shot'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_std_herpes_cure_act':
+	if GerpesOnce = 1 and week = 1 and day <= 10:
+		act '去私人诊所彻底治愈疱疹' + $func('money', 'get_cost_string', 45000):
+			if func('money', 'can_afford', 45000) = 0:
+				$noMoney
+			else
+				xgt 'clinic_functions', 'herpes_cure'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_std_yeast_cure_act':
+	if KandidozOnce = 1:
+		act '去私人诊所彻底治愈霉菌感染。' + $func('money', 'get_cost_string', 15000):
+			if func('money', 'can_afford', 15000) = 0:
+				$noMoney
+			else
+				xgt 'clinic_functions', 'yeast_cure'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'herpes_shot':
+	*clr & cla
+	gs 'money', 'pay', 450
+	minut += 15
+	GerpesUkolDay = daystart
+	GerpesNapr -= 1
+	gs 'stat'
+	'你看到护士，她在你屁股上打了一针，很疼。'
+
+	if GerpesNapr = 0: Gerpes = -10 & '你已经完成了治疗。'
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'gonorrhea_shot':
+	*clr & cla
+	gs 'money', 'pay', 750
+	minut += 15
+	TriperUkolDay = daystart
+	TriperNapr -= 1
+	gs 'stat'
+	'你看到护士，她在你屁股上打了一针，很疼。'
+
+	if TriperNapr = 0:
+		TriperOral = 0
+		TriperOralSigns = 0
+		Triper = 0
+		Venera -= 1
+		TriperOnce = 0
+		'你已完成治疗。'
+	end
+
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'syphilis_shot':
+	*clr & cla
+	gs 'money', 'pay', 1000
+	minut += 60
+	SifNapr = 0
+	SifacOnce = 0
+	Sifilis = 0
+	Venera -= 1
+	gs 'stat'
+	'你看到护士，她在你屁股上打了一针，很疼。'
+	'“好了。你可能还会觉得有点不对劲，但感染现在已经治好了。”'
+
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'yeast_cure':
+	*clr & cla
+	menu_off = 1
+	gs 'money', 'pay', 15000
+	day += 3
+	week += 3
+	KandidozOnce = 0
+	Kandidoz = 0
+	gs 'stat'
+	'外面有一辆救护车在等待着。它会把你送到一家先进的医疗机构，在那里你度过了3天接受治疗和呵护的日子。'
+	'经过漫长的恢复，你已被完全治愈了你的念珠菌感染。'
+
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'herpes_cure':
+	*clr & cla
+	menu_off = 1
+	gs 'money', 'pay', 45000
+	day += 3
+	week += 3
+	GerpesOnce = 0
+	Gerpes = 0
+	OrHerpes = 0
+	GenHerpes = 0
+	Venera -= 1
+	gs 'stat'
+	'外面有一辆救护车在等待着。它会把你送到一家先进的医疗机构，在那里你度过了3天接受治疗和呵护的日子。'
+	'经过漫长的恢复，你已被完全治愈了你的疱疹。'
+
+	act '离开': gt $loc, $loc_arg
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              COSMETIC                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_electrolysis_act':
+	if lashair = 0:
+		if func('money', 'can_afford', 80000):
+			'<a href="exec: gt ''clinic_functions'', ''electrolysis''">电解脱毛</a>腿部及阴部激光脱毛 - ' + $func('money', 'string_price', 80000)
+		else
+			'电解脱毛 - 腿部及阴部激光脱毛 - ' + $func('money', 'string_price', 80000)
+		end
+	else
+		'电解脱毛 - 腿部及阴部激光脱毛 - ' + $func('money', 'string_price', 80000) + ' - 你没有需要去除的毛发。'
+	end
+end
+
+
+if $ARGS[0] = 'set_lip_enlargement_act':
+	if pcs_lip < 4:
+		if func('money', 'can_afford', 25000):
+			'<a href="exec: gt ''clinic_functions'', ''lipPlus''">丰唇手术</a> - ' + $func('money', 'string_price', 25000)
+		else
+			'丰唇手术 - ' + $func('money', 'string_price', 25000)
+		end
+	else
+		'丰唇手术 - ' + $func('money', 'string_price', 25000) + ' - 你的嘴唇本来就很大。'
+	end
+end
+
+
+if $ARGS[0] = 'set_lip_reduction_act':
+	if pcs_lip > 0:
+		if func('money', 'can_afford', 30000):
+			'<a href="exec: gt ''clinic_functions'', ''lipMin''">缩唇手术</a> - ' + $func('money', 'string_price', 30000)
+		else
+			'缩唇手术 - ' + $func('money', 'string_price', 30000)
+		end
+	else
+		'缩唇手术 - ' + $func('money', 'string_price', 30000) + ' - 你的嘴唇已经很薄'
+	end
+end
+
+
+if $ARGS[0] = 'set_eye_enlargement_act':
+	if pcs_eyesize < 3:
+		if func('money', 'can_afford', 90000):
+			'<a href="exec: gt ''clinic_functions'', ''eyePlus''">眼部增大手术</a> - ' + $func('money', 'string_price', 90000)
+		else
+			'眼睛增大手术 - ' + $func('money', 'string_price', 90000)
+		end
+	else
+		'眼睛增大手术 - ' + $func('money', 'string_price', 90000) + ' - 你的眼睛本来就很大。'
+	end
+end
+
+
+if $ARGS[0] = 'set_eye_reduction_act':
+	if pcs_eyesize > 0:
+		if func('money', 'can_afford', 90000):
+			'<a href="exec: gt ''clinic_functions'', ''eyeMin''">眼部缩小手术</a> - ' + $func('money', 'string_price', 90000)
+		else
+			'眼睛缩小手术 - ' + $func('money', 'string_price', 90000)
+		end
+	else
+		'眼睛缩小手术 - ' + $func('money', 'string_price', 90000) + ' - 你的眼睛本来就很小。'
+	end
+end
+
+
+if $ARGS[0] = 'set_liposuction_act':
+	if pcs_mass['body'] > 40:
+		if func('money', 'can_afford', 75000):
+			'<a href="exec: gt ''clinic_functions'', ''lyposuction''">抽脂手术</a> - ' + $func('money', 'string_price', 75000)
+		else
+			'抽脂手术 - ' + $func('money', 'string_price', 75000)
+		end
+	else
+		'抽脂手术 - ' + $func('money', 'string_price', 75000) + ' - 你已经很瘦了。'
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                      BREAST IMPLANTS                       !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'set_remove_breast_implant_act':
+	if bodyVars['bust_silicone'] <> 0:
+		if func('money', 'can_afford', 90000):
+			'<a href="exec: stringimplant = 0 & fillimplant = 0 & gt ''clinic_functions'', ''bImplantA'', 0">取出隆胸假体</a> - ' + $func('money', 'string_price', 90000)
+		else
+			'取出隆胸假体 - ' + $func('money', 'string_price', 90000)
+		end
+	else
+		'取出隆胸假体 - ' + $func('money', 'string_price', 90000) + ' - 你没有隆胸假体。'
+	end
+end
+
+
+if $ARGS[0] = 'set_get_small_breast_implant_act':
+	if fillimplant = 1 or stringimplant = 1:
+		'植入小号隆胸假体 - ' + $func('money', 'string_price', 170000) + ' - 你已经拥有 ' + iif(fillimplant = 1, '可填充的', '绳状的') + ' 假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 170000):
+		'<a href="exec: gt ''clinic_functions'', ''bImplantA'', ''small''">植入小号隆胸假体</a> - ' + $func('money', 'string_price', 170000)
+	else
+		'植入小号隆胸假体 - ' + $func('money', 'string_price', 170000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_get_medium_breast_implant_act':
+	if fillimplant = 1 or stringimplant = 1:
+		'植入中号隆胸假体 - ' + $func('money', 'string_price', 180000) + ' - 你已经拥有 ' + iif(fillimplant = 1, '可填充的', '绳状的') + ' 假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 180000):
+		'<a href="exec: gt ''clinic_functions'', ''bImplantA'', ''medium''">植入中号隆胸假体</a> - ' + $func('money', 'string_price', 180000)
+	else
+		'植入中号隆胸假体 - ' + $func('money', 'string_price', 180000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_get_large_breast_implant_act':
+	if fillimplant = 1 or stringimplant = 1:
+		'植入大号隆胸假体 - ' + $func('money', 'string_price', 190000) + ' - 你已经拥有 ' + iif(fillimplant = 1, '可填充的', '绳状的') + ' 假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 190000):
+		'<a href="exec: gt ''clinic_functions'', ''bImplantA'', ''large''">植入大号隆胸假体</a> - ' + $func('money', 'string_price', 190000)
+	else
+		'植入大号隆胸假体 - ' + $func('money', 'string_price', 190000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_get_XXL_breast_implant_act':
+	if fillimplant = 1 or stringimplant = 1:
+		'植入XXL号隆胸假体 - ' + $func('money', 'string_price', 200000) + ' - 你已经拥有 ' + iif(fillimplant = 1, '可填充的', '绳状的') + ' 假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 200000):
+		'<a href="exec: gt ''clinic_functions'', ''bImplantA'', ''XXL''">植入XXL号隆胸假体</a> - ' + $func('money', 'string_price', 200000)
+	else
+		'植入XXL号隆胸假体 - ' + $func('money', 'string_price', 200000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_get_fillable_breast_implant_act':
+	if fillimplant = 1 or stringimplant = 1:
+		'植入可填充假体 - ' + $func('money', 'string_price', 200000) + ' - 你已经拥有 ' + iif(fillimplant = 1, '可填充的', '绳状的') + ' 假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 200000):
+		'<a href="exec: gt ''clinic_functions'', ''bImplantA'', ''fillable''">植入可填充式假体</a> - ' + $func('money', 'string_price', 200000)
+	else
+		'植入可填充假体 - ' + $func('money', 'string_price', 200000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_get_string_breast_implant_act':
+	if fillimplant = 1 or stringimplant = 1:
+		'植入绳状假体 - ' + $func('money', 'string_price', 250000) + ' - 你已经拥有 ' + iif(fillimplant = 1, '可填充的', '绳状的') + ' 假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 250000):
+		'<a href="exec: gt ''clinic_functions'', ''bImplantA'', ''string''">获取线体植入物</a> - ' + $func('money', 'string_price', 250000)
+	else
+		'植入绳状假体 - ' + $func('money', 'string_price', 250000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_drain_string_breast_implant_act':
+	if stringimplant = 0:
+		'引流条植入 - ' + $func('money', 'string_price', 2000) + ' - 你没有线体植入物。'
+		exit
+	end
+
+	if bodyVars['bust_silicone'] < 30:
+		'引流条植入 - ' + $func('money', 'string_price', 2000) + ' - 你的线体植入物太小，无法排空。'
+		exit
+	end
+
+	if func('money', 'can_afford', 2000):
+		'<a href="exec: xgt ''clinic_functions'', ''bImplantB'', ''drain''">排空线体植入物</a> - ' + $func('money', 'string_price', 2000)
+	else
+		'引流条植入 - ' + $func('money', 'string_price', 2000)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_buy_silicone_bag_act':
+	if fillimplant = 0:
+		'购买硅胶袋 - ' + $func('money', 'string_price', 500) + ' - 你没有可填充假体。'
+		exit
+	end
+
+	if func('money', 'can_afford', 500):
+		'<a href="exec: xgt ''clinic_functions'', ''bImplantB'', ''bag''">购买硅胶袋</a> - ' + $func('money', 'string_price', 500)
+	else
+		'购买硅胶袋 - ' + $func('money', 'string_price', 500)
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         FUNCTIONS                          !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'electrolysis':
+	menu_off = 1
+	gs 'money', 'pay', 80000
+	minut += 120
+	pcs_leghair = 0
+	pcs_pubes = 0
+	lashair = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/electrolysis.jpg"></center>'
+	'外科医生让你脱光衣服躺在手术台上。接下来的几个小时里，激光一遍又一遍地为你治疗。当治疗结束、你从台子上起身时，你的皮肤摸起来丝滑无比。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'lipPlus':
+	menu_off = 1
+	gs 'money', 'pay', 25000
+	minut += 60
+	pcs_lip += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmeticsur.jpg"></center>'
+	'外科医生让你脱掉衣服、穿上手术袍躺在手术台上，然后给你戴上面罩。“深呼吸。转眼间就结束了。”'
+	'当你醒来时，手术已经完成，你的嘴唇变得更丰满了。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'lipMin':
+	menu_off = 1
+	gs 'money', 'pay', 30000
+	minut += 60
+	pcs_lip -= 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmeticsur.jpg"></center>'
+	'外科医生让你脱掉衣服、穿上手术袍躺在手术台上，然后给你戴上面罩。“深呼吸。转眼间就结束了。”'
+	'当你醒来时，手术已经完成，你的嘴唇变得更薄了。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'eyePlus':
+	menu_off = 1
+	gs 'money', 'pay', 90000
+	minut += 60
+	pcs_eyesize += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmeticsur.jpg"></center>'
+	'外科医生让你脱掉衣服、穿上手术袍躺在手术台上，然后给你戴上面罩。“深呼吸。转眼间就结束了。”'
+	'当你再次醒来时，手术已经完成，你的眼睛变得更大了。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'eyeMin':
+	menu_off = 1
+	gs 'money', 'pay', 90000
+	minut += 60
+	pcs_eyesize -= 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmeticsur.jpg"></center>'
+	'外科医生让你脱掉衣服、穿上手术袍躺在手术台上，然后给你戴上面罩。“深呼吸。转眼间就结束了。”'
+	'当你醒来时，手术已经完成，你的眼睛变得更小了。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'lyposuction':
+	menu_off = 1
+	gs 'money', 'pay', 75000
+	minut += 60
+	pcs_mass['body'] -= 40
+	if pcs_mass['body'] < 11: pcs_mass['body'] = 11
+	gs 'body', 'softreset'
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmeticsur.jpg"></center>'
+	'外科医生让你脱掉衣服、穿上手术袍躺在手术台上，然后给你戴上面罩。“深呼吸。转眼间就结束了。”'
+	'当你醒来时，手术已经完成，你看起来更瘦了。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'bImplantA':
+	menu_off = 1
+	minut += 60
+	if $ARGS[1] = 'small':
+		temp_pay_amount = 170000
+		temp_bust_size = 10
+		fillimplant = 0
+		stringimplant = 0
+	elseif $ARGS[1] = 'medium':
+		temp_pay_amount = 180000
+		temp_bust_size = 20
+		fillimplant = 0
+		stringimplant = 0
+	elseif $ARGS[1] = 'large':
+		temp_pay_amount = 190000
+		temp_bust_size = 30
+		fillimplant = 0
+		stringimplant = 0
+	elseif $ARGS[1] = 'XXL':
+		temp_pay_amount = 200000
+		temp_bust_size = 40
+		fillimplant = 0
+		stringimplant = 0
+	elseif $ARGS[1] = 'fillable':
+		temp_pay_amount = 200000
+		temp_bust_size = 20
+		fillimplant = 1
+		stringimplant = 0
+	elseif $ARGS[1] = 'string':
+		temp_pay_amount = 250000
+		temp_bust_size = 20
+		fillimplant = 0
+		stringimplant = 1
+	end
+
+	gs 'money', 'pay', temp_pay_amount
+
+	bodyVars['bust_silicone'] = temp_bust_size
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmeticsur.jpg"></center>'
+	'外科医生让你脱掉衣服、穿上手术袍躺在手术台上，然后给你戴上面罩。“深呼吸……转眼间就结束了。”'
+	'当你再次醒来时，手术已经完成，你低头看着自己崭新的乳房。'
+
+	act '继续': gt $loc, $loc_arg
+
+	killvar 'temp_pay_amount'
+	killvar 'temp_bust_size'
+end
+
+
+if $ARGS[0] = 'bImplantB':
+	menu_off = 1
+	if $ARGS[1] = 'drain':
+		gs 'money', 'pay', 2000
+		bodyVars['bust_silicone'] -= 10
+		msg '你排空了一些线体植入物'
+	elseif $ARGS[1] = 'bag':
+		gs 'money', 'pay', 500
+		siliconeBag += 1
+		msg '你买了一个硅胶袋。'
+	end
+	gs 'stat'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+--- clinic_functions ---------------------------------

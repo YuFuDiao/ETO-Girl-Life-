@@ -1,0 +1,236 @@
+# npc
+
+if $ARGS[0] = 'cleanarrays':
+	i_gs_cl = arrsize('$npc_index')
+	:CiklNpcCleanLoop
+		i_gs_cl -= 1
+	if i_gs_cl >= 0:
+		if $ucase($mid($npc_index[i_gs_cl], 1, 1)) <> 'C':		jump 'CiklNpcCleanLoop'
+		if $npc_index[i_gs_cl] = $npclastgenerated:				jump 'CiklNpcCleanLoop'
+		if arrpos('$cumarrnam', $npc_index[i_gs_cl]) >= 0:		jump 'CiklNpcCleanLoop'
+		if arrpos('$sparrnam', $npc_index[i_gs_cl]) >= 0:		jump 'CiklNpcCleanLoop'
+		if arrpos('$cumfthname', $npc_index[i_gs_cl]) >= 0:		jump 'CiklNpcCleanLoop'
+		if arrpos('$wombpotfath', $npc_index[i_gs_cl]) >= 0:	jump 'CiklNpcCleanLoop'
+		if arrpos('$wombName', $npc_index[i_gs_cl]) >= 0:		jump 'CiklNpcCleanLoop'
+		if arrpos('$ChildFath', $npc_index[i_gs_cl]) >= 0:		jump 'CiklNpcCleanLoop'
+		if arrpos('$ChildThFath', $npc_index[i_gs_cl]) >= 0:	jump 'CiklNpcCleanLoop'
+
+		gs 'npccleanc', $ucase($npc_index[i_gs_cl])
+		jump 'CiklNpcCleanLoop'
+	end
+	killvar 'i_gs_cl'
+end
+
+
+if $ARGS[0] = 'age':
+	temp_npcVars['day'] = (npc_dob[$ARGS[1]] mod 100)
+	temp_npcVars['month'] = (npc_dob[$ARGS[1]] / 100) mod 100
+	temp_npcVars['year'] = npc_dob[$ARGS[1]] / 10000
+
+	result = func('time', 'get_age', temp_timeVars['year'], temp_timeVars['month'], temp_timeVars['day'])
+	killvar 'temp_npcVars'
+end
+
+
+if $ARGS[0] = 'is_npcID':
+	result = 0
+	if len($ARGS[1]) > 1:
+		result = (instr('ABCDM', $mid($ARGS[1], 1, 1)) > 0 and isnum($mid($ARGS[1], 2)))
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'find_in_npcStat':
+	$result = ''
+	temp_npc_i = arrpos('$npcID', $ARGS[1])
+	if temp_npc_i >= 0:
+		$result = '[<<temp_npc_i>>]'
+		exit
+	end
+
+	temp_npc_i = 1
+	:npcfindloop
+		if $dyneval('$result = $npcID<<temp_npc_i>>') = $ARGS[1]:
+			$result = "<<$mid('abcdefghijklmnopqrstuvwxyz', temp_npc_i, 1)>>"
+		end
+		temp_npc_i += 1
+	if temp_npc_i < 10 and $result = '': jump 'npcfindloop'
+	killvar 'temp_npc_i'
+
+	if $result = '': $result = 'none'
+end
+
+
+if $ARGS[0] = 'copy_npcStat':
+	!! gs 'npc', 'copy_npcStat', from, to
+
+	if isnum($ARGS[1]):
+		$ARGS[1] = '[<<$ARGS[1]>>]'
+	elseif $ARGS[1] <> '' and $mid($ARGS[1], 1, 1) <> '[':
+		$ARGS[1] = "<<instr('abcdefghijklmnopqrstuvwxyz', $ARGS[1])>>"
+		if $ARGS[1] = "0": $ARGS[1] = ''
+	end
+	if $ARGS[1] = '': $ARGS[1] = '[<<ARGS[1]>>]'
+
+	if instr('abcdefghijklmnopqrstuvwxyz', $ARGS[2]):
+		$ARGS[2] = "'<<$ARGS[2]>>'"
+	else
+		$ARGS[2] = '<<ARGS[2]>>'
+	end
+
+	dynamic "gs 'npcStat', $npcID<<$ARGS[1]>>, <<$ARGS[2]>>, $npcCondom<<$ARGS[1]>>"
+end
+
+
+if $ARGS[0] = 'get_npc_count':
+	if $ARGS[1] = '': $ARGS[1] = 'npc_sexual'
+	if $ARGS[2] = '': $ARGS[2] = 'ABCM'
+	if $ARGS[3] = '': $ARGS[3] = '0123'
+
+	killvar 'npc_results'
+	npc_results['guys'] = 0
+	npc_results['girls'] = 0
+	npc_results['herms'] = 0
+
+	if arrsize($ARGS[1]) = 0: exit
+
+	temp_npcVars['outer_i'] = 0
+	:loop_outer_npc_count
+		$temp_npcVars['char'] = $mid($ARGS[2], 1, 1)
+		temp_npcVars['inner_i'] = 1
+		:loop_inner_npc_count
+			$temp_npcVars['npcID'] = $temp_npcVars['char'] + temp_npcVars['inner_i']
+			if dyneval("result = <<$ARGS[1]>>['<<$temp_npcVars['npcID']>>']") > 0:
+				if npc_gender[$temp_npcVars['npcID']] = 0:
+					npc_results['guys'] += 1
+				elseif npc_gender[$temp_npcVars['npcID']] = 1:
+					npc_results['girls'] += 1
+				else
+					npc_results['herms'] += 1
+				end
+			end
+			temp_npcVars['inner_i'] += 1
+		if temp_npcVars['inner_i'] < dyneval("result = <<$temp_npcVars['char']>>arraynumber"): jump 'loop_inner_npc_count'
+		$ARGS[2] = $mid($ARGS[2], 2)
+	if len($ARGS[2]) > 0: jump 'loop_outer_npc_count'
+end
+
+
+!!  ARGS[1] = start_index
+!!  ARGS[2] = end_index (exclusive)
+!! $ARGS[3] = dynamic function to get the index
+if $ARGS[0] = 'update_hotcat':
+	if ARGS[1] = ARGS[2]: exit
+	if $ARGS[3] = '': $ARGS[3] = '$result = $npc_index[ARGS[0]]'
+
+	ciklVars['i'] = ARGS[1]
+	ciklVars['max_i'] = ARGS[2]
+	:hotcat_calc_jump
+		$ciklVars['npcID'] = $dyneval($ARGS[3], ciklVars['i'])
+		if npc_hotcat[$ciklVars['npcID']] > 0:
+			ciklVars['switch_rand'] = rand(0, 99)
+			if hotcat_movement[$ciklVars['npcID']] = 0:
+				if ciklVars['switch_rand'] < 20:
+					npc_hotcat[$ciklVars['npcID']] -= 1
+					hotcat_movement[$ciklVars['npcID']] -= 1
+				elseif ciklVars['switch_rand'] < 40:
+					npc_hotcat[$ciklVars['npcID']] += 1
+					hotcat_movement[$ciklVars['npcID']] += 1
+				end
+			elseif ciklVars['switch_rand'] >= 40:
+				npc_hotcat[$ciklVars['npcID']] -= hotcat_movement[$ciklVars['npcID']]
+				hotcat_movement[$ciklVars['npcID']] = 0
+			end
+		end
+		ciklVars['i'] += 1
+	if ciklVars['i'] < ciklVars['max_i']: jump 'hotcat_calc_jump'
+	exit
+end
+
+
+if $ARGS[0] = 'npcStat_update_all':
+	npcStat_update_i = 0
+	npcStat_update_max_i = arrsize('$npcID')
+	:update_loop1
+		if $npcID[npcStat_update_i] <> '':
+			gs 'npcStat', $npcID[npcStat_update_i], npcStat_update_i, $npcCondom[npcStat_update_i]
+		end
+		npcStat_update_i += 1
+	if npcStat_update_i < npcStat_update_max_i: jump 'update_loop1'
+
+	npcStat_update_i = 1
+	npcStat_update_max_i = 26
+	:update_loop2
+		$npcStat_update_letter = $mid('abcdefghijklmnopqrstuvwxyz', npcStat_update_i, 1)
+		dynamic "
+			if $npcID<<npcStat_update_i>> <> '':
+				gs 'npcStat', $npcID<<npcStat_update_i>>, '<<$npcStat_update_letter>>', $npcCondom<<npcStat_update_i>>
+			end
+		"
+		npcStat_update_i += 1
+	if npcStat_update_i <= npcStat_update_max_i: jump 'update_loop2'
+	exit
+end
+
+
+if $ARGS[0] = 'intro':
+	!! this procedure is designed for introduction of any npc either with standard or with custom description
+	!! $ARGS[1] is ID number of npc… required parameter
+	!! $ARGS[2] is an image path
+	!! $ARGS[3] is a color name of the title e.g. 'red'
+	!! $ARGS[4] is $npc_notes replacement
+	!! $ARGS[5] is an additional text
+	!! ARGS[6] sets image path to video output - 0 = off - 1 = on
+	!! Format: gs 'npc' 'intro', ARGS[1], $ARGS[2], $ARGS[3], $ARGS[4], $ARGS[5]
+	!! Example: gs 'npc' 'intro', 'A23', '', 'green', '', 'Optional text here' <=== This would display Albina''s picture using the path in 'npcstatic1' with her name above it in green text followed by her default description and finally, your relationship level.
+	!! Credit goes to rachels for coming up with the concept and initial code!!!
+
+	*clear
+	$static_num = $ARGS[1]
+
+	if npc_rel[$static_num] < 20: $npc_cur_rel = '你和<<$npc_firstname[$static_num]>>相处得一点也不好。'
+	if npc_rel[$static_num] >= 20 and npc_rel[$static_num] < 40: $npc_cur_rel = '你和<<$npc_firstname[$static_num]>>相处得不太好。'
+	if npc_rel[$static_num] >= 40 and npc_rel[$static_num] < 60: $npc_cur_rel = '你和<<$npc_firstname[$static_num]>>关系正常。'
+	if npc_rel[$static_num] >= 60 and npc_rel[$static_num] < 80: $npc_cur_rel = '你和<<$npc_firstname[$static_num]>>关系不错。'
+	if npc_rel[$static_num] >= 80: $npc_cur_rel = '你和<<$npc_firstname[$static_num]>>关系非常好。'
+
+	if $ARGS[2] = '':
+		$image_path = $npc_pic[$static_num]
+	else
+		$image_path = $ARGS[2]
+	end
+
+	if $ARGS[3] = '':
+		$titlecolor = 'maroon'
+	else
+		$titlecolor = $ARGS[3]
+	end
+
+	if $ARGS[4] = '':
+		$description = $func('npc_notes', $static_num)
+	else
+		$description = $ARGS[4]
+	end
+
+	$apendix = $ARGS[5]
+
+	'<center><b><font color = <<$titlecolor>>><<$npc_firstname[$static_num]>> <<$npc_lastname[$static_num]>></font></b></center>' & *nl
+	if $image_path ! '':
+		if ARGS[6] = 0:
+			'<center><img <<$set_imgh>> src="<<$image_path>>"></center>' & *nl
+		else
+			'<center><video autoplay loop <<$set_imgh>> src="<<$image_path>>"></video></center>' & *nl
+		end
+	end
+	if $description ! '' and $description ! ' ': $description + $npc_cur_rel
+	if $apendix ! '' and $apendix ! ' ': $apendix
+
+	killvar 'npc_cur_rel'
+	killvar 'apendix'
+	killvar 'description'
+	killvar 'image_path'
+end
+
+
+--- npc ---------------------------------

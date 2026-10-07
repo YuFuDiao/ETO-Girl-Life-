@@ -1,0 +1,524 @@
+# natbel_uni_dates_2
+
+
+if $ARGS[0] = 'set_act':
+	!! Only available after the New Year break of the first uni year.
+	!! Uni semester 1 ends ~Dec 18 2017; semester 2 begins last Monday of Jan 2018 (Jan 29).
+	if daystart < 760: exit
+	!! Must have been to 10 dates and at least 1 of each date type
+	if natbelQW['uni_dates'] < 10: exit
+	if natbelQW['uni_dates_nightclub_1'] = 0: exit
+	if natbelQW['uni_dates_mall_1'] = 0: exit
+	if natbelQW['uni_dates_library_1'] = 0: exit
+	if natbelQW['uni_dates_cafe_1'] = 0: exit
+	if natbelQW['uni_dates_beach_1'] = 0: exit
+	!! Phase 1: One-time Sonia encounter
+	if hour >= 16 and hour < 21:
+		if natbelQW['uni_dates_sonia_event'] = 0:
+			act '去找娜塔莎聊聊时尚博客的事':
+				natbelQW['uni_dates_sonia_event'] = 1
+				*clr & cla
+				minut += 30
+				'<center><img <<$set_imgh>> src="images/locations/city/island/university/dorm/dorm_room/room.jpg"></center>'
+				'你想到可以利用娜塔莎参与的那个时尚博客，于是给她打电话，但没人接。'
+				'没等到回音，你决定去咖啡洞（Coffee Hole）看一眼，可她也不在。'
+				'最后你决定碰碰运气，去她宿舍看看，于是往那边走。'
+				act '进入娜塔莎的房间': gt 'natbel_uni_dates_2', 'enter_natasha_room'
+			end
+		end
+	end
+
+	!! Phase 2: Designs storyline acts (offered at dorm or uni grounds)
+	!! Step 1 — Visit Aphrodite: available after Coffee Hole designs chat
+	if natbelQW['designs_chat_done'] = 1 and natbelQW['designs_aphrodite_done'] = 0:
+		act '向阿芙罗狄蒂摄影工作室询问娜塔莎的设计': gt 'natbel_uni_dates_2', 'visit_aphrodite'
+	end
+
+	!! Step 2 — Visit tailor: after Aphrodite visit; tailor open Mon–Fri 08:00–16:00
+	if natbelQW['designs_aphrodite_done'] = 1 and natbelQW['tailor_visit_day'] = 0:
+		if week >= 1 and week <= 5 and hour >= 8 and hour < 16:
+			act '把娜塔莎的设计拿给裁缝': gt 'natbel_uni_dates_2', 'visit_tailor'
+		end
+	end
+
+	!! Step 3 — Collect from tailor: 1 month after drop-off, shop open, 10,000 rubles available
+	if natbelQW['tailor_visit_day'] > 0 and natbelQW['tailor_collected'] = 0:
+		if daystart >= natbelQW['tailor_visit_day'] + 30:
+			if week >= 1 and week <= 5 and hour >= 8 and hour < 16:
+				act '去裁缝那里取衣服' + $func('money', 'get_cost_string', 10000):
+					if func('money', 'can_afford', 10000) = 0:
+						$noMoney
+					else
+						gt 'natbel_uni_dates_2', 'collect_tailor'
+					end
+				end
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'enter_natasha_room':
+	*clr & cla
+	minut += 2
+	if soniaQW['encourage'] = 0 or soniaQW['help'] >= soniaQW['encourage']:
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat_sonia1.jpg"></center>'
+		if npc_rel['A25'] >= 60:
+			'就在你快走到娜塔莎房间时，你看到索尼娅正从她房间里出来。'
+			'她友好地对你笑了笑，打招呼道："你好，<<$pcs_nickname>>，你过得怎么样？"'
+			'"很好，谢谢。希望你在这儿住得惯，课上得也开心。"你小心翼翼地不提她在学校的最后一年，那里面有太多痛苦的回忆。'
+			'"是啊，这儿挺好的，我学了不少东西，更别说这儿还有一堆帅哥。能离开家到这儿来我真是太高兴了。你是去找娜塔莎吗？"'
+			'你朝她点点头。"想啊，我想跟她聊聊她参与的那个时尚博客。"'
+			*nl
+			'索尼娅点点头。"那好吧，我就不打扰你们这对小情侣了！"她眨了眨眼，从楼梯走了出去。'
+			'"再见，索尼娅，回头见。"你朝她笑了笑，然后走进娜塔莎的房间。'
+			'你进门时，娜塔莎抬起头，看到你便笑了。"嗨，<<$pcs_nickname>>。没想到你今天会来。你看到索尼娅了吗？她刚走。我们刚才在聊时尚博客和我们的课程。"'
+			'"看到了，我在外面碰见她了。不过你要是忙着，我就先不打扰，回头在咖啡洞（Coffee Hole）见。"'
+			'"好吧，呃……其实，<<$pcs_nickname>>，我有件事想跟你商量，现在说应该正合适。"'
+			act '讨论你们的关系状况': gt 'natbel_uni_dates_2', 'discuss_relationship_status'
+		elseif npc_rel['A25'] <= 20:
+			'就在你快走到娜塔莎房间时，你看到索尼娅正从她房间里出来。'
+			'你冲她笑了笑，友好地挥了挥手，她走过你身边时回给你一个硬挤出来的假笑。'
+			'你进门时，娜塔莎抬起头，看到你便笑了。"嗨，<<$pcs_nickname>>。没想到你今天会来。你看见索尼娅了吗？她刚走，真希望你们俩能处得更好些。我们刚还在聊时尚博客和课程。"'
+			'"看到了，我在外面碰见她了。不过你要是忙着，我就先不打扰，回头在咖啡洞（Coffee Hole）见。"'
+			'"好吧，呃……其实，<<$pcs_nickname>>，我有件事想跟你商量，现在说应该正合适。"'
+			act '讨论你们的关系状况': gt 'natbel_uni_dates_2', 'discuss_relationship_status'
+		else
+			'就在你快走到娜塔莎房间时，你看到索尼娅正从她房间里出来。'
+			'她友好地对你笑了笑，打招呼道："你好，<<$pcs_nickname>>，你过得怎么样？"'
+			'"很好，谢谢。希望你在这儿住得惯，课上得也开心。"你小心翼翼地不提她在学校的最后一年，那里面有太多痛苦的回忆。'
+			'"是啊，这儿挺好的，我学了不少东西，更别说这儿还有一堆帅哥。能离开家到这儿来我真是太高兴了。你是去找娜塔莎吗？"'
+			'你朝她点点头。"想啊，我想跟她聊聊她参与的那个时尚博客。"'
+			*nl
+			'索尼娅点点头。"那好吧，我就不打扰你们这对小情侣了！"她眨了眨眼，从楼梯走了出去。'
+			'"再见，索尼娅，回头见。"你朝她笑了笑，然后走进娜塔莎的房间。'
+			'你进门时，娜塔莎抬起头，看到你便笑了。"嗨，<<$pcs_nickname>>。没想到你今天会来。你看到索尼娅了吗？她刚走。我们刚才在聊时尚博客和我们的课程。"'
+			'"看到了，我在外面碰见她了。不过你要是忙着，我就先不打扰，回头在咖啡洞（Coffee Hole）见。"'
+			'"好吧，呃……其实，<<$pcs_nickname>>，我有件事想跟你商量，现在说应该正合适。"'
+			act '讨论你们的关系状况': gt 'natbel_uni_dates_2', 'discuss_relationship_status'
+		end
+	else
+		!! Sonia hates Sveta, as she helped encourage her fall
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat_sonia2.jpg"></center>'
+		'你正要进入娜塔莎的房间，听到里面有说话声。<i>良好</i>, 你想，<i>终于找到她了</i>.'
+		'你轻轻推开一点门，看到索尼娅坐在娜塔莎的床上，正和她聊着天。'
+		'你听到索尼娅正在告诉娜塔莎，在她出事那天，你在迪斯科舞厅里的所作所为。'
+		'娜塔莎从床上下来，神色慌乱地向后退了一步。她别过脸去，你听到她对索尼娅说："我为发生在你身上的事感到抱歉，索尼娅。我……我真的不知道该说什么……"她的声音越来越小。'
+		*nl
+		'索尼娅嗤之以鼻。"你不会是想告诉我，你爱上<i>她</i>了吧？"'
+		'娜塔莎又往后退了一步，点了点头。"是的，我想我是爱上她了，但不管怎么说，我很抱歉，索尼娅。"'
+		'这时你脱口而出。"索尼娅，你在这儿干什么？"'
+		'你看到索尼娅吓了一跳，惊讶地看着你，那表情很快变成了一副充满纯粹恨意的冰冷目光。'
+		'"哦，是那个该死的婊子！我早该猜到的。"她站起身来，恶狠狠地瞪了你一眼。'
+		'她看向娜塔莎。"回头见，娜塔莎……记住我跟你说过的关于这个婊子的话！别信她，否则她会为了取乐而毁掉你的人生，就像她毁掉我的一样！"'
+		act '索尼娅离开':
+			*clr & cla
+			minut += 2
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat_sonia3.jpg"></center>'
+			'说完，索尼娅站起身，冲娜塔莎露出一个大大的笑容，然后走了出去，出门时故意狠狠撞了你一下。'
+			'你没有反应，也没有说话，因为你对那天在迪斯科舞厅里、当她和小混混们纠缠在一起时自己的所作所为并不光彩。'
+			'你转向娜塔莎问道："这到底是怎么回事？"'
+			'慌乱不堪的娜塔莎深吸一口气才回答。"她把你在迪斯科舞厅里对她的所作所为告诉了我……我不知道该做什么或说什么，所以只好保持距离。"'
+			*nl
+			'很明显她还有别的心事，所以你给她时间，什么也没说。'
+			'她停顿了一下，又深吸一口气，继续说道。"那样做可不好，<<$pcs_nickname>>！我觉得你至少应该去向她道歉。这不能挽回已经发生的事，但让她知道你很抱歉，也许能有些帮助。"'
+			'她说出了你心里想的，你便同意了。"对，你说得对。这是我起码能做的，她要是骂我几句，我也只能受着。下次见到她我就去道歉。"'
+			'娜塔莎看上去松了口气。"谢谢你，<<$pcs_nickname>>。"顿了顿，她又说。"另外，我有件事想跟你商量……"'
+			act '讨论你们的关系状况': gt 'natbel_uni_dates_2', 'discuss_relationship_status'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'discuss_relationship_status':
+	*clr & cla
+	minut += 2
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/bullied/natasha15.jpg"></center>'
+	'关于时尚博客的念头早已被抛到九霄云外，你看着娜塔莎，想弄清楚她在想什么。'
+	'虽然是她先提起确定关系这件事的，但你等她开口时，能看出娜塔莎有些不安。'
+	'娜塔莎把手按在额头上，神情有些忧伤地说："<<$pcs_nickname>>，我想把我们的关系说清楚。我觉得往后这事得摊开讲，现在正是个好时机。"'
+	'你什么也没说，由她继续讲，因为明显她还没说完。'
+	'"跟你在一起的日子我很开心，我也很喜欢当你的女朋友，只是我觉得我们该确认一下，你是想我们各自还能有别的感情，还是想让我们成为<i>正式</i>的一对。"'
+	'"抱歉，娜塔莎，首先你想要什么？你到底在说什么？你是想要专一的关系、开放的关系，还是想分手？既然是你提起这个话题，我需要知道<i>你</i>真正想要什么，而不是你以为我想要什么。"'
+	'她定了定神，几乎是用耳语回答："我想让你当我的女朋友，而且只要你一个。"'
+	act '确认唯一的女友关系':
+		*clr & cla
+		minut += 2
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/bullied/natasha16.jpg"></center>'
+		'你咧嘴一笑。"瞧，也没那么难嘛，对吧？！"'
+		'她有那么一会儿只是坐在你身边，一脸茫然，然后耸耸肩。"那得看你怎么回答了。"'
+		'你慢慢朝她凑过去，轻轻把她的脸拉近自己。'
+		'你们的脸近在咫尺时，你感觉到她的手在发抖。她捧住你的脸，慢慢把你的嘴凑到她嘴边，给了你一个又长又热烈的吻。'
+		'仿佛过了很久、其实只有几秒，你才慢慢结束这个吻，回答她："好了，<i>女朋友</i>，一个吻就算盖章了。现在答案你已经有了，别再猜我想要什么了！我们好好享受在一起的时光吧。"'
+		'娜塔莎绽开一个大大的笑容。"你今天可让我太开心了，<<$pcs_nickname>>；我现在简直不能更幸福了！"'
+		act '继续和娜塔莎待在一起':
+			*clr & cla
+			minut += 2
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat35.jpg"></center>'
+			'娜塔莎坐下来，给了你最灿烂的笑容。"我早就想私下和你谈谈这件事，但一直不知道该怎么说。"'
+			'你有点困惑地看着她，想知道她心里到底还有什么别的事。'
+			'过了一会儿她又说。"嗯，之前那番话得先谈完，才轮得到这件事，可我实在不知道该怎么开口。"'
+			'你只是点了点头表示明白。'
+			'"嗯……呃……既然我们现在是<i>正式</i>的了，我想我们应该用某种方式来纪念一下。一开始我打算给我们各买一枚戒指，但考虑到这里的文化，那不太合适……所以……"她说着说着声音越来越小，然后起身取来一个小包裹，递了一个给你，把另一个留在自己腿上。'
+			'你打开盒子，看到一条漂亮的项链，上面挂着一把心形的挂锁。'
+			'你凑过去又亲了她一下。"那另一个包裹里是什么？"你问。'
+			act '娜塔莎的项链':
+				*clr & cla
+				minut += 2
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat36.jpg"></center>'
+				'她打开给你看。这条和她刚送你的那条很像。'
+				'"这条是给我的。它们的意思是，我们是女朋友。"'
+				'你知道娜塔莎有点天真，便问："这些项链还有什么别的讲究吗，娜塔莎？"'
+				'她解释道。"嗯，算是吧，我上网查过，据说对佩戴者来说代表着保护、幸运和长寿。"'
+				'几秒钟后她继续说。"我觉得这恰好很好地描述了我对你的感觉，所以……呃……你觉得怎么样？你喜欢你的那条吗？我们要戴上它们吗？"'
+				'"当然喜欢，娜塔莎，不过我觉得应该由我来给你买才对。"'
+				'她摇了摇头。"不用了，<<$pcs_nickname>>，这两条就让我买吧，也算是对你为我做的那些事说声"谢谢"。"'
+				'你问。"你确定？"她点头确认，你便不再追问，只是抱了抱她。'
+				'"好了，<i>女朋友</i>，我该走了，不耽误你写作业了。"你亲了她一下道别，然后离开她的房间。'
+				act '离开娜塔莎的房间':
+					natbelQW['designs_unlock_day'] = daystart
+					gt 'uni_dorm', 'ninth_floor'
+				end
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'designs_chat':
+	!! Triggered from the Coffee Hole 1 month after the necklace exchange.
+	*clr & cla
+	minut += 5
+	natbelQW['designs_chat_done'] = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat1.jpg"></center>'
+	'你看到娜塔莎独自坐在窗边，便走了过去。'
+	'打过招呼、聊了几句之后，你问她设计课上得怎么样。"娜塔莎，你上大学也有一阵子了；觉得这些课怎么样？"'
+	'她对你绽开笑颜。"是啊，真的很好，谢谢。我觉得自己学到了很多，尽管有时候会有点应接不暇。"'
+	'你点头表示明白，接着问。"你有自己最喜欢的设计作品集吗？"'
+	'她叹了口气。"嗯，我有很多设计，但全都乱糟糟的。我真的需要花些时间整理一下，把最好的那些按不同服装类型放进文件夹里，但我似乎抽不出时间。"'
+	act '给我看看':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/dorm/dorm_room/room.jpg"></center>'
+		'"好吧娜塔莎，我猜大学课业那么多，还要找时间放松，确实不容易。总之，我很想看看其中一些作品。它们在你房间里吗？"'
+		'"是啊，你想上去的话，我们就上去。我室友现在不在。我就纳闷她干嘛还要宿舍，隔三差五冒出来住几天就走。我看她大部分时间都跟男朋友待在一起，索性住他那儿。"'
+		'"嗯，留着宿舍大概是个明智的决定，这样她既有选择，万一和男朋友分手也有个退路。好了，不说她了；我们走吧。"'
+		'你起身去娜塔莎的宿舍，就在你楼下那一层。'
+		act '去娜塔莎的房间':
+			*clr & cla
+			minut += 30
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/dorm/dorm_room/room.jpg"></center>'
+			'到了她房间，她说得没错，室友不在。'
+			'娜塔莎在床底下翻找起来，掏出一堆散落的、画着各种设计的纸，然后一脸歉意地看着你。"抱歉，<<$pcs_nickname>>，这些东西挺乱的。就像我说的，我得整理一遍，把好的挑出来放进文件夹，再按类型分好。"'
+			'你对她咧嘴一笑。"是啊，我明白你的意思！"'
+			'你有点困惑，问她。"怎么会？你一向收拾得特别整齐。"'
+			'"嗯，一开始就是些随手画的涂鸦，我一般都扔了。后来我开始留下一些好的，再加上毕业班学业紧、还得帮妈妈的忙，现在又上了大学，我就是抽不出时间。"'
+			'你鼓励地朝她笑笑。"嗯，我觉得，没有比现在更好的时机了！"'
+			'她疑惑地看着你。"我没有文件夹……"她的声音越来越小，看上去有些沮丧。'
+			act '给她买些用具' + $func('money', 'get_cost_string', 500):
+				if func('money', 'can_afford', 500) = 0:
+					$noMoney
+				else
+					*clr & cla
+					minut += 30
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat28.jpg"></center>'
+					'你咧嘴一笑，对她说。"你知道吗，<i>女朋友</i>，像你这么聪明的人，在自己的主要爱好上却完全是一团乱麻！"'
+					'娜塔莎很不好意思，垂着头。"我知道，对不起，<<$pcs_nickname>>。"'
+					'"嘿，别道歉——这不算什么。走吧，我现在就带你去买东西，把外套穿上。"'
+					'娜塔莎立刻来了精神，咧嘴一笑，穿上外套，然后满心期待地站在你面前，显然误解了你的意图。'
+					'"是啊，不过不是买衣服，傻瓜！我是带你去本地的工艺品店，帮你把这摊东西归置好，因为整理完又塞回一大堆里，再乱一次，那毫无意义。"'
+					'"哦，好的，<<$pcs_nickname>>，那是个好主意。离这儿不远处就有一家文具和美术用品店。"'
+					'"没错，我打听过了，以防万一。就去那儿，然后回这儿，至少先把你的设计整理个头。"'
+					*nl
+					'到了商店，你们俩都找到了合适的文件夹，由娜塔莎付钱买下。'
+					'在她付款的时候，你发现了一套顶级的绘图工具，决定买下来送给她，便去收银台付了400卢布。'
+					'付款时，售货员告诉你，这套工具还附带一个时装设计软件的特惠活动，用的是奥多比（Adobe）Illustrator，如果两样一起买，可以大幅优惠到100卢布。'
+					'你谢过售货员，付了500卢布，然后来到在门口等着的娜塔莎身边。'
+					gs 'money', 'pay', 500
+					act '返回娜塔莎的房间':
+						*clr & cla
+						minut += 20
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/city/island/university/uni_cafe.jpg"></center>'
+						'回来的路上，娜塔莎带你去了大学咖啡馆。'
+						'"我觉得开始之前我们需要来杯咖啡。"'
+						'"好主意，娜塔莎。好的，请来一杯。"'
+						'她买了两杯咖啡，你们边喝边往她房间走。'
+						gs 'beverage', 'coffee_stats'
+						act '把礼物送给娜塔莎': gt 'natbel_uni_dates_2', 'designs_dorm_gift'
+					end
+				end
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'designs_dorm_gift':
+	!! Continuation of designs_chat: gift presentation, sorting, and idea sequence in Natasha''s room.
+	*clr & cla
+	minut += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat29.jpg"></center>'
+	'一到她房间，她就看着你的袋子。"我不知道你也需要文具；你买了什么？"'
+	'你把袋子递给她，她往里看了一眼，一脸困惑。"你这是打算把画画当爱好了还是怎么着？"'
+	'"不是。这是给你的，傻瓜！我看你的铅笔大多都磨秃了，就想着给你买套好的，算是鼓励和支持，我知道你是真心喜欢这个。"'
+	'她从袋子里拿出那套工具。"哇！这些真是顶级的！我……我……"她说不下去了，你能看到她眼里泛着泪光。'
+	'你困惑地问。"怎么了，娜塔莎？我还以为你会喜欢呢。"'
+	'娜塔莎转向你，给了你一个大大的吻和拥抱。"是的，我很喜欢它们。它们比我一直在用的好多了。抱歉我情绪激动了——我知道你给我买过更贵的东西，但这个……嗯，这个很特别。这是除了我的导师之外，第一次有人为我买跟设计有关的东西，或者说鼓励的话。我想连我妈妈都只是迁就我，觉得这只是三分钟热度。"'
+	act '整理她的画稿':
+		*clr & cla
+		minut += 60
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat30.jpg"></center>'
+		'"好了娜塔莎，既然你装备齐全了，我们把你现有的作品整理一下，把最好的按类型放进文件夹吧。"'
+		'娜塔莎点头同意。"我想现在就是最好的时机。这样我就不会分心，而且这件事也必须得做。"'
+		'"那么你想怎么弄？这些是你的画，你对这方面的了解远比我多。"'
+		'她决定先按类型分类——休闲装、晚装等等——于是你们俩各拿一些她的画，放进相应的纸堆里。'
+		'"我想我们应该把所有不够格放进作品集的挑出来，最后只留下最好的几幅。其余的可以放进练习文件夹，以后说不定对灵感什么的会有用。也许你能看看这些，看看你是否同意？"她问道。'
+		'你同意了，大约一个小时后你们完成了整理。她把最好的作品按类型分装在一个文件夹里，其余的都放在次要文件夹中。'
+		act '你想到一个主意':
+			*clr & cla
+			minut += 20
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/dorm/dorm_room/room.jpg"></center>'
+			'"嗯娜塔莎，我觉得其中一些很棒；事实上我敢肯定，它们放在时尚达人（Fashionista）里也毫不逊色，甚至有几件可以放到梦雪丽（Mon Cheri）。"'
+			'她看起来将信将疑。"嗯，我不太确定……"'
+			'"嗯……让我借这个文件夹用一下。我只是想在图书馆复印几份。我很快就回来。"'
+			'你带着她的作品集文件夹去了图书馆，复印了你特别喜欢以及娜塔莎最喜欢的那些画，然后回到她的房间。'
+			'回来后，你把自己的计划告诉了娜塔莎。"我想把这些拿给阿佛洛狄忒摄影（Aphrodite Photography）看看，听听他们的意见，你觉得可以吗？"'
+			'她有些犹豫。"我不知道，<<$pcs_nickname>>；我真的不确定它们够不够好。"'
+			'"嗯，如果不够好，我相信他们会告诉我的，也没什么损失。总之我们走着瞧吧。给我几天时间。"'
+			'"好吧<<$pcs_nickname>>，我不介意，但这很可能会白跑一趟。"'
+			'你给了她一个拥抱和一个吻，离开她的房间，告诉她你很快会在咖啡洞（Coffee Hole）再见她。'
+			act '返回走廊': gt 'uni_dorm', 'ninth_floor'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'visit_aphrodite':
+	*clr & cla
+	minut += 30
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/down.jpg"></center>'
+	'你决定兑现对娜塔莎的承诺，把她的设计带到阿佛洛狄忒摄影（Aphrodite Photography），请他们对作品质量给出意见，并询问他们是否有兴趣做点什么。'
+	'你坐地铁来到市中心，到达后走进这家经纪公司，找到了经理。'
+	act '和经理讨论她的设计':
+		*clr & cla
+		minut += 30
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/photo/foto.jpg"></center>'
+		if $job_status['city_aphrodite_model'] <> 'employed':
+			'你走向经理，做了自我介绍，简要说明来意。'
+		else
+			'你走向经理，他向你打招呼。"你好，<<$pcs_nickname>>，今天有什么可以帮你的？"你回应了他的问候，简要说明来意。'
+		end
+		'他问你是否带了设计稿，于是你把从娜塔莎作品集里复印的副本拿给他看。'
+		'起初他快速翻看，看起来不太乐观，但看了几幅之后他放慢了速度，又慢慢地从头到尾看了一遍。'
+		'等他把所有的都看完，他抬起头看着你。"这些你是从哪儿弄来的？"他问道。'
+		'"它们是我朋友的；你为什么这么问？"'
+		'"我只是想确认它们不是偷来的，也没有版权问题。"'
+		'"不是的，她知道我要来征求你的意见，看看你们是否有兴趣拿它们做点什么。"'
+		act '再听听意见':
+			*clr & cla
+			minut += 30
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/photo/fotograph.jpg"></center>'
+			'又看了一遍之后，他点点头告诉你。"好的，<<$pcs_nickname>>，我让我们的一位摄影师来看看，他比我更有资格给出意见。"'
+			'摄影师到来后，经理解释说，你带来了一些服装设计，需要专业人士的第二意见。'
+			'摄影师也花了一些时间翻看设计稿，然后他们请你离开房间，以便讨论你的请求。'
+			'几分钟后，经理打开门，请你回去。'
+			'你一进房间，他就把设计稿还给你。"那么，你究竟想请我们公司做什么？"他问道。'
+			'你有点不知道该怎么继续，因为这超出了你的能力范围。你想了一会儿才回答。"老实说，我也不太确定。我的意思是，我喜欢它们，但我不是专业人士，所以我想来问问。我的朋友想成为一名时装设计师，正在大学学习这门课程。我只是想到，如果你们觉得这些设计不错，也许会有兴趣拿它们做点什么。"'
+			'"嗯，我们确实拍时装照，但都是为知名设计师拍的。我们还没为不知名的人做过什么。"'
+			'"好吧，我明白了，感谢你花时间看这些。如果浪费了你的时间，我很抱歉。"'
+			'说完你站起身，伸手去拿娜塔莎的画。还没等你拿起它们，经理继续说。"你没有浪费我们的时间，<<$pcs_nickname>>。这样吧，我们到马路对面喝杯咖啡，继续谈这件事。"'
+			act '本地人才':
+				*clr & cla
+				minut += 30
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/diner/burger.jpg"></center>'
+				'你拿起娜塔莎的设计稿，你们三人来到那家小餐馆。经理点了三杯咖啡，你们在一张桌子旁坐下。'
+				gs 'beverage', 'coffee_stats'
+				'你们坐定后，经理继续刚才的话题。"听我说，<<$pcs_nickname>>，我们都喜欢这些设计，而且我们真的很看好推广本地人才的可能性。不过，问题在于你的朋友没有名气，所以你需要一个推广人；否则我们无法举办这场秀，因为如果没有广告收入的保障，我们就付不起模特的费用。"'
+				'"再次感谢你抽出时间。我想我得和朋友商量一下接下来该怎么做，可能还会找人做几件成衣，好让你们看到成品。"'
+				'他点了点头。"是的，那可能是最好的第一步。也许先做几件就行。如果你们愿意，我们可以看一看，然后你再决定下一步，但你们需要某种赞助商来资助这场活动。"'
+				'你喝完咖啡，和他们握了握手，然后离开。'
+				act '给娜塔莎打电话':
+					*clr & cla
+					minut += 30
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat31.jpg"></center>'
+					'离开小餐馆后，你打电话把这个消息告诉了娜塔莎。'
+					'"你好娜塔莎，我有一些消息要告诉你。"'
+					'你向她讲述了与Aphrodite会面的情况。'
+					'他们对这些设计的反应让她欣喜若狂，但你提醒她。"娜塔莎，这才刚刚起步。我想我们需要挑几款设计，找人把服装或裙子做出来，然后再看下一步。也许我们可以请那家公司给我们拍些穿裙子的照片。"'
+					'"那可能太贵了……"她回答。'
+					'"我们走着瞧吧。我现在正要去地铁站，等我回到大学我们再聊。"'
+					'"好啊，听起来不错；我在公共休息室里。一会儿见。"她在电话里给你一个飞吻，然后挂断了。'
+					act '和娜塔莎商量':
+						*clr & cla
+						minut += 30
+						natbelQW['designs_aphrodite_done'] = 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat32.jpg"></center>'
+						'你坐地铁返回，来到休息室，看到娜塔莎正靠在沙发上休息。'
+						'你们互相在脸颊上亲了一下打了招呼，然后你把了解到的情况告诉了她。'
+						'经过一番讨论，你们俩一致同意，由娜塔莎挑选几套休闲又迷人的服装，然后你去找裁缝做几件。'
+						'衣服做好之后，考虑到你们还没有赞助商来办秀，你建议拍几张简单的照片，由你们其中一人或两人穿着裙子或套装出镜。'
+						'虽然娜塔莎对给自己的衣服当模特感到不太自在，但她还是勉强同意了，因为这是唯一现实的选择。'
+						'离开宿舍休息室之前，你给了她一个大大的拥抱和一个告别之吻。'
+						act '返回走廊': gt 'uni_dorm', 'ninth_floor'
+					end
+				end
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'visit_tailor':
+	!! Tailor open Mon–Fri (week 1–5) 08:00–16:00; check handled in set_act before jump here.
+	*clr & cla
+	minut += 30
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/street.jpg"></center>'
+	'你决定把娜塔莎的设计做成成衣，于是带着它们来到市场附近住宅区里的那家裁缝店。'
+	'你乘地铁来到住宅区，走进了裁缝店。'
+	'一位老人坐在桌旁。他把眼镜往下拉了拉，从镜框上方看着你，冲你微笑。'
+	'"你好，年轻的小姐。我是雅科夫·索洛莫诺维奇，但你可以叫我雅沙。那么你叫什么名字，今天有什么可以帮你的？"'
+	'你回以微笑，告诉他。"你好雅沙，我是<<$pcs_nickname>>。我的朋友想成为一名时装设计师，而且……"'
+	'他打断了你。"那可是非常值得称赞的，但也很难做出成绩。总之，抱歉，我没让你把话说完。"'
+	'你微笑着告诉他。"没关系……我随身带着她的一些设计。我希望你能把它们做出来，这样我们可以试试效果，也许还能为她的作品集拍些照片。"'
+	act '把设计拿给他看':
+		*clr & cla
+		minut += 10
+		natbelQW['tailor_visit_day'] = daystart
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/market/tailor.jpg"></center>'
+		'"当然可以，请给我看看。"'
+		'你把她的设计交给他，他仔细看了一番才回答。"你知道吗，你的朋友很有天赋。"'
+		'你问道。"请问你能为我们做这些裙子和套装吗？如果可以的话，要多少钱？"'
+		'"愿意，我很乐意为你做这些。我好久没做这种事，因为大多数时候我只是帮顾客改衣服或修补衣服。"他停顿了一下，摸了摸下巴，然后问道。"有什么时间要求吗，这些衣服是给谁做的？"'
+		'你摇了摇头。"不急。这是给我朋友娜塔莎做的，我只是想用她的设计鼓励她，因为那是她的热爱。你为什么这么问？"你继续说。"请把她尺码的全部九件都做出来，再加上这件设计——一件华丽的长裙——我们俩一人一件。"你把娜塔莎的尺码告诉了雅沙。'
+		'他笑容满面地回答你。"嗯，得知你是这么支持朋友的人，真是太好了，而我问那个问题的原因也与此类似。制作漂亮的衣服是我的热爱，而我没有太多机会做这种事。因此，如果你不介意我利用业余时间来做，我可以给你便宜很多，因为我可以把它当成爱好来做。你有9款设计，加上她尺码的那件特别长裙，总共算上给你做的那件，10000卢布你觉得怎么样？"'
+		'"那太好了，雅沙，谢谢你。你需要先收一些定金吗？"'
+		'"不用了，没关系<<$pcs_nickname>>，你来取的时候再付钱就行。大约一个月后来取，到时候应该都做好了。"'
+		act '返回城市住宅区': gt 'city_residential'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'collect_tailor':
+	!! Offered only when daystart >= tailor_visit_day + 30, shop open, and player can afford 10,000.
+	*clr & cla
+	minut += 30
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/market/tailor.jpg"></center>'
+	'你决定去裁缝那里取回娜塔莎的设计成衣。'
+	'你乘地铁来到住宅区，走进了裁缝店。'
+	'一进门，雅沙抬起头向你打招呼。'
+	'"又见面了，<<$pcs_nickname>>。按照我们说好的，我把所有的裙子和套装都做好了；你想看看吗？"'
+	'"好的，麻烦你了，雅沙。我很想看看成品，因为实物看起来总是和图纸不太一样。"'
+	'雅沙站起身，带你来到店铺后面的一排衣架前，把裙子和套装展示给你看。'
+	'"你觉得怎么样？对成品还满意吗？"他问道。'
+	'"哇！太棒了。非常感谢你，雅沙。"你忍不住给了他一个拥抱。'
+	'他帮你把裙子和套装包起来时，你付了说好的10000卢布。'
+	gs 'money', 'pay', 10000
+	natbelQW['tailor_collected'] = 1
+	act '给娜塔莎看裁缝的作品':
+		*clr & cla
+		minut += 30
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat32.jpg"></center>'
+		'你坐地铁回到大学，来到娜塔莎那一层的休息区，她正在那里等你。路上你决定顺便回自己房间，换上为你做的那条裙子，于是你迅速换好衣服。走进休息室时，你示意她跟你来，你们俩一起走向她的房间。'
+		'一进她的房间，你亲了她一下，环顾四周。"室友又不在？"你问道。'
+		'"不在，她又出去了。那么……它们看起来怎么样？"她有些紧张地问。'
+		'"棒极了娜塔莎，比我想象的还要好。雅沙的手艺太出色了！来，我拿给你看。"你放下包裹，向后退了一步。'
+		'娜塔莎立刻伸手去拿包裹，但你拦住了她。她疑惑地看着你。'
+		'"先看着我，<i>女朋友</i>。你喜欢吗？"'
+		'娜塔莎看着你，示意你转个圈。"新裙子，<<$pcs_nickname>>？真漂亮；你从哪儿买的？"'
+		'你对她咧嘴一笑。"嗯，我很高兴你喜欢，因为里面还有一件一模一样的给你。"'
+		'她看起来很困惑，于是你解释道。"这是你的设计之一，傻瓜！"'
+		'"哦！……哦！……哇！我从没想过它们会这么好看。"'
+		'说着你打开包裹，把她其余的裙子和套装拿给她看。"那么，你觉得怎么样？对它们满意吗？"'
+		'娜塔莎看起来开心极了，同时眼泪几乎要夺眶而出。她抓住你，紧紧抱住你。"太谢谢你了，<<$pcs_nickname>>。"'
+		act '娜塔莎对照片有了主意':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat31.jpg"></center>'
+			'等她终于平静下来，她问你她欠你多少钱。'
+			'"你不欠我什么，<i>女朋友</i>；能帮你实现梦想是我的荣幸。"'
+			'你把一根手指竖在她的唇边，阻止她再推辞。'
+			'停顿片刻后你继续说。"那么我想，我们需要拍一些你穿这些衣服的照片，还要找个合适的场合穿上其中一些。"'
+			'娜塔莎对照片有了个主意。"<<$pcs_nickname>>，关于照片——与其去找Aphrodite，那会很贵，不如找朱莉娅怎么样？我看过她的一些作品，真的很好。"'
+			'"是啊，好主意，娜塔莎。我们给她打个电话吧。"'
+			'娜塔莎给朱莉娅打了电话，聊了一会儿之后，朱莉娅确认她很乐意给娜塔莎拍照，几分钟后就会到你们这儿来。'
+			act '朱莉娅拍照':
+				*clr & cla
+				minut += 30
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/characters/shared/headshots_main/12.jpg"></center>'
+				'朱莉娅到了之后，你们花了一些时间闲聊叙旧，然后她问道。"你们俩这是怎么回事，为什么想让我给娜塔莎拍照？"'
+				'你解释说，你们把娜塔莎的一些设计做成了成衣，想拍一些她穿着这些衣服的照片放进作品集。'
+				'朱莉娅非常乐意帮忙，指导娜塔莎穿着每一条新裙子和套装摆出各种姿势。'
+				act '维斯帕拍照':
+					*clr & cla
+					minut += 10
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat33.jpg"></center>'
+					'对于最后一条裙子，朱莉娅有了个主意，让你跟着她。她带你来到外面，走到一辆Vespa摩托车旁，然后让娜塔莎在车旁摆姿势。'
+					'朱莉娅玩得很开心，似乎非常享受指挥娜塔莎的角色。'
+					*nl
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/uni/uninat34.jpg"></center>'
+					'"现在坐上去，娜塔莎，"她命令道。'
+					'娜塔莎看起来有些犹豫，但朱莉娅安慰她。"我认识车主；没问题的。"'
+					'等朱莉娅对照片满意后，你们回到娜塔莎的房间，朱莉娅向你们俩展示了娜塔莎这场迷你时装拍摄的成果。'
+					'"太棒了，朱莉娅；非常感谢。"你对她说，然后你们俩都给了她一个拥抱。'
+					act '朱莉娅问了一个问题':
+						*clr & cla
+						minut += 10
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/characters/shared/headshots_main/12.jpg"></center>'
+						'"那么，你们接下来打算拿这些照片怎么办？"朱莉娅问道。'
+						'"我们也不太确定。要更进一步，我们真的需要某种赞助，而四处奔波去找公司和服装制造商也不太现实。除此之外，我们还得专心学业，不能分心太多。"你回答道，同时看着娜塔莎，她正点头表示同意。'
+						'朱莉娅若有所思，然后建议道。"为什么不穿上最华丽的那条裙子，去芭蕾舞剧院或巴别尔这样的地方呢？各种名人都去那儿，说不定你们会走运。"'
+						'你笑容满面地给了朱莉娅一个拥抱。"是啊，谢谢你朱莉娅；这主意太棒了！看来我们得找个时候好好打扮一番了！"'
+						'娜塔莎提出异议。"穿我的设计去芭蕾舞剧院，我不太确定……万一不被接受怎么办？……而且，巴别尔有着严格的着装要求，只让穿名牌服装的人进去。"'
+						'"是啊娜塔莎，这正是关键所在。如果我们穿着你的设计去那里，而他们让我们进去了，那就证明了这些衣服的水准，至于会不会有合适的人注意到我们，就全看运气了。"'
+						'朱莉娅点头表示同意，但娜塔莎仍然不太信服，你回答说。"总之，那是以后的事。与此同时，非常感谢你的帮助，朱莉娅；我们真的很感激。"'
+						'朱莉娅看了看手表。"哦天哪，我有点晚了，得走了。今天玩得很开心，伙计们。"离开前她给了你们俩一个拥抱。'
+						act '你想到一个主意':
+							*clr & cla
+							minut += 20
+							natbelQW['designs_complete'] = 1
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/bullied/natasha16.jpg"></center>'
+							'你转向娜塔莎，温柔地亲了她一下。"总之，<i>女朋友</i>，我们有了成衣、照片和一些想法。朱莉娅的建议其实相当不错，但我们已经走到这一步了，如果现在把这一切先搁置起来，你同意吗？"'
+							'"当然可以，<<$pcs_nickname>>。我现在对生活很满足、很开心。我很享受大学生活，也很享受和你在一起的时光。这件事确实很耗费精力，能暂时退一步，专注于日常的事情，尤其是我们的课业，那就太好了。"'
+							'"我想我也该走了。回头见，娜塔莎。"又轻轻亲了一下之后，你起身离开。'
+							act '返回走廊': gt 'uni_dorm', 'ninth_floor'
+						end
+					end
+				end
+			end
+		end
+	end
+	exit
+end
+
+
+--- natbel_uni_dates_2 ---------------------------------

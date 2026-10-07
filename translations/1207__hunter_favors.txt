@@ -1,0 +1,731 @@
+# hunter_favors
+!! 2021/05/02
+!! Non-sexual favors
+if $ARGS[0] = 'housekeeping_request':
+
+	if hunterVars['were_met'] = 1 and util_rand_favor < 3:
+		*clr & cla
+		util_rand_favor = rand(1, 3)
+		minut += 5
+		if util_rand_favor = 1:
+			gs 'boyStat', 'A172'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+		elseif util_rand_favor = 2:
+			gs 'boyStat', 'A174'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big174.jpg"></center>'
+		elseif util_rand_favor = 3:
+			gs 'boyStat', 'A173'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big173.jpg"></center>'
+		end
+		gs 'stat'
+
+		'<<$boydesc>>向你走来。"嘿，我需要你帮我个忙。"'
+
+		act '当然，什么事？':
+			cla
+			!! TODO: If collective opinion is low, make the opinion gain also low
+			!! If fire is not going hunters nag at Sveta
+			if campfire = 0:
+				if hunterVars['collective_opinion'] >= 15: '"<<$pcs_nickname>>," 他说。"火灭了。你能在我们外出时确保它一直烧着吗？"'
+				if hunterVars['collective_opinion'] < 15: '"<<$pcs_nickname>>," 他语气严厉。"火灭了。你至少可以让火烧着。你总不至于真是个爱哭的公主吧。"'
+				act '进一步': hunterVars['collective_opinion'] -= 3 & gt 'gad_swamp_yard', 'campfire'
+			!! Clean up the hut
+			elseif dirty_swamphouse > 5:
+				if hunterVars['collective_opinion'] >= 15: '"<<$pcs_nickname>>," 他说。"小屋一团糟。你能帮忙收拾一下吗？"'
+				if hunterVars['collective_opinion'] < 15: '"<<$pcs_nickname>>," 他语气严厉。"房子一团糟。去收拾干净。"'
+				act '打扫小屋': hunterVars['collective_opinion'] += 2 & gt 'hunter_favors', 'dirty_swamphouse'
+			!! Clean up the yard if hut is clean
+			elseif dirty_swamp_yard > 5:
+				if hunterVars['collective_opinion'] >= 15: '"<<$pcs_nickname>>," 他说。"院子里一团糟。你能帮忙收拾一下吗？"'
+				if hunterVars['collective_opinion'] < 15: '"<<$pcs_nickname>>," 他严厉地说。"那些垃圾到底是怎么回事？去把它们全捡起来。"'
+				act '打扫院子': hunterVars['collective_opinion'] += 3 & gt 'hunter_favors', 'yard_cleanup'
+			!! Cook some mushroom soup or meat stew if yard is also clean and a fire is going on in the yard
+			elseif mushroom_soup + meat_stew < 4:
+				if hunterVars['collective_opinion'] >= 15: '"<<$pcs_nickname>>," 他说。"我们晚餐没东西吃了。你能做点什么吗？"'
+				if hunterVars['collective_opinion'] < 15: '"<<$pcs_nickname>>," 他严厉地说。"我们晚餐没东西吃了，你这没用的婊子。趁我们饿死之前去做点吃的。"'
+				if boletus > 0:
+					act '煮点蘑菇汤 (0:30)': hunterVars['collective_opinion'] += 4 & gs 'hunter_favors', 'mushroom_soup'
+				elseif raw_meat > 0:
+					act '炖点肉 (1:00)': hunterVars['collective_opinion'] += 3 & gs 'hunter_favors', 'meat_stew'
+				else
+					!! TODO: Add mechanic for hunters to ask Sveta to find food
+					act '"不过没什么可煮的……"': gt 'gad_swamp_yard', 'start'
+				end
+			else
+				if hunterVars['collective_opinion'] >= 15: '"其实，算了。我自己来就行，不过还是谢谢你。"'
+				if hunterVars['collective_opinion'] < 15: '"其实，算了。你也没什么能帮上忙的。"'
+				act '好的':
+					hunterVars['collective_opinion'] += 5
+					gt 'gad_swamp_yard', 'start'
+				end
+			end
+		end
+
+		gs 'willpower', 'misc', 'resist', 'easy'
+		if pcs_willpwr < will_cost:
+			act '"我待会儿再帮，现在忙"' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '"我待会儿再帮，现在忙"' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				minut += 5
+				hunterVars['collective_opinion'] -= 3
+
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+
+				!! TODO: Find new image
+				gt 'gad_swamp_yard', 'start'
+			end
+		end
+
+		act '"什么？！ 我看起来像你的仆人吗？':
+			'<center><img <<$set_imgh>> src="images/pc/reactions/speak_to_the_hand.jpg"></center>'
+			'你从<<$boydesc>>身边走开'
+			hunterVars['collective_opinion'] -= 10
+			act '继续': gt 'gad_swamp_yard', 'start'
+		end
+	else
+		gt 'gad_swamp_yard', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'yard_cleanup':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dirty_swamp_yard.jpg"></center>'
+	'你注意到院子里已经变得相当脏了。"我得处理一下。" 你想道。'
+	'你抓起一个垃圾袋开始捡垃圾。'
+	'过了一会儿，你收拾好了院子，把垃圾装进了垃圾袋。你对自己相当满意。'
+	if dirty_swamp_yard < 10:
+		minut += 60 & gs 'sweat', 'add', 10
+	elseif dirty_swamp_yard < 20:
+		minut += 120 & gs 'sweat', 'add', 20
+	else
+		minut += 180 & gs 'sweat', 'add', 30
+	end
+	dirty_swamp_yard = 0
+	hunterVars['collective_opinion'] += 2
+	gs 'stat'
+
+	act '完成': gt 'gad_swamp_yard', 'start'
+end
+
+
+if $ARGS[0] = 'dirty_swamphouse':
+	menu_off = 1
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dirty_swamphouse.jpg"></center>'
+	*nl
+	'走进小屋，你注意到小屋已经变得相当脏了。"我得处理一下。" 你想道。于是你拿起扫帚和抹布开始打扫。'
+	'过了一会儿，你打扫完毕，把一切重新归置整齐。你对自己相当满意。'
+
+	if dirty_swamphouse < 10:
+		minut += 60
+		gs 'sweat', 'add', 10
+	elseif dirty_swamphouse < 20:
+		minut += 120
+		gs 'sweat', 'add', 20
+	else
+		minut += 180
+		gs 'sweat', 'add', 30
+	end
+	if hunterVars['AndreiQw'] < 15: hunterVars['AndreiQw'] += 1
+	if hunterVars['IgorQW'] < 15: hunterVars['IgorQW'] += 1
+	if hunterVars['SergeiQw'] < 15: hunterVars['SergeiQw'] += 1
+	dirty_swamphouse = 0
+	gs 'stat'
+
+	act '继续': gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'meat_stew':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hotsoup.jpg"></center>'
+	*nl	'你用猎人们带来的肉炖了一锅。足够<<mushroom_soup>>份。'
+	raw_meat -= 1
+	minut += 60
+	bucket -= 1
+	meat_stew = 2
+	gs 'stat'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'mushroom_soup':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hotsoup.jpg"></center>'
+	*nl	'你在篝火旁煮了一锅简单的蘑菇汤并端进了小屋。足够<<mushroom_soup>>份。'
+	boletus -= 1
+	minut += 30
+	bucket -= 1
+	mushroom_soup = 4
+	gs 'stat'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+!! Sexual favors
+if $ARGS[0] = 'creekside_gangbang_request':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/backwaterrelax2.jpg"></center>'
+	'你正坐在路边附近的草地上放松，享受着好天气，这时安德烈，谢尔盖和伊戈尔突然向你走来。他们迅速围住你，不让你走开。'
+	'"嘿，<<$pcs_nickname>>, 我们商量过了，觉得你总得想办法报答我们教的那些课。你觉得怎么样？"'
+	minut += 5
+
+	!! TODO: WP check to agree?
+	act '同意':
+		*clr & cla
+
+		!! TODO: Come back here to revamp opinion changes
+		hunterVars['sexual_comfort'] += 25
+
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hantersgroupundress.jpg"></center>'
+		'"我想你说得对。我确实得想办法报答你们……"'
+		'你一同意，男人们对你的态度就变了。伊戈尔扶你起来，带你离开路边，而安德烈和谢尔盖已经开始脱你的衣服……'
+
+		gs 'arousal', 'foreplay', 5, 'sub', 'gangbang'
+		gs 'stat'
+
+		act '进一步':
+			*clr & cla
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hantersgrouptanga.jpg"></center>'
+			'他们把你放在毯子上，迅速扯下你的内裤。他们解开裤子，鸡巴垂在外面站在你面前。"还等什么？开始吸吧。"'
+
+			gs 'outfit', 'backup', 'hunters'
+			gs 'outfit', 'strip_all'
+
+			gs 'arousal', 'foreplay', 2, 'sub', 'gangbang'
+			gs 'stat'
+
+			act '进一步': gt 'hunter_interactions', 'creekside_gangbang'
+		end
+	end
+
+	gs 'willpower', 'gangbang', 'resist', 'hard'
+	if pcs_willpwr < will_cost:
+		act '拒绝':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/backwaterrelax3.jpg"></center>'
+			'你礼貌地拒绝了，说你不欠他们什么，但男人们不接受拒绝，你能看出他们对你的回答显然很不满意。'
+			'"<<$pcs_firstname>>, 别跟我们耍花样。你内心深处知道你该报答我们，" 安德烈说着抓住了你的头发。'
+			minut += 5
+			hunterVars['collective_opinion'] -= 25
+			hunterVars['sexual_comfort'] += 15
+			gs 'hunter_interactions', 'creekside_rape'
+			gs 'stat'
+		end
+	else
+		!! TODO: Add scene for succeeding willpower check
+		act '拒绝' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			minut += 5
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+
+			hunterVars['collective_opinion'] += 5
+			hunterVars['sexual_comfort'] -= 10
+
+			gs 'stat'
+			gt 'gad_backwater'
+		end
+	end
+end
+
+
+!! TODO: WP needed for bondage?
+if $ARGS[0] = 'yard_bondage':
+	if $ARGS[1] = '':
+		yard_bound_temprand = rand(1, 9)
+
+		if hour >= 22 or hour < 5:
+			gs 'arousal', 'end'
+
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/released_from_bondage.jpg"></center>'
+			'终于，夜已经很深了，伊戈尔来解开你的束缚。你筋疲力尽，当血液涌回双手时，你几乎跌倒在地。'
+			'虽然能重新活动让你很高兴，但内心有一部分却渴望再次被绑起来，当一个赤裸且随时可用的性玩具。'
+
+			act '进一步': gt 'gad_swamp_yard', 'start'
+		end
+
+		cla & *clr
+
+		hunterVars['sexual_comfort'] += 1
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_outdoors4.jpg"></center>'
+		'你被完全赤裸地绑在院子旁的几棵树边。想到自己如此无助和暴露，你心里小鹿乱撞。'
+		'现在任何人都可以对你为所欲为。你清楚地感觉到自己最私密的部位裸露着，任由猎人们随心所欲。'
+
+		gs 'arousal', 'flash', 5, 'bound', 'exhibitionism', 'sub'
+		gs 'arousal', 'end'
+
+		minut += 5
+		gs 'stat'
+
+		hunter_selector_temprand = rand(1, 3)
+		if hunter_selector_temprand = 1:
+			gs 'boyStat', 'A172'
+		elseif hunter_selector_temprand = 2:
+			gs 'boyStat', 'A173'
+		elseif hunter_selector_temprand = 3:
+			gs 'boyStat', 'A174'
+		end
+
+		if yard_bound_temprand = 4:
+			act '进一步': gt 'hunter_favors', 'yard_bondage', 'passing_bj'
+		elseif yard_bound_temprand = 5:
+			act '进一步': gt 'hunter_favors', 'yard_bondage', 'passing_fuck'
+		elseif yard_bound_temprand = 6:
+			act '进一步': gt 'hunter_favors', 'yard_bondage', 'clamp_fuck'
+		elseif yard_bound_temprand = 8:
+			act '进一步': gt 'hunter_favors', 'yard_bondage', 'unbound_fuck'
+		!! elseif yard_bound_temprand = 9:
+			!! act 'Further': gs 'hunter_favors', 'yard_bondage', 'unbound_gangbang'
+		!! elseif yard_bound_temprand = 10:
+			!! act 'Further': gs 'hunter_favors', 'yard_bondage', 'bound_gangbang'
+		else
+			act '等待': gt 'hunter_favors', 'yard_bondage'
+		end
+	end
+
+	if $ARGS[1] = 'lost_bet':
+		*clr & cla
+
+		hunterVars['collective_opinion'] -= 20
+		hunterVars['sexual_comfort'] += 40
+		gs 'arousal', 'flash', 15, 'bound', 'exhibitionism', 'humiliation'
+		gs 'arousal', 'end'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_outdoors2.jpg"></center>'
+		'你让安德烈把你绑在院子旁边。然后，他绑完之后，就把你吊在那里，自己去处理别的事了。'
+		'你无助地待在那里，微风拂过裸露的皮肤，你感到乳头硬了起来。'
+
+		act '等他回来': gt 'hunter_favors', 'yard_bondage'
+	end
+
+	!! TODO: Add variety per hunter as opposed to the same event for all
+	if $ARGS[1] = 'passing_bj':
+		cla & *clr
+		hunterVars['sexual_comfort'] += 6
+		hunterVars['collective_opinion'] -= 3
+		gs 'arousal', 'bj', 10, 'sub', 'bound', 'deepthroat'
+		gs 'arousal', 'end'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_fucked_mouth1.jpg"></center>'
+		'你注意到<<$boydesc>>正朝你走来。他一句话也不说，松开你的绑绳把你按跪在地上，然后又重新绑紧。'
+		'他没花太多时间就拉下裤链，把鸡巴顶到你脸上。你顺从地开始吮吸他的鸡巴。'
+		'一分钟后，他抓住你的头开始操你的嘴。他的鸡巴在你的喉咙里进进出出，你在呼吸和忍住不吐之间挣扎。'
+
+		act '试着跟上他的节奏':
+			cla & *clr
+			*nl
+			hunterVars['sexual_comfort'] += 4
+			hunterVars['collective_opinion'] -= 2
+			gs 'arousal', 'bj', 5, 'sub', 'bound', 'deepthroat'
+			gs 'arousal', 'end'
+			gs 'cum_call', 'mouth_swallow', $boy, 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_fucked_mouth2.jpg"></center>'
+			'你决定让他更享受一些。你开始随着他的抽送节奏上下摆动脑袋。'
+			'每当他的鸡巴整个插进你的喉咙，你就吞咽来按摩他的鸡巴。'
+
+			gs 'dinsex', 'bj_random'
+			*nl
+			'你的努力很快见了成效，他抓住你的头抽送得更加猛烈，直到把鸡巴整根埋进你的喉咙'
+
+			gs 'dinsex', 'bj_swallow_random'
+			'他拍了拍你的头说，"这才是个乖女孩", 然后把你重新绑直，心满意足地走开了。'
+
+			act '进一步': gt 'hunter_favors', 'yard_bondage'
+		end
+		act '让他为所欲为':
+			cla & *clr
+			*nl
+			gs 'arousal', 'bj', 10, 'rough', 'bound', 'deepthroat'
+			gs 'arousal', 'end'
+			gs 'cum_call', 'face', $boy, 1
+			gs 'cum_call', 'breasts', $boy, 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_fucked_mouth3.jpg"></center>'
+			'你决定放松喉咙和面部，这样就不容易在他的鸡巴上呕吐。'
+			'他抚摸着你的头发，继续疯狂地把鸡巴在你的喉咙里上下抽送，像操性玩具一样操着你的脸。'
+
+			gs 'dinsex', 'bj_random'
+			*nl
+			'几分钟后，他从你嘴里抽出鸡巴，开始自慰，把精液喷在你的脸上和胸口。'
+			'当你眨着眼睛弄掉眼上的精液时，他拉上裤链，把你重新绑直，然后一言不发地走开了。'
+
+			act '进一步': gt 'hunter_favors', 'yard_bondage'
+		end
+	end
+
+	if $ARGS[1] = 'passing_fuck':
+		cla & *clr
+		hunterVars['sexual_comfort'] += 10
+		hunterVars['collective_opinion'] -= 5
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_fucked2.jpg"></center>'
+		'你注意到<<$boydesc>>正朝你走来。他一言不发，拉下裤链把你按得弯下腰。'
+		'他的鸡巴顶端在你的湿润的阴唇上摩擦了几次，然后插了进去。当<<$boydesc>>的鸡巴塞满你的小穴时，你忍不住喘息。'
+		'让你适应了一秒这种感觉后，他慢慢地开始抽插你的小穴。不到一分钟他就加快了节奏，你尖叫呻吟起来。'
+
+		gs 'dinsex', 'vaginal_sex', 10, 'bound'
+
+		act '摆动臀部配合他':
+			cla & *clr
+			*nl
+			hunterVars['sexual_comfort'] += 5
+			hunterVars['collective_opinion'] -= 2
+
+			gs 'arousal', 'vaginal', 5, 'sub', 'bound'
+			gs 'arousal', 'end'
+			pose = 3
+			gs 'cum_call', 'vagina', $boy, 1
+			gs 'stat'
+
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_fucked.mp4"></video></center>'
+			'你对<<$boydesc>>的鸡巴在你体内滑动的感觉欲罢不能，于是开始摆动臀部，想要更多。'
+
+			*nl
+			'<<$boydesc>>开始更用力地操你，然后把鸡巴整根埋进你的身体。'
+			gs 'dinsex', 'sexcum'
+			'<<$boydesc>>缓过气后，摸了摸你的屁股就走开了，把你留在原地吊着。'
+
+			act '进一步': gt 'hunter_favors', 'yard_bondage'
+		end
+		act '让他为所欲为':
+				cla & *clr
+				*nl
+				gs 'arousal', 'vaginal', 10, 'rough', 'bound'
+				gs 'arousal', 'end'
+				gs 'cum_call', 'labia', $boy, 1
+				gs 'cum_call', 'butt', $boy, 1
+				gs 'cum_call', 'legs', $boy, 1
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bound_fucked1.jpg"></center>'
+				'你就这样被绑着，无助地赤裸着，<<$boydesc>>抽插你的小穴，你完全被这种感觉淹没了。'
+				'你决定屈服，享受像充气娃娃一样被随意操弄的感觉。'
+				*nl
+				'他粗暴地抓住你的屁股稳住自己，进一步加快节奏，近乎疯狂地猛撞你的小穴。'
+				'他的臀部有节奏地撞击你的屁股的声音回荡在四周，夹杂着他鸡巴在小穴里抽插的淫靡水声和你响亮的呻吟尖叫。'
+
+				*nl
+				'当你开始感到他的鸡巴在你小穴里搏动时，他拔出来，把精液全射在你的屁股和小穴上。'
+				'<<$boydesc>>什么也没说，拉上裤链走开了，留下精液顺着你的腿流下。'
+
+				act '进一步': gt 'hunter_favors', 'yard_bondage'
+		end
+	end
+
+	if $ARGS[1] = 'clamp_fuck':
+		cla & *clr
+		hunterVars['sexual_comfort'] += 15
+		hunterVars['collective_opinion'] -= 10
+		gs 'boyStat', 'A172'
+		gs 'pain', 6, 'pinch', 'nipples'
+		gs 'pain', 3, 'pinch', 'breasts'
+
+		gs 'arousal', 'foreplay', 5, 'rough', 'masochism'
+		gs 'arousal', 'end'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bondage_clamps3.jpg"></center>'
+		'你满脑子都在想自己如何被绑在树上，全身赤裸，完全暴露，以至于没有听到安德烈从背后靠近。'
+		'他毫不客气地扯了一下你的乳头，让你大声尖叫。'
+		'"嘿，先别睡着。我有点特别的东西给你，" 他说着向你展示一条皮绳和一个挂着重物的夹子。'
+		'"希望你喜欢来点刺激的。或者，至少我们会弄明白，" 他说。但当然，你已经同意了"任何事", 所以不会反对。'
+
+		act '进一步':
+			cla & *clr
+			gs 'pain', 3, 'spank', 'nipples'
+			gs 'arousal', 'foreplay', 5, 'rough', 'masochism'
+			gs 'arousal', 'end'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bondage_clamps2.jpg"></center>'
+			'安德烈毫不浪费时间，开始对你的乳头特别关照。'
+			'皮条抽得生疼，每一下都让你忍不住尖叫。但不知为何你竟然享受这种感觉。'
+
+			act '进一步':
+				cla & *clr
+				minut += 5
+				gs 'pain', 10, 'pinch', 'nipples'
+				gs 'arousal', 'foreplay', -10, 'rough', 'masochism'
+				gs 'arousal', 'end'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bondage_clamps1.jpg"></center>'
+				'对"热身"很满意，安德烈拿起夹子夹在你的乳头上。'
+				'夹子咬住乳头带来的痛与快感的交织几乎难以忍受。'
+				'很疼，你想把它们甩掉，但你越想着疼痛，就越觉得小穴在搏动、变得湿润。'
+				*nl
+				'"求你了，我受不了了！" 你哀求道。'
+				'"求"什么，小公主？" 安德烈问道。'
+
+				gs 'willpower', 'sex', 'resist'
+				if pcs_willpwr < will_cost:
+					act '说真的，请让我走！' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '说真的，请让我走！' + $func('willpower', 'get_willcost_string'):
+						cla & *clr
+
+						gs 'willpower', 'pay', 'resist'
+						gs 'stat'
+
+						hunterVars['collective_opinion'] += 10
+						hunterVars['sexual_comfort'] -= 15
+
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/released_from_bondage.jpg"></center>'
+						'"好吧，真没意思，" 安德烈说着解开了你的束缚。'
+						'你揉了几下酸痛的双乳，然后赶走正盯着你的安德烈，算是给他最后的表演。'
+						act '进一步': gt 'gad_swamp_yard', 'start'
+					end
+				end
+				act '求你了，操我吧！':
+					cla & *clr
+					hunterVars['collective_opinion'] -= 5
+					hunterVars['sexual_comfort'] += 25
+
+					gs 'dinsex', 'vaginal_sex', 10, 'sub', 'bound', 'masochism', 'humiliation'
+					gs 'arousal', 'vaginal', 5, 'sub', 'bound', 'masochism', 'humiliation'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/bondage_clamps_fuck.jpg"></center>'
+					'"你真的很喜欢这个。对吧？" 安德烈说着粗暴地插入你。'
+					'空虚已久的小穴终于被填满，你如释重负地大声呻吟起来。你主动摆动臀部，大多时候都是你在动，安德烈没多久就射了。'
+
+					gs 'arousal', 'end'
+					pose = 3
+					gs 'cum_call', 'vagina', $boy, 1
+					gs 'stat'
+
+					gs 'dinsex', 'sexcum'
+
+					*nl
+					'安德烈缓过气后解开了你的束缚。"我们应该再来一次，" 他说完便走开了。'
+					act '进一步': gt 'gad_swamp_yard', 'start'
+				end
+			end
+		end
+	end
+
+
+	if $ARGS[1] = 'unbound_fuck':
+		cla & *clr
+		hunterVars['sexual_comfort'] += 15
+		hunterVars['collective_opinion'] += 15
+
+		gs 'boyStat', 'A173'
+
+		gs 'arousal', 'foreplay', 5, 'exhibitionism'
+		gs 'arousal', 'kiss', 5, 'exhibitionism'
+		gs 'arousal', 'end'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/unbound_fucked2.jpg"></center>'
+		'你还没注意到伊戈尔从背后靠近，他就开始抚摸你的身体，用鸡巴磨蹭你的阴唇。'
+		'"你要把我逼疯了，<<$pcs_nickname>>," 他说。"我再也忍不住了。我要你。"'
+		'你转过头去吻他，他解开了最后几根绳子。'
+
+		act '进一步':
+			cla & *clr
+			gs 'arousal', 'vaginal', 5, 'exhibitionism'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/unbound_fucked1.jpg"></center>'
+			'伊戈尔坐在地上，你跨坐在他的胯部，骑了上去。'
+			'你开始上下起伏，他的鸡巴在你体内抽插的感觉让你喘不过气。'
+			gs 'dinsex', 'vaginal_sex', 10, 'exhibitonism'
+
+			act '进一步':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/unbound_fucked3.jpg"></center>'
+				'几分钟后，伊戈尔把你按成趴跪的姿势，从后面操你。'
+				'他真正加快了节奏，你开始像放荡的婊子一样呻吟尖叫，就这样在光天化日之下被操。'
+
+				gs 'dinsex', 'vaginal_sex', 10, 'exhibitonism', 'rough', 'humiliation'
+				gs 'cum_call', 'butt', $boy, 1
+				gs 'cum_call', 'back', $boy, 1
+				gs 'stat'
+
+				*nl
+				'又操了你几分钟后，你感到伊戈尔拔了出来，把精液射满你的屁股和后背。'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/unbound_fucked_cum.jpg"></center>'
+
+				act '进一步':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/unbound_nude.jpg"></center>'
+					'缓了几秒钟的气后，你们俩都站了起来。在你离开之前，伊戈尔问道：'
+					'"<<$pcs_nickname>>, 我能请你帮个忙吗？我们都已经习惯看你光着身子了。"'
+					'"所以，" 他说，"你能不能一直就这样走来走去？"'
+					'"你是说，一直不穿衣服，始终光着身子？" 你惊讶地问。'
+					'"对，至少周围只有我们的时候，" 他说。"你觉得怎么样？"'
+
+					gs 'willpower', 'exhib', 'self', 'hard'
+					if pcs_willpwr < will_cost:
+						act '同意' + $func('willpower', 'get_willcost_string'): $noWillpower
+					else
+						act '同意' + $func('willpower', 'get_willcost_string'):
+							cla
+							*nl
+							hunterVars['collective_opinion'] += 20
+							hunterVars['sexual_comfort'] += 30
+
+							gs 'willpower', 'pay', 'self'
+							gs 'stat'
+
+							forced_naked_day = 9999
+							gs 'stat'
+
+							'"嗯，" 你回答。"到了这个地步，我们已经没什么好为一点裸露害羞的了。所以当然，为什么不呢？" 你答道。'
+							'"谢谢，<<$pcs_nickname>>," 他说完便走开了'
+							act '进一步': gt 'gad_swamp_yard', 'start'
+						end
+					end
+					act '拒绝':
+						cla
+						*nl
+						hunterVars['collective_opinion'] -= 5
+						hunterVars['sexual_comfort'] += 15
+						gs 'stat'
+
+						'"嗯，" 你回答。"我看上去像你们的性玩具吗？" 你反问。"下一步是什么？你们随便什么时候想操我就操？"'
+						'"你也算不上多么纯洁无辜，<<$pcs_firstname>>," 他说。"我觉得你就是在装模作样地撩人，" 然后走开了'
+						act '进一步': gt 'gad_swamp_yard', 'start'
+					end
+				end
+			end
+		end
+	end
+
+	!! if $ARGS[1] = 'unbound_gangbang':
+	!! end
+
+	!! if $ARGS[1] = 'bound_gangbang':
+	!! end
+
+
+		!! gs 'arousal', 'bj', 20, 'sub', 'rough', 'group'
+		!! gs 'arousal', 'vaginal', 20, 'sub', 'rough', 'group'
+		!! gs 'arousal', 'end'
+		!! gs 'stat'
+
+		!! gs 'dinsex','vaginal_sex',10,'sub'
+
+		!! gs 'arousal', 'bj', 240, 'sub', 'gangbang', 'humiliation'
+		!! gs 'arousal', 'hj', -240, 'sub', 'gangbang', 'humiliation'
+		!! gs 'arousal', 'vaginal', -240, 'sub', 'gangbang', 'humiliation'
+		!! gs 'arousal', 'anal',-240, 'sub', 'gangbang', 'humiliation'
+end
+
+
+if $ARGS[0] = 'nighttime_entertainment':
+	*clr & cla
+	if hunterVars['collective_opinion'] < 15:
+		hunterVars['collective_opinion'] += 3
+		hunterVars['sexual_comfort'] += 8
+	else
+		hunterVars['collective_opinion'] -= 4
+		hunterVars['sexual_comfort'] += 12
+	end
+
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/bj_1.jpg"></center>'
+	'男人们立刻围住你，掏出他们的鸡巴。看到他们这么快就准备好，你忍不住轻轻笑了笑。'
+
+	act '握住伊戈尔和谢尔盖的鸡巴':
+		*clr & cla
+		minut += 2
+		gs 'arousal', 'hj', -7, 'gangbang'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/bj_2.jpg"></center>'
+		'你握住伊戈尔和谢尔盖的鸡巴，为他们手淫。你能感到两根鸡巴都充血胀大，牢牢填满你的双手。'
+
+		act '给谢尔盖口交':
+			*clr & cla
+			minut += 3
+			gs 'arousal', 'bj', -10, 'gangbang'
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/bj_3.jpg"></center>'
+			'你把谢尔盖的龟头含进嘴里，慢慢吞下他的茎身。'
+
+			act '继续':
+				*clr & cla
+				minut += 4
+				gs 'arousal', 'foreplay', -2, 'gangbang'
+				gs 'arousal', 'bj', -7, 'gangbang'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/bj_3.5.jpg"></center>'
+				'与此同时，你感到伊戈尔的手伸进你的衬衫，在你上下吞吐谢尔盖的鸡巴时捏弄玩弄你的乳头。'
+
+				act '给伊戈尔口交':
+					*clr & cla
+					minut += 3
+					gs 'arousal', 'bj', -8, 'gangbang', 'deepthroat'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/bj_4.jpg"></center>'
+					'你让谢尔盖的鸡巴从嘴里滑出来，转而吸吮伊戈尔的。你一直吸到底，让他坚硬如铁的搏动鸡巴填满你的喉咙。'
+
+					act '继续':
+						*clr & cla
+						minut += 6
+						gs 'arousal', 'bj', -8, 'gangbang', 'deepthroat'
+						gs 'arousal', 'flash', -3
+						gs 'stat'
+
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/buk_tit_expose_3.jpg"></center>'
+						'当你加快为伊戈尔口交的速度时，安德烈把手伸进你的衬衫，掏出你的乳房。微风拂过，你感到乳头微微变硬。'
+						'与此同时，伊戈尔喊道他快要射了。听到提示，你用力吮吸，用喉咙榨取他剧烈搏动的鸡巴。'
+
+						gs	'cum_call', 'mouth', 'A173', 1
+
+						act '继续':
+							*clr & cla
+							minut += 2
+							gs 'arousal', 'foreplay', -4
+							gs 'arousal', 'flash', -3
+							gs 'stat'
+
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/buk_tit_expose_4.jpg"></center>'
+							'心满意足的伊戈尔漫不经心地玩弄着你露出的乳房，而安德烈掏出另一只，让你两边的乳房都露在外面，同时继续给自己手淫。'
+
+							act '继续':
+								*clr & cla
+								minut += 3
+								gs 'arousal', 'flash', -8
+								gs 'stat'
+
+								'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/buk_1.jpg"></center>'
+								'没过多久安德烈就到了高潮，把精液射在你的脸上和头发上。'
+								gs	'cum_call', 'face', 'A172', 1
+
+								act '继续':
+									*clr & cla
+									minut += 2
+									gs 'arousal', 'flash', -7
+									gs 'stat'
+
+									'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/nighttime_entertainment/buk_2.jpg"></center>'
+									'看到这一幕，谢尔盖凑到你身边，飞快地撸了一阵，然后把精液射在你脸的另一边，还有几滴溅到了你裸露的胸口。'
+									gs	'cum_call', 'mouth', 'A174', 1
+
+									act '进一步': gt 'gad_swamp_yard', 'campfire'
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+--- hunter_favors ---------------------------------

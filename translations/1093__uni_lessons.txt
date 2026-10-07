@@ -1,0 +1,186 @@
+# uni_lessons
+!! 2021/22/12
+!! This file includes the code to make sure that the player characters can go to class and exams when they are enrolled in the university.
+!! The file does not include the selection of classes depending upon which program they are enrolled in only the part of the code that don''t depend on the program.
+!! The code for the individual programs is in uni_programs
+
+if $ARGS[0] = 'cikl':
+!! Setting the weeks in the university semester and making sure that the grades are calculated at the right times
+
+	if university['semester_week'] = 0 and (month = 8 or month = 1) and (day - week) >= 20:
+		university['semester_week'] = -1
+	else
+		if week = 1:
+			if university['semester_week'] = -1:
+				university['semester_week'] = 1
+			elseif university['semester_week'] > 0 and university['semester_week'] < 15:
+				university['semester_week'] += 1
+				if university['enrolled_in_semester'] > university['semester_passed']:
+					gs 'grades', 'calculate_grade', 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>'
+					gs 'grades', 'assign_grade_description', 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>'
+				end
+			elseif university['semester_week'] = 15:
+				university['semester_week'] = 0
+				university['exam_week'] = 1
+				if university['enrolled_in_semester'] > university['semester_passed']:
+					gs 'grades', 'calculate_grade', 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>'
+					gs 'grades', 'assign_grade_description', 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>'
+				end
+			elseif university['exam_week'] = 1:
+				university['exam_week'] = 2
+			elseif university['exam_week'] = 2:
+				university['exam_week'] = 0
+				if university['enrolled_in_semester'] > university['semester_passed']:
+					i = 0
+					passed_count = 0
+					class_count = 0
+					:passed_exams_loop
+					if $class_list_institution[i] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+						class_count += 1
+						if dyneval ('RESULT = class[''<<$class_list_institution[i]>>_<<$class_list_name[i]>>_grade'']') > 40 and dyneval ('RESULT = class[''<<$class_list_institution[i]>>_<<$class_list_name[i]>>_exam_done'']') = 1:
+							passed_count += 1
+						elseif dyneval ('RESULT = class[''<<$class_list_institution[i]>>_<<$class_list_name[i]>>_exam_done'']') = 0:
+							dynamic 'class[''<<$class_list_institution[i]>>_<<$class_list_name[i]>>_grade''] = 0'
+							university['expelled_for_missing_exam'] = 1
+						end
+					end
+					i += 1
+					if arrsize('class_list_institution') >= i: jump 'passed_exams_loop'
+					killvar 'i'
+					if passed_count = class_count:
+						university['semester_passed'] = university['enrolled_in_semester']
+					else
+						university['expelled'] = 1
+						university['student'] = 0
+					end
+					if university['semester_passed'] = 8:
+						university['diploma'] = 1
+						university['student'] = 0
+					end
+					killvar 'class_count'
+					killvar 'passed_count'
+				end
+			end
+		end
+	end
+	!! Sets the variable university['break'] to 1 if it is in the break between semesters, 0 otherwise.
+	if university['exam_week'] > 0 or university['semester_week'] > 0:
+		university['break'] = 0
+	else
+		university['break'] = 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'short_break':
+	CLOSE ALL
+	$location_type = 'public_indoors'
+	menu_off = 1
+	if hour = 9: minut += 90 - minut
+	if hour = 10 and minut < 30: minut += 30 - minut
+	if hour = 11: minut += 90 - minut
+	if hour = 12 and minut < 30: minut += 30 - minut
+	if hour = 13: minut += 105 - minut
+	if hour = 14 and minut < 45: minut += 45 - minut
+	gs 'stat'
+	if katjaQW['QWstage'] < 2 and hour >= 14 and npc_rel['A14'] >= 70 and fame['city_slut'] < 150 and pcs_makupskl >= 40 and pcs_hotcat >= 6: gt 'katja_uni', 'dorm_room_invite'
+	if week = 4 and hour > 14 and nerd_game['fixed_uni_day'] = 0 and (npc_rel['A153'] >= 50 or nerd_game['stage'] > 0) and nerd_game['invite_day'] ! 2147483647: gt 'nerd_game_night', 'invite_uni'
+	if rand(0, 19)= 0: gt 'uni_events', 'lecture_hall_events'
+	*clr & cla
+	$func('wrap', 'header center b', '教学楼走廊')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/lecture_hall/lecture_hall.jpg"></center>'
+	'走在走廊里，你不禁惊叹这些楼宇保养得有多好，和你以前的学校相比简直天差地别。'
+	gs 'katja_pantyquest', 'uni'
+	gs 'uni_lessons', 'schedule'
+	act '去大学广场': gt 'uni_grounds'
+	exit
+end
+
+
+if $ARGS[0] = 'schedule':
+	gs 'stat'
+	if uni_period['first'] <> daystart and hour > 6 and hour < 9:
+		gs 'uni_programs', 'set_first_period_act'
+	elseif uni_period['second'] <> daystart and hour = 10:
+		gs 'uni_programs', 'set_second_period_act'
+	elseif uni_period['third'] <> daystart and (hour = 12 or (hour = 13 and minut < 15)):
+		gs 'uni_programs', 'set_third_period_act'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'exam_schedule':
+	gs 'stat'
+	if uni_period['exam'] <> daystart and hour > 6 and hour < 9:
+		gs 'uni_programs', 'set_exam_act'
+	end
+	exit
+end
+
+
+!! Computes messages and icons for stat_display, called from compute_stat_display
+if $ARGS[0] = 'compute_stat_display':
+	if university['student'] = 1:
+		if university['semester_week'] = -1:
+			$stat_texts['uni'] = '你的下个学期下周开始。课程将在周一至周四开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+			gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_3', 4
+		elseif university['semester_week'] > 0:
+			if week < 5 and hour < 9 and uni_period['first'] <> daystart:
+				$stat_texts['uni'] = '你今天在大学有课。你的第一堂课开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_1', 4
+			elseif week < 5 and hour < 11 and uni_period['second'] <> daystart:
+				$stat_texts['uni'] = '你今天在大学有课。你的下一堂课开始于<<$func(''time'', ''get_time_string'', 11, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_1', 4
+			elseif (hour < 13 or (hour = 13 and minut < 15)) and uni_period['third'] <> daystart:
+				if (week = 1 and $university['elective1'] <> '') or (week = 2 and $university['elective2'] <> '') or (week = 4 and $university['elective3'] <> ''):
+					$stat_texts['uni'] = '你今天在大学有一门选修课。它开始于<<$func(''time'', ''get_time_string'', 13, 15)>>.'
+					gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_1', 4
+				elseif week = 3:
+					$stat_texts['uni'] = '你今天在大学有课。你的最后一堂课开始于<<$func(''time'', ''get_time_string'', 13, 15)>>.'
+					gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_1', 4
+				end
+			end
+		elseif university['exam_week'] = 1:
+			if week < 4:
+				$stat_texts['uni'] = '你本周和下周在大学有考试。你的第一场考试是本周四，开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+			elseif week = 4 and hour < 9:
+				$stat_texts['uni'] = '你本周和下周在大学有考试。你的第一场考试是今天<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+				gs 'stat_display_compute', 'queue_alert', '你今天有大学考试。', 'neg'
+			else
+				$stat_texts['uni'] = '你本周已经没有更多考试。你的下一场考试将在下周二，开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+			end
+		elseif university['exam_week'] = 2:
+			if week < 2:
+				$stat_texts['uni'] = '这是本学期大学考试的最后一周。你的下一场考试将在本周二，开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+			elseif week = 2 and hour < 9:
+				$stat_texts['uni'] = '这是本学期大学考试的最后一周。你的下一场考试将在今天，开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+				gs 'stat_display_compute', 'queue_alert', '你今天有大学考试。', 'neg'
+			elseif week < 4:
+				$stat_texts['uni'] = '这是本学期大学考试的最后一周。你的最后一场考试将在本周四，开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+			elseif week = 4 and hour < 9:
+				$stat_texts['uni'] = '这是本学期大学考试的最后一周。你的最后一场考试将在今天，开始于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+				gs 'stat_display_compute', 'queue_alert', '你今天有大学考试。', 'neg'
+			else
+				$stat_texts['uni'] = '这是本学期大学考试的最后一周。你所有的考试都结束了。你将在周一收到成绩。'
+				gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_2', 4
+			end
+		elseif university['enrolled_in_semester'] = university['semester_passed'] and university['semester_passed'] < 8:
+			$stat_texts['uni'] = '你需要在下学期开始前到大学行政处注册。'
+			gs 'stat_display_compute', 'queue_msg', 'uni', '', 'status/uni_class_3', 4
+			gs 'stat_display_compute', 'queue_alert', '你必须注册下一个大学学期。', 'neg'
+		end
+	end
+	exit
+end
+
+
+--- uni_lessons ---------------------------------

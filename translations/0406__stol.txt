@@ -1,0 +1,428 @@
+# stol
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><h1>书桌</h1></center>'
+	if mc_inventory['desk'] = 0:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/stol.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/stol1.jpg"></center>'
+	end
+	*nl
+	'你坐到书桌前。'
+
+	act '站起来': gt $loc, $loc_arg
+	act '检查你的避孕措施': gt 'stol', 'bc'
+
+	if mc_inventory['mentats'] > 0:
+		'<a href="exec:gs ''drugs'', ''mentats'' & gt ''stol'', ''start''"><b>服用神经增强剂药丸。</b></a>剩余使用次数：<<mc_inventory[''mentats'']>>. 盒子上的警告说每天服用不要超过一粒。'
+	end
+	if mc_inventory['steroids'] > 0:
+		'<a href="exec:gs ''drugs'', ''steroids'' & gt ''stol'', ''start''"><b>服用类固醇。</b></a>剩余使用次数：<<mc_inventory[''steroids'']>>.'
+	end
+	if mc_inventory['aphrodisiac'] > 0:
+		'<a href="exec:gs ''drugs'', ''aphrodisiac'' & gt ''stol'', ''start''"><b>咀嚼催情口香糖。</b></a>剩余使用次数：<<mc_inventory[''aphrodisiac'']>>.'
+	end
+
+	killvar 'stol_loc_temp'
+	if mc_inventory['strapon'] = 1:
+		if mc_inventory['dildo_small'] + mc_inventory['dildo_normal'] + mc_inventory['dildo_big'] + mc_inventory['dildo_large'] + mc_inventory['dildo_huge'] + mc_inventory['dildo_enormous'] + mc_inventory['dildo_gigantic'] > 0:
+			act '查看你的假阳具束带': $stol_loc_temp = 'start' & gt 'stol', 'strapon'
+		else
+			act '查看你的假阳具束带': '<br>你没有假阳具可以装到你的束带装置上。'
+		end
+	end
+
+	if mc_inventory['cigarettes'] > 0:
+		act '把一些香烟藏进你的抽屉':
+			cla
+			cigIN = input('你想在抽屉里藏多少支香烟？（你的手包里有<<mc_inventory[''cigarettes'']>>支香烟。）')
+
+			if cigIN <= 0 or cigIN > mc_inventory['cigarettes']:
+				'你没法把这么多放进抽屉里。'
+			else
+				stolcigarettes['<<$loc>>'] += cigIN
+				mc_inventory['cigarettes'] -= cigIN
+			end
+
+			gt 'stol', 'start'
+		end
+	end
+
+	if stolcigarettes['<<$loc>>'] > 0:
+		act '从抽屉里拿出一些香烟':
+			cla
+			cigOUT = input ("你想往手包里放多少支香烟？（这里一共有<<stolcigarettes['<<$loc>>']>>支香烟。）")
+
+			if cigOUT <= 0 or cigOUT > stolcigarettes['<<$loc>>']:
+				'你没法从抽屉里拿出这么多。'
+			else
+				stolcigarettes['<<$loc>>'] -= cigOUT
+				mc_inventory['cigarettes'] += cigOUT
+			end
+
+			gt 'stol', 'start'
+		end
+	end
+
+	if money > 0:
+		act '往书桌抽屉里放一些钱':
+			cla
+			stolIN = input ("你想往抽屉里放多少钱？（你的钱包里有<<$func('money', 'format_balance', 'cash')>>。）")
+
+			if stolIN <= 0 or stolIN > money:
+				'你没法把这么多放进抽屉里。'
+			else
+				gs 'money', 'desk_transfer', stolIN, 'to_desk'
+			end
+			gt 'stol', 'start'
+		end
+		act '把你所有的钱都放进书桌抽屉':
+			gs 'money', 'desk_transfer', 0, 'all_to_desk'
+			gt 'stol', 'start'
+		end
+		if money > bankShortCutMoney and bankShortCutMoney > 0:
+			act '把你所有的钱都收好，只在书桌抽屉里留下<<$func(''money'', ''format'', bankShortCutMoney)>>':
+				gs 'money', 'desk_transfer', 0, 'all_to_desk'
+				gs 'money', 'desk_transfer', bankShortCutMoney, 'from_desk'
+				gt 'stol', 'start'
+			end
+		end
+	end
+
+	if stolmoney > 0:
+		act '从书桌抽屉里拿出一些钱':
+			cla
+			stolOUT = input ("你想往钱包里放多少钱？（这里有<<$func('money', 'format_balance', 'desk')>>。）")
+
+			if stolOUT <= 0 or stolOUT > stolmoney:
+				'你没法从抽屉里拿出这么多。'
+			else
+				gs 'money', 'desk_transfer', stolOUT, 'from_desk'
+				if stolmoney > 0 or stolmoney_overflow > 0: '你藏在抽屉里有<<$func(''money'', ''format_balance'', ''desk'')>>。'
+			end
+
+			gt 'stol', 'start'
+		end
+
+		act '把书桌抽屉里所有的钱都拿走':
+			gs 'money', 'desk_transfer', 0, 'all_from_desk'
+			gt 'stol', 'start'
+		end
+		if stolmoney >= bankShortCutMoney and bankShortCutMoney > 0:
+			act '从书桌抽屉里拿走<<$func(''money'', ''format'', bankShortCutMoney)>>':
+				gs 'money', 'desk_transfer', bankShortCutMoney, 'from_desk'
+				gt 'stol', 'start'
+			end
+		end
+	end
+
+	act '修改快捷方式数量':
+		temp_ShortCutMoney = input('你想在快捷方式中使用多少钱？[-1 以禁用]')
+		if temp_ShortCutMoney < 0: temp_ShortCutMoney = -1
+		if temp_ShortCutMoney <> 0:
+			bankShortCutMoney = temp_ShortCutMoney
+			gs 'stol', 'start'
+		end
+	end
+
+	!! uni homework
+	if university['enrolled_in_semester'] > university['semester_passed']:
+		if university['semester_week'] > 0:
+			i = 0
+			:study_loop
+				if $class_list_institution[i] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+					if class['<<$class_list_institution[i]>>_<<$class_list_name[i]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[i]>>_<<$class_list_name[i]>>_optional_weekly_max']:
+						dynamic ' act ''为你的<<$class_list_name[i]>>课程学习'': gt ''stol'', ''studying'', ''<<$class_list_institution[i]>>'', ''<<$class_list_name[i]>>'', ''start'' '
+					else
+						*nl
+						'这周你不需要再为<<$class_list_name[i]>>课程学习更多了。'
+					end
+				end
+				i += 1
+			if i < arrsize('class_list_institution'): jump 'study_loop'
+			killvar 'i'
+		elseif university['exam_week'] > 0:
+			i = 0
+			:exam_loop
+				if $class_list_institution[i] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+					if func('uni_programs', 'exam', 'is_over', $class_list_name[i]) = 0:
+						dynamic ' act ''为你的<<$class_list_name[i]>>考试进行强化复习'': gt ''stol'', ''studying_exam'', ''<<$class_list_institution[i]>>'', ''<<$class_list_name[i]>>'', ''start'' '
+					end
+				end
+				i += 1
+			if i < arrsize('class_list_institution'): jump 'exam_loop'
+			killvar 'i'
+		end
+	end
+
+	if lernHome > 0:
+		'<br>你有作业要做。全部完成需要<<lernHome>> '+iif(lernHome = 1, '小时。', '小时。')
+		!! school homework
+		gs 'willpower', 'chore', 'self', iif(grupTipe = 4 and trait_vars['academic'] = 0, 'hard', iif(trait_vars['academic'] > 0, 'easy', 'medium'))
+		if trait_vars['academic'] = 2:
+			will_cost = will_cost / 2
+		elseif trait_vars['academic'] >= 3:
+			will_cost = 0
+		end
+		if pcs_willpwr < will_cost:
+			act '做一些作业' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '做一些作业 (1:00)' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'chore', 'self', iif(grupTipe = 4, 'hard', iif(trait_vars['academic'] > 0, 'easy', 'medium'))
+				if trait_vars['academic'] = 2:
+					will_cost = will_cost / 2
+				elseif trait_vars['academic'] >= 3:
+					will_cost = 0
+				end
+				if will_cost > 0: gs 'willpower', 'pay', 'self', 'chore'
+
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/shared/apartment/homework.jpg"></center>'
+				minut += 60
+				gs 'mood', 'raise', 5 * trait_vars['academic']
+				lern += 1
+				gs 'stat'
+				if mc_inventory['tech_computer'] = 1:
+					gs 'grades', 'homework', 'school', 'yes', 1, 0, 0
+					'你花了一小时'+iif(lernHome = 0, '完成了', '做了一部分')+'作业。'
+				else
+					gs 'grades', 'homework', 'school', 'no', 1, 0, 0
+					'你花了一小时'+iif(lernHome = 0, '完成了', '做了一部分')+'作业，但由于你没有电脑，计算机课的部分做得不够好。以后你可以去社区中心的图书馆做作业，那里有电脑可用。'
+				end
+				act '继续': gt 'stol', 'start'
+			end
+		end
+	end
+	if lernHome > 1:
+		will_cost = will_cost * lernHome
+		if pcs_willpwr < will_cost:
+			act '完成你所有的作业' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '完成你所有的作业 (<<lernHome>>:00)' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				minut += 60 * lernHome
+				gs 'mood', 'raise', 5 * trait_vars['academic'] *lernHome
+				lern += 1 + lernHome/2
+				if trait_vars['academic'] < 3: gs 'willpower', 'pay', 'self', 'chore'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/shared/apartment/homework.jpg"></center>'
+				if mc_inventory['tech_computer'] = 1:
+					'这花了你<<lernHome>>小时来完成你的作业。'
+					gs 'grades', 'homework', 'school', 'yes', lernHome, 0, 0
+				else
+					'这花了你<<lernHome>>小时来完成你的作业，但由于你没有电脑，计算机课的部分做得不够好。以后你可以去社区中心的图书馆做作业，那里有电脑可用。'
+					gs 'grades', 'homework', 'school', 'no', lernHome, 0, 0
+				end
+
+				act '继续': gt 'stol', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'strapon':
+!! use gs 'boyStat', 'D<<strapNumber>>' to recall which dildo is attached
+	*clr
+	'<center><h1>书桌</h1></center>'
+	if mc_inventory['desk'] = 0:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/stol.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/stol1.jpg"></center>'
+	end
+	*nl
+	if strapNumber = 0: '你的束带装置上没有安装假阳具。'
+	*nl
+	if mc_inventory['dildo_small'] = 1: iif(strapNumber = 1, '你的10厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 1 & gt ''stol'', ''strapon''">装上</a>你的10厘米长假阳具。')
+	if mc_inventory['dildo_normal'] = 1: iif(strapNumber = 2, '你的15厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 2 & gt ''stol'', ''strapon''">装上</a>你的15厘米长假阳具。')
+	if mc_inventory['dildo_big'] = 1: iif(strapNumber = 3, '你的20厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 3 & gt ''stol'', ''strapon''">装上</a>你的20厘米长假阳具。')
+	if mc_inventory['dildo_large'] = 1: iif(strapNumber = 4, '你的25厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 4 & gt ''stol'', ''strapon''">装上</a>你的25厘米长假阳具。')
+	if mc_inventory['dildo_huge'] = 1: iif(strapNumber = 5, '你的30厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 5 & gt ''stol'', ''strapon''">装上</a>你的30厘米长假阳具。')
+	if mc_inventory['dildo_enormous'] = 1: iif(strapNumber = 6, '你的35厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 6 & gt ''stol'', ''strapon''">装上</a>你的35厘米长假阳具。')
+	if mc_inventory['dildo_gigantic'] = 1: iif(strapNumber = 7, '你的40厘米假阳具已装在你的束带装置上。', '<a href="exec:strapNumber = 7 & gt ''stol'', ''strapon''">装上</a>你的40厘米长假阳具。')
+	act '返回': gt 'stol', $stol_loc_temp
+end
+
+
+if $ARGS[0] = 'bc':
+	*clr & cla
+	'<center><h1>书桌</h1></center>'
+	if mc_inventory['desk'] = 0:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/stol.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/stol1.jpg"></center>'
+	end
+	*nl
+	gs 'stat'
+	gs 'din_bad'
+	'你把你的避孕用品存放在书桌的抽屉里。'
+	act '关上抽屉': gt $loc, $loc_arg
+	act '检查你的安全套':
+		if mc_inventory['equipped_condoms'] + mc_inventory['normal_condoms'] + mc_inventory['sabotaged_condoms'] > 0:
+			if $locclass = 'bedr' or $locclass = 'bedroom':
+				*clr
+				'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/condoms.jpg"></center>'
+			end
+			if preziktype = 2 or mc_inventory['sabotaged_condoms'] > 0:
+				'你有<<iif(preziktype = 2, mc_inventory[''normal_condoms''], mc_inventory[''normal_condoms'']+mc_inventory[''equipped_condoms''])>>个完好的，还有<<iif(preziktype = 2, mc_inventory[''equipped_condoms'']+mc_inventory[''sabotaged_condoms''], mc_inventory[''sabotaged_condoms''])>>个被做了手脚的<a href="exec:gs ''din_bad'', ''din_Table_Condom_Menu''"><b>安全套。</b></a>'
+			elseif preziktype < 2 and mc_inventory['sabotaged_condoms'] = 0:
+				'你有<<mc_inventory[''equipped_condoms'']+mc_inventory[''normal_condoms'']>>个<a href="exec:gs ''din_bad'', ''din_Table_Condom_Menu''"><b>安全套。</b></a>'
+			end
+			*nl
+		else
+			if $locclass = 'bedr' or $locclass = 'bedroom':
+				*clr
+				'<center><img <<$set_imgh>> src="images/shared/home/bedroom/drawer_empty.jpg"></center>'
+			end
+			'你的安全套用完了。'
+		end
+	end
+
+	act '检查你的避孕药':
+		if mc_inventory['contraceptive_pill'] > 0 or pillsleft[ptype] > 0:
+			if $locclass = 'bedr' or $locclass = 'bedroom':
+				*clr
+				'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/bc_pills.jpg"></center>'
+			end
+			if mc_inventory['contraceptive_pill'] > 0 and pillsleft[ptype] > 0:
+				'你有<<mc_inventory[''contraceptive_pill'']>>盒未开封的<a href="exec:gs ''din_bad'', ''d_tabletkiedt''">避孕药</a>，已开封的那盒里还剩<<pillsleft[ptype]>>片药。</b>'
+			elseif mc_inventory['contraceptive_pill'] = 0 and pillsleft[ptype] > 0:
+				'你还剩<<pillsleft[ptype]>>片<a href="exec:gs ''din_bad'', ''d_tabletkiedt''">避孕药</a>。</b>'
+			elseif mc_inventory['contraceptive_pill'] > 0 and pillsleft[ptype] = 0:
+				'你有<<mc_inventory[''contraceptive_pill'']>>盒未开封的<a href="exec:gs ''din_bad'', ''d_tabletkiedt''">避孕药</a>。'
+			end
+		else
+			if $locclass = 'bedr' or $locclass = 'bedroom':
+				*clr
+				'<center><img <<$set_imgh>> src="images/shared/home/bedroom/drawer_empty.jpg"></center>'
+			end
+			'你已经用完了<a href="exec:gs ''din_bad'', ''d_tabletkiedt''">避孕药</a>。'
+		end
+	end
+	act '检查你的紧急避孕药':
+		if mc_inventory['morning_after_pill'] > 0:
+			if $locclass = 'bedr' or $locclass = 'bedroom':
+				*clr
+				'<center><img <<$set_imgh>> src="images/pc/items/accessories/birthcontrol/morning_after_pill.jpg"></center>'
+			end
+			if mc_inventory['morning_after_pill'] = 1:
+				'你在抽屉最里面的角落藏了一粒<a href="exec:gs''medical_din'',''morning_after_pill''">紧急避孕药</a>。'
+			else
+				'你在抽屉最里面的角落藏了<b><<mc_inventory[''morning_after_pill'']>></b>粒<a href="exec:gs''medical_din'',''morning_after_pill''">紧急避孕药</a>。'
+			end
+		else
+			if $locclass = 'bedr' or $locclass = 'bedroom':
+				*clr
+				'<center><img <<$set_imgh>> src="images/shared/home/bedroom/drawer_empty.jpg"></center>'
+			end
+			'你没有事后避孕药。'
+		end
+	end
+end
+
+
+if $args[0] = 'studying':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/shared/apartment/homework.jpg"></center>'
+	minut += 30
+	if mc_inventory['tech_computer'] = 1:
+		gs 'grades', 'optional_activity_attribute', '<<$ARGS[1]>>', '<<$ARGS[2]>>', 'yes', pcs_intel
+	else
+		gs 'grades', 'optional_activity_attribute', '<<$ARGS[1]>>', '<<$ARGS[2]>>', 'no', pcs_intel
+	end
+	gs 'stat'
+	if dyneval ('RESULT = class[''<<$ARGS[1]>>_<<$ARGS[2]>>_optional_weekly_grade_gain'']') < dyneval ('RESULT = class[''<<$ARGS[1]>>_<<$ARGS[2]>>_optional_weekly_max'']'):
+		'你学习了半个小时，但你能感觉到，如果想完全理解这周的课程内容，你还需要学更多。'
+	else
+		'你学习了半个小时，觉得自己已经理解了这周讲的所有内容。'
+	end
+	act '从书桌前站起来': gt 'stol', '<<$ARGS[3]>>'
+end
+
+
+if $ARGS[0] = 'studying_exam':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/shared/apartment/homework.jpg"></center>'
+	!! Nerds likes studying and so their mood improves a little. Everbody else get in a worse mood by studying.
+	gs 'exp_gain', 'intel', rand(0, 1)
+	gs 'mood', 'raise', (trait_vars['academic']*5 -10)
+	minut += 30
+	if pcs_sleep < 5:
+		no_study = 1
+		'你太累了，不停地打瞌睡。在这种状态下你什么也学不进去。'
+	elseif pcs_sleep < 30:
+		study_mod -= 20
+		'你非常疲倦，很难保持眼睛睁开。'
+	end
+	if alko >= 6:
+		no_study = 1
+		'你醉得太厉害，眼睛都看不清书上的字。握笔也是问题。'
+	elseif alko >= 4:
+		study_mod -= 40
+		'你喝醉了，很难集中注意力读书。回头看你做的笔记，很多都看不懂。'
+	elseif alko >= 2:
+		study_mod -= 20
+		'你有点微醺。你觉得自己的学习进展很顺利，但事后一看，你发现很多笔记都毫无意义。'
+	end
+	if drugVars['mentats_dose'] > 0: study_mod += 30
+	If pcs_mood < 50:
+		study_mod -= 20
+		'你心情不好，这明显影响了你的学习。'
+	end
+	if drugVars['heroin_high'] > 0 or drugVars['weed_high'] > 0:
+		study_mod -= 40
+		'你嗑嗨了，这让你很难集中精力学习。'
+	end
+	if drugVars['amphetamine_high'] > 0: study_mod += 20
+	if pcs_energy < 5:
+		study_mod -= 20
+		'你饿极了，除了食物很难再想别的事情。'
+	elseif pcs_energy < 10:
+		study_mod -= 10
+		'你非常饥饿，这影响了你集中注意力的能力。'
+	elseif pcs_energy < 20:
+		study_mod -= 10
+		'你感到饥饿，思绪常常飘向食物，对你的表现产生负面影响。'
+	end
+	if pcs_horny > 90:
+		study_mod -= 10
+		'你欲望太强，思绪常常飘向性事，影响了你的学习能力。'
+	end
+	if pain['total'] > 90:
+		no_study = 1
+		'你疼得厉害，根本无法开始集中精力学习。'
+	elseif pain['total'] > 75:
+		study_mod -= 40
+		'你疼得厉害，很难集中精力学习。'
+	elseif pain['total'] > 60:
+		study_mod -= 20
+		'疼痛不断困扰着你，让学习变得更加困难。'
+	end
+	*nl
+	study_mod = max(0, rand(30 + study_mod, pcs_intel + study_mod)/33)
+	if no_study = 1:
+		'你试着学习了半个小时，但什么也没学进去。'
+	else
+		if study_mod = 0:
+			'你学习了半个小时，但觉得自己没什么进步。'
+		elseif study_mod = 1:
+			'你学习了半个小时，觉得自己有一点进步。'
+		elseif study_mod = 2:
+			'你学习了半个小时，觉得自己为考试做的准备进展良好。'
+		else
+			'你学习了半个小时，觉得自己进步很大。'
+		end
+		gs 'grades', 'grade_award', '<<$ARGS[1]>>', '<<$ARGS[2]>>', study_mod
+	end
+
+	gs 'stat'
+
+	killvar 'study_mod'
+	killvar 'nod_study'
+
+	act '从书桌前站起来': gt 'stol', '<<$ARGS[3]>>'
+end
+--- stol ---------------------------------

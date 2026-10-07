@@ -1,0 +1,1423 @@
+# prostitution_pavlovsk
+
+!! ----- Random solicitation and active prostitution scenes in Pavlovsk -----------------------------------------------
+!! -- It can be used in other places too, potentially, at least the mechanics, but the scenese can be very Pavlovsk	--
+!! -- specific, referring to Pavlovsk characteristics: train, office building, etc.									--
+!! --																												--
+!! -- Also the variables are still very Pavlovsk specific.															--
+!! -- I think the way it is handled fits Pavlovsk, but not really anywhere else. St. Petersburg is too big,			--
+!! -- Gadukino is too small.																							--
+!! --------------------------------------------------------------------------------------------------------------------
+
+if $ARGS[0] = 'chance':
+	gs 'prostitution_pavlovsk', 'pav_rnd'
+	if prostitute['pav_daily_count'] < prostitute['pav_daily_max'] and rand(1,  1000) < min(prostitute['pav_rnd'], 400):
+		gt 'prostitution_pavlovsk', 'rng'
+	end
+end
+
+
+if $ARGS[0] = 'pav_rnd':
+	gs 'prostitution_functions', 'work_clothes'
+
+	if prostitute['pav_timer_day'] <> daystart:
+		prostitute['pav_daily_count'] = 0
+		prostitute['pav_timer_day'] = daystart
+	end
+
+	prostitute['pav_timer_hour'] = hour
+	prostitute['pav_daily_max'] = (fame['pav_prostitute'] / 100) + 2
+
+	prostitute['pav_rnd'] = fame['pav_prostitute'] + 50 + prostitute['pav_rnd_pity']
+
+	if prostitute['work_clothes']: prostitute['pav_rnd'] += 100
+	if pcs_makeup = 4: prostitute['pav_rnd'] += 50
+	prostitute['pav_rnd'] -= (prostitute['pav_cooldown'] * 100)
+	if prostitute['pav_cooldown'] > 0: prostitute['pav_cooldown'] -= 1
+	prostitute['pav_rnd_pity'] += 20
+end
+
+
+if $ARGS[0] = 'rng':
+!! ToDo: has to be increased if more events are added AND the rands for abusive clients below
+	pro_rand = rand(0, 7)
+!! ToDo: This has to be changed if more scenes are added
+	if pro_rand > 5: pro_rand += 2
+	gs 'prostitution_functions', 'pav_client'
+	gs 'prostitution_functions', 'payment', 'pav'
+	if prostitute['cum_dressed'] = 1 or prostitute['std_mod'] = 1:
+		gt $loc, $loc_arg
+	else
+		prostitute['pav_search'] = 0
+		prostitute['pav_rnd_pity'] = 0
+		gt 'prostitution_pavlovsk', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'search':
+	*clr & cla
+!! ToDo: has to be increased if more events are added AND the rands for abusive clients below
+	pro_rand = rand(0, 7)
+!! ToDo: This has to be changed if more scenes are added
+	if pro_rand > 5: pro_rand += 2
+	gs 'prostitution_functions', 'pav_client'
+	gs 'prostitution_functions', 'payment', 'pav'
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/search.mp4"></video></center>'
+	'你可以在巴甫洛夫斯克四处走走，寻找对你的服务感兴趣的人。由于巴甫洛夫斯克不是大城市，以你现在的名声，你预计每天最多只能找到<<prostitute[''pav_daily_max'']>>个客人，' + iif(prostitute['pav_daily_count'] >= prostitute['pav_daily_max'], '而且你今天已经有<<prostitute[''pav_daily_count'']>>个顾客了。', '而且你今天只有<<prostitute[''pav_daily_count'']>>个顾客。')
+
+	if prostitute['cum_dressed'] = 1: '人们能看到你身上的精液。在寻找顾客之前，你应该先清理干净。'
+	if prostitute['std_mod'] = 1: '只要你表现出性病的迹象，顾客就不会靠近你。'
+
+	act '停止工作': gt $loc, $loc_arg
+
+	if prostitute['cum_dressed'] = 0 and prostitute['std_mod'] = 0:
+		if hour = 23 or hour < 7:
+			'<br>巴甫洛夫斯克是个小镇，这个时间街道上空无一人。'
+		elseif prostitute['pav_daily_count'] >= prostitute['pav_daily_max']:
+			'<br>继续寻找顾客可能不太值得。你可以明天再试试。'
+		elseif pcs_willpwr < will_cost:
+			act '寻找顾客' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '寻找顾客' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'self'
+
+				gs 'prostitution_pavlovsk', 'pav_rnd'
+				prostitute['pav_rnd'] += 100
+
+				if rand(1,  1000) < min(prostitute['pav_rnd'], 600):
+					minut += rand(5, 40)
+					prostitute['pav_search'] = 1
+					prostitute['pav_rnd_pity'] = 0
+					gt 'prostitution_pavlovsk', 'start'
+				else
+					*clr & cla
+					minut += 40
+					gs 'stat'
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/search.mp4"></video></center>'
+					'你在巴甫洛夫斯克逛了一个小时，但没有人对你感兴趣。'
+
+					act '继续': gt 'prostitution_pavlovsk', 'search'
+				end
+			end
+		end
+	end
+
+	if mc_inventory['makeup_wipes'] = 0:
+		'<br>你身上没有任何纸巾来清理身上的精液。'
+	elseif prostitute['cum_dressed'] = 1 or prostitute['cum_undressed'] = 1 or prostitute['cum_vaginal_mod'] = 1 or prostitute['cum_anal_mod'] = 1:
+		act '清理身上的精液 (0:02)':
+			minut += 2
+			mc_inventory['makeup_wipes'] -= 1
+			cumspclnt = 20
+			gs 'cum_cleanup'
+			gt 'prostitution_pavlovsk', 'search'
+		end
+	end
+
+	if mc_inventory['joints'] > 0 and pro_drugs['status'] > 0 and pro_drugs['timer_pavlovsk'] <> daystart:
+		act '休息一下，抽根大麻烟':
+			*clr & cla
+			menu_off = 1
+			minut += 15
+			pro_drugs['timer_pavlovsk'] = daystart
+			gs 'drugs', 'joint'
+			'<center><img <<$set_imgh>> src="images/shared/drugs/joint_smoking.jpg"></center>'
+			'你走进附近的一条后巷，从包里掏出一根大麻烟点上。没过多久，随着你逐渐上头，你开始感到放松的效果。'
+			act '回去': gt 'prostitution_pavlovsk', 'search'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	minut += 4
+	menu_off = 1
+	prostitute['pav_daily_count'] += 1
+	gs 'willpower', 'prostitution', 'self', iif(prostitute['pav_regular'] = 1, 'easy', 'medium')
+
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_' + iif(prostitute['pav_regular'] = 0, rand(0, 3), pro_rand) + '/start.mp4"></video></center>'
+	if $prostitute['client_behavior'] = 'nice' and prostitute['pav_regular'] < 1:
+		'"打扰一下，"一个走近的男人说。"很抱歉打扰你，但你碰巧是<<$pcs_nickname>>吗？我一个朋友给我看了你的照片，说你是……"他犹豫了一下，环顾四周，确保没有人在听。"我能买你的服务吗？"'
+	elseif $prostitute['client_behavior'] = 'nice' and prostitute['pav_regular'] = 1:
+		'"你好，<<$pcs_nickname>>，"你的一个老主顾说。"很高兴再次见到你。你最近怎么样？"'
+		'你微笑着。"很高兴再次见到你，我很好，谢谢关心。"'
+		'他环顾四周，确保周围没有人看到你们，然后问道。"我能再买你的服务吗？"'
+	elseif $prostitute['client_behavior'] = 'abusive' and prostitute['pav_regular'] < 1:
+		if pro_rand < 2: gs 'fame', 'pav', 'prostitute', iif(PCloStyle = 4, 2, 1)
+		'"嘿！"一个男人朝你挥手喊道。"你不就是那个少年婊子<<$pcs_nickname>>吗？"' + iif(pro_rand < 4, '他声音太大了，几个人转过身来，不满地盯着你看。', '令你欣慰的是，附近没有人能听到。') + '"你接客吗？我一直想操一个像你这样的年轻骚货。"'
+	elseif $prostitute['client_behavior'] = 'abusive' and prostitute['pav_regular'] = 1:
+		if pro_rand < 2: gs 'fame', 'pav', 'prostitute', iif(PCloStyle = 4, 2, 1)
+		'"这不是我最喜欢的 ' + iif(rand(0, 1) = 0, '婊子', '炮友') + ' 吗，"你的一个老主顾大声说，声音大到 ' + iif(pro_rand < 4, '好几个人转过身来看他在说谁。', '如果周围有人的话，别人都能听到。') + '"想找点乐子吗，<<$pcs_nickname>>？"'
+	end
+	*nl
+	'他想要 ' + iif($prostitute['pav_scene'] = 'blowjob', '你给他口交', '操你的 ' + iif($prostitute['pav_scene'] = 'anal', '屁股', '小穴')) + '，并愿意支付<<$func(''money'', ''string_profit'', prostitute[''payment''])>>。他想不戴套做，这需要费些口舌，还得降价 ' + $func('money', 'string_price', iif($prostitute['pav_scene'] = 'blowjob', 75, 200)) + ' 才能让他改变主意。'
+
+	gs 'willpower', 'prostitution', 'resist', 'medium'
+	if $prostitute['client_behavior'] = 'nice': will_cost = (will_cost * 60) / 100
+	if pcs_willpwr < will_cost:
+		act '拒绝并走开' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拒绝并走开' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'prostitution', 'resist', 'medium'
+			if $prostitute['client_behavior'] = 'nice': will_cost = (will_cost * 60) / 100
+			gs 'willpower', 'pay', 'resist'
+			gt $loc, $loc_arg
+		end
+	end
+
+	act '接受':
+		!! STDs are handled by the mod
+		cumnostd = 1
+		minut += 2
+		gs 'money', 'earn', prostitute['payment'], 'cash'
+		pro_stats['unprotected'] += 1
+		prostitute['pav_condom'] = 0
+		prostitute['pav_total'] += 1
+		prostitute['pav_cooldown'] += 2
+		if pro_mother['knows'] = 0 and fame['pav_prostitute'] > rand(100, 200) and prostitute['pav_total'] > 25 and (($prostitute['pav_location'] = 'public' and rand(0, 1000) < fame['pav_prostitute']) or ($prostitute['pav_location'] = 'private' and rand(0, 2000) < fame['pav_prostitute'])):
+			pro_mother['knows'] = 1
+		end
+		gt 'prostitution_pavlovsk', iif(prostitute['pay_regular'] > -1, 'set_<<pro_rand>>', 'rape')
+	end
+
+	if prostitute['pav_condom_refusal'] = 1:
+		prostitute['pav_condom_refusal'] = 0
+		'<br>他是那种总是拒绝戴安全套的人。让他戴套毫无意义。'
+	else
+		gs 'prostitution_functions', 'will_unprotected', 'resist', iif($prostitute['client_behavior'] = 'abusive', 'medium', 'easy')
+		if (mc_inventory['normal_condoms'] <= 0 and mc_inventory['equipped_condoms'] <= 0):
+			'<br>你的安全套用完了。'
+		elseif pcs_willpwr < will_cost:
+			act '接受，但要求戴安全套' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '接受，但要求戴安全套' + $func('willpower', 'get_willcost_string'):
+				!! STDs are handled by the mod
+				cumnostd = 1
+				minut += 5
+				prostitute['payment'] -= iif($prostitute['pav_scene'] = 'blowjob', 75, 200)
+				gs 'money', 'earn', prostitute['payment'], 'cash'
+				prostitute['pav_condom'] = 1
+				prostitute['pav_total'] += 1
+				prostitute['pav_cooldown'] += 2
+				if (pro_rand <> 3 and pro_rand <> 8) or (pro_rand = 3 and $prostitute['pav_scene'] <> 'private'): gs 'prostitution_functions', 'remove_condom'
+				gs 'prostitution_functions', 'will_unprotected', 'resist', iif($prostitute['client_behavior'] = 'abusive', 'hard', 'easy')
+				gs 'willpower', 'pay', 'self'
+				if pro_mother['knows'] = 0 and fame['pav_prostitute'] > 200 and prostitute['pav_total'] > 25 and (($prostitute['pav_location'] = 'public' and rand(0, 1000) < fame['pav_prostitute']) or ($prostitute['pav_location'] = 'private' and rand(0, 2000) < fame['pav_prostitute'])):
+					pro_mother['knows'] = 1
+				end
+				gt 'prostitution_pavlovsk', iif(prostitute['pay_regular'] > -1, 'set_<<pro_rand>>', 'rape')
+			end
+		end
+	end
+
+	if prostitute['pav_regular'] = 0 and prostitute['pav_search'] = 0:
+		gs 'willpower', 'prostitution', 'resist', 'medium'
+		will_cost = (will_cost * iif($prostitute['client_behavior'] = 'abusive', 120, 80)) / 100
+		if pcs_willpwr < will_cost:
+			act '愤怒回应' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '愤怒回应' + $func('willpower', 'get_willcost_string'):
+				cla & *nl
+				gs 'fame', 'pav', 'prostitute', iif(PCloStyle = 4 and $prostitute['client_behavior'] = 'abusive', -1, -2)
+				gs 'willpower', 'prostitution', 'resist', 'medium'
+				will_cost = (will_cost * iif($prostitute['client_behavior'] = 'abusive', 120, 80)) / 100
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'"什么？你刚才是不是' + iif($prostitute['client_behavior'] = 'abusive', '叫我', '暗示我是') + '婊子？"你愤怒地嘶声道，从他面前后退了一步。'
+				if $prostitute['client_behavior'] = 'abusive':
+					'"你不是？该死，宝贝……真的？抱歉。我朋友跟我提起你的时候，我就知道他是在骗我。"他指着你的衣服。' + iif(PCloStyle = 4, '"但你穿这身打扮可真会骗过我。"', '"但我本该知道，婊子不会穿成那样，"他补充道，然后走开了。')
+				else
+					'"呃……我……"他结结巴巴地说，转过身，一句话也没再说，就快步走开了。'
+				end
+
+				act '继续': gt $loc, $loc_arg
+			end
+		end
+	end
+end
+
+!! ------ set_0 ------
+
+
+if $ARGS[0] = 'set_0':
+	*clr & cla
+	minut += 15
+	if prostitute['pav_regular'] < 1: guy += 1
+	$prostitute['pav_walk'] = iif(rand(0, 1) = 0, 'pav_residential', 'pav_complex')
+	gs 'prostitution_pavlovsk', 'travel', $prostitute['pav_walk']
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/private/bj_' + rand(0, 3) + '.mp4"></video></center>'
+	if $prostitute['client_behavior'] = 'abusive':
+		gs 'pain', 8, 'head', 'slap'
+		gs 'fame', 'pav', 'prostitute', iif($prostitute['pav_scene'] = 'blowjob', rand(2, 4), rand(3, 6))
+		'你们一起走到 ' + iif($prostitute['pav_walk'] = 'pav_residential', '他在住宅区的公寓', '58庄园') + '。整个过程他都在用言语侮辱你，叫你婊子、骚货或性爱玩具之类的，还大声问你关于工作和生活的尴尬问题，并不时抓或拍你的屁股。'
+		'你一进门，他就把你按得跪在地上。"开始干活，婊子，"他命令道，掏出他硬邦邦的鸡巴。你像一个乖婊子一样把它含进嘴里。"对，就是这样。"他往你脸上吐了口唾沫，然后继续说。"用你那肮脏的嘴穴。"言语羞辱一直持续着，几分钟后他拔出来，突然狠狠扇了你一巴掌。"你喜欢这样，不是吗？"他又扇了你一巴掌，然后抓住你的头，把鸡巴尽可能深地捅进你的喉咙。"别说不行，"他说，鸡巴连根没入你的嘴里。"没有自尊的女孩不会这样作践自己。"'
+
+		gs 'arousal', 'bj', -9, 'prostitution', 'rough', 'deepthroat', 'sub'
+	else
+		gs 'fame', 'pav', 'prostitute', rand(1,  2)
+		'你们一起走到 ' + iif($prostitute['pav_walk'] = 'pav_residential', '他在住宅区的公寓', '58庄园') + '。他总是走在你前面几米远的地方，这样看起来你们俩不像是走在一起的。这是一个体贴的举动，尽量不让别人看出你们俩要做什么。'
+		*nl
+		'他不怎么爱说话，直接把你带进客厅。"这里？不去卧室？"他脱下夹克时你问道。'
+		'"这对你有什么问题吗？"你摇了摇头，学着他的样子，一件一件地脱下衣服。他专注地看着你脱衣服，和其他客户相比，他完全放心由你来掌握节奏。他也脱完衣服后，你牵着他的手，把他带到沙发前。你先轻轻亲吻他的龟头，然后用舌头绕着它打转，轻轻地吮吸。他从不抱怨，也不指示你该怎么做。于是你按部就班地走了一遍流程，从一个简单的口交开始，以一个令人印象深刻的深喉结束。'
+
+		gs 'arousal', 'bj', -9, 'prostitution'
+	end
+
+	gs 'stat'
+
+	if $prostitute['pav_scene'] <> 'pussy':
+		act '继续':
+			if prostitute['pav_condom'] = 0: gs 'prostitution_functions', 'std_check_oral'
+			gt 'prostitution_pavlovsk', 's0_facial'
+		end
+	else
+		act '进入正题':
+			*clr & cla
+			minut += 12
+			gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/private/vag_' + rand(0, 2) + '.mp4"></video></center>'
+			if $prostitute['client_behavior'] = 'abusive':
+				'"把你那骚屁股挪到沙发上，"他喊道，但他甚至不等你照做。他的双手用力推你，你刚落在沙发上，只过了两次心跳的时间就感到他的重量压在你身上。"我要操烂这个穴，"他说着，狠狠一顶，把鸡巴整个插进你体内。他开始用力操你，一边大笑着。"没剩多少可以让我毁了。"'
+				$orgasm_txt = '它从你的双腿之间开始，蔓延到腿部，再沿着脊柱向上，直到你的小穴紧紧收缩，你无法控制地呻吟，整个身体随着高潮而颤动。"对，高潮吧，你这个肮脏的骚货。我就知道你喜欢粗暴的。"'
+
+				gs 'arousal', 'vaginal', -9, 'prostitution'
+			else
+				'你靠坐在沙发上，大大张开双腿，露出诱人的小穴。"准备好再来一次了吗？"你挑逗地问，用手指拨开阴唇。他太小心了，花了太长时间才进入你，你便向他迎上臀部。"你不用这么小心，"你向他保证。"我不会碎掉的。"他点了点头，拔出来，又用力把鸡巴插回你体内。"对，就是这样，"你呻吟着，闭上眼睛，享受这场操弄。'
+				$orgasm_txt = '它从你的双腿之间开始，蔓延到腿部，再沿着脊柱向上，直到你的小穴紧紧收缩，你无法控制地呻吟，整个身体随着高潮而颤动。'
+
+				gs 'arousal', 'vaginal', -9, 'prostitution', 'rough', 'sub'
+			end
+
+			gs 'stat'
+
+			if rand(0, 1) = 0:
+				act '跪下':
+					if prostitute['pav_condom'] = 0: gs 'prostitution_functions', 'std_check'
+					gt 'prostitution_pavlovsk', 's0_facial'
+				end
+			elseif prostitute['pav_condom'] = 1:
+				act '让他射在安全套里':
+					if $prostitute['client_behavior'] = 'abusive' and rand(1,  100) > iif($pro_brand['text_pubic'] = 'cumslut', 84, 92): prostitute['pav_internal'] = 1
+					gt 'prostitution_pavlovsk', 's0_internal'
+				end
+			else
+				act '让他射在里面': gt 'prostitution_pavlovsk', 's0_internal'
+
+				gs 'willpower', 'cum_inside', 'self', iif($prostitute['client_behavior'] = 'abusive', 'hard', 'easy')
+				if pcs_willpwr < will_cost:
+					act '让他拔出来' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '让他拔出来' + $func('willpower', 'get_willcost_string'):
+						gs 'willpower', 'pay', 'self'
+						if (rand(0, 3) = 3 or (rand(0, 1) = 1 and $pro_brand['text_pubic'] = 'cumslut')) and $prostitute['client_behavior'] = 'abusive':
+							prostitute['pav_internal'] = 1
+							gt 'prostitution_pavlovsk', 's0_internal'
+						else
+							gs 'prostitution_functions', 'std_check'
+							gt 'prostitution_pavlovsk', 's0_facial'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 's0_facial':
+	*clr & cla
+	facial += 1
+	minut += 6
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/private/end_facial.mp4"></video></center>'
+	if $prostitute['client_behavior'] = 'abusive':
+		'终于结束了，你想，他逼你跪下来，把鸡巴对准你的脸' + iif(prostitute['pav_condom'] = 1, '，并摘下了安全套。', '。') + '"接住，骚货，"他喊道，疯狂地撸动鸡巴，直到把精液射满你的整张脸。"对，婊子，你脸上这样真好看，"他看着你，像一个审视最新杰作的艺术家。然后他突然抓住你，把你拖向门口。"现在给我滚出去，"他喊道，打开门把你推出了公寓。'
+		'"求你了，我的衣服，"你哀求道。他把衣服扔在肮脏的地板上，一句话也没说就关上了门。你迅速穿上衣服，然后……'
+
+		gs 'arousal', 'bj', -6, 'prostitution', 'rough', 'deepthroat', 'sub'
+	else
+		'"我能射在你脸上吗？"他害羞地问。你把嘴从他坚硬的肉棒上移开，顺从地抬头看他。"当然可以，甜心，"你回答。' + iif(prostitute['pav_condom'] = 1, '他取下安全套，然后', '他') + '一秒也不浪费，握住自己的鸡巴，狂撸几下，就把一大股精液射了你满脸。"谢谢<<$pcs_nickname>>，太棒了。浴室在走廊尽头。你离开前可以在那里清理一下。"'
+
+		gs 'arousal', 'bj', -6, 'prostitution'
+	end
+
+	gs 'cum_call', 'face', '一位客人'
+
+	gs 'arousal', 'end'
+
+	if $prostitute['client_behavior'] = 'abusive':
+		act '…带着满脸精液离开': gt 'prostitution_pavlovsk', 'end'
+	else
+		act '清理干净后离开。': gt 'prostitution_pavlovsk', 'end', 'clean'
+	end
+end
+
+
+if $ARGS[0] = 's0_internal':
+	*clr & cla
+	minut += 6
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/private/end_vag.mp4"></video></center>'
+	gs 'arousal', 'vaginal', -6, 'prostitution', iif($prostitute['client_behavior'] = 'abusive', 'rough', '')
+	gs 'arousal', 'end'
+	if prostitute['pav_condom'] = 1:
+		if prostitute['pav_internal'] = 0 and rand(1,  100) > 98:
+			prostitute['pav_internal'] = 1
+			'他绷紧身体，把鸡巴更深地插进你的小穴，你突然感到一股暖流涌进体内。当你意识到发生了什么时，你睁大了眼睛。"搞什么鬼？你把安全套摘了？"'
+			if $prostitute['client_behavior'] = 'abusive':
+				'他困惑了一秒钟，拔出来开始大笑。"安全套破了，你这走运的婊子，"他把它摘下来，把湿漉漉的破安全套扔到你的肚子上。"你应该感激能收下我的精液' + iif($pro_brand['text_pubic'] = 'cumslut', '，反正你不就是个精液婊子吗？"他咧嘴一笑，指着你的阴部纹身。', '。"')
+			else
+				'他困惑了一秒钟，然后脸上浮现出惊恐的表情。"不，当然没有，"他拔出来，摘下安全套。"它破了，"他举起空安全套。"看到了吗？我非常抱歉，<<$pcs_nickname>>。"'
+				'你叹了口气，用一个手势制止了他。"这不是你的错。这种事难免会发生。"'
+			end
+		elseif prostitute['pav_internal'] = 1:
+			gs 'pain', 8, 'head', 'slap'
+			'他绷紧身体，把鸡巴更深地插进你的小穴，你突然感到一股暖流涌进体内。当你意识到发生了什么时，你睁大了眼睛。"搞什么鬼？你把安全套摘了？"'
+			'"对，是我摘的，你这个愚蠢的贱货，"他狠狠扇了你一巴掌。他继续说时你痛呼了一声，"收到我的种子可不是这样道谢的，你这个不知感恩的婊子。"'
+			'"谢谢，"你用手揉着火辣辣的脸说' + iif($pro_brand['text_pubic'] = 'cumslut', '"谢谢你们给这个精液婊子她想要的东西，"你重复着阴部上写的话。', '。')
+		else
+			'他绷紧身体，把鸡巴更深地插进你的小穴，你能感到他的肉棒在你体内搏动，注满安全套。'
+		end
+	elseif prostitute['pav_internal'] = 1:
+		'他绷紧身体，把鸡巴更深地插进你的小穴，你突然感到一股暖流涌进体内。当你意识到发生了什么时，你睁大了眼睛。"搞什么鬼？我告诉过你要拔出来。"'
+		'他狠狠扇了你一巴掌。他说话时你痛呼了一声，"收到我的种子可不是这样道谢的，你这个不知感恩的婊子' + iif($pro_brand['text_pubic'] = 'cumslut', '，你以为我傻吗？我可是识字的。"他扇了一下你的"精液婊子"纹身，以强调他的意思。', '。"')
+		'"谢谢，"你用手揉着火辣辣的脸说。"'
+	elseif prostitute['pav_internal'] = 0 and prostitute['pav_condom'] = 0:
+		'他绷紧身体，把鸡巴更深地插进你的小穴，你突然感到一股暖流涌进体内。"是的，灌满我，宝贝，"你呻吟道，他把浓稠的精液射满你的子宫口。' + iif($pro_brand['text_pubic'] = 'cumslut', '"给这个精液婊子她想要的东西，"他轻轻拍了一下你的阴部纹身，以强调你说的话。', '')
+	end
+
+	if $prostitute['client_behavior'] = 'abusive':
+		'然后他突然抓住你，把你拖向门口。"现在给我滚出去，"他喊道，打开门把你推出了公寓。'
+		'"求你了，我的衣服，"你哀求道。他把衣服扔在肮脏的地板上，一句话也没说就关上了门。你迅速穿上衣服，然后……'
+	else
+		'"谢谢<<$pcs_nickname>>，太棒了。浴室在走廊尽头。你离开前可以在那里清理一下。"'
+	end
+
+	if prostitute['pav_condom'] = 0 or prostitute['pav_internal'] = 1:
+		gs 'prostitution_functions', 'std_check'
+		gs 'cum_call', '', '一位客人'
+	end
+
+	gs 'stat'
+
+	if $prostitute['client_behavior'] = 'abusive':
+		act '…离开': gt 'prostitution_pavlovsk', 'end'
+	else
+		act '清理干净后离开。': gt 'prostitution_pavlovsk', 'end', 'clean'
+	end
+end
+
+!! ------ set_1 ------
+
+
+if $ARGS[0] = 'set_1':
+	*clr & cla
+	minut += 15
+	if prostitute['pav_regular'] < 1: guy += 1
+	$prostitute['pav_walk'] = iif($prostitute['pav_location'] = 'public', 'pav_industrial', 'pav_residential')
+	gs 'prostitution_pavlovsk', 'travel', $prostitute['pav_walk']
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/bj_' + rand(0, 2) + '.mp4"></video></center>'
+	if $prostitute['pav_location'] = 'public':
+		gs 'fame', 'pav', 'prostitute', rand(2, 4)
+		'"来吧，骚货，我们走。"走了几分钟后，你渐渐明白你们正走向工业区的边缘，但在你们到达仓库之前，他右转进了一条僻静的小街。他突然转过身，指了指地面。"跪下，"他对你说，同时解开腰带。当你没有听从他的意愿时，他又开口了。"我付了钱，所以按我说的做，你这个废物，"他咆哮着，举起手准备打你。你赶紧跪在坚硬不舒服的沥青地上，顺从地张开嘴，以免给他打你的理由。"乖婊子，有人把你调教得很好。"他把鸡巴对准你的嘴，慢慢向前移动臀部，直到他的阴毛搔到你的鼻子。"我要狠狠地操你，让你恶心到吐，"他预言道，用双手抓住你的头，把你的嘴当小穴一样使用。'
+	else
+		gs 'fame', 'pav', 'prostitute', rand(1,  2)
+		'很明显，你们走向他家时他' + iif(prostitute['pav_regular'] = 1, '仍然有点', '有点') + '紧张，' + iif(prostitute['pav_regular'] = 1, '即使这不是他第一次买你的服务', '他住在住宅区') + '。他很健谈，跟你讲他的生活、他的工作，而且似乎很满意你只是偶尔应一声"嗯"和"好的"。"呃……"当公寓门在你们俩身后关上时，他低声说，然后看着你，指望你告诉他接下来该做什么。你抓住他的胳膊，把他带到走廊尽头的卧室，坐在床上，掏出他的鸡巴，把整根含进嘴里。他一句话也没说，你精湛的口交只在中途停下来脱衣服。'
+	end
+
+	gs 'arousal', 'bj', -9, 'prostitution', 'deepthroat', iif($prostitute['client_behavior'] = 'abusive', 'rough', ''), iif($prostitute['client_behavior'] = 'abusive', 'exhibitionism', '')
+	gs 'stat'
+
+	act '继续':
+		*clr & cla
+		minut += 12
+		gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/vag_' + iif($prostitute['pav_location'] = 'public', rand(0, 3), rand(0, 7)) + '.mp4"></video></center>'
+		if $prostitute['pav_location'] = 'public':
+			gs 'pain', 10, 'asscheeks', 'slap'
+			'当他终于大发慈悲，把鸡巴从你嘴里拔出足够的距离，让你能多喘几口（在过去的十分钟里你只能急促地喘息）时，你吸了一口气。他抓住你的髋部，把你转过身，把你的身体狠狠按在附近一辆旧车的引擎盖上。"你应该庆幸我付你钱。像你这样的炮肉可没资格被这么温柔地对待。"他冷冷地说，然后把鸡巴深深插进你的小穴。他粗暴地把肉棒捅进你的屄里，同时用尽全力扇你的屁股。"操，好疼，"你说，作为回应，他又扇了你的屁股。"你说什么？"'
+			'"谢谢你来操我，"你撒了个谎，咽下了一堆你本想说出口的辱骂。'
+			$orgasm_txt = '你不想，但你无法阻止那个迅速逼近的高潮。在街道中央被压在生锈的旧车上高潮是种羞辱，但当一波又一波的快感淹没你身体的每一个细胞时，你无法控制地像发情的母狗一样呻吟。'
+
+			gs 'arousal', 'vaginal', -9, 'prostitution', 'rough', 'exhibitionism', 'sub'
+		else
+			'"有没有人告诉过你你有多漂亮？"他说着，慢慢把鸡巴滑进你体内，同时用手抚摸你的身体。他用一根手指滑过你的嘴唇，顺着脖子向下，经过双乳之间，一直滑到你的' + iif($pro_brand['text_pubic'] = 'cumslut', '精液婊子纹身', '小穴') + '。"你不为自己的身份感到羞耻。"这不是疑问，而是陈述事实。"我喜欢这一点。没有像你这样的女孩，像我这样的男人就会彻底孤独。"你环顾卧室，看不到任何妻子、孩子或其他家人朋友的照片。"每个人都需要有人陪伴，"你抬头对他微笑着说，然后他开始移动臀部。他的动作起初很慢，但随着每一次抽插，他的自信都在增长，直到他把你当成你所是的那个婊子来操。'
+
+			gs 'arousal', 'vaginal', -9, 'prostitution'
+		end
+
+		gs 'stat'
+
+		if prostitute['pav_condom'] = 1:
+			act '让他射在安全套里':
+				if $prostitute['client_behavior'] = 'abusive' and rand(1,  100) > iif($pro_brand['text_pubic'] = 'cumslut', 84, 92): prostitute['pav_internal'] = 1
+				gt 'prostitution_pavlovsk', 's1_end'
+			end
+		else
+			act '什么也别说': gt 'prostitution_pavlovsk', 's1_end'
+
+			gs 'willpower', 'cum_inside', 'self', iif($prostitute['client_behavior'] = 'abusive', 'hard', 'easy')
+			if pcs_willpwr < will_cost:
+				act '让他拔出来' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '让他拔出来' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'self'
+					if (rand(0, 3) = 3 or (rand(0, 1) = 1 and $pro_brand['text_pubic'] = 'cumslut')) and $prostitute['client_behavior'] = 'abusive':
+						prostitute['pav_internal'] = 1
+						gt 'prostitution_pavlovsk', 's1_end'
+					else
+						prostitute['pav_internal'] = -1
+						gs 'prostitution_functions', 'std_check'
+						gt 'prostitution_pavlovsk', 's1_end'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 's1_end':
+	*clr & cla
+	minut += 6
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/end.mp4"></video></center>'
+	if $prostitute['client_behavior'] = 'abusive':
+		gs 'arousal', 'vaginal', -6, 'prostitution', 'rough', 'exhibitionism', 'sub'
+	else
+		gs 'arousal', 'vaginal', -6, 'prostitution'
+	end
+	gs 'arousal', 'end'
+
+	if $prostitute['pav_location'] = 'public':
+		'他每一下都用身体狠狠把你撞在车上，你知道他快到了——他的动作越来越狂乱，喘息也越来越大声。"该死……接住我的精液，婊子。"'
+		if prostitute['pav_condom'] = 1:
+			if prostitute['pav_internal'] = 0 and rand(1,  100) > 98:
+				prostitute['pav_internal'] = 1
+				'"是的，灌满我，"你鼓励他，因为你知道他戴着安全套，但有什么不对劲。他还戴着安全套吗？'
+				'他拔出鸡巴时笑了起来。"你该小心自己许的愿，"他把一个破掉的安全套扔在你头边的车上。"你那破安全套破了。' + iif($pro_brand['text_pubic'] = 'cumslut', '但也许你早就知道了……不是吗，精液垃圾桶？"他问道，把手伸进你和车之间。"你想怀孕，对吧？我打赌是你做了手脚，"他嘲弄道，一边慢慢抚摸你的"精液婊子"纹身，直到他', '。"他说完就') + '拉上了牛仔裤。'
+			elseif prostitute['pav_internal'] = 1:
+				'"是的，灌满我，"你鼓励他，心里知道他戴着安全套。但他反而拔了出来，你等了几秒钟，期待他的种子落在你的屁股上，这时他毫无预警地又插了回来，你能感到他的鸡巴在你小穴里搏动。"我就知道，像你这样的肮脏精液垃圾桶就是想要射进去。那你一开始为什么坚持戴套？"他射进你抗拒的小穴后，嘲弄道。'
+				'"什么？你为什么射在我里面？你真以为我是认真的？"你愤怒地喊道，但他粗暴地抓住你的肩膀，把你转过来。' + iif($pro_brand['text_pubic'] = 'cumslut', '"真的？你身上都纹着"精液婊子"了，还好意思抱怨？"', '"闭嘴，我付了钱，你自己说可以的。所以别抱怨了。"') + '他说道，然后退后一步，拉上牛仔裤。'
+			else
+				'"是的，灌满我，"你鼓励他，因为你知道他戴着安全套。'
+				'"所以你想让我把安全套摘掉？"他嘲弄你，有一瞬间你担心他真的会这么做，但只过了两次心跳的时间，你就感到安全套随着他的种子灌入而膨胀。"你该早点说的，我本来会多付钱无套操你，"他拉上牛仔裤时说。' + iif($pro_brand['text_pubic'] = 'cumslut', '"如果你不想当精液婊子，为什么要在身上纹"精液婊子"？"他问道，与其说是出于好奇，不如说是想惹恼你。"接受你本来的样子吧。"', '')
+			end
+		elseif prostitute['pav_internal'] = 1:
+			'"求你了，别射在我里面，"你恳求道，他用手把你的脸按在冰冷的车身上。他没有丝毫要拔出来的迹象，几秒钟后你感到他的鸡巴在你小穴里抽搐。"对，接住它，"他咆哮着，最后用力把鸡巴顶进你体内。'
+			'"你为什么这么做？"他后退一小步时，你虚弱地问。'
+			iif($pro_brand['text_pubic'] = 'cumslut', '他指着你的纹身。"这就是原因，我们都知道你想被当成精液垃圾桶对待。"', '"我付了钱，所以我想怎样就怎样。"') + '他拉上裤子时解释道。'
+		elseif prostitute['pav_internal'] = -1:
+			'"求你了，别射在我里面，"你恳求道，他用手把你的脸按在冰冷的车身上。出乎你的意料，他居然听了你的话。他松开手，后退一步，把精液射得你光裸的屁股上到处都是。"真浪费，"他说着，握住鸡巴把精液在你屁股上抹开。'
+		elseif prostitute['pav_internal'] = 0 and prostitute['pav_condom'] = 0:
+			'"是的，灌满我，"你鼓励他。这让他达到了临界点，他搏动的鸡巴用温热的种子灌满了你的小穴。'
+			iif($pro_brand['text_pubic'] = 'cumslut', '"你纹身的选择很明智。也许你应该再加几个。没用的贱货或者蠢婊子也很合适。"', '')
+		end
+		'"回头见，骚货，"是他走开前对你说的最后一句话。'
+
+		if prostitute['pav_condom'] = 0 or prostitute['pav_internal'] = 1:
+			gs 'prostitution_functions', 'std_check'
+			gs 'cum_call', iif(prostitute['pav_internal'] = -1, 'butt', 'vaginal'), '一位客人'
+		end
+	else
+		'"我能射在你身上吗？"他害羞地问，他的' + iif(prostitute['pav_condom'] = 1, '戴着安全套的', '') + '鸡巴在你小穴里快速进出。大多数男人不会问，有些人甚至会违背你的意愿射在你里面。像他这样的男人不多，这很美好，也有点可悲。"当然可以，甜心。"'
+		'"谢谢……"他试着说，但他的精液落在你的' + iif($pro_brand['text_pubic'] = 'cumslut', '精液婊子纹身上。', '阴唇上。') + '时，他说不出一句完整的话。"太棒了，"他的身体筋疲力尽地落到你身边床上，他低声说。"真的棒极了。"'
+		if prostitute['pav_condom'] = 1 and rand(1,  100) > 98:
+			'"是啊，确实很棒，"你表示同意，但当你坐起来时，有什么东西吸引了你的目光。安全套看起来不对劲。你把它拿起来，发现它破了。幸好他射在了外面，你想，并希望他是干净的，没有传染给你性病。'
+		elseif prostitute['pav_condom'] = 0:
+			gs 'prostitution_functions', 'std_check'
+		end
+		'他提议你在走之前用一下浴室，你欣然接受了。'
+
+		gs 'cum_call', iif(prostitute['pav_internal'] = -1, 'labia', 'vaginal'), '一位客人'
+	end
+
+	gs 'stat'
+
+	if $prostitute['client_behavior'] = 'abusive':
+		act '继续': gt 'prostitution_pavlovsk', 'end'
+	else
+		act '清理干净后离开。': gt 'prostitution_pavlovsk', 'end', 'clean'
+	end
+end
+
+!! ------ set_2 ------
+
+
+if $ARGS[0] = 'set_2':
+	*clr & cla
+	minut += 15
+	if prostitute['pav_regular'] < 1: guy += 1
+	$prostitute['pav_walk'] = iif($prostitute['pav_location'] = 'public', 'pav_commercial', 'pav_complex')
+	gs 'prostitution_pavlovsk', 'travel', $prostitute['pav_walk']
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/bj_' + iif($prostitute['pav_location'] = 'public', rand(0, 1), rand(0, 3)) + '.mp4"></video></center>'
+	gs 'fame', 'pav', 'prostitute', iif($prostitute['client_behavior'] = 'nice', rand(1,  2), rand(2, 4))
+	if $prostitute['pav_location'] = 'public':
+		if $prostitute['client_behavior'] = 'nice':
+			'"我时间不多，"你走在巴甫洛夫斯克的商业区，走在他身边时他解释道。"几分钟后我得回去上班，"他补充道，同时推开一栋小办公楼的后门。'
+			'"你想在这里做？"你怀疑地问。"我们不会被发现吗？"'
+			'他摇了摇头，穿过另一扇门走进一条空荡荡的走廊。"除了诊所的那位女士，没人会来这里，而她明天才会来，"他解开腰带、脱下裤子时解释道。"把衬衫脱了。我想看看你的奶子。"'
+			'你又环顾了一下四周，然后向命运低头，脱掉上衣跪了下来。"我不需要什么花哨的东西，只要在我的休息时间结束前让我快点射出来。"'
+			'"收到。高效口交马上开始，"你眨了眨眼说。'
+
+			gs 'arousal', 'bj', -9, 'prostitution', 'exhibitionism'
+		else
+			'"快点走，骚货。我时间不多，"你跟着他走向商业区时，他生气地说。"我他妈的老板几分钟后就要我回办公室。她就是个大傻逼。如果公司完蛋了，那都是她的错……"他不停地抱怨。几分钟后你就不再听了，默默地走在他身边，任由他没完没了地讲他的工作、他的老板、他的同事，以及所有让他烦心的事。他突然抓住你的胳膊，把你拉过后门，进了一栋小办公楼。'
+			'"这里？"你不确定地问，但周围似乎没有人。'
+			'"当然在这里。我总不能把你带到我办公室去吧，"他不耐烦地回答，把你按得跪下来。"现在按我说的做，开始干活。"你跪在坚硬的混凝土地板上，拉下他的裤子。"把上衣脱了，我想看看你的奶子，"他命令道，你如他所愿地服从了。你撸了几下他的鸡巴让它硬起来，然后顺从地看着他的眼睛，舔遍整根。"为什么 ' + iif(rand(0, 1), '我的老板', '会计部那个愚蠢的玛莎') + ' 就不能像你一样知道自己的位置？"你以为他不会真的指望你回答。于是你继续专注地伺候他的鸡巴，用你经验丰富的舌头挑逗龟头，这时他又开口了。"我在问你问题……"'
+			'你抬起头，他脸上严肃的表情告诉你——是的，他是认真的，想要一个答案。你让他的鸡巴"啵"的一声滑出你的嘴。"她们大概从没体验过被人命令是什么感觉吧？"你说，不确定这是否是他想听的话。'
+			'"回答得好，骚货。"他扭动臀部，让鸡巴在你面前晃动。"继续干活。"'
+
+			gs 'arousal', 'bj', -9, 'prostitution', 'exhibitionism', 'sub'
+		end
+
+		act '继续':
+			gs 'npcgeneratec', 0, '一位客人', rand(30, 55)
+			gs 'boyStat', $npclastgenerated
+			*clr & cla
+			minut += 3
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/end.mp4"></video></center>'
+			if $prostitute['client_behavior'] = 'nice':
+				'你专心致志地伺候他的鸡巴，使出浑身解数。不是为了炫耀技巧，而是为了让他尽快射出来。你的努力奏效了。仅仅几分钟后，你就能看出他快到临界点的迹象。你收回脑袋，用手握住鸡巴，用力撸了几下。"准备好射了吗？"'
+				'"哦，天哪，是的，"他像女孩一样呻吟着说。你合上嘴唇包住敏感的龟头，他射了。滚烫的种子灌满' + iif(prostitute['pav_condom'] = 1, '安全套', '你的嘴') + '，充满咸味。'
+			else
+				'你的头在他的肉棒上上下起伏，同时用手轻轻按摩他的睾丸。你的另一只手抓住他鸡巴的根部，把嘴移开。"给我，把你的精液给我，"你淫荡地说。这让他达到了临界点。在他把精液射进' + iif(prostitute['pav_condom'] = 1, '安全套', '你的嘴') + '前一秒，你把龟头重新吸进嘴里。'
+			end
+			'他满意地拉起裤子。"操，我得走了，"他说，看了一眼手机上的时间，然后匆匆走开了。'
+
+			if prostitute['pav_condom'] = 0:
+				gs 'cum_call', 'mouth_swallow', $boy
+				gs 'prostitution_functions', 'std_check_oral'
+			end
+			gs 'arousal', 'bj', -6, 'prostitution', 'exhibitionism'
+			gs 'arousal', 'end'
+
+			act '离开': gt 'prostitution_pavlovsk', 'end'
+		end
+	else
+		'当你穿过你父母所住的 58庄园的院子时，你希望没有认识你的人看到你。'
+		if $prostitute['client_behavior'] = 'nice':
+			minut += 10
+			'"就在那里，"你的客户指着院子另一边的一栋公寓楼说。至少他不和你父母住在同一栋楼里。'
+			'"你想喝点什么吗？"他打开公寓门锁时问你。'
+			'"你问得真贴心，"你回答。' + iif(pcs_hydra < 60, '"来点水就好。"', '"不用了，我很好，谢谢。"') + '他领着你穿过一条小走廊走进厨房，从几乎空了的冰箱里拿出一瓶啤酒。' + iif(pcs_hydra < 60, '然后递给你一杯水。', '。') + '家具和厨房电器看起来很旧，甚至比你父母家的还旧，很明显他一个人住，而且很可能失业了。你们俩花了几分钟闲聊，比如聊天气，你觉得这对他来说比接下来在卧室里发生的事更重要。有些像他这样的男人雇佣你，只是为了获得某种形式的人际接触。'
+			if pcs_hydra < 60: pcs_hydra = 100
+			*nl
+			'但你不是为了聊天才收钱的，又过了几分钟，你们走进卧室。"你能慢一点吗？"是他在接下来的时间里对你提出的唯一要求，一场充满诱惑的脱衣舞之后，他躺到床上，尽情享受你精湛的口交。'
+			gs 'arousal', 'striptease', 5
+		else
+			gs 'pain', 8, 'slap', 'head'
+			'"怎么了？你为什么这么紧张？"他不耐烦地问你。'
+			'"我没有，一切都很好，"你回答，但他转过身狠狠扇了你一巴掌，你立刻后悔了。疼痛在你的脸颊上炸开。你踉跄了一下，差点摔倒在地。'
+			'"别对我撒谎，婊子。接下来的一个小时我包了你，记住了，"他咆哮道。'
+			'包了你？真是荒谬。他只是短时间租用了你的服务，并不欠你什么。你不是他的奴隶。但你咬住舌头，咽下了真相。诚实的回应很可能会再换来一记耳光。就连退钱走人也不是选项。他闹起来会引来周围所有人的注意。"对不起，我不想拿我的烦恼来烦你。它们不值得你费心，"你温顺地回答。他一时说不出话来。你是不是又说错话了？'
+			'"你说得对。你确实不值得我关心。我为什么要去在乎一个烂透了的婊子。"'
+			*nl
+			'几分钟后，你已经脱光了衣服，跪在他的床上，他的鸡巴捅进你的喉咙。"吸深一点，婊子，"他命令道，你尽力满足他的愿望。"对，就是这样，好女孩，"当你成功把它整个吞下去时，他称赞道。"我们终于找到了一件值得人注意的东西。不是吗？"'
+			'你抬起头，在他的肉棒上留下一道湿漉漉的唾液痕迹。"是的，我们找到了，"你露出你能挤出的最完美的假笑说。'
+		end
+
+		gs 'arousal', 'bj', -9, 'prostitution', iif($prostitute['client_behavior'] = 'nice', '', 'deepthroat'), iif($prostitute['client_behavior'] = 'nice', '', 'sub')
+
+		act '继续':
+			*clr & cla
+			minut += 12
+			gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/vag_' + iif($prostitute['client_behavior'] = 'nice', rand(0, 2), rand(3, 5)) + '.mp4"></video></center>'
+			if $prostitute['client_behavior'] = 'nice':
+				$orgasm_or = 'no'
+				'你骑到他身上，引导他的' + iif(prostitute['pav_condom'] = 1, '戴着安全套的', '') + '鸡巴进入你诱人的小穴。他的手向上移动，温柔地抚摸你的乳房。"完美，"他轻声说，双手慢慢滑过你的身侧。'
+				'你向他送上真诚的微笑，加快节奏，真的在他的鸡巴上上下起伏。当他们表现得像个正常人的时候，你全力以赴就容易多了。又狠狠操了几分钟后，你的肌肉累了，你休息了一会儿，只转动臀部来伺候他的鸡巴。"我们换个姿势怎么样？我趴着？"他点了点头，你四肢着地，把屁股对着他。'
+				*nl
+				'他不紧不慢地用双手探索你的臀部。"更加完美了，"他说，你出乎意料地感到右臀上有一阵湿润。他在你屁股上响亮地亲了一口。'
+				'"你刚才是不是亲了我的屁股？"你问道，转过身来，看到他像偷吃饼干被抓个正着的小男孩一样咧嘴笑着。"我忍不住。它太可爱了。"'
+				'你笑着扭了扭屁股。"很少有人会说我的屁股可爱。"'
+				'"那我再说一遍。它……真……可爱，"他强调了每一个字，并在每个字之间的停顿里又亲了你的屁股。'
+			else
+				gs 'pain', 10, 'asscheeks', 'slap'
+				gs 'pain', 10, 'asscheeks', 'slap'
+				gs 'pain', 10, 'asscheeks', 'slap'
+				'他很快就不再满足于口交，要求你四肢着地。"对，把你那肥屁股亮给我看，"你撅起屁股时他斥责道。他用两只粗糙的手抓住你娇嫩的肉，把你的屁股拉回来，把肉棒埋进你体内。他的双手猛烈地揉捏你的肉。"我想我们又找到了一件值得注意的东西，"他说着抽回一只手，狠狠扇了你的屁股。你痛呼一声，但这只让他更开心。"我们都知道你活该，婊子……现在开始数数。"'
+				'"什么？"你喊道，不确定自己有没有听错。'
+				'"数数。我想知道我射之前你挨了多少下，"他喊道，又扇了你的屁股。'
+				'"三，"你尖叫道，他的手再次落在你的肉上时，你疼得缩了一下。'
+				'"四……"你继续数着，他开始无情的攻击。但四下还不够。他一次又一次、一次又一次地用力扇你的屁股，直到你的肉变得通红。'
+
+				if rand(0, 1) = 1:
+					*nl
+					if pcs_horny < 100: pcs_horny = 100
+					$orgasm_or = 'custom'
+					$orgasm_txt = '"三十四……"他又打了你一下，你尖叫道，但这一次结果不是疼痛，而是快感的爆发——他狠狠的一巴掌触发了一次强烈的高潮。你的眼睛翻白，一瞬间，只有他硬挺的鸡巴在你小穴里和那愉悦的疼痛存在。你手臂的力量消失了，上半身倒在床上，只有他有力的双手让你的屁股保持和他的鸡巴对齐。"他妈的疼痛骚货。从我见到你的那一刻起我就知道了，"他嘲弄道，听起来对自己极为满意。'
+				else
+					$orgasm_or = 'no'
+					pcs_horny = 0
+				end
+			end
+
+			gs 'arousal', 'vaginal', -9, 'prostitution', iif($prostitute['client_behavior'] = 'abusive', 'rough', ''), iif($prostitute['client_behavior'] = 'abusive', 'sub', '')
+			gs 'stat'
+
+			if prostitute['pav_condom'] = 1:
+				act '让他射在安全套里': gt 'prostitution_pavlovsk', 's2_end'
+			else
+				act '什么也别说': gt 'prostitution_pavlovsk', 's2_end'
+
+				gs 'willpower', 'cum_inside', 'self', iif($prostitute['client_behavior'] = 'abusive', 'hard', 'easy')
+				if pcs_willpwr < will_cost:
+					act '让他拔出来' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '让他拔出来' + $func('willpower', 'get_willcost_string'):
+						gs 'willpower', 'pay', 'self'
+						gt 'prostitution_pavlovsk', 's2_end'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 's2_end':
+	*clr & cla
+	minut += 6
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/end.mp4"></video></center>'
+	gs 'arousal', 'vaginal', -6, 'prostitution', iif($prostitute['client_behavior'] = 'abusive', 'rough', ''), iif($prostitute['client_behavior'] = 'abusive', 'sub', '')
+	gs 'arousal', 'end'
+
+	if $prostitute['client_behavior'] = 'nice':
+		'"我能射在你可爱的屁股上吗？"他问道，他的动作一秒比一秒更狂乱。'
+		'"当然可以，"你立刻回答，一秒都不差。他拔出鸡巴' + iif(prostitute['pav_condom'] = 1, '，摘下安全套，', '') + '把精液射在你的臀部。"谢谢，我真的很需要这个。'
+		'你回头看了看他在你屁股上留下的狼藉，可爱地眨眨眼说。"不客气。"'
+		'"浴室在走廊的另一头，如果你想在走之前梳洗一下的话，"他说完便下床去拿自己的衣服。'
+	else
+		gs 'pain', 10, 'asscheeks', 'slap'
+		gs 'pain', 10, 'asscheeks', 'slap'
+		gs 'pain', 10, 'asscheeks', 'slap'
+		'"' + iif(rand(0, 1) = 1, '五十二', '四十四') + '，"你哭喊道。疼痛他妈的让人无法忍受。'
+		'"受够了吗？"他问道，你无法对他撒谎。你需要它停下来。"是的，"你抽泣着。"求你了，别再打了。"'
+		'"大概是你今天说的第一句实话，"他笑着说。"我敢打赌很疼。让我抹点药膏。"他拔出来' + iif(prostitute['pav_condom'] = 1, '，撕下安全套，', '') + '把精液喷得你满屁股都是。"这样感觉好点了吗？"他一边用鸡巴把精液涂满你火辣辣的臀肉，一边问你。'
+		'"不，"你抽泣着从他身边爬开。当你重新穿上衣服时，他没有阻止你，然后……'
+	end
+
+	gs 'cum_call', 'butt', '一位客人'
+	gs 'stat'
+
+	if $prostitute['client_behavior'] = 'abusive':
+		act '…逃出公寓': gt 'prostitution_pavlovsk', 'end'
+	else
+		act '清理干净后离开。': gt 'prostitution_pavlovsk', 'end', 'clean'
+	end
+end
+
+!! ------ set_3 ------
+
+
+if $ARGS[0] = 'set_3':
+	*clr & cla
+	minut += 15
+	pro_temp = rand(0, 2)
+	if prostitute['pav_regular'] < 1: guy += 1
+	$prostitute['pav_walk'] = 'pav_residential'
+	gs 'prostitution_pavlovsk', 'travel', $prostitute['pav_walk']
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/bj_<<pro_temp>>.mp4"></video></center>'
+	gs 'fame', 'pav', 'prostitute', iif($prostitute['client_behavior'] = 'nice', rand(2, 4), rand(3, 6))
+	if $prostitute['pav_location'] = 'public':
+		if pro_temp = 0: gs 'fame', 'pav', 'prostitute', iif(PCloStyle = 4, 2, 1)
+		if $prostitute['client_behavior'] = 'nice':
+			'"我的车就在那边，"他指着住宅区边缘空停车场里的一辆车说。他打开' + iif(pro_temp = 0, '驾驶座', '副驾驶') + '侧的车门，但阻止你' + iif(pro_temp = 0, '绕到车另一边去副驾驶座。', '上车。') + '"不，我们不需要开到哪里去。我们可以就在这里做。"'
+			'"这里？在公共场合？"你怀疑地问' + iif(pro_temp = 0, '，但还是回到他身边。', '。')
+			'"当然，为什么不呢？"他指了指车门。"车门开着，没人会看到里面发生了什么。"'
+			'你环顾四周，摇了摇头。"但我们后面有条路。我们会完全暴露。"'
+			'"不，不。"他脱下裤子。"那条路没人走，"他试图让你放心。"如果你愿意，我们可以争论一整天。"他突然一把扯下裤子。"或者你可以放下你的架子，跪下来把事情解决。你越快让我射出来，就越快离开这里。"'
+			*nl
+			'你向命运低头，在他面前蹲下。他付了钱，你接受了。如果他想在公共场合被口交，你对此无能为力。从他硬的程度来看，这让他兴奋极了，而且这很可能一直是他的计划。'
+
+			if pro_temp = 0:
+				*nl
+				'"你得停下来，"他听起来很焦虑，但他的警告来得太晚了——一辆车在你身后按了好几次喇叭。"操，他们看到我们了，"他解释了这个显而易见的事实。你应该停下来吗？你犹豫了一瞬间，但决定不停。你无法改变已经发生的事，现在停下来对谁都没好处。'
+			end
+		else
+			'"我的车就在那边，"他指着住宅区边缘空停车场里的一辆车说。但当你们走到那里时，他没有打开车门，而是脱下裤子，把他硬挺的鸡巴暴露在世人面前。'
+			'"呃……这里？"你震惊地问，环顾四周。这里有房子和两条街。"我不能在这里做。每个人都能看到我们。"'
+			'他翻了个白眼，打开驾驶座的车门给你挡一挡。"满意了吧？现在没人能看到我们了。"'
+			'你叹了口气，回头看向另一条路。那条街上没人开车，大多数人走房子旁边的那条。"好吧，"你告诉他，在他面前蹲下。'
+			*nl
+			'"你湿了吗？"你舔遍他整根鸡巴时，他脸上带着得意的笑问。"有人可能看到你是个骚货，这让你兴奋吗？"'
+			'"不，当然不会，"你说' + iif(pcs_horny < 40, '，你干燥的小穴也同意你的说法。', '，但你湿漉漉的阴道可不这么认为。') + '把他的鸡巴吸进嘴里，暂时让他闭上了嘴。在你高超的舌头施展魔力时，他不得不抓住副驾驶座的车门来稳住自己。'
+
+			if pro_temp = 0:
+				*nl
+				'一辆车在你身后按了好几次喇叭，你的客户突然笑了。你的目光上移，看到他正朝某人竖起大拇指。他的鸡巴从你嘴里滑出来。"搞什么鬼？你为什么不提醒我？"'
+				'他咧嘴一笑。"哦，别这样，他们只看到了你的背影。如果有人有理由抱怨，那也是我。他们看到了我的脸。"你琢磨着他的话，耸了耸肩作为回应。他说得对。他们只看到了你的背影，你同意这一点，然后把他的鸡巴重新吸进你湿热的小嘴里。'
+			end
+		end
+
+		killvar 'pro_temp'
+
+		gs 'arousal', 'bj', -9, 'prostitution', 'exhibitionism'
+		gs 'stat'
+
+		act '继续':
+			gs 'npcgeneratec', 0, '一位客人', rand(30, 55)
+			gs 'boyStat', $npclastgenerated
+			*clr & cla
+			minut += 3
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/end.mp4"></video></center>'
+			'他猛地吸了一口气，闭上眼睛，你性感地吮吸着他的龟头，并快速撸动他阴茎的根部。' + iif($prostitute['client_behavior'] = 'nice', '就好像你真的在把他的精液直接吸出体外。', '"就是这样，把我吸干，"他说。') + '他的阴茎抽动着，喷射出大量精液' + iif(prostitute['pav_condom'] = 1, '射进了安全套里。', '射进你心甘情愿的嘴里。你不想冒险带着衣服上的精液到处跑，于是你一口把它全咽了下去。')
+			iif($prostitute['client_behavior'] = 'nice', '"谢谢你做这件事，"', '"干得好，婊子。我们改天再来一次，"') + '他拉起裤子时说。他上了车，把你留在空荡荡的停车场。'
+
+			if prostitute['pav_condom'] = 0:
+				gs 'cum_call', 'mouth_swallow', $boy
+				gs 'prostitution_functions', 'std_check_oral'
+			end
+			gs 'arousal', 'bj', -6, 'prostitution', 'exhibitionism'
+			gs 'arousal', 'end'
+
+			act '离开': gt 'prostitution_pavlovsk', 'end'
+		end
+	else
+!! ToDo: Alternative scene with vag video 3-5
+		$orgasm_or = 'no'
+		'你刚走进他在住宅区的家门，他一只强壮的手臂就抓住了你。他粗暴地把你拉进卧室时，你差点绊倒。"脱光衣服跪下，"他用严厉而命令式的语气对你说。'
+		if prostitute['pav_condom'] = 1:
+			gs 'money', 'earn', 100 * rand(4, 6), 'cash'
+			'你服从了，但当你拿出安全套时，他摇了摇头。"不戴套，我需要感受你无套的感觉。"'
+			'"不，不行……我们说好了要戴套的，"你坚持道，想要站起来，但他把你按了回去。"待在那里，"他命令你，同时拿起裤子，掏出几张钞票。"这些够了吗？"他愤怒地喊道，把钞票扔到你脸上，然后抓住你的头，把鸡巴硬塞进你的双唇之间。"我已经付了钱，所以干你的活，婊子。"'
+			'他不应该只是把钱扔到你脸上，就指望这样就能解决问题，但除了照他说的做……干你的活，你又能怎么办呢。'
+		else
+			'你在脸上挂起一个微笑，跪在他面前，像一只顺从的母狗一样抬头看他。"对，这副样子很适合你，现在把我的鸡巴吞下去。"'
+		end
+		'你张大嘴巴，以免牙齿刮到他的阴茎，把舌头垫到他的鸡巴下面，让他的肉棒一寸一寸地消失在你的喉咙里。接下来的几分钟里，你不断变换技巧来取悦他。有时你把精力集中在睾丸上，轻轻吮吸其中一颗，同时用手撸动他的鸡巴，或者舔遍他的整根。'
+
+		gs 'arousal', 'bj', -9, 'prostitution', 'rough', 'deepthroat'
+		gs 'stat'
+
+		act '跟着他的引导':
+			*clr & cla
+			minut += 20
+			$orgasm_or = 'custom'
+			if prostitute['pav_condom'] = 1: prostitute['pav_condom'] = 0
+			gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/vag_' + rand(0, 1) + '.mp4"></video></center>'
+			'他突然把鸡巴从你的穴里抽出来，抓住你的胳膊，把你推倒在床上。你发出一声惊讶的尖叫，但他毫不在意，反而粗暴地掰开你的双腿，把肉棒硬插进你体内。"我要操出一个孩子给你，"他说。'
+			'你想说点什么，回应他的话，但他从不给你机会。就像他的鸡巴穿透你的整个身体，把你脑中的每一个念头都操了出去。他的动作是对你理智的无休止攻击，他粗暴而熟练的抽插在你的小穴里激起一阵阵小小的快感爆炸。你只能抱住自己的腿，享受这场骑乘，像一只准备好被配种的发情母狗一样呻吟。'
+			$orgasm_txt = '当你终于高潮时，你的眼睛向上翻白，眼皮颤抖着合上。但他似乎还远没有要射的迹象。他的耐力惊人，对你 G 点的持续刺激在你第一次高潮结束仅几秒钟后，就再次把你推向下一次高潮。'
+			gs 'arousal', 'vaginal', -20, 'prostitution'
+			gs 'stat'
+
+			act '让他为所欲为':
+				*clr & cla
+				minut += 10
+				$orgasm_or = 'custom'
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/end.mp4"></video></center>'
+				$orgasm_txt = '世界不复存在。当他终于把精液射进你年轻的子宫时，一切都化为一片无法辨认的红色情欲迷雾。'
+				gs 'arousal', 'vaginal', -6, 'prostitution', iif($prostitute['client_behavior'] = 'abusive', 'rough', '')
+				gs 'arousal', 'end'
+				'"保持这个姿势，"他拔出来时对你说，你的高潮终于结束，就像一道闸门被打开，意识重新流回你的大脑。'
+				'"什么？"你问道，仍然被你惊人的高潮弄得晕头转向，而他的目光正盯着从你穴里流出的精液。'
+				'"某人又有反应了，"他带着满足的坏笑说。"等你缓过来，就可以穿上衣服离开了。你在这里的工作已经完成，"他凑近一些，用一根手指把一些精液推回你体内。"我的也是。"'
+
+				gs 'cum_call', '', '一位客人'
+				gs 'prostitution_functions', 'std_check'
+				gs 'stat'
+
+				act '穿好衣服离开': gt 'prostitution_pavlovsk', 'end'
+			end
+		end
+	end
+end
+
+!! ------ set_4 ------
+
+
+if $ARGS[0] = 'set_4':
+	*clr & cla
+	minut += 6
+	if prostitute['pav_regular'] < 1: guy += 1
+	gs 'fame', 'pav', 'prostitute', iif($prostitute['client_behavior'] = 'nice', rand(1,  2), rand(3, 6))
+	if $loc = 'pav_commcenter' or $loc = 'pav_park':
+		minut += 3
+		$loc = 'pav_residential'
+		$loc_arg = ''
+	end
+	if $prostitute['pav_scene'] = 'blowjob':
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/public/bj_' + rand(0, 2) + '.mp4"></video></center>'
+		'他拐进一条小巷，但没有走向任何一栋房子。反而拉着你穿过铁丝网上的一个大缺口，来到一个巨大的垃圾箱后面。' + iif($prostitute['client_behavior'] = 'nice', '"这里没人会看到我们。"', '"跪下。"')
+		'"真的？这里？垃圾箱后面？"你皱着鼻子问。"我们不能去别的地方吗？你就没有房子或公寓可以让我们去吗？"'
+		iif($prostitute['client_behavior'] = 'nice', '他摇了摇头。"我妻子和孩子在家，我们不能去那里，"他解释道', '"你抱怨什么，婊子？像你这样的垃圾就属于这里，"他侮辱你') + '，一边脱下裤子。你叹了口气，在他面前蹲下。这不是理想的环境，但至少这里没人能看到你。于是你开始……'
+
+		gs 'arousal', 'bj', -9, 'prostitution'
+
+		act '…把他吸干':
+			if prostitute['pav_condom'] = 0: gs 'prostitution_functions', 'std_check_oral'
+			gt 'prostitution_pavlovsk', 's4_swallow'
+		end
+	else
+!! ToDo: Video vag_0 is not used, does not fit the text
+		$orgasm_or = 'no'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/public/vag_' + rand(1,  2) + '.mp4"></video></center>'
+		gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+		'他拐进一条小巷，但没有走向任何一栋房子。反而拉着你穿过铁丝网上的一个大缺口。"你在干什么？"你问道，他把你推到墙边，扯下裤子放出鸡巴。'
+		'"我等不了了，你他妈的太性感了。我们得就在这里、现在做，"他在你耳边嘶声道。' + iif($prostitute['client_behavior'] = 'abusive', '', '几分钟前他友善的态度已经完全改变了。')
+		if prostitute['pav_condom'] = 1 and ($prostitute['client_behavior'] = 'nice' or rand(1,  100) < iif($pro_brand['text_pubic'] = 'cumslut', 84, 92)):
+			'"求你了，至少戴上安全套，"你恳求道，尽管你确信他已经没有自控力了。反正你也别无选择。于是你闭上眼睛，向命运低头，这时他突然停下了动作。"操……"他大声咒骂，但当他的鸡巴重新出现在你双腿之间时，它已经戴上了安全套。'
+		else
+			'"求你了，至少戴上安全套，"你恳求道，尽管你确信他已经没有自控力了。反正你也别无选择。于是你闭上眼睛，向命运低头。正如你预料的那样，他毫不在意。他的鸡巴硬生生插进你毫无保护的小穴。'
+			prostitute['pav_condom'] = 0
+		end
+		'他的动作粗暴、狂乱，让你想起一只没有理智的发情动物。他撑不了多久，你的煎熬一两分钟内就会结束。'
+
+		gs 'arousal', 'vaginal', -1
+
+		if prostitute['pav_condom'] = 1:
+			act '让他射在安全套里': gt 'prostitution_pavlovsk', 's4_internal'
+		else
+			act '什么也别说': gt 'prostitution_pavlovsk', 's4_internal'
+
+			gs 'willpower', 'cum_inside', 'self', iif($prostitute['client_behavior'] = 'abusive', 'hard', 'easy')
+			if pcs_willpwr < will_cost:
+				act '让他拔出来' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '让他拔出来' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'self'
+					if (rand(0, 3) = 3 or (rand(0, 1) = 1 and $pro_brand['text_pubic'] = 'cumslut')) and $prostitute['client_behavior'] = 'abusive':
+						prostitute['pav_internal'] = 1
+						gt 'prostitution_pavlovsk', 's4_internal'
+					else
+						gs 'prostitution_functions', 'std_check'
+						gt 'prostitution_pavlovsk', 's4_swallow'
+					end
+				end
+			end
+		end
+	end
+
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 's4_swallow':
+	gs 'npcgeneratec', 0, '一位客人', rand(30, 55)
+	gs 'boyStat', $npclastgenerated
+	*clr & cla
+	minut += 4
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/public/end_bj.mp4"></video></center>'
+	'至少这一切结束得很快。他' + iif($prostitute['pav_scene'] = 'pussy', '只操了你两分钟，就拔出来把你推倒在地。"现在，吸！"他喊道。你合上嘴唇含住他通红的龟头，一秒都不差。他', '只能承受你高超的舌头两分钟，在他') + '把精液射进' + iif(prostitute['pav_condom'] = 1, '安全套里', '你的嘴里')
+	'他一射完，就立刻抽出鸡巴塞进裤子里，' + iif(prostitute['pav_condom'] = 1, '摘下安全套扔到地上。', '你则咽下他咸咸的种子。')
+
+	if prostitute['pav_condom'] = 0:
+		gs 'cum_call', 'mouth_swallow', $boy
+	end
+
+	gs 'arousal', 'bj', -3, 'prostitution'
+	gs 'arousal', 'end'
+
+	act '离开': minut += 5 & gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 's4_internal':
+	*clr & cla
+	minut += 4
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/public/end_vag.mp4"></video></center>'
+	gs 'arousal', 'vaginal', -1, 'prostitution', iif($prostitute['client_behavior'] = 'abusive', 'rough', '')
+	gs 'arousal', 'end'
+	'"这才是我说的，"他与其说是在对你说，不如说是在自言自语，一边把鸡巴连根埋进你体内。'
+	if prostitute['pav_condom'] = 1:
+		if prostitute['pav_internal'] = 0 and rand(1,  100) > 98:
+			prostitute['pav_internal'] = 1
+			'你能感到他的鸡巴在你屄里抽搐，把一切都射进安全套里……但当暖流涌进你体内时，有什么不对劲。他不可能是把安全套摘了。他根本没有时间这么做。'
+			'"安全套破了吗？"你问他，但他要么没听见，要么毫不在意。'
+		else
+			'你能感到他的鸡巴在你屄里抽搐，把一切都射进安全套里。'
+		end
+	else
+		'你能感到他的鸡巴在你屄里抽搐，把一切都射进你体内。'
+		if prostitute['pav_internal'] = 1: '"为什么？我告诉过你射在外面，"你愤怒地嘶声道，但他似乎毫不在意。他甚至懒得回答你。'
+	end
+	'当他把你从他身边推开时，如果不是面前有一堵墙，你会脸朝下摔到地上。"喂，"你喊道，同时护住自己的脸，撞上了墙。"你怎么回事？"但当你转过身时，他已经把鸡巴塞回裤子里跑掉了。'
+
+	if prostitute['pav_condom'] = 0 or prostitute['pav_internal'] = 1:
+		gs 'prostitution_functions', 'std_check'
+		gs 'cum_call', '', '一位客人'
+	end
+
+	gs 'stat'
+
+	act '继续': gt 'prostitution_pavlovsk', 'end'
+end
+
+!! ------ set_5 ------
+
+
+if $ARGS[0] = 'set_5':
+	*clr & cla
+	minut += 15
+	if prostitute['pav_regular'] < 1: guy += 1
+	$prostitute['pav_walk'] = iif($prostitute['pav_location'] = 'private', 'pav_residential', 'pav_market')
+	gs 'prostitution_pavlovsk', 'travel', $prostitute['pav_walk']
+	if $prostitute['pav_scene'] = 'blowjob':
+		gs 'npcgeneratec', 0, '一位客人', rand(30, 55)
+		gs 'boyStat', $npclastgenerated
+		gs 'fame', 'pav', 'prostitute', rand(2, 4)
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/bj_' + rand(0, 3) + '.mp4"></video></center>'
+		'他和你一起走到巴甫洛夫斯克郊外的一个停车场。一辆孤零零的车停在离马路尽可能远的地方，但从通往附近火车站的铁轨上可以清楚地看到它。你们走到车旁时，他没有打开车门，反而把你领到旁边一个巨大的垃圾箱后面。"我们不能用车吗？"你问道，有一瞬间他完全困惑地看着你。你指了指那辆车。"哦，那不是我的。"'
+		*nl
+		'一分钟后，你蹲在他面前，鸡巴含在嘴里，头在他的肉棒上上下起伏。从街上看不到你。汽车和垃圾箱挡住了任何游移的目光，但你仍然得快点把他吸出来——赶在火车经过、成百上千的人看到你这副样子之前。'
+
+		gs 'arousal', 'bj', -9, 'prostitution', 'exhibitionism'
+		gs 'stat'
+
+		act '让他射':
+			*clr & cla
+			minut += 4
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/public/end_bj.mp4"></video></center>'
+			minut += 4
+			pro_temp = rand(-8, 8)
+			gs 'fame', 'pav', 'prostitute', max(pro_temp, 0)
+			'太晚了……你能看到一列火车在他身后驶来，就在他射进' + iif(prostitute['pav_condom'] = 1, '安全套', '你的嘴') + '里的同时。' + iif(pro_temp > 0, '火车开得并不快。它正在慢慢驶近火车站，给了乘客足够的时间好好看看你。"该死，"他低声说着，把' + iif(prostitute['pav_condom'] = 1, '戴着安全套的', '') + '鸡巴从你温暖的嘴里抽出来。你站起来' + iif(prostitute['pav_condom'] = 1, '，', '，把精液咽下去，') + '然后尽可能快地走开。希望没有太多人看到你。', '但那只是一列旧货运列车飞快地驶过。"看来我们今天很走运，"他说着露出孩子气的笑容，然后走开了。')
+
+			if prostitute['pav_condom'] = 0:
+				gs 'cum_call', 'mouth_swallow', $boy
+			end
+
+			gs 'arousal', 'bj', -3, 'prostitution', 'exhibitionism'
+			gs 'arousal', 'end'
+
+			killvar 'pro_temp'
+
+			act '离开': gt 'prostitution_pavlovsk', 'end'
+		end
+	else
+		gs 'fame', 'pav', 'prostitute', iif($prostitute['client_behavior'] = 'nice', rand(1,  2), rand(2, 4))
+
+		if $prostitute['pav_location'] = 'public':
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_5/Public/vag_' + rand(0, 1) + '.mp4"></video></center>'
+			'他突然把你按在一个大垃圾桶上。"这里就行，"他说，双手拉起' + iif(PCloSkirt > 0, '你的裙子。', '你的裤子。') + iif(prostitute['pav_condom'] = 1, '"安全套，"你感到他的鸡巴碰到你的阴唇时说。他不耐烦地咕哝了一声，但退开把它戴上了。', '') + '二话不说，他硬邦邦的鸡巴就插进了你的小穴，你努力稳住身体，避免碰到面前肮脏的垃圾桶。你的尝试并不成功。每一次他顶进你体内，都把你又推近垃圾桶一分，直到你的整个身体都贴在上面。盖子半开着，垃圾几乎要溢出来，你不得不把头往后仰，以免脸被按进垃圾袋里。'
+		else
+			$orgasm_or = 'no'
+			pro_temp = func('random', 'pick_from', 0, 1, 2, 4, 6)
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_5/<<$prostitute[''pav_location'']>>/vag_<<pro_temp>>.mp4"></video></center>'
+			'去他公寓的路上，他一直色眯眯地盯着你的' + iif(pro_temp = 2 or pro_temp = 4, '奶子', '屁股') + '。没有寒暄，也没有任何交谈。谈完交易后，他就再也没说过一句话。即使进了他的公寓也是如此，但他的双手比嘴巴健谈得多。他触碰你的方式传达出他体内沸腾的原始欲望。不过，从你们两具赤裸的身体倒在他的床上那一刻起，大部分工作还是得由你来做。他的注意力只集中在你的' + iif(pro_temp = 2 or pro_temp = 4, '奶子', '屁股') + '上，无论你们做什么，他都不肯放手' + iif(pro_temp = 2 or pro_temp = 4, '。他像揉面团一样揉捏你的肉体，而你大多骑在他身上用女上位自己动，承担大部分动作。即使他翻身操你，他也从未放开你的奶子。', '。他像揉面团一样揉捏你的肉体，而你大多趴着，让他做所有的工作。')
+		end
+		if $prostitute['client_behavior'] = 'abusive':
+			gs 'arousal', 'vaginal', -3, 'prostitution', 'rough', 'exhibitionism', 'sub'
+		else
+			gs 'arousal', 'vaginal', -3, 'prostitution'
+		end
+		gs 'stat'
+
+		act '继续':
+			*clr & cla
+			minut += 12
+			gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/vag_' + iif($prostitute['pav_location'] = 'public', 2, 5) + '.mp4"></video></center>'
+			if $prostitute['pav_location'] = 'public':
+				'"这味道，"你尽量不用鼻子呼吸地说。"太恶心了。"'
+				'"真的？像你这样的人渣居然嫌弃它？"他嘲弄你，但当这味道差点让你吐出来时，他很快改变了主意。"好吧，我们去那辆车那边。"'
+				'摆脱了那股味道，你们俩试着走到车那边，同时让他的鸡巴一直埋在你的屄里，你不禁轻笑。"别笑了，"他说着，用力扇了你的屁股让你停下来。之后就是照常办事。他猛力撞击你，直到他开始喘粗气，你知道他马上就要射了。'
+			else
+				$orgasm_or = 'custom'
+				'终于，玩耍时间结束了，那个在他内心里的男孩——那个曾对你的 ' + iif(pro_temp = 2 or pro_temp = 4, '奶子', '屁股') + ' 爱不释手、仿佛第一次触碰女人的男孩——现在不得不退居其次。他' + iif(pro_temp = 2 or pro_temp = 4, '把你扔到床上', '把你翻过身来') + '，把鸡巴深深插进你的小穴。他第一次开口说话，同时用两根手指快速揉搓你敏感的阴蒂。"你想让我怎么做？"'
+				'"我？"你呻吟道，无法清晰地思考。'
+				'"是的，你，"他用如此认真的语气说，让你脱口说出了此刻你想要的东西。"用力操我，别手下留情。"'
+				'"如你所愿。"'
+				$orgasm_txt = '你的整个身体像着了火一样，在他身下扭动翻转。你无法控制地呻吟，舌头伸出嘴外，像一只正在被公狗骑跨的发情母狗。你的高潮几乎要结束时，他自己也快到了。'
+			end
+
+			killvar 'pro_temp'	
+			if $prostitute['client_behavior'] = 'abusive':
+				gs 'arousal', 'vaginal', -12, 'prostitution', 'rough', 'exhibitionism', 'sub'
+			else
+				gs 'arousal', 'vaginal', -12, 'prostitution'
+			end
+			gs 'stat'
+
+			if prostitute['pav_condom'] = 1:
+				act '让他射在安全套里': gt 'prostitution_pavlovsk', 's5_end'
+			else
+				act '什么也别说': gt 'prostitution_pavlovsk', 's5_end'
+
+				gs 'willpower', 'cum_inside', 'self', iif($prostitute['client_behavior'] = 'abusive', 'hard', 'easy')
+				if pcs_willpwr < will_cost:
+					act '让他拔出来' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '让他拔出来' + $func('willpower', 'get_willcost_string'):
+						gs 'willpower', 'pay', 'self'
+						if (rand(0, 3) = 3 or (rand(0, 1) = 1 and $pro_brand['text_pubic'] = 'cumslut')) and $prostitute['client_behavior'] = 'abusive':
+							prostitute['pav_internal'] = 1
+						else
+							prostitute['pav_internal'] = -1
+						end
+						gt 'prostitution_pavlovsk', 's5_end'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 's5_end':
+	*clr & cla
+	minut += 6
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_<<pro_rand>>/<<$prostitute[''pav_location'']>>/end' + iif($prostitute['pav_location'] = 'public', '_vag', '') + '.mp4"></video></center>'
+	if $prostitute['client_behavior'] = 'abusive':
+		gs 'arousal', 'vaginal', -6, 'prostitution', 'rough', 'exhibitionism', 'sub'
+	else
+		gs 'arousal', 'vaginal', -6, 'prostitution'
+	end
+	gs 'arousal', 'end'
+
+	if $prostitute['pav_location'] = 'public':
+		if prostitute['pav_condom'] = 1:
+			if prostitute['pav_internal'] = 0 and rand(1,  100) > 98:
+				prostitute['pav_internal'] = 1
+				'"是的，"他嘶声道，臀部猛地前顶，把你撞在车上，把精液灌进安全套里。但有什么不对劲，你能感到他的种子在你体内。'
+				'"搞什么鬼？你把安全套摘了？"'
+				'他后退一步，立刻大笑起来。他把破掉的安全套从鸡巴上摘下来扔到地上。"你他妈的活该，"他在阵阵笑声中说。你转过身，难以置信地低头看去。' + iif($pro_brand['text_pubic'] = 'cumslut', '"看，"他指着你的精液婊子纹身——他现在第一次看到它。"你得到了你想要的。', '"') + '如果你怀孕了，替我告诉你那个妓女生的孩子，爸爸妈妈是在垃圾桶旁边造出他的。"'
+				*nl
+			else
+				'"是的，"他嘶声道，臀部猛地前顶，把你撞在车上，把精液灌进安全套里。'
+			end
+		elseif prostitute['pav_internal'] = 1:
+			'"是的，"他嘶声道，臀部猛地前顶，把你撞在车上，用他的种子涂满你的体内。'
+			'"搞什么鬼？我告诉过你别射在我里面。"'
+			'他后退一步，立刻大笑起来。"你他妈的活该，"他在阵阵笑声中说。你转过身，难以置信地看着他。' + iif($pro_brand['text_pubic'] = 'cumslut', '"看，"他指着你的精液婊子纹身——他现在第一次看到它。"你得到了你想要的。', '"') + '如果你怀孕了，替我告诉你那个妓女生的孩子，爸爸妈妈是在垃圾桶旁边造出他的。"'
+		elseif prostitute['pav_internal'] = -1:
+			'"是的，"他嘶声道，向后抽身，把精液射在你双腿之间的地上。'
+		elseif prostitute['pav_internal'] = 0 and prostitute['pav_condom'] = 0:
+			'"是的，"他嘶声道，臀部猛地前顶，把你撞在车上，用他的精液灌满你心甘情愿的小穴。'
+		end
+		'"回头见，人渣，"是他走开前对你说的最后一句话。'
+
+		if prostitute['pav_condom'] = 0 or prostitute['pav_internal'] = 1:
+			gs 'prostitution_functions', 'std_check'
+			if prostitute['pav_internal'] > -1: gs 'cum_call', '', '一位客人'
+		end
+	else
+		'他从你温暖诱人的身体里抽出来' + iif(prostitute['pav_condom'] = 1, '并取下安全套，', '，') + '然后在你身体仍因高潮而颤抖时把你翻过来。"如果有什么能证明上帝存在，那就是你完美的屁股，"他把精液射在上面后说道。'
+		'"但我猜他不会赞成我这样使用他完美的造物，"你开着玩笑，调皮地扭了扭屁股。'
+		'"他不会的，但谁在乎呢，"他说，俯下身，在你没有被精液沾到的脸颊上印下一个长长的、充满爱意的吻。"右边第一扇门是浴室。你走之前可以在那里清理一下，"他说完便从床上起来。'
+		gs 'cum_call', 'butt', '一位客人'
+		if prostitute['pav_condom'] = 0: gs 'prostitution_functions', 'std_check'
+	end
+
+	gs 'stat'
+
+	if $prostitute['client_behavior'] = 'abusive':
+		act '继续': gt 'prostitution_pavlovsk', 'end'
+	else
+		act '清理干净后离开。': gt 'prostitution_pavlovsk', 'end', 'clean'
+	end
+end
+
+!! ------ set_6 ------
+
+!! ToDo
+
+!! ------ set_7 ------
+
+!! ToDo
+
+!! ------ set_8 ------
+
+
+if $ARGS[0] = 'set_8':
+	*clr & cla
+	minut += 15
+	$orgasm_or = 'no'
+	if prostitute['pav_regular'] < 1:
+		guy += 1
+		prostitute['pav_regular_s8'] = 1
+	end
+	$prostitute['pav_walk'] = 'pav_residential'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_8/private/anal_' + rand(0, 1) + '.mp4"></video></center>'
+	gs 'fame', 'pav', 'prostitute', rand(1,  2)
+	iif(rand(0, 1) = 0, '"你的屁股真不错，"', '"你的屁股真他妈好操，"') + '他领着你朝住宅区他家的方向走去，一路上大声说着。当别的行人被他吸引注意时，你想把视线移开，但你确信他们看到了你，也听到了他说的话。他的手隔着衣服粗暴地揉着你的臀肉，嘴里继续说道："我真的很想 ' + iif(rand(0, 1) = 0, '把鸡巴深深埋进你的肠子里。"', '用鸡巴塞满你漂亮的小屁股。"')
+	*nl
+	'他无法控制自己的欲望，公寓门在你们身后关上的瞬间，他几乎把衣服撕了下来。你们甚至没来得及走到卧室。当你也脱得一丝不挂时，他把你推进厨房，把你狠狠按在厨房桌上，把鸡巴插进你干燥的屁眼。"这才是我说的，"他咕哝道，鸡巴在你的屁股里越插越深。"对，你这个肮脏的贱货，为我尖叫吧，"他喊道，无法抑制自己的兴奋，你则发出了一声痛呼。' + iif(prostitute['pav_condom'] = 1, '他始终没有戴上你们说好的安全套，但疼痛太剧烈，你无法开口提醒他。反正他大概也不会在意。', '')
+
+	gs 'arousal', 'anal', -9, 'prostitution', 'rough', 'sub'
+	gs 'stat'
+
+	act '被操':
+		*clr & cla
+		minut += 10
+		$orgasm_or = 'yes'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_8/private/anal_2.mp4"></video></center>'
+		'他完全不关心你的安危。他心里只有一件事：尽可能又狠又快地操你的屁股。' + iif(prostitute['pav_regular'] = 1, '你本可以知道会发生什么，但还是跟他走了。也许是因为你想再体验一次那样强烈的高潮。', '') + iif(rand(0, 1) = 0, '"我要操你操到屁股流血，"', '"你一个星期都别想坐下来了，"') + '他嘲弄道，鸡巴来回抽插，把你被蹂躏的穴口撑得大开。'
+		'他突然抓住你的头发，将你的头往后扯，另一只手狠狠掐住你的喉咙。他野蛮地掐着你，' + iif(prostitute['pav_regular'] = 1, '只有知道他最终会停手这一点，才让你即使肺部尖叫着渴求空气，也不至于担心自己的性命。', '他没有松手，当你的肺部尖叫着渴求空气时，你意识到这可能就是结局。终点。死在一个陌生男人的公寓里，屁股正被残忍地操着。')
+		$orgasm_txt = '然后他松开手，随着你吸进凉爽的空气，内啡肽涌遍全身，这' + iif(prostitute['pav_regular'] = 1, '又一次', '') + '触发了你全身的放松。你的眼珠向上翻，舌头从嘴里滑出，活像一头被主人配种的发情母狗，肛交高潮盖过了疼痛，把这个可怕的时刻变成了纯粹的极乐。'
+
+		gs 'arousal', 'anal', -9, 'prostitution', 'rough', 'sub'
+		gs 'pain', 10, 'hair', 'pull'
+		gs 'pain', 10, 'throat', 'choke'
+		gs 'stat'
+
+		*nl
+
+		'当他终于拔出鸡巴时，你被拉回痛苦的现实。你的屁眼痉挛着试图合拢，却失败了。"下来跪好，骚货，"他说，声音里充满压抑的攻击性。你不知怎么还能跪下来，而你抽搐的屁股和颤抖的穴口不断提醒你，你是多么可耻地因为屁股被侵犯而高潮了。'
+
+		if $pro_fetish['atm'] <> 'blocked':
+			'"是时候尝尝你自己的屁股了，把我的鸡巴舔干净，然后我会让你得到我的精液作为奖励，"他宣布道，就像在给一个快渴死的人递水一样。'
+			'你盯着眼前这根鸡巴。一秒钟前它还在你的屁股里，在你的肠子深处翻搅。他从没擦干净过，也没有戴安全套。' + iif($pro_fetish['atm'] = 'yes', '你下意识地舔了舔嘴唇，满怀期待。你迫不及待地想尝尝自己屁股的味道。', '你皱起眉头，看着眼前这恶心的东西，头向后缩了一英寸。')
+
+			gs 'prostitution_functions', 'will_atm', 'resist', iif($pro_fetish['atm'] = 'yes', 'hard', 'easy')
+			if pcs_willpwr < will_cost:
+				act '别这么做' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '别这么做' + $func('willpower', 'get_willcost_string'):
+					cla & *nl
+					minut += 1
+					pro_temp = 0
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					'你摇了摇头说："抱歉，这不是我会做的事，而且你没为它付钱。"'
+					'"行吧，婊子，"他咆哮道，但没有做任何事来说服你改变主意。反而抓住你的手，放在他沾满屁眼汁的鸡巴上。'
+
+					act '让他射': gt 'prostitution_pavlovsk', 's8_end'
+				end
+			end
+
+			if $pro_fetish['atm'] = '' or $pro_fetish['atm'] = 'undecided':
+				act '吮吸他的鸡巴，你会喜欢的': $pro_fetish['atm'] = 'yes' & gt 'prostitution_pavlovsk', 's8_atm'
+				act '吮吸他的鸡巴，你会讨厌的': $pro_fetish['atm'] = 'no' & gt 'prostitution_pavlovsk', 's8_atm'
+			else
+				act '吮吸他的鸡巴': gt 'prostitution_pavlovsk', 's8_atm'
+			end
+
+			if $pro_fetish['atm'] = '':
+				$func('wrap', 'v_neg', '<br>内容警告：肛门-到-嘴')
+				act $func('wrap', 'neg', '屏蔽此类内容'):
+					cla & *nl
+					minut += 1
+					$pro_fetish['atm'] = 'blocked'
+					gs 'stat'
+					'你摇了摇头说："抱歉，这不是我会做的事。"'
+
+					act '继续': gt 'prostitution_pavlovsk', 's8_end'
+				end
+			end
+		else
+			'"是时候接收我的精液了，"他宣布道，就像在给一个快渴死的人递水一样。你居然能挤出假笑来感谢他的慷慨，这值得一座奥斯卡奖。'
+
+			act '张开嘴': pro_temp = 0 & gt 'prostitution_pavlovsk', 's8_end'
+		end
+	end
+end
+
+
+if $ARGS[0] = 's8_atm':
+	*clr & cla
+	pro_temp = 1
+	pro_stats['atm'] += 1
+	pcs_mood = iif($pro_fetish['atm'] = 'yes', 100, 0)
+	minut += iif($pro_fetish['atm'] = 'yes', 10, 2)
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_8/private/anal_atm.mp4"></video></center>'
+	'当你凑近时，你忍不住想闻一闻。上面没有任何……东西……。它看起来完全干净，而且出乎你的意料，它甚至没有你想象中从屁股里出来的东西会有的味道。但它也不像洗干净的鸡巴的味道。它' + iif($pro_fetish['atm'] = 'yes', '有一种奇怪的吸引力，光是想想品尝你的屁眼汁，你的小穴就开始湿润了。', '太恶心了。完全、彻底地恶心，但你别无选择，只能硬着头皮做完。')
+	'在第一次' + iif($pro_fetish['atm'] = 'yes', '令人兴奋的', '恶心的') + '品尝之后，你决定' + iif($pro_fetish['atm'] = 'yes', '慢慢来，把他的鸡巴彻底舔干净。你让舌头在他的阴茎上游走，舔掉每一滴诱人的屁眼汁。最后你', '尽快搞定。你只把他的龟头含进嘴里，') + '用手握住阴茎给他手淫，同时让舌头在他敏感的皮肤上游走。'
+	'"我快到了，"他呻吟着，闭着眼睛，显然很享受你正在做的事。"接住，全部吞下去。"'
+
+	gs 'arousal', 'bj', iif($pro_fetish['atm'] = 'yes', -8, -1), 'prostitution', 'humiliation'
+	gs 'stat'
+
+	act '张开嘴': gt 'prostitution_pavlovsk', 's8_end'
+end
+
+
+if $ARGS[0] = 's8_end':
+	gs 'npcgeneratec', 0, '一位客人', rand(30, 55)
+	gs 'boyStat', $npclastgenerated
+	*clr & cla
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_8/private/anal_atm.mp4"></video></center>'
+	'他的鸡巴在你手里抽搐，精液猛烈地从他的肉棒中喷涌而出，射进你的嘴里。"操，接住，婊子。接住我的精液，"他对着公寓大声喊道，强烈的快感攫住他的身体，他仰起头。'
+	*nl
+	gs 'cum_call', 'mouth_swallow', $boy
+	gs 'arousal', 'hj', 10, 'prostitution'
+	gs 'stat'
+
+	if prostitute['pav_regular'] = 1:
+		minut += 10
+		gs 'mood', 'raise', iif($pro_fetish['atm'] = 'yes', 20, 40)
+		gs 'beverage', 'beer_stats'
+
+		if prostitute['pav_regular_s8_end'] = 0:
+			prostitute['pav_regular_s8_end'] = 1
+			'你咽下他的精液后，他走到冰箱前，拿出两瓶啤酒。"你也来一瓶吗？我打赌我的精液味道不怎么样' + iif(pro_temp = 1, '，但总比你的屁股好，"', '，"') + '他说着，朝你露出一个孩子气的笑容。'
+			'"呃……好啊，"你说，对他突然转变的语气感到有点困惑。一分钟前他差点把你掐死，现在他却像招待过来做客的朋友一样请你喝啤酒。'
+			'"我真的很感激你愿意再次和我上床，"他解释道。"大多数女孩都承受不了我的需求，没有人跟我回过两次家。"'
+			'"如果你能温柔一点，也许会有更多女孩愿意跟你回家。"你喝了一大口，在嘴里漱了漱，想冲掉精液' + iif(pro_temp = 1, '和屁股', '') + '的味道。'
+			'他摇了摇头。"如果一切都甜甜蜜蜜、温温柔柔的，对我就不起作用。"他耸了耸肩，自己也喝了一大口。"不知道为什么，但我需要掌控并摧毁一个女孩，否则我无法射出来。也许我内心有什么东西坏掉了。我不知道。但你也不正常，不是吗？"'
+			'"你为什么这么说？"你问道，并怀疑他说的是不是真的。就在不久前，你还只是个普通的平凡女学生。'
+			'"你两次都高潮了。我以前从没让女孩这样高潮过。"你脸红了。这不是你能控制的事，但你讨厌自己的脸颊变红，于是移开了目光。他笑了，笑声完全不像你想象的那样。它轻柔、温暖、善解人意。"你喜欢那样，对吗？"'
+			'该死，他说得对。你确实高潮了。你爱那种感觉。你该告诉他吗？你问自己，手指紧张地拨弄着啤酒瓶上的标签。终于，至少过了一整分钟，你点了点头。"是的，我喜欢。"'
+			'他的反应再次让你惊讶。"谢天谢地，"他如释重负地说，身体明显放松下来。"我事后总是为自己做的事感到内疚，但我控制不住自己。这也是为什么我只找婊子的原因之一。至少她们是自愿跟我走的。"'
+		else
+			'完事后，他又请你喝了一瓶啤酒，你们俩聊了几分钟天气之类的闲话，然后你准备离开。'
+		end
+		*nl
+
+		if pro_temp = 1:
+			*nl
+			gs 'money', 'earn', 500, 'cash'
+			gs 'mood', 'raise', 'small'
+			gs 'stat'
+			'"你走之前，"他递给你<<$func(''money'', ''string_profit'', 500)>>。"这是……你知道的……肛交转口的报酬。"'
+		end
+
+
+		killvar 'pro_temp'
+
+		act '穿好衣服离开': gt 'prostitution_pavlovsk', 'end'
+	else
+		'"等等，"你闭上嘴准备咽下他的精液时，他说道。"细细品味。"你想最终离开这里的话，别无选择，只能照做，于是你让精液在嘴里打转，直到他用一个简短的点头示意你现在可以咽下去了。"现在给我滚出我家，你这个恶心的骚货。"'
+
+		killvar 'pro_temp'
+
+		act '穿好衣服离开': gt 'prostitution_pavlovsk', 'end'
+	end
+
+	gs 'stat'
+end
+
+!! ------ set_9 ------
+
+
+if $ARGS[0] = 'set_9':
+	*clr & cla
+	minut += 15
+	$orgasm_or = 'no'
+	$prostitute['pav_walk'] = iif($prostitute['client_behavior'] = 'abusive', 'pav_residential', 'pav_complex')
+	gs 'prostitution_pavlovsk', 'travel', $prostitute['pav_walk']
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_9/private/anal_' + iif($prostitute['client_behavior'] = 'abusive', 1, 0) + '.mp4"></video></center>'
+	gs 'fame', 'pav', 'prostitute', iif($prostitute['client_behavior'] = 'abusive', rand(2, 4), rand(1,  2))
+	if $prostitute['client_behavior'] = 'abusive':
+		'"我要把你的屁眼操烂' + iif(prostitute['pav_regular'] = 1, '，再来一次，', '，') + '"男人大声说，不在乎有人可能听到他的话。"你一个星期都别想坐下来了。"你微笑着，把对他行为的想法都藏在心里，跟着他去了他在住宅区的公寓。'
+		if rand(0, 2) = 2:
+			gs 'pain', 10, 'asscheeks', 'slap'
+			gs 'fame', 'pav', 'prostitute', rand(2, 4)
+			'当你们经过坐在长椅上的两个老人时，他突然扇了你的屁股。他立刻引起了他们的注意。"嘿，老头们，"他喊道，又扇了你的屁股，而你移开了目光。"我要操这个婊子，直到她的屁股流血。"你看不到他们的反应，便加快脚步想离开他们，而他笑着又调皮地拍了你的屁股一下。'
+		end
+		*nl
+		'"上床去，"是他进公寓后对你说的唯一一句话。你们俩脱光衣服，他在你身后摆好姿势。没有前戏，没有情感，只有他纯粹的欲望。对他来说，你只是一堆温暖的血肉，可以把鸡巴插进去。他粗暴地操你，把鸡巴又狠又深地撞进你的穴里，但每隔一会儿他就会完全拔出来，调皮地拍一下你的屁股，然后残忍地把鸡巴顶过你被蹂躏的括约肌。'
+	else
+		minut += 20
+		'走向他公寓的路程其实相当愉快，因为他表现出对你的身体之外的东西的兴趣。他问了一些关于你爱好的问题，不只是为了打发时间，而是似乎真的感兴趣，即使你只给他含糊的回答。'
+		'"谢谢你愿意做这个，"你们俩身后的公寓门关上时，他说。"我妻子讨厌这个，从不让我……你知道的……"他脸红了，移开目光。'
+		'"嘿，"你抓住他的手，温柔地握了握以安抚他。"这没什么好羞耻的。如果你妻子不喜欢肛交，那是她的损失。"你把他拉向敞开的卧室门。'
+		*nl
+		'接下来的十分钟里，他像对待女神一样对待你。他抚摸你，亲吻你身体的每一寸，探索着它。最后他进入正题，在花时间用手指和舌头准备好你的穴之后，把鸡巴插进你的屁股。"太舒服了，"他像女人一样呻吟着，慢慢开始在你体内抽插。'
+		'如果他继续这样，你会在这里待上几个小时。也许一点鼓励会有帮助，你想了想说道。"如果你想，可以再用力一点。"你不需要说第二遍，因为你的话产生了预期的效果。他立刻加快速度，全心全意地操了起来。'
+	end
+
+	gs 'arousal', 'auto_lube', 'vaginal', 'custom'
+	if $prostitute['client_behavior'] = 'nice':
+		gs 'arousal', 'foreplay', -9, 'prostitution'
+		gs 'arousal', 'anal', -9, 'prostitution'
+	else
+		gs 'arousal', 'anal', -9, 'prostitution', 'rough', 'sub'
+	end
+	gs 'stat'
+
+	*nl
+	'几分钟后他完事了。他最后一次从你的屁股里拔出来' + iif(prostitute['pav_condom'] = 1, '，摘下安全套，', '') + '然后指着地板，没有告诉你他想干什么，但一个经验丰富的婊子完全知道接下来该做什么。'
+
+	act '跪下':
+		*clr & cla
+		minut += 10
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/pavlovsk/street/set_9/private/end.mp4"></video></center>'
+		if $prostitute['client_behavior'] = 'abusive':
+			'"看着我，"他像狗一样咆哮着，疯狂地撸动鸡巴。当你遵从命令、你们的目光相遇时，他笑了。"我觉得这是最精彩的部分，"他的精液糊满你的脸时，他说。"看着那些被摧毁的骚货眼里什么都不剩。"'
+			*nl
+			'"现在滚蛋，"他完事后说。"留着我的精液，顶着这张脸，让所有人都看看你是哪种骚货。"'
+			act '带着满脸精液离开': gt 'prostitution_pavlovsk', 'end'
+		else
+			'"看着我。"他的声音沙哑，听起来几乎是在恳求。你把目光从他硬挺的鸡巴上移开，直接抬头看进他的眼睛。感觉像过了一整分钟，房间里只有沉默。'
+			*nl
+			'"谢谢，我真的很感激你愿意花时间陪我，"他说。"浴室在走廊尽头，你可以在那里梳洗一下。"'
+			act '清理干净后离开。': gt 'prostitution_pavlovsk', 'end', 'clean'
+		end
+
+		facial += 1
+		gs 'cum_call', 'face', '一位客人'
+		gs 'arousal', 'end'
+	end
+end
+
+!! ------ rape ------
+
+
+if $ARGS[0] = 'rape':
+
+end
+
+!! ------ End ------
+
+
+if $ARGS[0] = 'end':
+	minut += 5
+	prostitute['pav_timer_hour'] = hour
+	killvar 'pro_rand'
+	if $ARGS[1] = 'clean':
+		minut += 5
+		cumspclnt = 20
+		gs 'cum_cleanup'
+	end
+	gt $loc, $loc_arg
+end
+
+!! ------ Travel times and return locations ------
+
+
+if $ARGS[0] = 'travel':
+	if $prostitute['pav_walk'] = 'pav_residential' or $prostitute['pav_walk'] = 'pav_complex':
+		if $loc = 'pushkin':
+			minut += 20
+		elseif $loc = 'pav_industrial' or $loc = 'pav_market':
+			minut += 15
+		elseif $loc = 'pav_park' or $loc = 'pav_commercial':
+			minut += 10
+		else
+			minut += 5
+		end
+		$loc_arg = iif($prostitute['pav_walk'] = 'pav_complex', 'start', '')
+	elseif $prostitute['pav_walk'] = 'pav_commercial':
+		if $loc = 'pushkin':
+			minut += 15
+		elseif $loc = 'pav_commercial':
+			minut += 5
+		else
+			minut += 10
+		end
+		$loc_arg = ''
+	elseif $prostitute['pav_walk'] = 'pav_market':
+		if $loc = 'pushkin' or $loc = 'pav_commercial':
+			minut += 10
+		elseif $loc = 'pav_market':
+			minut += 5
+		else
+			minut += 15
+		end
+		$loc_arg = ''
+	end
+
+	$loc = $prostitute['pav_walk']
+end
+
+
+!!{
+if $ARGS[0] = 'maybe_use_later':
+	'他用一只手把你按下去，另一只手笨拙地扶下裤子。"我要让那死胖子知道谁才是老大，"他咕哝着，同时抓住你的头。然后他把那根'+iif(prostitute['pav_condom'] = 1, ' 戴着安全套的 ', ' ')+'鸡巴直捐进你喉咙，完全不管你的死活。你干呕起来，眼泪涌上眼眶，但凭着经验你还是控制住了喉咙，任由他糟踏你的脸。'
+	'他不是在操你。至少在他心里不是。他操你嘴的整个过程里，一直在抱怨会计部那个婊子、或者他老板、或者他秘书。这事跟性无关，只是为了给他自己的挫败感和攻击欲找个出口。他甚至没停下对你脸的蹂躏，当他射出精液时 '+iif(prostitute['pav_condom'] = 1, '射进安全套里', '射进你喉咙里')
+	gs 'money', 'earn', 100, 'cash'
+	if rand(0,1) = 1:
+		'他停下了……终于……仿佛咒语被解除了。他盯着你脸颊上的泪水，那感觉像过了永恒，然后他开口。"抱歉……呃……，"他结结巴巴地说，你擦掉眼泪。"能帮我舔干净吗？"看到你眼里的犹豫，他补了一句。"我给你 <<$func(''money'', ''string_profit'', 100)>> 小费。"'
+		'你叹了口气。 '+iif(prostitute['pav_condom'] = 1, '几滴而已，应该没什么关系，', '不，你都已经吞过他的货了')+' 你心想，握住他的鸡巴轻轻捻了几下，把最后几滴精液挤出来，然后把龟头含回嘴里，用舌头绕着它打转，把它舔干净。'
+		gs 'prostitution_functions', 'std_check_oral', 'low'
+	end
+end
+!}
+
+--- prostitution_pavlovsk ---------------------------------

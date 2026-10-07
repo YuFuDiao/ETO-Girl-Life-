@@ -1,0 +1,616 @@
+# garfather
+
+fatherAge = year - (((npc_dob['A28']) - (npc_dob['A28'] mod 10000)) / 10000)
+gs 'stat'
+gs 'dinSex'
+gs 'family_schedule'
+
+$loc_arg = ''
+$loc = 'garfather'
+$location_type = 'event'
+$menu_loc = 'garfather'
+$menu_arg = ''
+menu_off = 0
+
+$func('wrap', 'header center b', '你的继父，弗拉基米尔·米哈伊洛维奇·斯克里亚宾')
+'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big28.jpg"></center>'
+'你的继父是个头发花白、身体有点松弛的男人，开卡车为生。他是<<fatherAge>>岁。你母亲在你只有一岁时就和你的亲生父亲离了婚，嫁给了弗拉基米尔。自他们离婚后你就再也没见过你的亲生父亲，因此你对他没有任何真正的记忆。'
+
+gs 'father', 'fatherRep'
+
+act '离开': gt 'gargazel'
+
+if locat['Stepdad'] ! 9:
+	msg '你的继父已经不在车库了'
+	gt 'gargazel'
+end
+
+act '聊天':
+	cls
+	menu_off = 1
+	minut += rand(10, 15)
+	gs 'stat'
+	$func('wrap', 'header center b', '你的继父，弗拉基米尔·米哈伊洛维奇·斯克里亚宾')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big28.jpg"></center>'
+	'你的继父坐在椅子上，手里转动着某种肮脏的汽车零件。你在他旁边的椅子上坐下。'
+
+	gs 'father', 'fatherRep'
+
+	if npc_rel['A28'] < 20:
+		!! He hates you
+		'你试着跟继父聊天，但他太讨厌你了，连假装对你说的东西感兴趣都不愿意。'
+		if sorryday ! daystart:
+			gs 'willpower', 'misc', 'self'
+			if pcs_willpwr < will_cost:
+				act '道歉' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '道歉' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'pay', 'self'
+					sorryday = daystart
+					gs 'npc_relationship', 'modify_exact', 'A28', (pcs_intel/10) + (pcs_apprnc/20)
+					gs 'stat'
+					'你不停地向继父道歉，过了一会儿，你感觉到他对你的态度稍微温和了一些。'
+					act '走开': gt $loc, $loc_arg
+				end
+			end
+		end
+		act '走开': gt $loc, $loc_arg
+	elseif npc_rel['A28'] >= 20 and npc_rel['A28'] < 40:
+		!! He doesn''t like you very much
+		'你试着跟继父聊天，但他并不怎么感兴趣，你说个不停，他却几乎没什么可搭话的。'
+		if sorryday ! daystart:
+			gs 'willpower', 'misc', 'self'
+			if pcs_willpwr < will_cost:
+				act '试着讨好他' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '试着讨好他' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'pay', 'self'
+					sorryday = daystart
+					gs 'npc_relationship', 'modify_exact', 'A28', (pcs_intel/10) + (pcs_apprnc/20)
+					gs 'stat'
+					'你花了一些时间试图讨好继父，当你对他喜欢的事物表现出兴趣后，你觉得他更喜欢你了。'
+					act '走开': gt $loc, $loc_arg
+				end
+			end
+		end
+		act '走开': gt $loc, $loc_arg
+	elseif npc_rel['A28'] >= 40:
+		if pcs_apprnc + (npc_rel['A28']/10) <= 60:
+			!! good relations but he is not attracted to you
+			gs 'dinfather', 'garchat'
+		else
+			!! good relations and he finds you attractive
+			if rand(0, 99) < 80:
+				gs 'dinfather', 'garchat'
+			else
+				'你放松下来和继父分享有趣的故事。'
+				if npc_rel['A28'] < 40:
+					FatherMolest = 1
+				elseif npc_rel['A28'] < 60:
+					FatherMolest = rand(0, 7)
+				elseif npc_rel['A28'] < 80:
+					FatherMolest = rand(0, 3)
+				else
+					FatherMolest = rand(0, 1)
+				end
+				if FatherMolest > 0:
+					gs 'dinfather', 'garchat'
+				else
+					gs 'dinfather', 'gar_act1'
+					gs 'dinfather', 'gar_act2'
+					gs 'dinfather', 'gar_act3'
+				end
+				killvar 'FatherMolest'
+			end
+		end
+	end
+end
+
+act '帮忙':
+	cls
+	menu_off = 1
+	minut += 60
+	gs 'sweat', 'add', 10
+	gs 'exp_gain', 'hndiwrk', rand(0, 3)
+	gs 'stat'
+	$func('wrap', 'header center b', '继父弗拉基米尔·斯克里亚宾')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big28.jpg"></center>'
+	'你的继父坐在椅子上，手里转动着某种肮脏的汽车零件。你在他旁边的椅子上坐下。'
+
+	gs 'father', 'fatherRep'
+
+	if npc_rel['A28'] < 20:
+		!! scandal stepfather
+		'你主动提出帮继父在车库里干活。他挥手赶你走，没好气地说："让开点<<$pcs_nickname>>，你没看到我正忙着吗？再说，我凭什么要跟你待在一起？"'
+		if sorryday ! daystart:
+			gs 'willpower', 'misc', 'self'
+			if pcs_willpwr < will_cost:
+				act '道歉' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '道歉' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'pay', 'self'
+					sorryday = daystart
+					gs 'npc_relationship', 'modify_exact', 'A28', (pcs_intel/10) + (pcs_apprnc/20)
+					gs 'stat'
+					'你不停地向继父道歉，过了一会儿，你感觉到他对你的态度稍微温和了一些。'
+					act '走开': gt $loc, $loc_arg
+				end
+			end
+		end
+		act '走开': gt $loc, $loc_arg
+	elseif npc_rel['A28'] >= 20 and npc_rel['A28'] < 40:
+		!! strained relations
+		'你问继父车库里有没有什么可以帮忙的，但他耸耸肩摇了摇头。"你又能干什么？也许你该去厨房帮你妈，那似乎更适合你的本事。"'
+		if sorryday ! daystart:
+			gs 'willpower', 'misc', 'self'
+			if pcs_willpwr < will_cost:
+				act '试着讨好他' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '试着讨好他' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'pay', 'self'
+					sorryday = daystart
+					gs 'npc_relationship', 'modify_exact', 'A28', (pcs_intel/10) + (pcs_apprnc/20)
+					gs 'stat'
+					'你花了一些时间试图讨好继父，当你对他喜欢的事物表现出兴趣后，你觉得他更喜欢你了。'
+					act '走开': gt $loc, $loc_arg
+				end
+			end
+		end
+		act '走开': gt $loc, $loc_arg
+	elseif npc_rel['A28'] >= 40:
+		if pcs_apprnc + (npc_rel['A28']/10) <= 60:
+			!! gg good relations but he is not attracted to you
+			gs 'dinfather', 'garhelpchat'
+		else
+			!! good relations and Messrs attractive
+			if rand(0, 99) < 80:
+				gs 'dinfather', 'garhelpchat'
+			else
+				'你一边帮继父修理他的嘎斯，一边递上他需要的螺栓和工具。'
+				if npc_rel['A28'] < 40:
+					FatherMolest = 1
+				elseif npc_rel['A28'] < 60:
+					FatherMolest = rand(0, 7)
+				elseif npc_rel['A28'] < 80:
+					FatherMolest = rand(0, 3)
+				else
+					FatherMolest = rand(0, 1)
+				end
+				if FatherMolest > 0 or (pcs_horny < 30 and TouchedByFather = 0):
+					gs 'dinfather', 'garhelpchat'
+				else
+					if pcs_horny >= 60 or TouchedByFather = 1:
+						gs 'willpower', 'exhib', 'self'
+						if pcs_willpwr < will_cost:
+							act '张开双腿' + $func('willpower', 'get_willcost_string'): $noWillpower
+						else
+							act '张开双腿' + $func('willpower', 'get_willcost_string'):
+								cls
+								gs 'willpower', 'exhib', 'self'
+								gs 'willpower', 'pay', 'self'
+								gs 'arousal', 'flash', 5
+								gs 'arousal', 'end'
+								'你假装没注意，一边说话一边慢慢张开双腿。'
+
+								if pcs_apprnc + (npc_rel['A28']/10) < 60: fatherLust = 2
+								if pcs_apprnc + (npc_rel['A28']/10) >= 60 and pcs_apprnc + (npc_rel['A28']/10) < 120: fatherLust = rand(1, 4)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 120 and pcs_apprnc + (npc_rel['A28']/10) < 200: fatherLust = rand(1, 2)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 200 or TouchedByFather = 1: fatherLust = 1
+								if fatherLust >= 2:
+									pcs_horny -= rand(1, 5)
+									gs 'stat'
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim31.jpg"></center>' & '你说话时注意到继父的目光往下瞥，突然他的脸涨得通红。你低头一看，发现你那过于暴露的内裤根本没遮住小穴。继父显然又尴尬又惊讶。他大声清了清嗓子说："<<$pcs_nickname>>别这样，这可不是淑女该有的举止。去穿条正常的内裤。"'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim24.jpg"></center>' & '你说话时注意到继父的目光往下瞥，突然他的脸涨得通红。"怎么了？"你天真地问他，心里清楚地知道你没穿内裤，他对你的光小穴一览无余。不过你可骗不了他，他一点也不欣赏你的挑逗。"<<$pcs_nickname>>，马上住手，去穿上裤子。"'
+								end
+								if fatherLust = 1:
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim20.jpg"></center>' & '继父看穿了你的把戏，把你拉到他身边，眼中燃烧着欲望。他的手在你的臀瓣和大腿上滑动，又摸又揉，然后把你的内裤拨到一边。两根手指探入你的后庭，揉弄挑逗着你。"你想要什么吗，<<$pcs_nickname>>？"他脸上挂着得意的笑容问道，心里明白他扭转了局面。你只能呜咽着回应。'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim26.jpg"></center>' & '继父瞥见你光裸的小穴，明白了你的把戏。"<<$pcs_nickname>>……你没穿内裤？趴到地上把腿张开，爸爸现在就得确认一下。"你照他说的做了，躺到地上把双腿大大张开。他跪在你面前，把你的衣服拨到一边，用粗糙长茧的手揉搓你的小穴和大腿。"果然不出我所料，你这个小骚货！"他咧嘴笑着说。玩够了之后，他扶你站起来，甚至帮你整理好衣服，只是他的手在你的腰和屁股上多停留了几秒。'
+								end
+								act '走开': gt $loc, $loc_arg
+							end
+						end
+					end
+					if pcs_horny >= 50 or TouchedByFather = 1:
+						gs 'willpower', 'exhib', 'self', 'easy'
+						if pcs_willpwr < will_cost:
+							act '''不小心''把扳手掉下去' + $func('willpower', 'get_willcost_string'): $noWillpower
+						else
+							act '''不小心''把扳手掉下去' + $func('willpower', 'get_willcost_string'):
+								cla
+								gs 'willpower', 'exhib', 'self', 'easy'
+								gs 'willpower', 'pay', 'self'
+								gs 'arousal', 'flash', 5
+								gs 'arousal', 'end'
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/garage/father/sex/father.gar.pre<<rand(0,5)>>.jpg"></center>'
+
+								'欲火中烧的你决定在帮继父干活时挑逗他一下。你让扳手从手中滑落，金属在石头地板上发出响亮的哐当声，回荡在整个车库里。"哎呀！我有时候就是这么笨手笨脚……"你笑着说，弯下腰去捡扳手，膝盖却一点不打弯。这个姿势让继父把你的屁股一览无余。'
+								if pcs_apprnc + (npc_rel['A28']/10) < 60: fatherLust = 2
+								if pcs_apprnc + (npc_rel['A28']/10) >= 60 and pcs_apprnc + (npc_rel['A28']/10) < 120: fatherLust = rand(1, 4)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 120 and pcs_apprnc + (npc_rel['A28']/10) < 200: fatherLust = rand(1, 2)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 200 or TouchedByFather=1: fatherLust = 1
+								if fatherLust >=2:
+									cls
+									pcs_horny -= rand(1, 5)
+									gs 'stat'
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim29.jpg"></center>' & '尽管你的身体确实对他产生了影响，但继父显然很尴尬，也对你做出这种事感到惊讶。他大声清了清嗓子，不赞同地看着你，随之而来的沉默让你感到有些不安。'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim27.jpg"></center>' & '你的屁股让继父很不自在。"你说笨手笨脚？看来今天你没夹住的还不止那把扳手，"他讽刺地说，暗指你没穿内裤。他尖刻的语气和不赞同的眼神让你觉得有点尴尬。'
+								else
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim29.jpg"></center>'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim27.jpg"></center>'
+									'尽管他没有预料到你会这样，但你从他眼中的光芒和加重的呼吸能看出，他显然很喜欢眼前的一切。'
+								end
+								act '走开': gt $loc, $loc_arg
+							end
+						end
+					end
+					act '说话时揉弄自己的乳房':
+						cls
+						gs 'arousal', 'flashlite', 5
+						gs 'arousal', 'foreplay', -5, 'incest', 'exhibitionism'
+						gs 'arousal', 'end'
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim28.jpg"></center>'
+						'一时性起，你慢慢地、挑逗地弯下腰，嘴角挂着调皮的笑容，让你的继父得以欣赏到你的<<$titsize_zh>>乳房。'
+
+						if pcs_apprnc + (npc_rel['A28']/10) < 60: fatherLust = 2
+						if pcs_apprnc + (npc_rel['A28']/10) >= 60 and pcs_apprnc + (npc_rel['A28']/10) < 120: fatherLust = rand(1, 4)
+						if pcs_apprnc + (npc_rel['A28']/10) >= 120 and pcs_apprnc + (npc_rel['A28']/10) < 200: fatherLust = rand(1, 2)
+						if pcs_apprnc + (npc_rel['A28']/10) >= 200 or TouchedByFather=1: fatherLust = 1
+						if fatherLust>=2:
+							pcs_horny -= rand(1, 5)
+							gs 'stat'
+							'你的继父显然很尴尬，也对你做这种事感到惊讶。他大声清了清嗓子，不赞同地看着你，随之而来的沉默让你感到有些不安。'
+						elseif fatherLust=1:
+							'尽管他没有预料到你会这样，但你从他眼中的光芒和加重的呼吸能看出，他显然很喜欢眼前的一切。'
+						end
+						act '走开': gt $loc, $loc_arg
+					end
+				end
+				killvar 'FatherMolest'
+			end
+		end
+	end
+end
+
+if pcs_horny > 50 and npc_had_sex['A28']:
+
+	gs 'willpower', 'sex', 'self'
+	if pcs_willpwr < will_cost:
+		act '勾引你的继父' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '勾引你的继父' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'boyStat', 'A28'
+			menu_off = 1
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/garage/father/sex/father.gar.pre<<rand(0,5)>>.jpg"></center>'
+			'你走到嘎斯旁边拿起一块海绵。微微向前弯腰，你开始洗车，同时把屁股展示给继父看。'
+			'"——哦……"——继父没想到你会这样，但他不自觉的呼吸声和燃起的目光告诉你，他非常享受。'
+			'继父走到你身后，把手放在你的屁股上。他不紧不慢地开始揉捏你的臀部。'
+
+			gs 'arousal', 'foreplay', 3, 'sub', 'incest'
+			gs 'stat'
+
+			act '跪下来':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/bimbo.knees<<rand(1,3)>>.jpg"></center>'
+				'你跪到继父面前，把掌心贴在他的胯部。隔着牛仔裤的布料，你能感到他的勃起，便开始抚摸他。过了一会儿，你拉开他的裤链，掏出他的鸡巴，一只手牢牢握住。'
+
+				gs 'arousal', 'hj', 3, 'sub', 'incest'
+				gs 'stat'
+
+				act '把他的鸡巴含进嘴里':
+					*clr & cla
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/garage/father/sex/father.gar.0,<<rand(0,4)>>.jpg"></center>'
+					'继父打开嘎斯的副驾驶车门，你坐到座位上。他把一只手放在你头上，引导他的鸡巴凑向你的嘴。'
+					'你不紧不慢地舔着继父的鸡巴，抚摸他的睾丸，然后把它含进嘴里。很快鸡巴开始搏动，显露出提早结束的迹象。'
+
+					gs 'arousal', 'bj', 5, 'sub', 'incest'
+					gs 'stat'
+
+					act '吸出来并吞下他的精液':
+						cls
+						if npc_rel['A28'] < 100: gs 'npc_relationship', 'modify', 'A28', 2
+						fatherSuck += 1
+						gs 'cum_call', 'mouth_swallow', 'A28', 1
+						'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/mouth/cum1,<<rand(0,10)>>.mp4"></video></center>'
+
+						'你继续吮吸继父的鸡巴，它仍在搏动。突然，他弓起背，你感到精液开始涌入你的嘴里。尽管你尽力而为，从继父鸡巴里流出的精液量实在太多，有一部分反而从你嘴里溢出，顺着下巴淌下。很快你的<<$boydesc>>结束了，你把他的阴茎从散发着精液气味的嘴里抽出来。你能感觉到口中的精液味道，你的<<$pc_desc[''lips'']>>嘴唇沾满了精液。'
+
+						gs 'arousal', 'bj', 10, 'sub', 'incest'
+						gs 'arousal', 'end'
+
+						act '走开': gt 'gargazel'
+					end
+
+					act '让他射在你脸上':
+						cls
+						if npc_rel['A28'] < 100: gs 'npc_relationship', 'modify', 'A28', 2
+						fatherSuck += 1
+						gs 'cum_call', 'face', 'A28', 1
+
+						gs 'stat'
+						gar_rand1 = rand(0, 100)
+						if gar_rand1 < 49: '<center><img <<$set_imgh>> src="images/shared/sex/cum/facial/facial0,<<rand(0,8)>>.jpg"></center>'
+						if gar_rand1 >= 50: '<center><img <<$set_imgh>> src="images/shared/sex/cum/facial/facial0,<<rand(0,8)>>.jpg"></center>'
+						'就在继父即将达到高潮时，你停止了吮吸，一股精液立刻射在你脸上。你紧闭双眼，生怕精液溅进眼睛里，然后又感到另一股滚烫的精液落在你脸上。'
+
+						gs 'arousal', 'bj', 10, 'sub', 'incest'
+						gs 'arousal', 'end'
+
+						act '走开': gt 'gargazel'
+					end
+				end
+
+				act '弯腰靠在加泽尔上':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/garage/father/sex/father.gar.1,<<rand(0,2)>>.jpg"></center>'
+					'继父抓住你，把你从跪姿拉起来，让你面向嘎斯。你把双手撑在车上，弓起背，让他更容易够到你的屁股和小穴。等你摆好姿势，他开始抚摸你的小穴，同时把鸡巴对准你的洞口。'
+
+					if stat['think_virgin'] = 1:
+						act '等等，我还是处女':
+							cla
+							gs 'dinSex', 'wear_condom'
+							gs 'dinSex', 'analsex', 10, 'sub', 'incest'
+							gs 'stat'
+							act '继续':
+								*clr & cla
+								gs 'stat'
+								if npc_rel['A28'] < 100: gs 'npc_relationship', 'modify', 'A28', 3
+								if fathersex = 0: guy += 1
+								fathersex += 1
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/garage/father/sex/father.gar.cum1,0.jpg"></center>'
+								'你感到他的鸡巴顶入你的肛门。'
+								if protect = 0:
+									'在一番彻底的操弄之后，你感到继父的阴茎在你体内开始跳动。继父的身体痉挛，他的阴茎将精液灌满了你的肛门。'
+									gs 'arousal', 'anal', 10, 'sub', 'incest'
+									gs 'cum_call', 'anus', 'A28', 1
+								else
+									'在一番彻底的操弄之后，你感到继父的阴茎在你体内开始跳动。继父的身体痉挛，他的阴茎将精液灌满了避孕套。'
+									gs 'arousal', 'anal', 10, 'sub', 'incest'
+								end
+								gs 'arousal', 'end'
+
+								act '走开': gt 'gargazel'
+							end
+						end
+					end
+
+					act '让他占有你':
+						cla
+						gs 'dinSex', 'wear_condom'
+						gs 'dinSex', 'vaginal_sex', 10, 'sub', 'incest'
+						gs 'stat'
+						act '继续':
+							*clr & cla
+							gs 'stat'
+							if npc_rel['A28'] < 100: gs 'npc_relationship', 'modify', 'A28', 3
+							if fathersex = 0: guy += 1
+							fathersex += 1
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/garage/father/sex/father.gar.cum1,0.jpg"></center>'
+							'你感到他的鸡巴顶入你的小穴。'
+							if protect = 0:
+								'在一番彻底的操弄之后，你感到继父的阴茎在你体内开始跳动。继父的身体痉挛，他的阴茎将精液灌满了你的小穴。'
+								gs 'arousal', 'vaginal', 10, 'sub', 'incest'
+								gs 'cum_call', 'vagina', 'A28', 1
+								gs 'cuminsidereact', '你的继父'
+							else
+								'在一番彻底的操弄之后，你感到继父的阴茎在你体内开始跳动。继父的身体痉挛，他的阴茎将精液灌满了避孕套。'
+								gs 'arousal', 'vaginal', 10, 'sub', 'incest'
+								spafinloc = 17
+								gs 'cum_manage'
+							end
+							gs 'arousal', 'end'
+
+							act '走开': gt 'gargazel'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+if fatherdrunk=1:
+	cla
+	*clr
+	minut += 60
+	gs 'stat'
+	$func('wrap', 'header center b', '你的继父，弗拉基米尔·米哈伊洛维奇·斯克里亚宾')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big28.jpg"></center>'
+	'你的继父是一个头发花白、略微松弛的男人，他是一名卡车司机。他<<fatherAge>>岁。你母亲在你只有一岁时就和你的亲生父亲离了婚，嫁给了弗拉基米尔。自他们离婚后你就再也没见过你的亲生父亲，因此你对他没有任何真正的记忆。'
+
+	gs 'father', 'fatherRep'
+	act '离开': gt 'gargazel'
+
+	if npc_rel['A28']<20:
+		!! scandal stepfather
+		'你走向继父和米沙叔叔，想问问能不能加入他们，但还没等你说完话，继父就打断了你。"<<$pcs_nickname>>，滚出去！这里不许娘们待！"他醉醺醺地笑着，挥手赶你走。米沙叔叔觉得继父这番侮辱人的话可笑极了，也跟着附和。你显然在车库里不受欢迎。'
+		if sorryday!daystart:
+			gs 'willpower', 'misc', 'self'
+			if pcs_willpwr < will_cost:
+				act '坚持问你是否可以加入他们' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '坚持问你是否可以加入他们' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'pay', 'self'
+					menu_off = 1
+					gs 'stat'
+					'你试图让继父允许你加入他们，但他同样固执地叫你滚蛋，态度还相当粗鲁。他真的很讨厌你。'
+					act '走开': gt 'gargazel'
+				end
+			end
+		end
+		act '走开': gt 'gargazel'
+	elseif npc_rel['A28']>=20 and npc_rel['A28']<40:
+		!! strained relations
+		'你问继父能不能加入他们，但他根本不同意。"<<$pcs_nickname>>，都过了你的睡觉时间了吧？*呃！* 去去去，回家去！*呃！*"'
+		if sorryday!daystart:
+			gs 'willpower', 'misc', 'self'
+			if pcs_willpwr < will_cost:
+				act '试着说服他' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '试着说服他' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'pay', 'self'
+					cla
+					menu_off = 1
+					gs 'stat'
+					'你尽了最大努力，但继父仍然态度坚决，把你打发回家。'
+					act '走开': gt 'gargazel'
+				end
+			end
+		end
+		act '走开': gt 'gargazel'
+	elseif npc_rel['A28'] >=40:
+		if pcs_apprnc + (npc_rel['A28']/10) <= 60:
+			gs 'dinfather', 'gardrunkchat'
+		else
+			!! good relations and Messrs attractive
+			if rand(0, 2) > 0:
+				gs 'dinfather', 'gardrunkchat'
+			else
+				'你放松下来，和男人们一起喝几杯，很乐意就这么坐着听他们讲些有趣的故事。'
+				if npc_rel['A28'] < 40:
+					FatherMolest = 1
+				elseif npc_rel['A28'] < 60:
+					FatherMolest = rand(0, 7)
+				elseif npc_rel['A28'] < 80:
+					FatherMolest = rand(0, 3)
+				else
+					FatherMolest = rand(0, 1)
+				end
+				if FatherMolest > 0:
+					gs 'dinfather', 'gardrunkchat'
+				else
+					'你忍不住注意到米沙叔叔一直在盯着你。你觉得他不只是在脑海里脱光你，而是在以各种姿势肆无忌惮地操你。'
+					if pcs_horny >= 50 and sosedknow=1:
+						gs 'willpower', 'exhib', 'self', 'easy'
+						if pcs_willpwr < will_cost:
+							act '把你的乳房给他看' + $func('willpower', 'get_willcost_string'): $noWillpower
+						else
+							act '把你的乳房给他看' + $func('willpower', 'get_willcost_string'):
+								cls
+								gs 'willpower', 'exhib', 'self', 'easy'
+								gs 'willpower', 'pay', 'self'
+								gs 'arousal', 'flash', 5
+								gs 'arousal', 'end'
+								'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim33.jpg"></center>'
+								'在欲火中烧的一刻，你慢慢地挑逗地弯下腰，嘴角挂着俏皮的微笑，让米沙叔叔得以欣赏到你的<<$titsize_zh>>乳房。'
+
+								if (pcs_apprnc + (npc_rel['A54']/10)) < 60: mishaLust = 2
+								if (pcs_apprnc + (npc_rel['A54']/10)) >= 60 and (pcs_apprnc + (npc_rel['A54']/10)) < 120: mishaLust = rand(1, 4)
+								if (pcs_apprnc + (npc_rel['A54']/10)) >= 120 and (pcs_apprnc + (npc_rel['A54']/10)) < 200: mishaLust = rand(1, 2)
+								if (pcs_apprnc + (npc_rel['A54']/10)) >= 200: mishaLust = 1
+								if mishaLust>=2:
+									pcs_horny -= rand(1, 5)
+									gs 'stat'
+									'米沙叔叔显然很尴尬，也对你做出这样的事感到惊讶。他大声清了清嗓子不赞许地看着你，随之而来的沉默让你感到有点不舒服。你很高兴他至少还保有足够的体面，没有向你那正好背对着你们的继父暗示。'
+								else
+									'你尽量保持谨慎不让继父注意到你刚才的举动，而米沙叔叔为你刚给他看的表演而相当慌乱。当你的继父和他谈论保险杠时，他说话结结巴巴，而你在继父移开视线时调皮地笑着朝米沙叔叔眨了眨眼。'
+								end
+								act '走开': gt $loc, $loc_arg
+							end
+						end
+					end
+					if pcs_horny >= 60 or TouchedByFather=1:
+						gs 'willpower', 'exhib', 'self', 'easy'
+						if pcs_willpwr < will_cost:
+							act '把你的瓶子掉在地上引起他们的注意' + $func('willpower', 'get_willcost_string'): $noWillpower
+						else
+							act '把你的瓶子掉在地上引起他们的注意' + $func('willpower', 'get_willcost_string'):
+								cls
+								gs 'willpower', 'exhib', 'self', 'easy'
+								gs 'willpower', 'pay', 'self'
+								gs 'arousal', 'flash', 5
+								gs 'arousal', 'end'
+								'尽管你很饥渴想让男人们注意你，但他们更专注于他们的酒和谈话。你可以改变这一点。你确保酒瓶不会摔碎，然后''不小心''地把瓶子掉在地上并弯下腰去捡，膝盖不打弯，让他们一览无余地看到你的屁股。你装模作样地想减少洒出的酒，保持当前姿势擦拭地板。'
+
+								if pcs_apprnc + (npc_rel['A28']/10) < 60: fatherLust = 2
+								if pcs_apprnc + (npc_rel['A28']/10) >= 60 and pcs_apprnc + (npc_rel['A28']/10) < 120: fatherLust = rand(1, 4)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 120 and pcs_apprnc + (npc_rel['A28']/10) < 200: fatherLust = rand(1, 2)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 200 or TouchedByFather = 1: fatherLust = 1
+								if fatherLust >= 2:
+									pcs_horny -= rand(1, 5)
+									gs 'stat'
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim35.jpg"></center>' & '继父显然很尴尬，也对你做出这种事感到惊讶。他大声清了清嗓子，不赞同地看着你，随之而来的沉默让你觉得有点不舒服。米沙叔叔脸上则挂着一副得意的笑容。'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim34.jpg"></center>' & '继父显然很尴尬，也对你做出这种事感到惊讶。他大声清了清嗓子，不赞同地看着你，随之而来的沉默让你觉得有点不舒服。他们俩似乎都没有注意到你没穿内裤。'
+								else
+									if $pantyworntype ! 'none':
+										'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim37.jpg"></center>'
+										'你尽可能地把屁股撅出来，尽情展示你的屁股。当你转过身时，你注意到继父和叔叔的目光都死死地盯着你的屁股。你只是微笑着回到桌边，而他们则结结巴巴地试图找借口。'
+										act '再挑逗他们一下':
+											cls
+											gs 'arousal', 'flash', 5
+											gs 'arousal', 'end'
+											'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim38.jpg"></center>'
+											'你坐回去，他们仍然全神贯注地看着你。你试图为自己的行为辩解："对不起伙计们，我的衣服把小穴磨得生疼，正常弯腰会让我很不舒服。"'
+											act '在他们要求时给他们看你的小穴':
+												cls
+												gs 'arousal', 'flash', 5
+												gs 'arousal', 'end'
+												'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim39.jpg"></center>'
+												'米沙叔叔看穿了你的表演，决定把你逼到极限。他笑着说："哦，是吗，<<$pcs_nickname>>？那你为什么不给我们看看，也许我们能帮你呢。对吧，弗拉基米尔？"你兴奋得无法拒绝，把内裤拨到一边，给他们看你的小穴。其实它并没有那么疼，只是欲望把它染成了漂亮的红色，让阴唇看起来有点肿胀。男人们没想到你真会这么做，一个个目瞪口呆。'
+												act '走开': gt $loc, $loc_arg
+											end
+										end
+									elseif $pantyworntype = 'none':
+										cls
+										gs 'arousal', 'flash', 5
+										gs 'arousal', 'flash', -5
+										gs 'arousal', 'vaginal_finger', -5, 'exhibitionism', 'rough'
+										'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim40.jpg"></center>'
+										'有点失望的你离开桌子。你沉浸在自己的思绪里，没注意到米沙叔叔的腿，被绊了一跤。由于你没穿内裤，在你摔得手脚着地时，你给了叔叔一场绝妙的表演。他立刻伸出手，用手指划过你湿润的阴唇。他短暂地抠弄了你一下，然后把手指凑到鼻前深深一闻。"你的洞很不错，<<$pcs_nickname>>，年轻又多汁……"意识到继父就在房间里他不会再有进一步动作，你站起来整理好衣服，重新坐回桌边。'
+										gs 'arousal', 'end'
+										gs 'stat'
+									end
+								end
+								act '继续': gt $loc, $loc_arg
+							end
+						end
+					end
+					if pcs_horny >= 75 or TouchedByFather=1:
+						gs 'willpower', 'exhib', 'self', 'easy'
+						if pcs_willpwr < will_cost:
+							act '张开双腿' + $func('willpower', 'get_willcost_string'): $noWillpower
+						else
+							act '张开双腿' + $func('willpower', 'get_willcost_string'):
+								cls
+								gs 'willpower', 'exhib', 'self', 'easy'
+								gs 'willpower', 'pay', 'self'
+								minut += 5
+								pcs_horny += rand(1, 5)
+								'接受他们心里想好的任何惩罚'
+
+								if pcs_apprnc + (npc_rel['A28']/10) < 60: fatherLust = 2
+								if pcs_apprnc + (npc_rel['A28']/10) >= 60 and pcs_apprnc + (npc_rel['A28']/10) < 120: fatherLust = rand(1, 4)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 120 and pcs_apprnc + (npc_rel['A28']/10) < 200: fatherLust = rand(1, 2)
+								if pcs_apprnc + (npc_rel['A28']/10) >= 200 or TouchedByFather = 1: fatherLust = 1
+								if fatherLust >= 2:
+									pcs_horny -= rand(1, 5)
+									gs 'stat'
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim31.jpg"></center>' & '继父试图把米沙叔叔的注意力引向房间另一头，同时用焦躁的手势示意你遮好自己。'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim52.jpg"></center>' & '继父注意到你想做什么。他先把米沙叔叔支开足够久，然后转向你低声说："<<$pcs_nickname>>，别……千万别。你不知道自己在惹什么麻烦。"被他语气中的严肃震慑住，你照他说的遮好了自己。'
+								else
+									if $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim20.jpg"></center>' & '继父看穿了你的把戏，把你拉到他身边，眼中燃烧着欲望。他的手在你的臀瓣和大腿上滑动，又摸又揉，然后把你的内裤拨到一边。两根手指探入你的后庭，揉弄挑逗着你。"你想要什么吗，<<$pcs_nickname>>？"他脸上挂着得意的笑容问道，心里明白他扭转了局面。你只能呜咽着回应。他及时抽回了手，没让米沙叔叔注意到发生了什么。'
+									if $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/fatherim25.jpg"></center>' & '注意到继父脸红，你明白桌上至少有一个人发现你没穿内裤。趁米沙叔叔移开视线，他迅速伸手过来，用手指抠弄你湿润的小穴。当他抽回手时，一声渴望的呻吟从你唇间漏出，他立刻开始聊起雨刮器的话题。米沙叔叔完全不知道刚才发生了什么。'
+								end
+								act '继续': gt $loc, $loc_arg
+							end
+						end
+					end
+				end
+				killvar 'FatherMolest'
+			end
+		end
+	end
+end
+
+
+--- garfather ---------------------------------

@@ -1,0 +1,561 @@
+# nichBedroomServant
+
+CLOSE ALL
+
+menu_off = 0
+gs 'core_library', 'setloc', 'nichBedroomServant', ''
+$nichLoc = 'servant'
+$location_type = 'private'
+$locclass = 'bedr'
+
+!! Has to happen before there is any output
+if nichWork = 2:
+	if nichLastWorkDay ! daystart: gs 'nichUtil', 'startWorkday'
+	!! this code has to be include everywhere where PC can change clothes or enter the apartment
+	gs 'nichUtil', 'checkOutfit'
+end
+
+!! Argument return: PC has been in the room before, dont perform actions meant to be executed before or as she enters the room.
+if $ARGS[0] = '' or $ARGS[0] = 'start' or $ARGS[0] = 'return':
+	gs 'stat'
+	gs 'music_actions', 'clear_restrictions'
+	'<center><b>你在尼古拉斯公寓的卧室</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/nichApartment/bedroomServant.jpg"></center>'
+
+	'考虑到你只是个雇员，你的卧室算是相当大了。'
+	'有一个小<a href="exec:gt ''bed'', ''start''">双人床</a>和一个<a href="exec:gt ''alarmclock'', ''start''">闹钟</a>。'
+	if $ml_guitar['location'] = $loc: '你的吉他放在床边的架子上。'
+	*nl
+	'半面墙上有一个看起来很贵的<a href="exec:gt ''wardrobe'', ''start''">衣柜</a>。'
+	'衣柜旁边有一张带<a href="exec:gt ''mirror'', ''start''">镜子</a>的梳妆台。'
+	if mc_inventory['tech_computer'] = 1:
+		!! TODO: Sveta can''t do camshows from this place - unless Gala makes her at some point, but unlikely.
+		gs 'internet_mobile', 'get_access', 'free', 'nocamshow'
+		$komp = '，还有你的<a href="exec:gt ''komp'', ''start''">电脑</a>。'
+	else
+		$komp = '.'
+	end
+	*nl
+	'衣柜的另一边摆着一张豪华的<a href="exec:gt ''divan'', ''start''">真皮沙发</a>。'
+	'沙发对面的墙上挂着一台大平板<a href="exec:gt ''TV'', ''start''">电视</a>。'
+	'窗下有一个漂亮的<a href="exec:gt ''nichBedroomServant'', ''desk''">书桌</a><<$komp>>'
+	*nl
+	if mc_inventory['hula_hoop'] > 0: '<br>你的呼啦圈立在房间的一个角落里。 '
+	if mc_inventory['skipping_rope'] > 0: '你的跳绳放在架子上。 '
+	if mc_inventory['book_yoga'] > 0: '衣柜旁边的一个角落里卷着一张瑜伽垫。 '
+
+	if mishka > 0: '在其中一个架子上，你放了你的<<mishka>>只泰迪熊'+iif(mishka = 1, '', '')+'。'
+	gs 'exercise', 'start'
+
+	if nichSalaryOutstanding > 0:
+		*nl
+		'你的书桌上放着你的工资支票，金额为<<$func(''money'', ''string_profit'', nichSalaryOutstanding)>> (<a href="exec:gt ''nichBedroomServant'', ''redeemSalary''">兑换</a>）。'
+	end
+
+	act '去走廊':
+		if nichEvtGalaTele1 = 1 and nichGalaOpinion = 1 and (rand(1, 100) <= 20 or nichDebug = 1):
+			gt 'nichBedroomServant', 'evtBodyguardIntim1'
+		elseif nichGalaOpponent = 31 and (rand(1, 100) <= 10 or nichDebug = 1):
+			!! Todo: Sveta gets abducted
+		else
+			if $clothingworntype ! 'nude':
+				minut += 1
+				killvar 'home_name'
+				gt 'nichApartment'
+			else
+				msg '<b><font color = red>你可能不应该光着身子到处走，尤其是在你的工作场所。你需要穿上衣服。</font></b>'
+				gt $curloc
+			end
+		end
+	end
+	act '在床上放松': gt 'bed', 'start'
+	act '打开衣柜': gt 'wardrobe', 'start'
+	act '去仆人浴室':
+		gt 'nichBathServant'
+	end
+
+	act '学习 (2:00)':
+		*clr & cla
+		menu_off = 1
+		minut += 120
+		gs 'exp_gain', 'intel', 1
+		'<center><img <<$set_imgh>> src="images/pc/activities/study.jpg"></center>'
+		'你花两个小时学习，感觉聪明了一点。'
+
+		act '完成': gt $loc
+	end
+
+	gs 'library_functions', 'set_home_read_acts'
+	gs 'music_actions', 'start'
+	if pcs_magik >= 6 and spellbefshild = 1 and tobiQW = 0: gt 'tobiQW', 'start'
+
+	if sick >= 1:
+		act '卧床休息（生病）':
+			*clr & cla
+			menu_off = 1
+			minut += 240
+			sick -= 1
+			if sick < 0: sick = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/shared/apartment/event/sick/sick'+rand(11, 17)+'.jpg"></center>'
+
+			'你躺在床上，咳嗽、打喷嚏、擤鼻涕……而且，好像这还不够，你还觉得自己可能要头疼了。'
+			'你在半睡半醒间辗转反侧大约4个小时，试图通过出汗赶走病痛，当你决定起身活动活动腿时，你确实感觉好多了。'
+
+			act '站起来': gt $loc
+		end
+	end
+
+	if pcs_horny >= 50: act '手淫': gt 'selfplay', 'start'
+
+	if mc_inventory['mag_porn'] > 0:
+		'你把色情杂志藏在床垫下。'
+		gs 'library_functions', 'set_read_porn_act'
+	end
+
+	if mc_inventory['cocaine'] > 0: '你把<<mc_inventory[''cocaine'']>>剂的苍白淑女藏在衣柜后面。'
+
+	if mc_inventory['cocaine'] > 0 and drugVars['cocaine_day'] ! daystart:
+		act '吸一点可卡因 (0:05)':
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			gs 'drugs', 'cocaine'
+
+			'<center><img <<$set_imgh>> src="images/shared/drugs/dur.jpg"></center>'
+			'你吸了一小剂可卡因，不久之后，你开始感觉棒极了，仿佛什么都能做到， <b>做</b>任何事情——但你也开始感到难以置信地饥渴。'
+
+			act '离开': gt $curloc
+		end
+	end
+
+	''
+	'桌子旁边的墙上挂着你的工作时间表：'
+	if nichVactionTil >= daystart:
+		'<b>你今天不用上班。</b>'
+		if nichVactionTil = daystart + 1:
+			'明天也是休息日。'
+		elseif nichVactionTil > daystart + 1:
+			'接下来的 '+(nichVactionTil-daystart)+' 天也是休息日。'
+		end
+
+	end
+	'你应该开始准备早餐，在 '+func('time', 'get_time_string', 7, 15)+' 之前（工作日），周末则在 '+func('time', 'get_time_string', 8, 15)+' 之前。'
+
+	if (thinkpreg > 0 or knowpreg > 0) and nichPregnancy = 0:
+		''
+		'<b>你怀孕了，但尼古拉斯还没意识到。一旦他发现了，他肯定不会再让你继续为他工作。也许你应该穿宽松的衣服来掩饰你的状况？</b>'
+	end
+
+	if nichWork = 2:
+
+		gs 'nichChore', 'inspect', 'servant'
+
+	end
+	gs 'prostitution_functions', 'prostitute_outfit_at_home'
+
+	if func('homes_properties', 'is_current_home') = 0:
+		act '把尼古拉斯家设为主要居所': gs 'homes_properties', 'set_home' & gt 'nichBedroomServant'
+	end
+
+elseif $ARGS[0] = 'evtBodyguardIntim1':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/taras/encounter1.jpg"></center>'
+	'你还没来得及离开房间，就被一个不认识的男人推了回来。'
+	'你吃了一惊，只能倒吸一口气，他痛苦地拧着你的右臂，迫使你弯下腰。'
+	'他显然知道自己在做什么。他只用一只手就娴熟地制住了你，让你几乎动弹不得。'
+	'“让我自我介绍一下。我叫塔拉斯，但你要叫我先生。我是加拉夫人的保镖。我不仅要保护她的生命和健康，还要保护她家族的好名声。”'
+	'“她告诉我，她丈夫雇了个小骚货当他的新女仆。”'
+	'你惊讶地倒吸一口气，因为他掀起你的裙子，让你的屁股暴露在外。'
+	'“而且从这模样看，她说得没错。我倒不是怀疑她的话。”'
+	'他狠狠打了你的左臀一巴掌。'
+	'“这当然不能接受。”'
+	'他又打了你的另一边屁股。'
+	'“把这当作你第一次也是唯一一次警告。如果你在这栋房子里卖淫，如果你让加拉夫人有任何不满，你会后悔的。”'
+	'他又打了你的左臀。'
+	'“你明白了吗？”'
+	!! Todo: Disagree
+	'以你目前的姿势无法反抗，你温顺地点点头说“是。”'
+	'又是右臀。'
+	'“是什么？”'
+	'“是，先生，我明白了。”'
+	'他又等了几秒钟，然后轻轻抚摸你的头发，放开了你。'
+	'“乖女孩。我真的不想伤害你。”带着这个明显的谎言，他离开了你的房间。'
+	gs 'pain', 3, 'asscheeks', 'spank'
+	nichGalaOpinion = 2
+	act '返回':
+		gt $loc
+	end
+elseif $ARGS[0] = 'desk':
+	if nichGalaOpponent = 21:
+		'<center><img <<$set_imgh>> src="images/characters/city/gala/necklace.jpg"></center>'
+		'你打开书桌。有些东西似乎不对劲。仔细检查后，你发现加拉丢失的项链藏在你的一些物品下面。'
+		act '把它留在那里':
+			gt 'stol', 'start'
+		end
+		act '把它放回它该在的地方':
+			minut += 3
+			nichGalaOpponent = 22
+			gt 'nichBedroomServant', 'return'
+		end
+	else
+		gt 'stol', 'start'
+	end
+elseif $ARGS[0] = 'redeemSalary':
+	*clr & cla
+	gs 'money', 'earn', nichSalaryOutstanding, 'bank'
+	'你的薪水是<<$func(''money'', ''string_profit'', nichSalaryOutstanding)>>，已转入你的银行账户。'
+	killvar 'nichSalaryOutstanding'
+	act '返回': gt 'nichBedroomServant', 'return'
+
+elseif $ARGS[0] = 'sleepEvents':
+	menu_off = 1
+	!! Replicated in pre_sleep_events. AGSS[1] should never be 0.
+	if ARGS[1] = 0:
+		if nichGalaOpponent = 30 and hour <= 23 and hour >= 19 and nichDebug = 1:
+			!! Start abduction
+			!! TODO
+			gt 'nichBedroomServant', 'sleepEvents', 1000
+		elseif nichGalaContractTaras = 1 and nichGalaContractTarasLast + rand(3, 10) <= daystart:
+			!! Taras visits
+			gt 'nichBedroomServant', 'sleepEvents', 100
+		end
+
+	!! ARGS[1] = 100 currently always has Sveta go back to sleep.
+	!! If this stops being the case, then the corresponding entry in pre_sleep_events needs to be changed!
+	!! Blame Anjuna
+	elseif ARGS[1] = 100:
+		nichGalaContractTarasLast = daystart
+
+		nichRand = -1
+
+		if nichGalaContractTarasCount > 10: nichRand = rand(0, 10)
+
+		if nichTarSaunaPay >= 20000:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/chat.jpg"></center>'
+			'你醒来时感觉有什么重物压在你身上。有点困倦的你睁开眼睛，看见塔拉斯的脸就在你眼前。'
+			'“荡妇，你的活儿干得不错。你赚到了我需要的所有钱，我也就能，嗯……开始我的准备了。”'
+			'他犹豫了一秒钟。'
+			'“我想我也可以把我的计划介绍给你。你可能已经猜到了，我对加拉夫人有着强烈的感情。遗憾的是，她没有意识到跟我在一起会比跟她丈夫在一起更好。这就是为什么我需要和她共度一段美好时光来说服她。”'
+			'“当然，如果我直接问她，她是不会同意的。所以我需要设个小局。我需要你的钱，这样我就能在没人察觉的情况下准备我们的旅行。”'
+			'“现在我又需要你的帮助了。我需要一个诱因，让加拉夫人主动请求我带她离开城市，这样其他员工和家人就不会起疑。而这个诱因就是你。”'
+			'“这么说吧，加拉夫人有一些秘密。而且可以说，当这些秘密被揭穿时，她不想待在这里。”'
+			'“一段时间前我帮她解决过一个问题，它非常适合这种情况。”'
+			'“只要告诉她，警察打过电话来，是关于一个叫卡廷卡的女孩的事。其他的都交给我。”'
+			'“你大概再也见不到我们俩了。但你可以放心，你帮助真爱找到了归宿。”'
+			'他站起来，离开了你的房间。'
+			''
+			'<b>你应该和加拉谈谈这件事。你可以选择遵循塔拉斯的计划，也可以揭发它。</b>'
+			nichGalaTarasPlan = 1
+			killvar 'nichTarSauna'
+			killvar 'nichTarSaunaPay'
+			!! TODO: CONT
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichTarSaunaPay > 10000:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/chat.jpg"></center>'
+			'你醒来时感觉有什么重物压在你身上。有点困倦的你睁开眼睛，看见塔拉斯的脸就在你眼前。'
+			'“荡妇，我听说你在桑拿房干得很好。我就知道你会热情地投入这份工作。”'
+			'“现在别偷懒！我需要你总共挣到<<$func(''money'', ''string_profit'', 20000)>>。我相信你很容易就能为我挣到。你已经完成一半多了。”'
+			'他轻轻扇了你一巴掌，然后站起来离开了你的房间。'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 10:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/chat.jpg"></center>'
+			'你醒来时感觉有什么重物压在你身上。有点困倦的你睁开眼睛，看见塔拉斯的脸就在你眼前。'
+			'“哦，很好。你醒了。”'
+			'他轻轻用手抚过你的脸颊。你都不知道他还有这么温柔的一面。'
+			'“我感觉我们俩相处得相当不错。”'
+			'你难以置信地看着他。他是认真的吗？'
+			'“事实上，有件事你可以为我做。我需要弄点账外的钱。就当是为了我的个人爱好吧。”'
+			'你感觉到他在摸你的阴部。'
+			'“既然你是这么听话的小荡妇，我想我可以让你参与进来。其实很简单。我有个朋友在住宅区的桑拿房工作。你去那里服务顾客。我拿钱，你的洞被填满。人人受益。当然，我已经把你身上这个小植入体的桑拿房列入了白名单。”'
+			'“哦，加拉夫人不需要知道这件事。就当是给她的一个惊喜吧。”'
+			'他站起来，离开了你的房间。'
+			''
+			'<b>也许你应该去这家桑拿房，以免被塔拉斯惩罚？</b>'
+			nichGalaImplant = 2
+			nichGalaContractTarasCount += 1
+			nichTarSauna = 1
+			nichTarSaunaPay = 0
+			saunaWhore = max(SaunaWhore, 1)
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 0 or nichRand = 0:
+
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed7.jpg"></center>'
+			'你的屁股上突然一阵疼痛，你立刻醒了。有人打了你的屁股。'
+			'清醒过来后，你意识到你的嘴被某种胶布封住了，手腕和脚踝也被短链子拴在一起。'
+			'床前你看到了塔拉斯。'
+			'“抱歉，荡妇。我没时间陪你，所以你得享受这个替代品。”'
+			'他把一个振动器推进你的阴道，调到最大档。'
+			gs 'arousal', 'vaginal', 30, 'bound'
+			gs 'arousal', 'end'
+			gs 'stat'
+			'大约半小时后，塔拉斯回来取出了振动器。'
+			'“我知道你更喜欢真家伙。别担心，用不了多久你就能再次体验到了。”'
+			'他解开你，离开了你的房间。'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 1 or nichRand = 1:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed9.jpg"></center>'
+			'你做了一个被紧紧捆绑的春梦。'
+			'突然你的鼻孔被堵住，你猛地惊醒。你张开嘴想喘气，却感觉一根鸡巴被塞了进来。'
+			'你花了几秒钟才意识到发生了什么。你仰面躺着，双手被绑在身后。那根本不是梦。'
+			'那个头朝下慢慢操着你的脸的男人一定是塔拉斯，但你只能猜测，因为除了他正对着你脸的睾丸，你什么都看不见。'
+			'没过多久塔拉斯就射在了你嘴里，但他没有把鸡巴拔出来。'
+			'“咽下去，荡妇！”'
+			'别无选择，你照做了。'
+			'“我就知道你是个吃精液的脏货。至少你还有点用处。”'
+			'他解开你的一只手，让你能解开其余的绳子。然后他一言不发地离开了你的房间。'
+			gs 'arousal', 'bj', 5, 'bound', 'rough', 'rape'
+			gs 'arousal', 'end'
+			gs 'cum_call', 'mouth_swallow', 'A513', 1
+			gs 'stat'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 2 or nichRand = 2:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed3.jpg"></center>'
+			'就在你快要睡着时，你感觉自己被从床上抬了起来。你立刻完全清醒了。'
+			'塔拉斯意识到你醒了，把你放到地上，把你的一只手臂扭到背后，同时把你往前推。你毫无反抗之力。'
+			'“走吧，荡妇！”'
+			'他带你上到阁楼。在那里，他把你的肚子朝下锁起来，并在你脖子上套了一条皮带。'
+			'然后他用食指试探你的屁眼，接着开始无情地操它。'
+			'与此同时，他拉扯着你脖子上的皮带，你开始窒息。随着空气越来越少，你开始恐慌。塔拉斯显然很享受你在恐慌中挣扎的样子，直到你快昏过去时才松开皮带。'
+			'你还没来得及喘口气，他又重复起他恶毒的游戏。这样反复了好几次，最后他终于要射了。'
+			'只是这一次他没有松开皮带。在一切变黑之前，你最后感觉到的是他射进了你的屁股。'
+			'……'
+			'你醒来时已经回到自己的床上。显然，塔拉斯完事后把你抱了下来。'
+			gs 'arousal', 'anal', 5, 'bound', 'rough', 'rape'
+			gs 'arousal', 'end'
+			gs 'cum_call', 'anus', 'A513', 1
+			gs 'stat'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 3 or nichRand = 3:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed6.jpg"></center>'
+			'你被屁股上狠狠的一击打醒。你本能地想伸手去摸，但你的手腕和脚踝被绑在床的对角。除了趴着，你什么都做不了。'
+			'“很好，你醒了。”'
+			'显然塔拉斯就站在你身后。'
+			'“可惜我没时间和你玩。但我带了点小东西，让你不会忘了我。”'
+			'他把一个振动器推进你暴露的阴部并打开它。起初你什么感觉都没有，但随后一阵强劲的振动开始了。塔拉斯看着你挣扎了几分钟，然后离开了房间。'
+			'突然振动又停了，大约5分钟后再次启动。显然，振动器被设置成了随机程序。'
+			gs 'arousal', 'vaginal_vibe', 30, 'bound'
+			gs 'arousal', 'end'
+			gs 'stat'
+			'你实在太累了，撑不了多久。在振动器又一次暂停时，你睡着了。你做了些春梦，梦见被各种男人和女人操，振动器持续的振动也是其中的一部分。'
+			'你不知道塔拉斯把振动器留在你体内多久，但当你再次醒来时，你已经被解开，振动器也不见了。'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+			!! TODO: CONT
+		elseif nichGalaContractTarasCount = 4 or nichRand = 4:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed4x1.jpg"></center>'
+			'你的腿被向上拉起，你从睡梦中猛然惊醒。你想惊叫，但你的嘴被胶带封住了，眼睛也是。'
+			'你想挣脱，但你的手也被绑住了。制住你的人还用一根绳子把你的脚踝拴在床头，让你完全暴露。'
+			'“很好。我们只需加上最后的点缀。”'
+			'那是塔拉斯的声音。'
+			'你感觉乳房被挤压，因为塔拉斯把它们也绑了起来。'
+			'他完成后，毫不耽误地开始操你。'
+			gs 'arousal', 'vaginal', 10, 'bound'
+			gs 'arousal', 'end'
+			'大约10分钟后，你感觉到他射在了你体内。'
+			gs 'cum_call', '', 'A513', 1
+			gs 'stat'
+			'他一言不发，站起来离开了房间。'
+			'他不能就这样把你绑着丢下，对吧？'
+			act '等待':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed4x2.jpg"></center>'
+				'你不知道塔拉斯离开了多久，但你在某个时候一定睡着了。'
+				'你被塔拉斯再次操弄弄醒了。起初你以为这是场梦，但随后你意识到这是现实。'
+				gs 'arousal', 'vaginal', 20, 'bound'
+				gs 'arousal', 'end'
+				'这次塔拉斯花了更久才射。当他射的时候，他拔出来，把精液直接射在你脸上。'
+				gs 'cum_call', 'face', 'A513', 1
+				gs 'stat'
+				'“我相信你会喜欢的。”'
+				'他解开你的右手腕，让你能解开其他束缚，然后再次离开你的房间。'
+				nichGalaContractTarasCount += 1
+
+				act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+			end
+		elseif nichGalaContractTarasCount = 5 or nichRand = 5:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed2.jpg"></center>'
+			'你被拖出床时突然惊醒。你想尖叫，但脖子上的绳子让你呼吸困难，也发不出任何声音。'
+			'你开始恐慌，在被推到地板上时拼命挣扎。你的左臂被扭到背后，任何挣脱的尝试都徒劳无功。'
+			'然后你感觉到一根鸡巴猛地插入你的屁眼。你疯狂地想挣脱。每当你稍微平静下来，脖子上的绳子就会被收紧，直到你再次陷入恐慌。'
+			gs 'arousal', 'vaginal', 15, 'bound'
+			gs 'arousal', 'end'
+			'终于，你感觉到折磨你的人射在了你体内。'
+			gs 'cum_call', 'anus', 'A513', 1
+			'他松开绳子，轻抚你的头。'
+			'“干得好，荡妇。要不是你挣扎得那么厉害，我也不会玩得这么开心。”'
+			'一直是塔拉斯。他捡起绳子，离开了你的房间。'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 6 or nichRand = 6:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed10.jpg"></center>'
+			'你突然醒来。你的屁股很疼。你意识到自己被绑在床上，有人坐在你旁边，正在打你的屁股。'
+			'“安静，荡妇！你不想吵醒任何人！”'
+			'塔拉斯继续打了你大约30分钟。'
+			gs 'pain', 8, 'asscheeks', 'spank'
+			minut += 30
+			gs 'stat'
+			'过了一会儿，他似乎累了。他的击打变得不那么频繁，也不那么疼了。'
+			'他最后打了你三下，然后站起来给你松绑。'
+			'“至少你有个好屁股，奴隶。”'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 7 or nichRand = 7:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed1x1.jpg"></center>'
+			'你被胸上的一巴掌打醒。你想尖叫，但你又一次被绑在床上。嘴里的口球让你发不出任何声音。'
+			'睁开眼，你看到塔拉斯站在你上方。'
+			'“哦，很好，你醒了。我觉得你最近是个乖荡妇，所以想奖励你。”'
+			act '等待':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed1x2.jpg"></center>'
+				'他拿出一个振动器，推进你的阴道，然后打开。你感觉到强烈的振动传遍全身。'
+				'“我打赌你会喜欢这个。感觉就像被几十个男人操一整晚。”'
+				'他离开了你的房间，留下你被绑着，被振动器折磨。'
+				gs 'arousal', 'vaginal_vibe', 30, 'bound'
+				'感觉像过了永远，但塔拉斯没有回来。'
+				gs 'arousal', 'vaginal_vibe', 30, 'bound'
+				gs 'stat'
+				act '等待':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed1x3.jpg"></center>'
+					gs 'arousal', 'vaginal_vibe', 30, 'bound'
+					'你等了仿佛永远那么久。阴部持续的振动早就开始疼痛了，但你不能否认它们仍然让你兴奋。'
+					gs 'arousal', 'vaginal_vibe', 30, 'bound'
+					gs 'arousal', 'end'
+					gs 'stat'
+					'终于，塔拉斯回来了，给你松绑。你毫不耽搁地取出振动器，愤怒地盯着他。'
+					'“我就知道你会享受。像我这样的普通人晚上睡觉时，像你这样的荡妇却想被操一整晚，而我在这方面完全支持。”'
+					'他带着满脸的笑容离开了你。'
+					nichGalaContractTarasCount += 1
+
+					act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+				end
+			end
+		elseif nichGalaContractTarasCount = 8 or nichRand = 8:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed11.jpg"></center>'
+			'窒息…… '
+			'你惊恐地睁开眼睛。脖子上的绳子让你无法呼吸。你想挣扎，但你被完全绑住了。'
+			'就在你昏过去之前，绳子松开了，你得以大口喘气。'
+			'“深呼吸，荡妇。我们今天才刚开始找乐子。”'
+			'他再次收紧绳子，你又感觉到了窒息。'
+			'然后你听到他手机的声音。他松开绳子，看了一眼。'
+			'“该死。有人需要我的服务。抱歉，恐怕我们的小乐趣只能改天再继续了。”'
+			'他给你松绑，一言不发地离开了你的房间。'
+			nichGalaContractTarasCount += 1
+
+			act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+		elseif nichGalaContractTarasCount = 9 or nichRand = 9:
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed5.jpg"></center>'
+			'没有空气……'
+			'你惊恐地睁开眼睛。你头上套着一个塑料袋。你拼命想把它扯下来，但你的双手被绑在背后。'
+			'你想站起来，但你已经太虚弱，黑暗迅速降临。你最后看到的是塔拉斯正用一台小型摄像机拍摄你。他咧嘴笑着。'
+			act '结束？':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed5.jpg"></center>'
+				'当你醒来时，你看到塔拉斯就站在你面前。你仍然被绑在床上，嘴里的口塞让你发不出任何清晰的声音。'
+				'“你喜欢那样，是吗？我也喜欢。我把我们一起的乐趣录下来，这样我空闲时就有东西可看。也许我还能靠卖这些素材赚点钱。”'
+				'他把塑料袋举到你面前。'
+				'“你会乐意给我提供更多素材的，对吧？”'
+				'你拼命摇头说不，但他还是把袋子套到了你头上。'
+				'没过多久恐慌再次袭来。你剧烈挣扎，但毫无用处。你又昏了过去。'
+				act '窒息？':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed5.jpg"></center>'
+					'你又醒了过来。你的头像疯了一样转。塔拉斯还在你的房间里，你的处境没有任何改变。'
+					'“那很有趣，你不觉得吗。再来一轮怎么样？”'
+					'你竭尽全力，但用眼神恳求、摇头、发出闷哼都没有用。'
+					'很快袋子又套回你头上。窒息感再次袭来，你又一次陷入恐慌。'
+					act '昏过去':
+						cla & *clr
+						'这一次你醒来时，塔拉斯已经走了，你也被解开了。'
+						'一个可怕的念头浮现在你脑海，让你不寒而栗：这个人完全无视你的安全。如果有一天他失手杀了你怎么办？'
+						nichGalaContractTarasCount += 1
+
+						act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+					end
+				end
+			end
+		else
+			'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed8x1.jpg"></center>'
+			'你被某种东西塞进嘴里的感觉弄醒了。'
+			'你想把它推开，却发现你的手臂被绑在背后。'
+			'睁开眼，你只看到一个男人的胯部。'
+			'“很好，你终于醒了。”'
+			'当然是塔拉斯在操你的嘴。'
+			gs 'arousal', 'bj', 5, 'bound', 'rough', 'rape' & gs 'stat'
+
+			act '继续':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed8x2.jpg"></center>'
+				'塔拉斯尽可能深地把鸡巴插进你嘴里。你能感觉到他的鸡巴深深插入你的喉咙。'
+				'当他抓住你的头按向他的胯部时，你呼吸更加困难了。'
+				gs 'arousal', 'bj', 5, 'bound', 'rough', 'rape' & gs 'stat'
+
+				act '继续':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed8x3.jpg"></center>'
+					'他把你翻过来，开始操你暴露的阴部。'
+					gs 'arousal', 'vaginal', 5, 'bound', 'rough', 'rape' & gs 'stat'
+
+					act '继续':
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/characters/city/gala/slave/taras/bed8x4.jpg"></center>'
+						'没过多久他就射在了你体内。'
+						'“干得好，奴隶。”'
+						gs 'arousal', 'end'
+						gs 'cum_call', '', 'A513', 1
+
+						gs 'stat'
+						'他给你松绑，再次离开你的房间。'
+						nichGalaContractTarasCount += 1
+
+						act '回去睡觉': gs 'pre_sleep_events', 'event_end'
+					end
+				end
+			end
+		end
+
+	elseif ARGS[1] = 1000:
+		hour = 23
+		minut += 180
+		'半夜，你从睡梦中醒来。你感觉到有人在你房间里看着你。你环顾四周，却看不到任何人。'
+		*nl
+		'也许你只是多疑了？'
+		*nl
+		'你决定回去睡觉。你闭上眼睛，把头枕回枕头上。'
+		*nl
+		'突然，你感到一只强壮的手抓住你的脸，捂住你的嘴和鼻子，另一只手按住你的髋部。'
+		*nl
+		'你想尖叫，却发不出一点声音。失去意识前你注意到的最后一件事是一股甜腻的气味。'
+		!! WIP Notice
+		*nl
+		'<font color = red><b>警告：故事的这一部分目前尚未完成，很可能以死路告终。点击忽略以跳过它。</b></font>'
+		act '一切变黑':
+			killvar 'home_name'
+			gt 'nichTaras', 'abdIntro'
+		end
+		act '忽略':
+			nichGalaOpponent = 31
+			menu_off = 0
+			inSleep = 0
+			gt 'nichBedroomServant'
+		end
+	end
+end
+
+
+--- nichBedroomServant ---------------------------------

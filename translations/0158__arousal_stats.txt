@@ -1,0 +1,537 @@
+# arousal_stats
+
+!! $ARGS[1] = '$arousal_npc_kissed'
+!! $ARGS[2] = 'npc_kissed_count'
+!! $ARGS[3] = 'npc_last_kissed'	or $ARGS[3] = '' if to be skipped
+!! $ARGS[4] = 'men_kissed'
+!! $ARGS[5] = 'women_kissed'
+!! $ARGS[6] = 'herm_kissed'
+!! $ARGS[7] = 'set_stat_fucked' if counts as "fucked"
+!! $ARGS[8] = base name for 'last_sex_day_*' act tracker (e.g. 'last_sex_day_vaginal'), or '' to skip
+if $ARGS[0] = 'stat_loop_core1':
+	if $ARGS[1] = '': exit
+	if $ARGS[2] = '': exit
+	!! $ARGS[3] may be empty
+	if $ARGS[4] = '': exit
+	if $ARGS[5] = '': exit
+	if $ARGS[6] = '': exit
+	!! $ARGS[7] may be empty
+
+	arousal_maxi = arrsize($ARGS[1])
+	if arousal_maxi > 0:
+		arousal_i = 0
+		:arousal_stat_core_loop1
+			$arousal_temp_npcID = $dyneval('$result = <<$ARGS[1]>>[arousal_i]')
+			if dyneval('result = <<$ARGS[2]>>[$arousal_temp_npcID]') = 0:
+				if $ARGS[7] <> '': gs 'arousal_stats', $ARGS[7], $arousal_temp_npcID
+				if npc_gender[$arousal_temp_npcID] = 0:
+					stat[$ARGS[4]] += 1
+				elseif npc_gender[$arousal_temp_npcID] = 1:
+					stat[$ARGS[5]] += 1
+				else
+					stat[$ARGS[6]] += 1
+				end
+			end
+			if npc_gender[$arousal_temp_npcID] = 0:
+				stat[$ARGS[4] + '_times'] += 1
+			elseif npc_gender[$arousal_temp_npcID] = 1:
+				stat[$ARGS[5] + '_times'] += 1
+			else
+				stat[$ARGS[6] + '_times'] += 1
+			end
+			dynamic '<<$ARGS[2]>>[$arousal_temp_npcID] += 1'
+			if $ARGS[3] <> '': dynamic '<<$ARGS[3]>>[$arousal_temp_npcID] = daystart'
+
+			if $ARGS[8] <> '':
+				if $ARGS[3] <> '':
+					$su_ld_variant = 'known'
+				else
+					$su_ld_variant = 'hidden'
+				end
+				stat[$ARGS[8]] = daystart
+				stat[$ARGS[8] + '_' + $su_ld_variant] = daystart
+				if npc_gender[$arousal_temp_npcID] = 0:
+					stat['last_sex_day_man'] = daystart
+					stat['last_sex_day_man_' + $su_ld_variant] = daystart
+				elseif npc_gender[$arousal_temp_npcID] = 1:
+					stat['last_sex_day_woman'] = daystart
+					stat['last_sex_day_woman_' + $su_ld_variant] = daystart
+				else
+					stat['last_sex_day_herm'] = daystart
+					stat['last_sex_day_herm_' + $su_ld_variant] = daystart
+				end
+			end
+
+			arousal_i += 1
+		if arousal_i < arousal_maxi: jump 'arousal_stat_core_loop1'
+		killvar $ARGS[1]
+	end
+	killvar 'arousal_temp_npcID'
+	killvar 'arousal_maxi'
+	killvar 'su_ld_variant'
+	exit
+end
+
+
+if $ARGS[0] = 'set_stat_fucked':
+	if npc_vaginal_count[$ARGS[1]] > 0: exit
+	if npc_anal_count[$ARGS[1]] > 0: exit
+
+	if npc_gender[$ARGS[1]] = 0:
+		stat['men_fucked'] += 1
+	elseif npc_gender[$ARGS[1]] = 1:
+		stat['women_fucked'] += 1
+	else
+		stat['herm_fucked'] += 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_stat_hidden_fucked':
+	if npc_hidden_vaginal_count[$ARGS[1]] > 0: exit
+	if npc_hidden_anal_count[$ARGS[1]] > 0: exit
+
+	if npc_gender[$ARGS[1]] = 0:
+		stat['men_hidden_fucked'] += 1
+	elseif npc_gender[$ARGS[1]] = 1:
+		stat['women_hidden_fucked'] += 1
+	else
+		stat['herm_hidden_fucked'] += 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'end':
+	if orgasm_buildup > 350: orgasm_buildup = 350
+	if orgasm_buildup > 300: 
+		orgasm_buildup -= 30
+	elseif orgasm_buildup > 200: 
+		orgasm_buildup -= 20
+	elseif orgasm_buildup > 100: 
+		orgasm_buildup -= 10
+	end
+	if stim['lesbian'] = 1:				stat['lesbian_count'] += 1
+	if stim['hidden_lesbian'] = 1:		stat['lesbian_unaware_count'] += 1
+	if stim['gangbang'] = 1:			stat['gangbang_count'] += 1
+	if stim['group'] = 1:				stat['groupsex_count'] += 1
+	if stim['orgy'] = 1:				stat['orgy_count'] += 1
+	if stim['hidden_gang'] = 1:			stat['gangbang_unaware_count'] += 1
+	if stim['hidden_group'] = 1:		stat['groupsex_unaware_count'] += 1
+	if stim['hidden_orgy'] = 1:			stat['orgy_unaware_count'] += 1
+	if stim['gloryhole'] = 1:			stat['gloryhole'] += 1
+	if stim['hidden_gloryhole'] = 1:	stat['hidden_gloryhole'] += 1
+	if stim['rape'] = 1:
+		stat['rape_count'] += 1
+		stat['last_sex_day_rape'] = daystart
+		stat['last_sex_day_rape_known'] = daystart
+	end
+	if stim['hidden_rape'] = 1:
+		stat['rape_unaware_count'] += 1
+		stat['last_sex_day_rape'] = daystart
+		stat['last_sex_day_rape_hidden'] = daystart
+	end
+	if stim['public'] = 1:
+		if count['hj'] = 1:				stat['public_hj'] += 1
+		if count['bj'] = 1:				stat['public_bj'] += 1
+		if count['titjob'] = 1:			stat['public_titjob'] += 1
+		if count['vaginal_finger'] = 1:	stat['public_fingering'] += 1
+		if count['vaginal'] = 1 or count['vaginal_strap'] = 1:	stat['public_sex'] += 1
+		if count['anal'] = 1 or count['anal_strap'] = 1:		stat['public_anal'] += 1
+	end
+	if stim['shemale'] = 1:				stat['shemale_count'] += 1
+	if stim['hidden_shemale'] = 1:		hidden_shemale += 1
+
+	!! TODO: this wrongly assumes ARGS[1] is the npc id. Need to find better placement
+	!! if stim['prostitution'] = 1:		stat['prostitution_count'] += 1 & npc_prostitution_count[$ARGS[1]] += 1
+	if stim['hidden_prostitution'] = 1:	stat['hidden_prostitution_count'] += 1
+	if stim['masturbate'] = 1:			stat['mast'] += 1
+
+	!! ── Sex-act archetype awards ────────────────────────────────────────────
+	if stim['rape'] = 0:
+		!! Computed before last_sex_day is updated below, so this reflects
+		!! the gap since the PREVIOUS act, not today.
+		temp_chastity_break = daystart - stat['last_sex_day'] >= arch_const['sex_chastity_days']
+		temp_base_act_fired = 0
+		if stim['masturbate'] = 1:
+			gs 'archetypes', 'sex_change', 100, -800, 'Masturbation'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_oral') > 0:
+			gs 'archetypes', 'sex_change', 150, -1200, '口交'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_vaginal') > 0:
+			gs 'archetypes', 'sex_change', 250, -2000, '阴道性交'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_anal') > 0:
+			gs 'archetypes', 'sex_change', 300, -2400, '肛交'
+			temp_base_act_fired = 1
+		end
+		if count['anal_strap_give'] = 1 or count['vaginal_strap_give'] = 1:
+			gs 'archetypes', 'sex_change', 250, -2000, 'Pegging'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_handstuff') > 0:
+			gs 'archetypes', 'sex_change', 125, -1000, 'Handjob'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_footstuff') > 0:
+			gs 'archetypes', 'sex_change', 125, -1000, 'Footjob'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_titstuff') > 0:
+			gs 'archetypes', 'sex_change', 150, -1200, 'Titfuck'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_rimming') > 0:
+			gs 'archetypes', 'sex_change', 150, -1200, 'Rimming'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_fisting') > 0:
+			gs 'archetypes', 'sex_change', 200, -1600, 'Fisting'
+			temp_base_act_fired = 1
+		end
+		if arrsize('$arousal_npc_bdsm') > 0:
+			gs 'archetypes', 'sex_change', 120, -1000, 'BDSM'
+			temp_base_act_fired = 1
+		end
+		!! Catch-all for any partnered sexual contact not covered by a named act above
+		if temp_base_act_fired = 0 and arrsize('$arousal_npc_sexual') > 0:
+			gs 'archetypes', 'sex_change', 60, -500, '性接触'
+			temp_base_act_fired = 1
+		end
+		if temp_chastity_break = 1 and temp_base_act_fired = 1:
+			gs 'archetypes', 'change', 0, 0, -arch_const['sex_chastity_bonus_prude'], 0, 0, 1, 'story', '打破长期空窗'
+		end
+		killvar 'temp_chastity_break'
+		killvar 'temp_base_act_fired'
+
+		if stim['public'] = 1:
+			gs 'archetypes', 'sex_change', 300, -2000, '公开性行为'
+		end
+		if stim['group'] = 1:
+			gs 'archetypes', 'sex_change', 300, -2000, '群交'
+		end
+		if stim['orgy'] = 1:
+			gs 'archetypes', 'sex_change', 600, -4000, 'Orgy'
+		end
+		if stim['gloryhole'] = 1:
+			gs 'archetypes', 'sex_change', 300, -2000, 'Gloryhole'
+		end
+	end
+
+
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_kissed',			'npc_kissed_count',				'npc_last_kissed',		'men_kissed',					'women_kissed',					'herm_kissed'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_kissed',	'npc_hidden_kissed_count',		'',						'men_hidden_kissed',			'women_hidden_kissed',			'herm_hidden_kissed'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_handstuff',		'npc_handstuff_count',			'npc_last_handstuff',	'men_jerked',					'women_fingered',				'herm_jerked'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_handstuff',	'npc_hidden_handstuff_count',	'',						'men_hidden_jerked',			'women_hidden_fingered',		'herm_hidden_jerked'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_footstuff',		'npc_footstuff_count',			'npc_last_footstuff',	'men_feetfucked',				'women_feetfucked',				'herm_feetfucked'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_footstuff',	'npc_hidden_footstuff_count',	'',						'men_hidden_feetfucked',		'women_hidden_feetfucked',		'herm_hidden_feetfucked'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_titstuff',			'npc_titstuff_count',			'npc_last_titstuff',	'men_titfucked',				'women_titfucked',				'herm_titfucked'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_titstuff',	'npc_hidden_titstuff_count',	'',						'men_hidden_titfucked',			'women_hidden_titfucked',		'herm_hidden_titfucked'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_oral',				'npc_oral_count',				'npc_last_oral',		'men_blown',					'women_munched',				'herm_blown',	'',						'last_sex_day_oral'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_oral',		'npc_hidden_oral_count',		'',						'men_hidden_blown',				'women_hidden_munched',			'herm_hidden_blown',	'',					'last_sex_day_oral'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_rimming',			'npc_rimming_count',			'npc_last_rimming',		'men_rimmed',					'women_rimmed',					'herm_rimmed'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_rimming',	'npc_hidden_rimming_count',		'',						'men_hidden_rimmed',			'women_hidden_rimmed',			'herm_hidden_rimmed'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_fisting',			'npc_fisting_count',			'npc_last_fisting',		'men_fisted',					'women_fisted',					'herm_fisted'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_fisting',	'npc_hidden_fisting_count',		'',						'men_hidden_fisted',			'women_hidden_fisted',			'herm_hidden_fisted'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_bdsm',				'npc_bdsm_count',				'npc_last_bdsm',		'men_bdsm',						'women_bdsm',					'herm_bdsm'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_bdsm',		'npc_hidden_bdsm_count',		'',						'men_hidden_bdsm',				'women_hidden_bdsm',			'herm_hidden_bdsm'
+
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_vaginal',			'npc_vaginal_count',			'npc_last_vaginal',		'men_vaginal_fucked',			'women_vaginal_fucked',			'herm_vaginal_fucked', 'set_stat_fucked',		'last_sex_day_vaginal'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_vaginal',	'npc_hidden_vaginal_count',		'',						'men_hidden_vaginal_fucked',	'women_hidden_vaginal_fucked',	'herm_hidden_vaginal_fucked', 'set_stat_hidden_fucked',	'last_sex_day_vaginal'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_anal',				'npc_anal_count',				'npc_last_anal',		'men_anal_fucked',				'women_anal_fucked',			'herm_anal_fucked', 'set_stat_fucked',		'last_sex_day_anal'
+	gs 'arousal_stats', 'stat_loop_core1', '$arousal_npc_hidden_anal',		'npc_hidden_anal_count',		'',						'men_hidden_anal_fucked',		'women_hidden_anal_fucked',		'herm_hidden_anal_fucked', 'set_stat_hidden_fucked',	'last_sex_day_anal'
+
+	arousal_maxi = arrsize('$arousal_npc_sexual')
+	if arousal_maxi > 0:
+		arousal_i = 0
+		:arousal_sexual_loop
+			$arousal_temp_npcID = $arousal_npc_sexual[arousal_i]
+			if npc_sexual[$arousal_temp_npcID] = 0:
+				if npc_gender[$arousal_temp_npcID] = 0:
+					stat['male_sexual_partners'] += 1
+				elseif npc_gender[$arousal_temp_npcID] = 1:
+					stat['female_sexual_partners'] += 1
+				else
+					stat['herm_sexual_partners'] += 1
+				end
+			end
+			if npc_gender[$arousal_temp_npcID] = 0:
+				stat['male_sexual_times'] += 1
+			elseif npc_gender[$arousal_temp_npcID] = 1:
+				stat['female_sexual_times'] += 1
+			else
+				stat['herm_sexual_times'] += 1
+			end
+			npc_sexual[$arousal_temp_npcID] += 1
+			npc_last_sexual[$arousal_temp_npcID] = daystart
+			stat['last_sex_day'] = daystart
+			stat['last_sex_day_known'] = daystart
+			arousal_i += 1
+		if arousal_i < arousal_maxi: jump 'arousal_sexual_loop'
+		killvar 'arousal_npc_sexual'
+	end
+	arousal_maxi = arrsize('$arousal_npc_hidden_sexual')
+	if arousal_maxi > 0:
+		arousal_i = 0
+		:arousal_hidden_sexual_loop
+			$arousal_temp_npcID = $arousal_npc_hidden_sexual[arousal_i]
+			if npc_hidden_sexual[$arousal_temp_npcID] = 0:
+				if npc_gender[$arousal_temp_npcID] = 0:
+					stat['male_hidden_sexual_partners'] += 1
+				elseif npc_gender[$arousal_temp_npcID] = 1:
+					stat['female_hidden_sexual_partners'] += 1
+				else
+					stat['herm_hidden_sexual_partners'] += 1
+				end
+			end
+			if npc_gender[$arousal_temp_npcID] = 0:
+				stat['male_hidden_sexual_times'] += 1
+			elseif npc_gender[$arousal_temp_npcID] = 1:
+				stat['female_hidden_sexual_times'] += 1
+			else
+				stat['herm_hidden_sexual_times'] += 1
+			end
+			npc_hidden_sexual[$arousal_temp_npcID] += 1
+			stat['last_sex_day'] = daystart
+			stat['last_sex_day_hidden'] = daystart
+			arousal_i += 1
+		if arousal_i < arousal_maxi: jump 'arousal_hidden_sexual_loop'
+		killvar 'arousal_npc_hidden_sexual'
+	end
+
+	if succubusflag = 1:
+		arousal_maxi = arrsize('arousal_npc_feed_ids')
+		if arousal_maxi > 0:
+			arousal_i = 0
+			:arousal_feed_loop
+				$arousal_temp_npcID = $arousal_npc_feed_ids[arousal_i]
+				if arousal_npc_feed[$arousal_temp_npcID] >= 24:
+					sexnutrition += succublvl * 20
+					succubxp += 5
+					sucabslez = 1
+				elseif arousal_npc_feed[$arousal_temp_npcID] >= 24 - 11 * arousal_feed_orgasm_flag:
+					arousal_feed_orgasm_flag = 0
+					sexnutrition += succublvl * 20
+					succubxp += 5
+					sucabslez = 1
+				end
+				arousal_i += 1
+			if arousal_i < arousal_maxi: jump 'arousal_feed_loop'
+		end
+	end
+	killvar 'arousal_npc_feed_ids'
+	killvar 'arousal_npc_feed'
+	killvar 'arousal_feed_orgasm_flag'
+
+	if analPlugOut > 0:
+		if pain['asshole'] > 10:
+			gs 'dinsex', 'after_anal', 'no_plug'
+		else
+			gs 'dinsex', 'after_anal', 'pc'
+		end
+	end
+
+	killvar 'temp_orgasm'
+	killvar 'lubonus'
+	killvar 'anal_slip'
+	killvar 'ar_anal_lube'
+	killvar 'vaginal_slip'
+	killvar 'ar_vag_lube'
+	killvar 'orgasm_or'
+	killvar 'pain_coeff'
+	killvar 'arousal_overcall'
+	killvar 'arousalVars'
+	killvar 'orgasm_flag'
+	killvar 'orgasm_txt'
+
+	!! Updating fetish exp for acts carried out and clearing data
+	gs 'arousal_funcs', 'checks', 'maso'
+	gs 'arousal_funcs', 'checks', 'bound'
+	gs 'arousal_funcs', 'checks', 'beast'
+	!! KL: The creampie fetish exp gets not updated here, but in 'cum_manage', when an actual creampie happens
+	!! gs 'arousal_funcs', 'checks', 'creampie'
+	gs 'arousal_funcs', 'checks', 'pregnant'
+	gs 'arousal_funcs', 'checks', 'exhibitionism'
+	gs 'arousal_funcs', 'checks', 'rough'
+	gs 'arousal_funcs', 'checks', 'prostitution'
+	gs 'arousal_funcs', 'checks', 'hidden_prostitution'
+	gs 'arousal_funcs', 'checks', 'dom'
+	gs 'arousal_funcs', 'checks', 'sub'
+	!! This prevented the update of the incest fetish for some acts. Changed to allow for watchin incest porn, deliberatly flashing family and so on
+	!! if count['voyeur'] = 0 and count['voyeur_sex'] = 0 and count['erotic_nudity'] = 0 and count['flash'] = 0 and count['flashlite'] = 0 and count['erotic'] = 0 and count['erotic_nudity'] = 0:
+	gs 'arousal_funcs', 'checks', 'incest'
+	!! end
+	gs 'arousal_funcs', 'checks', 'feet'
+	gs 'arousal_funcs', 'checks', 'lesbian'
+	gs 'arousal_funcs', 'checks', 'hidden_lesbian'
+	gs 'arousal_funcs', 'checks', 'group'
+	gs 'arousal_funcs', 'checks', 'hidden_group'
+	gs 'arousal_funcs', 'checks', 'gangbang'
+	gs 'arousal_funcs', 'checks', 'hidden_gang'
+	gs 'arousal_funcs', 'checks', 'orgy'
+	gs 'arousal_funcs', 'checks', 'hidden_orgy'
+	gs 'arousal_funcs', 'checks', 'humiliation'
+	gs 'arousal_funcs', 'checks', 'deepthroat'
+	gs 'arousal_funcs', 'checks', 'unknown'
+	gs 'arousal_funcs', 'checks', 'gloryhole'
+	gs 'arousal_funcs', 'checks', 'hidden_gloryhole'
+	gs 'arousal_funcs', 'checks', 'rape'
+	gs 'arousal_funcs', 'checks', 'hidden_rape'
+	gs 'arousal_funcs', 'checks', 'shemale'
+	gs 'arousal_funcs', 'checks', 'hidden_shemale'
+	gs 'arousal_funcs', 'checks', 'masturbate'
+
+	stim['event'] = 0
+
+	!! Adding to counts for character stats
+
+
+	!! GENERAL LIGHTLY-EROTIC STUFF
+	gs 'arousal_funcs', 'count', 'foreplay'
+	gs 'arousal_funcs', 'count', 'foreplay_give'
+	gs 'arousal_funcs', 'count', 'kiss'
+	gs 'arousal_funcs', 'count', 'massage'
+	gs 'arousal_funcs', 'count', 'massage_give'
+
+	!! SEEING STUFF
+		!! Rest uses count2 and can be disabled by count
+	gs 'arousal_funcs', 'count', 'porn'
+
+	!! RECEIVING BREAST STIMULATION
+	gs 'arousal_funcs', 'count', 'breasts'
+
+	!! RECEIVING CLIT STIMULATION
+	!!    WITH HAND
+	gs 'arousal_funcs', 'count', 'clit_finger'
+	!!    WITH MOUTH
+	gs 'arousal_funcs', 'count', 'clit_suck'
+	!!    WITH TOY
+	gs 'arousal_funcs', 'count', 'clit_vibe'
+
+	!! RECEIVING PUSSY STIMULATION
+	!!    WITH HAND
+	gs 'arousal_funcs', 'count', 'vaginal_finger'
+	gs 'arousal_funcs', 'count', 'vaginal_fist'
+	gs 'arousal_funcs', 'count', 'self_fisting'
+	!!    WITH MOUTH
+	gs 'arousal_funcs', 'count', 'cuni'
+	!!    WITH PENIS
+	gs 'arousal_funcs', 'count', 'vaginal'
+	!!    WITH PUSSY
+	gs 'arousal_funcs', 'count', 'trib'
+	!!    WITH TOY
+	gs 'arousal_funcs', 'count', 'vaginal_dildo'
+	gs 'arousal_funcs', 'count', 'vaginal_strap'
+	gs 'arousal_funcs', 'count', 'vaginal_vibe'
+
+	!! RECEIVING ANAL STIMULATION
+	!!    WITH HAND
+	gs 'arousal_funcs', 'count', 'anal_finger'
+	gs 'arousal_funcs', 'count', 'anal_fist'
+	gs 'arousal_funcs', 'count', 'self_fisting_anal'
+	!!    WITH MOUTH
+	gs 'arousal_funcs', 'count', 'rimming'
+	!!    WITH PENIS
+	gs 'arousal_funcs', 'count', 'anal'
+	!!    WITH TOY
+	gs 'arousal_funcs', 'count', 'anal_dildo'
+	gs 'arousal_funcs', 'count', 'anal_strap'
+	gs 'arousal_funcs', 'count', 'anal_vibe'
+
+	!! RECEIVING FETISH
+	gs 'arousal_funcs', 'count', 'BDSM'
+	gs 'arousal_funcs', 'count', 'pee'
+
+	!! BEEING SEEN
+		!! Rest uses count2 and can be disabled by count
+	gs 'arousal_funcs', 'count', 'striptease'
+
+	!! GIVING HANDSTUFF
+	!!    ON PENIS
+	gs 'arousal_funcs', 'count', 'hj'
+	!!    ON CLIT
+	gs 'arousal_funcs', 'count', 'clit_finger_give'
+	!!    ON PUSSY
+	gs 'arousal_funcs', 'count', 'vaginal_finger_give'
+	gs 'arousal_funcs', 'count', 'vaginal_fist_give'
+	!!    ON ANUS
+	gs 'arousal_funcs', 'count', 'anal_finger_give'
+	gs 'arousal_funcs', 'count', 'anal_fist_give'
+	!!    ON TOYS
+	gs 'arousal_funcs', 'count', 'dildo_hands'
+	gs 'arousal_funcs', 'count', 'strap_hands'
+
+	!! GIVING TITSTUFF
+	!!    ON PENIS
+	gs 'arousal_funcs', 'count', 'titjob'
+
+	!! GIVING FOOTSTUFF
+	!!    ON PENIS
+	gs 'arousal_funcs', 'count', 'footjob'
+
+	!! GIVING ORAL
+	!!    ON PENIS
+	gs 'arousal_funcs', 'count', 'bj'
+	!!    ON CLIT
+	gs 'arousal_funcs', 'count', 'clit_suck_give'
+	!!    ON PUSSY
+	gs 'arousal_funcs', 'count', 'cuni_give'
+	!!    ON ANUS
+	gs 'arousal_funcs', 'count', 'rimming_give'
+	!!    ON TOY
+	gs 'arousal_funcs', 'count', 'dildo_suck'
+	gs 'arousal_funcs', 'count', 'strap_suck'
+
+	!! GIVING TOYS
+	!!    ON HANDS
+	gs 'arousal_funcs', 'count', 'magicd_hj'
+	gs 'arousal_funcs', 'count', 'dildo_hands_give'
+	gs 'arousal_funcs', 'count', 'strap_hands_give'
+	!!    ON MOUTH
+	gs 'arousal_funcs', 'count', 'magicd_bj'
+	gs 'arousal_funcs', 'count', 'dildo_suck_give'
+	gs 'arousal_funcs', 'count', 'strap_suck_give'
+	!!    ON PUSSY
+	gs 'arousal_funcs', 'count', 'vaginal_dildo_give'
+	gs 'arousal_funcs', 'count', 'vaginal_vibe_give'
+	gs 'arousal_funcs', 'count', 'vaginal_strap_give'
+	gs 'arousal_funcs', 'count', 'magicd_vaginal'
+	!!    ON ANUS
+	gs 'arousal_funcs', 'count', 'anal_dildo_give'
+	gs 'arousal_funcs', 'count', 'anal_strap_give'
+	gs 'arousal_funcs', 'count', 'anal_vibe_give'
+	gs 'arousal_funcs', 'count', 'magicd_anal'
+
+	!! GIVING FETISH
+	gs 'arousal_funcs', 'count', 'BDSM_give'
+	gs 'arousal_funcs', 'count', 'pee_give'
+
+
+	!! Uses count2 and is dependent on count never begin called
+	gs 'arousal_funcs', 'count2', 'erotic'
+	gs 'arousal_funcs', 'count2', 'erotic_nudity'
+	gs 'arousal_funcs', 'count2', 'voyeur'
+	gs 'arousal_funcs', 'count2', 'voyeur_sex'
+	gs 'arousal_funcs', 'count2', 'flashlite'
+	gs 'arousal_funcs', 'count2', 'flash'
+
+
+	!! Thats here because there is currently a variable zoo.
+	temp_beast_exp = func('fetish', 'get_exp', 'beast')
+	if zoo > temp_beast_exp:
+		func('fetish', 'set_exp', 'beast', zoo)
+	else
+		zoo = temp_beast_exp
+	end
+	killvar 'temp_beast_exp'
+
+	if $ARGS[1] ! 'no_stat': gs 'stat'
+end
+
+
+--- arousal_stats ---------------------------------

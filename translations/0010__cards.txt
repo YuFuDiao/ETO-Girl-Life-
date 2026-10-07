@@ -1,0 +1,110 @@
+# cards
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ shell_open — return (in $result) the opening markup for a card: table, │
+!! │ icon column (omitted if no icon given), and title row. Leaves the      │
+!! │ content <td> open for the caller to append to — pair with the matching │
+!! │ 'shell_close'. 'shell' below is the all-in-one version for callers who │
+!! │ already have the full body HTML ready.                                 │
+!! │ Inputs read from $card_in[...]:                                        │
+!! │   icon      - image src (omit for no icon column)                      │
+!! │   icon_size - icon width/height in px (default 48)                     │
+!! │   title     - bold title text (required)                               │
+!! │   title_sub - inline, dim text appended after title, same line         │
+!! │   extra     - right-aligned flex item on the title line                │
+!! │               (e.g. trait EXP widget); mutually exclusive w/title_sub  │
+!! │               layout-wise, but both may be set                         │
+!! │   border    - border color (default theme-appropriate grey)            │
+!! │   bg        - background color                                         │
+!! │   opacity   - CSS opacity (default '1.0')                              │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'shell_open':
+	$cs_border = iif($card_in['border'] <> '', $card_in['border'], iif(theme['is_dark'] = 1, '#555555', '#aaaaaa'))
+	$cs_opac = iif($card_in['opacity'] <> '', $card_in['opacity'], '1.0')
+	cs_icon_size = iif(card_in['icon_size'] > 0, card_in['icon_size'], 48)
+	cs_col_w = cs_icon_size + 22
+
+	$result = '<center><table width="90%" cellpadding="0" cellspacing="0" style="border: 2px solid <<$cs_border>>; background-color: <<$card_in[''bg'']>>; margin-bottom: 10px; opacity: <<$cs_opac>>;">'
+	$result += '<tr>'
+	if $card_in['icon'] <> '':
+		$result += '<td width="<<cs_col_w>>" valign="middle" align="center" style="padding: 10px;">'
+		$result += '<img src="<<$card_in[''icon'']>>" width="<<cs_icon_size>>" height="<<cs_icon_size>>" style="border-radius:6px; object-fit:cover;">'
+		$result += '</td>'
+	end
+	$result += '<td valign="middle" style="padding: 10px 10px 10px <<iif($card_in[''icon''] <> '''', ''0'', $str(cs_col_w + 20) + ''px'')>>;">'
+
+	if $card_in['extra'] <> '':
+		$result += '<div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;"><span><b><<$card_in[''title'']>></b>'
+		if $card_in['title_sub'] <> '': $result += ' <span style="opacity:0.7; font-size:0.9em;"><<$card_in[''title_sub'']>></span>'
+		$result += '</span><<$card_in[''extra'']>></div>'
+	else
+		$result += '<div><b><<$card_in[''title'']>></b>'
+		if $card_in['title_sub'] <> '': $result += ' <span style="opacity:0.7; font-size:0.9em;"><<$card_in[''title_sub'']>></span>'
+		$result += '</div>'
+	end
+
+	killvar 'cs_border'	& killvar 'cs_opac'	& killvar 'cs_icon_size'	& killvar 'cs_col_w'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ shell_close — return (in $result) the closing markup for a 'shell_open'│
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'shell_close':
+	$result = '</td></tr></table></center>'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ shell — return HTML for one card in a single call. Same $card_in[...]  │
+!! │ inputs as 'shell_open', plus:                                          │
+!! │   body - raw HTML inserted below the title row                         │
+!! │ Result in $result. Caller must killvar 'card_in' after reading it.     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'shell':
+	gs 'cards', 'shell_open'
+	$ch_result = $result
+	if $card_in['body'] <> '': $ch_result += $card_in['body']
+	gs 'cards', 'shell_close'
+	$result = $ch_result + $result
+	killvar 'ch_result'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ section_open — print the opening tags of a card box around freeform    │
+!! │ content (e.g. a questline''s hint text), styled like 'shell' (icon +   │
+!! │ title row, bordered box). Unlike 'shell', body content isn''t known    │
+!! │ upfront — it''s whatever the caller prints between this call and the   │
+!! │ matching ''section_close''.                                            │
+!! │ ARGS[1] = title                                                        │
+!! │ ARGS[2] = npc_id — numeric id of the character most involved in this   │
+!! │           section; renders their headshot as the card icon. Omit/0     │
+!! │           for no portrait (e.g. non-character sections like School).   │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'section_open':
+	$card_in['icon'] = iif(ARGS[2] > 0, 'images/characters/shared/headshots_main/' + $str(ARGS[2]) + '.jpg', '')
+	card_in['icon_size'] = 90
+	$card_in['title'] = $ARGS[1]
+	$card_in['border'] = $theme_hex['accent']
+	$card_in['bg'] = $func('themes', 'alt_color', '')
+	gs 'cards', 'shell_open'
+	*p $result
+	killvar 'card_in'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ section_close — print the closing tags for a 'section_open' box.       │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'section_close':
+	gs 'cards', 'shell_close'
+	*p $result
+	exit
+end
+
+--- cards ---------------------------------

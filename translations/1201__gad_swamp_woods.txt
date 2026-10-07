@@ -1,0 +1,105 @@
+# gad_swamp_woods
+
+!! TODO: Break into more arg blocks
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	gs 'core_library', 'setloc', 'gad_swamp_woods', 'start'
+	$location_type = 'secluded'
+	menu_off = 0
+	$forest_args1 = 'gad_swamp_woods'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/nearby_woods.jpg"></center>'
+	'你正身处小屋附近的树林里。你可以看到它就在不远处。'
+	'你也可以深入树林，绕着沼泽走一圈，前提是你不会把自己走丢了。'
+	gs 'gadukino_event', 'sound'
+	gs 'hunter_ambient', 'schedule'
+	gs 'stat'
+	!! TODO: Make schedule more dynamic e.g. more factors
+	*nl
+
+	act '回到小屋': minut += 10 & gt 'gad_swamp_yard', 'start'
+
+	if firewood < 10:
+		'你可以在这里捡些柴火，好让火一直烧下去。'
+
+		act '捡柴火 (0:15)':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/'+iif($clothingworntype ! 'nude', 'firewood_normal.jpg', 'firewood_nude.jpg')+'"></center>'
+			'你捡起一些干树枝和枯枝，在火坑旁堆成一堆，然后回到小屋。'
+			firewood += rand(2, 6)
+			if firewood < 15:
+				'你有<<firewood>>块柴火，也许应该再多捡一些，好让火继续烧着。'
+			else
+				'你有<<firewood>>块柴火，应该足够把火生起来了。'
+			end
+			minut += 15
+			gs 'stat'
+
+			act '进一步': gt 'gad_swamp_woods', 'start'
+		end
+	else
+		'你本想再捡些柴火，但随即想起院子里已经存了不少。'
+	end
+
+	act '试着绕过沼泽':
+		!! No one likes to be trapped. Need to update gadfrestswamp with pcs_bushcraft method, but there should always be an option to try, no matter how low the skill.
+		*clr & cla
+		if pcs_bushcraft < 25:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/thinks1.jpg"></center>'
+			'你考虑过绕过沼泽，但转念一想，还是别离小屋太远为好。'
+			'要是你是个熟练的探路者，或者认识附近能帮你回去的人就好了……'
+
+			act '进一步': gt 'gad_swamp_woods', 'start'
+		elseif pcs_bushcraft < 40:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/thinks2.jpg"></center>'
+			'你考虑着要绕过沼泽。你大致知道该怎么做，但很有可能走着走着就迷路了。'
+
+			act '暂时留在这里': gt 'gad_swamp_woods', 'start'
+			act '还是试试':
+				*clr & cla
+				minut += 30
+				nearby_woods_check = rand(1, 10)
+
+				if nearby_woods_check = 1:
+					!! Make it to the other side fine
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/'+iif($clothingworntype ! 'nude', 'nearby_woods_success.jpg', 'nearby_woods_success_nude.jpg')+'"></center>'
+					'你尽可能靠近沼泽并沿着边缘朝一个方向走。'
+					'尽管你偶尔会踩进沼泽里，但你设法没有陷进去。'
+					'走了一会儿，一边挣扎着不让自己陷进泥里，你终于看到了另一侧的小屋。'
+
+					act '成功！': gs 'exp_gain', 'bushcraft', 5 & gt 'gad_forest', 'forest_center'
+				elseif nearby_woods_check <= 3:
+					!! End up stuck in the swamp
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/'+iif($clothingworntype ! 'nude', 'nearby_woods_stuck.jpg', 'nearby_woods_stuck_nude.jpg')+'"></center>'
+					'你尽可能靠近沼泽并沿着边缘朝一个方向走。'
+					'你相信脚下的地面，继续往前走，但不知什么时候，你不知不觉就陷进了沼泽里。'
+					*nl
+					'看来森林能把沼泽的某些部分伪装起来，骗过粗心的行人。'
+
+					act '要是你知道就好了': gs 'exp_gain', 'bushcraft', 3 & gt 'gad_swamp', 'stuck'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/'+iif($clothingworntype ! 'nude', 'nearby_woods_hike.jpg', 'nearby_woods_hike_nude.jpg')+'"></center>'
+					!! Circle back to where the pcs started
+					'你朝着一个自以为能绕过沼泽的方向走进了树林。'
+					'走了几个小时之后，你发觉周围的环境似曾相识。'
+					'你环顾四周，看到了远处的小屋。看来你只是绕了个圈子，又回到了出发的地方。'
+					*nl
+					'你看到前方有折断的树枝和脚印，标记着你最初出发时走的方向。'
+
+					act '真有意思……': gs 'exp_gain', 'bushcraft', 2 & gt 'gad_swamp_woods', 'start'
+				end
+			end
+		else
+			minut += 90
+			!! Make it back without effort
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/'+iif($clothingworntype ! 'nude', 'pathfinder.jpg', 'pathfinder_nude.jpg')+'"></center>'
+			'从院子里看到沼泽边缘的一部分，你对森林是如何绕着沼泽弯曲的大致有了数。'
+			'心里有数之后，你走进森林，时刻留意着周围，确保自己不会离沼泽边缘太远。'
+			'几个小时后，你来到了森林的另一边。'
+
+			act '进一步': gt 'gad_swamp_woods', 'start'
+		end
+	end
+end
+
+--- gad_swamp_woods ---------------------------------

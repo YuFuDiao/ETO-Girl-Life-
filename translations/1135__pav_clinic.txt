@@ -1,0 +1,1965 @@
+# pav_clinic
+
+if $ARGS[0] = '':
+	CLOSE ALL
+	gs 'core_library', 'setloc', 'pav_clinic', ''
+	$location_type = 'public_indoors'
+	menu_off = 0
+	frost = 0
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center b', '诊所')
+	'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+
+	'巴甫洛夫斯克综合诊所的门厅简陋又陈旧，透着一股典型小镇的味道。自然光从前窗洒进来，落在淡青色的墙面和磨得发白的浅灰地砖上。'
+	'左边是一张简陋的木制接待台，两个穿白大褂的护士在那儿办登记。右边墙根排着一溜蓝色塑料椅，坐着几个安静等候的老人、年轻妈妈和上班族。'
+	'正中间的告示板上贴得密密麻麻，全是专科医生的排班表、疫苗接种提醒和本地卫生通知。'
+	"空气里飘着淡淡的消毒水和新松木清洁剂的味道。正前方，一条走廊通向各个科室；低低的交谈声和偶尔的广播呼叫，填满了这间实用又朴素的屋子——它是小镇日常看病的入口。"
+
+
+	!! Need Acute medical help
+	if preg = 2 or pcs_health < healthmax / 2 or pain['total'] >= 70:
+		*nl
+		if hour < 6 or hour > 21:
+			'这个点儿医院里只有急诊的人值班。'
+		end
+		'接待台的护士一见你进来，就快步迎了上来。"亲爱的，你这脸色可真够呛。"她惊呼道。'
+		*nl
+		if preg = 2:
+			if kid < 1:
+				'"我羊水破了！"又一次剧烈宫缩袭来时，你几乎惊慌地喊道。"孩子要出生了！"'
+				'"好，冷静点。我们这儿几乎天天接生。别慌。坐下，慢慢深呼吸。"护士用安抚又老练的语气说着，扶你坐到候诊区的椅子上。'
+				'"会有人推轮椅过来，然后我们让孩子平安出生。别担心。"她握着你的手，陪你一起规律地呼吸。'
+				minut += rand(3,7)
+				gs 'stat'
+				*nl
+				'没过多久，另一名护士推着轮椅过来，把你送进产科病房的产房。'
+				pcs_know_mward = 1
+			elseif kid < 2:
+				'"孩子要出生了！"你趁着两次宫缩的间隙，咬着牙对护士说。'
+				'"冷静点。坐下，慢慢深呼吸。"护士用安抚又老练的语气说着，扶你坐到候诊区的椅子上。'
+				'"会有人推轮椅过来，然后我们让孩子平安出生。别担心。"'
+				'"谢谢你。"尽管子宫又传来一阵剧痛，你还是勉强挤出一丝笑容，低声说。'
+				minut += rand(3,7)
+				gs 'stat'
+				*nl
+				'没过多久，另一名护士推着轮椅过来，把你送进产科病房的产房。'
+				pcs_know_mward = 1
+			else
+				'"是的，我羊水破了。"你趁着腹部一波波疼痛的间隙对她说。你深呼吸，在旁边的空椅子上坐下。'
+				'"能给我拿个轮椅吗？"你问。"当然，马上就送来。"护士答道。'
+				'"谢谢。"你说。"这不是你第一胎吧。"护士的语气更像在陈述，而不是提问。"不，其实这才是我第<<func(''string'', ''parse_number'', kid, ''rank'')>>个孩子。"你微微一笑，把手放在隆起的肚子上。一想到很快又能把另一个宝宝抱在怀里，你就满心欢喜。'
+				minut += rand(3,7)
+				gs 'stat'
+				*nl
+				'很快，另一名护士推着轮椅过来，把你送到产科病房的产房。'
+				pcs_know_mward = 1
+			end
+			act '分娩':
+				gs 'medical_din', 'give_birth'
+				act '离开': gt 'pav_clinic'
+			end
+
+		else
+			if (pcs_health < healthmax / 2 or pain['total'] >= 70) and clinic['docheal'] ! daystart:
+				act '接受紧急治疗':
+					cla
+					menu_off = 1
+					minut += 60
+					clinic['docheal'] = daystart
+					gs 'medical_din', 'healthTreatment'
+					gs 'stat'
+					'医生把你领到一张床边，让你躺下，给你打了一针止痛药、类固醇和维生素的混合针剂。'
+					'有一小会儿你觉得昏昏沉沉的，之后就舒服多了。这一针大大加快了你酸痛身体的恢复，也就是说药效过去以后，疼痛大概不会那么声势浩大地卷土重来，接下来几天应该也有助于你的身体恢复。'
+
+					act '离开': minut += 5 & gt 'pav_commercial'
+				end
+				act '离开': minut += 5 & gt 'pav_commercial'
+			else
+				'"很遗憾，今天我们没法再为你做什么了。你已经接受过治疗，再打一针只会弊大于利。好好休息，明天要是还不舒服，就再来一趟。"'
+				if hour >= 6 and hour <= 21:
+					gs 'pav_clinic', 'reception'
+				else
+					act '离开': minut += 5 & gt 'pav_commercial'
+				end
+			end
+		end
+	else
+		if hour >= 6 and hour <= 21:
+			*nl
+			'你走到接待台前。过了一分钟，一个护士才抬起头看你。'
+			'"亲爱的，有什么需要帮忙的吗？"她问。'
+			gs 'pav_clinic', 'reception'
+
+			!! Discoveries
+			if (lactation['active'] > 0 or thinkpreg = 1 or knowpreg = 1) and pcs_know_mward <= 0:
+				*nl
+				'告示板上的一块牌子引起了你的注意。上面写着<a href="exec: minut += 5 & gt ''pav_clinic'', ''maternity_ward''">"产科病房"</a>.'
+			end
+			if pcs_know_mward > 0: act '前往产科病房 (0:05)': gt 'pav_clinic', 'maternity_ward'
+		else
+			'诊所已经关门了。每天开放时间是 '+func('time', 'get_time_string', 6, 0)+' 至 '+func('time', 'get_time_string', 22, 0)+'。'
+			act '离开': minut += 5 & gt 'pav_commercial'
+		end
+		gs 'jobs', 'get_job_definition', 'pav_clinic_cleaner'
+		if $job_status['pav_clinic_cleaner'] = '':
+			if job_hiring_step['pav_clinic_cleaner'] = 0:
+				act '阅读招聘启事':
+					*clr & cla
+					menu_off = 1
+					minut += 5
+					job_hiring_step['pav_clinic_cleaner'] = 1
+					gs 'stat'
+					'你注意到诊所入口附近的墙上贴着一张纸——那是一则招聘启事，上面写着："招聘清洁工！每天工作一小时，时间可在 '+func('time', 'get_time_string', 14, 0)+' 至 '+func('time', 'get_time_string', 21, 0)+' 之间任意选择。报酬：'+$func('money', 'string_profit', 100)+'。"'
+					act '走开': gt 'pav_clinic'
+				end
+			else
+				if func('jobs', 'is_work_time', 'pav_clinic_cleaner') = 1:
+					act '向主管医生询问这份工作':
+						*clr & cla
+						menu_off = 1
+						minut += 15
+						job_hiring_step['pav_clinic_cleaner'] = 2
+						gs 'jobs', 'set_employed', 'pav_clinic_cleaner'
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+						'门既然开着，你觉得应该可以进主管医生的办公室。你敲了敲木门框，医生从工作中抬起头。他穿着白大褂，透过眼镜严肃地看着你。"有什么事吗？"'
+						'"您好，先生，"你答道。"我看到您在招清洁工，想来应聘。"'
+						'他打量着你，想了一秒，拉开抽屉取出一张表格。"我明白了。请把这张表填一下。"'
+						'你点点头，填好表格，注明应聘的是兼职清洁工。他很快看了一遍，确认没问题，满意地笑了笑。"看起来都没问题，<<$pcs_lastname>>小姐。跟我来，我带你去看看我们放清洁用品的地方。"'
+						'你跟着他来到杂物间，他指给你看了要用的清洁用品。他跟你握了握手，祝你今天顺利，就回办公室去了，大概是觉得你自己找得到出去的路。'
+
+						act '离开': gt 'pav_clinic'
+					end
+				end
+			end
+		elseif $job_status['pav_clinic_cleaner'] = 'employed':
+			if func('jobs', 'is_arrival_time', 'pav_clinic_cleaner') = 1 and job_last_work_day['pav_clinic_cleaner'] <> daystart:
+				act '当清洁工，报酬 '+$func('money', 'string_profit', 100)+' (1:00)':
+					*clr & cla
+					menu_off = 1
+					minut += 60
+					gs 'jobs', 'clock', 'pav_clinic_cleaner'
+					gs 'exp_gain', 'cleaning', rand(1, 3)
+					gs 'mood', 'lower', 'medium'
+					gs 'sweat', 'add', 10
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener1.jpg"></center>'
+					'你按吩咐，从杂物间拿出拖把和水桶，先打扫诊所各处的走廊。走廊打扫完，你挨个进检查室和办公室，偶尔能听到被你打断工作的医生低声骂一句。不过你干得很快，擦地板的时候，医生们也没为难你。'
+
+					act '打扫完毕': gs 'jobs', 'paycheck', 'pav_clinic_cleaner' & gt 'pav_clinic'
+
+					ginrand = rand(0, 1)
+
+					if Gspravka < 10 and ginrand = 0:
+						'你打扫妇科医生检查室的地板时，他离开了房间，好让你安心干活。现在只剩你一个人。'
+						if func('pcs_has_attr', 'sex_virgin') = 0 and gschoolVars['school_diploma'] = 0 and motherKnowSpravka = 0 and motherKnowRaped = 0 and func('homes_properties', 'has_access', 'parents_home'):
+							act '伪造一份转诊单给你妈妈':
+								*clr & cla
+								Gspravka = 30
+								GspravkaT = 1
+								Gspassed = 1
+								forge_referral = 1
+								gs 'mood', 'raise', 'small'
+								gs 'stat'
+								'你看到一叠还没用过的转诊单，心想："我虽然不是处女了，但<<$npc_nickname[''A29'']>>没必要知道这事！"'
+								'你确认走廊里没人，快步走到桌前，拿起一张空白转诊单，盖上他的印章。剩下的以后再处理。你迅速把它藏进衣服里，仔细把一切恢复原样，继续打扫。'
+								'后来，你打扫一位你确定今天不在的医生的办公室时，锁上门，仔细填写那张表格。你不慌不忙，尽量模仿妇科医生的笔迹。你满意地点点头，自言自语："看着不错。<<$npc_nickname[''A29'']>>绝对看不出这是假的！这样至少又能蒙混一个月……"'
+
+								act '打扫完毕': gs 'jobs', 'paycheck', 'pav_clinic_cleaner' & gt 'pav_clinic'
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'reception':
+	cla
+	act '离开': minut += 5 & gt 'pav_commercial'
+	!! General Practitioner
+	act $func('clinic_functions', 'reception_option_label', 'General practitioner', '医生'):
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+		gs 'clinic_functions', 'reception_book_or_check', 'General practitioner', '医生'
+	end
+
+	!! Gynecologist
+	act $func('clinic_functions', 'reception_option_label', 'Petrovich', '彼得罗维奇医生（妇科医生）'):
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+		gs 'clinic_functions', 'reception_book_or_check', 'Petrovich', '彼得罗维奇医生'
+	end
+
+	!! The virginity referral for mother does not need a booked appointment, it is a quick in-and-out form
+	if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and Gspravka < 3 and motherKnowSpravka = 0 and motherKnowRaped = 0 and func('homes_properties', 'has_access', 'parents_home'):
+		act '向彼得罗维奇医生要转诊单': gt 'pav_clinic', 'Petrovich1', 'referral_only'
+	end
+
+	!! Therapist
+	if therapistQW['met'] > 0:
+		act $func('clinic_functions', 'reception_option_label', 'Pavlov', '巴甫洛夫医生（心理治疗师）'):
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+			gs 'clinic_functions', 'reception_book_or_check', 'Pavlov', '巴甫洛夫医生', $iif(hypnoSchedule = 1, 'therapist_appointment', '')
+		end
+	else
+		act $func('clinic_functions', 'reception_option_label', 'Therapist', '心理治疗师'):
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+			gs 'clinic_functions', 'reception_book_or_check', 'Therapist', '心理治疗师'
+		end
+	end
+
+	!! Dentist
+	act $func('clinic_functions', 'reception_option_label', 'Dentist', '牙医'):
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+		gs 'clinic_functions', 'reception_book_or_check', 'Dentist', '牙医'
+	end
+
+	!! Optometrist
+	act $func('clinic_functions', 'reception_option_label', 'Optometrist', '验光师'):
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+		gs 'clinic_functions', 'reception_book_or_check', 'Optometrist', '验光师'
+	end
+
+	!! Pediatrician
+	if kid > 0:
+		act $func('clinic_functions', 'reception_option_label', 'Pediatrician', '儿科医生'):
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+			gs 'clinic_functions', 'reception_book_or_check', 'Pediatrician', '儿科医生'
+		end
+	end
+
+	!! Maternity ward
+	if pcs_ask_mward_help >= 1 and pcs_know_mward <= 0:
+		act '到接待台询问乳房方面的问题。': 
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+			'接待员上下打量了你一番，让你去产科病房。那边有人能帮你。'
+			pcs_know_mward = 1
+			minut += 5
+			act '返回': minut += 5 & gt 'pav_clinic'
+		end
+	end
+
+	!! STD shots
+	if GerpesNapr > 0 and GerpesUkolDay <> daystart:
+		act '<b>去接受疱疹治疗</b>' : 
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+			'"我预约了治疗。"你对接待员说。'
+			'"我帮你查一下。"她翻着预约簿回答。'
+			'"好，你可以直接进去。"护士说着，在本子上记了点什么。'
+			act '离开' : gt 'pav_clinic'
+			gs 'clinic_functions', 'set_std_herpes_shot_act'
+		end
+	end
+	if TriperNapr > 0 and TriperUkolDay <> daystart:
+		act '<b>去接受淋病治疗</b>' : 
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+			'"我预约了治疗。"你对接待员说。'
+			'"我帮你查一下。"她翻着预约簿回答。'
+			'"好，你可以直接进去。"护士说着，在本子上记了点什么。'
+			act '离开' : gt 'pav_clinic'
+			gs 'clinic_functions', 'set_std_gonorrhea_shot_act'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Petrovich1':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+
+	if (fame['pav_slut'] >= 250 or fame['pav_prostitute'] >= 125 or stat['men_fucked'] > 10 or unprotfilm or whoreQW > 1 or bordelslutty > 0 or cumcondslip_aware > 0 or (daystart - daylastperiod > 42) or Triper > 2 or Gerpes >= 3 or Sifilis >= 21 or Kandidoz > 30) and gynodaystart ! daystart:
+		'你决定去妇科医生那儿做次检查。以你的性经历，再怎么小心也不为过。'
+		if docKnow = 0:
+			if fame['pav_slut'] >= 250 and fame['pav_prostitute'] < 125:
+				$gyn1 = '他有些担忧地看着你，可还是得问。"镇上有传言说你是妓女？"'
+				$gyn2 = '"医生，全镇都知道了！而且都知道我的身体，你懂我意思吧……"你忍不住笑了出来。'
+			elseif unprotfilm:
+				$gyn1 = '他有些担忧地看着你，可还是得问。"你该不会是<<$pfname>>吧？"他没说自己怎么会熟悉这个名字，但你大概能猜到。'
+				$gyn2 = '"我希望不是，但谁知道呢？"'
+			elseif whoreQW > 1 or bordelslutty > 0 or fame['pav_prostitute'] >= 125:
+				$gyn1 = '他有些担忧地看着你，可还是得问。"镇上有传言说你是妓女？"'
+				$gyn2 = '"我不这么认为。我只在圣彼得堡做生意，但谁知道呢？"'
+			else
+				$gyn1 = '他有些担忧地看着你，可还是得问。"你来找我有什么事？你是为你的性经历担心什么吗？"'
+				$gyn2 = '"我希望不是，但谁知道呢？"'
+			end
+
+			'你走进他的办公室时，他从桌后抬起头，立刻认出了你。"啊，你好，<<$pcs_nickname>>。来做检查的？"'
+			'你点点头，坐下。"您好，彼得罗维奇医生。是的，我来做检查。"'
+			$gyn1
+			'你冲他笑了笑。"没错，彼得罗维奇医生，就是我。"'
+			'他搓了搓下巴，接着说："你妈妈知道吗？"'
+			$gyn2
+			'妇科医生点点头，示意你站起来。"很好，那我们来看看你的情况。请把衣服脱了。"'
+		elseif docKnow = 1:
+			if fame['pav_slut'] >= 25 or unprotfilm or whoreQW > 1 or bordelslutty > 0 or fame['pav_prostitute'] >= 125:
+				$gyn1 = '他有些担忧地看着你。"你还在干那行？"'
+				$gyn2 = '在某种程度上，他对病人如此关心让你很感动。你不介意回答他的问题。"医生，你知道是怎么回事的……我做这行是因为学费很贵，衣服也很贵。还因为我家经济上也需要帮忙。但最重要的是：因为我喜欢做爱。既然这样，不如干脆收钱做，对吧？"'
+			else
+				$gyn1 = '他有些担忧地看着你。"你还在跟很多男人来往？"'
+				$gyn2 = '在某种程度上，他对病人如此关心让你很感动。你不介意回答他，而且不妨坦诚一点。"医生，我真的只是喜欢做爱。我甚至不在乎有没有报酬，只是总觉得鸡巴怎么都不够。你明白的，对吧？"'
+			end
+			'你走进他的办公室时，他从桌后抬起头，立刻认出了你。"啊，你好，<<$pcs_nickname>>。又来复查？"'
+			'你点点头，坐下。"您好，彼得罗维奇医生。是的，我来做检查。"'
+			$gyn1
+			'"是的，医生。就是我。"你告诉他。'
+			'他搓了搓下巴，接着说："恕我冒昧……为什么？"'
+			$gyn2
+			'他笑了笑，还是点了点头。"我明白。反正也轮不到我来评判。那我们来看看你的情况吧。请把衣服脱了。"'
+		end
+	else
+		if gpoli_doctorhavesex <> 1:
+			'"你好，年轻的女士。我是彼得罗维奇医生。你是哪里不舒服，还是只是来做检查？"他一边走进检查室一边问。'
+		else
+			'"嗨，<<$pcs_nickname>>。今天什么风把你吹来了？"彼得罗维奇医生笑着说。'
+		end
+	end
+
+	if $ARGS[1] <> 'referral_only':
+		if drugVars['cocaine_addict'] = 1 and $start_type['loc'] = 'sg':
+			act '为你的虚弱和疼痛寻求帮助': gt 'pav_clinic','Petrovich_drug'
+		end
+
+		act '做性病检测' + $func('money', 'get_cost_string', 1000):
+			if func('money', 'can_afford', 1000) = 0:
+				$noMoney
+			else
+				gs 'money', 'pay', 1000
+				gs 'pav_clinic', 'std_test'
+				gs 'clinic_functions', 'set_std_herpes_shot_act'
+				gs 'clinic_functions', 'set_std_gonorrhea_shot_act'
+				gs 'clinic_functions', 'set_std_syphilis_shot_act'
+			end
+		end
+
+		act '咨询长期避孕' : gt 'pav_clinic','Petrovich_birth_control'
+
+		if (fame['pav_slut'] >= 250 or fame['pav_prostitute'] >= 125 or stat['men_fucked'] > 10 or unprotfilm or whoreQW > 1 or bordelslutty > 0 or cumcondslip_aware > 0 or (daystart - daylastperiod > 42) or Triper > 2 or Gerpes >= 3 or Sifilis >= 21 or Kandidoz > 30) and gynodaystart ! daystart:
+			act '要求做一次常规检查' : gt 'pav_clinic', 'Petrovich_checkup_prost'
+		else
+			act '要求做一次常规检查' : gt 'pav_clinic', 'Petrovich_checkup'
+		end
+	end
+
+	if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and Gspravka < 3 and motherKnowSpravka = 0 and motherKnowRaped = 0 and func('homes_properties', 'has_access', 'parents_home'):
+		!! Remembered so the 'referral' sub-chain''s various "Go back to Petrovich1" acts can restore this same restricted mode instead of always dropping back to the full menu.
+		act '索要转诊单':
+			$petrovich_referral_mode = $ARGS[1]
+			gt 'pav_clinic', 'referral'
+		end
+	end
+	act '离开' : gt 'pav_clinic'
+end
+
+if $ARGS[0] = 'Petrovich_birth_control':
+	if birth_control['implant_status'] > 0 or tabletkicheck = 2: gt 'pav_clinic', 'Petrovich_birth_control3'
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+	if gpoli_doctorhavesex = 1:
+		'他挑起眉毛看着你。"鉴于我们之前那些互动，我当然希望如此。为了你好。"'
+	elseif docKnow = 1:
+		'"考虑到你那些活动，那样做才算明智。"'
+	end
+	*nl
+	'"好，你了解各种避孕方式吗，还是需要我给你简单讲讲？"他问。'
+	act '"请给我解释一下"' : gt 'pav_clinic', 'Petrovich_birth_control2'
+	act '"不用了"' : gs 'pav_clinic', 'Petrovich_birth_control3'
+end
+
+if $ARGS[0] = 'Petrovich_birth_control2':
+	*clr & cla
+	menu_off = 1
+	minut += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+	'"请给我讲讲。"你说道'
+	*nl
+	'你坐在诊室里，彼得罗维奇医生合上病历，隔着桌子用专业又沉稳的神情看着你。'
+	'“我们来过一遍你问的那些激素类方案，”他清晰地说。“我会解释每一种的原理和最常见的副作用，让你有个完整的了解。”'
+	*nl
+	'他伸出一根手指。'
+	'“首先是皮下避孕植入剂。它是一根细小的柔性棒，植入上臂皮下，持续释放孕激素，可避孕长达三年。之后必须取出或更换。”'
+	'“常见副作用包括头几个月出血不规则或经期延长、头痛、情绪波动、乳房胀痛、痤疮，以及可能体重增加。有些女性在头一年之后经量减少甚至停经。少见的风险包括植入部位感染或留疤；极少数情况下植入剂还会移位，或难以取出。”'
+	*nl
+	'他竖起第二根手指。'
+	'“其次是避孕针，每三个月注射一次。按时注射的话效果非常好。”'
+	'“副作用常包括不规则出血或点滴出血（之后可能完全停止）、体重增加、头痛、情绪波动，长期使用还会降低骨密度。有些女性会发现性欲减退，或停药后生育能力恢复延迟。”'
+	*nl
+	'第三根手指。'
+	'“第三是每日口服避孕药。每天在同一时间服用一片，效果最好。”'
+	'“常见副作用是恶心（尤其在头几周）、乳房胀痛、头痛、情绪波动和突破性点滴出血。复方避孕药会略微增加血栓、中风或心脏病发作的风险，尤其是35岁以上的吸烟者，或患有某些疾病的人。”'
+	*nl
+	'最后，他抬起第四根手指。'
+	'“最后是事后避孕药，也就是紧急避孕。这不是常规的避孕方式。它是在无保护性行为之后服用的大剂量激素，最好在72小时内服用。”'
+	'“副作用通常包括恶心、呕吐、疲劳、头痛、头晕、乳房胀痛，以及下次月经周期的改变。它的效果不如长期避孕方法，也不建议反复使用。”'
+	*nl
+	'彼得罗维奇医生把双手放在桌上。'
+	'“这些方法都不能预防性传播感染。副作用因人而异，有些会随时间减轻。”'
+	'“植入剂和避孕针可以在我们医院这里拿；每日口服药和紧急避孕药可以在药房买到。”'
+	'“请注意，所有这些激素类方案都不能保证100%安全。最好把它们与安全套等非激素避孕方法结合起来，并留意自己的生理周期。”'
+	'“此外，某些药物搭配可能会显著降低激素避孕的效果。尤其是长期服用抗生素、减肥药、抗真菌药、抗癫痫药以及某些草药。”'
+	gs 'pav_clinic', 'Petrovich_birth_control3'
+end
+
+if $ARGS[0] = 'Petrovich_birth_control3':
+	*nl
+	cla
+	'"那么，说了这么多，你想要哪种？"他问。'
+	gs 'medical_din', 'birth_control'
+	act '"能再给我讲一遍有哪些选择吗？"' : gt 'pav_clinic', 'Petrovich_birth_control2'
+	act '"我需要别的"' : gt 'pav_clinic','Petrovich1'
+	act '"谢谢，就这些"（离开）' : gt 'pav_clinic'
+end
+
+if $ARGS[0] = 'Petrovich_checkup':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_2.jpg"></center>'
+	'医生给你量了体温、血压和脉搏。'
+	'"把上衣掀起来，我听一下。"他往听诊器上哈了口气暖它，对你说。'
+	'你按吩咐把上衣和胸罩掀到乳房上方，医生把听诊器按在你胸口的几个地方。他左手放在你肚子上稳住你，同时听你的心跳和呼吸，偶尔把听诊器凑到嘴边重新暖一下。放在你肚子上的手打着小圈，一点一点往下滑，直到指尖探到你衣服腰带的下方。和你以前见过的任何医生不同，彼得罗维奇医生是把听诊器按在你的乳房上听的。这样真的管用吗？'
+	'他现在暖它的次数也更频繁了，听诊器贴在你乳头上感觉湿湿的、暖暖的。让你难堪的是，你能感觉到自己的乳头开始变硬。你不太确定，但你相当肯定，在检查的最后几分钟里，彼得罗维奇医生只是在找乐子。'
+	*nl
+	'他点点头。"嗯，到目前为止一切正常。"'
+	'你注意到他兴致勃勃地盯着你<<$titsize_zh>>的乳房时，眼里闪着某种光。你的乳头因此更加挺立，你觉得很尴尬，努力去想些倒胃口的事。'
+	'让你松一口气的是，你小穴里刚开始泛起的那阵酥麻消退了。'
+	'"请脱掉衣服，坐到那把椅子上。我马上就回来。"他一边往门口走一边对你说，然后离开了。'
+
+	act '不情愿地脱掉衣服':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_3.jpg"></center>'
+		'你叹了口气。这家伙真的是医生吗？他刚才对你的乳房也太急切了，你怀疑他想让你脱光衣服另有原因。'
+		'尽管如此，你还是觉得很不自在，可这次检查确实得做，于是你不情愿地开始脱衣服。'
+		act '坐在椅子上':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_4.jpg"></center>'
+			'你很快脱下衣服，爬上了检查椅。那皮革般的表面贴在你屁股上透着奇怪的温热，你过了一秒才意识到椅子是加热的。你紧张地扭动着身子，等待医生回来。'
+			'仿佛过了好几个小时，医生才回到房间。你注意到他的脸比之前更红了，头发似乎也有点湿。他还脱掉了之前穿的那件围裙似的工作服。他继续检查，握住你的双手和手臂，按摩关节并屈伸它们。你的双脚和双腿也一样。出乎你意料的是，他还检查了你的屁股和小穴，把戴着手套的手指慢慢探进你的小穴，然后是你的肛门。他甚至把你的阴唇分开放，把阴蒂包皮往后推，露出你的阴蒂，轻轻按摩了一秒，然后突然深深叹了口气站起身来，目光在你裸露的小穴上停留得太久，随后才像是回过神来，轻轻抖了一下。'
+			$gpoli_sick = ''
+
+			if cumcondslip > 0:
+				$gpoli_sick = '因为体内残留着用过的避孕套，引发了中毒性休克。我一发现就取出来了。你要是之前觉得不舒服，症状应该会慢慢消退。'
+				cumspclnt = 8
+				gs 'cum_cleanup'
+			end
+
+			if preg > 0:
+				thinkpreg = 1
+				knowpreg = 1
+				$gpoli_sick = '怀孕了'
+			end
+
+			if Venera > 0 or Kandidoz > 10:
+				if $gpoli_sick ! '': $gpoli_sick += '，并且你 '
+				$gpoli_sick += '患有性传播疾病'
+			end
+
+			if $gpoli_sick = '':
+				'医生把好消息告诉你时笑了。"你非常健康。"'
+				'你松了口气，连声道谢。"谢谢你，医生，这真是个好消息。也谢谢您给我做检查。"'
+			else
+				'医生把坏消息告诉你时皱起眉。"恐怕我发现了些异常。你<<$gpoli_sick>>。"'
+				if Venera > 0 or Kandidoz > 10: gs 'pav_clinic', 'std_check'
+			end
+
+			act '给他钱': gt 'pav_clinic', 'spravka_money_pale'
+			act '尝试协商': gt 'pav_clinic', 'spravka_arrange_pale'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Petrovich_checkup_prost':
+	act '脱衣服':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_3.jpg"></center>'
+		'你很快脱下衣服，叠整齐放到一边。'
+		act '坐在椅子上':
+			*clr & cla
+			minut += 5
+			docKnow = 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_4.jpg"></center>'
+			'你脱光后，坐上妇科检查椅，把双腿分开搭在脚蹬上，然后医生给你做了全面检查。他在你的肛门上花的时间可能有点过多了，但也许他只是想检查得彻底些。'
+			$gpoli_sick = ''
+
+			if cumcondslip > 0:
+				$gpoli_sick = '因为体内残留着用过的避孕套，引发了中毒性休克。我一发现就取出来了。你要是之前觉得不舒服，症状应该会慢慢消退。'
+				cumcondslip = 0
+				gs 'cum_cleanup', 'cleanloc', 17
+			end
+
+			if preg > 0:
+				thinkpreg = 1
+				knowpreg = 1
+				$gpoli_sick = '怀孕了'
+			end
+
+			if Venera > 0 or Kandidoz > 10:
+				if $gpoli_sick ! '': $gpoli_sick = $gpoli_sick + '，并且你患有性传播疾病'
+				if $gpoli_sick = '': $gpoli_sick = '患有性传播疾病'
+			end
+
+			if $gpoli_sick = '':
+				'医生把好消息告诉你时笑了。"你非常健康。"'
+				'你松了口气，连声道谢。"谢谢你，医生，这真是个好消息。也谢谢您给我做检查。"'
+				'他点点头，摆了摆手。"一切都好。只是别忘了做好防护。外面还是很危险的。"'
+			else
+				'医生把坏消息告诉你时皱起眉。"恐怕我发现了些异常。你<<$gpoli_sick>>。"'
+				if Venera > 0 or Kandidoz > 10: gs 'pav_clinic', 'std_check'
+			end
+			'医生站在你身边，帮你把腿从脚蹬上挪下来。"那么……你打算怎么报答我这次检查呢？"他自信地笑着问。'
+
+			act '给他钱' + $func('money', 'get_cost_string', 1000, 'cash'):
+				if func('money', 'can_afford', 1000, 'cash') = 0:
+					$noMoney
+				else
+					*clr & cla
+					minut += 5
+					gs 'stat'
+					'你笑了，知道这个问题迟早会来。"我付得起。我欠你多少钱？"'
+					'他也冲你笑了笑。"给你的话？' + $func('money', 'string_price', 1000) + '。"'
+
+					act '付给他 (' + $func('money', 'string_price', 1000) + ')':
+						*clr & cla
+						minut += 5
+						gs 'money', 'pay', 1000, 'cash'
+						'你痛快地把 ' + $func('money', 'string_price', 1000) + ' 付给他，再次向他道谢。'
+						'他数出钱收了起来。"随时效劳，<<$pcs_nickname>>。你要是有朋友需要检查，一定让他们来找我！"'
+						act '返回': gt 'pav_clinic', 'Petrovich1'
+					end
+				end
+			end
+
+			act '把身体献给他':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_6.jpg"></center>'
+				'你带着调皮的笑容慢慢把手放到他的裆部，意外地发现他的鸡巴已经完全硬了。你隔着裤子揉搓它，发现他没有反对，便跪了下去。他把勃起从裤子里掏出来，你用手把那根坚硬的鸡巴引到嘴边。他眼中的神情你在一些客人身上见过——那是一种为了值回票价而要从你身上索取很多的男人。'
+				'你挑逗地舔了舔他的龟头。这根鸡巴确实不错，光是想着要伺候它，就让你有点兴奋起来。虽说你是在报答他为你做的事，但这并不意味着你不能顺便享受一下……'
+				'你慢慢用嘴含住他的鸡巴，开始吸吮龟头。一两分钟后，你感到他的手放在你的后脑勺上。你想抬起头问他想怎样，但他强迫你待在原地，慢慢向前挺动臀部，让你把越来越多的肉棒吞进嘴里。'
+				gs 'arousal', 'bj', 5, 'sub'
+				gs 'stat'
+
+				act '给他口交':
+					if Venera > 0: gt 'pav_clinic', 'gynoblow'
+					*clr & cla
+					if gpoli_doctorhavesex = 0: gpoli_doctorhavesex = 1 & guy += 1
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_7.jpg"></center>'
+					'你想动动头，却无处可去。医生的阴茎现在已经有一半插在你嘴里，他有力的手臂把你按在原地。你决定顺从他的意愿，不再反抗，慢慢感受他把鸡巴一下下地顶进你嘴里越来越深。起初还好，但他那粗大的鸡巴越往里，呼吸就越困难。'
+					'有一阵，感觉他就像在肆无忌惮地操你的喉咙，当他把鸡巴整根插进你的喉咙并停留几秒时，你差点干呕起来。他抽回去时，整根鸡巴都沾满了你的口水。'
+					'他把你拉起来，你大口喘着气。"应该够滑了。是时候深入了，"他咧嘴笑着说。'
+					'你正琢磨他这话是什么意思，他把你转过身，让你伏在椅子上。等他确定你站稳了，才松开手，用龟头摩擦你的阴蒂。老实说……感觉还挺舒服的。'
+					gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+					gs 'stat'
+
+					act '继续':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_8.jpg"></center>'
+						'你呻吟着，感到一些爱液顺着腿流下来，彼得罗维奇医生仍在用鸡巴摩擦你的阴蒂。他显然很懂女人的身体！'
+						'你闭上眼睛，沉浸在快感中，感到有什么东西顶住你的阴唇，他粗大的阴茎插进来，把你的阴道壁撑开了。它上面还沾着你刚才口交留下的口水，滑进去时你忍不住大声呻吟。'
+						gs 'arousal', 'vaginal', 5, 'sub'
+						gs 'stat'
+
+						act '和他做爱':
+							*clr & cla
+							gs 'arousal_funcs', 'stretch', 'vaginal'
+							gs 'boyStat', 'A68'
+							gs 'cum_call', 'precum', 'A68', 1
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_9.jpg"></center>'
+							'当他开始缓缓把鸡巴在你体内抽插时，你觉得自己像发了情一样。他发觉你能轻松容纳他后，便不断加快节奏，操得越来越狠。你不由自主地随着他的抽插呻吟起来，彻底把自己交给了他。'
+							'彼得罗维奇医生轻轻拍了几下你的屁股，你叫得更大声了。他让你感觉太舒服了！几分钟后，你再也忍不住，努力压低呻吟，好让自己迎来雷霆般的高潮时不至于把整间诊所都喊塌。你的双腿撑不住身体的重量，软了下去，幸好他及时把阴茎抽出来，用有力的手臂接住了你。他把你抱到一张桌子前，让你躺在上面，双腿朝他分开。'
+							'你刚从高潮中缓过来，身体还在颤抖，他立刻又把鸡巴引导着插回你体内。'
+
+							$orgasm_or = 'yes'
+							gs 'arousal', 'vaginal', 5, 'sub'
+							gs 'stat'
+
+							act '在桌子上做爱':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_10.jpg"></center>'
+								'他再次加快节奏，像之前一样猛烈地操你。你的身体不再听你使唤，你发现自己急切地挺起臀部迎合他的抽插。你感觉那种酥麻感又开始在你体内升起……如果他继续这样，你会再次在他的鸡巴上高潮。'
+								'医生抽出阴茎，对你笑了笑。"我打赌我能给你另一种高潮，一种你可能从未体验过的高潮。在这里等着，我马上回来。"'
+								'你隐约听到他说了些什么，但与此同时你仍然沉浸在自己的世界里，没意识到他说了什么。当高潮的余韵消退后，你环顾房间。他去哪儿了？'
+								'正当你准备从桌子上下来时，他回来了，手里拿着一罐润滑剂，一只手戴着乳胶手套。他示意你转过身去，你顺从地照做了。'
+								'他几只戴着套的手指伸进罐子里，提起来时你看到润滑剂从手指上缓缓滴下。他把手指贴在你紧致的肛门上，抹上一些润滑剂，然后一下子插进了三根手指。'
+								'"哎哟！"当他的手指撑开你的肛门时，你叫了出来。有点疼，他把手指抽出来，又在鸡巴上抹了更多润滑剂，这让你有点不舒服。还没等你说什么，你就感到他那粗大的龟头正顶过你的括约肌，把你撑得更开了。'
+								gs 'arousal', 'vaginal', 5, 'sub'
+								gs 'arousal', 'foreplay', 5, 'sub'
+								gs 'arousal', 'anal_finger', -5, 'sub'
+								gs 'stat'
+
+								act '肛交':
+									*clr & cla
+									gs 'arousal_funcs', 'stretch', 'anal', 1
+									gs 'stat'
+									'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_11.jpg"></center>'
+									'你想从他身边挣脱，但你被困在彼得罗维奇医生和墙壁之间。他缓缓地移动着臀部，让你慢慢适应他那根粗棒插在你肛门里的尺寸。尽管你极力想放松，但你的肛门还是无法松弛，只能慢慢适应他的大小。'
+									'当他开始加速时，你几乎要哭出来，每一下抽插都大声呻吟。'
+									'"这样可不行。你再这么叫下去，会把整间诊所都惊动的！"他嘟囔着，把鸡巴从你的肛门里抽了出来。'
+									'"来，趴到地上去，"他把外套扔到地上后命令道。他又在戴着手套的手指上抹了些润滑剂，涂在你阵阵搏动的肛门上。'
+									gs 'arousal', 'anal', 5, 'sub'
+									gs 'stat'
+
+									act '在地板上做爱':
+										*clr & cla
+										gs 'stat'
+										'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_12.jpg"></center>'
+										'出乎你意料的是，他无视了你的肛门，转而把阴茎插回了你的阴道。他用短促而粗暴的抽插操你，几乎像是在把烦恼都操出体外。起初感觉不太舒服，但很快你的身体放松下来，你又开始呻吟并享受这种感觉。'
+										'当他注意到你喘息加快时，他迅速把阴茎从你的阴道里抽出来，流畅地一捅插进了你的肛门。你大声叫出来，一半是因为疼痛，一半是因为恼火……你差一点就到了！尽管你正经历着不适和疼痛，你还是揉搓着阴蒂，希望这能让你忘掉疼痛，并希望迎来你所渴望的高潮。'
+										gs 'arousal', 'vaginal', 5, 'sub', 'rough'
+										gs 'stat'
+
+										act '肛交':
+											*clr & cla
+											'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_13.jpg"></center>'
+											'既然你已经如此兴奋，肛交的疼痛就不那么厉害了。你疯狂地揉着阴蒂，他则粗暴地撞击着你被撑开的肛门，当第二次高潮袭来时，你渐渐失去理智。彼得罗维奇医生一定能感觉到你高潮时肛门正紧紧收缩着他的阴茎。'
+											'他也快到了，当你度过高潮后，他又抽插了几下，然后拔出阴茎，把胯部移向你的脸。他抓住你的头发，把阴茎引向你的嘴边，你顺从地张开嘴让它进去。'
+
+											$orgasm_or = 'yes'
+											gs 'arousal', 'anal', 5, 'sub', 'rough'
+											gs 'stat'
+
+											act '让他射在你的嘴里':
+												*clr & cla
+												minut += 5
+												pcs_horny += 5
+												gs 'boyStat', 'A68'
+												gs 'cum_call', 'mouth_swallow', $boy, 1
+												gs 'stat'
+												'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_14.jpg"></center>'
+												'你太累了，即使想反对也无力反对，只能把他的精液含在嘴里。你顺从地给他看了看，然后咽下去，舔了舔嘴唇。他把缓缓软化的阴茎再次移到你嘴边，让你吸吮舔弄干净。'
+												'他满足地叹了口气，然后开始穿回衣服，仿佛什么都没发生过。'
+
+												act '穿好衣服':
+													*clr & cla
+													minut += 5
+													pcs_horny += 5
+													gs 'stat'
+													'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_15.jpg"></center>'
+													'你学着他的样子，也把衣服穿回去。'
+													'等你们都重新穿好衣服后，他脸上挂着灿烂的笑容。"好了，现在一报还一报。考虑到你的职业，我建议你至少每周来见我一次。"'
+													'你高兴地同意了。"没错。谢谢你，医生，如果我的朋友也需要检查，我一定会介绍她们来找你。"'
+													gs 'arousal', 'end'
+
+													act '离开': gt $curloc
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Petrovich_drug':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+	if gpoli_doctorhavesex = 1:
+		'"你好，医生。我觉得很虚弱，浑身都疼，"你回答道。'
+		'"好，那我们来看看，好吗？"他回答道，你起身站到检查台旁边。'
+	else
+		'"你好，先生。我觉得非常虚弱，浑身发抖，而且到处都疼，"你解释道。'
+		'"那我们来看看，好吗？"他回答道，并示意你站到检查台旁边。'
+	end
+
+	act '继续':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_2.jpg"></center>'
+		'他给你量体温、血压和脉搏时，你把一直在吸的那种白色粉末的事告诉了医生。'
+		'"把上衣掀起来，我们听一下。"他一边往听诊器上哈气暖它，一边对你说。'
+		'你按吩咐把上衣和胸罩掀到乳房上方，医生把听诊器按在你胸口的几个地方。他左手放在你肚子上稳住你，同时听你的心跳和呼吸，偶尔把听诊器凑到嘴边重新暖一下。放在你肚子上的手打着小圈，一点一点往下滑，直到指尖探到你衣服腰带的下方。和你以前见过的任何医生不同，彼得罗维奇医生是把听诊器按在你的乳房上听的。这样真的管用吗？'
+		'他现在暖它的次数也更频繁了，听诊器贴在你乳头上感觉湿湿的、暖暖的。让你难堪的是，你能感觉到自己的乳头开始变硬。你不太确定，但你相当肯定，在检查的最后几分钟里，彼得罗维奇医生只是在找乐子。'
+		*nl
+		'他点点头。"嗯，到目前为止一切正常。"'
+		'你注意到他兴致勃勃地盯着你<<$titsize_zh>>的乳房时，眼里闪着某种光。你的乳头因此更加挺立，你觉得很尴尬，努力去想些倒胃口的事。'
+		'让你松一口气的是，你小穴里刚开始泛起的那阵酥麻消退了。'
+		'"请脱掉衣服，坐到那把椅子上。我马上就回来。"他一边朝门口走去一边对你说，然后离开了。'
+
+		act '不情愿地脱掉衣服':
+			*clr & cla
+			minut += 10
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_3.jpg"></center>'
+			'你叹了口气。这家伙真的是医生吗？他刚才对你的乳房也太急切了，你怀疑他想让你脱光衣服另有原因。'
+			'尽管如此，你感觉很不舒服，也确实需要这次检查，于是你不情愿地开始脱衣服。'
+			act '坐在椅子上':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_4.jpg"></center>'
+				'你很快脱下衣服，爬上了检查椅。那皮革般的表面贴在你屁股上透着奇怪的温热，你过了一秒才意识到椅子是加热的。你紧张地扭动着身子，等待医生回来。'
+				'仿佛过了好几个小时，医生才回到房间。你注意到他的脸比之前更红了，头发似乎也有点湿。他还脱掉了之前穿的那件围裙似的工作服。他继续检查，握住你的双手和手臂，按摩关节并屈伸它们。你的双脚和双腿也一样。出乎你意料的是，他还检查了你的屁股和小穴，把戴着手套的手指慢慢探进你的小穴，然后是你的肛门。他甚至把你的阴唇分开放，把阴蒂包皮往后推，露出你的阴蒂，轻轻按摩了一秒，然后突然深深叹了口气站起身来，目光在你裸露的小穴上停留得太久，随后才像是回过神来，轻轻抖了一下。'
+				$gpoli_sick = ''
+
+				if cumcondslip > 0:
+					$gpoli_sick = '因体内残留的用过的避孕套而引发中毒性休克。我一发现就把它取了出来。如果你之前感到不适，症状应该会慢慢消退。'
+					cumspclnt = 8
+					gs 'cum_cleanup'
+				end
+
+				if preg > 0:
+					thinkpreg = 1
+					knowpreg = 1
+					$gpoli_sick = '怀孕了'
+				end
+
+				if Venera > 0 or Kandidoz > 10:
+					if $gpoli_sick ! '': $gpoli_sick += '，并且你 '
+					$gpoli_sick += '患有性传播疾病'
+				end
+
+				if $gpoli_sick = '':
+					'"除了你对可卡因上瘾之外，其他方面你完全健康。说实话，以你的年纪来说，你的身体发育得非常成熟。"你看到他的嘴角抽动了一下，觉得他的裤裆那里似乎比之前更紧了一些。"但你来这儿不是为了这个。现在请穿好衣服，我给你妈妈写张便条。没有她的许可，我不能给你治疗毒瘾。"'
+					'听到这话，你的心跳开始加速。绝不能让妈妈知道！她会杀了你的！'
+					'"等等！"你急忙脱口而出。"你能不能就别告诉她，直接给我打那一针？求你了？"'
+					'他严厉地看着你，摇了摇头。"抱歉，<<$pcs_nickname>>，但你还未成年。我需要她的许可才能给你治疗，这是规矩。"'
+				else
+					'"嗯，<<$pcs_nickname>>，你有个问题。你<<$gpoli_sick>>，而且对可卡因上瘾。我得给你妈妈写张便条。没有她的许可，我不能给你治疗。"'
+					if Venera > 0 or Kandidoz > 10: gs 'pav_clinic', 'std_check'
+					'听到这话，你的心跳开始加速。绝不能让妈妈知道！她会杀了你的！'
+					'"等等！"你急忙脱口而出。"你能不能就别告诉她，直接给我治疗？求你了？"'
+					'他严厉地看着你，摇了摇头。"抱歉，<<$pcs_nickname>>，但你还未成年。我需要她的许可才能给你治疗。你知道的，你一直是个很不乖的女孩……"'
+				end
+
+				act '给他钱': gt 'pav_clinic', 'spravka_money_pale'
+				act '尝试协商': gt 'pav_clinic', 'spravka_arrange_pale'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'std_test':
+	minut += 60
+	gs 'stat'
+	'医生让你先提供一些血样和尿样，然后给你做检查。接着他让你到候诊室等候检测结果出来。'
+
+	if Venera > 0 or Kandidoz > 10:
+		'过了一会儿，医生把你叫回他的办公室。"恐怕我有个坏消息，"他皱着眉说。'
+		gs 'pav_clinic', 'std_check'
+	else
+		'医生很高兴地宣布，你没有感染性传播疾病。'
+	end
+
+	act '离开': gt 'pav_clinic'
+end
+
+
+if $ARGS[0] = 'referral':
+	menu_off = 1
+	!! Mom already knows about the rape and no longer requires a virginity referral
+	if motherKnowRaped > 0:
+		*clr & cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+		'你妈妈已经知道你发生了什么事，不再需要转诊单了。'
+		act '返回': gt 'pav_clinic', 'Petrovich1', $petrovich_referral_mode
+	elseif func('pcs_has_attr', 'sex_virgin'):
+		*clr & cla
+		minut = minut + 15
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gin.jpg"></center>'
+		'进行检查'
+		Gspravka = 30
+		GspravkaT = 1
+		Gspassed = 1
+
+		'他确认你还是处女，让你穿好衣服，他去给你准备转诊单。你重新穿衣服时，他在桌边填好表格，盖上章，然后递给你。这样应该能再让你妈妈高兴一个月……'
+		act '返回': gt 'pav_clinic', 'Petrovich1', $petrovich_referral_mode
+	else
+		*clr & cla
+		minut += 5
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+		if stat['think_virgin'] = 1:
+			'进行检查'
+			act '你停顿了一秒，然后决定直接坦白。反正他迟早会发现。': gt 'pav_clinic', 'referral2'
+		else
+			'你走进妇科医生的办公室时有点紧张。你妈妈指望你从他那里拿到一张证明你还是处女的转诊单，只是有一个小问题……你已经不是处女了！也许你能和他商量出个办法？'
+			if $job_status['pav_clinic_cleaner'] = 'employed':
+				'"你好，<<$pcs_nickname>>。今天是什么风把你吹来了？"彼得罗维奇医生笑着问道。'
+				'"你好，医生。又到我每月检查的时间了。我妈妈需要你开一张转诊单，好确认我还是处女，"你回答道。'
+				'"啊，是的。是为了……学校，对吧？那我们检查一下，"他轻笑着回答道。'
+			else
+				'"你好，年轻的女士。我是彼得罗维奇医生。你有什么具体的不适，还是只是来做检查？"医生一边走进诊室一边问道。'
+				'"你好，先生。我是来拿每月一次的转诊单的。我妈妈需要你开一张，好确认我还是处女。是为了学校，"你解释道。'
+				'"为了……学校？"他有点困惑地问道。"好，那我们检查一下，好吗？"他示意你站到检查台旁边。'
+			end
+
+			act '你停顿了一秒，然后决定直接坦白。反正他迟早会发现。':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_2.jpg"></center>'
+				'医生往听诊器上哈气暖它。"请掀起你的上衣。"'
+				'他看出你的犹豫，便安慰你。"我只是趁你在这儿，做些基础检查。现在……你的上衣，请掀起来？"'
+				'你掀起上衣，向他露出你的<<$titsize_zh>>乳房。你不是医务工作者，但你相当确定，他不该把听诊器那样按在你的乳房上！'
+				'你决定顺着他的意思，任由他摆弄你的乳房好几分钟，之后他满意地点点头。"一切似乎都正常。"'
+				'他盯着你裸露的乳房看时，眼里闪着热切的光。"现在请脱掉衣服，坐到椅子上。你可以把脚放进脚蹬里。"'
+				act '脱衣服':
+					*clr & cla
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_3.jpg"></center>'
+					'你不情愿地脱下衣服，尽量拖延这一刻。你知道他会发现你的秘密，但你别无选择。'
+					act '坐在椅子上': gt 'pav_clinic', 'referral2'
+				end
+			end
+
+			act '承认你已经不是处女':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+				if $job_status['pav_clinic_cleaner'] = 'employed':
+					'你停顿了一秒，然后决定直接坦白。反正他迟早会发现。'
+					'"彼得罗维奇医生，我有件事想求你……"你犹豫地说道。"你看，我……我已经不是处女了。"'
+					'他理解地点点头。"我明白了。"这大概不是第一次有病人这样告诉他了。'
+					'你继续说道。"但是……我妈妈以为我还是处女，我很想保持这样。你能帮帮我吗？"'
+					'他困惑了一秒，当他意识到你在求他什么时，眼睛瞪大了。"你是说……伪造你的转诊单？那是欺诈！你知道我要是那么做，会惹上多大的麻烦吗？"'
+				else
+					'你停顿了一秒，然后决定直接坦白。反正他迟早会发现。'
+					'"彼得罗维奇医生，我有件事想求你……"你犹豫地说道。"你看，我……我已经不是处女了。"'
+					'他理解地点点头。"我明白了。"这大概不是第一次有病人这样告诉他了。'
+					'你继续说道。"但是……我妈妈以为我还是处女，我很想保持这样。你能帮帮我吗？"'
+					'他又点点头。"我明白你的意思了。我也许能帮你，但那样做我要冒很大的风险。对我有什么好处？"'
+				end
+
+				act '给他钱': gt 'pav_clinic', 'spravka_money'
+				act '尝试协商': gt 'pav_clinic', 'spravka_arrange'
+				act '就按原样接受推荐': gt 'pav_clinic', 'badend'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'referral2':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_4.jpg"></center>'
+	'你脱光后，坐上妇科检查椅，把双腿分开搭在脚蹬上，然后医生给你做了全面检查。他在你的肛门上花的时间可能有点过多了，但也许他只是想检查得彻底些。'
+	$gpoli_sick = ''
+	if preg > 0:
+		thinkpreg = 1
+		knowpreg = 1
+		$gpoli_sick = '怀孕了'
+	end
+
+	if Venera > 0 or Kandidoz > 10:
+		if $gpoli_sick ! '': $gpoli_sick += '，并且你 '
+		$gpoli_sick += '患有性传播疾病'
+	end
+
+	if $gpoli_sick = '':
+		'"嗯，你完全健康。不过，你也已经不是处女了。"你看到他的嘴角抽动了一下，他的裤裆那里似乎比之前更紧了一些。"请穿好衣服，我给你妈妈写转诊单。"'
+		if stat['think_virgin'] = 1:
+			'听到这话，你的心跳开始加速。绝不能让妈妈知道！这怎么可能发生？你从来没做过爱啊！'
+		else
+			'听到这话，你的心跳开始加速。绝不能让妈妈知道！要是她知道了，会杀了你的！'
+		end
+		'"等等！"你急忙脱口而出。"你能不能就写我还是处女，这样我就不会惹上麻烦了？求你了？"'
+		'他严厉地看着你，摇了摇头。"抱歉，<<$pcs_nickname>>，我不能那么做，那是欺诈！你知道我会惹上多大的麻烦吗？"'
+	else
+		'医生把结果告诉你时皱着眉。"恐怕我有个坏消息，<<$pcs_nickname>>。你<<$gpoli_sick>>。'
+		if Venera > 0 or Kandidoz > 10: gs 'pav_clinic', 'std_check'
+		'而且你显然也已经不是处女了。"'
+		if stat['think_virgin'] = 1:
+			'听到这话，你的心跳开始加速。绝不能让妈妈知道！这怎么可能发生？你从来没做过爱啊！'
+		else
+			'听到那话，你的心跳开始加速。绝不能让妈妈知道！她会杀了你的！'
+		end
+		'"等等！"你急忙脱口而出。"你能不能就写我还是处女，这样我就不会惹上麻烦了？求你了？"'
+		'他严厉地看着你，摇了摇头。"抱歉，<<$pcs_nickname>>，但你还未成年。我需要她的许可才能给你治疗。而且我不能在转诊单上撒谎，那是欺诈！你知道我会惹上多大的麻烦吗？"'
+	end
+
+	act '给他钱': gt 'pav_clinic', 'spravka_money'
+	act '尝试协商': gt 'pav_clinic', 'spravka_arrange'
+	act '就按原样接受推荐': gt 'pav_clinic', 'badend'
+end
+
+
+if $ARGS[0] = 'gynoblow':
+	*clr & cla
+	if gpoli_doctorhavesex = 0: gpoli_doctorhavesex = 1 & guy += 1
+	if $ARGS[1] = 'referral_blow':
+		Gspravka = 30
+		GspravkaT = 1
+		Gspassed = 1
+		forge_referral = 1
+	end
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_7.jpg"></center>'
+	'你想动动头，却无处可去。医生的鸡巴就在你面前，现在已经插进你嘴里一半。你身后，他有力的手臂把你按在原地。你决定顺从他的意愿，不再反抗，慢慢感受他把鸡巴一下下地顶进你嘴里越来越深。起初还好，但他那粗大的鸡巴越往里，呼吸就越困难。'
+	'有一阵，感觉他就像在肆无忌惮地操你的喉咙，当他把鸡巴整根插进你的喉咙并停留几秒时，你差点干呕起来。他抽回去时，整根鸡巴都沾满了你的口水。'
+	'他把你拉起来，你大口喘着气。"就是这样，全吞下去！"'
+	'他继续粗暴地用你的嘴自慰，直到你意识到他快要射了。'
+	gs 'arousal', 'bj', 10, 'sub', 'rough', 'deepthroat'
+	gs 'stat'
+
+	act '让他射在你的嘴里':
+		*clr & cla
+		minut += 5
+		pcs_horny += 5
+		gs 'boyStat', 'A68'
+		gs 'cum_call', 'mouth_swallow', $boy, 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_14.jpg"></center>'
+		'你累得无力反对，只能把他的精液含在嘴里。你顺从地给他看了看，然后咽下去，舔了舔嘴唇。他把缓缓软化的阴茎再次移到你嘴边，让你吸吮舔弄干净。'
+		'他满足地叹了口气，然后开始穿回衣服，仿佛什么都没发生过。'
+
+		act '穿好衣服':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_15.jpg"></center>'
+			'你迅速脱掉衣服，坐上椅子，双腿分开搭在脚蹬上。皮革似的表面接触到你臀部时有一种奇怪的温热感，你过了一秒才意识到椅子是加热的。妇科医生用窥器仔细检查你的阴道，默默自言自语着什么。'
+			'等你们都重新穿好衣服后，他脸上挂着灿烂的笑容。"好了，现在一报还一报。考虑到你的职业，我建议你至少每周来见我一次，不过得先去找我的同事把病治好。"'
+			'你高兴地答应了。"谢谢你，医生！如果我的朋友也需要检查，我一定会介绍她们来找你。"'
+			gs 'arousal', 'end'
+
+			act '离开': gt 'pav_clinic'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'badend':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	Gspravka = 30
+	GspravkaT = 2
+	if dildo_gyno_check = 1: dildo_gyno_fail = 1
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gin.jpg"></center>'
+	'你叹了口气，明白自己无法改变他的主意。你的妇科医生从那摞表格里抽出一张空白的，填写起来，注明你已经不是处女。他盖上章，眼中带着失望的神情把它递给你。'
+	'你沮丧地从他手里接过来，准备离开。你要怎么跟你妈妈说呢？'
+	if $loc = 'kuhrPar':
+		act '离开': gt 'mother', 'referral'
+	else
+		act '返回': gt 'pav_clinic', 'Petrovich1', $petrovich_referral_mode
+	end
+end
+
+
+if $ARGS[0] = 'spravka_arrange':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_1.jpg"></center>'
+	if $job_status['pav_clinic_cleaner'] = 'employed':
+		'你确实很需要这个，但你也明白自己没资格讨价还价。尽管如此，你还是试着求情。"求你了，彼得罗维奇医生，"你哀求道。"我没有钱给你，但我真的很需要那张转诊单！我妈妈会杀了我的！求你了？"'
+		'他脸上露出狼一般的笑容，从椅子上起身走到你面前，把手搭在你的肩上。"嗯，如果你真的这么需要……我想我们可以谈个交易。这只是我们之间的事，不需要别人知道……"他用柔和安抚的声音轻声说。'
+		'你虽然有点不舒服，但还是燃起了希望。"呃……好，那太好了！你想谈什么样的交易？"'
+		'他继续用安抚的声音说。"你看，我妻子出差去了，好几个星期都不在家。我是个有需求的男人，而我的工作压力很大，你可以想象。我需要你帮我放松，说白了就是缓解一下紧张。你觉得你能帮我吗？"'
+		'他抓着你肩膀的手稍微用力了些，一边按摩着你，一边让你考虑。你完全清楚他想从你身上得到什么，但这真的值得吗？'
+	else
+		'你确实很需要这个，但你也明白自己没资格讨价还价。尽管如此，你还是试着求情恳求："求你了，彼得罗维奇医生。我真的很需要那张转诊单！我妈妈会杀了我的！求你了？"'
+		'他脸上露出狼一般的笑容，从椅子上起身走到你面前。"嗯，如果你真的这么需要……我们都有需求。我打赌我们能谈出点什么……"他轻声说。'
+		'"可是……万一……"你轻声嘟囔道。'
+		'他玩味地看着你。"万一什么？"'
+		'"万一我没钱呢？"你继续说道。'
+		'他愉快地对你笑了笑，伸手去拉你。他把手搭在你肩上，你不由自主地顺从了，慢慢让他把你按下去跪在地上。'
+		'他坏笑着看着你。"我明白你为什么不是处女了，你这个小妖精！这么急着讨好男人……"'
+		'你的脸正对着他的裆部，他慢慢解开裤子，任其滑到脚踝。他勃起的鸡巴急切地指向你，一颗前精液液滴缓缓滴落。你能看出他非常想要你。'
+		gs 'willpower', 'bj', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			act '抓起转诊单跑出房间' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '抓起转诊单跑出房间' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				Gspravka = 30
+				GspravkaT = 1
+				Gspassed = 1
+				forge_referral = 1
+				gs 'willpower', 'bj', 'resist', 'hard'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'机会来了！你飞快地从他桌上抓起一张快填好的表格，跑出了他的诊室。彼得罗维奇医生重新提上裤子，甚至没有追你，因为他知道这事要跟诊所里的任何人解释都太尴尬了。看来这次是你赢了！'
+				'过了一会儿，你把表格剩下的部分填好，对自己点了点头。<i>这样应该能再让<<$npc_nickname[''A29'']>>别来烦我一个月……</i>'
+				act '离开': gt 'pav_clinic', 'Petrovich1', $petrovich_referral_mode
+			end
+		end
+	end
+	act '你真的不想让妈妈发现……':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_6.jpg"></center>'
+		'你又深吸一口气，慢慢把手放到他的裆部，引导他那根坚硬的鸡巴凑到嘴边。'
+		'你挑逗地舔了舔龟头，然后慢慢用嘴含住他的鸡巴，开始吸吮龟头。'
+		'一两分钟后，你感到他的手放在你的后脑勺上。你想抬起头问他想怎样，但他强迫你待在原地，慢慢向前挺动臀部，让你把越来越多的肉棒吞进嘴里。'
+
+		act '给他口交':
+			if Venera > 0: gt 'pav_clinic', 'gynoblow', 'referral_blow'
+			*clr & cla
+			if gpoli_doctorhavesex = 0: gpoli_doctorhavesex = 1 & guy += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_7.jpg"></center>'
+			'你想往后退，却无处可退。他坚硬的鸡巴就在你面前，他有力的手按着你的后脑勺把你拉得更近。你呼吸时，他那阵阵搏动的鸡巴散发出的雄性气息充满你的鼻腔，你不得不承认，这让你很兴奋！'
+			'他开始稍微放松，让你往后缩，直到只有龟头含在你双唇之间，然后又把你的头拉近，每次都把鸡巴顶得更深。起初你还能承受，但到了某个点你就跟不上了，当他再次深深顶入时，你被他的鸡巴噎得干呕。从他脸上施虐般的笑容你能看出他乐在其中。"试试用鼻子呼吸。"'
+			'你照他说的做，确实轻松了一些，他开始操你的嘴，你的口水顺着他的肉棒流下，滴到他毛茸茸的睾丸上。办公室里充满了他一下下更深地操进你嘴里的湿漉漉的吸吮声和哼哧声，有时他的龟头滑进你的喉咙，让你不由自主地干呕。他突然一顶，你能感觉到他卷曲的阴毛贴在你的嘴唇上，他把鸡巴尽可能深地插进你的喉咙。你因为无法呼吸而惊慌，但他又突然把鸡巴从你嘴里抽了出来。谢天谢地，你终于有机会喘口气了。'
+			'"我想这样应该润滑得够充分了，"他用充满欲望的声音说。你能看出他现在非常兴奋，却不确定自己是否想知道接下来会发生什么。尽管如此，你已经陷得太深，无法回头了。"来吧，现在是时候深入了。"'
+			'"你什么意思？"你刚要问，但几乎立刻就有了答案——彼得罗维奇医生把你从地上拉起来，让你伏在椅子上。当他用滑腻的龟头摩擦你肿胀的阴蒂时，你忍不住发出一声呻吟。'
+			gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+			gs 'stat'
+
+			act '继续':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_8.jpg"></center>'
+				'你娇嫩的肉体抗拒了一瞬，随后便投降了。你感到阴道壁被撑开，让入侵者进入，你发出一声情热的呻吟。'
+				'你的身体越来越热，额头冒出细密的汗珠。彼得罗维奇医生每次抽插都更快更狠，你能感到自己的兴奋也在攀升。他又硬又热的肉棒毫不间断地越插越深，你开始不由自主地呻吟。'
+				gs 'arousal', 'vaginal', 5, 'sub'
+				gs 'stat'
+
+				act '让他操你':
+					*clr & cla
+					gs 'arousal_funcs', 'stretch', 'vaginal'
+					gs 'boyStat', 'A68'
+					gs 'cum_call', 'precum', 'A68', 1
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_9.jpg"></center>'
+					'你再也无法控制自己，在医生无情的抽插下迎来了雷霆般的高潮。快感的浪潮灼烧着你的神经，你张开嘴无声尖叫，被快感吞噬。'
+					'他突然把阴茎抽了出来，你差点摔倒在地，但他用有力的手臂接住你，把你放到一张桌子上，你感觉到他的阴茎重新滑入你颤抖的小穴。'
+					'你学着他的样子，也把衣服穿回去。'
+
+					$orgasm_or = 'yes'
+					gs 'arousal', 'vaginal', 5, 'sub'
+					gs 'stat'
+
+					act '在桌子上做爱':
+						*clr & cla
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_10.jpg"></center>'
+						'他再次加快节奏，像之前一样猛烈地操你。你的身体不再听你使唤，你发现自己急切地挺起臀部迎合他的抽插。你感觉那种酥麻感又开始在你体内升起……如果他继续这样，你会再次在他的鸡巴上高潮。'
+						'医生抽出阴茎，对你笑了笑。"我打赌我能给你另一种高潮，一种你可能从未体验过的高潮。在这里等着，我马上回来。"'
+						'你隐约听到他说了些什么，但与此同时你仍然沉浸在自己的世界里，没意识到他说了什么。当高潮的余韵消退后，你环顾房间。他去哪儿了？'
+						'正当你准备从桌子上下来时，他回来了，手里拿着一罐润滑剂，一只手戴着乳胶手套。他示意你转过身去，你顺从地照做了。'
+						'他几只戴着套的手指伸进罐子里，提起来时你看到润滑剂从手指上缓缓滴下。他把手指贴在你紧致的肛门上，抹上一些润滑剂，然后一下子插进了三根手指。'
+						'"哎哟！"当他的手指撑开你的肛门时，你叫了出来。有点疼，他把手指抽出来，又在鸡巴上抹了更多润滑剂，这让你有点不舒服。还没等你说什么，你就感到他那粗大的龟头正顶过你的括约肌，把你撑得更开了。'
+						gs 'arousal', 'vaginal', 5, 'sub'
+						gs 'arousal', 'foreplay', 5, 'sub'
+						gs 'arousal', 'anal_finger', -5, 'sub'
+						gs 'stat'
+
+						act '肛交':
+							*clr & cla
+							gs 'arousal_funcs', 'stretch', 'anal', 1
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_11.jpg"></center>'
+							'你想从他身边挣脱，但你被困在彼得罗维奇医生和墙壁之间。他缓缓地移动着臀部，让你慢慢适应他那根粗棒插在你肛门里的尺寸。尽管你极力想放松，但你的肛门还是无法松弛，只能慢慢适应他的大小。'
+							'当他开始加速时，你几乎要哭出来，每一下抽插都大声呻吟。'
+							'"这样可不行。你再这么叫下去，会把整间诊所都惊动的！"他嘟囔着，把鸡巴从你的肛门里抽了出来。'
+							'"来，趴到地上去，"他把外套扔到地上后命令道。他又在戴着手套的手指上抹了些润滑剂，涂在你阵阵搏动的肛门上。'
+							gs 'arousal', 'anal', 5, 'sub'
+							gs 'stat'
+
+							act '在地板上做爱':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_12.jpg"></center>'
+								'出乎你意料的是，他无视了你的肛门，转而把阴茎插回了你的阴道。他用短促而粗暴的抽插操你，几乎像是在把烦恼都操出体外。起初感觉不太舒服，但很快你的身体放松下来，你又开始呻吟并享受这种感觉。'
+								'当他注意到你喘息加快时，他迅速把阴茎从你的阴道里抽出来，流畅地一捅插进了你的肛门。你大声叫出来，一半是因为疼痛，一半是因为恼火……你差一点就到了！尽管你正经历着不适和疼痛，你还是揉搓着阴蒂，希望这能让你忘掉疼痛，并希望迎来你所渴望的高潮。'
+								gs 'arousal', 'vaginal', 5, 'sub', 'rough'
+								gs 'stat'
+
+								act '肛交':
+									*clr & cla
+									'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_13.jpg"></center>'
+									'既然你已经如此兴奋，肛交的疼痛就不那么厉害了。你疯狂地揉着阴蒂，他则粗暴地撞击着你被撑开的肛门，当第二次高潮袭来时，你渐渐失去理智。彼得罗维奇医生一定能感觉到你高潮时肛门正紧紧收缩着他的阴茎。'
+									'他也快到了，当你度过高潮后，他又抽插了几下，然后拔出阴茎，把胯部移向你的脸。他抓住你的头发，把阴茎引向你的嘴边，你顺从地张开嘴让它进去。'
+
+									$orgasm_or = 'yes'
+									gs 'arousal', 'anal', 5, 'sub', 'rough'
+									gs 'stat'
+
+									act '让他射在你的嘴里':
+										*clr & cla
+										minut += 5
+										pcs_horny += 5
+										gs 'boyStat', 'A68'
+										gs 'cum_call', 'mouth_swallow', $boy, 1
+										gs 'stat'
+										'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_14.jpg"></center>'
+										'你太累了，即使想反对也无力反对，只能把他的精液含在嘴里。你顺从地给他看了看，然后咽下去，舔了舔嘴唇。他把缓缓软化的阴茎再次移到你嘴边，让你吸吮舔弄干净。'
+										'他满足地叹了口气，然后开始穿回衣服，仿佛什么都没发生过。'
+
+										act '穿好衣服':
+											*clr & cla
+											minut += 5
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_15.jpg"></center>'
+											'你不能那样做'
+											'等你们都重新穿好衣服后，他脸上挂着灿烂的笑容。"好了，现在一报还一报。"'
+											'他回到书桌后面，飞快地写下你的转诊单，注明你还是处女。他把它递给你："我相信这是你的。现在如果你不介意的话，我还有别的病人要看。"'
+											'接过转诊单的那一刻，你觉得自己很廉价。尽管如此，你又脱身了一个月……这总归是有点价值的，对吧？'
+											Gspravka = 30
+											GspravkaT = 1
+											Gspassed = 1
+											forge_referral = 1
+											gs 'arousal', 'end'
+											if $loc = 'kuhrPar':
+												act '离开': gt 'mother', 'referral'
+											else
+												act '离开': gt 'pav_clinic'
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+	gs 'willpower', 'bj', 'resist'
+	if pcs_willpwr < will_cost:
+		act '你不能那样做' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '你不能那样做' + $func('willpower', 'get_willcost_string'):
+			cla
+			gs 'willpower', 'bj', 'resist'
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			'你皱起眉头。你真的不想和他发生关系，决定再试一次。"我不能那样做，医生。请你发发慈悲……能不能就这一次放过我？我只是需要点时间想想该怎么跟我的<<$npc_nickname[''A29'']>>说这一切！"'
+			'他的目光冰冷如石，没有一丝怜悯。"那就这样吧。抱歉，<<$pcs_nickname>>，但事情不是这么办的。我冒的风险已经够大了。你不帮我，我就不帮你。"'
+			act '尝试协商': gt 'pav_clinic', 'spravka_arrange'
+			act '就按原样接受推荐': gt 'pav_clinic', 'badend'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'spravka_money':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+
+	if $job_status['pav_clinic_cleaner'] = 'employed':
+		'你不想和他发生关系。毕竟，正是性让你陷入这团烂摊子的！'
+		'你急中生智。"我可以付钱！"你脱口而出。"如果我付钱给你，那张转诊单还一样吗？我可以付你很多！"'
+		'医生一边思考一边摩挲着下巴。"我不确定……我来这里不是为了钱。不过，私人病人就不算未成年了，所以我没有义务告诉你妈妈。标准的诊费是 ' + $func('money', 'string_price', 2000) + '。"'
+		act '付给他诊费' + $func('money', 'get_cost_string', 2000):
+			if func('money', 'can_afford', 2000) = 0:
+				$noMoney
+			else
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', 2000
+				gs 'stat'
+				Gspravka = 30
+				GspravkaT = 1
+				Gspassed = 1
+				forge_referral = 1
+				'"成交！"你想都没想就答道。'
+				'这可不便宜，但这样你就有多一个月的时间来想对策，不用那么快让你妈妈发现你已经不是处女。彼得罗维奇医生收下你的钱，填好一张表格，盖上章后递给你。你小心翼翼地把它放进口袋，同时向他道谢。'
+				act '返回': gt 'pav_clinic', 'Petrovich1', $petrovich_referral_mode
+			end
+		end
+		act '就按原样接受推荐': gt 'pav_clinic', 'badend'
+		act '尝试协商': gt 'pav_clinic', 'spravka_arrange'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_5.jpg"></center>'
+		'"那，要是我给你钱呢？"你提议道。'
+		'彼得罗维奇医生似乎被这个提议冒犯了。"够了！我是一名宣过誓的专业医生！你不能贿赂我！这违背我坚持的一切！"'
+		'"求你了？我真的很需要你的帮助……求你了……"你双眼含泪地哀求道。"我不知道还能怎么办……"你啜泣着说。'
+		'他坚决地摇了摇头，上下打量着你。"我很想帮助一个漂亮又需要帮助的年轻姑娘，但收受贿赂会让我被吊销行医资格的。"'
+		'他让这些话在空中回荡了一会儿，语气听起来并不反对帮你。不过他坚决不收钱，正停顿着，看你会不会提出别的什么。'
+		act '就按原样接受推荐': gt 'pav_clinic', 'badend'
+		act '尝试协商': gt 'pav_clinic', 'spravka_arrange'
+	end
+end
+
+
+if $ARGS[0] = 'spravka_money_pale':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+
+	if gpoli_doctorhavesex = 0:
+		'"如果我付钱给你，你能不能别在意我的年龄？"你提议道。'
+		'他试图拒绝你，但听起来不太有说服力。"我不确定……我当医生不是为了钱。"'
+		'他眼中闪过一丝贪婪——你确实引起了他的注意。"不过，私人病人就不算未成年了，所以我没有任何义务告诉任何人任何事。就像你从没来过一样！正常的诊费是 ' + $func('money', 'string_price', 2000) + '。"'
+		act '付给他诊费' + $func('money', 'get_cost_string', 2000):
+			if func('money', 'can_afford', 2000) = 0:
+				$noMoney
+			else
+				*clr & cla
+				minut += 5
+				gs 'money', 'pay', 2000
+				pcs_horny += 5
+				gs 'stat'
+				'医生仔细数了数钱，然后从一个标着"0.45% 氯化钠注射液（USP）"的瓶子里准备注射剂。他往一根看起来相当大的针管里吸入那种陌生的化学药剂，你紧张地咽了咽口水。'
+				gs 'pav_clinic', 'spravka_money_pale2'
+			end
+		end
+		act '尝试协商': gt 'pav_clinic', 'spravka_arrange_pale'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/gpoli_5.jpg"></center>'
+		'"那，要是我给你钱呢？我可以付给你！"你绝望地提议道。'
+		'彼得罗维奇医生似乎被这个提议冒犯了。"够了！我是一名宣过誓的医务工作者！你不能贿赂我！这违背我坚持的一切！"'
+		'"求你了？我真的很需要你的帮助……求你了……"你双眼含泪地哀求道。"我不知道还能怎么办！"你啜泣着说。'
+		'他坚决地摇了摇头，上下打量着你。"我很想帮助一个漂亮又需要帮助的年轻姑娘，但收受贿赂会让我被吊销行医资格的。"'
+		'他让这些话在空中回荡了一会儿，语气听起来并不反对帮你。不过他坚决不收钱，正停顿着，看你会不会提出别的什么。'
+		act '尝试协商': gt 'pav_clinic', 'spravka_arrange_pale'
+	end
+end
+
+
+if $ARGS[0] = 'spravka_money_pale2':
+	'你感到一阵刺痛，然后一股冰凉的液体被注射进你的屁股蛋里。这没有你想象中那么糟糕，但结束时你还是松了一口气。'
+	'你担心他会不会把针扎进你的肛门，直到他最终选定一个位置，用消毒液擦拭了那里。'
+	'你感到一阵刺痛，然后一股冰凉的液体被注射进你的屁股蛋里。这没有你想象中那么糟糕，但结束时你还是松了一口气。'
+	'"好了，完成了，"他用满意的语气说。"症状最多可能要30天才能完全消失。只是记得别再吸了，否则药就不管用了。"'
+	act '离开': gt 'pav_clinic', 'Petrovich1'
+end
+
+
+if $ARGS[0] = 'spravka_arrange_pale':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	if gpoli_doctorhavesex = 1:
+		'"我能不能，我是说……我们能不能，呃……怎么……有什么我能为你做的吗？我妈妈绝对不能发现！"你绝望地啜泣道。一想到妈妈要是知道了会怎么做，你就怕得要命。'
+		'医生知道你已经走投无路，便进一步把话说死。"嗯，你确实需要这个治疗。我想我可以给你另一个选择。当然，这只会是我们之间的秘密，"他一边说一边把手搭在你肩上。'
+		'"我该怎么做？"你问道。内心深处，你觉得自己其实已经知道答案了。'
+		'他决定跟你直说。"你看，我妻子照例出差去了，好几个星期都不在家。我是个有需求的男人，我的工作压力很大，你可以想象。我需要你帮我放松，说白了就是缓解一下紧张。所以，我要操你。我要想怎么操你就怎么操你。你要是表现好，就能拿到你的药，我也不告诉你妈妈。成交？"'
+		'你早知道他会来这一套，但他的厚颜无耻还是让你目瞪口呆。他逼视着你，而各种念头在你脑海里飞转。你确实需要这个治疗，但这值得吗？'
+	else
+		'"我能不能，我是说……我们能不能，呃……怎么……有什么我能为你做的吗？我妈妈绝对不能发现！"你绝望地啜泣道。一想到妈妈要是知道了会怎么做，你就怕得要命。'
+		'医生知道你已经走投无路。"我们都有需求，<<$pcs_nickname>>。如果你帮我解决我的需求，我也能帮你解决你的。"'
+		'他继续说道："我妻子出差去了，好几个星期都不在家。我是个有需求的男人，我的工作压力很大，你可以想象。我需要你帮我放松，说白了就是缓解一下紧张。你觉得怎么样？"'
+		'"你想……"你迟疑道。你完全清楚他在暗示什么，却说不出口。'
+		'医生把手放在你的胯部，自信地对你笑了笑。"像你这样漂亮的姑娘，总会有别的办法的。"'
+		'他揉捏了一会儿你的<<$titsize_zh>>乳房，然后解开了皮带。'
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '跑出办公室' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '跑出办公室' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'bj', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'慌乱之中，你抓起衣服跑出了办公室。你知道这事不能跟任何人说。你要是说出去，彼得罗维奇医生就会把你吸毒的事告诉你妈妈。你在一间空诊室里迅速穿好衣服，心里琢磨着现在该怎么摆脱这团乱麻。'
+				if $loc = 'kuhrPar':
+					act '离开': gt 'mother', 'referral'
+				else
+					act '返回': gt 'pav_clinic', 'Petrovich1'
+				end
+			end
+		end
+	end
+	act '做你该做的事':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_6.jpg"></center>'
+		'你叹了口气，慢慢从椅子上滑下来，跪在医生面前，他掏出半硬的鸡巴。你用手握住它，不情愿地开始舔，同时手在肉棒上上下套弄。随着他的鸡巴越来越硬，你对他下体的变化着迷起来。你发现自己开始投入地取悦他……也许这也没那么糟。令你惊讶的是，你觉得自己甚至开始享受他那滚烫肉体带来的触感和味道了。你手上的动作越来越快，一边继续舔着他现在完全勃起的鸡巴，他的呼吸也微微加快。你以为也许就是这样了，也许他快要射了……'
+		'但是，没有。医生反而把手放在你的后脑勺上。你想抬头看看他想怎样，他却把你拉向他的裆部，你的<<$pc_desc[''lips'']>>嘴唇开始含住他滑腻的龟头，被撑得张开来。'
+		gs 'arousal', 'hj', 5, 'sub'
+		gs 'stat'
+
+		act '给他口交':
+			if Venera > 0: gt 'pav_clinic', 'gynoblow'
+			*clr & cla
+			if gpoli_doctorhavesex = 0: gpoli_doctorhavesex = 1 & guy += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_7.jpg"></center>'
+			'你想往后退，却无处可退。他坚硬的鸡巴就在你面前，他有力的手按着你的后脑勺把你拉得更近。你呼吸时，他那阵阵搏动的鸡巴散发出的雄性气息充满你的鼻腔，你不得不承认，这让你很兴奋！'
+			'他开始稍微放松，让你往后缩，直到只有龟头含在你双唇之间，然后又把你的头拉近，每次都把鸡巴顶得更深。起初你还能承受，但到了某个点你就跟不上了，当他再次深深顶入时，你被他的鸡巴噎得干呕。从他脸上施虐般的笑容你能看出他乐在其中。"试试用鼻子呼吸。"'
+			'你照他说的做，确实轻松了一些，他开始操你的嘴，你的口水顺着他的肉棒流下，滴到他毛茸茸的睾丸上。办公室里充满了他一下下更深地操进你嘴里的湿漉漉的吸吮声和哼哧声，有时他的龟头滑进你的喉咙，让你不由自主地干呕。他突然一顶，你能感觉到他卷曲的阴毛贴在你的嘴唇上，他把鸡巴尽可能深地插进你的喉咙。你因为无法呼吸而惊慌，但他又突然把鸡巴从你嘴里抽了出来。谢天谢地，你终于有机会喘口气了。'
+			'"我想这样应该润滑得够充分了，"他用充满欲望的声音说。你能看出他现在非常兴奋，却不确定自己是否想知道接下来会发生什么。尽管如此，你已经陷得太深，无法回头了。"来吧，现在是时候深入了。"'
+			'"你什么意思？"你刚要问，但几乎立刻就有了答案——彼得罗维奇医生把你从地上拉起来，让你伏在椅子上。当他用滑腻的龟头摩擦你肿胀的阴蒂时，你忍不住发出一声呻吟。'
+			gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+			gs 'stat'
+
+			act '继续':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_8.jpg"></center>'
+				'你娇嫩的肉体抗拒了一瞬，随后便投降了。你感到阴道壁被撑开，让入侵者进入，你发出一声情热的呻吟。'
+				'你的身体越来越热，额头冒出细密的汗珠。彼得罗维奇医生每次抽插都更快更狠，你能感到自己的兴奋也在攀升。他又硬又热的肉棒毫不间断地越插越深，你开始不由自主地呻吟。'
+				gs 'arousal', 'vaginal', 5, 'sub'
+				gs 'stat'
+
+				act '让他操你':
+					*clr & cla
+					gs 'arousal_funcs', 'stretch', 'vaginal'
+					gs 'boyStat', 'A68'
+					gs 'cum_call', 'precum', 'A68', 1
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_9.jpg"></center>'
+					'你再也无法控制自己，在医生无情的抽插下迎来了雷霆般的高潮。快感的浪潮灼烧着你的神经，你张开嘴无声尖叫，被快感吞噬。'
+					'他突然把阴茎抽了出来，你差点摔倒在地，但他用有力的手臂接住你，把你放到一张桌子上，你感觉到他的阴茎重新滑入你颤抖的小穴。'
+					'你学着他的样子，也把衣服穿回去。'
+
+					$orgasm_or = 'yes'
+					gs 'arousal', 'vaginal', 5, 'sub'
+					gs 'stat'
+
+					act '在桌子上做爱':
+						*clr & cla
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_10.jpg"></center>'
+						'他再次加快节奏，像之前一样猛烈地操你。你的身体不再听你使唤，你发现自己急切地挺起臀部迎合他的抽插。你感觉那种酥麻感又开始在你体内升起……如果他继续这样，你会再次在他的鸡巴上高潮。'
+						'医生抽出阴茎，对你笑了笑。"我打赌我能给你另一种高潮，一种你可能从未体验过的高潮。在这里等着，我马上回来。"'
+						'你隐约听到他说了些什么，但与此同时你仍然沉浸在自己的世界里，没意识到他说了什么。当高潮的余韵消退后，你环顾房间。他去哪儿了？'
+						'正当你准备从桌子上下来时，他回来了，手里拿着一罐润滑剂，一只手戴着乳胶手套。他示意你转过身去，你顺从地照做了。'
+						'他几只戴着套的手指伸进罐子里，提起来时你看到润滑剂从手指上缓缓滴下。他把手指贴在你紧致的肛门上，抹上一些润滑剂，然后一下子插进了三根手指。'
+						'"哎哟！"当他的手指撑开你的肛门时，你叫了出来。有点疼，他把手指抽出来，又在鸡巴上抹了更多润滑剂，这让你有点不舒服。还没等你说什么，你就感到他那粗大的龟头正顶过你的括约肌，把你撑得更开了。'
+						gs 'arousal', 'vaginal', 5, 'sub'
+						gs 'arousal', 'foreplay', 5, 'sub'
+						gs 'arousal', 'anal_finger', -5, 'sub'
+						gs 'stat'
+
+						act '肛交':
+							*clr & cla
+							gs 'arousal_funcs', 'stretch', 'anal', 1
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_11.jpg"></center>'
+							'你想从他身边挣脱，但你被困在彼得罗维奇医生和墙壁之间。他缓缓地移动着臀部，让你慢慢适应他那根粗棒插在你肛门里的尺寸。尽管你极力想放松，但你的肛门还是无法松弛，只能慢慢适应他的大小。'
+							'当他开始加速时，你几乎要哭出来，每一下抽插都大声呻吟。'
+							'"这样可不行。你再这么叫下去，会把整间诊所都惊动的！"他嘟囔着，把鸡巴从你的肛门里抽了出来。'
+							'"来，趴到地上去，"他把外套扔到地上后命令道。他又在戴着手套的手指上抹了些润滑剂，涂在你阵阵搏动的肛门上。'
+							gs 'arousal', 'anal', 5, 'sub'
+							gs 'stat'
+
+							act '在地板上做爱':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_12.jpg"></center>'
+								'出乎你意料的是，他无视了你的肛门，转而把阴茎插回了你的阴道。他用短促而粗暴的抽插操你，几乎像是在把烦恼都操出体外。起初感觉不太舒服，但很快你的身体放松下来，你又开始呻吟并享受这种感觉。'
+								'当他注意到你喘息加快时，他迅速把阴茎从你的阴道里抽出来，流畅地一捅插进了你的肛门。你大声叫出来，一半是因为疼痛，一半是因为恼火……你差一点就到了！尽管你正经历着不适和疼痛，你还是揉搓着阴蒂，希望这能让你忘掉疼痛，并希望迎来你所渴望的高潮。'
+								gs 'arousal', 'vaginal', 5, 'sub', 'rough'
+								gs 'stat'
+
+								act '肛交':
+									*clr & cla
+									'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_13.jpg"></center>'
+									'既然你已经如此兴奋，肛交的疼痛就不那么厉害了。你疯狂地揉着阴蒂，他则粗暴地撞击着你被撑开的肛门，当第二次高潮袭来时，你渐渐失去理智。彼得罗维奇医生一定能感觉到你高潮时肛门正紧紧收缩着他的阴茎。'
+									'他也快到了，当你度过高潮后，他又抽插了几下，然后拔出阴茎，把胯部移向你的脸。他抓住你的头发，把阴茎引向你的嘴边，你顺从地张开嘴让它进去。'
+
+									$orgasm_or = 'yes'
+									gs 'arousal', 'anal', 5, 'sub', 'rough'
+									gs 'stat'
+
+									act '让他射在你的嘴里':
+										*clr & cla
+										minut += 5
+										pcs_horny += 5
+										gs 'boyStat', 'A68'
+										gs 'cum_call', 'mouth_swallow', $boy, 1
+										gs 'stat'
+										'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_14.jpg"></center>'
+										'你太累了，即使想反对也无力反对，只能把他的精液含在嘴里。你顺从地给他看了看，然后咽下去，舔了舔嘴唇。他把缓缓软化的阴茎再次移到你嘴边，让你吸吮舔弄干净。'
+										'他满足地叹了口气，然后开始穿回衣服，仿佛什么都没发生过。'
+
+										act '穿好衣服':
+											*clr & cla
+											minut += 5
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/gyno/sex/gpoli_15.jpg"></center>'
+											'你不能那样做'
+											'等你们都穿好衣服后，他脸上挂着灿烂的笑容。"好了，现在一报还一报。在这儿等着，我去给你拿针剂。"'
+											'他从一个标着"0.45% 氯化钠注射液（USP）"的瓶子里准备注射剂，他往一根看起来相当大的注射器里吸入那种陌生的化学药剂，你紧张地咽了咽口水。'
+											'你感到一阵刺痛，然后一股冰凉的液体被注射进你的屁股蛋里。这没有你想象中那么糟糕，但结束时你还是松了一口气。'
+											'你担心他会把针扎进你那刚被用过的肛门，直到他最终决定扎在你屁股蛋上的某个位置，用消毒液擦拭后，把注射器对准了那里。'
+											'你感到一阵刺痛，然后一股冰凉的液体被注射进你的屁股蛋里。这没有你想象中那么糟糕，但结束时你还是松了一口气。'
+											'"好了，完成了，"他用满意的语气说。"症状最多可能要30天才能完全消失。只是记得别再吸了，否则药就不管用了。"'
+											'"谢谢你，医生，"你一边整理衣服一边小声嘟囔道。'
+											gs 'arousal', 'end'
+
+											act '离开': gt 'pav_clinic'
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'maternity_ward':
+	pcs_know_mward = 1
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	minut += 5
+	lact_ev['gpoli_temp_var'] = 0
+	gs 'stat'
+	if hour >= 6 and hour <= 20:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/mward.jpg"></center>'
+		'你在产科病房里，这里有很多婴儿，还有照顾他们的护士。'
+		act '离开': gt 'pav_clinic'
+		if lactation['active'] > 0 and pcs_gpolimilkdonation = 3:
+			act '和护士交谈 (0:05)':
+				gs 'stat'
+				*clr & cla
+				menu_off = 1
+				minut += 5
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/old_nurse.jpg"></center>'
+				'"你好，<<$pcs_firstname>>，有什么可以帮你的吗？"护士微笑着问道。'
+				act '离开': gt 'pav_clinic', 'maternity_ward'
+				act '捐献你的母乳 (0:15)':
+					*clr & cla
+					lact_ev['gpoli_milkedvolume'] = 0
+					pcs_gpoli_donationsessioncount = 0
+					!! if rand(0,100) = 95 and orphanfeed = 0:
+					!!	orphanfeed = 1
+					!! end
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pump_room.jpg"></center>'
+					'你和护士交谈后，她带你走进那间安静的房间。'
+					!! if orphanfeed = 1:
+					!!	'It seems like there is a crib with a baby inside in this room, too.'
+					!! end
+					act '让人给你吸奶':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pump_room.jpg"></center>'
+						'你坐下来，脱掉上衣。'
+						if lactation['breastmv'] > lactation['breastmm']*8/10:
+							'护士看着你涨得鼓鼓的乳房，露出惊讶的神情。'
+							'"哦，亲爱的，看起来涨得都疼了！希望吸奶能让你好受些。"'
+						end
+						if pain['nipples'] >= 60:
+							'<center><img <<$set_imgh>> src="images/pc/body/nipples/sore_nipple.jpg"></center>'
+							'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+							'她把药膏涂在你的乳头上，乳头开始不那么疼了，一阵舒缓的感觉传遍你的胸部。'
+							pain['nipples'] -= 20
+						else
+							'护士拿起乳头膏涂在你的乳头上。她揉搓时，你的乳头感觉很舒服。'
+						end
+						lactation['nipple_cream_applied'] = 1
+						act '继续':	gt 'pav_clinic', 'maternity_ward_donation'
+					end
+				end
+				act '查看你的档案 (0:05)':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/formular.jpg"></center>'
+					'护士递给你一份档案，上面记录着你至今捐献了多少。'
+					'<br>----------------------------------------'
+					'母乳样本测量分析'
+					'体积（毫升）：<<mward_donatesv/10>>ml'
+					'脂肪（%）：<<mward_donatesf/10>>.<<mward_donatesf mod 10>>%'
+					'乳糖（%）：<<mward_donatess/10>>.<<mward_donatess mod 10>>%'
+					'<br>----------------------------------------'
+					if pcs_gpoli_totalmilkdonation_count > 0:
+						'母乳捐赠总统计'
+						if pcs_gpoli_totalmilkdonation < 100:
+							'捐献母乳量（升）： <<pcs_gpoli_totalmilkdonation/1000>>.0<<pcs_gpoli_totalmilkdonation mod 1000>>l'
+						else
+							'捐献母乳量（升）： <<pcs_gpoli_totalmilkdonation/1000>>.<<pcs_gpoli_totalmilkdonation mod 1000>>l'
+						end
+						'捐赠次数：<<pcs_gpoli_totalmilkdonation_count>>'
+						'每次捐献的平均母乳量（毫升）： <<pcs_gpoli_totalmilkdonation/pcs_gpoli_totalmilkdonation_count>>'
+						'已付金额：'+$func('money', 'format', pcs_gpoli_totalmilkmoney)
+						'<br>----------------------------------------'
+					end
+					act '离开': gt 'pav_clinic', 'maternity_ward'
+				end
+				!! act 'Mammography (1:00)':
+				!!
+				!! end
+			end
+		end
+		if lactation['active'] > 0 and lactation['breastmv'] > lactation['breastmm']/8 and pcs_gpolimilkdonation <= 2:
+			'<br><br><center>其中一名护士怀疑地看着你。<center>'
+			act '和护士交谈 (0:05)':
+				*clr & cla
+				menu_off = 1
+				minut += 5
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/old_nurse.jpg"></center>'
+				if preg >= 0 and pregtimes > 0 and pcs_gpolimilkdonation <= 0 and lactation['pc_aware'] > 0:
+					'你走到护士跟前。"呃……你好？"'
+					'"哪个是你的？"她问道。'
+					'"我的？我不明白……"'
+					'护士看看你，又低头看看你的乳房，再看向你。"嗯，你显然在分泌乳汁。你是来给孩子喂奶的吗？"'
+				elseif preg = 0 and pregtimes = 0 and pcs_gpolimilkdonation <= 0 and lactation['pc_aware'] > 0:
+					'你走到护士跟前。"呃……你好？"'
+					'护士扬起一边眉毛，上下打量着你。"你看起来不像生过孩子。你怎么会分泌乳汁？"'
+					'你被这突如其来的精准判断吓了一跳。"你……你怎么知道的？"'
+					'"我在这儿工作很多年了。相信我，闻气味我就知道。那么，你为什么在分泌乳汁？"她又问道。'
+				elseif preg = 0 and pregtimes = 0 and pcs_gpolimilkdonation <= 0 and lactation['pc_aware'] <= 0:
+					'你走到护士跟前。"呃……你好？"'
+					'护士扬起一边眉毛，上下打量着你。"你看起来不像生过孩子。你怎么会分泌乳汁？"'
+					'你被她的评论弄糊涂了，歪着头。"啊？你在说什么？"'
+					'护士用手里转着的笔指着你的乳房。"你的乳房……里面显然有奶水。相信我，我在这儿工作多年，知道分泌乳汁的乳房长什么样。"'
+					'你震惊地看着她，又低头看看自己的乳沟。"这不可能！我从来没怀过孕……我是说……我为什么会分泌乳汁？"'
+					'护士皱着眉再次上下打量你，然后站起身来。"跟我来，我们检查一下。"'
+				elseif preg >= 0 and pregtimes > 0 and pcs_gpolimilkdonation <= 0 and lactation['pc_aware'] <= 0:
+					'你走到护士跟前。"呃……你好？"'
+					'"哪个是你的？"她问道。'
+					'"我的？我不明白……"'
+					'护士看看你，又低头看看你的乳房，再看向你。"嗯，你显然在分泌乳汁。你是来给孩子喂奶的吗？"'
+					*nl
+					'你看看她，又低头看看自己的乳沟。"这不可能！我是说……我为什么会分泌乳汁？"'
+					'护士皱着眉再次上下打量你，然后站起身来。"跟我来，我们检查一下。"'
+				elseif pcs_gpolimilkdonation <= 0:
+					'你走到护士跟前。"呃……你好？"'
+					'"哪个是你的？"她问道。'
+					'"我的？我不明白……"'
+					'护士看看你，又低头看看你的乳房，再看向你。"嗯，你显然在分泌乳汁。你是来给孩子喂奶的吗？"'
+				else
+					'你走到护士跟前。"你好……"'
+					'"啊，又是你，"她一边上下打量着你一边说。'
+					if pcs_gpolimilkdonation = 1 and preg = 0 and pregtimes = 0 and lactation['pc_aware'] <= 0:
+						'"改变主意了，想让我给你检查一下？"'
+					elseif pcs_gpolimilkdonation = 1 and preg = 0 and pregtimes = 0 and lactation['pc_aware'] > 0:
+						'"你打算告诉我你为什么分泌乳汁吗？"'
+					elseif pcs_gpolimilkdonation = 2:
+						'"你想清楚了吗，愿意捐献你的母乳吗？"'
+					else
+						'"你想干什么？"'
+					end
+				end
+				if pcs_gpolimilkdonation < 1: pcs_gpolimilkdonation = 1
+				if pcs_gpolimilkdonation < 2:
+					if lactation['pc_aware'] <= 0:
+						act '接受她的提议':
+							*clr & cla
+							minut += 10
+							pcs_gpolimilkdonation = 2
+							lact_ev['gpoli_milkedvolume'] = (func('lact_lib', '$get_breastmilk', 5, 1))/100
+							lact_ev['gpoli_milkedvolume'] = 0
+							lactation['pc_aware'] = 1
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pump_room.jpg"></center>'
+							'护士带你走进一个安静的房间，里面有一张椅子、一张桌子和一个吸奶器。'
+							'护士请你坐下，你不情愿地拉起上衣，把乳房露给她看。'
+							'她按压你的乳晕，令你惊讶的是，白色的液滴开始在你的乳头上渗出。护士又挤了一下，一股股白色液体突然从你体内喷了出来。'
+							'"我的天哪！"你震惊地喊道。'
+							*nl
+							'护士抬起头，一脸关切地看着你。"别担心，这种情况时有发生。"'
+							'你对自己看到的景象仍感到惊讶和困惑。"我在分泌乳汁！"'
+							'护士拿起一小片湿巾擦干净你的乳房，然后示意你可以把衣服穿好了。'
+							'"我们这儿一直都需要母乳。你应该考虑捐献你的乳汁。我们甚至会给你的付出一些报酬。"'
+							'她把手擦干净。"不过我想你现在应该先离开，好慢慢适应你的新能力。"'
+							'她打开门，让你走出房间。'
+							act '离开': gt 'pav_clinic'
+						end
+					else
+						act '解释一下':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/old_nurse.jpg"></center>'
+							if knowpreg = 0:
+								pcs_gpolimilkdonation = 2
+								if lactation['induced'] = 1:
+									'"呃……我自己用了吸奶器……"你难堪得脸都红了。'
+								else
+									'"我也不太清楚……就是有一天突然开始的……"你解释道，难堪得脸都红了。'
+								end
+								'护士专业地对你点点头，把一些文件整理到一起。'
+								'"你有没有想过捐献你的母乳？"她问道。'
+								'"捐献？"你反问道。'
+								'"是的，捐献。我们会给你的乳房吸奶，把收集到的乳汁给那些还无法哺乳的妈妈们。我们还会为你的捐献提供一点钱。感兴趣吗？"'
+								pcs_gpolimilkdonation = 2
+								act '试一试 (0:15)':
+									*clr & cla
+									minut += 15
+									pcs_gpolimilkdonation = 3
+									'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pump_room.jpg"></center>'
+									'护士带你走进一个房间。这里很安静。里面有一张椅子、一张桌子和一个吸奶器。'
+									'你坐下来，护士请你脱掉上衣。'
+									if pain['nipples'] >= 60 and pcs_knows_nipplecream <= 0:
+										'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+										'"那是什么？"你问道。'
+										'护士抬头看着你。"这是乳头膏。它能缓解吸奶时乳头的酸痛。你不知道这个吗？"'
+										'你摇摇头，看着护士把药膏涂在你的乳头上。感觉很好，你的乳头不那么疼了，一阵舒缓的感觉传遍你的胸部。'
+										pain['nipples'] -= 20
+										'"这东西哪儿能买到？"你问道。'
+										'"你可以在药房买到，"她回答道。'
+										pcs_knows_nipplecream = 1
+										'护士给你擦完了乳头药膏。'
+									elseif pain['nipples'] >= 60 and pcs_knows_nipplecream > 0:
+										'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+										'护士把药膏涂在你的乳头上。感觉很舒服，乳头开始不那么疼了，一阵舒缓感在乳房中蔓延。'
+										pain['nipples'] -= 20
+									else
+										'护士拿起乳头膏涂在你的乳头上。她揉搓时，你的乳头感觉很舒服。'
+									end
+									lactation['nipple_cream_applied'] = 1
+									'"好，我先吸一点样品，检查一下质量，看看你能不能捐够量。这次不会付你钱。"'
+									'你点点头，掀起衬衫，护士拿起吸奶器放到你的乳房上。她拨动开关，你能感觉到乳头被用力吸住，吸奶器开始慢慢吸吮你的乳头。'
+									lact_ev['gpoli_milkedvolume'] = (func('lact_lib', '$get_breastmilk', 4, 15))/100
+									lactation['breastpumped'] = 1
+									pcs_orphanfeed = 0
+									if lact_ev['gpoli_milkedvolume'] >= 1000:
+										'你的乳房轻松填满了两个小瓶子，护士向你点了点头。'
+										'"你能产出相当多的乳汁。给婴儿喂奶完全没问题。"'
+									elseif lact_ev['gpoli_milkedvolume'] >= 500 and lact_ev['gpoli_milkedvolume'] < 1000:
+										'你的乳房没能填满两个小瓶子，护士向你挑了挑眉。'
+										'"你能产出足够50毫升捐献量的乳汁，但要正常给婴儿喂奶可能有点困难。"'
+									else
+										'你连装满瓶子到第一道刻度线都很困难，护士摇了摇头。'
+										'"嗯……你的乳房似乎产不出足够的乳汁。你还是可以来这里吸奶，但有效的捐献至少需要50毫升。"'
+									end
+									'护士取下吸奶器，让你穿好衣服。'
+									if lact_ev['gpoli_milkedvolume'] > 500:
+										mward_donatesv = 500
+									else
+										mward_donatesv = lact_ev['gpoli_milkedvolume']
+									end
+									if pcs_mass['body'] > 30:
+										mward_donatesf = 60
+									elseif pcs_mass['body'] > 20:
+										mward_donatesf = 45
+									elseif pcs_mass['body'] > 15:
+										mward_donatesf = 20
+									else
+										mward_donatesf = 10
+									end
+									if pcs_energy > 30:
+										mward_donatess = rand(69, 80)
+									elseif sick > 1:
+										mward_donatess = rand(0, 45)
+									else
+										mward_donatess = rand(45, 69)
+									end
+									act '离开': gt 'pav_clinic'
+								end
+								act '拒绝捐赠':
+									*clr & cla
+									'你拒绝捐赠母乳。离开时，护士看起来很失望。'
+									act '离开': gt 'pav_clinic'
+								end
+							else
+								pcs_gpolimilkdonation = 2
+								'"我在这里没有孩子。我只是随便看看，"你解释道。'
+								'你尴尬地看着护士，她只是专业地对你点点头，把一些文件整理到一起。'
+								'"你有没有想过捐献你的母乳？"她问道。'
+								'"捐献？"你反问道。'
+								'"是的，捐献。我们会给你的乳房吸奶，把收集到的乳汁给那些还无法哺乳的妈妈们。我们还会为你的捐献提供一点钱。感兴趣吗？"'
+								pcs_gpolimilkdonation = 2
+								act '试一试 (0:15)':
+									*clr & cla
+									minut += 15
+									pcs_gpolimilkdonation = 3
+									'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pump_room.jpg"></center>'
+									'护士带你走进一个安静的房间，里面有一张椅子、一张桌子和一个吸奶器。'
+									'你坐下来，护士请你脱掉上衣。'
+									if pain['nipples'] >= 60 and pcs_knows_nipplecream <= 0:
+										'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+										'"那是什么？"你问道。'
+										'护士抬头看着你。"这是乳头膏。它能缓解吸奶时乳头的酸痛。你不知道这个吗？"'
+										'你摇摇头，看着护士把药膏涂在你的乳头上。感觉很好，你的乳头不那么疼了，一阵舒缓的感觉传遍你的胸部。'
+										pain['nipples'] -= 20
+										'"这东西哪儿能买到？"你问道。'
+										'"你可以在药房买到，"她回答道。'
+										pcs_knows_nipplecream = 1
+										'护士给你擦完了乳头药膏。'
+									elseif pain['nipples'] >= 60 and pcs_knows_nipplecream > 0:
+										'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+										'护士把药膏涂在你的乳头上。感觉很舒服，乳头开始不那么疼了，一阵舒缓感在乳房中蔓延。'
+										pain['nipples'] -= 20
+									else
+										'护士拿起乳头膏涂在你的乳头上。她揉搓时，你的乳头感觉很舒服。'
+									end
+									lactation['nipple_cream_applied'] = 1
+									'"好，我先吸一点样品，检查一下质量，看看你能不能捐够量。这次不会付你钱。"'
+									'你点点头，掀起衬衫，护士拿起吸奶器放到你的乳房上。她拨动开关，你能感觉到乳头被用力吸住，吸奶器开始慢慢吸吮你的乳头。'
+									lact_ev['gpoli_milkedvolume'] = (func('lact_lib', '$get_breastmilk', 4, 15))/100
+									lactation['breastpumped'] = 1
+									pcs_orphanfeed = 0
+									if lact_ev['gpoli_milkedvolume'] >= 1000:
+										'你的乳房轻松填满了两个小瓶子，护士向你点了点头。'
+										'"你能产出相当多的乳汁。给婴儿喂奶完全没问题。"'
+									elseif lact_ev['gpoli_milkedvolume'] >= 500 and lact_ev['gpoli_milkedvolume'] < 1000:
+										'你的乳房没能填满两个小瓶子，护士向你挑了挑眉。'
+										'"你能产出足够50毫升捐献量的乳汁，但要正常给婴儿喂奶可能有点困难。"'
+									else
+										'你连装满瓶子到第一道刻度线都很困难，护士摇了摇头。'
+										'"嗯……你的乳房似乎产不出足够的乳汁。你还是可以来这里吸奶，但有效的捐献至少需要50毫升。"'
+									end
+									'护士取下吸奶器，让你穿好衣服。'
+									if lact_ev['gpoli_milkedvolume'] > 500:
+										mward_donatesv = 500
+									else
+										mward_donatesv = lact_ev['gpoli_milkedvolume']
+									end
+									if pcs_mass['body'] > 40:
+										mward_donatesf = 60
+									elseif pcs_mass['body'] > 20:
+										mward_donatesf = 45
+									elseif pcs_mass['body'] > 15:
+										mward_donatesf = 20
+									else
+										mward_donatesf = 10
+									end
+									if pcs_energy > 30:
+										mward_donatess = rand(69, 80)
+									elseif sick > 1:
+										mward_donatess = rand(0, 45)
+									else
+										mward_donatess = rand(45, 69)
+									end
+									act '离开': gt 'pav_clinic'
+								end
+								act '拒绝捐赠':
+									*clr & cla
+									'你拒绝捐赠母乳。离开时，护士看起来很失望。'
+									act '离开': gt 'pav_clinic'
+								end
+							end
+						end
+					end
+				elseif pcs_gpolimilkdonation = 2:
+					act '主动捐献你的母乳 (0:15)':
+						*clr & cla
+						minut += 15
+						pcs_gpolimilkdonation = 3
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pump_room.jpg"></center>'
+						'护士微笑着起身，带你走进一个安静的房间，里面有一张椅子、一张桌子和一个吸奶器。'
+						'你坐下来，护士请你脱掉上衣。'
+						if pain['nipples'] >= 60 and pcs_knows_nipplecream <= 0:
+							'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+							'"那是什么？"你问道。'
+							'护士抬头看着你。"这是乳头膏。它能缓解吸奶时乳头的酸痛。你不知道这个吗？"'
+							'你摇摇头，看着护士把药膏涂在你的乳头上。感觉很好，你的乳头不那么疼了，一阵舒缓的感觉传遍你的胸部。'
+							pain['nipples'] -= 20
+							'"这东西哪儿能买到？"你问道。'
+							'"你可以在药房买到，"她回答道。'
+							pcs_knows_nipplecream = 1
+							'护士给你擦完了乳头药膏。'
+						elseif pain['nipples'] >= 60:
+							'护士看着你酸痛的乳头，皱起眉头，然后拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+							'她把药膏涂在你的乳头上。感觉很好，你的乳头开始不那么疼了，一阵舒缓的感觉传遍你的胸部。'
+							pain['nipples'] -= 20
+						elseif pcs_knows_nipplecream <= 0:
+							'护士拿起一个小罐子，从里面取了一点淡黄色的药膏。'
+							'"那是什么？"你问道。'
+							'护士抬头看着你。"这是乳头膏。它能在吸奶时帮忙，预防乳头酸痛。你不知道这个吗？"'
+							'你摇摇头，看着护士把药膏涂在你的乳头上。感觉很好，你的乳头不那么疼了，一阵舒缓的感觉传遍你的胸部。'
+							'"这东西哪儿能买到？"你问道。'
+							'"你可以在药房买到，"她回答道。'
+							pcs_knows_nipplecream = 1
+							'护士给你擦完了乳头药膏。'
+						else
+							'护士拿起乳头膏涂在你的乳头上。她揉搓时，你的乳头感觉很舒服。'
+						end
+						lactation['nipple_cream_applied'] = 1
+						'"好，我先吸一点样品，检查一下质量，看看你能不能捐够量。这次不会付你钱。"'
+						'你点点头，掀起衬衫，护士拿起吸奶器放到你的乳房上。她拨动开关，你能感觉到乳头被用力吸住，吸奶器开始慢慢吸吮你的乳头。'
+						lact_ev['gpoli_milkedvolume'] = (func('lact_lib', '$get_breastmilk', 4, 15))/100
+						lactation['breastpumped'] = 1
+						pcs_orphanfeed = 0
+						if lact_ev['gpoli_milkedvolume'] >= 1000:
+							'你的乳房轻松填满了两个小瓶子，护士向你点了点头。'
+							'"你能产出相当多的乳汁。给婴儿喂奶完全没问题。"'
+						elseif lact_ev['gpoli_milkedvolume'] >= 50 and lact_ev['gpoli_milkedvolume'] < 1000:
+							'你的乳房没能填满两个小瓶子，护士向你挑了挑眉。'
+							'"你能产出足够50毫升捐献量的乳汁，但要正常给婴儿喂奶可能有点困难。"'
+						else
+							'你连装满瓶子到第一道刻度线都很困难，护士摇了摇头。'
+							'"嗯……你的乳房似乎产不出足够的乳汁。你还是可以来这里吸奶，但有效的捐献至少需要50毫升。"'
+						end
+						'护士取下吸奶器，让你穿好衣服。'
+						if lact_ev['gpoli_milkedvolume'] > 500:
+							mward_donatesv = 500
+						else
+							mward_donatesv = lact_ev['gpoli_milkedvolume']
+						end
+						if pcs_mass['body'] > 40:
+							mward_donatesf = 60
+						elseif pcs_mass['body'] > 20:
+							mward_donatesf = 45
+						elseif pcs_mass['body'] > 15:
+							mward_donatesf = 20
+						else
+							mward_donatesf = 10
+						end
+						if pcs_energy > 30:
+							mward_donatess = rand(69, 80)
+						elseif sick > 1:
+							mward_donatess = rand(0, 45)
+						else
+							mward_donatess = rand(45, 69)
+						end
+						act '离开': gt 'pav_clinic'
+					end
+				end
+				act '离开': gt 'pav_clinic'
+			end
+		end
+	else
+		'诊所现在关门了。它每天营业时间在 '+func('time', 'get_time_string', 6, 0)+' 到 '+func('time', 'get_time_string', 21, 0)+'。'
+		act '离开': minut += 5 & gt 'pav_commercial'
+	end
+end
+
+
+if $ARGS[0] = 'maternity_ward_donation':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	if hour >= 6 and hour <= 20:
+		lactation['nipple_cream_applied'] = 1
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pumping.jpg"></center>'
+		'护士接好吸奶器，打开了开关。'
+		if lactation['breastmv'] >= 0:
+			'吸奶器挤压着你的乳头，随着机器将乳汁吸出，你感到乳房里的压力在缓解。'
+		else
+			'吸奶器挤压着你的乳头，随着机器将乳汁吸出，你感到乳房里的压力在缓解。吸奶器要求更多乳汁，乳房因泌乳而微微刺痛。'
+		end
+		act '继续':
+			*clr & cla
+			lact_ev['gpoli_milkedvolume'] = func('lact_lib', '$get_breastmilk', 4, 15)
+			lactation['breastpumped'] = 1
+			'15分钟后，护士把吸奶器从你的乳房上取下。'
+			if lact_ev['gpoli_milkedvolume'] >= 50000:
+				pcs_gpoli_donationsessioncount += lact_ev['gpoli_milkedvolume']/10000
+				lact_ev['gpoli_temp_var'] = (lact_ev['gpoli_milkedvolume']/50000)
+				pcs_gpoli_totalmilkdonation_count += 1
+				pcs_gpoli_totalmilkdonation += (lact_ev['gpoli_temp_var']*50)
+				if lact_ev['gpoli_temp_var'] >= 12:
+					'她把你产出的惊人奶量装进<<lact_ev[''gpoli_temp_var'']>>个瓶子里储存起来，一共<<lact_ev[''gpoli_temp_var'']*50>>毫升，脸上满是惊讶。'
+					'"真不敢相信你体内有那么多！我看连奶牛都要嫉妒了！"她开怀大笑，你微微红了脸。'
+				elseif lact_ev['gpoli_temp_var'] >= 10:
+					'她把你产出的丰富奶量装进<<lact_ev[''gpoli_temp_var'']>>个瓶子里储存起来，一共<<lact_ev[''gpoli_temp_var'']*50>>毫升，脸上满是惊叹。'
+					'"我的天，这些你都储存在哪儿啊？！"'
+				elseif lact_ev['gpoli_temp_var'] >= 8:
+					'她把你产出的大量奶水装进<<lact_ev[''gpoli_temp_var'']>>个瓶子里储存起来，一共<<lact_ev[''gpoli_temp_var'']*50>>毫升，脸上露出惊讶的神色。'
+				elseif lact_ev['gpoli_temp_var'] >= 6:
+					'她愉快而满足地看着你，一边把你那<<lact_ev[''gpoli_temp_var'']*50>>毫升的母乳收进<<lact_ev[''gpoli_temp_var'']>>个瓶子里。'
+				elseif lact_ev['gpoli_temp_var'] >= 4:
+					'她满意地看着你，把你那<<lact_ev[''gpoli_temp_var'']*50>>毫升的母乳收进<<lact_ev[''gpoli_temp_var'']>>个瓶子里。'
+				elseif lact_ev['gpoli_temp_var'] >= 2:
+					'她满意地看着你，把你那<<lact_ev[''gpoli_temp_var'']*50>>毫升的母乳收进<<lact_ev[''gpoli_temp_var'']>>个瓶子里。'
+				elseif lact_ev['gpoli_temp_var'] = 1:
+					'她满意地看着你，把一个装有50毫升母乳的瓶子收了起来。'
+				else
+					'她满足地看着你，一边把你那<<lact_ev[''gpoli_temp_var'']*50>>毫升的母乳收进<<lact_ev[''gpoli_temp_var'']>>个瓶子里。'
+				end
+			elseif lact_ev['gpoli_milkedvolume'] < 50000 and lact_ev['gpoli_milkedvolume'] > 0:
+				'她失望地看着你。'
+				'"嗯……抱歉，但这不够一次有效捐献的量。你只提供了<<lact_ev[''gpoli_milkedvolume'']/1000>>毫升母乳。"'
+			else
+				'她失望地看着你。'
+				'"嗯……抱歉，但这不够一次有效捐献的量。你一点母乳都没提供。"'
+			end
+			lact_ev['gpoli_milkedvolume'] = 0
+			if pcs_gpoli_donationsessioncount > 0:
+				mward_donatemoney = (pcs_gpoli_donationsessioncount * 3) / 10 * 10
+			else
+				mward_donatemoney = 0
+			end
+			lactation['nipple_cream_applied'] = 0
+			minut += 15
+			if lactation['breastmv'] > lactation['breastmm']/2 and lactation['breastmv'] >= 100000:
+				'护士看着你的乳房。'
+				'"看起来你还可以再吸一次。我们继续吗？"'
+				act '再次用吸乳器吸奶': gt 'pav_clinic', 'maternity_ward_donation'
+			else
+				act '要求捐献更多': gt 'pav_clinic', 'maternity_ward_donation'
+			end
+			act '今天到此为止':
+				*clr & cla
+				gs 'stat'
+				if pcs_gpoli_donationsessioncount > 0:
+					gs 'money', 'earn', mward_donatemoney
+					pcs_gpoli_totalmilkmoney += func('money', '_apply_modifiers', mward_donatemoney, 'profit')
+					'你重新穿上上衣，护士递给你 '+$func('money', 'string_profit', mward_donatemoney)+'，作为你捐献母乳的报酬。'
+				else
+					'你穿回了上衣。'
+				end
+				act '离开':
+					lact_ev['gpoli_milkedvolume'] = 0
+					gt 'pav_clinic', 'maternity_ward'
+				end
+			end
+		end
+	elseif pcs_gpoli_donationsessioncount > 0:
+		'抱歉，<<$pcs_firstname>>，我们现在要关门了。'
+		gs 'money', 'earn', mward_donatemoney
+		pcs_gpoli_totalmilkmoney += func('money', '_apply_modifiers', mward_donatemoney, 'profit')
+		'你重新穿上上衣，护士递给你 '+$func('money', 'string_profit', mward_donatemoney)+'，作为你捐献母乳的报酬。'
+		act '离开': minut += 5 & gt 'pav_commercial'
+	else
+		'诊所现在关门了。它每天营业时间在 '+func('time', 'get_time_string', 6, 0)+' 到 '+func('time', 'get_time_string', 21, 0)+'。'
+		act '离开': minut += 5 & gt 'pav_commercial'
+	end
+end
+
+
+if $ARGS[0] = 'std_check':
+	if GerpesOnce = 1:
+		'"你得了生殖器疱疹。遗憾的是，这种病的彻底治愈非常昂贵，我们这里治不了。好的一面是，疱疹大多数时候处于潜伏状态，只要你好好照顾身体，就完全可以控制。潜伏期间，定期服用维生素能确保它不会发作。"'
+
+		if Gerpes >= 3:
+			if GerpesNapr = 0:
+				GerpesNapr = 3 & '"你的疱疹目前处于活跃状态。我会给你安排一个疗程的疱疹针剂，把它压制回潜伏状态。这几天里你需要一共打 3 针。每针费用为 '+$func('money', 'string_price', 450)+'。"'
+			elseif GerpesNapr > 0:
+				'你需要去找护士打你的疱疹注射针。'
+			end
+		else
+			'你的疱疹目前处于潜伏状态。'
+		end
+	end
+
+	if SifacOnce = 1:
+		sifNapr = 1
+		'"你得了梅毒。这种病的治疗曾经很昂贵。不过现在，这种致命的疾病一针就能治好。注射费用是 '+$func('money', 'string_price', 1000)+'。"'
+	end
+
+	if TriperOnce = 1:
+		'"我们发现你得了淋病。幸运的是，这种病我们能治好。"'
+		if TriperNapr = 0:
+			TriperNapr = 5 & '"我要给你安排一个疗程的淋病针剂。这几天里你需要一共打 5 针。每针费用为 '+$func('money', 'string_price', 750)+'。"'
+		elseif TriperNapr > 0:
+			'你需要去找护士打你的淋病注射针。'
+		end
+	end
+
+	if KandidozOnce = 1:
+		'"你得了念珠菌感染。遗憾的是，这种病的彻底治愈非常昂贵，我们这里治不了。好的一面是，它危害不大，很容易就能治疗到不困扰你的程度。潜伏期间，定期服用维生素能确保它不会发作。"'
+
+		if KandidNapr = 0: KandidNapr = 1 & '"药片在街对面的药房有售。"'
+		if Kandidoz < 30: '你的念珠菌感染目前处于缓解期。如果你每天服用维生素，它就会保持这样。'
+	end
+end
+
+
+--- pav_clinic ---------------------------------

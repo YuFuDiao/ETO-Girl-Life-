@@ -1,0 +1,173 @@
+# core_library
+!! Date Created: 17th Sept, 2022
+!! Modified date:
+!! Version: .01 - initial release
+!! Version: .02 - refactoring to streamline content start, new standardised locations function for kitchen and bathroom test code
+!! Author: Hooded Silence
+
+!! --- Generic shared Locations and classes ---
+
+if $ARGS[0] = 'setloc':
+	!! Sets the location variables based on $ARGS[1] = loc, $ARGS[2] = loc arg
+	!! Primary key
+	$prevloc = $loc
+	$loc = $ARGS[1]
+	$menu_loc = $ARGS[1]
+	$locM = $ARGS[1]
+
+	!! Secondary key
+	$prevarg = $loc_arg
+	$loc_arg = $ARGS[2]
+	$menu_arg = $ARGS[2]
+	$locM_arg = $ARGS[2]
+
+	!! killvaring location data
+	killvar 'locclass'		& !! persistance of locclass is unwanted
+	!! killvar 'location_type'
+
+	!! Adding this as a test (which is why we are using $region[1])
+	if $mid($loc, 1, 4) = 'pav_':
+		$region[1] = 'pav'
+	elseif $mid($loc, 1, 5) = 'city_':
+		$region[1] = 'city'
+	elseif $mid($loc, 1, 3) = 'gad':
+		$region[1] = 'gad'
+	elseif $mid($loc, 1, 7) = 'pushkin':
+		$region[1] = 'pushkin'
+	end
+end
+
+!! like SetLoc, to reduce code bloat and memorisation of header title and images.
+!! Project: allow for scene changes on the fly rather than static content based on story?
+!! Set two var, third if you need to change the ext.:
+
+
+!! $setloc[''StageTitle'']: Var to set up $loc h1 header
+!! $setloc[''StageImage'']: Var to set up $loc image
+if $ARGS[0] = 'stage_title':
+	*clr & cla
+	'<center><h2><<$setloc[''StageTitle'']>></h2></center>'
+	'<center><img <<$set_imgh>> src="images/<<$setloc[''StageImage'']>>"></center>'
+end
+
+
+if $ARGS[0] = 'event_viewer':
+	!! gs 'core_library', 'event_viewer', 1, 10, $loc, 'res_events_array'
+	!! Event Viewer
+	if $ARGS[5] = 'random':
+		array_idx = rand(0, ARGS[1])
+	end
+	$events_viewer[] = 'gs <<$ARGS[3]>>, <<$ARGS[4]>>, <<array_idx>>'
+end
+
+
+if $ARGS[0] = 'corridor':
+	CLOSE ALL
+	music_loop = 0
+	menu_off = 0
+	if frost > 0: frost = 0
+	gs 'themes', 'indoors'
+	if $mid($location_type, 1, 7) = 'private':
+
+	elseif $mid($location_type, 1, 6) = 'public':
+
+	end
+end
+
+
+if $ARGS[0] = 'bathroom':
+	!! Location facilities
+	if $location_type = 'private' or $location_type = 'bathroom':
+		!! These two should not be here!!
+		'你这一周的住处配有豪华的私人淋浴间和浴缸。墙上贴着一张海报，宣传冰浴对健康的益处，以及保养身体的其他建议。'
+		*nl
+
+		'这里有淋浴间，马桶，洗手池，还有一个<a href="exec:gt ''mirror'',''start''">镜子</a>，你可以在那里 ' + iif(pcs_hairbsh = 0, '<a href="exec:gt ''mirror'',''brush''">梳头</a>', '梳头') + ' 你的头发。'
+
+		gs 'din_van', 'private'
+	elseif $mid($location_type, 1, 6) = 'public' or $location_type = 'private_shared':
+		act '淋浴':
+			*clr & cla
+			pcs_hairbsh = 0
+			pcs_makeup = 1
+			minut += 10
+			gs 'mood', 'raise', 'small'
+			noshampoo = 1
+			gs 'din_van', 'showerdin'
+			gs 'stat'
+			'你匆匆冲了个澡，但真希望能在淋浴间多待一会儿，让热气渗透进你的肌肉。'
+
+			act '继续' : gt $loc, $loc_arg
+		end
+		'这里有淋浴间和<a href="exec:gt ''mirror'',''start''">镜子</a>，你可以在那里 ' + iif(pcs_hairbsh = 0, '<a href="exec:gt ''mirror'',''brush''">梳头</a>', '梳头') + ' 你的头发。'
+	elseif $location_type = 'restroom':
+
+	end
+
+	!! Default facilities
+	gs 'din_van', 'basin'
+	gs 'din_van', 'tampon'
+	if pcs_hairbsh = 0: act '梳头发': gt 'mirror', 'brush'
+	if deodorant > 0 and deodorant_on = 0:
+		'你的除臭剂还能用<b><<deodorant>></b>次'+iif(deodorant = 1, '。', '。')
+		act '使用除臭剂 (0:01)':
+			*clr & cla
+			menu_off = 1
+			minut += 1
+			deodorant -= 1
+			gs 'sweat', 'deo'
+			iif(func('body_din', 'pregnancyVisibility'), '<center><img <<$set_imgh>> src="images/shared/home/bathroom/deodorant_preg.jpg"></center>', '<center><img <<$set_imgh>> src="images/shared/home/bathroom/deodorant.jpg"></center>')
+			'你把除臭剂涂在腋下。这能让你更长时间保持清新干净。'
+			act '继续': menu_off = 0 & gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'kitchen':
+	!! Location facilities
+	if $ARGS[1] = 'full':
+		!! Home or parents kitchen
+		gs 'kit_din', 'edasnack'
+		gs 'kit_din', 'sandwich'
+		gs 'kit_din', 'edaD'
+		gs 'kit_din', 'pranik'
+		gs 'kit_din', 'fatdel'
+		gs 'kit_din', 'lekarstvo'
+		gs 'kit_din', 'vitamin'
+	elseif $ARGS[1] = 'communal':
+		!! shared or communal kitchen
+		gs 'kit_din', 'edasnack'
+		gs 'kit_din', 'sandwich'
+		gs 'kit_din', 'edaD'
+		gs 'kit_din', 'fatdel'
+		gs 'kit_din', 'vitamin'
+	elseif $ARGS[1] = 'hotel':
+		gs 'kit_din', 'lekarstvo'
+		gs 'kit_din', 'fatdel'
+		gs 'kit_din', 'vitamin'
+	elseif $ARGS[1] = 'shared':
+		!! canteen type location and shared
+	end
+	!! Default facilities
+	gs 'kit_din', 'driwater'
+	gs 'kit_din', 'dritea'
+	gs 'kit_din', 'fill_bottle'
+end
+
+
+if $ARGS[0] = 'bedroom':
+!! Default facilities
+	if $location_type = 'private':
+		if pcs_horny >= 50:
+			act '自慰': gt 'selfplay', 'start'
+		end
+	elseif $location_type = 'private_shared':
+	end
+	act '在床上放松': gt 'bed', 'start'
+	act '打开衣柜': gt 'wardrobe', 'start'
+	gs 'library_functions', 'set_home_read_acts'
+	gs 'exercise', 'start'
+end
+
+--- core_library ---------------------------------

@@ -1,0 +1,105 @@
+# cafe_parco
+
+$location_type = 'public_indoors'
+
+if $args[0] = 'start':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'cafe_parco', 'start'
+	gs 'stat'
+	$func('wrap', 'header center h4', '咖啡馆 "德尔帕尔科"')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/park/cafe/caffe_del_parco' + iif(hour > 20 or hour < 7, '_night', '') + '.jpg"></center>'
+	'新开业的咖啡馆 "德尔帕尔科" 外观醒目，摆了很多桌子和一个夏季露台。营业时间从 ' + $func('time', 'get_time_string', 14, 0) + ' 到 ' + $func('time', 'get_time_string', 21, 0) + '。'
+
+	act '返回广场': gt 'pav_park', 'start'
+	if hour >= 14 and hour < 21: act '进入咖啡馆': gt 'cafe_parco', 'inner'
+end
+
+
+if $ARGS[0] = 'inner':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'cafe_parco', 'inner'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/park/cafe/caffe_del_parco_in.jpg"></center>'
+
+	act '离开咖啡馆': gt 'pav_park', 'start'
+
+	act '按菜单点餐 (0:05)': gs 'food_menu'
+	act '点外卖 (0:20)' + $func('money', 'get_cost_string', 350):
+		if func('money', 'can_afford', 350) = 0:
+			$noMoney
+		else
+			gs 'money', 'pay', 350
+			gt 'food', 'fast_food'
+		end
+	end
+
+	if ml_venues['del_parco'] = 1 and (ml_delparcoQW['Stage'] = 1 or ml_delparcoQW['Stage'] = 2) and (daystart <= ml_delparcoQW['Next Date']):
+		act '与扎里亚谈谈她的提议': gt 'music_delparco', 'talkwithzariyah'
+	end
+
+	if ml_venues['del_parco'] = 1 and ml_delparcoQW['Stage'] = 3 and (daystart ! ml_delparcoQW['Next Date']):
+		act '接受扎里亚的提议': gt 'music_delparco', 'acceptafterthinking'
+	end
+
+	!! The very first gig - this will be a separate scene from the repeating ones.
+	if ml_venues['del_parco'] = 1 and ml_delparcoQW['Stage'] = 4 and ml_gigday['delparco'] = daystart and ml_gighour['delparco'] = hour:
+		act '在咖啡馆演出': gt 'music_delparco', 'eveningshow'
+	end
+
+	if LariskaQW['story'] = 12 and week = 6: act '加入拉里斯卡和列夫': gt 'lariska_storyline', 'Boyfriend_3'
+
+	if NatbelQW['bday_invite'] = 1 and daystart = NatbelQW['bday_day'] and day < 13 and (hour = 18 and minut >= 30 or hour = 19): gs 'natbel_friend', 'bday_del_parco'
+
+	if (sunWeather = 0 or temper < 5) and week mod 2 = 0 and (hour >= 14 and hour < 20) and mey_vika_qw_day ! daystart:
+		mey_vika_qw_day = daystart
+		minut += rand(10, 20)
+		'你注意到维姬和万尼亚正坐在一张桌子旁。'
+
+		if mey_vika['mey_vika_qw'] < 3:
+			'你和他们俩都不太熟，所以不太知道该怎么上前搭话。'
+
+		elseif mey_vika['mey_vika_qw'] < 5:
+			'路过他们桌旁时，你简单打了个招呼 "Hi".'
+
+			if npc_rel["A15"] < 20:
+				'维姬和万尼亚只是朝你这边瞥了一眼便转开了视线。没什么好说的，你赶紧走开了。'
+			else
+				'维姬和万尼亚异口同声地回了句 "Hi". 你只是想打个招呼，便继续走自己的路。'
+			end
+
+		elseif mey_vika['mey_vika_qw'] >= 5:
+			if npc_rel['A15'] < 50:
+				'你走向那对情侣并向他们问好，但他们没有注意到你。'
+			else
+				'你走向那对情侣并向他们问好。'
+				'维姬一如既往地直接聊起八卦，万尼亚则大多拿你们俩聊的话题开玩笑。'
+				'你们聊了几分钟。'
+			end
+
+			if npc_rel['A15'] >= 60:
+				if mey_vika['mey_vika_qw'] = 10:
+					cla
+					'维姬和万尼亚邀请你和他们一起坐。'
+					if func('money', 'can_afford', 300) = 0:
+						act '拒绝':
+							cla
+							'你身上几乎没什么钱，也不想厚着脸皮让他们请你，于是决定谢谢他们的邀请，但说自己还有别的事要去办。'
+
+							act '离开': gt 'city_park'
+						end
+					end
+					act '同意':
+						mey_vika['mey_vika_qw'] = 15
+						gt 'mey_vika_events', 'cafe_qw'
+					end
+				elseif mey_vika['mey_vika_qw'] >= 7:
+					'当你从桌边站起身时，你注意到维姬正低声对万尼亚说着什么。你看到万尼亚的手在抚摸揉捏维姬的屁股，而他们正用充满欲望的眼神盯着你…'
+				end
+			end
+		end
+	else
+		'你在这里没看到任何熟人。'
+	end
+end
+
+--- cafe_parco ---------------------------------

@@ -1,0 +1,1483 @@
+# volleyball_ev
+
+!! ------------------------------------------ Community Centre Practice ---------------------------------------------------
+
+if $ARGS[0] = 'level_up_init':
+	vballVars['volleyball_practice']	= vball_lvl
+	vballVars['blocking_practice']		= pcs_vball_block
+	vballVars['receive_practice']		= pcs_vball_rec
+	vballVars['serve_practice']			= pcs_vball_serve
+	vballVars['set_practice']			= pcs_vball_set
+	vballVars['spike_practice']			= pcs_vball_spike
+end
+
+
+if $ARGS[0] = 'level_up':
+	gs 'stat'
+	vballVars['level_up_message'] = 0
+	if vball_lvl > vballVars['volleyball_practice']: vballVars['level_up_message'] = 1
+	if pcs_vball_block > vballVars['blocking_practice']: vballVars['level_up_message'] = 1
+	if pcs_vball_rec > vballVars['receive_practice']: vballVars['level_up_message'] = 1
+	if pcs_vball_serve > vballVars['serve_practice']: vballVars['level_up_message'] = 1
+	if pcs_vball_set > vballVars['set_practice']: vballVars['level_up_message'] = 1
+	if pcs_vball_spike > vballVars['spike_practice']: vballVars['level_up_message'] = 1
+	if vballVars['attack_exp'] >= 10:
+		vballVars['team_attack'] += 1
+		vballVars['attack_exp'] -= 10
+	end
+	if vballVars['defense_exp'] >= 10:
+		vballVars['team_defense'] += 1
+		vballVars['defense_exp'] -= 10
+	end
+end
+
+
+if $ARGS[0] = 'practice_match':
+	gs 'exp_gain', 'vball_block', rand(1, 3)
+	gs 'exp_gain', 'vball_rec', rand(1, 3)
+	gs 'exp_gain', 'vball_serve', rand(1, 3)
+	gs 'exp_gain', 'vball_set', rand(1, 3)
+	gs 'exp_gain', 'vball_spike', rand(1, 3)
+	vballVars['defense_exp'] += rand(1, 3)
+	vballVars['attack_exp'] += rand(1, 3)
+end
+
+
+if $ARGS[0] = 'volleyball_menu':
+	if (week < 6 and hour >= 10 and hour < 20) or (week >= 6 and hour >= 12 and hour < 20):
+		if vballVars['lessons_remaining'] > 0 and vballVars['on_team'] = 0 and npc_pregtalk['A69'] = 0 and vballVars['last_training_day'] ! daystart:
+			if pcs_stam < stammax / 5:
+				act '参加排球课。你还剩<<vballVars[''lessons_remaining'']>>节课 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_stam>>/<<stammax / 5>>体力）'): $func('wrap', 'neg', '<br>你太累了，做不了这个。先恢复体力再来训练。')
+			elseif pcs_energy < 20:
+				act '参加排球课。你还剩<<vballVars[''lessons_remaining'']>>节课 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_energy>>/20 饱食度）'): $func('wrap', 'neg', '<br>你饿得做不了这个。')
+			elseif pcs_hydra < 20:
+				act '参加排球课。你还剩<<vballVars[''lessons_remaining'']>>节课 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_hydra>>/20 水分）'): $func('wrap', 'neg', '<br>你渴得做不了这件事。')
+			else
+				act '参加排球课。你还剩<<vballVars[''lessons_remaining'']>>节课 (2:00)': gt 'volleyball_ev', 'class_practice'
+			end
+		elseif vballVars['on_team'] = 1:
+			if func('body_din', 'pregnancyVisibility') = 1:
+				act '和排球队一起训练 (2:00)': stat['volleyball_day'] = daystart & gt 'volleyball_ev', 'pregnancy_react'
+			elseif week = 6 and vballVars['last_match_day'] ! daystart and hour >= 16 and hour <= 18:
+				if pcs_stam < stammax / 5:
+					act '参加锦标赛 (4:00) ' + $func('wrap', 'v_neg', '(<<pcs_stam>>/<<stammax / 5>>体力）'): $func('wrap', 'neg', '<br>你太疲惫了，做不了这个。先把体力养回来再练。')
+				elseif pcs_energy < 20:
+					act '参加锦标赛 (4:00) ' + $func('wrap', 'v_neg', '(<<pcs_energy>>/20 饱食度）'): $func('wrap', 'neg', '<br>你饿得做不了这个。')
+				elseif pcs_hydra < 20:
+					act '参加锦标赛 (4:00) ' + $func('wrap', 'v_neg', '(<<pcs_hydra>>/20 水分）'): $func('wrap', 'neg', '<br>你渴得做不了这件事。')
+				else
+					act '参加锦标赛 (4:00)': gt 'volleyball_ev', 'arrival'
+				end
+			elseif week = 6 and vballVars['last_match_day'] ! daystart and hour > 18:
+				'你四下看了看，队里一个人也没有。你猛然想起今天有锦标赛，而你本该在 ' + $func('time', 'get_time_string', 18, 0) + ' 到场！你错过了大巴，教练非气疯不可！'
+				gs 'npc_relationship', 'modify', 'A69', -20
+				vballVars['last_match_day'] = daystart
+				act '返回': gt 'gdksport', 'start'
+			elseif vballVars['last_match_day'] ! daystart:
+				if pcs_stam < stammax / 5:
+					act '和排球队一起训练 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_stam>>/<<stammax / 5>>体力）'): $func('wrap', 'neg', '<br>你太疲惫了，做不了这个。先把体力养回来再练。')
+				elseif pcs_energy < 20:
+					act '和排球队一起训练 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_energy>>/20 饱食度）'): $func('wrap', 'neg', '<br>你饿得做不了这个。')
+				elseif pcs_hydra < 20:
+					act '和排球队一起训练 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_hydra>>/20 水分）'): $func('wrap', 'neg', '<br>你渴得做不了这件事。')
+				else
+					act '和排球队一起训练 (2:00)': gt 'volleyball_ev', 'team_practice'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'class_practice':
+	*clr & cla
+	vballVars['last_training_day'] = daystart
+	vballVars['lessons_remaining'] -= 1
+	gs 'exercise', 'tier2', 80, 'vball'
+	gs 'exercise', 'tier3', 40, 'vball', 'stren', 'agil', 'vital', 'prcptn', 'react'
+
+	'你参加了社区中心的排球课。'
+	'之后你在球场上还有段自由时间，可以专门练点东西。也可以直接回家。'
+
+	act '提前结束': gt 'volleyball_ev', 'practice_end1'
+	act '综合练习（1:00）': gt 'volleyball_ev', 'general_practice'
+	act '专注拦网（1:00）': gt 'volleyball_ev', 'block_practice'
+	act '专注接球（1:00）': gt 'volleyball_ev', 'receive_practice'
+	act '专注发球（1:00）': gt 'volleyball_ev', 'serve_practice'
+	act '专注二传（1:00）': gt 'volleyball_ev', 'set_practice'
+	act '专注扣球（1:00）': gt 'volleyball_ev', 'spike_practice'
+end
+
+
+if $ARGS[0] = 'team_practice':
+	if vballVars['init'] = 0:
+		vballVars['init'] = 1
+		vballVars['team_attack'] = 40
+		vballVars['team_defense'] = 40
+	end
+	gs 'volleyball_ev', 'level_up_init'
+	gs 'exercise', 'tier2', 80, 'vball'
+	gs 'exercise', 'tier3', 40, 'vball', 'stren', 'agil', 'vital', 'prcptn', 'react'
+	vballVars['defense_exp'] += 1
+	vballVars['attack_exp'] += 1
+
+	if vballVars['coachsex'] = 0:
+		vballVars['practice_message'] = rand(1, 10)
+		'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/<<vballVars[''practice_message'']>>.jpg"></center>'
+		'米哈伊尔教练带着全队练各种项目，帮你把排球的各个方面都提上去。'
+		*nl
+		if vballVars['practice_message'] = 1:
+			'"<<$pcs_lastname>>！起跳时重心要压在前脚掌上！站得更稳一点！起跳要专心！别整个人朝球乱扑！"'
+		elseif vballVars['practice_message'] = 2:
+			'"<<$pcs_lastname>>！你的扣球太明显了！拦网的人一眼就知道你要往哪打！换个花样！"'
+		elseif vballVars['practice_message'] = 3:
+			'"<<$pcs_lastname>>！要假装扣球，就得跳得像真要打一样！不然留心的人根本不会把你当威胁！"'
+		elseif vballVars['practice_message'] = 4:
+			'"<<$pcs_lastname>>！拦网时别乱挥手臂！直着往上跳！只要后面接球的人能接起来，你不必每次都拦到！别给他们添麻烦！"'
+		elseif vballVars['practice_message'] = 5:
+			'"<<$pcs_lastname>>！别光想着拦在你<i>以为</i>球会去的地方！起跳前先看清球往哪儿飞！"'
+		elseif vballVars['practice_message'] = 6:
+			'"<<$pcs_lastname>>！二传时要正对球的下方！要是从侧面托球，他们就知道你要往哪边传了！"'
+		elseif vballVars['practice_message'] = 7:
+			'"<<$pcs_lastname>>！发球抛球要更稳一点！别随手乱抛！每次都抛到一样的高度！"'
+		elseif vballVars['practice_message'] = 8:
+			'"<<$pcs_lastname>>！接球时要压低臀部！你重心不稳！这就是你老摔倒的原因！"'
+		elseif vballVars['practice_message'] = 9:
+			'"<<$pcs_lastname>>！扑球的时候别怂！给你护具不是白给的！"'
+		elseif vballVars['practice_message'] = 10:
+			'"<<$pcs_lastname>>！腿动起来！别因为第一下没接好就放弃！只要你跑起来，这球还是救得回来的！"'
+		end
+		act '继续': gt 'volleyball_ev', 'team_practice2'
+	elseif vballVars['coach_lust'] < 40:
+!!		Coach''s desire is slipping through into how he talks to Sveta
+		vballVars['coach_lust'] += rand(1, 8)
+		if vballVars['practice_message'] = 1:
+			'"扭起来，你那漂亮的小屁股，<<$pcs_lastname>>！我可不想你训练只是为了把屁股练好看，我要你用那屁股去起跳！"'
+		elseif vballVars['practice_message'] = 2:
+			'"<<$pcs_lastname>>！你的扣球太明显了！拦网的人一眼就知道你要打哪里！换个花样！"'
+		elseif vballVars['practice_message'] = 3:
+			'"<<$pcs_lastname>>！垫球时别用手臂去瞄！蹲低点！把屁股撅出去！用你那能生孩子的胯对准球！"'
+		elseif vballVars['practice_message'] = 4:
+			'"<<$pcs_lastname>>！别像给男生打手枪那样乱挥手臂！拦网的时候直着往上跳！"'
+		elseif vballVars['practice_message'] = 5:
+			'"<<$pcs_lastname>>！二传时要正对球的下方，就像要把它的屁股啃掉一样！要是从侧面托球，他们就知道你要往哪边传了！"'
+		elseif vballVars['practice_message'] = 6:
+			'"<<$pcs_lastname>>！接球时要压低臀部！你重心不稳！你骑在男人身上时也会这么摔吗？"'
+		elseif vballVars['practice_message'] = 7:
+			'"<<$pcs_lastname>>！扑球的时候别怂！给你护具不是白给的！"'
+		elseif vballVars['practice_message'] = 8:
+			'"<<$pcs_lastname>>！把你那双性感的腿动起来！绷紧大腿！别因为第一下没接好就放弃！只要你跑起来，这球还是救得回来的！"'
+		end
+	else
+		!! Sveta and the coach have a sexual relationship
+		vballVars['practice_message'] = rand(1, 5)
+		if vballVars['practice_message'] = 1:
+			'"<<$pcs_lastname>>！"他喊着，朝你走过来。"接球的时候你的站姿要再分开一点。像这样……"'
+			*nl
+			'他站到你身后，把手放在你身上，压着你的胯往下按。同时，他的手顺着往下滑到你的大腿，把你的腿推得更开，一边推一边揩油。'
+			*nl
+			'你环顾四周看了看其他女孩。她们还在专心做自己的训练，似乎没注意到教练在干什么。'
+			act '挑逗他':
+				vballVars['coach_lust'] += rand(1, 3)
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/teacher/mikhail/volleytrener6.jpg"></center>'
+				'"哦……你是说像<i>这——样</i>吗？"即使他还在碰你，你也决定挑逗他，随着站姿张开，你把屁股往后顶进他的胯部。隔着你们两人的裤子，你也能感觉到他硬得像石头。你忍不住继续逗他，把胯上下移动，用屁股蹭着他的勃起。'
+				'"就是这样，"他说。你能从他的声音里听出笑意。你又弹了几下，才慢慢站直。'
+				'"谢谢你，米哈伊尔教练，"你也笑着回应。'
+				'"随时乐意，<<$pcs_nickname>>，"他说完就走开去指导别的女孩了。'
+				act '继续': gt 'volleyball_ev', 'team_practice2'
+			end
+		elseif vballVars['practice_message'] <= 4:
+			'"<<$pcs_lastname>>！你的扣球太明显了！拦网的人一眼就知道你要打哪里！试着变化一下！"'
+			act '继续': gt 'volleyball_ev', 'team_practice2'
+		elseif vballVars['practice_message'] = 5:
+			'"<<$pcs_lastname>>！"他说着朝你走来。"拦网的时候手臂要笔直举过头顶。直着向上！让它们完全和身体成一条线。"'
+			'他一边解释，一边把你的手臂举过头顶，然后双手顺着你的手臂往下滑，滑到肩膀，再滑到身体两侧，手指经过时还擦过你胸部的侧面。'
+
+			act '挑逗他':
+				vballVars['coach_lust'] += rand(1, 3)
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/teacher/mikhail/volleytrener6.jpg"></center>'
+				'"哦……你是说像这——样吗？"即使他还在碰你，你也决定挑逗他，随着站姿张开，你把屁股往后顶进他的胯部。隔着你们两人的裤子，你也能感觉到他硬得像石头。你忍不住继续逗他，把胯上下移动，用屁股蹭着他的勃起。'
+				'"就是这样，"他说。你能从他的声音里听出笑意。你又弹了几下，才慢慢站直。'
+				'"谢谢你，米哈伊尔教练，"你也笑着回应。'
+				'"随时乐意，<<$pcs_nickname>>，"他说完就走开去指导别的女孩了。'
+				act '继续': gt 'volleyball_ev', 'team_practice2'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'team_practice2':
+	if vballVars['plan_b'] > 0 and vballVars['last_plan_b_check'] < daystart: gt 'volleyball_ev', 'plan_b_check'
+	gs 'volleyball_ev', 'level_up'
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team1.jpg"></center>'
+	'两个小时后，米哈伊尔教练宣布训练结束。'
+	*nl
+	if vballVars['level_up_message'] = 1:
+		vballVars['level_up_message'] = 0
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+		'他似乎对你印象特别深，朝你递来一个赞许的眼神，让你知道自己正在进步。'
+	end
+	*nl
+	'"好了，姑娘们，正式训练就到这儿。跟往常一样，谁想专门练点什么，还可以再用一小时体育馆；谁想要点建议，也可以来找我。"'
+	'"是，教练！"全队齐声应道。'
+	*nl
+	if vballVars['lariska_team'] = 1:
+		'你看着几个女孩径直走向淋浴间，不过拉里斯卡留下来接着练。她瞟了你一眼，无声地问你要不要也留下。'
+	else
+		'你看着一些女孩立刻走开去冲澡了。'
+	end
+	gs 'volleyball_ev', 'level_up_init'
+
+	act '综合练习': gt 'volleyball_ev', 'general_practice'
+	act '练习拦网': gt 'volleyball_ev', 'block_practice'
+	act '练习接球': gt 'volleyball_ev', 'receive_practice'
+	act '练习发球': gt 'volleyball_ev', 'serve_practice'
+	act '练习二传': gt 'volleyball_ev', 'set_practice'
+	act '练习扣球': gt 'volleyball_ev', 'spike_practice'
+	act '结束练习': gt 'volleyball_ev', 'practice_end1'
+end
+
+
+if $ARGS[0] = 'plan_b_check':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/teacher/mikhail/volleytrener6.jpg"></center>'
+	'训练中途，米哈伊尔教练把你拉到一边，压低声音跟你说话。'
+	'<<$pcs_usedname[''A69'']>>，你……做了那件事吗？在……那件事之后……？"他意味深长地看着你，你知道他说的是避孕套破掉的那次。是那种事后避孕药。'
+	vballVars['last_plan_b_check'] = daystart
+	if stat['last_morning_after_pill'] > vballVars['plan_b']:
+		vballVars['plan_b'] = 0
+		act '是':
+			gs 'npc_relationship', 'modify', 'A69', 'like'
+			cla & *nl
+			'你点了一下头，他松了一口气。'
+			'"很好……那就好……"'
+			act '继续': gt 'volleyball_ev', 'team_practice2'
+		end
+
+		act '逗他（说你忘了）':
+			cla & *nl
+			'你倒吸一口气，用手捂住嘴。'
+			'"我完全忘了！"你尖声说，用手指挡着偷笑。米哈伊尔教练脸色发白。'
+			'"<<$pcs_lastname>>！"他低声嘶吼。"这种事你怎么能忘！这可能会给我们俩都带来大麻烦！"'
+			'"我忘了！"你又说道。"……忘了告诉你我前几天已经吃了。"'
+			'你把手放下，露出笑容，努力不让自己笑出声。他难以置信地盯了你一会儿，然后脸色沉了下来。'
+			'"这并不好笑，<<$pcs_lastname>>，"他低吼道。他大步走开时，你一直对着他的背影笑。'
+			act '继续': gt 'volleyball_ev', 'team_practice2'
+		end
+	else
+		act '不':
+			gs 'npc_relationship', 'modify', 'A69', 'dislike'
+			cla & *nl
+			'你摇了摇头，皱起脸，他也露出同样的表情。'
+			'"这种事不能拖，"他低声说。"今天就去做。训练之后。"'
+			act '继续': gt 'volleyball_ev', 'team_practice2'
+		end
+
+		act '（还没）':
+			gs 'npc_relationship', 'modify', 'A69', 'dislike'
+			cla & *nl
+			'<i>还没</i>，你无声地对他做口型，夸张地动着嘴唇。<i>训练之后。</i>'
+			'他听了皱起脸，凑得更近。'
+			'"这种事不能拖，"他低声说。"<i>今天</i>。别逼我亲自押你去药店。"'
+			act '继续': gt 'volleyball_ev', 'team_practice2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'coach_glare':
+	act '瞪着他':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/gym/gdksport.jpg"></center>'
+		'你小心地不做任何会引起注意的快速动作，慢慢转过头迎上他的目光，瞪着他。'
+		'那眼神仿佛在说："现在？你认真的？"'
+		'"那有帮助吗，<<$pcs_lastname>>？"他一脸无辜地问。'
+		'"是啊，你帮了大忙。谢谢你，米哈伊尔教练，"你热情地笑着回应，眼神却依旧冰冷。'
+		'"随时乐意，<<$pcs_nickname>>，"他咧嘴一笑，然后走开去指导别的女孩了。'
+		act '继续': gt 'volleyball_ev', 'team_practice2'
+	end
+end
+
+
+if $ARGS[0] = 'coach_telloff':
+	act '责骂他':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/gym/gdksport.jpg"></center>'
+		'你小心地不做任何会引起注意的快速动作，慢慢从肩上转过头瞪着他。'
+		'"不。是。现在！"你瞪了米哈伊尔一眼，然后环顾房间里的队友。'
+		'"这是在给待会儿许愿吗？"他得意地笑。'
+		'"在有人看到我们之前离我远点！"你低声说。'
+		'"好，好，"他说着退开，去指导别的女孩了。'
+		act '继续': gt 'volleyball_ev', 'team_practice2'
+	end
+end
+
+
+if $ARGS[0] = 'practice_end1':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/gym/gdksport.jpg"></center>'
+	if vballVars['lariska_team'] = 1:
+		'你觉得今天已经够了。你对拉里斯卡摇了摇头，她失望地皱起眉，耸了耸肩，那意思像是在说："那改天吧。"不过她没再多想，转身去找别的女孩帮她练球。'
+	else
+		'你觉得今天已经够了，于是就此结束训练，没有利用这段自由时间。'
+	end
+	act '继续': gt 'gdksport', 'start'
+end
+
+
+if $ARGS[0] = 'practice_end2':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/gym/gdksport.jpg"></center>'
+	'你浑身是汗、筋疲力尽地结束了练习。'
+	act '继续': gt 'gdksport', 'start'
+end
+
+
+if $ARGS[0] = 'general_practice':
+	!! general practice is intentionally worse by having two tier2 calls
+	gs 'exercise', 'tier2', 40, 'vball'
+	gs 'exercise', 'tier2', 20, 'vball', 'stren', 'agil', 'vital', 'react', 'prcptn'
+	gs 'volleyball_ev', 'level_up'
+
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/<<rand(1, 10)>>.jpg"></center>'
+	if vballVars['on_team'] = 1:
+		vballVars['defense_exp'] += 1
+		'你利用空闲时间练习扣球，与队友对抗，他们则试图拦网。'
+	else
+		'你练了各种二传，对着墙托球，头顶上方托球，还有保持正确的手型。'
+	end
+	*nl
+	if vballVars['level_up_message'] = 1: vballVars['level_up_message'] = 0 & '这次练得很有效果，你能实打实地感觉到自己越来越会突破拦网扣球了。'
+	act '结束练习': gt 'volleyball_ev', 'practice_end2'
+end
+
+
+if $ARGS[0] = 'block_practice':
+	gs 'exercise', 'tier2', 40, 'vball_block'
+	gs 'exercise', 'tier3', 20, 'vball_block', 'vital', 'react'
+	gs 'volleyball_ev', 'level_up'
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/<<rand(3, 5)>>.jpg"></center>'
+	if vballVars['on_team'] = 1:
+		vballVars['attack_exp'] += rand(0, 2) / 2
+		vballVars['defense_exp'] += rand(0, 2) / 2
+		'你利用自由时间和队伍一起练习各种战术动作。'
+	else
+		'你和社区中心附近的其他几个女孩一起练各种战术动作。'
+	end
+	if vballVars['level_up_message'] = 1:
+		vballVars['level_up_message'] = 0
+		*nl
+		'这次练习很有效果，你觉得自己可能琢磨出了一些门道。'
+	end
+
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/gym/gdksport.jpg"></center>'
+		'做完最后一次拦网落地，你擦了擦满是汗水的额头。看看钟，自由练习时间也差不多结束了。'
+		act '结束练习': gt 'gdksport', 'start'
+		act '去见米哈伊尔教练': gt 'volley_coach', 'coach_office'
+	end
+end
+
+
+if $ARGS[0] = 'receive_practice':
+	gs 'exercise', 'tier2', 40, 'vball_rec'
+	gs 'exercise', 'tier3', 20, 'vball_rec', 'agil', 'react'
+	gs 'volleyball_ev', 'level_up'
+
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/<<rand(8, 9)>>.jpg"></center>'
+	if vballVars['on_team'] = 1:
+		vballVars['attack_exp'] += 1
+		'你利用自由时间练习接队友的扣球和发球。'
+	else
+		'你和社区中心附近的其他一些女孩一起练习接球，让她们朝你扣球和发球，你好练习把球垫到空中。'
+	end
+	if vballVars['level_up_message'] = 1:
+		vballVars['level_up_message'] = 0
+		*nl
+		'这次练习很有效果，你觉得自己琢磨出了接球更高效的门道。'
+	end
+	act '结束练习': gt 'volleyball_ev', 'practice_end2'
+end
+
+
+if $ARGS[0] = 'serve_practice':
+	gs 'exercise', 'tier2', 40, 'vball_serve'
+	gs 'exercise', 'tier3', 20, 'vball_serve', 'stren', 'prcptn'
+	gs 'volleyball_ev', 'level_up'
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/7.jpg"></center>'
+	if vballVars['on_team'] = 1:
+		vballVars['defense_exp'] += 1
+		'你利用自由时间对着队友练跳发球，她们则试着接你的球。'
+		if vballVars['level_up_message'] = 1:
+			vballVars['level_up_message'] = 0
+			*nl
+			'和队伍一起练发球，效果不错。'
+		end
+		act '结束练习': gt 'volleyball_ev', 'practice_end2'
+	elseif pcs_vball_serve <= 20:
+		'你练跳发球。大多数时候的结局都是完全打不到球、击完球一屁股摔在地上，或者干脆把球打出界外。有时还是几样一起来。'
+		if vballVars['level_up_message'] = 1:
+			if pcs_vball_serve = 20:
+				vballVars['level_up_message'] = 0
+				act '继续': gt 'volleyball_ev', 'jump_serve_complete'
+			else
+				vballVars['level_up_message'] = 0
+				*nl
+				'虽然大多数尝试都砸了，但你觉得离搞懂跳发球又近了一点。'
+				act '结束练习': gt 'volleyball_ev', 'practice_end2'
+			end
+		else
+			*nl
+			'练习结束时，一次次跳发球失败让你浑身酸痛不已。你揉着屁股，龇牙咧嘴地想着会不会淤青。'
+			'<i>天啊！跳发球好难！</i>'
+			act '结束练习': gt 'volleyball_ev', 'practice_end2'
+		end
+	else
+		'你练习跳发球，请其他一些女孩帮你接球。'
+		if vballVars['level_up_message'] = 1:
+			vballVars['level_up_message'] = 0
+			*nl
+			'她们的建议真挺管用，你觉得自己琢磨出了怎么更好地控制和瞄准发球。'
+		end
+		act '结束练习': gt 'volleyball_ev', 'practice_end2'
+	end
+end
+
+
+if $ARGS[0] = 'jump_serve_complete':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/7.jpg"></center>'
+	'<i>呼——</i>'
+	*nl
+	'你缓缓吐气，把球捧在身前，然后向上抛起。'
+	*nl
+	'<i>感觉对了……</i>'
+	*nl
+	'你腾空而起，手臂向前甩出，朝球挥去。球被击中时发出一声脆响，震得你全身发麻。球越过球网，砸在界内边缘的木地板上。一次完美的跳发球。这一下让你的心脏在胸腔里砰砰直跳。剩下的练习时间里，你一直在回味那记完美发球的触感。你发成的球越来越多，落在界内的比例也比以前更高。而且再也没有一次完全打空、一屁股摔在地上。'
+	*nl
+	'练习结束时，你满身大汗、筋疲力尽，却感到无比得意。你绝算不上出色，但你刚刚把一件时好时坏的事练成了稳当的拿手活。'
+	*nl
+	'<i>我做到了！我会跳发球了！</i>'
+	act '结束练习': gt 'volleyball_ev', 'practice_end2'
+end
+
+
+if $ARGS[0] = 'set_practice':
+	gs 'exercise', 'tier2', 40, 'vball_set'
+	gs 'exercise', 'tier3', 20, 'vball_set', 'agil', 'prcptn'
+	gs 'volleyball_ev', 'level_up'
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/6.jpg"></center>'
+	if vballVars['on_team'] = 1:
+		vballVars['attack_exp'] += 1
+		'你利用自由时间和队里其他一些女孩一起做二传训练。'
+	else
+		'你练了各种二传，对着墙托球，头顶上方托球，还有保持正确的手型。'
+	end
+	if vballVars['level_up_message'] = 1:
+		vballVars['level_up_message'] = 0
+		*nl
+		'这次练习很有效果，你能实打实地感觉到自己的二传越来越稳了。'
+	end
+	act '结束练习': gt 'volleyball_ev', 'practice_end2'
+end
+
+
+if $ARGS[0] = 'spike_practice':
+	gs 'exercise', 'tier2', 40, 'vball_spike'
+	gs 'exercise', 'tier3', 20, 'vball_spike', 'stren', 'vital'
+	gs 'volleyball_ev', 'level_up'
+
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/team_practice/<<rand(1, 5)>>.jpg"></center>'
+	if vballVars['on_team'] = 1:
+		vballVars['defense_exp'] += 1
+		'你利用空闲时间练扣球，跟队友对抗，由他们来拦网。'
+	else
+		'你练了各种二传，对着墙托球，头顶上方托球，还有保持正确的手型。'
+	end
+	if vballVars['level_up_message'] = 1:
+		vballVars['level_up_message'] = 0
+		*nl
+		'这次练习很有效果，你真切地感觉到自己越来越擅长突破拦网扣球了。'
+	end
+	act '结束练习': gt 'volleyball_ev', 'practice_end2'
+end
+
+
+if $ARGS[0] = 'pregnancy_react':
+	cla
+	menu_off = 1
+	npc_pregtalk['A69'] = 1
+	'你走近队伍时，教练注意到了你，把你叫到一边。"<<$pcs_firstname>>，你怀孕了吗？我不能让你这样上场。再说，一个怀孕的少女肯定会影响我和整个队伍的名声。抱歉，你退队吧。"你眼眶里涌起泪水，离开了。'
+	minut += 5
+	gs 'stat'
+	vballVars['on_team'] = 0
+	vballVars['sub_player'] = 0
+	gs 'calendar', 'remove', 'volleyball_tournament'
+
+	act '继续': gt 'pav_commcenter'
+end
+
+
+!! ------------------------------------------ Competition Matches ---------------------------------------------------
+
+
+if $ARGS[0] = 'pick_opponent':
+	if vballVars['wins'] < 2 or vballVars['wins'] + 1 < vballVars['losses']:
+		if rand(0, 1) = 0:
+			i = 0
+		else
+			i = rand(1, 3)
+		end
+	else
+		i = rand(1, 5)
+	end
+	!! Ensure not the same opponent twice in a row
+	if i > 0 and vballVars['opponent'] = i:
+		gs 'volleyball_ev', 'pick_opponent'
+		exit
+	end
+	vballVars['opponent'] = i
+	if vballVars['opponent'] = 0:
+		$vballVars['opponent_name'] = '低级别队'
+		vballVars['opp_attack'] = rand(20, 60)
+		vballVars['opp_defense'] = rand(20, 60)
+	elseif vballVars['opponent'] = 1:
+		$vballVars['opponent_name'] = '传教士'
+		vballVars['opp_attack'] = 40
+		vballVars['opp_defense'] = 60
+	elseif vballVars['opponent'] = 2:
+		$vballVars['opponent_name'] = '猎犬 '
+		vballVars['opp_attack'] = 65
+		vballVars['opp_defense'] = 40
+	elseif vballVars['opponent'] = 3:
+		$vballVars['opponent_name'] = '女牛仔'
+		vballVars['opp_attack'] = 50
+		vballVars['opp_defense'] = 50
+	elseif vballVars['opponent'] = 4:
+		$vballVars['opponent_name'] = '犁田女'
+		vballVars['opp_attack'] = 60
+		vballVars['opp_defense'] = 60
+	elseif vballVars['opponent'] = 5:
+		$vballVars['opponent_name'] = '凿岩机'
+		vballVars['opp_attack'] = 80
+		vballVars['opp_defense'] = 65
+	end
+end
+
+
+if $ARGS[0] = 'arrival':
+	minut += 20
+	gs 'stat'
+	vballVars['last_match_day'] = daystart
+	vballVars['opp_points'] = 0
+	vballVars['team_points'] = 0
+	vballVars['exhaust'] = 0
+	gs 'volleyball_ev', 'pick_opponent'
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/court.jpg"></center>'
+	'你和队伍一起到达体育馆，等待获准进入球场。'
+	if vballVars['opponent'] = 0:
+		'你今天要对阵一支低级别球队。教练把大家召集起来，对你们说："这应该很轻松，就按训练时那样打。别让我失望！"。'
+	elseif $vballVars['match_result_<<vballVars[''opponent'']>>'] = 'defeat':
+		'你今天将再次对阵"<<$vballVars[''opponent_name'']>>"。教练把大家召集起来，做赛前讲话。"上次他们也许赢了我们，但我们为这一天训练过。让他们看看你们的本事！"'
+	elseif $vballVars['match_result_<<vballVars[''opponent'']>>'] = 'victory':
+		'你将再次对阵"<<$vballVars[''opponent_name'']>>"。教练把大家召集起来，做赛前讲话。"我们以前赢过他们，这次也能做到。上吧，姑娘们！"'
+	else
+		if vballVars['opponent'] > 3:
+			'你今天将对阵"<<$vballVars[''opponent_name'']>>"。教练把大家召集起来，对你们说："姑娘们，这才是像样的对手。我们一直在为此训练。让我看看你们的能耐！"'
+		else
+			'你今天将对阵"<<$vballVars[''opponent_name'']>>"。教练把大家召集起来，对你们说："他们这赛季来了些新队员。别小看他们，记住我们训练的东西。"'
+		end
+	end
+	'你们终于获准进场，开始热身。'
+	act '热身': gt 'volleyball_ev', 'warm_ups'
+!!{
+	if vballVars['coachsex'] > 0:
+		act '为求好运去找教练来一炮':
+	end
+!}
+end
+
+
+if $ARGS[0] = 'warm_ups':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/court.jpg"></center>'
+	'你和队友们开始互相传球，练习发球、扣球和接球，让身体为比赛做好准备。很快，比赛开始的时刻就到了。'
+	*nl
+	minut += 15
+	gs 'stat'
+	if rand(0, 1) = 0:
+		'抛硬币的结果对你们有利，你的队伍可以选择先发球还是先接球。'
+		*nl
+		if vballVars['team_captain'] = 1:
+			'你们选哪个？'
+			act '先发球':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/court.jpg"></center>'
+				'"我们先发球，"你说。'
+				act '准备好': gt 'volleyball_ev', 'serve_start'
+			end
+
+			act '先接球':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/court.jpg"></center>'
+				'"我们先发球，"你说。'
+				act '准备好': gt 'volleyball_ev', 'serve_start'
+			end
+		else
+			if rand(0, 99) < pcs_vball_serve or pcs_vball_serve >= 65:
+				if pcs_vball_serve > 35 and vballVars['libero'] ! 1:
+					'"我们先发球，"你们的队长说着回头看你。'
+					'"<<$pcs_lastname>>！轮到你了！"米哈伊尔教练从替补席喊道。'
+					act '发球': gt 'volleyball_ev', 'serve_start'
+				else
+					'"我们先发球，"你们的队长说完走回队伍，对你们决定的首发球员点了点头。'
+					*nl
+					'比赛正式开始……'
+
+					if rand(0, 1) = 0:
+						vballVars['team_points'] += 1
+					else
+						vballVars['opp_points'] += 1
+					end
+
+					act '继续': gt 'volleyball_ev', 'point_check'
+				end
+			else
+				'"我们先接球，"你们的队长说完走回球场，你们都各就各位。'
+				act '等待发球': gt 'volleyball_ev', 'receive_start'
+			end
+		end
+	else
+		'抛硬币的结果对他们有利，对方队伍可以选择先发球还是先接球。'
+		*nl
+		if vballVars['opp_defense'] > vballVars['opp_attack']:
+			if pcs_vball_serve > 35:
+				'"我们先接球，"对方队长说。你们的队长点头回应，然后回头看你。'
+				'"<<$pcs_lastname>>！轮到你了！"米哈伊尔教练从替补席喊道，你点头回应。'
+				act '发球': gt 'volleyball_ev', 'serve_start'
+			else
+				'"我们先接球，"对方队长说。你们的队长点头回应，然后回头看向你们决定的首发球员。'
+				*nl
+				'比赛正式开始……'
+
+				if rand(0, 1) = 0:
+					vballVars['team_points'] += 1
+				else
+					vballVars['opp_points'] += 1
+				end
+
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		else
+			'"我们先发球，"对方队长说。你们的队长点头回应，走回球场，你们都各就各位'
+			act '等待发球': gt 'volleyball_ev', 'receive_start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'point_check':
+	minut += rand(3, 5)
+	vballVars['opp_att_penalty'] = 0
+	gs 'stat'
+	if vballVars['team_points'] >= 5:
+		gt 'volleyball_ev', 'victory'
+	elseif vballVars['opp_points'] >= 5:
+		gt 'volleyball_ev', 'defeat'
+	!! elseif pcs_stam < 100 and vballVars['stay'] ! 1:
+	!!	gt 'volleyball_ev', 'player_substitution'
+	elseif pcs_stam <= 5:
+		gt 'volleyball_ev', 'collapse'
+	else
+		if vballVars['service'] = 1:
+			gt 'volleyball_ev', 'serve'
+		else
+			gt 'volleyball_ev', 'randomizer'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'randomizer':
+	vballVars['random'] = rand(0, 4)
+	if vballVars['random'] < 2:
+		gt 'volleyball_ev', 'free_ball'
+	elseif vballVars['random'] < 4:
+		gt 'volleyball_ev', 'opp_spike'
+	elseif vballVars['random'] = 4:
+		gt 'volleyball_ev', 'serve'
+!!	elseif vballVars['random'] = 5:
+!!		gt 'volleyball_ev', 'free_ball'
+	end
+end
+
+
+
+!! ------------------------ MATCH SITUATIONS ---------------------------------------------------
+
+
+if $ARGS[0] = 'free_ball':
+	'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/receive/1.mp4"></video></center>'
+	'"无攻球！"你喊道，球高高越过球网飞向你们这边。'
+	*nl
+	'你们队刚才打出了一次不错的进攻，但没能借此得分。幸运的是，这似乎打乱了对方的节奏，他们无法反击，只能把三次触球机会全用上才把球送过网。'
+	*nl
+	'球开始下落，你需要决定接下来怎么做。'
+	gs 'volleyball_ev', 'block_follow'
+	gs 'volleyball_ev', 'set'
+	gs 'volleyball_ev', 'spike'
+	gs 'volleyball_ev', 'spike_fake'
+end
+
+
+if $ARGS[0] = 'opp_spike':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/wait<<rand(1, 2)>>.jpg"></center>'
+	'"来了！"你喊道，对手跳起来准备扣球。'
+	*nl
+	'他们在自己那边干净地接起了球，并迅速转化为进攻。看到他们反击过来，你决定……'
+	gs 'volleyball_ev', 'block'
+	gs 'volleyball_ev', 'receive'
+end
+
+!! if $ARGS[0] = 'receive_serve':
+
+
+!! end
+
+
+if $ARGS[0] = 'collapse':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyballcollapse.jpg"></center>'
+	'你朝球冲过去，突然双腿一软。天旋地转，一阵恍惚袭来，接着你重重摔在地上，失去了意识。'
+	act '恢复意识':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/court.jpg"></center>'
+		if Lariska_team = 1:
+			'你呻吟着慢慢睁开眼睛，眨了几下，视线从模糊变得清晰，你看到拉里斯卡担忧的脸就在你上方，你的头枕在她腿上。'
+			'"发……发生什么了？"'
+			'"你昏倒了！"她说。"前一秒你还在打球，下一秒就摊在球场上了！"'
+		else
+			'你呻吟着慢慢睁开眼睛，眨了几下，视线从模糊变得清晰，你看到米哈伊尔教练的脸就在你上方，队友们也都围在你身边。'
+			'"发……发生什么了？"'
+			'"你昏倒了，"米哈伊尔教练说。"你把自己逼得太狠了。把自己累垮了。"'
+		end
+		'"哦……"'
+		act '继续':
+			*clr & cla
+
+		end
+	end
+end
+
+
+!! ------------------------ MATCH CHOICE OPTIONS ---------------------------------------------------
+
+
+if $ARGS[0] = 'receive_stats':
+	gs 'sweat', 'add', rand(3, 5)
+	vballVars['exhaust_temp'] = rand(1, 3)
+	vballVars['exhaust'] += vballVars['exhaust_temp']
+	vballVars['rec'] = rand(1, 100) + pcs_vball_rec / 4 - vballVars['exhaust']
+	pcs_stam -= vballVars['exhaust_temp'] * 5
+end
+
+
+if $ARGS[0] = 'block':
+	act '去拦网':
+		gs 'sweat', 'add', rand(3, 5)
+		vballVars['exhaust_temp'] = rand(2, 3)
+		vballVars['exhaust'] += vballVars['exhaust_temp']
+		pcs_stam -= vballVars['exhaust_temp'] * 4
+		vballVars['opp_att_result'] = rand(1, 50) + vballVars['opp_attack'] - vballVars['opp_att_penalty']
+		if rand(1, 50) + vballVars['opp_att_result'] < vballVars['team_defense'] - 40:
+			if rand(1, 50) + vballVars['team_defense'] + pcs_vball_block - vballVars['exhaust'] > vballVars['opp_att_result']:
+				gt 'volleyball_ev', 'block3_win'
+			else
+				gt 'volleyball_ev', 'block3_fail'
+			end
+		elseif rand(1, 50) + vballVars['opp_att_result'] < vballVars['team_defense'] - 20:
+			if rand(1, 50) + vballVars['team_defense'] / 2 + pcs_vball_block - vballVars['exhaust'] > vballVars['opp_att_result']:
+				gt 'volleyball_ev', 'block2_win'
+			else
+				gt 'volleyball_ev', 'block2_fail'
+			end
+		else
+			if rand(1, 50) + pcs_vball_block > vballVars['opp_att_result']:
+				gt 'volleyball_ev', 'block1_win'
+			else
+				gt 'volleyball_ev', 'block1_fail'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'block1_win':
+	vballVars['team_points'] += 1
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/1_win.jpg"></center>'
+	'你是唯一一个看到扣球来袭的人，发现自己不由自主地跳起来试图拦网。'
+	*nl
+	'球撞在对手的手上，向前飞来，重重砸在你的双手上，又弹回他们那半场。'
+	*nl
+	'队友们为你不可思议的一人拦网欢呼，而你刚拦下的那个女孩隔着球网瞪着你。你又为队伍拿下一分！'
+	act '继续': gt 'volleyball_ev', 'point_check'
+end
+
+
+if $ARGS[0] = 'block1_fail':
+	vballVars['opp_points'] += 1
+	'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/block/1_fail.mp4"></video></center>'
+	'你是唯一一个看到扣球来袭的人，发现自己不由自主地跳起来试图拦网。'
+	*nl
+	'但一个人的手臂筑不成好墙，对手轻松地把球扣过你，直接落进你这边的场地。'
+	*nl
+	'又让对方得到一分，你咬紧了牙关。'
+	act '继续': gt 'volleyball_ev', 'point_check'
+end
+
+
+if $ARGS[0] = 'block2_win':
+	vballVars['team_points'] += 1
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/2_win.jpg"></center>'
+	'你和另一个女孩在扣球前及时到位。你们配合默契，一起跳起，就在对手扣出球的一瞬间把它拍了下来。'
+	*nl
+	'哇！又得一分！'
+	act '继续': gt 'volleyball_ev', 'point_check'
+end
+
+
+if $ARGS[0] = 'block2_fail':
+	vballVars['opp_points'] += 1
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/2_fail.jpg"></center>'
+	'你和另一个女孩在扣球前及时到位。你们一起跳起，但扣球来时力量超出了你们的承受范围，直接从你们的手臂间穿了过去。'
+	*nl
+	'你气得咬牙切齿，而对方队伍正在为他们赢得的分数欢呼。'
+	act '继续': gt 'volleyball_ev', 'point_check'
+end
+
+
+if $ARGS[0] = 'block3_win':
+	vballVars['team_points'] += 1
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/3_win.jpg"></center>'
+	'就在扣球到来之前，你们队及时摆好了三人的拦网墙。你们把握好时机一起跳起，形成一道宽阔的墙，让对手无处可打。球被扣进你们的手臂，径直落回他们那半场。'
+	*nl
+	'全队一起欢呼！你们又得了一分！'
+	act '继续': gt 'volleyball_ev', 'point_check'
+end
+
+
+if $ARGS[0] = 'block3_fail':
+	vballVars['opp_points'] += 1
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/3_fail.jpg"></center>'
+	'就在球落下之前，你们队及时摆好了三人的拦网墙。可惜你们的时机完全没对上，他们把球从你们手上方扣进了场地。'
+	*nl
+	'你气得咬牙切齿，而对方队伍正在为他们赢得的分数欢呼。'
+	act '继续': gt 'volleyball_ev', 'point_check'
+end
+
+
+if $ARGS[0] = 'block_follow':
+	act '拦网后的跟进保护':
+		*clr & cla
+		gs 'sweat', 'add', rand(3, 5)
+		vballVars['block_follow'] = rand(1, 100) + pcs_vball_rec / 4 - vballVars['exhaust']
+		if rand(1, 50) + vballVars['team_attack'] > vballVars['opp_defense']:
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/wait<<rand(1, 2)>>.jpg"></center>'
+			'你留在后面，小心地等待和观察，以防敌人设法挡下你们队伍的进攻。'
+			*nl
+			'幸运的是，完全没必要——你们队的扣球干净利落地穿过对方的防守，直接得分！'
+			vballVars['team_points'] += 1
+			act '继续': gt 'volleyball_ev', 'point_check'
+		else
+			if vballVars['block_follow'] > 70:
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/1.jpg"></center>'
+				'你留在后面，小心地等待和观察，以防敌人设法挡下你们队伍的进攻。'
+				*nl
+				'幸好你这么做了。对手及时组织起拦网，球正好弹了回来，朝你们这半场飞来。你迅速上前，把球高高垫起，努力给队伍争取另一次进攻机会。'
+
+				gs 'volleyball_ev', 'spike'
+
+				gs 'volleyball_ev', 'fake_spike'
+
+			elseif vballVars['block_follow'] > 50:
+				if rand(0, 1) = 0:
+					'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/2.jpg"></center>'
+					vballVars['team_points'] += 1
+					'你留在后面，小心地等待和观察，以防敌人设法挡下你们队伍的进攻。'
+					*nl
+					'幸好你这么做了。对手及时组织起拦网，球正好弹了回来，朝你们这半场飞来。你迅速上前把球垫回空中，但比预想的要低。不过，不知怎么还是有人把球送到扣球手面前，为你们队拿下一分！'
+					act '继续': gt 'volleyball_ev', 'point_check'
+				else
+					'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/block/2.mp4"></video></center>'
+					vballVars['opp_points'] += 1
+					'你留在后面，小心地等待和观察，以防敌人设法挡下你们队伍的进攻。'
+					*nl
+					'幸好你这么做了。对手及时组织起拦网，球正好弹了回来，朝你们这半场飞来。你迅速上前，把球垫回空中。'
+					*nl
+					'可惜，它直接飞回了球网对面，对手立刻把球扣了回来，从你们手里拿走一分。'
+					act '继续': gt 'volleyball_ev', 'point_check'
+				end
+			else
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive2.jpg"></center>'
+				vballVars['opp_points'] += 1
+				'你留在后面，小心地等待和观察，以防敌人设法挡下你们队伍的进攻。'
+				*nl
+				'可惜，他们真的做到了。而且做得完美。球从拦网上弹开时，你和其他几个女孩都扑了过去，但球落地前没有一个人碰到它，你们因此丢了一分。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'receive_start':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/wait<<rand(1, 2)>>.jpg"></center>'
+	'你和队友们各就各位，摆好防守阵型。'
+	*nl
+	'这是比赛的第一分……谁拿下这一分，士气立刻就会高涨，甚至可能决定整场比赛的走向……'
+	*nl
+	'<i>压力来了…</i>'
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive2.jpg"></center>'
+		'发球来了，越过球网，径直朝你飞来！'
+		act '接球！':
+			*clr & cla
+			gs 'volleyball_ev', 'receive_stats'
+			if rand(1, 75) + rand(20, pcs_vball_rec) > vballVars['opp_att_result'] + 20:
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/receive/1.mp4"></video></center>'
+				'你向前扑去，正好移动到球的飞行路线上。球从你的前臂上高高弹起，这是你们队反击的绝佳机会。'
+
+				gs 'volleyball_ev', 'block_follow'
+
+				gs 'volleyball_ev', 'spike2'
+
+			elseif rand(1, 75) + rand(20, pcs_vball_rec) > vballVars['opp_att_result']:
+				if rand(0, 1) = 0:
+					vballVars['team_points'] += 1
+					'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/3.jpg"></center>'
+					'你向前猛扑，手臂伸出，在球从你身边飞过之前勉强用双臂把球垫了起来。发球的力量把你撞倒在地，但你仍然设法把球垫到了空中。'
+					*nl
+					'队伍因为你这次接球而振作起来，立刻得分！他们一拥而上抱住你，为你欢呼。'
+					*nl
+					'<i>第一分是我们的！</i>'
+					act '继续': gt 'volleyball_ev', 'point_check'
+				else
+					vballVars['opp_points'] += 1
+					'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/3.jpg"></center>'
+					'你向前猛扑，手臂伸出，在球从你身边飞过之前勉强用双臂把球垫了起来。发球的力量把你撞倒在地，但你仍然设法把球垫到了空中。'
+					*nl
+					'可惜，这一切都白费了。接得这么勉强，队伍无法组织进攻，只能把球垫过网。对方接下来的进攻突破你们所有人，你们不得不让出比赛的第一分。'
+					act '继续': gt 'volleyball_ev', 'point_check'
+				end
+			else
+				if vballVars['service'] = 1: vballVars['service'] = 0
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/4.jpg"></center>'
+				'你伸手向前扑去，但这一记发球对你来说太强劲了。它砸在你的手臂上，然后飞过你和队友们，你们谁也来不及反应，只能看着它弹出你们的触及范围。'
+				*nl
+				'"没事，没事，"队友们在你周围互相安慰，努力从丢掉第一分的打击中振作起来。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'receive':
+	act '鱼跃接球（垫球）':
+		*clr & cla
+		gs 'sweat', 'add', rand(3, 5)
+		vballVars['opp_att_result'] = rand(1, 50) + vballVars['opp_attack'] - vballVars['opp_att_penalty']
+		if vballVars['opp_att_result'] < vballVars['team_defense']:
+			vballVars['team_points'] += 1
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/<<rand(1, 3)>>_win.jpg"></center>'
+			'你做好了充分的接球准备，但前排的队友跳起来拦网，结果根本用不上你。'
+			*nl
+			'你欢呼起来，祝贺队友们又拿下一分。'
+			act '继续': gt 'volleyball_ev', 'point_check'
+		elseif rand(1, 75) + rand(20, pcs_vball_rec) - vballVars['exhaust'] > vballVars['opp_att_result'] + 20:
+			gs 'volleyball_ev', 'receive_stats'
+			'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/receive/1.mp4"></video></center>'
+			'对手跳起来扣球，你完美地看穿了她们的动向，正好移动到球的飞行路线上。球从你的前臂上高高弹起，这是你们队反击的绝佳机会。'
+
+			gs 'volleyball_ev', 'block_follow'
+
+			gs 'volleyball_ev', 'spike2'
+
+		elseif rand(1, 75) + rand(20, pcs_vball_rec) - vballVars['exhaust'] > vballVars['opp_att_result']:
+			gs 'volleyball_ev', 'receive_stats'
+			if rand(0, 1) = 0:
+				vballVars['team_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive1.jpg"></center>'
+				'对手打了你们一个措手不及，将球扣入你们防守的完美空隙。你飞身扑球，伸出手臂，在球触地前勉强将手垫到球下。'
+				*nl
+				'你的队伍因你的鱼跃救球而振作起来，甚至借此得分！他们围成一团抱住你，为你的神奇救球欢呼。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			else
+				gs 'volleyball_ev', 'receive_stats'
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive1.jpg"></center>'
+				'对手打了你们一个措手不及，将球扣入你们防守的完美空隙。你飞身扑球，伸出手臂，在球触地前勉强将手垫到球下。'
+				*nl
+				'不幸的是，这一切都是徒劳。球从你手上弹起，它太低以致你的队伍不得不将球送过网而没有适当的进攻然后你的对手立即将其扣回。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		else
+			gs 'volleyball_ev', 'receive_stats'
+			if vballVars['service'] = 1: vballVars['service'] = 0
+			vballVars['opp_points'] += 1
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive2.jpg"></center>'
+			'对手一记重扣将球扣过网。'
+			*nl
+			'全队都扑向球但没有一个人能碰到它，对手赢得干净利落的一分。'
+			act '继续': gt 'volleyball_ev', 'point_check'
+		end
+	end
+end
+
+
+!! receive after player''s serve
+if $ARGS[0] = 'receive2':
+	act '接扣球':
+		*clr & cla
+		gs 'sweat', 'add', rand(3, 5)
+		vballVars['opp_att_result'] = rand(1, 50) + vballVars['opp_attack'] - vballVars['opp_att_penalty']
+
+		if vballVars['opp_att_result'] < vballVars['team_defense']:
+			vballVars['team_points'] += 1
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/<<rand(1, 3)>>_win.jpg"></center>'
+			'被你的发球打乱节奏后，他们勉强把球垫起来扣，而此时你们队已经就位，正好在球前跳起拦网，把他们彻底封死。'
+			*nl
+			'你再次得分，替补席上的队友们欢呼起来！'
+			act '继续': gt 'volleyball_ev', 'point_check'
+
+		elseif rand(1, 75) + rand(20, pcs_vball_rec) - vballVars['exhaust'] > vballVars['opp_att_result'] + 20:
+			gs 'volleyball_ev', 'receive_stats'
+			'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/block/1.mp4"></video></center>'
+			'他们明显被你的发球打乱了平衡，你完美地看穿了他们的动向，正好移动到球的飞行路线上。球从你的前臂上高高弹起，这是你们队反击的绝佳机会。'
+
+			gs 'volleyball_ev', 'block_follow'
+
+			gs 'volleyball_ev', 'spike'
+
+		elseif rand(1, 75) + rand(20, pcs_vball_rec) - vballVars['exhaust'] > vballVars['opp_att_result']:
+			gs 'volleyball_ev', 'receive_stats'
+			if rand(0, 1) = 0:
+				vballVars['team_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive1.jpg"></center>'
+				'对手打了你们一个措手不及，将球扣入你们防守的完美空隙。你飞身扑球，伸出手臂，在球触地前勉强将手垫到球下。'
+				*nl
+				'你的队伍因你的鱼跃救球而振作起来，甚至借此得分！他们围成一团抱住你，为你的神奇救球欢呼。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			else
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive1.jpg"></center>'
+				'对手打了你们一个措手不及，将球扣入你们防守的完美空隙。你飞身扑球，伸出手臂，在球触地前勉强将手垫到球下。'
+				*nl
+				'不幸的是，这一切都是徒劳。球从你手上弹起，它太低以致你的队伍不得不将球送过网而没有适当的进攻然后你的对手立即将其扣回。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		else
+			gs 'volleyball_ev', 'receive_stats'
+			vballVars['opp_points'] += 1
+			if vballVars['service'] = 1: vballVars['service'] = 0
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive2.jpg"></center>'
+			'对手一记重扣将球扣过网。'
+			*nl
+			'全队都扑向球但没有一个人能碰到它，对手赢得干净利落的一分。'
+			act '继续': gt 'volleyball_ev', 'point_check'
+		end
+	end
+end
+
+
+!! receive after player''s serve variation
+if $ARGS[0] = 'receive3':
+	act '接扣球':
+		*clr & cla
+		gs 'sweat', 'add', rand(3, 5)
+		vballVars['opp_att_result'] = rand(1, 50) + vballVars['opp_attack'] - vballVars['opp_att_penalty']
+
+		if vballVars['opp_att_result'] < vballVars['team_defense']:
+			vballVars['team_points'] += 1
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/<<rand(1, 3)>>_win.jpg"></center>'
+			'尽管他们接球接得很好，但等他们把球垫起来扣时，你们队已经就位，正好在球前跳起拦网，把他们彻底封死。'
+			*nl
+			'你再次得分，替补席上的队友们欢呼起来！'
+			act '继续': gt 'volleyball_ev', 'point_check'
+
+		elseif rand(1, 75) + rand(20, pcs_vball_rec) - vballVars['exhaust'] > vballVars['opp_att_result'] + 20:
+			gs 'volleyball_ev', 'receive_stats'
+			'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/receive/1.mp4"></video></center>'
+			'尽管他们接球接得很好，你还是完美地看穿了他们的动向，正好移动到球的飞行路线上。球从你的前臂上高高弹起，这是你们队反击的绝佳机会。'
+
+			gs 'volleyball_ev', 'block_follow'
+
+			gs 'volleyball_ev', 'spike2'
+
+		elseif rand(1, 75) + rand(20, pcs_vball_rec) - vballVars['exhaust'] > vballVars['opp_att_result']:
+			gs 'volleyball_ev', 'receive_stats'
+			if rand(0, 1) = 0:
+				vballVars['team_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive1.jpg"></center>'
+				'对手打了你们一个措手不及，将球扣入你们防守的完美空隙。你飞身扑球，伸出手臂，在球触地前勉强将手垫到球下。'
+				*nl
+				'你的队伍因你的鱼跃救球而振作起来，甚至借此得分！他们围成一团抱住你，为你的神奇救球欢呼。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			else
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive1.jpg"></center>'
+				'对手打了你们一个措手不及，将球扣入你们防守的完美空隙。你飞身扑球，伸出手臂，在球触地前勉强将手垫到球下。'
+				*nl
+				'不幸的是，这一切都是徒劳。球从你手上弹起，它太低以致你的队伍不得不将球送过网而没有适当的进攻然后你的对手立即将其扣回。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		else
+			gs 'volleyball_ev', 'receive_stats'
+			if vballVars['service'] = 1: vballVars['service'] = 0
+			vballVars['opp_points'] += 1
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/dive2.jpg"></center>'
+			'对手一记重扣将球扣过网。'
+			*nl
+			'全队都扑向球但没有一个人能碰到它，对手赢得干净利落的一分。'
+			act '继续': gt 'volleyball_ev', 'point_check'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'serve_start':
+	gs 'sweat', 'add', rand(3, 5)
+	vballVars['service'] = 1
+	vballVars['serve'] = rand(1, 75) + rand(20, pcs_vball_serve) - vballVars['exhaust']
+	vballVars['exhaust_temp'] = rand(3, 5)
+	vballVars['exhaust'] += vballVars['exhaust_temp']
+	pcs_stam -= vballVars['exhaust_temp'] * 5
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/serve/pre.jpg"></center>'
+	'你把球捧在手中，缓缓吐气。'
+	*nl
+	'这是比赛的第一分。这一分的结果可能决定整场比赛接下来的走向……'
+	*nl
+	'<i>压力来了…</i>'
+	act '发球':
+		*clr & cla
+		if pcs_vball_serve < 20:
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/serve/jump.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/serve/over.jpg"></center>'
+		end
+		if vballVars['serve'] > vballVars['opp_defense'] + 20:
+			vballVars['team_points'] += 1
+			'你的手猛地向前挥出，与球完美接触，球越过球网，径直飞过对方防守队员。球砰地一声砸在地板上，你的队伍高兴地欢呼起来。'
+			*nl
+			'发球得分！拿下了比赛的第一分！'
+			*nl
+			act '继续': gt 'volleyball_ev', 'point_check'
+
+		elseif vballVars['serve'] > vballVars['opp_defense']:
+			vballVars['opp_att_penalty'] += 20
+			vballVars['opp_att_result'] = rand(1, 50) + vballVars['opp_attack'] - vballVars['opp_att_penalty']
+			'你的手猛地向前挥出，拍中球，球飞过球网。防守队员勉强够到了球，但你的扣球力量太大，他们没能接好。'
+			*nl
+			'尽管如此，他们还是把球垫了起来，看起来他们能组织一次进攻。你冲向防守位置，准备好应对他们可能突破拦网的情况。'
+			gs 'volleyball_ev', 'receive2'
+
+		elseif vballVars['serve'] > vballVars['opp_defense'] - 20:
+			'你的手猛地向前挥出，拍中球，球飞过球网。防守队员早有准备，把球高高垫起。看起来他们会得到一个很好的扣球机会。你迅速进入自己的防守位置，准备接球。'
+
+			gs 'volleyball_ev', 'receive3'
+		else
+			vballVars['opp_points'] += 1
+			if vballVars['service'] = 1: vballVars['service'] = 0
+			if rand(0, 1) = 0:
+				'你的手猛地向前挥出，拍在球上，球径直向前飞进了网里。'
+				*nl
+				'<i>他妈的！一个下网球？！还是比赛的第一分？！</i>'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			else
+				'你的手猛地向前挥出，拍中球，球向前飞去，直接飞出了球场边界。你倒吸一口气，意识到自己的发球让队伍丢了一分。'
+				*nl
+				'<i>他妈的！一个出界的发球？！还是比赛的第一分？！</i>'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'serve':
+	gs 'sweat', 'add', rand(3, 5)
+	vballVars['serve'] = rand(1, 75) + rand(20, pcs_vball_serve) - vballVars['exhaust']
+	vballVars['exhaust_temp'] = rand(3, 5)
+	vballVars['exhaust'] += vballVars['exhaust_temp']
+	pcs_stam -= vballVars['exhaust_temp'] * 5
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/serve/pre.jpg"></center>'
+	if vballVars['service'] = 1:
+		'一名队友把球抛回给你。你闭上眼睛，走一遍发球前的节奏。'
+		*nl
+		'"再来一分！"队友们从替补席朝你喊道。'
+		*nl
+		'你睁开眼，把注意力集中在你打算瞄准的位置。哨声响起，你把球抛向空中，向前助跑，跟着球跳起。'
+	else
+		vballVars['service'] = 1
+		'一名队友把球抛给你。轮到你发球了。'
+		*nl
+		'你闭上眼睛，走一遍发球前的节奏。睁开眼，把注意力集中在你打算瞄准的位置。哨声响起，你把球抛向空中，向前助跑，跟着球跳起。'
+	end
+	act '发球':
+		*clr & cla
+		if pcs_vball_serve < 20:
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/serve/jump.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/serve/over.jpg"></center>'
+		end
+		if vballVars['serve'] > vballVars['opp_defense'] + 20:
+			vballVars['team_points'] += 1
+			'你的手猛地向前挥出，与球完美接触，球越过球网，径直飞过对方防守队员。球砰地一声砸在地板上，你的队伍高兴地欢呼起来。'
+			*nl
+			'发球得分！'
+			*nl
+			act '继续': gt 'volleyball_ev', 'point_check'
+
+		elseif vballVars['serve'] > vballVars['opp_defense']:
+			vballVars['opp_att_penalty'] += 20
+			vballVars['opp_att_result'] = rand(1, 50) + vballVars['opp_attack'] - vballVars['opp_att_penalty']
+			'你的手猛地向前挥出，拍中球，球飞过球网。防守队员勉强够到了球，但你的扣球力量太大，他们没能接好。'
+			*nl
+			'尽管如此，他们还是把球垫了起来，看起来他们能组织一次进攻。你冲向防守位置，准备好应对他们可能突破拦网的情况。'
+			gs 'volleyball_ev', 'receive2'
+
+		elseif vballVars['serve'] > vballVars['opp_defense'] - 20:
+			'你的手猛地向前挥出，拍中球，球飞过球网。防守队员早有准备，把球高高垫起。看起来他们会得到一个很好的扣球机会。你迅速进入自己的防守位置，准备接球。'
+
+			gs 'volleyball_ev', 'receive3'
+		else
+			vballVars['opp_points'] += 1
+			if vballVars['service'] = 1: vballVars['service'] = 0
+			if rand(0, 1) = 0:
+				'你的手猛地向前挥出，拍在球上，球径直向前飞进了网里。你倒吸一口气，意识到自己的发球刚让队伍丢了一分。'
+			else
+				'你的手猛地向前挥出，拍中球，球向前飞去，直接飞出了球场边界。你倒吸一口气，意识到自己的发球让队伍丢了一分。'
+			end
+			*nl
+			if pcs_vball_serve < 35: '<i>天啊，你真的得好好练练发球了……</i>'
+			act '继续': gt 'volleyball_ev', 'point_check'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set':
+	act '准备二传':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/set/<<rand(1, 3)>>.jpg"></center>'
+		vballVars['set'] = rand(1, 50) + vballVars['team_attack'] + rand(20, pcs_vball_set) - vballVars['exhaust']
+		vballVars['exhaust_temp'] = rand(2, 4)
+		vballVars['exhaust'] += vballVars['exhaust_temp']
+		pcs_stam -= vballVars['exhaust_temp'] * 5
+		'你迅速移动到球的下方，把球托向一名队友，为她创造扣球机会。'
+		act '继续':
+			*clr & cla
+			if vballVars['set'] > vballVars['opp_defense']:
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/spike/1.mp4"></video></center>'
+				vballVars['team_points'] += 1
+				'球从你手中飞过球场，落到腾空而起的队友那里。你的托球堪称完美，让她直接把球扣过对手。'
+				*nl
+				'她挥拳庆祝胜利，你和队友们都为她欢呼！'
+				'"好球！好球！"'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			else
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/<<rand(1, 3)>>_win.jpg"></center>'
+				vballVars['opp_points'] += 1
+				'球从你手中飞过球场，落到腾空而起的队友那里。可惜对手看穿了你的意图，及时跳起封死了你队友的扣球。'
+				*nl
+				'她沮丧地尖叫，队友们试着安慰你们两个。'
+				'"没事！没事！下一分我们拿下！"'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+
+!! front line spike
+if $ARGS[0] = 'spike':
+	act '尝试扣球':
+		*clr & cla
+		vballVars['spike'] = rand(1, 75) + rand(20, pcs_vball_spike) - vballVars['exhaust']
+		vballVars['exhaust_temp'] = rand(2, 4)
+		vballVars['exhaust'] += vballVars['exhaust_temp']
+		pcs_stam -= vballVars['exhaust_temp'] * 5
+		'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/spike/run/<<rand(1, 2)>>.jpg"></center>'
+		'你后退一步，然后向前助跑，屈膝、手臂向后摆，准备跃起扣球。'
+		if $vballVars['position'] ! '':
+			'"<<$vballVars[''position'']>>！"你喊着跃入空中。'
+		end
+		act '扣球！':
+			*clr & cla
+			if vballVars['spike'] > vballVars['opp_defense']:
+				vballVars['team_points'] += 1
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/spike/1.mp4"></video></center>'
+				'你把手向前挥出，把球扣过球网，从对手身边飞过，落进对面的场地。'
+				*nl
+				'又得一分！你的队友们为你欢呼。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			elseif vballVars['spike'] > vballVars['opp_defense'] - 20:
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/wait<<rand(1, 2)>>.jpg"></center>'
+				'尽管扣球越过了拦网，对方还是干净利落地接住了你的扣球。你能看到他们已经准备好反击，你需要迅速决定下一步行动。'
+				gs 'volleyball_ev', 'block'
+
+				gs 'volleyball_ev', 'receive'
+			else
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/block/<<rand(1, 3)>>_win.jpg"></center>'
+				'你猛力挥出手臂，将球扣过球网…却正好落进了对方准备好的拦网中。'
+				*nl
+				'球从他们手上弹开直接落入你方场地，使你的队伍失去一分。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+
+!! back line spike
+if $ARGS[0] = 'spike2':
+	act '尝试扣球':
+		*clr & cla
+		vballVars['spike'] = rand(1, 75) + rand(20, pcs_vball_spike) - vballVars['exhaust']
+		vballVars['exhaust_temp'] = rand(2, 4)
+		vballVars['exhaust'] += vballVars['exhaust_temp']
+		pcs_stam -= vballVars['exhaust_temp'] * 5
+		'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/spike/run/<<rand(1, 2)>>.jpg"></center>'
+		'你决定进攻，向前助跑，屈膝、手臂向后摆，准备从后排扣球。'
+		act '扣球！':
+			*clr & cla
+			if vballVars['spike'] > vballVars['opp_defense']:
+				vballVars['team_points'] += 1
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/spike/1.mp4"></video></center>'
+				'你把手向前挥出，把球扣过球网，落进对面的场地。'
+				*nl
+				'又得一分！你的队友们为你欢呼。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			elseif vballVars['spike'] > vballVars['opp_defense'] - 20:
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/wait<<rand(1, 2)>>.jpg"></center>'
+				'尽管扣球越过了拦网，对方还是干净利落地接住了你的扣球。你能看到他们已经准备好反击，你需要迅速决定下一步行动。'
+				gs 'volleyball_ev', 'block'
+
+				gs 'volleyball_ev', 'receive'
+			else
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/<<rand(1, 3)>>_win.jpg"></center>'
+				'你猛力挥出手臂，将球扣过球网…却正好落进了对方准备好的拦网中。'
+				*nl
+				'球从他们手上弹开直接落入你方场地，使你的队伍失去一分。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'spike_fake':
+	act '假装扣球，制造干扰':
+		*clr & cla
+		vballVars['spike'] = rand(1, 50) + vballVars['team_attack'] + rand(20, pcs_vball_spike) - vballVars['exhaust']
+		vballVars['exhaust_temp'] = rand(2, 4)
+		vballVars['exhaust'] += vballVars['exhaust_temp']
+		pcs_stam -= vballVars['exhaust_temp'] * 5
+		!! IMAGE LINK
+		'你决定试着干扰对方，把他们的注意力从真正的扣球手身上引开。'
+		act '起跳！':
+			*clr & cla
+			if vballVars['spike'] > vballVars['opp_defense']:
+				vballVars['team_points'] += 1
+				'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/volleyball/spike/2.mp4"></video></center>'
+				'你向前跑去，装作球真的要传给你，然后朝空无一物的空中跃起。你的假动作太有效了，防守队员都朝你跳了过来，而球却飞给了你们队里完全另一个人，她直接把球扣进场地。'
+				*nl
+				'又得一分！你和队友们为得分的女孩欢呼。'
+				'"好球！"'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			elseif vballVars['spike'] > vballVars['opp_defense'] - 20:
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/wait<<rand(1, 2)>>.jpg"></center>'
+				'你朝空无一物的空中跃起，完全摆出扣球手的姿态，仿佛球真的要传给你。你的起跳骗过了一名防守队员，你的队友把球扣过其他人，但他们还是成功接起了球，把球高高垫到他们那半场。'
+				*nl
+				'球又回来了！你打算怎么拦住它？'
+				gs 'volleyball_ev', 'block'
+
+				gs 'volleyball_ev', 'receive'
+			else
+				vballVars['opp_points'] += 1
+				'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/receive/3_win.jpg"></center>'
+				'你朝空无一物的空中跃起，完全摆出扣球手的姿态，仿佛球真的要传给你。但对方队伍没有一个人上当，他们全都跳到真正接到球的女孩面前，彻底封死了她的扣球。'
+				*nl
+				'球从他们手上弹开直接落入你方场地，使你的队伍失去一分。'
+				act '继续': gt 'volleyball_ev', 'point_check'
+			end
+		end
+	end
+end
+
+!! ---------------------------- AFTER-MATCH ---------------------------------------------------
+
+
+if $ARGS[0] = 'victory':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/match/victory<<rand(1, 2)>>.jpg"></center>'
+	vballVars['result'] = 1
+	vballVars['wins'] += 1
+	$vballVars['match_result_<<vballVars[''opponent'']>>'] = 'victory'
+	'胜利！'
+	*nl
+	'比赛结束，记分牌显示25比<<vballVars[''opp_points''] * 5 + rand(0, 4)>>. 你赢了！'
+	*nl
+	'"我们做到了！"你欢呼道，全队聚在一起抱成一团。'
+	'"好了，姑娘们，干得漂亮！"米哈伊尔教练祝贺你们。"现在收拾东西吧。别落下任何东西。你们都可以回社区中心再洗澡。"'
+	'"是，教练！"全队齐声回答，然后迅速散开去执行他的命令。'
+
+	minut += rand(0, 60)
+	gs 'exercise', 'tier2', 40, 'vball'
+	gs 'exercise', 'tier2', 20, 'vball', 'stren', 'agil', 'vital', 'react', 'prcptn'
+	gs 'fame', 'pav', 'volleyball', 'medium'
+	gs 'stat'
+	act '收拾东西开车回去': gt 'volleyball_ev', 'drive_back'
+end
+
+
+if $ARGS[0] = 'defeat':
+	'<center><img <<$set_imgh>> src="images/pc/activities/volleyball/match/defeat1.jpg"></center>'
+	$vballVars['match_result_<<vballVars[''opponent'']>>'] = 'defeat'
+	vballVars['result'] = -1
+	vballVars['losses'] += 1
+	'比赛结束，记分牌显示<<(vballVars[''team_points''] * 5) + rand(0, 4)>>比25. 你的队伍……输了。'
+	*nl
+	'你们走下球场时，队里传来轻轻的抽泣声，有些女孩在擦眼泪，另一些则努力忍住哭声。'
+	'"姑娘们，刚才拼得很不错，"米哈伊尔教练说。"我们之后再谈哪里出了问题、哪里可以改进。下次我们会赢回来的。但现在，我们得收拾东西了。别落下任何东西。你们都可以回社区中心再洗澡。"'
+	'"是，教练，"全队沮丧地、慢吞吞地散开去执行他的命令。'
+
+	minut += rand(0, 60)
+	gs 'exercise', 'tier2', 40, 'vball'
+	gs 'exercise', 'tier2', 20, 'vball', 'stren', 'agil', 'vital', 'react', 'prcptn'
+	gs 'fame', 'pav', 'volleyball', 'small'
+	gs 'stat'
+	act '收拾东西开车回去': gt 'volleyball_ev', 'drive_back'
+end
+
+
+if $ARGS[0] = 'drive_back':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/dk.jpg"></center>'
+	'队伍挤上大巴，20 分钟后，你们都回到了社区中心。'
+	minut += 20
+	gs 'stat'
+	act '继续': gt 'gdksport', 'start'
+	if vballVars['coachsex'] >= 6 or npc_rel['A69'] >= 90:
+		if vballVars['result'] = -1:
+			act '去找米哈伊尔寻求安慰（性爱）': gt 'volley_coach', 'comfort_sex1'
+		elseif vballVars['result'] = 1:
+			act '和米哈伊尔一起庆祝（性爱）': gt 'volley_coach', 'victory_sex1'
+		end
+	end
+end
+
+
+--- volleyball_ev ---------------------------------

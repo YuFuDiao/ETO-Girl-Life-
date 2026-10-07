@@ -1,0 +1,1081 @@
+# body
+!{
+	bodyVars['wratio'] = waist to hips ratio set in body_shape
+	bodyVars['bratio'] = band to waist ratio set in body_shape
+	bodyVars['hratio'] = hip to height ratio set in body_shape
+	bodyVars['vofat'] = used as a place to put extra pcs_mass['body'] at extreme high values (i.e. really, really fat) set in body_shape
+
+	pcs_mass['body'] = your body weight. 60 is the weight at which your assest reach their genetic potential.
+	pcs_mass['bust'] = starts at a set genetic bust size, but can be adjusted down if pcs_mass['body'] drops too low
+	pcs_mass['bust_gen'] = the set genetic bust size
+	pcs_mass['butt'] = starts at a set genetic butt size, but can be adjusted down if pcs_mass['body'] drops too low
+	pcs_mass['butt_gen'] = the set genetic bust size
+
+	bodyVars['bust_magic'] = set in body_shape for the fat moved to bust
+	bodyVars['bust_silicone'] = bust bonus due to implants
+	bodyVars['bust_bonus'] = permanent additions to bust-size
+	bodyVars['bust_other'] = other additions to bust-size, degenerates over time, including breast creams
+	bodyVars['bust_lact'] = bust bonus due to lactation
+
+	bodyVars['butt_silicone'] = butt bonus due to implants
+	bodyVars['butt_bonus'] = permanent additions to butt-size
+	bodyVars['butt_other'] = other additions to butt-size, degenerates over time, inlcuding the KBI treatment
+
+	bodyVars['vhips'] = derived from pcs_mass['body'] and pcs_mass['butt'] in body_shape
+	vhtmp = slows the change to vhips in body_shape
+
+	magf2bdo = flag for magic bust increase; 0, ready; 1, do it; 2, ask; 3, no
+	mgf2bnocnt = used to count the number of times a bust increase was turned down and stop asking after 3
+	magtarcup = set in the dream code as the target cup size
+	bodyVars['weight_warning'] = used to flag if to display the gaining/losing weight message when bathing
+	bodyresetflag = used to prevent a code chunk from firing on a soft or hard reset
+	Image set variables
+		cheatVars['fix_bodyimg'] = flag to indicate set control override, 0 is use the formula to pick a set, 1 is use a fixed set
+		cheatVars['fix_bi_set'] = the identification number of the fixed image set
+		extended lash functionality; pcs_lashes = n are: {2, largest natural size}, {3, with temporary false lashes on or basic 2D lash extensions}, {4, with ornate false lashes on or lavish 4D extensions}, {5, with extremely ornate, 6D-style extensions} - xerya
+
+	Pregnancy weight gain:
+	pcs_mass['preg'] = mass from pregnancy
+		distributed on a 20/80 ratio between bust and body
+		Weight gain in the first 5 weeks (roughly pregChem < 800. -> Pregtime = pregChem / 24) is negligable
+		Afterwards we approximate the weight gain as mass = ((pregChem - 800)^2 * 33 / (7000 - 800)^2) approx (pregChem - 800)^2 / (1080)^2
+!}
+
+
+if $ARGS[0] = 'RegularUpdate':
+	if dounspell = 0:
+		gs 'body', 'UpdateBodyMeasurement'
+		temp_weight = func('body', 'CalcWeight2')
+		pcs_weight[0] = temp_weight / 10
+		pcs_weight[1] = temp_weight mod 10
+
+		temp_bmi = func('body', 'CalcBMI2')
+		pcs_bmi[0] = temp_bmi / 10
+		pcs_bmi[1] = temp_bmi mod 10
+
+		killvar 'temp_weight'
+		killvar 'temp_bmi'
+	end
+
+	if pcs_skin > 1000:
+		pcs_skin = 1000
+	elseif pcs_skin < 0:
+		pcs_skin = 0
+	end
+
+	!! Setting max clit size so as to avoid ridiculous sizes
+	if clit_size > 100: clit_size = 100
+	exit
+end
+
+
+if $ARGS[0] = 'UpdateBodyMeasurement':
+	pcs_hips	= (pcs_hgt * bodyVars['hratio']) / 100 + bodyVars['vhips']
+	pcs_waist	= (pcs_hips * bodyVars['wratio']) / 100 + bodyVars['vofat']
+	pcs_band	= (pcs_waist * bodyVars['bratio']) / 100 + bodyVars['vofat']
+	pcs_bust	= (pcs_waist * bodyVars['bratio']) / 100 + pcs_mass['bust'] + bodyVars['bust_bonus'] + bodyVars['bust_silicone'] + min(max(-10, bodyVars['bust_other']), 10) + bodyVars['bust_magic'] + (pcs_mass['preg'] + 2) / 5 + bodyVars['bust_lact']
+	pcs_butt	= pcs_hips + min(pcs_mass['butt'], 50) + bodyVars['butt_bonus'] + bodyVars['butt_silicone'] + min(max(-10, bodyVars['butt_other']), 10) + pcs_butt_tr / 2
+
+	!! pcs_cupsize = pcs_mass['bust'] + bodyVars['bust_bonus'] + bodyVars['bust_silicone'] + max(-10, min(bodyVars['bust_other'], 10)) + bodyVars['bust_magic'] + pcs_mass['preg'] / 5 + bodyVars['bust_lact'] - bodyVars['vofat']
+	pcs_cupsize = pcs_bust - pcs_band
+	!! pcs_buttsize = min(pcs_mass['butt'], 50) + bodyVars['butt_bonus'] + bodyVars['butt_silicone'] + max(-10, min(bodyVars['butt_other'], 10)) + pcs_butt_tr / 2
+	pcs_buttsize = pcs_butt - pcs_hips
+	exit
+end
+
+
+if $ARGS[0] = 'CalcWeight':
+	!{pcs_weight: Svetas weight in kg
+	Optimal Weight (170cm): 60kg, 60 pcs_mass['body']
+	This is an approximation, so that a sveta with a different height has the same BMI for the same pcs_mass['body'] values.
+	The default height of 170 cm is used as a starting point. The bmi deviates by 0.06 for a deviation of 10cm and 0.4 for a deviation of 20cm. !}
+
+	result = (2820 + 33 * (pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt'] + (4 * pcs_mass['preg'] + 2) / 5) + 70 * (pcs_hgt - 165)) / 100
+
+	!{Do not remove (julzor)
+	This is the old more complex function, but it doesn''t work correctly.
+	This variable is actually only used ONCE (except for the BMI calculation), when stripping, to see if you fall off the pole from being too heavy. I am reluctant to touch it, since the math is not explained. Maybe later.
+	Weight = (height in cm) x (bottom of average weight in kilos for a 170cm female) / 170cm + (hip modifier + 2 x overrun fat)/4 + cup size !}
+
+	!! result = (pcs_hgt * 62 / 170) + (vhips + (bodyVars['vofat'] * 2)) / 4 + tits
+	exit
+end
+
+
+if $ARGS[0] = 'CalcWeight2':
+	!! weight2 = 10 * weight
+	result = (2820 + 33 * (pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt'] + (4 * pcs_mass['preg'] + 2) / 5) + 70 * (pcs_hgt - 165)) / 10
+	!! result = (pcs_hgt * 62 / 17) + (10 * (vhips + (bodyVars['vofat'] * 2))) / 4 + 10 * tits
+	exit
+end
+
+
+if $ARGS[0] = 'CalcBMI':
+	!! BMI = weight [kg] / (height [m])^2 = 100^2 * weight [kg] / (height [cm])^2
+	result = (1000 * (10 * pcs_weight[0] + pcs_weight[1])) / (pcs_hgt * pcs_hgt)
+	exit
+end
+
+
+if $ARGS[0] = 'CalcBMI2':
+	!! BMI2 = 10 * BMI
+	result = (10000 * (10 * pcs_weight[0] + pcs_weight[1])) / (pcs_hgt * pcs_hgt)
+	exit
+end
+
+
+if $ARGS[0] = 'CalcOptBodyMass':
+	if ARGS[1] = 0: ARGS[1] = 225
+	result = ((pcs_hgt * pcs_hgt * ARGS[1]) - 2820000 - 70000 * (pcs_hgt - 165)) / (550 * (60 + pcs_mass['bust_gen'] + pcs_mass['butt_gen']))
+	exit
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            Daily Update                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'DailyUpdate':
+	!! Update once a day and called from cikl
+
+	if dounspell ! 1:
+		gs 'body', 'Update_Body'
+	else
+		if strenbuf > 90:
+			strenbuf -= 2
+		elseif strenbuf > 80:
+			strenbuf -= 1
+		end
+
+		if vitalbuf > 90:
+			vitalbuf -= 2
+		elseif vitalbuf > 80:
+			vitalbuf -= 1
+		end
+
+		gs 'body', 'Update_StatBuffs'
+	end
+
+	gs 'body', 'RegularUpdate'
+
+	gs 'body', 'Update_daily_body_other'
+
+	gs 'body', 'Update_Eyelashes'
+	gs 'body', 'Update_Hair'
+	gs 'body', 'Update_Pubes_and_leghair'
+
+
+	if mc_inventory['scrunchies'] > 0 and rand(1, 100) <= 8:
+		mc_inventory['scrunchies'] -= 1
+	end
+
+	if skinDailyPenalty	< 0: skinDailyPenalty = 0
+	if skinDailyGain	< 0: skinDailyGain = 0
+
+	if pcs_skin <= 300:
+		pcs_skin += min(skinDailyGain * 2, 20)	- skinDailyPenalty - 1
+	elseif pcs_skin <= 600:
+		pcs_skin += min(skinDailyGain, 10)		- skinDailyPenalty - 1
+	elseif pcs_skin <= 800:
+		pcs_skin += min(skinDailyGain / 2, 5)	- skinDailyPenalty - 1
+	elseif pcs_skin <= 900:
+		pcs_skin += min(skinDailyGain / 3, 3)	- skinDailyPenalty - 1
+	elseif pcs_skin <= 1000:
+		pcs_skin += min(skinDailyGain / 5, 2)	- skinDailyPenalty - 1
+	end
+
+	gs 'body', 'Update_Teeth'
+
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'body', 'Update_Appearance'
+	gs 'body', 'UpdateBodyImage'
+
+	!! skin variable reset
+	killvar 'moisturizerDailyCount'
+	killvar 'skinDailyGain'
+	killvar 'skinDailyPenalty'
+	exit
+end
+
+
+if $ARGS[0] = 'Update_Appearance':
+	gs 'AppearanceSystem'
+	gs 'body_desc'
+	exit
+end
+
+
+	!! -------------------------    UPDATE images   -------------------------!!
+
+
+if $ARGS[0] = 'UpdateBodyImage':
+	!! Update body image set
+
+	$bodyVars['desc']		= $func('body_structure', 'body_desc')
+	$bodyVars['bmi_desc']	= $func('body_structure', 'bmi_desc')
+	$bodyVars['img']		= $func('body_structure', 'body_img')
+	exit
+end
+
+
+
+	!! -------------------------    UPDATE eyelashes, hair, pubes, teeth   -------------------------!!
+
+
+if $ARGS[0] = 'Update_Eyelashes':
+	!! ---- Calculation of lash extension degradation and false lash removal
+	if pcs_lashes > 2:
+		if lashextensionstyle >= 1:
+			lashextensionduration -= 1
+			if lashextensionduration >= 1 and lashextensionduration <= 4:
+				'该给你的睫毛做保养了；你最好去美容院，否则它们可能会全部长歪脱落。'
+			end
+			if lashextensionduration <= 0:
+				'你拖得太久没给睫毛做保养了；现在剩下的太少，几乎看不出来，也没法补救了。'
+				pcs_lashes = pcs_naturallashes
+				killvar 'lashextensionstyle'
+				killvar 'lashextensionduration'
+				killvar 'lashextensionnew'
+			end
+		end
+		if false_lashes > 0:
+			false_lashes -= 1
+			if false_lashes = 0:
+				'你的假睫毛在夜里掉了下来；现在已经找不回来了。'
+				pcs_lashes = pcs_naturallashes
+			else
+				'不知怎么的，你的假睫毛整晚都好好地粘着。也许你还能再多戴一天。'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Update_Hair':
+	!! Max. Hair length 600mm, or 60cm, which should be somewhere in the lower back area.
+	!! Hair grows 1mm each day, it takes 20 months (1 month = 30 days) to regrow the hair from 0.
+	if pcs_hairlng <= 1000 and hairgrowcht = 0:
+		if trait_vars['hair_growth_rate'] = 0 or cheatVars['hair_growth_rate_disabled'] = 1:
+			pcs_hairlng += 1
+		elseif trait_vars['hair_growth_rate'] = 1:
+			pcs_hairlng += rand(1, 2)
+		elseif trait_vars['hair_growth_rate'] = -1:
+			pcs_hairlng += iif(rand(0, 2) = 0, 0, 1)
+		end
+	end
+
+	!! Hair colour change
+	if pcs_haircol ! nathcol and dyefade > 0:
+		dyefade -= 1
+	end
+
+	!! daily reduction of braids
+	if hbraids > 0: hbraids -= 1
+
+	!! loss of updo if hair too long
+	if pcs_hairlng > 400 and hpingripw = 1:
+		hpingripw = 0
+	end
+
+	!! loss of pigtails if hair too long
+	if pcs_hairlng > 800 and hscrunchw = 2 = 1:
+		hpigtail = 0
+		hscrunchw = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Update_Pubes_and_leghair':
+	!! pubic hair colouring
+	!! pcs_pubecol[0] = natural colour
+	!! pcs_pubecol[1] = flag for saveupdate
+	!! pcs_pubecol[2] = actual colour
+	!! pcs_pubecol[3] = countdown timer for dye
+	if pcs_pubecol[2] ! pcs_pubecol[0]:
+		if pcs_pubecol[3] > 0: pcs_pubecol[3] -= 1
+		if pcs_pubecol[3] = 0: pcs_pubecol[2] = pcs_pubecol[0]
+	end
+
+	if pcs_pubes < 2: pcs_pubecol[2] = pcs_pubecol[0]
+
+	!! 33% change to shrink leghair if underage? Simulate slower growth?
+	if age < 18 and rand(0, 2) = 0 and pcs_leghair > 0:
+		pcs_leghair -= 1
+	end
+
+	!! Leg and pubes hair growth
+	!! disabled for testing hourly growth instead
+	!!{if lashair ! 1:
+		pcs_leghair += 1
+		!!Pubic hair growth at 1/2 per night
+		if pcs_pubes['growth'] > 1:
+			pcs_pubes['growth'] = 0
+			pcs_pubes += 1
+		end
+		pcs_pubes['growth'] += 1
+		gs 'body_desc', 'pube_desc_update'
+	end !}
+	exit
+end
+
+
+if $ARGS[0] = 'Update_Teeth':
+	if pcs_teeth < 0:
+		!! Daly degradation of perfect white teeth
+		tempteeth = 1
+		if teeth['caffe_or_tea'] > 8: tempteeth += 1
+		if teeth['smoked'] > 1: tempteeth += 1
+		tempteeth -= min(teeth['brushed'], 3)
+		teeth['degradation'] += max(0, tempteeth)
+		killvar 'tempteeth'
+
+		teeth['caffe_or_tea'] = 0
+		teeth['smoked'] = 0
+		teeth['brushed'] = 0
+
+		if teeth['degradation'] > 60:
+			!! After a certain time of not taking care of your teeth you will loose you perfect white smile.
+			teeth['degradation'] = 0
+			pcs_teeth = 0
+		elseif teeth['degradation'] < 0:
+			teeth['degradation'] = 0
+		end
+	end
+	exit
+end
+
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            Update Body                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'Update_Body':
+	gs 'body', 'Update_StatBuffs'
+	pcs_mass['body_last'] = pcs_mass['body']
+
+	!! pcs_mass['body'] Handling; the first part is because during a reset fat is not used and should be cleared
+	if bodyresetflag = 1 or cheatVars['fat'] = 1:
+		fat = 0
+	else
+		if pregChem >= 800 and (pregChem - 800)*(pregChem - 800) >= bodyVars['pchem_next']:
+			pcs_mass['preg'] += 1
+			bodyVars['pchem_next'] += 1166400	& !! 1080 * 1080
+		elseif pcs_mass['preg'] > 0 and (recovH <= bodyVars['recovH'] and (pregChem < 800 or bodyVars['pchem_next'] - 1166400 >= (pregChem - 800)*(pregChem - 800))):
+			pcs_mass['preg'] -= 1
+			if rand(0, 1) = 0: pcs_mass['body'] += 1
+			if pcs_mass['preg'] > 0:
+				bodyVars['pchem_next'] -= 1166400	& !! 1080 * 1080
+				bodyVars['recovH_next'] = bodyVars['recovH_next'] * (pcs_mass['preg'] - 1) / pcs_mass['preg']
+			end
+		elseif pcs_mass['preg'] <= 0:
+			pcs_mass['preg'] = 0
+			bodyVars['pchem_next'] = 0
+			bodyVars['recovH_next'] = 0
+		end
+		if pregChem >= 800:
+			if fat > (15 + vitalbuf / 20):
+				pcs_mass['body'] += 1
+				fat = 0
+			elseif fat < -(10 + vitalbuf / 10):
+				pcs_mass['body'] -= 1
+				fat = 0
+			else
+				if fat < 0:
+					fat /= 2
+				else
+					fat /= 6
+				end
+			end
+		else
+			if fat > (20 + vitalbuf / 10):
+				pcs_mass['body'] += 1
+				fat = 0
+			elseif fat < -(5 + vitalbuf / 10):
+				pcs_mass['body'] -= 1
+				fat = 0
+			else
+				fat /= 4
+			end
+		end
+	end
+
+	!! This is the pcs_mass['body'] cap for the weight approximation
+	if pcs_mass['body'] > 200: pcs_mass['body'] = 200
+
+
+
+	!! All the ratios were rounded to 2 digits and there are divide 100s at the final calc points
+	gs 'body', 'Find_waist_to_hip_ratio'
+	gs 'body', 'Find_band_to_waist_ratio'
+	gs 'body', 'Find_hip_to_height_ratio'
+
+	gs 'body', 'Redistribute_Mass'
+
+
+	!! This is if pcs_mass['body'] is < 1
+
+	!! This is if a Succubus has pcs_mass['body'] < 1
+	if pcs_mass['body'] < 1 and succubusflag = 1:
+		sucexcess -= 1
+		pcs_mass['body'] += 3
+	end
+	if pcs_mass['body'] < 1 and fat >= 1:
+		if fat + pcs_mass['body'] >= 1:
+			fat -= 1 - pcs_mass['body']
+			pcs_mass['body'] = 1
+		else
+			pcs_mass['body'] += fat
+			fat = 0
+		end
+	end
+	if pcs_mass['body'] < 1:
+		if pcs_stren + pcs_vital > 0:
+			gs 'exp_deg', 'stren', 1000
+			gs 'exp_deg', 'vital', 1000
+			pcs_mass['body'] = 1
+		else
+			gs 'gameover', 'check', 3
+			pl '<font color=red><b>你饿死了，但作弊模式让你活了下来。</b></font>'
+			pcs_mass['body'] = 1
+		end
+	end
+
+	gs 'body', 'Update_vhips'
+
+	!! This will trigger the warning notices in the bathing code (the +/- 12 should always be +/- 11 + the max change to pcs_mass['body'] w/ fat)
+	temp_total_mass = pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt']
+	if temp_total_mass <= pcs_mass['body_message'] - 6:
+		bodyVars['weight_warning'] = 1
+		pcs_mass['body_message'] = temp_total_mass
+	elseif temp_total_mass >= pcs_mass['body_message'] + 6:
+		bodyVars['weight_warning'] = 2
+		pcs_mass['body_message'] = temp_total_mass
+	end
+	killvar 'temp_total_mass'
+
+	!! Setting the pcs_apprnc bonus based on fat and strength
+	temp_bmi = func('body', 'CalcBMI2')
+	pcs_bmi[0] = temp_bmi / 10
+	pcs_bmi[1] = temp_bmi mod 10
+	killvar 'temp_bmi'
+
+	!! This will trigger the dream for the option to use magic to increase bust
+	!! Three nos at the dream will lock it out (1 yes resets the count)
+	if pcs_magik >= 5 and $start_type['magic'] <> 'nomagic' and magf2bdo = 0:
+		if tits < 10 and pcs_mass['body'] > pcs_mass['body_last'] and pcs_bmi > 17:
+			if mgf2bnocnt < 3:
+				magf2bdo = 2
+			else
+				magf2bdo = 3 & killvar 'mgf2bnocnt'
+			end
+		end
+	end
+
+	!! This is to clean up unused variables
+	killvar 'normbuffpick'
+	killvar 'nrmbfpckct'
+	killvar 'vmeat'
+	killvar 'vfat'
+	killvar 'Kves'
+	killvar 'krost'
+	killvar 'koefvesbt'
+	killvar 'koefbt'
+	exit
+end
+
+
+	!! -------------------------    BUFFS    -------------------------!!
+
+
+if $ARGS[0] = 'Update_StatBuffs':
+	!! This controls the gradual change in stat to -buf
+	if strenbuf > pcs_stren:
+		strenbuf -= 1
+	elseif strenbuf < pcs_stren:
+		strenbuf += 1
+	end
+
+	if vitalbuf > pcs_vital:
+		vitalbuf -= 1
+	elseif vitalbuf < pcs_vital:
+		vitalbuf += 1
+	end
+
+	if agilbuf > pcs_agil:
+		agilbuf -= 1
+	elseif agilbuf < pcs_agil:
+		agilbuf += 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Update_daily_body_other':
+	if bodyVars['bust_other'] ! 0:
+		if daystart mod 10 = 0:
+			if bodyVars['bust_other'] > 0:
+				bodyVars['bust_other'] -= 1
+			else
+				bodyVars['bust_other'] += 1
+			end
+		end
+	end
+
+	if bodyVars['butt_other'] ! 0:
+		if daystart mod 15 = 0:
+			if bodyVars['butt_other'] > 0:
+				bodyVars['butt_other'] -= 1
+			else
+				bodyVars['butt_other'] += 1
+			end
+		end
+	end
+	exit
+end
+
+
+	!! -------------------------    RATIOS    -------------------------!!
+
+!! All the ratios were rounded to 2 digits and there are divide 100s at the final calc points
+
+
+!! Lies between 65 and 96
+if $ARGS[0] = 'Find_waist_to_hip_ratio':
+	temp_wratio = (2 * vitalbuf + strenbuf + agilbuf) / 4
+
+	!! Primary bodyVars['wratio'] handling
+	if temp_wratio < 11:
+		bodyVars['wratio'] = 85 + (11 - (vitalbuf + strenbuf + agilbuf) / 3)
+	elseif temp_wratio < 20:
+		bodyVars['wratio'] = 85
+	elseif temp_wratio < 35:
+		bodyVars['wratio'] = 85 - (temp_wratio - 20) / 3
+	elseif temp_wratio < 55:
+		bodyVars['wratio'] = 80 - (temp_wratio - 35) / 4
+	elseif temp_wratio < 80:
+		bodyVars['wratio'] = 75 - (temp_wratio - 55) / 5
+	elseif temp_wratio >= 80:
+		bodyVars['wratio'] = 70
+	end
+
+	!!	High stat value edge case handling
+	if (vitalbuf + strenbuf + agilbuf) / 3 > 100:
+		bodyVars['wratio'] += (2 * agilbuf - vitalbuf - strenbuf) / 10
+	end
+
+	!!	This is the oops and high stat gone overboard handling
+	if bodyVars['wratio'] < 65: bodyVars['wratio'] = 65
+
+	killvar 'temp_wratio'
+	exit
+
+!! Lies between 105 and 125
+elseif $ARGS[0] = 'Find_band_to_waist_ratio':
+	temp_bratio = (2 * strenbuf + vitalbuf + agilbuf) / 4
+
+	if temp_bratio < 10:
+		bodyVars['bratio'] = 105
+	elseif temp_bratio <= 23:
+		bodyVars['bratio'] = 106
+	elseif temp_bratio <= 80:
+		bodyVars['bratio'] = 106 + (temp_bratio - 23) / 3
+	else
+		bodyVars['bratio'] = 125
+	end
+
+	killvar 'temp_bratio'
+	exit
+
+!! Lies between 56 and 60
+elseif $ARGS[0] = 'Find_hip_to_height_ratio':
+	temp_hratio = (2 * agilbuf + vitalbuf + strenbuf) / 4
+
+	if temp_hratio < 35:
+		bodyVars['hratio'] = 60
+	elseif temp_hratio < 45:
+		bodyVars['hratio'] = 59
+	elseif temp_hratio < 60:
+		bodyVars['hratio'] = 58
+	elseif temp_hratio < 80:
+		bodyVars['hratio'] = 57
+	else
+		bodyVars['hratio'] = 56
+	end
+
+	killvar 'temp_hratio'
+	exit
+end
+
+
+!! Deprecated
+if $ARGS[0] = 'Calc_salocat':
+	!! This calculates the current pcs_mass['body'] category; ranges are 20 points, seemed to balance best if the range is x10 the hip devisor
+	if pcs_mass['body'] + pcs_mass['butt'] < 10:
+		result = 0
+	else
+		result = (pcs_mass['body'] + pcs_mass['butt'] + 10) / 20
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Redistribute_Mass':
+	!! This resets the genetic bust size (pcs_mass['bust_gen']) when the cheat is used to reduce breast size (maybe other things later)
+	if titreduc = 1:
+		killvar 'titreduc'
+		if pcs_mass['bust_gen'] > pcs_mass['bust']:
+			pcs_mass['bust_gen'] = pcs_mass['bust'] + 2 - pcs_mass['bust'] mod 5
+		end
+	end
+
+	if assreduc = 1:
+		killvar 'assreduc'
+		if pcs_mass['butt_gen'] > pcs_mass['butt']:
+			pcs_mass['butt_gen'] = pcs_mass['butt'] + 2 - pcs_mass['butt'] mod 5
+		end
+	end
+
+	if salobustdo = 0 and cheatVars['body_staticAssets'] = 0:
+		gs 'body', 'Redistribute_Mass_Inner'
+		gs 'body', 'Redistribute_Mass_set_message'
+	end
+
+	gs 'body', 'Update_vhips'
+
+	killvar 'salobustdo'
+	exit
+end
+
+
+if $ARGS[0] = 'Redistribute_Mass_Inner':
+	!! ===============    MAGIC    ===============!!
+	if $start_type['magic'] <> 'nomagic' and magf2bdo = 1 and daystart > pcs_mass['magic_day'] and pcs_mana >= manamax / 2:
+		bodyVars['bust_magic'] += 1
+		if pcs_mass['body'] >= 80: pcs_mass['body'] -= 3
+
+		pcs_mass['magic_day'] = daystart + rand(7, 14)
+
+		if bodyVars['bust_magic'] >= 2 + magtarcup * 5: magf2bdo = 0
+		pcs_mana -= max(100, 2000 / pcs_magik)
+	end
+
+	!! ===============    Low Weight    ===============!!
+	if pcs_mass['body'] < 10:
+		temp_diff = min(pcs_mass['bust'], 3)
+		pcs_mass['bust'] -= temp_diff
+		pcs_mass['body'] += temp_diff
+
+		temp_diff = min(pcs_mass['butt'], 3)
+		pcs_mass['butt'] -= temp_diff
+		pcs_mass['body'] += temp_diff
+		exit
+	end
+
+
+
+	temp_total_mass = pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt']
+	temp_tot_gen_mass = 60 + pcs_mass['bust_gen'] + pcs_mass['butt_gen']
+
+	!! ===============    Bust    ===============!!
+	temp_mass_bust = (pcs_mass['bust_gen'] * temp_total_mass) / temp_tot_gen_mass
+
+		!! ----------- Small -----------!!
+	if temp_total_mass >= temp_tot_gen_mass - 10 and pcs_mass['bust'] < pcs_mass['bust_gen']:
+		temp_diff = min(pcs_mass['bust_gen'] - pcs_mass['bust'], 2)
+		pcs_mass['bust'] += temp_diff
+		pcs_mass['body'] -= temp_diff
+
+	elseif temp_total_mass >= temp_tot_gen_mass - 10 and temp_total_mass <= temp_tot_gen_mass and pcs_mass['bust'] = pcs_mass['bust_gen']:
+		!! Keep bust at genetic level if pcs_mass['body'] >= 50 and pcs_mass['body'] <= 60
+
+		!! -----------    Growth    -----------!!
+	elseif temp_mass_bust > pcs_mass['bust']:
+		pcs_mass['bust'] += 1
+		pcs_mass['body'] -= 1
+
+		!! -----------    Shrink    -----------!!
+	elseif temp_mass_bust < pcs_mass['bust'] and pcs_mass['bust'] > 0:
+		pcs_mass['bust'] -= 1
+		pcs_mass['body'] += 1
+	end
+
+
+	!! ===============    Ass    ===============!!
+	temp_mass_ass = (pcs_mass['butt_gen'] * temp_total_mass) / temp_tot_gen_mass
+
+		!! ----------- Small -----------!!
+	if temp_total_mass >= temp_tot_gen_mass - 10 and pcs_mass['butt'] < pcs_mass['butt_gen']:
+		temp_diff = min(pcs_mass['butt_gen'] - pcs_mass['butt'], 2)
+		pcs_mass['butt'] += temp_diff
+		pcs_mass['body'] -= temp_diff
+
+	elseif temp_total_mass >= temp_tot_gen_mass - 10 and temp_total_mass <= temp_tot_gen_mass and pcs_mass['butt'] = pcs_mass['butt_gen']:
+		!! Keep butt at genetic level if pcs_mass['body'] >= 50 and pcs_mass['body'] <= 60
+
+		!! -----------    Growth    -----------!!
+	elseif temp_mass_ass > pcs_mass['butt']:
+		pcs_mass['butt'] += 1
+		pcs_mass['body'] -= 1
+
+		!! -----------    Shrink    -----------!!
+	elseif temp_mass_ass < pcs_mass['butt'] and pcs_mass['butt'] > 0:
+		pcs_mass['butt'] -= 1
+		pcs_mass['body'] += 1
+	end
+
+	killvar 'temp_total_mass'
+	killvar 'temp_tot_gen_mass'
+	killvar 'temp_mass_bust'
+	killvar 'temp_mass_ass'
+	killvar 'temp_diff'
+	exit
+end
+
+
+if $ARGS[0] = 'Redistribute_Mass_set_message':
+	if bodyresetflag ! 0:
+		pcs_mass['bust_message'] = pcs_mass['bust']
+		pcs_mass['butt_message'] = pcs_mass['butt']
+		exit
+	end
+
+	if pcs_mass['bust'] > pcs_mass['bust_message'] + 3:
+		pcs_mass['bust_message'] = pcs_mass['bust']
+
+		if pcs_mass['butt'] > pcs_mass['butt_message'] + 3:
+			pcs_mass['butt_message'] = pcs_mass['butt']
+			'<b>你的胸部和屁股似乎更丰满了</b>'
+
+		elseif pcs_mass['butt'] < pcs_mass['butt_message'] - 3:
+			pcs_mass['butt_message'] = pcs_mass['butt']
+			'<b>你的胸部似乎更丰满了，屁股似乎在变小</b>'
+
+		else
+			'<b>你的胸部似乎更丰满了</b>'
+		end
+
+	elseif pcs_mass['bust'] < pcs_mass['bust_message'] - 3:
+		pcs_mass['bust_message'] = pcs_mass['bust']
+
+		if pcs_mass['butt'] > pcs_mass['butt_message'] + 3:
+			pcs_mass['butt_message'] = pcs_mass['butt']
+			'<b>你的胸部似乎在变小，屁股似乎更丰满了</b>'
+
+		elseif pcs_mass['butt'] < pcs_mass['butt_message'] - 3:
+			pcs_mass['butt_message'] = pcs_mass['butt']
+			'<b>你的胸部和屁股似乎在变小</b>'
+
+		else
+			'<b>你的胸部似乎在变小</b>'
+		end
+
+	else
+		if pcs_mass['butt'] > pcs_mass['butt_message'] + 3:
+			pcs_mass['butt_message'] = pcs_mass['butt']
+			'<b>你的屁股似乎更丰满了</b>'
+
+		elseif pcs_mass['butt'] < pcs_mass['butt_message'] - 3:
+			pcs_mass['butt_message'] = pcs_mass['butt']
+			'<b>你的屁股似乎在变小</b>'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Reset_mass_distribution':
+	temp_total_mass = pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt']
+	temp_total_gen_mass = 60 + pcs_mass['bust_gen'] + pcs_mass['butt_gen']
+
+	if temp_total_mass >= temp_total_gen_mass - 10 and temp_total_mass <= temp_total_gen_mass:
+		pcs_mass['bust'] = pcs_mass['bust_gen']
+		pcs_mass['butt'] = pcs_mass['butt_gen']
+	else
+		pcs_mass['bust'] = (pcs_mass['bust_gen'] * temp_total_mass) / temp_total_gen_mass
+		pcs_mass['butt'] = (pcs_mass['butt_gen'] * temp_total_mass) / temp_total_gen_mass
+	end
+
+	pcs_mass['body'] = temp_total_mass - pcs_mass['bust'] - pcs_mass['butt']
+
+	pcs_mass['body_message'] = temp_total_mass
+	pcs_mass['bust_message'] = pcs_mass['bust']
+	pcs_mass['butt_message'] = pcs_mass['butt']
+
+	bodyVars['vhips'] = (pcs_mass['body'] + pcs_mass['butt'] - 80) / 2
+
+	killvar 'temp_total_mass'
+	killvar 'temp_total_gen_mass'
+	exit
+end
+
+
+if $ARGS[0] = 'Reset_preg_mass':
+	bodyVars['pchem_next'] = 0
+	pcs_mass['preg'] = 0
+	:set_preg_body_loop
+	if pregChem >= 800 and (pregChem - 800) * (pregChem - 800) >= bodyVars['pchem_next']:
+		bodyVars['pchem_next'] += 1166400 & 1080 * 1080
+		pcs_mass['preg'] += 1
+		jump 'set_preg_body_loop'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'Set_mass_distribution_using_body':
+	pcs_mass['body'] = ARGS[1]
+	if ARGS[1] >= 50 and ARGS[1] <= 60:
+		pcs_mass['bust'] = pcs_mass['bust_gen']
+		pcs_mass['butt'] = pcs_mass['butt_gen']
+	else
+		pcs_mass['bust'] = (pcs_mass['bust_gen'] * pcs_mass['body']) / 60
+		pcs_mass['butt'] = (pcs_mass['butt_gen'] * pcs_mass['body']) / 60
+	end
+	bodyVars['vhips'] = (pcs_mass['body'] + pcs_mass['butt'] - 80) / 2
+
+	pcs_mass['body_message'] = pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt']
+	pcs_mass['bust_message'] = pcs_mass['bust']
+	pcs_mass['butt_message'] = pcs_mass['butt']
+
+	if dounspell = 0:
+		temp_weight = func('body', 'CalcWeight2')
+		pcs_weight[0] = temp_weight / 10
+		pcs_weight[1] = temp_weight mod 10
+
+		temp_bmi = func('body', 'CalcBMI2')
+		pcs_bmi[0] = temp_bmi / 10
+		pcs_bmi[1] = temp_bmi mod 10
+
+		killvar 'temp_weight'
+		killvar 'temp_bmi'
+	end
+
+	gs 'body', 'Update_vhips'
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'body', 'Update_Appearance'
+	gs 'body', 'UpdateBodyImage'
+	exit
+end
+
+
+	!! -------------------------    UPDATE vhips    -------------------------!!
+
+
+if $ARGS[0] = 'Update_vhips':
+	vhtmp = (pcs_mass['body'] + pcs_mass['butt'] - 80) / 2
+
+	!!	Because a reset should be updating hip size instantly (this set is a bit redundant anyway)
+	if bodyresetflag = 1:
+		bodyVars['vhips'] = vhtmp
+	else
+		if vhtmp < bodyVars['vhips']:
+			bodyVars['vhips'] -= 1
+		elseif vhtmp > bodyVars['vhips']:
+			bodyVars['vhips'] += 1
+		end
+	end
+	killvar 'vhtmp'
+
+
+	!! temp_vhips2 = bodyVars['vhips'] + (pcs_hgt * bodyVars['hratio'])/100 - (pcs_hgt * 72)/100
+	!! temp_vhips2 = pcs_hips - (pcs_hgt * 72) / 100
+	temp_vhips2 = bodyVars['vhips'] - (pcs_hgt * (72 - bodyVars['hratio'])) / 100
+	bodyVars['vofat'] = max(0, temp_vhips2 / 2)
+	bodyVars['vhips'] -= 2 * bodyVars['vofat']
+
+	!! vhips = max(bodyVars['vhips'], (pcs_hgt * (72 - bodyVars['hratio'])) / 100)
+
+	killvar 'temp_vhips2'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          Skin Gain & Loss                          !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'SkinGain':
+	if $ARGS[1] = 'CleanSelf' and lastShowerSkinGain ! daystart:
+		lastShowerSkinGain = daystart
+		skinDailyGain += 5
+		!! needs to be changet to +3 when the bathLuffa in added.
+		!! if bathLuffa = 1: skinDailyGain += 2
+
+	elseif $ARGS[1] = 'Moisturizer':
+		moisturizerDailyCount += 1
+		if moisturizerDailyCount <= 2: skinDailyGain += 2
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'SkinLoss':
+	if $ARGS[1] = 'Smoke' and bodyVars['smoke_skin_penalty_day'] ! daystart:
+		bodyVars['smoke_skin_penalty_day'] = daystart
+		skinDailyPenalty += 1
+
+	elseif $ARGS[1] = 'MakeUpSleep':
+		skinDailyPenalty += 10
+	end
+	exit
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               RESETS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+if $ARGS[0] = 'softreset':
+	!! This is for use in immediately updating shape if something has caused a large change in pcs_mass['body'], primarily fat burners and plastic surgery
+	bodyresetflag = 1
+	body_sr_counter = 0
+	:resetloop
+	if pcs_mass['body'] ! pcs_mass['body_last']:
+		if gamestartflag = 1:
+			salobustdo = 1
+		end
+		gs 'body', 'Update_Body'
+		body_sr_counter += 1
+		if body_sr_counter < 10: jump 'resetloop'
+	end
+
+	!! Updates pcs_apprncbase after a reset
+	gs 'body', 'UpdateBodyMeasurement'
+	gs 'body', 'Update_Appearance'
+	gs 'body', 'UpdateBodyImage'
+
+	!! Clears the warning and reset status flags if they were set
+	bodyresetflag = 0
+	bodyVars['weight_warning'] = 0
+	exit
+end
+
+
+if $ARGS[0] = 'hardreset':
+	!! This is primarily for canceling out "dounspell" and setting pcs_mass['body'] to whatever value will result in the current hip size then balancing everything out.
+	!! Also could be built in as a means to in-game undo "dounspell", other than the cheat.
+	if dounspell ! 1 or dounsplkil = 0:
+		'如果你看到这条消息，说明出了点怪事。请提交一份错误报告，说明体型硬重置被错误触发，以及你当时在做什么。'
+	else
+		pcs_mass['body'] = 12
+		fat = 0
+
+		agilbuf = pcs_agil
+		strenbuf = pcs_stren
+		vitalbuf = pcs_vital
+
+		salobustdo = 1
+		bodyresetflag = 1
+		normbuffpick = -1
+
+		gs 'body', 'Update_Body'
+
+		pcs_mass['body'] = 60 + (2 * pcs_hips) - (pcs_hgt * bodyVars['hratio']) / 50
+
+		if pcs_mass['butt_gen'] = 0:
+			pcs_mass['butt_gen'] = 20
+		end
+
+		bodyVars['vhips'] = (pcs_mass['body'] + pcs_mass['butt'] - 80) / 2
+
+		if pcs_mass['bust_gen'] = 0:
+			if pcs_mass['bust'] >= 27:
+				pcs_mass['bust_gen'] = 27
+
+			elseif pcs_mass['bust'] > 0:
+				pcs_mass['bust_gen'] = 2 + pcs_mass['bust'] - pcs_mass['bust'] mod 5
+
+			elseif bodyVars['bust_silicone'] >= 20:
+				pcs_mass['bust_gen'] = 12
+				pcs_mass['bust'] = 12
+				bodyVars['bust_silicone'] -= 10
+			end
+		end
+
+		pcs_mass['body_message'] = pcs_mass['body'] + pcs_mass['bust'] + pcs_mass['butt']
+		pcs_mass['bust_message'] = pcs_mass['bust']
+		pcs_mass['butt_message'] = pcs_mass['butt']
+
+		gs 'body', 'reset_preg_mass'
+
+		bodyresetflag = 0
+		normbuffpick = 0
+		bodyVars['weight_warning'] = 0
+		magf2bdo = 0
+
+		killvar 'dounsplkil'
+		newbdsp = 1
+		dounspell = 0
+		gs 'body', 'Update_Appearance'
+		gs 'body', 'Update_Body'
+		gs 'stat'
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              INITIAL                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'initial':
+	!!	Sets the genetic bust size if it was not set in the start routines
+	if pcs_mass['bust_gen'] = 0: pcs_mass['bust_gen'] = 12
+	if pcs_mass['butt_gen'] = 0: pcs_mass['butt_gen'] = 20
+
+	gs 'body', 'Set_mass_distribution_using_body', pcs_mass['body']
+
+	strenbuf = pcs_stren
+	agilbuf = pcs_agil
+	vitalbuf = pcs_vital
+
+	normbuffpick = -1
+	gamestartflag = 1
+
+	!!	Calling soft reset will cause the main code to cycle up to the starting value of pcs_mass['body']
+	gs 'body', 'softreset'
+
+	!!	This sets/resets the controler variables
+	normbuffpick = 0
+	magf2bdo = 0
+	killvar 'gamestartflag'
+
+	newbdsp = 1
+	!!	This does all the body shape setting before the first stat call
+	temp_bmi = func('body', 'CalcBMI2')
+	pcs_bmi[0] = temp_bmi / 10
+	pcs_bmi[1] = temp_bmi mod 10
+	killvar 'temp_bmi'
+
+	gs 'body', 'Update_Appearance'
+	gs 'body', 'UpdateBodyImage'
+	exit
+end
+
+
+--- body ---------------------------------

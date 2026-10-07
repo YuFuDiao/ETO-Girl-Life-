@@ -1,0 +1,545 @@
+# uni_admin
+
+!! LOCKED FILE
+!! Do not edit without discussion
+
+!!{
+	This is the file containing the university administration office.
+	It is important to include an option to enroll in university, and therefore set the variable regarding the choice of study.
+
+	The following variables will be set in this file.
+		university['prep_enrolled'] is set to 1 if the player enrolls in the university preparation program.
+		university['student'] is set to 1 if the player enrolls in a university program.
+		$university['enrolled_in'] is set to the name of the university program the player enrolls in. There is the following programs: teaching_studies
+		university['enrolled_in_semester'] is set to the semester the player enrolls in starting at 1 for the first semester and ending with 8 for the last.
+!!}
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                              ADMIN OFFICE                              ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'uni_admin', 'start'
+	$sexloc = 'uni_admin'
+	$location_type = 'public_indoors'
+	minut += 5
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	*pl $func('wrap', 'header center b', '大学行政楼')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/uni_admin.jpg"></center>'
+	'主大厅很宽敞，房间里散布着几根柱子。大厅两端各有一组通往上一层的宽大楼梯，几条走廊向四面八方延伸开去，正对着你。'
+	if university['diploma'] > 0:
+		'你已经从大学毕业了。'
+	elseif university['expelled_for_missing_exam'] = 0 and university['expelled'] = 1:
+		'你因考试不及格被大学开除了。'
+	elseif university['expelled_for_missing_exam'] = 1:
+		'你因缺考被大学开除了。'
+	elseif func('uniutil', 'student', 'expelled_for_other_reason'):
+		'你因与考试成绩无关的原因被大学开除了。'
+	elseif university['student'] = 0:
+		if university['enrolled_in_semester'] = 0:
+			'新生报名时间从五月到八月。所有新生将在包含九月一日的那一周开始上课。'
+		end
+		if university['prep_enrolled'] = 1 and month = 8:
+			'你已经报名了预科课程。'
+		elseif university['prep_enrolled'] = 1:
+			'你已经报名了预科课程。课程将在八月开课。'
+		else
+			'你可以在工作日的大学里参加预科课程，费用为 ' + $func('money', 'string_price', 15000) + '。'
+		end
+		'大学的入学考试在八月举行。'
+	end
+	act '离开':
+		minut += 2
+		gt 'uni_grounds'
+	end
+
+	if university['prep_enrolled'] = 1 and university['entrance_exam_passed'] = 0 and month = 8:
+		act '参加预科课程 (1:00)': gt 'uni_admin', 'take_prep'
+	end
+	!!if graduated school with good grade or
+	if university['entrance_exam_passed'] = 0 and university['prep_enrolled'] = 1 and month = 8:
+		act '参加入学考试 (1:00)': gt 'uni_admin', 'take_test'
+	end
+	if (university['entrance_exam_passed'] = 1 or university['prep_enrolled'] = 0) and university['student'] = 0 and university['diploma'] = 0 and age >= 17 and ($start_type['loc'] ! 'sg' or gschoolVars['school_diploma'] = 1) and month < 9 and month > 4 and university['exam_week'] = 0 and yearstart <= 2:
+		act '在大学报名': gt 'uni_admin', 'enrollment'
+	end
+	if university['enrolled_in_semester'] > 0 and university['enrolled_in_semester'] = university['semester_passed'] and university['semeter_passed'] < 8:
+		act '注册下一学期': gt 'uni_admin', 'enrollment_semester'
+	end
+	!!the if below should only show up if Sveta tried to enroll and didn''t or couldn''t pay for the classes before
+	if university['entrance_information'] = 1 and university['prep_enrolled'] = 0 and university['student'] = 0 and month < 9: gs 'uni_admin', 'prep_pay'
+end
+
+if $ARGS[0] = 'enrollment':
+	*clr & cla
+	menu_off = 1
+	$sexloc = 'uni_admin'
+	minut += 15
+	gs 'stat'
+
+	*pl $func('wrap', 'header center b', '招生办公室')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment1.jpg"></center>'
+	'你走进招生办公室，里面有几张桌子，桌后坐着女职员，旁边的房间里等着不少和你年纪相仿的人。你告诉她们你想在大学报名，她们记下你的名字，然后让你去等候室坐下，等叫到你的名字。你走进另一个房间，向其他准新生点头致意后坐了下来。'
+	act '等待轮到你':
+		*clr & cla
+		*pl $func('wrap', 'header center b', '招生办公室')
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+		'你一直等到一位女士叫到你的名字，她带你沿着侧廊走到一间办公室。你坐下并自我介绍，经过简短讨论后，该女士记下你的信息并输入电脑。'
+		if class['school_grade_average'] >= 70 or university['entrance_exam_passed'] = 1:
+			minut += 15
+			'她看了看你的资料，填入了一些数据。几分钟后，她转向你微笑着告诉你，你有资格在大学报名。她给了你一大堆表格，你花了一些时间把它们全部填完。填完后，她让你站起来拍照，然后在制作你的学生证时向你介绍不同的学位，给你时间决定想选哪一个。'
+			act '教育学学位':
+				cla
+				'你告诉她你想攻读教育学学位，她递给你一包关于你将要上的课程和宿舍生活的资料。然后她问你这次是否要报名选修课。'
+				act '现在不行':
+					cla
+					'你摇摇头，告诉她你目前不打算选修任何选修课。她点了点头，又做了几处记录，然后把填好的表格递给你，欢迎你来到圣彼得堡大学。你起身离开，期待着能回来开始上课的那一天。'
+					act '离开': gt 'uni_admin', 'start'
+				end
+				act '报名':
+					!!This sets the variables such that the player is enrolled in the first semester of the teaching program.
+					gs 'uni_admin', 'courses', 'enroll_teaching', 1
+					cla
+					'你告诉她你想攻读教育学学位。她微笑着点点头，又填写了一些关于你将要上的课程的表格。她把你的学生证和所有文件交给你，宣布你正式成为圣彼得堡大学的学生，并提醒你课程将在包含九月一日的那一周开始。'
+					if (day - week) >= 27 and month = 8:
+						university['semester_week'] = 1
+						*nl
+						'她告诉你，你是在最后一刻才报上名的，而且课程已经开始了。'
+					end
+					'她告诉你，大学提供几门可以拓展你学业的选修课。'
+					act '选择选修课': gt 'uni_admin', 'select_electives'
+					act '离开': gt 'uni_admin', 'start'
+				end
+			end
+			act '护理学学位':
+				cla
+				'你告诉她你想攻读护理学学位，她递给你一包关于你将要上的课程和宿舍生活的资料。然后她问你这次是否要报名选修课。'
+				act '现在不行':
+					cla
+					'你摇摇头，告诉她你目前不打算选修任何选修课。她点了点头，又做了几处记录，然后把填好的表格递给你，欢迎你来到圣彼得堡大学。你起身离开，期待着能回来开始上课的那一天。'
+					act '离开': gt 'uni_admin', 'start'
+				end
+				act '报名':
+					!!This sets the variables such that the player is enrolled in the first semester of the nursing program.
+					gs 'uni_admin', 'courses', 'enroll_nursing', 1
+					cla
+					'你告诉她你想攻读护理学学位。她微笑着点点头，又填写了一些关于你将要上的课程的表格。她把你的学生证和所有文件交给你，宣布你正式成为圣彼得堡大学的学生，并提醒你课程将在包含九月一日的那一周开始。'
+					if (day - week) >= 27 and month = 8:
+						university['semester_week'] = 1
+						*nl
+						'她告诉你，你是在最后一刻才报上名的，而且课程已经开始了。'
+					end
+					'她告诉你，大学提供几门可以拓展你学业的选修课。'
+					act '选择选修课': gt 'uni_admin', 'select_electives'
+					act '离开': gt 'uni_admin', 'start'
+				end
+			end
+		else
+			university['entrance_information'] = 1
+			minut += 5
+			'她看了看你的资料，填入了一些数据。几分钟后，她转向你皱起眉头，告诉你没有资格在大学报名，因为你的中学成绩不够好。她告诉你，申请的学生太多，他们只能录取成绩更好的学生，但如果你参加预科课程并以足够高的分数通过，你仍然可以入学。'
+			'课程费用为 ' + $func('money', 'string_price', 15000) + '。'
+			if func('money', 'can_afford', 15000) = 0:
+				act '你没有足够的钱':
+					cla
+					'你告诉她你付不起课程费用，她理解地点点头，告诉你如果有了钱可以回来报名。你感谢她提供的信息后离开了。'
+					act '离开': gt 'uni_admin', 'start'
+				end
+			else
+				act '你不想报名':
+					cla
+					'你摇摇头感谢她，告诉她你会考虑一下。她对你笑了笑，说理解你的想法，然后你离开了。'
+					act '离开教室': gt 'uni_admin', 'start'
+				end
+			end
+			gs 'uni_admin', 'prep_pay'
+		end
+	end
+end
+
+if $ARGS[0] = 'enrollment_semester':
+	*clr & cla
+	menu_off = 1
+	$sexloc = 'uni_admin'
+	minut += 15
+	gs 'stat'
+
+	*pl $func('wrap', 'header center b', '招生办公室')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment1.jpg"></center>'
+	'你走进招生办公室，里面有几张桌子，桌后坐着女职员，旁边的房间里等着不少和你年纪相仿的人。你告诉她们你想注册下一学期。'
+	act '等待轮到你':
+		*clr & cla
+		*pl $func('wrap', 'header center b', '招生办公室')
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+		'你一直等到一位女士叫到你的名字，她带你沿着侧廊走到一间办公室。你坐下并自我介绍，经过简短讨论后，该女士记下你的信息并输入电脑。'
+		if $university['enrolled_in'] = 'teaching_studies':
+			minut += 15
+			'她看了看你的资料，填入了一些数据。几分钟后，她转向你笑着说，既然你上学期通过了，你就可以报名第' + $func('string', 'parse_number', university['enrolled_in_semester']) + '的教学研究课程的。她给你文件，你花了一些时间填写所有内容。'
+			act '报名':
+				!!This sets the variables such that the player is enrolled in next semester of the teaching program.
+				university['enrolled_in_semester'] += 1
+				gs 'uni_admin', 'courses', 'enroll_teaching', university['enrolled_in_semester']
+				cla
+				'你告诉她你想继续攻读教育学学位。她微笑着点点头，又填写了一些关于你将要上的课程的表格。'
+				if (day - week) >= 27 and month = 8:
+					university['semester_week'] = 1
+					*nl
+					'她告诉你，你是在最后一刻才报上名的，而且课程已经开始了。'
+				end
+				if university['enrolled_in_semester'] mod 2 = 1:
+					act '不选任何选修课就离开': gt 'uni_admin', 'start'
+				else
+					act '离开': gt 'uni_admin', 'start'
+				end
+			end
+		elseif $university['enrolled_in'] = 'nursing':
+			minut += 15
+			'她看了看你的资料，填入了一些数据。几分钟后，她转向你笑着说，既然你上学期通过了，你就可以报名第' + $func('string', 'parse_number', university['enrolled_in_semester']) + '的护理课程的。她给你文件，你花了一些时间填写所有内容。'
+			act '报名':
+				!!This sets the variables such that the player is enrolled in next semester of the nursing program.
+				university['enrolled_in_semester'] += 1
+				gs 'uni_admin', 'courses', 'enroll_nursing', university['enrolled_in_semester']
+				cla
+				'你告诉她你想继续攻读护理学学位。她微笑着点点头，又填写了一些关于你将要上的课程的表格。'
+				if (day - week) >= 27 and month = 8:
+					university['semester_week'] = 1
+					*nl
+					'她告诉你，你是在最后一刻才报上名的，而且课程已经开始了。'
+				end
+				if university['enrolled_in_semester'] mod 2 = 1:
+					act '选择选修课': gt 'uni_admin', 'select_electives'
+					act '不选任何选修课就离开': gt 'uni_admin', 'start'
+				else
+					act '离开': gt 'uni_admin', 'start'
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'select_electives':
+	$func('wrap', 'header center b', '招生办公室')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+	'她给了你一份当前所有选修课的清单，问你是否对其中任何一门感兴趣。'
+	'计算机课和亚洲研究在周一下午同一个时段，艺术课在周二下午，心理学和非洲研究在周四下午同一个时段。'
+	if $university['elective_semester_<<university[''enrolled_in_semester'']>>_1'] = '' and func('uni_admin', 'courses', 'has_been_enrolled_in', 'Computers 101') = 0:
+		act '了解计算机课':
+			*clr & cla
+			$func('wrap', 'header center b', '招生办公室')
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+			'你阅读了关于计算机课的信息，这似乎是一门基础课，教你怎么使用电脑，一些更基础程序的功能，以及如何在出问题时对 OS 进行故障排除。这好像是一门相当有用的课。'
+			act '报名计算机课':
+				gs 'uni_admin', 'courses', 'enroll_elective_computer', university['enrolled_in_semester']
+				cla
+				'你决定在今年第一学期和第二学期报名计算机课。'
+				act '考虑其他选修课': gt 'uni_admin', 'select_electives'
+			end
+			act '不报名计算机课': gt 'uni_admin', 'select_electives'
+		end
+	end
+	if $university['elective_semester_<<university[''enrolled_in_semester'']>>_2'] = '' and func('uni_admin', 'courses', 'has_been_enrolled_in', 'Art 101') = 0:
+		act '了解艺术课':
+			*clr & cla
+			$func('wrap', 'header center b', '招生办公室')
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+			'这门课是学习如何绘画。会从基础开始，然后在第二学期末进入更高级的艺术研究。参加这么轻松的课程可能会很有趣。'
+			act '报名艺术课':
+				gs 'uni_admin', 'courses', 'enroll_elective_art', university['enrolled_in_semester']
+				cla
+				'你决定在今年的第一和第二学期报名艺术课。'
+				act '考虑其他选修课': gt 'uni_admin', 'select_electives'
+			end
+			act '不报名艺术课': gt 'uni_admin', 'select_electives'
+		end
+	end
+	if $university['elective_semester_<<university[''enrolled_in_semester'']>>_3'] = '' and func('uni_admin', 'courses', 'has_been_enrolled_in', 'Psychology 101') = 0:
+		act '了解心理学课':
+			*clr & cla
+			$func('wrap', 'header center b', '招生办公室')
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+			'这门课是学习心理学，以更好地理解人们思考的方式和原因。会从基础开始，然后在第二学期末进入更高级的行为研究。参加这么轻松的课程可能会很有趣。'
+			act '报名心理学课':
+				gs 'uni_admin', 'courses', 'enroll_elective_psychology', university['enrolled_in_semester']
+				cla
+				'你决定在今年的第一和第二学期报名心理学课。'
+				act '考虑其他选修课': gt 'uni_admin', 'select_electives'
+			end
+			act '不报名心理学课': gt 'uni_admin', 'select_electives'
+		end
+	end
+	if $university['elective_semester_<<university[''enrolled_in_semester'']>>_3'] = '' and func('uni_admin', 'courses', 'has_been_enrolled_in', 'African Studies 101') = 0:
+		act '了解非洲研究课':
+			*clr & cla
+			$func('wrap', 'header center b', '招生办公室')
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+			'这门课是关于学习非洲及其人民的历史和文化。它将从非洲大陆的历史开始到第二学期末再转向现代非洲。参加这样一门轻松的课程可能会很有趣。'
+			act '报名参加非洲研究课程':
+				gs 'uni_admin', 'courses', 'enroll_elective_african', university['enrolled_in_semester']
+				cla
+				'你决定在今年第一学期和第二学期报名参加非洲研究课程。'
+				act '考虑其他选修课': gt 'uni_admin', 'select_electives'
+			end
+			act '不报名非洲研究课程': gt 'uni_admin', 'select_electives'
+		end
+		act '不要再报任何选修课': gt 'uni_admin', 'start'
+	end
+	if $university['elective_semester_<<university[''enrolled_in_semester'']>>_1'] = '' and func('uni_admin', 'courses', 'has_been_enrolled_in', 'Asian Studies 101') = 0:
+		act '阅读关于亚洲研究课程的信息':
+			*clr & cla
+			$func('wrap', 'header center b', '招生办公室')
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/enrollment2.jpg"></center>'
+			'这门课是关于学习亚洲及其人民的历史和文化。它将从亚洲大陆的历史开始到第二学期末再转向现代亚洲。参加这样一门轻松的课程可能会很有趣。'
+			act '报名参加亚洲研究课程':
+				gs 'uni_admin', 'courses', 'enroll_elective_asian', university['enrolled_in_semester']
+				cla
+				'你决定在今年第一学期和第二学期报名参加亚洲研究课程。'
+				act '考虑其他选修课': gt 'uni_admin', 'select_electives'
+			end
+			act '不报名亚洲研究课程': gt 'uni_admin', 'select_electives'
+		end
+		act '不要再报任何选修课': gt 'uni_admin', 'start'
+	end
+	act '不要再报任何选修课': gt 'uni_admin', 'start'
+end
+
+
+if $ARGS[0] = 'prep_pay':
+	act '支付预科课程费用' + $func('money', 'get_cost_string', 15000):
+		if func('money', 'can_afford', 15000) = 0:
+			$noMoney
+		else
+			*clr & cla
+			minut += 10
+			gs 'money', 'pay', 15000
+			gs 'stat'
+			university['prep_enrolled'] = 1
+			$func('wrap', 'header center b', '招生办公室')
+			'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/payment.jpg"></center>'
+			'你支付 ' + $func('money', 'string_price', 15000) + ' 用于预科课程。这些课程每个工作日都进行，直到<b>'+func('time', 'get_time_string', 21, 0)+'</b>.'
+			act '离开': gt 'uni_admin', 'start'
+		end
+	end
+end
+
+if $ARGS[0] = 'take_prep':
+	$sexloc = 'uni_admin'
+	*clr & cla
+	minut += 60
+	university['prep_counter'] += 1
+	gs 'exp_gain', 'intel', 1
+	gs 'stat'
+	$func('wrap', 'header center b', '预科课程')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/prepcourse1.jpg"></center>'
+	'你参加了一小时的预科课程。你仔细听着讲解，并做笔记，为之后的入学考试做准备。'
+	act '离开教室': gt 'uni_admin', 'start'
+end
+
+if $ARGS[0] = 'take_test':
+	$sexloc = 'uni_admin'
+	*clr & cla
+	minut += 60
+	gs 'exp_gain', 'intel', 1
+	gs 'stat'
+	$func('wrap', 'header center b', '入学考试')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/admin/prepcourse1.jpg"></center>'
+	'你走进考场坐下。一位教授走出来，讲解你将要参加的考试的不同部分以及及格的要求。讲完后，他分发试卷并开始计时。你有一个小时的时间来完成考试。'
+	if pcs_intel +university['prep_counter'] >= 100:
+		university['entrance_exam_passed'] = 1
+		'你完成了入学考试，并以满分通过。'
+	elseif pcs_intel + university['prep_counter'] >= 80:
+		university['entrance_exam_passed'] = 1
+		'你完成了入学考试，并且通过了。'
+	else
+		university['entrance_exam_passed'] = -1
+		'你完成了入学考试，但没有通过。'
+	end
+	act '离开考场': gt 'uni_admin', 'start'
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                                                                        ║
+!! ║                               FUNCTIONS                                ║
+!! ║                                                                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] = 'courses':
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                              MAIN                              │
+	!! └────────────────────────────────────────────────────────────────┘
+
+	if $ARGS[1] = '_enroll_core':
+		university['prep_counter'] = 0
+		university['prep_enrolled'] = 0
+		university['student'] = 1
+		university['enrolled_in_semester'] = 1
+
+		gs 'homes_properties', 'give_access', 'university_dorm'
+	end
+
+	if $ARGS[1] = 'enroll_teaching':
+		if university['student'] = 0:
+			gs 'uni_admin', 'courses', '_enroll_core'
+			$university['enrolled_in'] = 'teaching_studies'
+		end
+		if ARGS[2] = 1:
+			!!This creates the classes for the first semester of the teaching program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_1', '通识教育101', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_1', '教学方法101', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_1', '学习理论101', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_1', '通识教育101', 35
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_1', '教学方法101', 35
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_1', '学习理论101', 35
+		elseif ARGS[2] = 2:
+			!!This creates the classes for the second semester of the teaching program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_2', '通识教育102', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_2', '教学方法102', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_2', '学生心理学101', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_2', '通识教育102', (class['uni_teaching_studies_semester_1_general education 101_grade']/3+10)
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_2', '教学方法102', (class['uni_teaching_studies_semester_1_teaching methods 101_grade']/3+10)
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_2', '学生心理学101', 35
+		elseif ARGS[2] = 3:
+			!!This creates the classes for the third semester of the teaching program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_3', '通识教育201', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_3', '评估201', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_3', '学习理论201', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_3', '通识教育201', ((class['uni_teaching_studies_semester_1_general education 101_grade'] + class['uni_teaching_studies_semester_2_general education 102_grade'])/6+10)
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_3', '学习理论201', (class['uni_teaching_studies_semester_1_learning theories 101_grade']/3+10)
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_3', '评估201', 35
+		elseif ARGS[2] = 4:
+			!!This creates the classes for the fourth semester of the teaching program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_4', '通识教育202', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_4', '学习理论202', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_teaching_studies_semester_4', '学生心理学201', 3, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_4', '通识教育202', ((class['uni_teaching_studies_semester_1_general education 101_grade'] + class['uni_teaching_studies_semester_2_general education 102_grade'] + class['uni_teaching_studies_semester_3_general education 201_grade'])/9+10)
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_4', '学习理论202', ((class['uni_teaching_studies_semester_1_learning theories 101_grade'] + class['uni_teaching_studies_semester_3_learning theories 201_grade'])/6+10)
+			gs 'grades', 'grade_award', 'uni_teaching_studies_semester_4', '学生心理学201', (class['uni_teaching_studies_semester_2_psychology of a student 101_grade']/3+10)
+		end
+		exit
+	end
+
+
+	if $ARGS[1] = 'enroll_nursing':
+		if university['student'] = 0:
+			gs 'uni_admin', 'courses', '_enroll_core'
+			$university['enrolled_in'] = 'nursing'
+		end
+		if ARGS[2] = 1:
+			!!This creates the classes for the first semester of the nursing program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_nursing_semester_1', '患者护理101', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_1', '解剖学与生理学101', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_1', '检查与治疗101', 1, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_nursing_semester_1', '患者护理101', 35
+			gs 'grades', 'grade_award', 'uni_nursing_semester_1', '解剖学与生理学101', 35
+			gs 'grades', 'grade_award', 'uni_nursing_semester_1', '检查与治疗101', 35
+		elseif ARGS[2] = 2:
+			!!This creates the classes for the second semester of the nursing program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_nursing_semester_2', '患者护理102', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_2', '解剖学与生理学102', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_2', '检查与治疗102', 1, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_nursing_semester_2', '患者护理102', (class['uni_nursing_semester_1_patient care 101_grade']/3+10)
+			gs 'grades', 'grade_award', 'uni_nursing_semester_2', '解剖学与生理学102', (class['uni_nursing_semester_1_anatomy and physiology 101_grade']/3+10)
+			gs 'grades', 'grade_award', 'uni_nursing_semester_2', '检查与治疗102', (class['uni_nursing_semester_1_examination and treatment 101_grade']/3+10)
+		elseif ARGS[2] = 3:
+			!!This creates the classes for the third semester of the nursing program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_nursing_semester_3', '患者护理201', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_3', '解剖学与生理学201', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_3', '剂量与药剂学101', 1, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_nursing_semester_3', '患者护理201', ((class['uni_nursing_semester_1_patient care 101_grade'] + class['uni_nursing_semester_2_patient care 102_grade'])/6+10)
+			gs 'grades', 'grade_award', 'uni_nursing_semester_3', '解剖学与生理学201', ((class['uni_nursing_semester_1_anatomy and physiology 101_grade'] + class['uni_nursing_semester_2_anatomy and physiology 102_grade'])/6+10)
+			gs 'grades', 'grade_award', 'uni_nursing_semester_3', '剂量与药剂学101', 35
+		elseif ARGS[2] = 4:
+			!!This creates the classes for the fourth semester of the nursing program to be used by the grade system, and gives the player a starting grade value (which is a failing grade, the player has to study if they want to pass)
+			gs 'grades', 'createclass', 'uni_nursing_semester_4', '患者护理202', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_4', '解剖学与生理学202', 4, 2, 'no', 'no', 1, 12
+			gs 'grades', 'createclass', 'uni_nursing_semester_4', '剂量与药剂学102', 1, 2, 'no', 'no', 1, 12
+			gs 'grades', 'grade_award', 'uni_nursing_semester_4', '患者护理202', ((class['uni_nursing_semester_1_patient care 101_grade'] + class['uni_nursing_semester_2_patient care 102_grade'] + class['uni_nursing_semester_3_patient care 201_grade'])/9+10)
+			gs 'grades', 'grade_award', 'uni_nursing_semester_4', '解剖学与生理学202', ((class['uni_nursing_semester_1_anatomy and physiology 101_grade'] + class['uni_nursing_semester_2_anatomy and physiology 102_grade'] + class['uni_nursing_semester_3_anatomy and physiology 201_grade'])/9+10)
+			gs 'grades', 'grade_award', 'uni_nursing_semester_4', '剂量与药剂学102', (class['uni_nursing_semester_3_dosages and pharmaceuticals 101_grade']/3+10)
+		end
+		exit
+	end
+
+	!! ┌────────────────────────────────────────────────────────────────┐
+	!! │                           ELECTIVES                            │
+	!! └────────────────────────────────────────────────────────────────┘
+
+		!! ┌────────────────────────────────────────────────────────┐
+		!! │                       ENROLLING                        │
+		!! └────────────────────────────────────────────────────────┘
+
+	if $ARGS[1] = 'enroll_elective_african':
+		$university['elective_semester_<<ARGS[2]>>_3'] = 'African Studies 101'
+		$university['elective_semester_<<ARGS[2]+1>>_3'] = 'African Studies 102'
+		exit
+	end
+
+
+	if $ARGS[1] = 'enroll_elective_art':
+		$university['elective_semester_<<ARGS[2]>>_2'] = 'Art 101'
+		$university['elective_semester_<<ARGS[2]+1>>_2'] = 'Art 102'
+		exit
+	end
+
+
+	if $ARGS[1] = 'enroll_elective_asian':
+		$university['elective_semester_<<ARGS[2]>>_1'] = 'Asian Studies 101'
+		$university['elective_semester_<<ARGS[2]+1>>_1'] = 'Asian Studies 102'
+		exit
+	end
+
+
+	if $ARGS[1] = 'enroll_elective_computer':
+		$university['elective_semester_<<ARGS[2]>>_1'] = 'Computers 101'
+		$university['elective_semester_<<ARGS[2]+1>>_1'] = 'Computers 102'
+		exit
+	end
+
+
+	if $ARGS[1] = 'enroll_elective_psychology':
+		$university['elective_semester_<<ARGS[2]>>_3'] = 'Psychology 101'
+		$university['elective_semester_<<ARGS[2]+1>>_3'] = 'Psychology 102'
+		exit
+	end
+
+
+			!! ┌────────────────────────────────────────────────────────┐
+			!! │                       FUNCTIONS                        │
+			!! └────────────────────────────────────────────────────────┘
+
+	if $ARGS[1] = 'has_been_enrolled_in':
+		result = 0
+
+		temp_uni_funcs['i'] = 1
+		:is_enrolled_outer_loop
+			temp_uni_funcs['j'] = 1
+			:is_enrolled_inner_loop
+				if $university['elective_semester_<<temp_uni_funcs["i"]>>_<<temp_uni_funcs["j"]>>'] = $ARGS[2]:
+					result = 1
+					killvar 'temp_uni_funcs'
+					exit
+				end
+				temp_uni_funcs['j'] += 1
+			if temp_uni_funcs['j'] < 4: jump 'is_enrolled_inner_loop'
+			temp_uni_funcs['i'] += 1
+		if temp_uni_funcs['i'] < 5: jump 'is_enrolled_outer_loop'
+
+		killvar 'temp_uni_funcs'
+	end
+	exit
+end
+
+
+
+
+--- uni_admin ---------------------------------

@@ -1,0 +1,95 @@
+# city_pharmacy
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+
+	people = rand(1, 15) & !! We define the size of the queue in the pharmacy
+	if people <= 5:
+		$func('wrap', 'header center b', '药房')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/aptekabusy<<people>>.jpg"></center>'
+		*nl
+		'那里有<<people>> ' + iif(people < 2 or people > 4, '个人' , '个男人' ) + ' 在柜台前排队。你走上前去，准备结账。'
+		act '离开': minut += 5 & gt 'city_residential'
+		act '排队等候' :
+			minut += rand(1, 4) * people
+			people = 0
+			gs 'stat'
+			gt 'city_pharmacy', 'shop'
+		end
+	else
+		gt 'city_pharmacy', 'shop'
+	end
+end
+
+
+if $ARGS[0] = 'shop' or $ARGS[0] = '':
+	*clr & cla
+	$location_type = 'public_indoors'
+	$loc = 'city_pharmacy'
+	$loc_arg = 'shop'
+	$menu_loc = 'city_pharmacy'
+	$menu_arg = 'shop'
+	menu_off = 0
+	gs 'stat'
+	$func('wrap', 'header center b', '药房')
+	if pharma_day ! daystart: pharma_day = daystart & pharma_picrand = rand(1, 4)
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_worker_'+pharma_picrand+'.jpg"></center>'
+	*nl
+	'柜台后面站着一位穿白大褂的年轻女人。看到你走近，她微笑着问道："你好，需要点什么？"'
+
+	act '买点东西': gt 'city_pharmacy', 'cart'
+
+	if KandidNapr = 1:
+		act '购买抗真菌药物' + $func('money', 'get_cost_string', 1050):
+			if func('money', 'can_afford', 1050) = 0:
+				$noMoney
+			else
+				gt 'city_pharmacy', 'buy_antifungal'
+			end
+		end
+	end
+
+	act '离开药房': minut += 5 & gs 'item_cart', 'shopping_var_clear' & gt 'city_residential'
+end
+
+
+if $ARGS[0] = 'buy_antifungal':
+	if Kandidoz >= 30:
+		gs 'money', 'pay', 1050
+		Kandidoz = 0
+		*clr
+		cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pharmacy/apteka_worker_'+pharma_picrand+'.jpg"></center>'
+		*nl
+		$func('wrap', 'v_pos center', '你买了1 <b>抗真菌药物</b>.')
+		'你把钱放在柜台上，随即拆开包装，把药片吞了下去。过了一会儿，你感觉好多了。'
+		act '返回': gt 'city_pharmacy', 'shop'
+	elseif Kandidoz < 30 and KandidozOnce > 0:
+		msg '<center>你现在不需要吃药。你的酵母菌感染目前正处于缓解期，服用维生素可以确保它继续保持下去。</center>'
+		gt 'city_pharmacy', 'shop'
+	else
+		msg '<center>你现在不需要任何抗真菌药物。</center>'
+		*nl
+		gt 'city_pharmacy', 'shop'
+	end
+end
+
+
+if $ARGS[0] = 'cart':
+	*clr & cla
+	$loc_s = 'city_pharmacy'
+	$args_s = 'cart'
+
+	gs 'themes', 'indoors'
+	gs 'item_cart', 'shopping_aisle', 'chemist'
+	gs 'stat'
+
+	$backimage = 'images/locations/pavlovsk/pharmacy/apteka_worker_'+pharma_picrand+'.jpg'
+	act '退出购物车': gs 'item_cart', 'shopping_var_clear' & gt 'city_pharmacy', 'start'
+end
+
+--- city_pharmacy ---------------------------------

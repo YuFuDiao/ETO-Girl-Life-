@@ -1,0 +1,2363 @@
+# pod_ezd
+!! 2022/09/29 - Alaratt
+
+
+!! SETTINGS:
+killvar 'floor2'
+killvar 'floor3'
+killvar 'floor4'
+!! elevator does not work
+if liftnotwork_day <> daystart: liftnotwork_count = 1
+!! Apartment Uncle Misha
+if mishahouse_day <> daystart: mishahouse_count = 1
+!! how much money for sex give boys
+rnd_money_sex = rand(250, 750)
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                        ENTRANCE TO THE TOWN                        !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'occupants':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'occupants'
+	$location_type = 'public_indoors'
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/housemates.jpg"></center>'
+	'1楼 - 2号公寓：阿尔乔姆·切博塔列夫'
+	'2楼 - 7号公寓：你的家人							9号公寓：米沙叔叔'
+	'3楼 - 13号公寓：谢尔盖和瓦西里·舒尔金			15号公寓：朱莉娅·米洛娃'
+	'4楼 - 19号公寓：娜塔莎·别洛娃						21号公寓：卢达阿姨'
+	'5楼'
+
+	act '离开': gt 'pod_ezd', 'etaj_1'
+end
+
+
+if $ARGS[0] = 'leave_building':
+	if hour >= 4 or motherWorry <> 0 or age >= 18 or func('homes_properties', 'has_access', 'parents_home') = 0:
+		gt 'pav_complex', 'start'
+	end
+
+	cla
+	'<font color=red>你确定吗？如果你这个时候出去，你妈妈会担心的。</font>'
+	act '不，还是待在里面': gt $loc, $loc_arg
+
+	gs 'willpower', 'misc', 'self', 'easy'
+	if pcs_willpwr < will_cost:
+		act '是的，出去' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '是的，出去' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'self'
+			gt 'pav_complex', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'etaj_1' or $ARGS[0] = '':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'etaj_1'
+	$location_type = 'public_indoors'
+	if sound_settings['environment_off'] = 0: PLAY 'sound/podezd.mp3', 30
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公寓楼底层')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/podezd2.jpg"></center>'
+	'<center>一个肮脏且维护不善的楼梯间，和你镇上其他的楼梯间一样。</center>'
+
+	if shared_apt['seenAd'] = 0: gt 'pav_shared_apt', 'advertNo30'
+
+	'墙上有一个<a href="exec: gt ''pod_ezd'', ''occupants''">名单</a>，列出了住在这里的人。'
+	'有人贴了一些<a href="exec:gt ''pod_ezd'',''pod_objava''">广告</a>在墙上，靠近入口处。'
+
+	act '离开大楼': gs 'pod_ezd', 'leave_building'
+	act '上二楼': minut += 1 & gt 'pod_ezd', 'etaj_2'
+	if ArtemBeInHome > 0 and artemQW['artemblok'] = 0: act '2号公寓：阿尔乔姆切博塔廖夫': gt 'artemhome', 'home'
+	act '乘坐电梯': gt 'pod_ezd', 'lift', 'etaj_1'
+end
+
+
+if $ARGS[0] = 'etaj_2':
+	if rand(0, 2) = 0 and (totminut > floor2_event_time + 60) or (totminut < floor2_event_time - 1440):
+		floor2_event_time = totminut
+		gs 'pod_ezd', 'floor2_events'
+	end
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'etaj_2'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>公寓楼的2楼</center>'
+	if pod_whore_countQW <= 15:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj2.jpg"></center>'
+		'<center>二楼的楼梯间干净整洁，维护得很好。不久前刚翻新过，住户们尽力保持清洁。</center>'
+		*nl
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj2_whore.jpg"></center>'
+		'<center>2楼的楼梯间不久前才翻新过，但已经有些混混在墙上喷了涂鸦，向全世界宣告你是个婊子。如果你愿意，可以<a href="exec: gt ''pod_ezd'', ''etaj2_paint''">把它盖掉</a>。</center>'
+		*nl
+	end
+
+	'<br>楼梯间空无一人。'
+
+	act '下到一楼': minut += 1 & gt 'pod_ezd', 'etaj_1'
+	act '上到三楼': minut += 1 & gt 'pod_ezd', 'etaj_3'
+
+	if func('homes_properties', 'has_access', 'parents_home'):
+		act '<b>公寓7: 你的父母</b>': minut += 1 & pavhome_enter = 1 & gt 'korrPar'
+	elseif mother['kickedout_pending'] = 1:
+		act '<b>7号公寓：你的父母（敲门）</b>': gt 'mother_chats', 'knock'
+	else
+		act '<b>公寓7: 你的父母</b>': msg '你的敲门声无人应答，而且你再也没有钥匙了。<br>很明显，这里已经不再欢迎你了。'
+	end
+
+	act '9号公寓：米沙叔叔':
+		cla
+		act '离开': gt 'pod_ezd', 'etaj_2'
+		if hour >= 0 and hour < 5:
+			'现在去拜访米沙叔叔太晚了，他大概已经睡了。'
+		elseif hour >= 5 and hour < 10:
+			'现在去拜访米沙叔叔还太早了，他大概还在睡觉。'
+		elseif week < 6 and hour >= 10 and hour < 19:
+			'你按了按门铃，但没人应门。'
+		elseif mishahouse_count = 1 and dyadyamishaevent >= 1 and week < 6 and hour >= 19 and hour <= 23 or mishahouse_count = 1 and dyadyamishaevent >= 1 and week >= 6 and hour >= 10 and hour <= 23:
+			*clr
+			gs 'stat'
+			'门开了，米沙叔叔邀请你进公寓。'
+			act '进入':
+				mishahouse_day = daystart
+				mishahouse_count -= 1
+				gt 'misha', '1'
+			end
+		elseif mishahouse_count <= 0 and dyadyamishaevent >= 1 and week < 6 and hour >= 19 and hour <= 23 or mishahouse_count <= 0 and dyadyamishaevent >= 1 and week >= 6 and hour >= 10 and hour <= 23:
+			'你按了门铃，米沙叔叔打开了门。他说："抱歉<<$pcs_nickname>>，我现在很忙。也许明天再来？"'
+		else
+			'你按了按门铃，但没人应门。'
+		end
+	end
+
+	act '乘坐电梯': gt 'pod_ezd', 'lift', 'etaj_2'
+	act '<b>离开并前往院子</b>': gs 'pod_ezd', 'leave_building'
+end
+
+
+if $ARGS[0] = 'etaj2_paint':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'etaj2_paint'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj2_whore.jpg"></center>'
+	'你看着涂鸦叹了口气："也许我该买点油漆把它盖掉，它给我们的家招来了好多人。"'
+
+	if paint_blue <= 0:
+		'<br>如果你想盖掉涂鸦，就该去买点油漆。'
+		act '离开': gt 'pod_ezd', 'etaj_2'
+	else
+		'你涂的油漆：<<paint_blue>>'
+		act '摇摇头离开': gt 'pod_ezd', 'etaj_2'
+		act '把它盖掉':
+			*clr & cla
+			menu_off = 1
+			pod_whore_countQW = 0
+			minut += 40
+			paint_blue -= 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj2.jpg"></center>'
+			'你花了大约40分钟盖掉涂鸦。完成后，你退后一步欣赏自己的作品。好多了！希望现在人们不会那么频繁地来烦你了。'
+
+			act '离开': gt 'pod_ezd', 'etaj_2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'etaj_3':
+	if rand(0, 2) = 0 and (totminut > floor3_event_time + 60) or (totminut < floor3_event_time - 1440):
+		floor3_event_time = totminut
+		gs 'pod_ezd', 'floor3_events'
+	end
+
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'etaj_3'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>公寓楼的3楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj3.jpg"></center>'
+	'<center>3楼的楼梯间不久前才翻新过，但已经有些混混在墙上喷了涂鸦。</center>'
+	*nl
+
+	'<br>楼梯间空无一人。'
+
+	act '下楼到二楼': minut += 1 & gt 'pod_ezd', 'etaj_2'
+	act '上楼到四楼': minut += 1 & gt 'pod_ezd', 'etaj_4'
+	act '13号公寓：瓦西里和谢尔盖舒尔金': gt 'vasilyhome', 'home'
+	if juliaQW['home_unlocked'] = 1: act '公寓15: 朱莉娅米洛娃': gt 'JuliaMilHome', 'home'
+	act '乘坐电梯': gt 'pod_ezd', 'lift', 'etaj_3'
+	act '<b>离开并前往院子</b>': gs 'pod_ezd', 'leave_building'
+end
+
+
+if $ARGS[0] = 'etaj_4':
+	if rand(0, 2) = 0 and (totminut > floor4_event_time + 60) or (totminut < floor4_event_time - 1440):
+		floor4_event_time = totminut
+		gs 'pod_ezd', 'floor4_events'
+	end
+
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'etaj_4'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>公寓楼的4楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj4.jpg"></center>'
+	'<center>又脏又缺乏维护的楼梯间。住户们似乎并不在乎它看起来怎么样。</center>'
+	''
+
+	'<br>楼梯间空无一人。'
+
+	act '下到三楼': minut += 1 & gt 'pod_ezd', 'etaj_3'
+	act '上到五楼': minut += 1 & gt 'pod_ezd', 'etaj_5'
+
+	if NatbelQW['VisitedHome'] = 1: act '公寓19: 娜塔莎别洛娃': gt 'natbelapt', 'home'
+
+	act '21号公寓：柳达阿姨': gt 'ludahome', 'home'
+
+	act '乘坐电梯': gt 'pod_ezd', 'lift', 'etaj_4'
+	act '<b>离开并前往院子</b>': gs 'pod_ezd', 'leave_building'
+end
+
+
+if $ARGS[0] = 'etaj_5':
+	if rand(0, 2) = 0 and (totminut > floor5_event_time + 60) or (totminut < floor5_event_time - 1440):
+		floor5_event_time = totminut
+		gs 'pod_ezd', 'floor5_events'
+	end
+
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pod_ezd', 'etaj_5'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>5楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/etaj5.jpg"></center>'
+	'5楼的楼梯间破败失修。这一层从来没有翻新过；所有公寓都空着，同样破败失修。所以现在几乎没人上来了，只有年轻人会来这里私下聚会。他们在一些空公寓里闲混。有些人甚至从附近其他的公寓楼过来玩。走廊的另一端还有最后一段楼梯，通向屋顶。'
+	*nl
+
+	'<br>楼梯间空无一人。'
+
+	act '下到四楼': minut += 1 & gt 'pod_ezd', 'etaj_4'
+	act '上屋顶': minut += 1 & gt 'pod_ezd', 'roof'
+	act '乘坐电梯': gt 'pod_ezd', 'lift', 'etaj_5'
+	act '<b>离开并前往院子</b>': gs 'pod_ezd', 'leave_building'
+end
+
+
+if $ARGS[0] = 'roof':
+	menu_off = 0
+	killvar 'locclass'
+	gs 'core_library', 'setloc', 'pod_ezd', 'roof'
+	gs 'stat'
+	'<center>屋顶</center>'
+	if month >= 11 or month < 4:
+		!! if hour >= 8 and hour <= 21:
+			!! '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/roof/roofw.jpg"></center>'
+		!! else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/roof/roofw.jpg"></center>'
+		!! end
+	else
+		if hour >= 8 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/roof/roof.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/roof/roofn.jpg"></center>'
+		end
+	end
+	'<center>屋顶相当平坦，通往屋顶的门位于屋顶中央一个凸起的部分。沿着其中一面墙还有另一扇门，通向某种储藏室或维修通道。屋顶上还有几个通风管道。</center>'
+
+	act '下到五楼':
+		if PSwim = 1 or $clothingworntype = 'nude':
+			msg '<center><font color = red>你需要先穿上衣服</font></center>'
+			gt 'pod_ezd', 'roof'
+		else
+			minut += 1
+			gt 'pod_ezd', 'etaj_5'
+		end
+	end
+	if mc_inventory['joints'] > 0 and drugVars['weed_high'] = 0:
+		act '抽一支大麻烟':
+			minut += 10
+			gs 'drugs', 'joint'
+			gt $loc, $loc_arg
+		end
+	end
+	if PSwim = 1 or $clothingworntype = 'nude':
+		act '换回衣服':
+			minut += 5
+			gs 'outfit', 'restore', 'swim'
+			gt 'pod_ezd', 'roof'
+		end
+		act '换衣服': gt 'changingroom'
+	end
+	if temper >= 15 and hour >= 8 and hour < 21:
+		if func('changingroom', 'count_swim_item') > 0 and PSwim = 0:
+			act '换上比基尼': gt 'changingroom'
+		end
+		if PSwim = 1:
+			act '日光浴 (1:00)':
+				*clr & cla
+				minut += 60
+				inhib_exp += rand(1, 3)
+				if pcs_sweat < 35: gs 'sweat', 'add', 5
+				gs 'mood', 'raise', 'tiny'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/zagar1.jpg"></center>'
+
+				if mc_inventory['suncream'] = 0:
+					pcs_tan += 1
+					'你躺下做日光浴。'
+				elseif mc_inventory['suncream'] > 0:
+					mc_inventory['suncream'] -= 1
+					pcs_tan += 3
+					'你给身体涂上防晒霜，躺在屋顶上做日光浴。'
+				end
+
+				act '起来': gt 'pod_ezd', 'roof'
+			end
+		end
+	end
+end
+
+
+!! ELEVATOR
+if $ARGS[0] = 'lift':
+	gs 'pod_ezd', 'lift_events'
+
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/elevator.jpg"></center>'
+	'<center>公寓楼里的电梯相当老旧。物业主管尽力让它保持运行，但它经常出故障。有人在电梯里贴了一个<a href="exec:gt ''pod_ezd'',''elev_objava'',$ARGS[1]">通知</a>。</center>'
+
+	act '按下按钮：1楼': gt 'pod_ezd', 'etaj_1'
+	act '按下按钮：2楼': gt 'pod_ezd', 'etaj_2'
+	act '按下按钮：3楼': gt 'pod_ezd', 'etaj_3'
+	act '按下按钮：4楼': gt 'pod_ezd', 'etaj_4'
+	act '按下按钮：5楼': gt 'pod_ezd', 'etaj_5'
+end
+
+
+if $ARGS[0] = 'lift_events':
+	pod_lift_ev = rand(0, 10)
+	if pod_lift_ev = 1:
+		gt 'pod_ezd', 'lift_event_1'
+	elseif pod_lift_ev <= 5 or liftnotwork_count <=0:
+		gt 'pod_ezd', 'lift_event_2'
+	end
+	killvar 'pod_lift_ev'
+end
+
+
+if $ARGS[0] = 'lift_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/elevator'+rand(1, 2)+'.jpg"></center>'
+	'电梯门打开时，你看到里面站着一个裸体女人！她惊慌地看着你，疯狂地按着所有电梯按钮。你愣住了，什么也没来得及做，一切就已经太迟了。门已经再次关上，电梯正离你而去。'
+
+	act '离开': minut += 1 & gt 'pod_ezd', $ARGS[1]
+end
+
+
+if $ARGS[0] = 'lift_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	liftnotwork_day = daystart
+	liftnotwork_count -= 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/liftnotwork.jpg"></center>'
+	'物业主管在电梯上贴了一张告示："亲爱的住户们，电梯今天坏了。别担心，我明天应该就能让它重新运行！"'
+
+	act '离开': minut += 1 & gt 'pod_ezd', $ARGS[1]
+end
+
+
+
+if $ARGS[0] = 'elev_objava':
+		*clr & cla
+		minut += 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/elevator_ob'+rand(1, 2)+'.jpg"></center>'
+	act '继续': gt 'pod_ezd', 'lift', $ARGS[1]
+end
+
+
+if $ARGS[0] = 'pod_objava':
+		menu_off = 1
+		*clr & cla
+		minut += 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/pod_ob'+rand(1, 2)+'.jpg"></center>'
+		'<br>当你经过那些广告时，你注意到一张告示——"сдаeтся в аренду комната"（房间出租！）。有几个家伙正在找室友。他们住在公寓小区里另一栋楼的一套公寓里。'
+	act '继续': gt 'pod_ezd', 'etaj_1'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           FLOOR 2 EVENTS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor2_events':
+	floor2 = rand(1, 12)
+	if floor2 < 6 and (hour >= 19 or (week >= 6 and hour >= 10)):
+		gt 'pod_ezd', 'floor2_event_1'
+	elseif floor2 < 9:
+		gt 'pod_ezd', 'floor2_event_2'
+	elseif floor2 = 9:
+		gt 'pod_ezd', 'floor2_event_3'
+	elseif floor2 = 10:
+		gt 'pod_ezd', 'floor2_event_4'
+	elseif floor2 = 11:
+		gt 'pod_ezd', 'floor2_event_5'
+	elseif floor2 = 12:
+		gt 'pod_ezd', 'floor2_event_6'
+	end
+end
+
+
+if $ARGS[0] = 'floor2_event_1':
+	!! Meet uncle Misha
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/mishasmoke.jpg"></center>'
+	'米沙叔叔现在正在他的公寓门外抽着香烟。他的名字叫米哈伊尔，不过大家都叫他米沙叔叔。他住在和你同一层的另一套公寓里。你母亲一直禁止你和他说话，警告你他以前是当地的黑帮头目，你不该和他扯上关系。然而，他对你一直都很礼貌友善。'
+	if rand(0, 4) = 0 and func('pcs_has_attr', 'sex_virgin') = 0 and pcs_hotcat >= 4:
+		'当你和米沙叔叔聊天时，他抽完了香烟。抽完后，他掏出一包烟想再拿一根。接着他哼了一声，皱着眉头把烟盒捏成一团。显然他已经抽完了。你还没来得及说什么，他就问你："你能不能行行好，去我公寓帮我拿一包新香烟过来？"你瞥了一眼他身后的门。他完全可以自己去拿，但你猜他只是懒得动。'
+
+		act '答应': gt 'misha', 'wallet'
+		act '找个借口':
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/mishasmoke.jpg"></center>'
+			'你摇摇头拒绝。"抱歉，我得走了。"他轻轻摇了摇头，什么也没说，就消失在公寓里。'
+			act '离开': gt 'pod_ezd', 'etaj_2'
+		end
+	elseif rand(0, 1) = 0 and (((PCloStyle = 4 or PCloProstitute = 1) and fame['pav_slut'] >= 300) or dyadyamishaevent >= 1 or PCloStyle2 = 3 or PCloStrip = 1):
+		'米沙叔叔抽着烟，你和他聊着天。你能看出他在脑子里扒光你的衣服，但不知怎的，你觉得这还有点讨人喜欢。当他掐灭香烟、吐出最后几口烟时，他问道：'
+		'"我说，<<$pcs_nickname>>，你愿意让一个老头子舒服一下吗？我正需要一次快速的口交……事后会有<<$func(''money'', ''string_profit'', 100)>>给你，算是辛苦费。"'
+
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				minut += 2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/mishasmoke.jpg"></center>'
+				'"抱歉米沙叔叔，但我现在不行。也许改天吧？"你道歉说。他似乎完全不在意。'
+				'"没问题<<$pcs_nickname>>，我可记住你的话了！"他说着，朝你露出猥琐的笑容。"既然如此，我该走了。回头再聊。"'
+				act '说再见': gt 'pod_ezd', 'etaj_2'
+			end
+		end
+
+		act '给他口交': gt 'pod_ezd', 'misha_bj'
+	else
+		gs 'mood', 'raise', 'tiny'
+		if rand(0, 1) = 0:
+			'米沙叔叔抽着烟，你和他聊着天。他谈起自从退休后，他的生活轻松了许多。'
+		else
+			'米沙叔叔抽着烟，你和他闲聊了几句。抽完烟后，他道了歉，说他得走了。'
+		end
+
+		act '说再见': gt 'pod_ezd', 'etaj_2'
+	end
+end
+
+
+if $ARGS[0] = 'floor2_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/smokeboys.jpg"></center>'
+	'几个住在你这栋楼里的大男孩正在楼梯间分着抽一支烟。'
+
+	act '无视他们': gt 'pod_ezd', 'etaj_2'
+	act '靠近他们': $smoke_loc = 'etaj_2' & gt 'pod_ezd', 'boys_smoke'
+end
+
+
+if $ARGS[0] = 'floor2_event_3':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/passedoutfat.jpg"></center>'
+	'一个胖妞瘫坐在靠栏杆的椅子上，昏睡不醒。你以前见过她。你觉得她和男朋友或者丈夫住在一起，但不确定是哪个。他们住在3楼。显然，她喝得太醉，没能走完剩下的回家路。'
+
+	act '继续': gt 'pod_ezd', 'etaj_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_4':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/nakedstairs.jpg"></center>'
+	'你听到有人正走上楼梯。你转头一看，看到一个裸体女人正往楼上走，手里拿着自己的衣服。她看到你时脸红了，低下头，不敢与你对视。她继续走上下一层，随后你听到上面有扇门开了又关上。你完全不知道她为什么光着身子拿着衣服。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'pod_ezd', 'etaj_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_5':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/openrobe.jpg"></center>'
+	'你看到一个女人站在她敞开的公寓门外。她只穿着一件睡袍靠在楼梯栏杆上，睡袍没有系带、敞开着，让你或任何人都能看到她的裸体。她看到你时笑了。"你好，"她说，仿佛一切都再正常不过。你也回了声好，尽量不去盯着看。又抽了几口烟后，她把烟掐灭，回到了自己的公寓里。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'pod_ezd', 'etaj_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_6':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev1_1.jpg"></center>'
+	'当你走过楼梯间的一个拐角时，突然正对上一个女人赤裸的小穴！她坐在几级台阶上，随意地抽着香烟。她的伴侣在和她聊天，同时大饱眼福地看着她赤裸的小穴和大大张开的双腿。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'stat'
+
+	act '离开': gt 'pod_ezd', 'etaj_2'
+	gs 'willpower', 'voyeur', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '继续观看' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '继续观看' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev1_2.jpg"></center>'
+			'那个女孩注意到了你，朝你可爱地眨了眨眼。她继续和伴侣说话，同时把乳房从衬衫里掏出来，双腿也张得更开。你有些困惑……她这是做给你看，还是做给他看？'
+			'你知道自己真的不该盯着看，特别是在她已经知道的情况下，但与此同时，你的目光就是无法从她身上移开。几分钟后，那个男的扶她站起来，两人上楼，走向那里的其中一套公寓。女孩的脸绕过拐角消失时，朝你露出一个心照不宣的微笑。'
+			gs 'arousal', 'erotic_nudity', 3
+			gs 'arousal', 'end'
+			act '离开': gt 'pod_ezd', 'etaj_2'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           FLOOR 3 EVENTS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor3_events':
+	floor3 = rand(1, 22)
+	if (floor3 <= 3 and hour >= 14 and hour < 17) or (floor3 <= 5 and ((week = 7 and hour >= 20) or (week >= 6 and hour >= 11 and hour < 14))):
+		gt 'pod_ezd', 'gopnik_event_1'
+	elseif (floor3 <= 6 and hour >= 14 and hour < 17) or (floor3 <= 5 and week = 7 and hour >= 20) or (floor3 <= 5 and week >= 6 and hour >= 11 and hour < 14):
+		gt 'pod_ezd', 'gopnik_event_2'
+	elseif (floor3 <= 9 and hour >= 14 and hour < 17) or (floor3 <= 5 and week = 7 and hour >= 20) or (floor3 <= 5 and week >= 6 and hour >= 11 and hour < 14):
+		gt 'pod_ezd', 'gopnik_event_3'
+	elseif (floor3 <= 11 and hour >= 14 and hour < 17) or (floor3 <= 5 and week = 7 and hour >= 20) or (floor3 <= 5 and week >= 6 and hour >= 11 and hour < 14):
+		gt 'pod_ezd', 'gopnik_event_4'
+	elseif floor3 > 11 and floor3 <= 14 and hour >= 15:
+		gt 'pod_ezd', 'floor3_event_5'
+	elseif floor3 = 17:
+		gt 'pod_ezd', 'floor3_event_6'
+	elseif floor3 = 18 and ((hour >= 14 and hour < 17) or (week = 7 and hour >= 20)):
+		gt 'pod_ezd', 'floor3_event_7'
+	elseif floor3 = 19 or floor3 = 20:
+		gt 'pod_ezd', 'floor3_event_8'
+	elseif floor3 = 21 or floor3 = 22:
+		gt 'pod_ezd', 'floor3_event_9'
+	end
+end
+
+
+if $ARGS[0] = 'gopnik_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/vassmoke.jpg"></center>'
+	'你看到瓦西里站在楼梯间里抽烟。'
+
+	act '继续': gt 'pod_ezd', 'etaj_3'
+	act '向他要根烟': gt 'pod_ezd', 'vasily_smoke'
+end
+
+
+if $ARGS[0] = 'gopnik_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/danvas.jpg"></center>'
+	'瓦西里和丹站在谢尔盖叔叔的公寓门外抽着香烟。'
+
+	act '继续': gt 'pod_ezd', 'etaj_3'
+	act '向他们要一支烟': gt 'pod_ezd', 'smoke_danvas'
+end
+
+
+if $ARGS[0] = 'gopnik_event_3':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/vitdanvas.jpg"></center>'
+	'瓦西里、维泰克和丹站在谢尔盖叔叔的公寓门外抽着香烟。'
+
+	act '继续': gt 'pod_ezd', 'etaj_3'
+	act '向他们要一支烟': gt 'pod_ezd', 'smoke_vitdanvas'
+end
+
+
+if $ARGS[0] = 'gopnik_event_4':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/lena.jpg"></center>'
+	'列娜坐在谢尔盖叔叔的公寓门外喝酒。'
+
+	act '继续': gt 'pod_ezd', 'etaj_3'
+	act '和列娜交谈': gt 'pod_ezd', 'lena_chat'
+end
+
+
+if $ARGS[0] = 'floor3_event_5':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/julia.jpg"></center>'
+	'你在楼梯间碰见朱莉娅·米洛娃，她正好从自己的公寓里出来。'
+	act '继续': gt 'pod_ezd', 'etaj_3'
+	act '停下来聊聊': gt 'pod_ezd', 'juliamil'
+end
+
+
+if $ARGS[0] = 'floor3_event_6':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/smokeboys.jpg"></center>'
+	'几个住在你这栋楼里的大男孩正在楼梯间分着抽一支烟。'
+
+	act '继续': gt 'pod_ezd', 'etaj_3'
+	act '接近那些男孩': $smoke_loc = 'etaj_3' & gt 'pod_ezd', 'boys_smoke'
+end
+
+
+if $ARGS[0] = 'floor3_event_7':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev3.jpg"></center>'
+	'当你走过楼梯间的一个拐角时，你撞见瓦西里和丹正在操一个穿着内衣和外套的陌生女孩。她看起来很眼熟，但你没法看清她的脸，无法确定她是谁。'
+	'你躲了一会儿，想试试能不能认出她，但她被那两个男的夹在中间，脸始终被挡着。'
+	'你本想多待一会儿，好瞥一眼她的脸，但突然听到身后楼梯上传来脚步声。你赶紧走开，不想被发现在偷看。'
+
+	gs 'arousal', 'voyeur_sex', 5
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_8':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/titsmoke.jpg"></center>'
+	'你看到楼梯间里有个穿裙子的女孩，上身赤裸，站在一扇开着的窗边抽着香烟。她朝你点头微笑，但什么也没说。你决定不多管闲事。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_9':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/passedoutf.jpg"></center>'
+	'地上躺着一个女孩，她似乎昏睡过去了。她浑身一股酒味，显然是喝得太多，还没走到家就醉倒了。'
+	act '无视她': gt 'pod_ezd', 'etaj_3'
+	act '试着叫醒她。':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/passedoutsf.jpg"></center>'
+		'你走过去，在她旁边蹲下。你摇了好几下她的肩膀，她终于迷迷糊糊地醒了过来，翻身仰面看着你。她盯着你看了好一会儿，一脸困惑。'
+		'"你还好吗？我发现你躺在这里昏睡过去了。"你告诉她。'
+		'她环顾了一下四周，然后爬起来。"嗯，谢谢。"她对你说，然后抓起自己的手提包，踉跄着走开了。'
+		act '离开': gt 'pod_ezd', 'etaj_3'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           FLOOR 4 EVENTS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor4_events':
+	floor4 = rand(1, 15)
+	if floor4 = 1:
+		gt 'pod_ezd', 'floor4_event_1'
+	elseif floor4 < 6:
+		gt 'pod_ezd', 'floor4_event_2'
+	elseif floor4 = 6:
+		gt 'pod_ezd', 'floor4_event_3'
+	elseif floor4 = 7:
+		gt 'pod_ezd', 'floor4_event_4'
+	elseif floor4 < 10:
+		gt 'pod_ezd', 'floor4_event_5'
+	elseif floor4 < 12:
+		gt 'pod_ezd', 'floor4_event_6'
+	elseif floor4 < 14:
+		gt 'pod_ezd', 'floor4_event_7'
+	else
+		gt 'pod_ezd', 'floor4_event_8'
+	end
+end
+
+
+if $ARGS[0] = 'floor4_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/luda/event/ev2.jpg"></center>'
+	'你听到有人正走上楼梯。他们听起来很匆忙。你转过身，正好看到卢达阿姨在楼梯间里。她甚至没穿裤子或内裤！她有时候真是够骚的。她告诉你，她只是"扔完垃圾"后往回走，还说自己没时间聊天，然后从你身边匆匆走过，进了自己的公寓。'
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+	act '离开': gt 'pod_ezd', 'etaj_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/smokeboys.jpg"></center>'
+	'几个住在你这栋楼里的大男孩正在楼梯间分着抽一支烟。'
+
+	act '继续': gt 'pod_ezd', 'etaj_4'
+	act '接近那些男孩': $smoke_loc = 'etaj_4' & gt 'pod_ezd', 'boys_smoke'
+end
+
+
+if $ARGS[0] = 'floor4_event_3':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev4_1.jpg"></center>'
+	'当你走过楼梯间的一个拐角时，你看到 叶莲娜 科托夫，你班上的一个女孩。她正在几个男生面前脱下自己的内裤。要是她哥哥维泰克看到这一幕，他现在大概会把他们揍个半死。他对自己的妹妹保护得极严。'
+
+	gs 'arousal', 'erotic', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_4'
+	gs 'willpower', 'voyeur', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '躲起来看着他们' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '躲起来看着他们' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'self'
+			gt 'pod_ezd', 'lena_show'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'floor4_event_4':
+	*clr & cla
+	menu_off = 1
+	gs 'exp_gain', 'prcptn', rand(1, 2)
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/opendoor.jpg"></center>'
+	'你顺着楼梯往下瞥了一眼，看到最下面那套公寓的门开着。你能看到公寓里面，一直看到浴室，浴室的门也大敞着。显然，里面的女孩没有注意到，或者她是故意的；她光着身子站在那儿，对着镜子往脸上抹面霜。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_5':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/flashp' + rand(1, 5) + '.jpg"></center>'
+	'当你走过楼梯间的一个拐角时，你看到某个女孩和那些抽烟的男生们混在一起。他们在怂恿她掀起裙子给他们看小穴。过了一会儿，她终于妥协了，掀起裙子展示自己的小穴。这似乎只让他们更来劲，他们朝她围拢过去，怂恿她脱光。当你发现其中一个男生在看你时，你觉得最好还是赶紧走开。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_6':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/flasht.jpg"></center>'
+	'当你走过楼梯间的一个拐角时，你看到某个女孩和那些抽烟的男生们混在一起。他们在怂恿她给他们看奶子。过了一会儿，她终于妥协，拉下上衣，露出奶子。这似乎只让他们更来劲，他们朝她围拢过去，怂恿她脱光。当你发现其中一个男生在看你时，你觉得最好还是赶紧走开。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_7':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/nakeddoor.jpg"></center>'
+	'你听到一阵敲门声和一个女孩的声音。"开门啊，求你了，趁还没人来让我进去。"当你转过拐角时，你看到一个裸体女孩站在一扇门前，疯狂地扭动、拉扯着门把手。当她终于注意到你时，她脸红了，你听到她对公寓里的某个人说："这里有个女孩在看我，让我进去！"没有回应，她便转向你。"我男朋友就是个混蛋。"你还没来得及回答，她身后的门就打开了，她迅速溜了进去。你看到门里有个男的正在笑，然后门关上了。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_8':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/passedoutm.jpg"></center>'
+	'你在楼梯上遇到一个光着身子、昏睡过去的胖男人。你认出他和妻子住在这栋楼里，也意识到你从没见过他清醒的样子。你听说过，当他喝得太醉昏睡过去时，他妻子会把他扒光拖到走廊里教训他一顿，但看来他还没吸取教训。几个孩子围在他旁边笑着拍照，你觉得他们应该是你弟弟班上的。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_4'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           FLOOR 5 EVENTS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor5_events':
+	floor5 = rand(1, 7)
+	if floor5 = 1:
+		gt 'pod_ezd', 'floor5_event_1'
+	elseif floor5 = 2:
+		gt 'pod_ezd', 'floor5_event_2'
+	elseif floor5 = 3:
+		gt 'pod_ezd', 'floor5_event_3'
+	elseif floor5 = 4:
+		gt 'pod_ezd', 'floor5_event_4'
+	elseif floor5 < 7 and ((hour >= 14 and hour < 17) or (week >= 6 and hour >= 11 and hour < 14) or (week >= 6 and hour >= 20)):
+		gt 'pod_ezd', 'floor5_event_5'
+	elseif floor5 = 7:
+		gt 'pod_ezd', 'floor5_event_6'
+	end
+	killvar 'floor5'
+end
+
+
+if $ARGS[0] = 'floor5_event_1':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev4_1.jpg"></center>'
+	'当你走上楼梯到5楼时，你看到一个不认识的女孩正在向两个男生展示她的乳房。其中一个男生拿着相机。你相当确定自己从没见过他们中的任何一个。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'pod_ezd', 'etaj_5'
+	gs 'willpower', 'voyeur', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			gt 'pod_ezd', 'home_movie1'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'floor5_event_2':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev3_1.jpg"></center>'
+	'当你走上楼梯到5楼时，你看到一个女孩正在同时热情地为两个男生口交。其中一个男生用相机把一切都拍了下来。'
+
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+
+	act '离开': gt 'pod_ezd', 'etaj_5'
+	gs 'willpower', 'voyeur', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			gt 'pod_ezd', 'home_movie2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'floor5_event_3':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_1.jpg"></center>'
+	'当你走上楼梯来到五楼时，你看到一男一女在做爱。此刻，女孩正热情地给他口交，另一个男人用摄像机拍下了一切。'
+
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+
+	act '离开': gt 'pod_ezd', 'etaj_5'
+	gs 'willpower', 'voyeur', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			gt 'pod_ezd', 'home_movie3'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'floor5_event_4':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_1.jpg"></center>'
+	'当你走上楼梯来到五楼时，你看到一男一女在做爱。此刻，女孩正热情地给他口交，另一个男人用摄像机拍下了一切。'
+
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+
+	act '离开': gt 'pod_ezd', 'etaj_5'
+	gs 'willpower', 'voyeur', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '躲起来继续观察' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			gt 'pod_ezd', 'home_movie4'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'floor5_event_5':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+	'当你走上楼梯到5楼时，你看到维泰克、丹、瓦西里、列娜、列拉，还有几个你不认识的老混混聚在一起。他们在抽烟、喝酒、大笑。'
+
+	act '离开': gt 'pod_ezd', 'etaj_5'
+	act '加入他们':
+		if rand(0, 2) = 2:
+			gt 'pod_ezd', 'gopnik_events', rand(1, 4)
+		else
+			gt 'pod_ezd', 'gopnik_group_chat'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'floor5_event_6':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/passedoutsf.jpg"></center>'
+	'当你走上楼梯到5楼时，你看到一个女孩昏睡在地上。她浑身酒气，裤子只穿了一半，大半光着的屁股露在外面。她的手提包和内裤就丢在旁边。看样子，似乎是有人想帮她把裤子穿回去，但没穿完就把她扔在那儿了。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '无视她': gt 'pod_ezd', 'etaj_5'
+	act '试着叫醒她。':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/passedoutsf.jpg"></center>'
+		'你走过去，在她旁边蹲下。你摇了好几下她的肩膀，她终于迷迷糊糊地醒了过来，翻身仰面看着你。她盯着你看了好一会儿，一脸困惑。'
+		'"你还好吗？我发现你躺在这里昏睡过去了。"你告诉她。'
+		'她环顾了一下四周，然后爬起来。"嗯，谢谢。"她一边拉起裤子一边对你说，然后抓起手提包和内裤，踉跄着走开了。'
+		act '离开': gt 'pod_ezd', 'etaj_5'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+
+if $ARGS[0] = 'boys_smoke':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+	gs 'boyStat', 'A<<rand(122,126)>>', 1
+	:ssboyloop
+	gs 'boyStat', 'A<<rand(122,126)>>', 2
+	if $boy[1] = $boy[2]: jump 'ssboyloop'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/smokeboys.jpg"></center>'
+	'那些男生跟你打招呼，他们之前见过你，便递给你一根香烟。'
+
+	act '拒绝并离开': gt 'pod_ezd', $smoke_loc
+	act '接过香烟':
+		*clr & cla
+		minut += 5
+		gs 'drugs', 'smoke', 'borrowed'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/smokeboys.jpg"></center>'
+
+		if fame['pav_slut'] < 250:
+			'你欣然接受，接下来的五分钟里和他们一起抽着烟，聊些无关紧要的小事。'
+			act '离开': gt 'pod_ezd', $smoke_loc
+		elseif fame['pav_sex'] < fame['pav_prostitute']:
+			'你抽着香烟，听见那几个男孩在低声议论：“那就是<<$pcs_nickname>>！我听说她是个 '+func('gopsex', 'hide', 'gg_whore_text')+'。听别人说，只要价钱合适，她什么都肯让你做。咱们看看能不能便宜点操她！”'
+			'其中一个男生走近你，示意你把头凑近他。你照做后，他把口袋里的钱全掏了出来。他数了数那些皱巴巴的钞票，递到你面前，问道：“<<$func(''money'', ''string_profit'', rnd_money_sex)>>够两个人吗？”'
+			'他始终没说自己到底想让你为他和他朋友做什么，但他们那淫荡而贪婪的目光不断在你身上游走。'
+			gs 'willpower', 'prostitution', 'resist'
+			if pcs_willpwr < will_cost:
+				act '拒绝并远离他们' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '拒绝并远离他们' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					gt 'pod_ezd', $smoke_loc
+				end
+			end
+			act '接受并操他们':
+				gs 'money', 'earn', rnd_money_sex
+				gs 'fame', 'pav', 'prostitute', rand(3, 9)
+				gt 'pod_ezd', 'sex_ev<<rand(1,3)>>'
+			end
+		else
+			gs 'exp_gain', 'prcptn', rand(1, 2)
+			'你抽着香烟，听见那几个男孩在低声议论：“那就是<<$pcs_nickname>>。我听说她就是个天生想当飞机杯的骚货。我敢打赌，只要咱们拉开拉链把鸡巴亮给她看，她立马就会流着口水来吸！”'
+			act '在他们动歪心思之前离开': gt 'pod_ezd', $smoke_loc
+			act '继续抽烟':
+				gs 'fame', 'pav', 'sex', 2
+				gt 'pod_ezd', 'sex_ev<<rand(1,3)>>'
+			end
+			gs 'willpower', 'gangbang', 'resist'
+			if pcs_willpwr < will_cost:
+				act '生气并斥责他们' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '生气并斥责他们' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					minut += 2
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/megera.jpg"></center>'
+					'厌倦了总是要为自己辩解，你把怒火全都撒在那几个男生身上：“你们开什么玩笑！？是不是血都从脑子里流到鸡巴里去了？”'
+					'“如果我现在开始尖叫，说你们强奸，整栋楼的人都会跑来看发生了什么。你觉得他们会信谁，我还是你们？”'
+					'那几个男生意识到自己玩过头了，裤子褪下来的那个赶紧把裤子提了上去。“好啦好啦，对不起！我们只是闹着玩的！”他们说完，趁你还没来得及再开口就快步走开了。'
+					act '离开': gt 'pod_ezd', $smoke_loc
+				end
+			end
+		end
+	end
+	act '只是和他们聊聊天':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/smokeboys.jpg"></center>'
+		'你婉拒了，不过还是留下来聊了一会儿琐事。'
+
+		if fame['pav_slut'] < 250:
+			act '离开': gt 'pod_ezd', $smoke_loc
+		elseif fame['pav_sex'] < fame['pav_prostitute']:
+			gs 'exp_gain', 'prcptn', rand(1, 2)
+			'你听见那几个男孩在试着低声议论。“那就是<<$pcs_nickname>>！我听说她是个 '+func('gopsex', 'hide', 'gg_whore_text')+'。传言说只要给卢布她什么都肯让你做，我想看看能不能便宜点操她！”'
+			'其中一个男生凑近你，示意你也照做。你照做后，他把口袋里的钱全掏了出来。他数了数钞票，有些兴奋地递到你面前，问道：“<<$func(''money'', ''string_profit'', rnd_money_sex)>>够两个人吗？”'
+			'他始终没说自己到底想让你为他和他朋友做什么，但他们那淫荡而贪婪的目光让你打了个寒颤。'
+			gs 'willpower', 'prostitution', 'resist'
+			if pcs_willpwr < will_cost:
+				act '拒绝并远离他们' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '拒绝并远离他们' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					gt 'pod_ezd', $smoke_loc
+				end
+			end
+			act '接受并操他们':
+				gs 'money', 'earn', rnd_money_sex
+				gs 'fame', 'pav', 'prostitute', rand(3, 9)
+				stat['prostitution_count'] += 1
+				gt 'pod_ezd', 'sex_ev<<rand(1,3)>>'
+			end
+		else
+			gs 'exp_gain', 'prcptn', rand(1, 2)
+			'你听见那几个男孩在低声议论：“那就是<<$pcs_nickname>>。我听说她是个只为取悦鸡巴而活的淫荡骚货。我敢打赌，只要咱们把鸡巴亮给她看，她立马就会流着口水来吸！”'
+			gs 'willpower', 'gangbang', 'resist'
+			if pcs_willpwr < will_cost:
+				act '生气并斥责他们' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '生气并斥责他们' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					minut += 2
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/megera.jpg"></center>'
+					'厌倦了总是要为自己辩解，你把怒火全都撒在那几个男生身上：“你们开什么玩笑！？是不是血都从脑子里流到鸡巴里去了？”'
+					'“如果我现在开始尖叫，说你们强奸，整栋楼的人都会跑来看发生了什么。你觉得他们会信谁，我还是你们？”'
+					'那几个男生意识到自己玩过头了，裤子褪下来的那个赶紧把裤子提了上去。“好啦好啦，对不起！我们只是闹着玩的！”他们说完，趁你还没来得及再开口就快步走开了。'
+					act '离开': gt 'pod_ezd', $smoke_loc
+				end
+			end
+			act '照他们说的做': gs 'fame', 'pav', 'sex', rand(3, 9) & gt 'pod_ezd', 'sex_ev<<rand(1,3)>>'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'misha_bj':
+	*clr & cla
+	menu_off = 1
+	gs 'money', 'earn', 100
+	gs 'fame', 'pav', 'prostitute', 1
+	gs 'boyStat', 'A54'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/misha/sex/otsos_misha.jpg"></center>'
+	'你快速点了点头，在台阶上坐下。他走近时，从拉开的裤链里掏出他勃起的<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴。你含住他的龟头，用舌头顶弄，用手指环住柱身，一边吸吮一边轻轻套弄。他根本没撑多久，几分钟内就把精液射到你舌头上。你吞了下去，张开嘴给他看，抬起舌头左右移动，证明你吞了。“真值。太棒了，<<$pcs_nickname>>”，他边说边按约定把钱递给你。然后他告辞转身要走，说：“抱歉姑娘，我还有事。”'
+	gs 'arousal', 'bj', 5, 'prostitution', 'exhibitionism'
+	gs 'cum_call', 'mouth', 'A54'
+	gs 'arousal', 'end'
+	act '说再见': gt 'pod_ezd', 'etaj_2'
+end
+
+
+if $ARGS[0] = 'juliamil':
+	menu_off = 1
+	gs 'npcStat', 'A12'
+	gs 'npc_relationship', 'modify', 'A12', 'like'
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big12.jpg"></center>'
+	'你正好有空，就停下来和她聊了几句。你们俩坐下聊了几分钟，谈了谈最近发生的事。'
+	act '离开': gt 'pod_ezd', 'etaj_3'
+	if juliaQW['JulMilBestFrend'] >= 15:
+		juliamil_rnd = rand(1, 3)
+		if juliamil_rnd = 1:
+		'朱莉娅给你讲了她前几天遇到的一件趣事。'
+		end
+		if juliamil_rnd = 2:
+		'朱莉娅给你讲了些乱七八糟的闲话。虽然故事并不怎么有趣，但你喜欢有她作伴。'
+		end
+		if juliamil_rnd = 3:
+			'聊天时，你注意到朱莉娅一直用奇怪的眼神看你，然后又带着尴尬的表情移开视线。'
+			act '问她怎么了':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia1.jpg"></center>'
+				'朱莉娅什么也没说，却在你最意想不到的时候出其不意地快速吻了你的<<$pc_desc[''lips'']>>嘴唇。她的吻技其实相当不错。你还注意到她包里露出一根假阳具。'
+				gs 'arousal', 'foreplay', 2, 'lesbian'
+				gs 'stat'
+				act '朱莉娅，求你了，别缠着我': gt 'pod_ezd', 'etaj_3'
+				act '回吻她，让她看你的乳房':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia2.jpg"></center>'
+					'你回吻了她，这让她更大胆，吻得更热烈。经过一番激烈的亲热后，她把衬衫拉下来，露出她并不丰满的乳房。你也照做，她便把你拉过去又深深吻了一次。然后她凑到你耳边低语：“<<$pcs_nickname>>，求你了，舔舔我的小穴！”'
+					gs 'arousal', 'foreplay', 2, 'lesbian'
+					gs 'stat'
+					act '舔她':
+						*clr & cla
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia4.jpg"></center>'
+						'她看起来真的很想要。你把朱莉娅按回墙上，跪下来，挑逗地用舌头舔过她的大腿内侧和外阴，总是离目标差一点点。这显然对她很有效；不一会儿，她就开始祈求、呻吟。你觉得挑逗朱莉娅已经够了，于是舔她湿润的小穴，特别关照她的阴蒂。'
+						gs 'arousal', 'cuni_give', 5, 'lesbian'
+						gs 'stat'
+						act '用假阳具操她':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia6.jpg"></center>'
+							'当你注意到她的小穴变得湿透了，你从她身上退开。她张嘴想抱怨，但看到你只是去拿假阳具，便合上嘴，闭上眼睛。'
+							'她的爱液已经把小穴润滑得很充分，你没费什么力气就把假阳具整根插了进去。你故意慢慢抽插她的小穴，每次她哀求或抱怨，你就停几秒钟不动。她的小穴现在滑得不行，爱液顺着假阳具流下来，开始沾满你的手指。'
+							gs 'arousal', 'vaginal_dildo_give', 5, 'lesbian'
+							gs 'stat'
+							act '继续':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia7.jpg"></center>'
+								'朱莉娅觉得自己已经完全失去了对局面的掌控，现在一开口就是哀求。“<<$pcs_nickname>>，求你舔舔我的屁股！那感觉一定很棒，求你了！”你决定再多享受一会儿掌控她的快感，对她说：“等你把假阳具和我手指上的爱液都舔干净再说。”朱莉娅高高兴兴地照做，又舔又吸地把你手指上和假阳具上的爱液都吃了个干净。'
+								gs 'arousal', 'foreplay', 2, 'lesbian'
+								gs 'stat'
+								act '舔她的屁眼':
+									*clr & cla
+									'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia8.jpg"></center>'
+									'好吧，公平交易，这是她应得的。你把她转过身，双手掰开她的臀瓣，轻轻舔她的屁眼。正当你准备真正深入时，她已经顶着你的脸扭动起来，拼命压抑着呻吟，努力保持身体不倒，高潮猛烈地袭向她。'
+									'几秒钟后，她看着你的眼睛低声说：“哇，<<$pcs_nickname>>，太棒了！我觉得我以前从没高潮得这么厉害过。”'
+									*nl
+									'然后她注意到时间：“糟了，我迟到了！我迟到了！对不起，<<$pcs_nickname>>，我会补偿你的！我保证！要不你晚点来我住的地方找我？如果你带点酒来，我们可以快点把作业写完，然后好好玩一玩？”她眨了眨眼说。'
+									'朱莉娅不等你回答，就迅速收拾好东西跑开了。虽然你自己没有高潮，但那次真的很开心。'
+									gs 'arousal', 'rimming_give', 2, 'lesbian'
+									gs 'arousal', 'end'
+									act '整理好衣服，收拾好你的东西': gt 'pod_ezd', 'etaj_3'
+								end
+							end
+						end
+					end
+					gs 'willpower', 'cuni', 'force'
+					if pcs_willpwr < will_cost:
+						act '改为让她舔你' + $func('willpower', 'get_willcost_string'): $noWillpower
+					else
+						act '改为让她舔你' + $func('willpower', 'get_willcost_string'):
+							*clr & cla
+							gs 'willpower', 'pay', 'force'
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia5.jpg"></center>'
+							'你露出小穴，用手指轻轻揉搓阴蒂，对她说：“不，你先舔我。”'
+							'“不，<<$pcs_nickname>>，求你舔我，我求你了！”'
+							'你向后躺下，张开双腿。“照我说的做。”你对她说，并把她的头按进你胯下，一到那里她就开始急切地舔你的小穴。'
+							gs 'arousal', 'cuni', 5, 'lesbian'
+							gs 'stat'
+							act '回报好意':
+								*clr & cla
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia4.jpg"></center>'
+								'她看起来真的很想要。你把朱莉娅按回墙上，跪下来，挑逗地用舌头舔过她的大腿内侧和外阴，总是离目标差一点点。这显然对她很有效；不一会儿，她就开始祈求、呻吟。你觉得挑逗朱莉娅已经够了，于是舔她湿润的小穴，特别关照她的阴蒂。'
+								gs 'arousal', 'cuni_give', 5, 'lesbian'
+								gs 'stat'
+								act '用假阳具操她':
+									*clr & cla
+									'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/julia/sex/stairs/julia9.jpg"></center>'
+									'当你注意到她的小穴变得湿透了，你从她身上退开。她张嘴想抱怨，但看到你只是去拿假阳具，便合上嘴，闭上眼睛。'
+									'她的爱液已经把小穴润滑得很充分，你没费什么力气就把假阳具整根插了进去。你故意慢慢抽插她的小穴，每次她哀求或抱怨，你就停几秒钟不动。她的小穴现在滑得不行，爱液顺着假阳具流下来，开始沾满你的手指。她开始顶着你握着假阳具的手扭动，拼命压抑着呻吟，努力保持身体不倒，高潮猛烈地袭向她。'
+									'几秒钟后，她看着你的眼睛低声说：“哇，<<$pcs_nickname>>，太棒了！我觉得我以前从没高潮得这么厉害过。”'
+									*nl
+									'然后她注意到时间：“糟了，我迟到了！我迟到了！对不起，<<$pcs_nickname>>，我会补偿你的！我保证！要不你晚点来我住的地方找我？如果你带点酒来，我们可以快点把作业写完，然后好好玩一玩？”她眨了眨眼说。'
+									'朱莉娅不等你回答，就迅速收拾好东西跑开了。虽然你自己没有高潮，但那次真的很开心。'
+									gs 'arousal', 'vaginal_dildo_give', 5, 'lesbian'
+									gs 'arousal', 'end'
+									act '整理好衣服，收拾好你的东西': gt 'pod_ezd', 'etaj_3'
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		killvar 'juliamil_rnd'
+	end
+end
+
+
+if $ARGS[0] = 'vasily_smoke':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/smoke5.jpg"></center>'
+	if fame['pav_slut'] < 100:
+		minut += 5
+		gs 'drugs', 'smoke', 'borrowed'
+		'你看见瓦西里站在楼梯间里抽烟。你走过去问他：“嗨，舒尔加，有香烟给我吗？我现在真想抽一根。”'
+		'他点点头，递给你一根。你高兴地接过来点上。'
+		act '抽根烟聊聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A11', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vasya/vasya.jpg"></center>'
+			'接下来的五分钟里，你和他一起抽着烟，聊着琐事。烟抽完后，你感谢他给了你这支烟，然后转身离开。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+	else
+		'你看见瓦西里站在楼梯间里抽烟。你走过去问他：“嗨，舒尔加，有香烟给我吗？我现在真想抽一根。”'
+		'瓦西里摇了摇头，却冲你露出好色的笑容：“抱歉，<<$pcs_nickname>>，我正好抽完最后一根了。不过我倒是有别的东西可以让你含在嘴里……”'
+		'他漫不经心地用手摸过裆部，你能清楚地看到他裤子里硬挺的肉棒的轮廓。'
+		'你有些怀疑地看着他：“我不确定，舒尔加，可能会被人看见。”'
+		'他安慰你：“别担心，<<$pcs_nickname>>，不会有事的。我会帮你盯着，现在这里也没人，对吧？含进嘴里就行。我知道你很在行，很快就能帮我解决。”'
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝给他口交' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝给他口交' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				minut += 1
+				gs 'stat'
+				if fame['pav_slut'] >= 250:
+					'你坚决地摇头：“抱歉，舒尔加，这不可能。请给我一根香烟就好。”'
+					'他深深吸了一口香烟，然后在栏杆上把它摁灭。“自己买香烟去，骚货！”说完，他转身走回了自己的公寓。'
+					act '离开': gt 'pod_ezd', 'etaj_3'
+				else
+					'你坚决地摇头：“抱歉，舒尔加，这不可能。请给我一根香烟就好。”'
+					'他夸张地叹了口气，然后从口袋里掏出一包烟，递给你一支。你高兴地接过来点上。'
+					act '抽根烟聊聊天':
+						*clr & cla
+						minut += 5
+						gs 'mood', 'raise', 'tiny'
+						gs 'npc_relationship', 'modify', 'A11', 1
+						gs 'drugs', 'smoke', 'borrowed'
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vasya/vasya.jpg"></center>'
+						'瓦西里，也就是舒尔加，通常和他的朋友丹、维泰克一起出现。维泰克经常拿他开玩笑，但尽管如此，他们仍是非常好的朋友。'
+						'接下来的五分钟里，你和他一起抽着烟，聊着琐事。烟抽完后，你感谢他给了你这支烟，然后转身离开。'
+						act '离开': gt 'pod_ezd', 'etaj_3'
+					end
+				end
+			end
+		end
+		act '快点给他口交': gt 'pod_ezd', 'vasily_smoke_bj'
+	end
+end
+
+
+if $ARGS[0] = 'vasily_smoke_bj':
+	*clr & cla
+	menu_off = 1
+	gs 'boyStat', 'A11'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vasya/sex/stairs/otsos'+rand(1, 2)+'.jpg"></center>'
+	'你叹了口气，蹲在<<$boydesc>>面前。当你把他的<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴从裤子里掏出来握住时，你说：“好吧，舒尔加，如果够快的话。你要答应我，看到或听到有人来就告诉我，行吗？”他领会地点了点头。'
+	'你知道这事得快，于是毫不犹豫地把他的<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴含进嘴里。你用上所有知道的技巧，一边吸吮舔弄他的龟头，一边用纤细的手指揉搓他的蛋蛋、套弄他的柱身。他很快就到了高潮，把精液射进你嘴里。'
+	*nl
+	'你把他的精液迅速吞下，舔干净后把鸡巴塞回他裤子里。你站起身看着瓦西里问他：“怎么样，满意了吗？”'
+	'他一脸陶醉地点点头：“谢谢，<<$pcs_nickname>>，感觉太棒了。你真是个好朋友。不过我该走了，回头见。”'
+	gs 'arousal', 'bj', 5
+	gs 'cum_call', 'mouth', 'A11'
+	gs 'arousal', 'end'
+	act '离开': gt 'pod_ezd', 'etaj_3'
+end
+
+
+if $ARGS[0] = 'smoke_danvas':
+	*clr & cla
+	menu_off = 1
+	gs 'drugs', 'smoke', 'borrowed'
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/smoke4.jpg"></center>'
+	if fame['pav_slut'] < 100:
+		'你看见瓦西里和丹站在楼梯间里抽烟。你走过去问他们：“嗨，哥们，有香烟给我吗？我现在真想抽一根。”'
+		'瓦西里点点头，递给你一支。你高兴地接过来点上。'
+		act '和瓦西里聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A11', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vasya/vasya.jpg"></center>'
+			'接下来的五分钟里，你和他一起抽着烟，聊着琐事。烟抽完后，你感谢他给了你这支烟，然后转身离开。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+		act '和丹聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A10', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/dan/dan.jpg"></center>'
+			'接下来的五分钟，你和他一起抽着烟，聊些琐事。有时你觉得他在嘲笑你，但他从不直接无礼，所以你就没计较。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+	else
+		'你看见丹和瓦西里站在楼梯间里抽烟。你走过去问他们：“嗨，舒尔加，有香烟给我吗？我现在真想抽一根。”'
+		'丹哼了一声，瓦西里摇了摇头，却冲你露出好色的笑容：“抱歉，<<$pcs_nickname>>，我正好抽完最后一根了。不过我倒是有别的东西可以让你含在嘴里……”'
+		*nl
+		'他漫不经心地用手摸过裆部，你能清楚地看到他裤子里硬挺的肉棒的轮廓。'
+		'你有些怀疑地看着他：“我不确定，舒尔加，可能会被人看见。”'
+		'他安慰你：“别担心，<<$pcs_nickname>>，不会有事的。我们会帮你盯着，现在这里也没人，对吧？含进嘴里就行。我知道你很在行，很快就能帮我解决。”'
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝给他口交' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝给他口交' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				minut += 1
+				gs 'stat'
+				if fame['pav_slut'] >= 250:
+					'你坚决地摇头。“抱歉，舒尔加，这不可能。请给我一根香烟就好。”'
+					'他深深吸了一口香烟，然后在栏杆上把它摁灭。“自己买香烟去，骚货！”丹听了大笑，随后两人一起走进了他的公寓。'
+					act '离开': gt 'pod_ezd', 'etaj_3'
+				else
+					'你坚决地摇头。“抱歉，舒尔加，这不可能。请给我一根香烟就好。”'
+					'他夸张地叹了口气，然后从口袋里掏出一包烟，递给你一支。你高兴地接过来点上。'
+					act '和瓦西里聊天':
+						*clr & cla
+						minut += 5
+						gs 'mood', 'raise', 'tiny'
+						gs 'npc_relationship', 'modify', 'A11', 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vasya/vasya.jpg"></center>'
+						'接下来的五分钟里，你和他一起抽着烟，聊着琐事。烟抽完后，你感谢他给了你这支烟，然后转身离开。'
+						act '离开': gt 'pod_ezd', 'etaj_3'
+					end
+					act '和丹聊天':
+						*clr & cla
+						minut += 5
+						gs 'mood', 'raise', 'tiny'
+						gs 'npc_relationship', 'modify', 'A10', 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/dan/dan.jpg"></center>'
+						'接下来的五分钟，你和他一起抽着烟，聊些琐事。有时你觉得他在嘲笑你，但他从不直接无礼，所以你就没计较。'
+						act '离开': gt 'pod_ezd', 'etaj_3'
+					end
+				end
+			end
+		end
+		act '快点给他口交': gt 'pod_ezd', 'danvas_smoke_bj'
+	end
+end
+
+
+if $ARGS[0] = 'danvas_smoke_bj':
+	*clr & cla
+	menu_off = 1
+	gs 'npc_relationship', 'modify', 'A10', 1
+	gs 'npc_relationship', 'modify', 'A11', 1
+	gs 'fame', 'pav', 'sex', 2
+	gs 'npcStat', 'A11'			& !! Vasily
+	gs 'npcStat', 'A10', 'a'	& !! Dan
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/danvas1.jpg"></center>'
+	'你叹了口气，蹲在丹和瓦西里之间。当你把瓦西里的<<dick_length>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴从裤子里掏出来时，你说：“好吧，舒尔加，如果够快的话。你要答应我，看到或听到有人来就告诉我，行吗？”他领会地点了点头。'
+	'你知道你必须快点，所以握住他的<<dick_length>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴毫不犹豫地含入口中。你用尽所有技巧，抚摸他的睾丸，用纤细的手指套弄他的茎部，同时吮吸舔弄他鸡巴的头部。然后丹掏出他的鸡巴，握住你的手放在他的鸡巴上，于是你在给瓦西里口交的同时开始套弄它。'
+	gs 'arousal', 'bj', 5, $npcID, 'group'
+	gs 'arousal', 'hj', -5, $npcID1, 'group'
+	gs 'stat'
+
+	act '也吸丹的鸡巴':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/danvas2.jpg"></center>'
+		'你把注意力转向丹，把他的<<dick_length1>>cm <<iif($dick_girth1=''skinny'',''极细'',iif($dick_girth1=''slim'',''偏细'',iif($dick_girth1=''well proportioned'',''标准'',iif($dick_girth1=''thicker than average'',''偏粗'',iif($dick_girth1=''thick'',''粗'',iif($dick_girth1=''massive'',''巨大'',iif($dick_girth1=''monstrous'',''骇人'',$dick_girth1)))))))>>鸡巴含进嘴里开始吸吮，同时用手继续套弄瓦西里的鸡巴。你吸着他们的鸡巴，两人都开始大声呻吟。'
+		gs 'arousal', 'bj', 5, $npcID1, 'group'
+		gs 'arousal', 'hj', -5, $npcID, 'group'
+		gs 'stat'
+
+		act '把他们两个都吸一遍':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/danvas3.jpg"></center>'
+			'你能感觉到他们俩都快要到了，于是你开始快速地在吸一个、撸另一个之间来回切换。你听见瓦西里咕哝道：“我快射了。”'
+			gs 'arousal', 'bj', 3, $npcID, 'group'
+			gs 'arousal', 'bj', 2, $npcID1, 'group'
+			gs 'arousal', 'hj', -2, $npcID, 'group'
+			gs 'arousal', 'hj', -3, $npcID1, 'group'
+			gs 'stat'
+
+			act '接受他们的精液':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/danvas4.jpg"></center>'
+				'你张开嘴，同时撸动他们两个，瓦西里先射了出来，精液全喷在你脸上，有些还射进了你嘴里。仅仅几秒后，丹也把精液射到你脸上和嘴里。等你把两人鸡巴里最后一滴精液都挤出来后，你站起身，伸手进包里想拿东西擦掉脸上的精液。就在你这么做的时候，瓦西里抓住你的手拦住了你。“就让精液留在你脸上，<<$pcs_nickname>>。”'
+				'你好奇地看着他。“为什么？”你问道。'
+				'丹回答道：“因为看着一个姑娘满身都是你的精液，简直他妈的热辣极了。”'
+				gs 'arousal', 'hj', 5, $npcID, 'group'
+				gs 'arousal', 'hj', -5, $npcID1, 'group'
+				gs 'cum_call', 'mouth', $npcID1, 1
+				gs 'cum_call', 'face', $npcID, 1
+				gs 'arousal', 'end'
+
+				act '让他们的精液留在脸上':
+					*clr & cla
+					gs 'fame', 'pav', 'sex', 2
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/cumface.jpg"></center>'
+					'你让他们的精液留在脸上，他们似乎很享受这样。他们把鸡巴收好，扣上裤子。精液顺着你的脸往下滴，你和他俩又聊了一会儿，然后他们说该走了，便进了瓦西里的公寓。'
+
+					act '离开': gt 'pod_ezd', 'etaj_3'
+				end
+
+				gs 'willpower', 'humiliation', 'resist'
+				if pcs_willpwr < will_cost:
+					act '把脸擦干净' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '把脸擦干净' + $func('willpower', 'get_willcost_string'):
+						*clr & cla
+						gs 'willpower', 'pay', 'resist'
+						gs 'cum_cleanup', 'external'
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/vassmoke.jpg"></center>'
+						'你擦掉脸上的精液，他们则把鸡巴收好，扣上裤子。你和他俩又聊了一会儿，然后他们说该走了，便进了瓦西里的公寓。'
+						act '离开': gt 'pod_ezd', 'etaj_3'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'smoke_vitdanvas':
+	*clr & cla
+	menu_off = 1
+	gs 'drugs', 'smoke', 'borrowed'
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/vitdanvas.jpg"></center>'
+	if fame['pav_slut'] >= 300:
+		'你走过去时，还没开口他们就一脸厌恶地看着你，维泰克说：“滚开，骚货，不然我们就把你交给几个粗暴的家伙，让他们轮流上你。”你不想试探他是不是认真的，赶紧走开了。'
+		act '离开': gt 'pod_ezd', 'etaj_3'
+	else
+		'你看见维泰克、瓦西里和丹站在楼梯间里抽烟。你走过去问他们：“嗨，哥们，有香烟给我吗？我现在真想抽一根。”'
+		'瓦西里点点头，递给你一支。你高兴地接过来点上。'
+		act '和维捷克聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A9', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vitek/vitek.jpg"></center>'
+			'接下来的五分钟里，你和他一起抽着烟，聊着琐事。烟抽完后，你感谢他给了你这支烟，然后转身离开。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+		act '和瓦西里聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A11', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/vasya/vasya.jpg"></center>'
+			'接下来的五分钟里，你和他一起抽着烟，聊着琐事。烟抽完后，你感谢他给了你这支烟，然后转身离开。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+		act '和丹聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A10', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/dan/dan.jpg"></center>'
+			'接下来的五分钟，你和他一起抽着烟，聊些琐事。有时你觉得他在嘲笑你，但他从不直接无礼，所以你就没计较。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'lena_chat':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/lena.jpg"></center>'
+	if fame['pav_slut'] >= 250:
+		'你走过去时，她一脸纯粹的厌恶。“滚他妈远点，你这肮脏的婊子。”你知道和她说话也没用，就走开了。'
+		act '离开': gt 'pod_ezd', 'etaj_3'
+	else
+		'你在列娜旁边坐下。“嘿，你在干嘛？”你问她。'
+		'她喝了一口。“想找我那该死的哥哥，他不接电话，我以为他会在这边的舒尔加家，但他爸说他们不在这儿，所以……我在等着看他们会不会出现，”她告诉你。'
+		'“出什么事了吗？”你问。'
+		'她看了你一眼，但不管是什么事，她似乎都不想谈。“没什么，我只是得跟他谈谈。”'
+		act '和列娜聊天':
+			*clr & cla
+			minut += 5
+			gs 'mood', 'raise', 'tiny'
+			gs 'npc_relationship', 'modify', 'A20', 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/lena.jpg"></center>'
+			'接下来的五分钟里，你陪她说话，她一边抽烟一边喝酒。你们聊的大多是些琐事，等她抽完烟，把烟头丢在地上站起身。“算了！我懒得再等他了。反正我也该走了。”说完，她下楼去了。'
+			act '离开': gt 'pod_ezd', 'etaj_3'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'gopnik_group_chat':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+	if fame['pav_slut'] >= 250:
+		'你走过去时，他们中有几个人一脸纯粹的厌恶。“滚他妈远点，你这肮脏的婊子，”其中一人说。接着丹补充道：“除非你想当我们的消遣。”这话引来其余人一阵残酷的哄笑。你知道和他们说话没用，还可能招来轮奸或更糟的事，便走开了。'
+		act '离开': gt 'pod_ezd', 'etaj_5'
+	elseif grupTipe <> 4:
+		'“嘿，哥们，你们在干嘛？”你走近时向这群人打招呼。'
+		'其中一个年纪大些的男生看了看你，又看了看其他人。“这婊子他妈是谁？”'
+		'瓦西里抢在你之前回答。“她只是和我们一起上学的女孩。”说完他起身走到你身边，把你领回楼梯口。“你该走了，<<$pcs_nickname>>，这里不是你该待的地方。”说完他推着你下楼。'
+		act '离开': gt 'pod_ezd', 'etaj_4'
+	else
+		if npc_rel['A21'] >= 50:
+			'你在列娜和列拉旁边坐下。“嘿，姑娘们，怎么样？”你问她们。'
+			'列拉凑过来吻了吻你的嘴唇。“就是出来玩玩，开心一下。”她含含糊糊地说；显然她已经醉得不轻。她的呼吸闻起来像酒厂。'
+			'瓦西里递给你一罐啤酒。“给你，<<$pcs_nickname>>。”'
+		else
+			'你在列娜和列拉旁边坐下。“嘿，姑娘们，怎么样？”你问她们。'
+			'列拉说：“就是出来玩玩，开心一下。”她含含糊糊地说；显然她已经醉得不轻。她的呼吸闻起来像酒厂。'
+			'瓦西里递给你一罐啤酒。“给你，<<$pcs_nickname>>。”'
+		end
+		gs 'willpower', 'drink', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝啤酒' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝啤酒' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				minut += 15
+				grupvalue[4] -= 2
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+				'你摇头拒绝。“不了，谢谢，我只是想聊聊天。”'
+				'丹从瓦西里手里一把抢过啤酒。“我们无所谓，小穴，这样我就多一罐了。”这话引来其余人的笑声。大家喝酒、抽烟、聊天。你也稍微参与了谈话，但总觉得被半忽略，因为他们很少回应你，大多就当你不存在。'
+				act '离开': gt 'pod_ezd', 'etaj_5'
+			end
+		end
+		act '接过啤酒':
+			*clr & cla
+			minut += 5
+			grupvalue[4] += 1
+			gs 'beverage', 'beer_stats'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+			'你接过递来的啤酒喝了一大口。很快大家都投入到各种各样的话题中，只是聚在一起玩闹。许多人讲笑话，或者分享他们经历过的趣事。'
+			act '离开': gt 'pod_ezd', 'etaj_5'
+			act '拿另一瓶啤酒':
+				*clr & cla
+				minut += 5
+				gs 'beverage', 'beer_stats'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+				'你又拿了一罐啤酒喝了一大口。你分享了一个关于你弟弟的故事：几年前在你祖父母家，他一头栽进泥里。每次他想爬起来，就又摔倒，最后只能在泥巴里打滚挣扎着要站起来。所有人都被逗得哈哈大笑。'
+				act '离开': gt 'pod_ezd', 'etaj_5'
+				act '拿另一瓶啤酒':
+					*clr & cla
+					minut += 5
+					gs 'beverage', 'beer_stats'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+					'你又拿了一罐啤酒喝了一大口。你听他们各自讲自己的各种故事，或者聊周末想做的事。'
+					act '离开': gt 'pod_ezd', 'etaj_5'
+					act '拿另一瓶啤酒':
+						*clr & cla
+						minut += 5
+						gs 'beverage', 'beer_stats'
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+						'你又拿了一罐啤酒喝了一大口。你分享了一个关于你姐姐的故事：几年前，你们全家去湖边玩。你姐姐失踪了几个小时，到了该走的时候她还没回来。于是全家人一起去找她。你和妈妈一起，在沙滩一个偏僻的地方发现了正在裸泳的安雅。回家后，你妈妈把你姐姐打得一整天都坐不下来。'
+						'有几个人听了大笑，有几个人说你姐姐很辣，还有一个年纪大些的男生说，有一次她在雷克斯的派对上喝醉时，他操过她。'
+						act '离开': gt 'pod_ezd', 'etaj_5'
+						act '拿另一瓶啤酒':
+							*clr & cla
+							minut += 5
+							gs 'beverage', 'beer_stats'
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/gopniks.jpg"></center>'
+							'你又拿了一罐啤酒喝了一大口。聚会似乎渐渐冷下来，好几个人已经醉得不太说话了。有几个男生在试着跟女生搭讪。然后，其中一个男生开始撩列娜，维泰克跳起来一把抓住他。两人很快扭打起来，接着被拉开。维泰克吼道：“离我妹妹远点！”'
+							'另一个男生举起双手。“嘿，我只是在跟她聊天而已！”'
+							'列娜气冲冲地站起来，推了维泰克一把。“别他妈当混蛋了，我们只是在聊天。我自己能照顾自己！”说完，她气呼呼地走了，列拉跟在后面。维泰克瞪了另一个男生一眼，然后派对散了，大家各走各的。'
+							act '离开': gt 'pod_ezd', 'etaj_5'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'home_movie1':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev3_2.jpg"></center>'
+	'突然，她站起来转过身，向前靠着墙，把屁股尽量高高翘起。没拿摄像机的那个男人立刻明白了这个邀请，把鸡巴狠狠插进她的肉穴，然后开始粗暴地操她。那女孩快活地呻吟着，完全享受着被操的感觉。'
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+	act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev3_3.jpg"></center>'
+		'拿摄像机的男人不甘心被晾在一边，便让朋友把她转过来，好让她同时用上嘴。朋友照做了，并让那女孩靠在他胸口，一边被操一边给他口交。女孩照做了，从她眼中的神情可以看出，她对这一切兴奋极了。'
+		'大约五分钟后，她身后那男人的身体绷紧了，从他低沉的呻吟判断，他直接射在了她的小穴里。'
+		gs 'arousal', 'voyeur_sex', 3
+		gs 'stat'
+		act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev3_4.jpg"></center>'
+			'既然第一个男人已经射完，她就把全部注意力都放在第二个男人身上。她猜他一定也快了，于是在没被要求的情况下自己蹲下身，好像掐准了时机，第二个男人把精液射在她舌头上。她高兴地向镜头展示了几秒钟，然后让精液从嘴里流出，抹在自己可爱的乳房上。'
+			gs 'arousal', 'voyeur_sex', 3
+			gs 'stat'
+			act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev3_5.jpg"></center>'
+				'然后她转过身弯下腰，展示她那沾满精液的小穴，同时朝镜头露出诱人的微笑。她真辣！你倒是也不介意拿一份那个视频！'
+				'看来他们拍完了，开始收拾东西。你赶紧躲到一根柱子后面，以免他们离开时看到你。'
+				gs 'arousal', 'voyeur_sex', 3
+				gs 'arousal', 'end'
+				act '离开': gt 'pod_ezd', 'etaj_5'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'home_movie2':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev4_2.jpg"></center>'
+	'其中一个男人大胆地走向那女孩，鸡巴已经露在裤子外面。她毫不羞耻地蹲在他面前，把鸡巴含进嘴里，熟练地给他口交，另一个男人则一直拍着一切。他们是在拍色情片吗！？'
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+	act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev4_3.jpg"></center>'
+		'当她正努力用嘴让第一个男人舒服时，第二个男人也想加入，同样脱下了裤子，镜头一刻也没错过。她似乎早就料到会这样，现在试着把两根鸡巴同时含进嘴里。'
+		gs 'arousal', 'voyeur_sex', 3
+		gs 'stat'
+		act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev4_4.jpg"></center>'
+			'然后那女孩直起身，站到两个男人中间，把屁股翘给其中一个，同时弯下腰把另一个的鸡巴重新含进嘴里。很快她就被前后夹击，两头都被鸡巴塞满。'
+			gs 'arousal', 'voyeur_sex', 3
+			gs 'stat'
+			act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev4_5.jpg"></center>'
+				'她贪婪地把屁股往后顶向身后的男人，湿透的小穴被他坚硬的鸡巴一次又一次地猛干，那声音在楼梯间里实在很难被忽视。与此同时，她正吸吮着摄像师的大鸡巴，眼里带着挑衅的神情。'
+				gs 'arousal', 'voyeur_sex', 3
+				gs 'stat'
+				act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+				act '继续':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev4_6.jpg"></center>'
+					'当男孩们快要高潮时，她蹲在他们面前，闭上眼睛期待着。等他们那阵精液雨落在她脸上后，她小心地重新睁开眼——糟了！她正看着你！'
+					'你赶紧跑下楼梯，侧耳倾听他们有没有追上来。他们没有，片刻之后，你听到一扇门打开又关上。呼，好险……'
+					gs 'arousal', 'voyeur_sex', 3
+					gs 'arousal', 'end'
+					act '离开': gt 'pod_ezd', 'etaj_5'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'home_movie3':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_2.jpg"></center>'
+	'过了一会儿，她觉得一根鸡巴不够，便用淫荡的声音哀求道：“求你了，我还需要更多鸡巴，也让我吸你的吧。”'
+	'另一个男人很乐意照办，很快她就费力地把两根鸡巴都塞进嘴里。看得出来这绝对不是她第一次这么干。'
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+	act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_3.jpg"></center>'
+		'突然，男孩们从女孩身上退开。他们对她说：“好了，该开操了。把你的屁股对着镜头，玛丽亚。”'
+		'她顺从地照做，掰开臀肉让男孩们看她那紧缩的屁眼。看起来不太紧，但确实像是准备好要肛交了。也许他们早就计划好了？'
+		gs 'arousal', 'voyeur_sex', 3
+		gs 'stat'
+		act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_4.jpg"></center>'
+			'没拿摄像机的那个男人走到她身后，把鸡巴滑进她湿漉漉的小穴缝里。女孩急切地呻吟起来，开始用屁股在他身上磨蹭。那男人只是笑着站着不动，很高兴看到自己的伙伴这么渴望他的鸡巴。'
+			gs 'arousal', 'voyeur_sex', 3
+			gs 'stat'
+			act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_5.jpg"></center>'
+				'过了一会儿，这对男女换了姿势，你看到那男人把鸡巴在她屁股上蹭。正如你所料，他的鸡巴相当轻松地滑进了她的屁眼，现在他掌握了主动，开始把鸡巴往她屁眼深处顶，而她努力扶着墙稳住身子。'
+				gs 'arousal', 'voyeur_sex', 3
+				gs 'stat'
+				act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+				act '继续':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_6.jpg"></center>'
+					'看着并拍摄这对男女做爱几分钟后，摄像的男人再也忍不住了。他对她说：“玛丽亚，他操你的时候给我口交。”'
+					'她高兴地含住他的鸡巴，熟练地吸吮起来，而第一个男人继续操着她的屁眼。女孩浑身颤抖，摄像的男人努力稳住摄像机——她一定是在高潮！'
+					gs 'arousal', 'voyeur_sex', 3
+					gs 'stat'
+					act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+					act '继续':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_7.jpg"></center>'
+						'男人们叫她跪下，急切地对着她撸动，摄像的男人则拍下一股股精液落在她脸上的画面。'
+						gs 'arousal', 'voyeur_sex', 3
+						gs 'stat'
+						act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+						act '继续':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_8.jpg"></center>'
+							'等两人都射完了，女孩对着镜头摆姿势，得意地展示她嘴里接住的精液量，然后全部吞下。接着她把剩下的精液往嘴边抹，俏皮地舔着嘴唇和手指。'
+							gs 'arousal', 'voyeur_sex', 3
+							gs 'stat'
+							act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+							act '继续':
+								*clr & cla
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev2_9.jpg"></center>'
+								'三人很快整理好并穿上衣服，同时把摄像机收起来。意识到自己留在这里可能会被他们发现，你赶紧走下楼梯。'
+								gs 'arousal', 'voyeur_sex', 3
+								gs 'arousal', 'end'
+								act '离开': gt 'pod_ezd', 'etaj_5'
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'home_movie4':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev1_2.jpg"></center>'
+	'突然，你看到拿着摄像机的男人伸手去解开裤子，然后叫她把他鸡巴掏出来给他口交。她高兴地照做，把那根大鸡巴含进嘴里，而身后的男人还在猛干她。他在她屁股上拍了几下，知道她的呻吟会让另一个男人感觉很爽。'
+
+	gs 'arousal', 'voyeur_sex', 3
+	gs 'stat'
+
+	act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_5'
+	act '继续躲着看':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/ev1_3.jpg"></center>'
+		'男人们交换了位置，现在换另一个男人拿摄像机，女孩则一边继续吸着一根鸡巴，一边被另一根操着。另一个男人用力打她屁股时，他特意把镜头推近她的脸，想为视频拍出可爱的反应。'
+		'几分钟后，你看够了，就让他们安安静静地享受这场淫乱。'
+		gs 'arousal', 'voyeur_sex', 3
+		gs 'arousal', 'end'
+		act '离开': gt 'pod_ezd', 'etaj_5'
+	end
+end
+
+
+if $ARGS[0] = 'lena_show':
+	*clr & cla
+	menu_off = 1
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev4_2.jpg"></center>'
+	'接着列娜转过身背对男人们，稍微撩起裙子。她展示着自己线条紧实的屁股，慢慢扭动着，回头妩媚地问：“你们喜欢看到的吗，男孩们？”'
+	gs 'arousal', 'erotic', 3
+	gs 'stat'
+	act '离开': gt 'pod_ezd', 'etaj_4'
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev4_3.jpg"></center>'
+		'其中一个男人露出淫荡的笑容，想到了个主意，一边从口袋里掏出手机，一边叫列娜摆个姿势。他开始给列娜拍照，其他男人则怂恿她多露一点。'
+		gs 'arousal', 'erotic', 3
+		gs 'stat'
+		act '离开': gt 'pod_ezd', 'etaj_4'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev4_4.jpg"></center>'
+			'列娜完全投入其中，现在对着镜头摆出妩媚的姿势，还让裙子又往上滑了一点。你能看出男人们盯着她看让她很兴奋，你也意识到维泰克的妹妹并不像看起来那么单纯。'
+			gs 'arousal', 'erotic', 3
+			gs 'stat'
+			act '离开': gt 'pod_ezd', 'etaj_4'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev4_5.jpg"></center>'
+				'列娜把腿张得更开，现在真的把自己的小穴展示给镜头看。男人们相当兴奋起来，有几个人不自在地揉着胯下。'
+				gs 'arousal', 'erotic_nudity', 3
+				gs 'stat'
+				act '离开': gs 'arousal', 'end' & gt 'pod_ezd', 'etaj_4'
+				act '继续':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/ev4_6.jpg"></center>'
+					'列娜又转过身背对男人们，裙子现在撩得那么高，把自己所有的洞都展示给镜头。'
+					'然后她决定拍摄结束了，问他们：“那么男孩们，谁想先来？”'
+					'当男人们热情地围到她身边时，你意识到自己最好还是走吧，免得被人发现。'
+					gs 'arousal', 'erotic', 3
+					gs 'arousal', 'end'
+					act '离开': gt 'pod_ezd', 'etaj_4'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'sex_ev1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	if podwhoreQW < 3: podwhoreQW += 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_1.jpg"></center>'
+	'其中一个男孩满足于继续抽烟，但另一个胆子更大了，朝你走过来。他一只手开始扯你的衣服，另一只手开始揉你的屁股。'
+	'还在抽烟的那个男孩看着朋友扯你的衣服，咧嘴笑了。他什么都没说，决定看看他们能把你逼到什么地步，只是命令你：“让我们看看你的奶子，骚货。”'
+	gs 'willpower', 'exhib', 'resist'
+	if pcs_willpwr < will_cost:
+		act '抽身离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '抽身离开' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'resist'
+			gt 'pod_ezd', 'etaj_2'
+		end
+	end
+	act '给他们看你的乳房':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_2.jpg"></center>'
+		'你没有勇气拒绝，便照他说的做，给他们看了你的奶子。'
+		'这让他脸上露出邪恶的笑：“哎呀呀，看看这个。你还真是个听话的小骚货，对吧<<$pcs_nickname>>？现在转过身背对我朋友，弯下腰，他要操你了。”'
+		gs 'arousal', 'flash', 3, 'sub', 'exhibitionism'
+		gs 'stat'
+		gs 'willpower', 'anal', 'resist'
+		if pcs_willpwr < will_cost:
+			act '抽身离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '抽身离开' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gt 'pod_ezd', 'etaj_2'
+			end
+		end
+		act '继续服从':
+			*clr & cla
+			gs 'fame', 'pav', 'sex', 2
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_3.jpg"></center>'
+			'你温顺地转身背对那男人，照吩咐弯下腰，他把你的衣服扒开，直到露出你光裸的屁股。'
+			if analPlugIn = 1:
+				analPlugIn = 0 & analPlugOut = 1
+				'他的手在你屁眼里的肛塞上摸了一下，然后把它拔出来，同时对朋友说：“哥们，她屁眼里塞着个塞子！这骚货喜欢被操屁眼！”'
+			end
+			if mc_inventory['tampons'] = 1:
+				'他的手从你屁股滑到小穴，摸到卫生棉条的线后把手抽开。“操，哥们，她逼里塞着根棉条。”你感觉自己脸红了。他朋友看过来，耸耸肩说：“她还有个洞，用那个。”站在你身后的人狠狠拍了你屁股一下。“好啊！听到了吗骚货？我们要操你的屁眼。”他说着又重重拍了你屁股一下。'
+				if mc_inventory['lubricant'] > 0:
+					mc_inventory['lubricant'] -= 1
+					'你意识到他要操你的屁股！'
+					'你赶紧打断他：“等等！我包里有润滑剂，用那个！这样对我们俩都会更舒服！”你用恳求的语气说。'
+					'<<$boydesc[2]>>咕哝着从你的包里拿出润滑剂，用手指在他的阴茎上抹了一些，然后手指移到你紧缩的肛门，两根沾了润滑剂的手指快速地在你的肛门里进进出出，只给你最少的润滑。'
+					'他朋友对着你们俩得意地笑，说：“看来是真的！<<$pcs_nickname>>真是个屁眼骚货，训练有素，随时随地都能被操屁眼。”'
+				else
+					' <<$boydesc[2]>>往你屁股上吐了口唾沫，用手指把唾液抹到你的屁眼上。'
+					'你意识到他要操你的屁股！'
+				end
+				gs 'arousal', 'anal_finger', 3, 'sub'
+				gs 'stat'
+				gt 'pod_ezd', 'sex_ev1_anal'
+			end
+			'趁你弯着腰，<<$boydesc[2]>>一点时间都不浪费，在小穴还没怎么湿的时候就把他的<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>直接捅了进去。他把那根<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>顶到根部，开始粗暴地操你的小穴。'
+			'粗鲁地操了你几分钟后，<<$boydesc[2]>>转向他朋友说：“哥们，我什么感觉都没有，太松了。感觉她的小穴被城里每根鸡巴都耕过一遍。”'
+			*nl
+			'他朋友走到你面前，粗暴地用手捏住你的下巴，逼你抬头看他，用坚定的语气问：“你每天都跟男人操逼吗？”没等回答，他就点点头，漫不经心地对朋友摆摆手：“试试她另一个洞，那个应该更紧。”'
+			if mc_inventory['lubricant'] > 0:
+				mc_inventory['lubricant'] -= 1
+				pod_ezd_lube = 1
+				'你意识到他要操你的屁股！'
+				'你赶紧打断他：“等等！我包里有润滑剂，用那个！这样对我们俩都会更舒服！”你用恳求的语气说。'
+				'<<$boydesc[2]>>咕哝着从你的包里拿出润滑剂，用手指在他的阴茎上抹了一些，然后手指移到你紧缩的肛门，两根沾了润滑剂的手指快速地在你的肛门里进进出出，只给你最少的润滑。'
+				'他朋友对着你们俩得意地笑，说：“看来是真的！<<$pcs_nickname>>真是个屁眼骚货，训练有素，随时随地都能被操屁眼。”'
+			else
+				' <<$boydesc[2]>>往你屁股上吐了口唾沫，用手指把唾液抹到你的屁眼上。你意识到他要操你的屁眼了！'
+			end
+			gs 'arousal', 'anal_finger', 3, 'sub'
+			gs 'stat'
+			act '继续': gt 'pod_ezd', 'sex_ev1_anal'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'sex_ev1_anal':
+	*clr & cla
+	menu_off = 1
+	gs 'arousal', 'anal', 3, $npcID[2], 'sub'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_4.jpg"></center>'
+	' <<$boydesc[2]>>把<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>的龟头在你屁眼上蹭了一下，然后慢慢顶进去，把鸡巴整根滑进你的屁眼里。'
+	'<<$boydesc[2]>>一边把<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>的鸡巴整根猛插进你屁眼，一边对朋友咧嘴笑。“你说得对，哥们，她的屁股紧多了。”'
+	'他加快了抽插的速度。他粗暴地操着你的屁眼，睾丸拍打在你光裸的小穴上。这声音肯定整个楼梯间都能清楚听到。你只希望没人过来查看，发现你正被粗暴地鸡奸。你咬着嘴唇，尽力压住痛苦与快感交织的闷哼和呻吟。'
+	gs 'gopsex', 'gg_sex_orgasm'
+	act '什么也不说，让他继续撕开你的屁眼': gt 'pod_ezd', 'sex_ev1_anal1'
+	gs 'willpower', 'anal', 'resist'
+	if pcs_willpwr < will_cost:
+		act '建议你改为给他们口交' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '建议你改为给他们口交' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'resist'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_4.jpg"></center>'
+			'被粗暴地操着屁眼时，好几个念头在你脑中飞转。你很快打消了逃走的想法；现在这些男人绝不可能就这么放你走。你的策略转向下一个最可取的选择：在有人过来发现你在楼梯间被操屁眼之前，让他们尽快射出来。'
+			'当<<$boydesc[2]>>还在猛干你的屁股时，你尽力给另一个男人一个妩媚的微笑，说：“我们得赶紧结束，男孩们。要不我现在快点把你们俩都口出来，让你们都射在我嘴里？下次再操我的屁眼？”'
+			*nl
+			if fame['pav_slut'] >= 250:
+				'<<$boydesc[1]>>在你提出请求时瞪着你。“怎么，你觉得你的屁股太好了，不屑给我们用还是怎样！？啊？！是不是，婊子？”他走过来扇了你脸一巴掌，瞥了朋友一眼。“给我更狠地操这骚货！”他朋友非常乐意照办。然后他又看向你。“告诉他你有多喜欢他操你屁眼，然后求我下一个操。你要是不说，我就把我所有朋友都叫来，让他们轮流操你的屁眼。”你意识到他是认真的，一股恐惧的寒意穿过全身，于是你照他说的做了。你回头看着身后的男孩，低声说：“我喜欢感觉你的鸡巴在我屁眼里。”然后你又看向面前的男孩。“求求你操我的屁眼……”'
+				act '继续让他们操你': gt 'pod_ezd', 'sex_ev1_anal1'
+			else
+				'他看了你一会儿，像是在考虑你的提议，然后耸耸肩。“好吧骚货，既然你这么想吃我们的精液。”'
+				act '让他们射出来': gt 'pod_ezd', 'sex_ev1_bj'
+			end
+			gs 'arousal', 'bj', 3, $npcID[2], 'sub'
+			gs 'arousal', 'bj', -3, $npcID[1], 'sub'
+			gs 'stat'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'sex_ev1_anal1':
+	*clr & cla
+	menu_off = 1
+	gs 'cum_call', 'mouth', $boy[2], 1
+	gs 'cum_call', 'anus', $boy[1], 1
+	gs 'arousal', 'bj', 3, $npcID[1], 'sub'
+	npc_had_sex[$boy[1]] = 1
+	npc_had_sex[$boy[2]] = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_6.jpg"></center>'
+	'<<$boydesc[2]>>开始疯狂地加速，你能看出他快射了。'
+	'他的朋友<<$boydesc[1]>>一直在旁边看着，这时开口道：“好了，够了，轮到我了。我可不想捡你剩下的。”你瞥了他一眼，他走过来，掏出他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴。你感到一阵兴奋的颤栗传遍全身，想到你的屁股要被这么大的鸡巴操。<<$boydesc[2]>>听朋友的话从你体内抽出，然后开始撸动。“操，哥们，我正要射在她里面呢。”'
+	*nl
+	'<<$boydesc[1]>>一只手扶正自己的鸡巴，另一只手抓住你的胯，对朋友说：“那就射在这婊子嘴里。”<<$boydesc[2]>>觉得这主意不错，咧嘴一笑，绕到你面前。“张开嘴，把舌头伸出来，骚货。”你听从了他，张大嘴伸出舌头。'
+	*nl
+	'与此同时，<<$boydesc[1]>>把他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴的龟头滑进你的屁眼，舒服地呻吟了一声。“哦对，她的屁股还挺紧，感觉不错。”他另一只手伸上来牢牢抓住你的两胯，然后向前一顶，把你往后一拽，把他的<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴整根埋进你的屁眼。你倒吸一口气，既痛又爽，就在<<$boydesc[2]>>开始射精的同时，<<$boydesc[1]>>开始猛烈快速地猛干你的屁眼。浓稠的精液喷射在你的口腔内壁和舌头上。<<$boydesc[2]>>低头对你咧嘴笑，用坚定的语气说：“现在吞下去，婊子。”你照做了，把他的精液吞下去，然后张开嘴给他看。'
+	*nl
+	'<<$boydesc[2]>>利用你张嘴的机会，把鸡巴塞进你嘴里，用你的嘴清理他的鸡巴，边清理边笑。当<<$boydesc[2]>>用完了你的嘴，<<$boydesc[1]>>伸手抓住你的头发，扭动手腕，把头发和头用力向后拉，让你感到疼痛，同时继续用他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴操着你。这样又过了几分钟后，他低吼一声，身体一阵痉挛。他停下动作，把鸡巴整根埋在你体内，把精液灌满你的屁股。完事后，他从你体内抽出鸡巴，提上裤子。他鄙夷地看着你。“滚出去。我们玩腻你了，骚货。”'
+	act '离开': gt 'pod_ezd', 'etaj_2'
+end
+
+
+if $ARGS[0] = 'sex_ev1_bj':
+	*clr & cla
+	menu_off = 1
+	gs 'arousal', 'bj', 2, $npcID[2]
+	gs 'arousal', 'bj', 1, $npcID[1]
+	gs 'cum_call', 'face', $boy[1], 1, '', '', 20
+	gs 'cum_call', 'mouth', $boy[2], 1, '', '', 20
+	gs 'cum_call', 'face', $boy[2], 1, '', '', 20
+	gs 'cum_call', 'mouth', $boy[1], 1, '', '', 20
+	npc_had_sex[$boy[1]] = 1
+	npc_had_sex[$boy[2]] = 1
+	gs 'arousal', 'end'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev1_5.jpg"></center>'
+	'男孩们想了一会儿，然后高兴地同意了。你身后的那个人把鸡巴从你的屁眼里抽出来，接着<<$boydesc[2]>>走过来，掏出他那根<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>鸡巴。你赶紧跪下，双手抓住他们的鸡巴，轮流吸吮起来。你来回来去地吸着他们的鸡巴，用手撸着当前不在嘴里的那根。当你吸那个刚操过你屁眼的男人时，你尽量忽略自己屁股的味道。'
+	*nl
+	'你使出所有会的手段想让他们尽快射出来，而这奏效了。几分钟内，两个男孩就把精液射得你满脸满嘴都是。你舔掉嘴唇上的精液，朝他们眨了眨眼，然后赶紧收拾东西离开，免得他们想起你现在还欠他们一次屁眼操。'
+	act '离开': gt 'pod_ezd', 'etaj_2'
+end
+
+
+if $ARGS[0] = 'sex_ev2':
+	*clr & cla
+	menu_off = 1
+	if podwhoreQW < 3: podwhoreQW += 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_1.jpg"></center>'
+	'其中一个男孩满足于继续抽烟，但另一个胆子更大了，朝你走过来。他抱着手臂停在你面前。看他那样子，不像会接受拒绝，他命令你：“把衣服脱了，骚货。”'
+	gs 'willpower', 'exhib', 'resist'
+	if pcs_willpwr < will_cost:
+		act '抽身离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '抽身离开' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'resist'
+			gt 'pod_ezd', 'etaj_2'
+		end
+	end
+	act '照他说的做':
+		*clr & cla
+		gs 'arousal', 'flash', 3, 'sub'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_2.jpg"></center>'
+		'你没有勇气拒绝，便慢慢脱下外套，开始解开裤子。你脱衣服时，他的手在你身上摸索。'
+		'"<<$boydesc[2]>>，我告诉过你，兄弟！看看<<$pcs_nickname>>这样子。她会照我们说的做一切……对吧，骚货？让我们看看你的奶子！"'
+		act '顺从地点头，给他看你的乳房':
+			*clr & cla
+			gs 'arousal', 'flashlite', 3, 'sub'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_3.jpg"></center>'
+			'你顺从地点头，撩起上衣，脱下胸罩，让他看你<<$titsize_zh>>的乳房。他立刻把双手放到你奶子上，用力捏你的乳头。'
+			'他对着你不由自主的呻吟咧嘴笑：“我知道，骚货，我知道……你就喜欢男人玩你的奶子。别担心，我们会好好照顾你的。”'
+			'两人中年长的那个看着自己年轻的朋友，对他说：“<<$boydesc[2]>>，叫她给我们俩口交。别担心，她会做的。”'
+			'年轻的那个犹豫了一下，但还是决定听朋友的话。他走到你面前，从裤子里掏出他那根<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>鸡巴，对你说：“骚货，跪下开始吸我的鸡巴！”'
+			gs 'willpower', 'bj', 'resist'
+			if pcs_willpwr < will_cost:
+				act '抽身离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '抽身离开' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					gt 'pod_ezd', 'etaj_2'
+				end
+			end
+			act '吸他们的鸡巴':
+				*clr & cla
+				gs 'fame', 'pav', 'sex', 2
+				gs 'arousal', 'bj', 3, $npcID[2], 'sub'
+				gs 'arousal', 'bj', 3, $npcID[1], 'sub'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_4.jpg"></center>'
+				'你已经陷得太深，现在想不情愿也来不及了，于是你直接跪下，含住<<$boydesc[2]>>的 <<dick[2]>> 厘米 <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>鸡巴，无视那两个家伙的目光。'
+				' <<$boydesc[1]>>也很快掏出他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴递给你，你便轮流吸着送到你面前的两根硬鸡巴。你用手握住当前没在吸的那根，轻轻撸动让它保持坚硬，也免得它的主人觉得被冷落。'
+				act '继续':
+					*clr & cla
+					gs 'arousal', 'vaginal', 3, $npcID[1], 'sub'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_5.jpg"></center>'
+					' <<$boydesc[1]>>叫你起来。“够了，骚货。起来转过去，我现在要操你的小穴了。”'
+					'你站起来转过身。就在你转身时，他把你往前一推，让你在他面前弯下腰。他慢慢把他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴插进你体内。它轻松滑进你湿漉漉的小穴，他开始猛烈地操你。'
+					gs 'gopsex', 'gg_sex_orgasm'
+					act '继续':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_6.jpg"></center>'
+						'他难以置信地看着朋友，嗤了一声。“<<$boydesc[2]>>，操，哥们。别傻站着，给她点东西吸！”'
+						'年轻的那个点点头，走到你面前，把鸡巴在你嘴唇上蹭，把前列腺液抹在上面几秒，然后你张开嘴让它进来。他对你有点粗暴，有时会把他那根<<dick[2]>>cm <<iif($dick_girth[2]=''skinny'',''极细'',iif($dick_girth[2]=''slim'',''偏细'',iif($dick_girth[2]=''well proportioned'',''标准'',iif($dick_girth[2]=''thicker than average'',''偏粗'',iif($dick_girth[2]=''thick'',''粗'',iif($dick_girth[2]=''massive'',''巨大'',iif($dick_girth[2]=''monstrous'',''骇人'',$dick_girth[2])))))))>>鸡巴顶进你喉咙比你舒服的深度更深。你尽力压住呕吐反射，过了一会，你找到了不错的节奏，尽职地尽力伺候这两个陌生男人。'
+						gs 'arousal', 'bj', -3, $npcID[2], 'sub'
+						gs 'arousal', 'vaginal', 5, $npcID[1], 'sub'
+						gs 'gopsex', 'gg_sex_orgasm'
+						'几分钟后，你感觉肌肉酸痛，就告诉男人们你累了，这个姿势不太舒服。'
+						'年轻的那个小子大概是被朋友启发了。你还在吸他鸡巴时，他扇了你一巴掌，说：“婊子没资格讲舒服。继续吸！”'
+						gs 'stat'
+
+						act '继续':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_7.jpg"></center>'
+							'尽管他话说得狠，过了一会儿男人们还是同情了你。他们让你靠在栏杆上，让你的嘴歇一歇。年长的那个从后面猛干你湿透的小穴，你开始舒服地呻吟起来。从他越来越用力的顶撞，你能看出他快射了。年轻的那个站在你们俩旁边，看着并撸着鸡巴。'
+							gs 'arousal', 'bj', -2, $npcID[2], 'sub'
+							gs 'arousal', 'vaginal', 3, $npcID[1], 'sub'
+							gs 'gopsex', 'gg_sex_orgasm'
+							gs 'gopsex', 'hide', 'accview_ggsex'
+							gs 'stat'
+							act '继续':
+								*clr & cla
+								gs 'arousal', 'hj', 3, $npcID[2]
+								gs 'cum_call', 'face', $boy[1], 1, '', '', 20
+								gs 'cum_call', 'mouth', $boy[2], 1, '', '', 20
+								gs 'cum_call', 'face', $boy[2], 1, '', '', 20
+								gs 'cum_call', 'mouth', $boy[1], 1, '', '', 20
+								pcs_hairbsh = 0
+								npc_had_sex[$boy[1]] = 1
+								npc_had_sex[$boy[2]] = 1
+								gs 'arousal', 'end'
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev2_8.jpg"></center>'
+								'片刻之后，<<$boydesc[1]>>呻吟一声，突然从你体内抽出。他把空着的手按在你肩上，强迫你跪下，正好接住他们俩射在你脸上的精液。男人们玩完了你，提上裤子，不再理你。他们的精液还在慢慢从你脸上往下流，他们已经开始聊天，就像你根本不在那里一样。'
+								gs 'fame', 'pav', 'sex', 4
+								gs 'stat'
+								act '离开': gt 'pod_ezd', 'etaj_2'
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'sex_ev3':
+	*clr & cla
+	menu_off = 1
+	if podwhoreQW < 3: podwhoreQW += 1
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev3_1.jpg"></center>'
+	'其中一个男孩对你得意地笑，脸上带着不耐烦。“你还等什么，婊子？让我们看看你的奶子！”'
+	gs 'willpower', 'exhib', 'resist'
+	if pcs_willpwr < will_cost:
+		act '抽身离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '抽身离开' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'resist'
+			gt 'pod_ezd', 'etaj_2'
+		end
+	end
+	act '给他们看你的奶子':
+		*clr & cla
+		gs 'arousal', 'flashlite', 3
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev3_2.jpg"></center>'
+		'你赶紧撩起上衣脱下胸罩，不想让他更生气。他伸手粗暴地抓住你一只赤裸的乳房，玩着你的乳头。'
+		'他继续用双手粗暴地揉捏你的奶子。“这才像话，骚货。现在脱光，让我们看看你的屁股！”'
+		gs 'willpower', 'exhib', 'resist'
+		if pcs_willpwr < will_cost:
+			act '抽身离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '抽身离开' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gt 'pod_ezd', 'etaj_2'
+			end
+		end
+		act '为他们脱光衣服':
+			*clr & cla
+			gs 'arousal', 'flash', 3
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev3_3.jpg"></center>'
+			'你赶紧照做，脱光衣服，转过身让他们看你光裸的屁股。'
+			if analPlugIn = 1:
+				'那男人扯着你的肛塞咧嘴笑：“<<$boydesc[2]>>，看看这婊子！她屁眼里已经塞着个塞子了……你就是盼着有人发现你戴着这个吧，是不是？别担心，过一会儿我们就用更好的东西换掉它。不过你可以再戴一会儿，它戴在你身上挺好看的。”'
+			end
+			'玩弄了一会儿你光裸的臀肉后，他把你脸朝前按在墙上。“现在我要像操骚货一样操你。”'
+			act '被操':
+				*clr & cla
+				gs 'fame', 'pav', 'sex', 2
+				gs 'arousal', 'vaginal', 3, $npcID[1]
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev3_4.jpg"></center>'
+				'<<$boydesc[1]>>立刻把他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴捅进你湿漉漉的小穴，开始粗暴地操你。你觉得自己对他只是一块肉，但你还是忍不住舒服地呻吟，感觉自己的小穴一秒比一秒更湿。'
+				'大概过了几分钟，他抓着你的头发把你的头往后拉。“你的小穴太松了，骚货。我现在要用你的屁股了。”'
+				if analPlugIn = 1:
+					analPlugIn = 0 & analPlugOut = 1
+					'他用手指握住你的肛塞，试探性地拉了几下，然后慢慢把它拔出来。他咕哝道：“希望这东西没把你的屁股弄得太松，婊子。”'
+				end
+				if mc_inventory['lubricant'] > 0:
+					mc_inventory['lubricant'] -= 1
+					agape = 1
+					pcs_horny += 20
+					'你赶紧打断他：“等等！我有润滑剂，用那个！这样对我们俩都会更舒服！”'
+					'你把润滑剂给他，他用手指抹了一些到自己的鸡巴上，然后把手指移到你紧缩的屁眼上，伸进两根手指在屁眼里面把润滑剂抹开。'
+					'他得意地笑，说：“看来是真的……<<$pcs_nickname>>真是个技术娴熟的屁眼骚货，训练有素，随时随地都能被操屁眼。她甚至会自己提供润滑剂。顺便说一句，屁股挺紧的。”'
+				elseif mc_inventory['lubricant'] = 0:
+					agape = 2
+					pcs_horny += 10
+				end
+				'把他那根<<dick[1]>>cm <<iif($dick_girth[1]=''skinny'',''极细'',iif($dick_girth[1]=''slim'',''偏细'',iif($dick_girth[1]=''well proportioned'',''标准'',iif($dick_girth[1]=''thicker than average'',''偏粗'',iif($dick_girth[1]=''thick'',''粗'',iif($dick_girth[1]=''massive'',''巨大'',iif($dick_girth[1]=''monstrous'',''骇人'',$dick_girth[1])))))))>>鸡巴的龟头在你屁眼上磨了几秒后，他终于把它滑了进去。他一下子顶到根部插进你屁眼，开始又快又狠地操你，完全不管你的感受。'
+				if mesec > 0:
+					pcs_horny = 0
+					gs 'mood', 'lower', 'small'
+					'<br><font color = red><b>尽管性爱感觉很好，但你仍在经期。当你的屁股被操时，经血从阴道缓缓流出，手指上的血让你感到恶心，以至于你不再想自慰。</b></font>'
+				elseif mesec <= 0 and pcs_horny >=70:
+					$orgasm_or = 'yes'
+					$orgasm_txt = '你真不想让那些男人看出你被他们粗暴操着就快自己高潮了，尽力忍耐着。可你还是失败了，在他狠狠操你屁眼时大声呻吟着高潮了。'
+					gs 'arousal', 'anal', 3
+					'男孩们大笑。“<<$pcs_nickname>>连肛交都能高潮，太厉害了！她肯定是巴甫洛夫斯克最大的骚货！”'
+				end
+				gs 'stat'
+				act '继续':
+					*clr & cla
+					gs 'arousal', 'anal', 3
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev3_5.jpg"></center>'
+					'你开始投入其中，痛苦的闷哼和快感的呻吟从你唇间溢出。你急切地把屁股往后顶向他，鼓励他更用力地操你的屁眼，希望能让他更快射出来。'
+					if mesec > 0:
+						pcs_horny = 0
+						gs 'mood', 'lower', 'small'
+						'<br><font color = red><b>尽管性爱感觉很好，但你仍在经期。当你的屁股被操时，经血从阴道缓缓流出，手指上的血让你感到恶心，以至于你不再想自慰。</b></font>'
+					elseif mesec <= 0 and pcs_horny >=70:
+						$orgasm_or = 'yes'
+						$orgasm_txt = '你把手伸到湿透的小穴上，疯狂地自慰起来，完全忘了自己身处什么状况。你毫无顾忌地大声呻吟，身体一阵痉挛。你的屁眼紧紧夹着那男人的鸡巴，他绝不可能没注意到你刚刚高潮了。'
+						gs 'arousal', 'masturbate', -3
+						'那男人对朋友呻吟道。“哇哥们，她被操屁眼操到高潮了！”他一边继续把<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>的鸡巴顶进你屁眼，一边喊道。'
+					end
+					'他朋友在走廊对面看着你被操。你能看到他在撸自己的鸡巴，满足于只是看着你被操屁眼。'
+					gs 'gopsex', 'hide', 'accview_ggsex'
+					gs 'stat'
+					act '继续':
+						*clr & cla
+						gs 'arousal', 'hj', 2, $npcID[2]
+						gs 'cum_call', 'face', $boy[2], 1
+						pcs_hairbsh = 0
+						gs 'arousal', 'bj', 2, $npcID[1]
+						gs 'cum_call', 'mouth', $boy[1], 1
+						gs 'arousal', 'end'
+						gs 'fame', 'pav', 'sex', 4
+						gs 'stat'
+						npc_had_sex[$boy[1]] = 1
+						npc_had_sex[$boy[2]] = 1
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/event/sex/sex_ev3_6.jpg"></center>'
+						'当他们俩都快要高潮时，他们叫你跪下。'
+						'年长的那个命令你：“全部接在嘴里，骚货。我们叫你吞你才能吞。”'
+						'你点点头，正好第一个男人把精液射得你满脸都是。你尽力用嘴接住尽可能多的精液，几秒后第二个男人也射了。你向男人们张开嘴，让他们看你沾满精液的嘴。这样过了大约一分钟，年长的那个对年轻的那个得意地笑了笑，然后点头示意你可以吞下他们的精液了。'
+						'年长的那个挥手赶你走：“干得不错，骚货。你可以走了，我们这边完事了。”'
+						'你赶紧收拾东西离开，免得他们决定再来一轮。'
+						act '离开': gt 'pod_ezd', 'etaj_2'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+--- pod_ezd ---------------------------------

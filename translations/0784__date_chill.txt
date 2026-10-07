@@ -1,0 +1,622 @@
+# date_chill
+
+
+if $ARGS[0] = 'knock_start':
+	gs 'date_chill', 'init', $ARGS[1]
+	'<center><<$npc_apt_hall[$npcID]>></center>'
+	'你敲了敲门<<$npcdesc>>开了门。'
+	'"嘿，快进来吧。"'
+	gs 'date_chill', 'get_ready1'
+end
+
+
+if $ARGS[0] = 'with_boy_start':
+	gs 'date_chill', 'init'
+	'<center><<$npc_apt_hall[$npcID]>></center>'
+	'你和<<$npcdesc>>.'
+	gs 'date_chill', 'get_ready1'
+end
+
+
+if $ARGS[0] = 'init':
+	$temp_npcID = $ARGS[1]
+	date_ev['at_home'] = 1
+	$date_ev['locat'] = 'npc_home'
+	$date_ev['type'] = 'home_date'
+	!! above is to let the game know what the current date activity is
+	!! below is to track what activities have been done
+	$date_ev[''] = 'home_date'
+	date_ev['activity_count'] += 1
+	gs 'npcStat', $temp_npcID
+end
+
+
+if $ARGS[0] = 'watching_image':
+	cla & *clr
+	if npc_finance[$npcID] = 0:
+		!! too poor to own a real TV, you just watch on a laptop or phone
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/laptop_watch1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	else
+		if date_ev['get_snacks'] > 0:
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/tv_snacks1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/chill/tv_watch1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'get_ready1':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	gs 'date_chill', 'get_ready2'
+end
+
+
+if $ARGS[0] = 'get_ready2':
+	if $date_loc = 'player_home':
+		if player_home_has_living = 1:
+			act '在沙发上坐下': xgt 'date_chill', 'settle_down1'
+		else
+			act '在床上坐下': xgt 'date_chill', 'settle_down1'
+		end
+
+		if date_ev['grab_drinks'] = 0:
+			act '拿点饮料':
+				minut += 2
+				gs 'stat'
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/shared/kitchen/fridge2.jpg">'
+				!! $npc_apt_kitchen[$npcID]
+				'你翻遍了冰箱，想找点喝的东西。'
+				gs 'date_chill', 'drink_menu'
+			end
+		end
+
+		if date_ev['grab_snacks'] = 0:
+			act '拿点零食':
+				cla & *clr
+				!! TODO img
+				!! $npc_apt_kitchen[$npcID]
+				'你翻遍了橱柜，想找点零食吃。'
+				gs 'date_chill', 'snack_menu'
+			end
+		end
+	else
+		if npc_apt_type[$npcID] = 2:
+			act '在床上坐下': xgt 'date_chill', 'settle_down1'
+		else
+			act '在沙发上坐下': xgt 'date_chill', 'settle_down1'
+		end
+
+		if date_ev['grab_drinks'] = 0:
+			act '拿点饮料':
+				minut += 2
+				gs 'stat'
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/shared/kitchen/fridge2.jpg">'
+				!! '<center><<$npc_apt_kitchen[$npcID]>></center>'
+				'你悄悄翻找<<$npcdesc>>的冰箱，想找点喝的。'
+				gs 'date_chill', 'drink_menu'
+			end
+		end
+
+		if date_ev['grab_snacks'] = 0:
+			act '拿点零食':
+				cla & *clr
+				'<center><<$npc_apt_kitchen[$npcID]>></center>'
+				'你悄悄翻找<<$npcdesc>>的橱柜，想找点零食。'
+				gs 'date_chill', 'snack_menu'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'drink_menu':
+	act '回去': cla & gs 'date_chill', 'get_ready2'
+
+	act '拿瓶汽水':
+		cla & *nl
+		'你拿了一瓶汽水，关上冰箱。'
+		gs 'date_chill', 'drink_menu_end'
+	end
+
+	act '拿瓶啤酒':
+		cla & *nl
+		'你拿了一瓶啤酒，关上冰箱。'
+		gs 'date_chill', 'drink_menu_end'
+	end
+
+	act '拿瓶伏特加':
+		cla & *nl
+		'你拿了一瓶伏特加，关上冰箱。'
+		gs 'date_chill', 'drink_menu_end'
+	end
+
+	if date_ev['his_drink'] = 0:
+		act '问他要不要点什么':
+			cla & *nl
+			date_ev['his_drink'] = 1
+			'"要我帮你拿点什么吗？" 你回头对<<$npcdesc>>喊道。'
+			'"你能帮我拿瓶汽水吗？"'
+			'"没问题，" 你说着，从冰箱里拿出一罐冰凉的饮料。'
+			gs 'date_chill', 'drink_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'drink_menu_end':
+	date_ev['grab_drinks'] = 1
+	act '继续': gs 'date_chill', 'get_ready1'
+
+	if date_ev['his_drink'] = 0:
+		act '问他要不要点什么':
+			cla & *nl
+			date_ev['his_drink'] = 1
+			'"要我帮你拿点什么吗？" 你回头对<<$npcdesc>>喊道。'
+			'"你能帮我拿瓶汽水吗？"'
+			'"没问题，" 你说着，从冰箱里拿出一罐冰凉的饮料。'
+			gs 'date_chill', 'drink_menu'
+		end
+	end
+
+	gs 'date_chill', 'get_snacks'
+end
+
+
+if $ARGS[0] = 'get_drinks':
+	if date_ev['grab_snacks'] = 0:
+		act '既然来了，顺便拿点喝的吧':
+			minut += 3
+			gs 'stat'
+			cla & *clr
+			gs 'date_ev', 'kitchen_img'
+			'你已经在厨房了，不如顺便拿点喝的东西。'
+			gs 'date_chill', 'snack_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'snack_menu':
+	act '回去': cla & gs 'date_chill', 'get_ready2'
+
+	act '做点爆米花':
+		cla & *nl
+		'你用微波炉做了一些爆米花。'
+		gs 'date_chill', 'snack_menu_end'
+	end
+
+	act '做点三明治':
+		cla & *nl
+		'你切了一些香肠，放在面包上。'
+		gs 'date_chill', 'snack_menu_end'
+	end
+end
+
+
+if $ARGS[0] = 'snack_menu_end':
+	minut += 3
+	date_ev['grab_snacks'] = 1
+	gs 'stat'
+	xgt 'date_chill', 'get_ready2'
+end
+
+
+if $ARGS[0] = 'get_snacks':
+	if date_ev['grab_snacks'] = 0:
+		act '既然来了，顺便拿点零食吧':
+			minut += 3
+			gs 'stat'
+			cla & *clr
+			gs 'date_ev', 'kitchen_img'
+			'你已经在厨房了，不如顺便拿点零食。'
+			gs 'date_chill', 'snack_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'settle_down1':
+	gs 'date_ev', 'living_room_img'
+	if $date_ev['locat'] = 'player_home':
+		if player_home_has_living = 1:
+			'你在沙发上坐了下来。'
+		else
+			'你在自己的床上坐了下来。'
+		end
+	else
+		if npc_apt_type[$npcID] = 2:
+			'你躺到<<$npcdesc>>的床上'
+		else
+			'你躺到<<$npcdesc>>的沙发上。'
+		end
+	end
+	act '看电影': gs 'date_chill', 'netflix_movie1'
+	act '看电视节目': gs 'date_chill', 'netflix_tv1'
+	!! act 'Continue watching show':
+end
+
+
+if $ARGS[0] = 'netflix_movie1':
+	cla & *clr
+	$date_ev['watching_image']
+	'你们两个开始一起看电影。'
+	xgt 'date_chill', 'intermission1'
+end
+
+
+if $ARGS[0] = 'netflix_tv1':
+	cla & *clr
+	$date_ev['watching_image']
+	'你们两个开始一起疯狂追看一部电视剧。'
+	xgt 'date_chill', 'intermission1'
+end
+
+
+if $ARGS[0] = 'netflix_tv2':
+	cla & *clr
+	$date_ev['watching_image']
+	'你们两个接着上次看的地方，开始播放一起看的那部电视剧的下一集。'
+	xgt 'date_chill', 'intermission1'
+end
+
+
+if $ARGS[0] = 'intermission1':
+	if rand(1, 10) < npc_sexdrive[$npcID]:
+		if rand(1, 2) = 1 or $npc_fav_pos[$npcID] = 'blowjob':
+			'"嘿，你能给我口交吗？"'
+			act '不行 （不耐烦地）':
+				cla & *nl
+				gs 'date_funcs', 'date_rate', 'dislike'
+				'"不行，我还要看电视呢！" 你皱眉说道。'
+				!! add personality reactions here
+				act '继续': gt 'date_chill', 'finish_watch'
+			end
+
+			act '来点跑酷！并且挡住她的路！':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/television1.jpg"></center>'
+				'"好啊，" 你咧嘴一笑，迫不及待地拉开他的裤子，把他的<<$npc_dick_desc[$npcID]>>鸡巴塞进嘴里。'
+				act '你开始觉得无聊了':
+					cla & *nl
+					'<i>反正这样也挺无聊的</i>你心里想着，嘴唇顺着<<$npc_usedname[$npcID]>>的鸡巴往下滑。'
+					act '给他口交': gt 'date_chill', 'chill_bj1'
+				end
+			end
+
+			act '给他口交 （但继续看电视）':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/television1.jpg"></center>'
+				'"好啊，" 你心不在焉地说，拉开他的裤子，把头埋进他的大腿间，眼睛始终没有离开屏幕。'
+				act '给他口交': gt 'date_chill', 'chill_bj_watch1'
+			end
+
+			act '就用手帮你解决':
+				cla & *nl
+				'"不如用手帮你解决？"'
+				!! if npc_selfish[$npcID] or npc_abusive[$npcID]
+				'"行，那也行。"'
+				act '给他撸': gt 'date_chill', 'chill_hj1'
+				act '随手给他撸 （但继续看电视）': gt 'date_chill', 'chill_hj_watch1'
+			end
+
+			act '今天不行':
+				cla & *nl
+				gs 'date_funcs', 'date_rate', 'dislike'
+				'"不行，今天不行，" 你说。'
+				!! add personality reactions here
+				act '继续': gt 'date_chill', 'finish_watch'
+			end
+
+			act '等会儿再说':
+				cla & *nl
+				date_ev['bj_later'] = 1
+				gs 'date_funcs', 'date_rate', 'dislike'
+				'"能不能等会儿再说？" 你心不在焉地说，仍然盯着屏幕上的内容。'
+				!! add personality reactions here
+				act '继续': gt 'date_chill', 'finish_watch'
+			end
+		else
+			'没有发生任何性事。WIP'
+			act '继续': gt 'date_chill', 'finish_watch'
+		end
+	else
+		act '放松下来看电视': gt 'date_chill', 'finish_watch'
+
+		act '拉开他的裤子拉链': gt 'date_chill', 'unzip_pants'
+	end
+end
+
+
+if $ARGS[0] = 'bj_insist':
+
+end
+
+
+if $ARGS[0] = 'unzip_pants':
+	!! player initiated sex scene
+	cla & *clr
+	!! PLACEHOLDER UNTIL BETTER MEDIA IS FOUND
+	gs 'date_ev', 'living_room_img'
+	'你拉开他的裤子，掏出他的鸡巴。'
+	if $npc_rel_goal[$npcID] = 'sex' or ($npc_rel_goal[$npcID] = 'casual' and rand(1, 10) < npc_sexdrive[$npcID]):
+		'他很快进入了状态。'
+		act '给他撸': gt 'date_chill', 'chill_hj1'
+		act '随手给他撸 （但继续看电视）': gt 'date_chill', 'chill_hj_watch1'
+		act '给他口交': gt 'date_chill', 'chill_bj1'
+		act '给他口交 （但继续看电视）': gt 'date_chill', 'chill_bj_watch1'
+	else
+		'"你在干什么？"'
+		act '帮你撸啊？这还用问？':
+			cla & *nl
+			'"你说我在干什么？" 你反问。"我在帮你撸。"'
+			act '给他撸': gt 'date_chill', 'chill_hj1'
+			act '随手给他撸 （但继续看电视）': gt 'date_chill', 'chill_hj_watch1'
+		end
+
+		act '给你口交啊？这还用问？':
+			cla & *nl
+			'"你说我在干什么？" 你反问。"我在给你口交。"'
+			'然后你的嘴唇含住他的<<$npc_dick_desc[$npcID]>>鸡巴。'
+			act '给他口交': gt 'date_chill', 'chill_bj1'
+			act '给他口交 （但继续看电视）': gt 'date_chill', 'chill_bj_watch1'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'chill_hj1':
+	act '认真地给他撸':
+		$date_ev['sex_pos'] = 'handjob'
+		gs 'arousal', 'hj', 10
+		gs 'stat'
+		cla & *clr
+		'<center><img <<$set_imgh>> src="images/shared/sex/handjob/kotovhj.jpg"></center>'
+		'你认真地给<<$npcdesc>>撸管，两人的目光都落在了他的鸡巴上。你放的电视节目还在播放，但你们谁也没在看。'
+		act '试着让他射精': gs 'date_chill', 'chill_cum'
+		act '直接做爱吧': gt 'date_chill', 'go_to_sex'
+	end
+end
+
+
+if $ARGS[0] = 'chill_hj_watch1':
+	$date_ev['sex_pos'] = 'handjob'
+	gs 'arousal', 'hj', 10
+	gs 'stat'
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/handjob/television1.mp4"></video></center>'
+	'你轻轻地撸动<<$npcdesc>>的鸡巴，你们俩继续看着节目。'
+	if rand(1, 10) < npc_sexdrive[$npcID] or npc_two_pump[$npcID] > 0:
+		act '继续': gs 'date_chill', 'chill_cum'
+	else
+		act '继续': gt 'date_chill', 'finish_watch'
+	end
+end
+
+
+if $ARGS[0] = 'chill_bj1':
+	$date_ev['sex_pos'] = 'blowjob'
+	gs 'arousal', 'bj', 10
+	gs 'stat'
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/bj45.mp4"></video></center>'
+	'你认真地吮吸<<$npc_usedname[$npcID]>>的鸡巴。'
+	'你认真又响亮、啧啧有声地给<<$npcdesc>>口交，两人的目光都落在了他的鸡巴上。你放的电视节目还在播放，但你们谁也没在看。'
+	act '试着让他射精': gs 'date_chill', 'chill_cum'
+	act '直接做爱吧': gt 'date_chill', 'go_to_sex'
+end
+
+
+if $ARGS[0] = 'chill_bj_watch1':
+	$date_ev['sex_pos'] = 'blowjob'
+	gs 'arousal', 'bj', 10
+	gs 'stat'
+	cla & *clr
+	!! '<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/blowjob/television1.mp4"></video></center>' MISSING
+	'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/television1.jpg"></center>'
+	'你一边继续看电视，一边给<<$npc_usedname[$npcID]>>口交。'
+	act '继续': gs 'date_chill', 'chill_cum'
+end
+
+
+if $ARGS[0] = 'chill_cum':
+	cla & *nl
+	'他要射了。'
+	act '用手帮他射出来':
+		gs 'cum_call', 'hand', $boy, 1
+		gs 'stat'
+		cumspclnt = 9
+		gs 'cum_cleanup'
+		cla & *clr
+		'<center><img <<$set_imgh>> src="images/shared/sex/cum/handjob/hand1.jpg"></center>'
+		'你用手帮他射了出来。'
+		act '用纸巾擦干净手':
+			cla & *clr
+			gs 'stat'
+			gs 'date_ev', 'living_room_img'
+			'你拿了一张纸巾，把手擦干净。'
+			act '继续': gt 'date_chill', 'finish_watch'
+		end
+
+		act '舔干净手指':
+			cla & *clr
+			gs 'cum_call', 'mouth_swallow', $npcID, 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/shared/sex/cum/lick_fingers.jpg"></center>'
+			'你把手指上的精液舔干净，咽了下去。'
+			act '继续': gt 'date_chill', 'finish_watch'
+		end
+	end
+
+	act '用嘴让他射出来':
+		cla & *nl
+		'你让他射在了你嘴里。'
+		gs 'date_chill', 'cum_spit_menu'
+		gs 'date_chill', 'cum_swallow_menu'
+	end
+end
+
+
+if $ARGS[0] = 'cum_swallow_menu':
+	act '若无其事地咽下': gs 'cum_call', 'mouth_swallow', $npcID, 1 & gt 'date_chill', 'cum_swallow_nonch'
+	act '开心地咽下': gs 'cum_call', 'mouth_swallow', $npcID, 1 & gt 'date_chill', 'cum_swallow_happy'
+	act '不情愿地咽下': gs 'cum_call', 'mouth_swallow', $npcID, 1 & gt 'date_chill', 'cum_swallow_reluc'
+	act '难受地咽下': gs 'cum_call', 'mouth_swallow', $npcID, 1 & gt 'date_chill', 'cum_swallow_choke'
+end
+
+
+if $ARGS[0] = 'cum_swallow_nonch':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/mouth/swallow4.mp4"></video></center>'
+	'你泰然自若地咽下嘴里出现的每一股精液。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_swallow_happy':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/mouth/swallow4.mp4"></video></center>'
+	'你开心地大口咽下<<$npc_usedname[$npcID]>>的精液，把他的鸡巴吸得一干二净。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_swallow_reluc':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/mouth/swallow4.mp4"></video></center>'
+	'你真的很不想咽，但不知道还能怎么办，只好把那苦涩的液体吞了下去。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_swallow_choke':
+	cla & *clr
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/mouth/gag3.mp4"></video></center>'
+	'苦涩的液体突然冲到喉咙深处，让你措手不及，只能硬着头皮咽下去。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_spit_menu':
+	act '吐到纸巾里': gs 'cum_call', 'mouth', $npcID, 1 & gt 'date_chill', 'cum_spit_tissue'
+	act '吐到杯子里': gs 'cum_call', 'mouth', $npcID, 1 & gt 'date_chill', 'cum_spit_cup'
+	act '吐到水槽里': gs 'cum_call', 'mouth', $npcID, 1 & gt 'date_chill', 'cum_spit_sink'
+	act '吐到地板上': gs 'cum_call', 'mouth', $npcID, 1 & gt 'date_chill', 'cum_spit_floor'
+end
+
+
+if $ARGS[0] = 'cum_spit_tissue':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	'你从旁边的桌上拿了一张纸巾，把他的精液吐了进去。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_spit_cup':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	'你从旁边的桌上拿了一个杯子，把他的精液吐了进去。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_spit_sink':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	'你迅速起身，冲进浴室，把<<$npc_usedname[$npcID]>>的精液吐进洗手池。快速漱了漱口、擦了擦，你回到客厅，若无其事地蜷在他身边的沙发上。'
+	act '继续': gt 'date_chill', 'finish_watch'
+end
+
+
+if $ARGS[0] = 'cum_spit_floor':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	'你把他的精液吐到了地板上。'
+	if $date_ev['locat'] = 'player_home':
+		'他看了你一眼，但什么也没说。'
+	else
+		gs 'date_funcs', 'date_rate', 'dislike'
+		'"恶心，你为什么把它吐在我地板上？"'
+		act '不然我还能怎么办？':
+			cla & *nl
+			'"不然我还能拿它怎么办？" 你耸耸肩。'
+			if $npc_cum_pref[$npcID] = 'mouth':
+				'"咽下去？"'
+				act '哦。对。':
+					cla & *nl
+					'"哦。" 你眨了眨眼。"对。"'
+					act '继续': gt 'date_chill', 'finish_watch'
+				end
+
+				act '恶心':
+					cla & *nl
+					'"恶心。" 你皱了皱鼻子。"是啊，那是不可能的。"'
+					act '继续': gt 'date_chill', 'finish_watch'
+				end
+
+				act '没兴致':
+					cla & *nl
+					'"呃。今天没那个兴致。"'
+					act '继续': gt 'date_chill', 'finish_watch'
+				end
+			else
+				'"水槽？纸巾？杯子？"'
+				act '哦。对。':
+					cla & *nl
+					'"哦。" 你眨了眨眼。"对。"'
+					'你之前根本没想过这些。'
+					act '继续': gt 'date_chill', 'finish_watch'
+				end
+
+				act '太麻烦了':
+					cla & *nl
+					'"呃。那些听起来都好麻烦。直接吐地上省事。"'
+					'"但待会儿收拾起来可不省事，" 他咕哝道。'
+					act '继续': gt 'date_chill', 'finish_watch'
+				end
+			end
+		end
+
+		act '洗手间太远了':
+			cla & *nl
+			'"洗手间太远了，" 你耸耸肩。'
+			act '继续': gt 'date_chill', 'finish_watch'
+		end
+
+		act '这是报复':
+			cla & *nl
+			'"这是报复，" 你不怀好意地坏笑。"你射在我嘴里，我就吐在地板上。"'
+			act '继续': gt 'date_chill', 'finish_watch'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'finish_watch':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	'你们看完了这部电视剧或电影。'
+	gs 'date_chill', 'date_end_stats'
+	gs 'date_after', 'after_date'
+end
+
+
+if $ARGS[0] = 'go_to_sex':
+	cla & *clr
+	gs 'date_ev', 'living_room_img'
+	'哦，算了吧。你就是想马上做爱。'
+	date_ev['npc_home_sex'] = 1
+	act '继续': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+end
+
+
+if $ARGS[0] = 'date_end_stats':
+	date_count_chill[$npcID] += 1
+end
+
+
+--- date_chill ---------------------------------

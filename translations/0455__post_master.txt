@@ -1,0 +1,368 @@
+# post_master
+
+!! variables used:
+!! job_hiring_step['pav_mailgirl']: (0 = never asked, 1 = trial offered but declined, 2 = trial accepted, 3 = job offered after trial but deferred)
+!! $job_status['pav_mailgirl']: '' (not hired), 'employed' (active or suspended), 'fired' (permanent)
+!! job_suspended['pav_mailgirl']: 1 if skipping this Saturday (still employed, no calendar)
+!! job_missed_total['pav_mailgirl']: total missed shifts (never reset)
+!! job_miss_acknowledged['pav_mailgirl']: last missed_total value player was scolded about
+!! job_booking_debt['pav_mailgirl']: penalty strikes (1 per miss, fired at 4)
+!! $job_termination_reason['pav_mailgirl']: 'no_show' if auto-fired for missing too many shifts
+!! post_vars['late']	= (0-15), how often you come back to the post office after 15:15. You get fired if this counter hits 15
+!! post_vars['burn']	= (0-1), whether hoodlums tampered with your mail. Gets you fired if yes
+
+if $ARGS[0] = 'start':
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	'邮局经理，也就是邮政局长，刚刚帮完一位顾客，正要走回他的办公室时，他看到了你。'
+	'“你看起来想问点什么。如果问的是我们的常规服务，那你应该去排队。我没时间再接待更多顾客了，”他说。'
+	act '离开': gt 'post_office', 'start'
+
+	gs 'jobs', 'get_job_definition', 'pav_mailgirl'
+
+	if $job_status['pav_mailgirl'] = '':
+		if job_hiring_step['pav_mailgirl'] = 0:
+			act '找工作': gt 'post_master', 'ask_for_work'
+		elseif job_hiring_step['pav_mailgirl'] = 1:
+			!! if you refused the job initially
+			gt 'post_master', 'visit_after_refusing'
+		elseif job_hiring_step['pav_mailgirl'] = 2:
+			if job_last_work_day['pav_mailgirl'] <> daystart:
+				if func('jobs', 'is_arrival_time', 'pav_mailgirl') = 0:
+					!! if you''re at the post office when it''s not working time
+					gt 'post_master', 'visit_outside_work_hours'
+				else
+					!! when you go to work on Saturday, first time
+					gt 'post_master', 'start_work'
+				end
+			end
+		elseif job_hiring_step['pav_mailgirl'] = 3:
+			!! if you did the trial and wasn''t sure about taking the job
+			gt 'post_master', 'visit_after_refusing2'
+		end
+	elseif $job_status['pav_mailgirl'] = 'employed':
+		!! Check for unacknowledged missed shifts (scolding)
+		if job_missed_total['pav_mailgirl'] > job_miss_acknowledged['pav_mailgirl']:
+			gt 'post_master', 'scolding'
+		end
+
+		if job_suspended['pav_mailgirl'] = 1:
+			!! Player suspended (skipping Saturday) — offer to resume
+			act '告诉他你其实还能来这个周六上班':
+				*clr & cla
+				gs 'jobs', 'resume_job', 'pav_mailgirl'
+				minut += 2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+				'你在一个合适的时机走进邮政局长的办公室。他看起来现在没什么事做。'
+				'“<<$pcs_firstname>>，有什么需要帮忙的吗？”他一看到你就问道。'
+				'“我来是想告诉你，我这个周六其实还是能来的！”你回答。'
+				'“啊，太好了！我会告诉阿列克谢他可以留在家里陪女儿了，”他一边快速记下一边说。“还有什么我能帮你的吗？”'
+				'“没有了，就这些，”你告诉他。“周六见！”'
+
+				act '别管他': gt 'post_office', 'start'
+			end
+		elseif func('jobs', 'is_work_day', 'pav_mailgirl') = 0 or (func('jobs', 'is_work_day', 'pav_mailgirl') = 1 and job_last_work_day['pav_mailgirl'] = daystart):
+			!! Not a work day or after work — offer to skip next Saturday
+			act '告诉他你下周六没法来上班':
+				*clr & cla
+				gs 'jobs', 'suspend_job', 'pav_mailgirl'
+				minut += 2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+				'邮政局长看起来正忙得不可开交。他的办公桌上堆满了邮件。'
+				'“打扰一下？”你试着引起他的注意。“我下周六可能来不了了。”'
+				'邮政局长有些失望地抬头看着你。“哦，好吧。没问题。我会告诉阿列克谢他周六得来上班。至少你还知道告诉我一声，谢了。”'
+				'他在一张纸上潦草地写了点什么，又埋头工作了。'
+
+				act '别管他': gt 'post_office', 'start'
+			end
+		else
+			if func('jobs', 'is_arrival_time', 'pav_mailgirl') = 1:
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+				'“嘿，<<$pcs_firstname>>！”你走进邮局时，邮政局长笑着说。“来得正好。请跟我来。”'
+				act '跟着他': gt 'post_deliveries', 'start'
+			else
+				if hour < 11:
+					!! if it''s Saturday but you''re early
+					*clr & cla
+					minut += 2
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+					'“你来得有点早，<<$pcs_firstname>>！”看到你走进他的办公室，邮政局长说。“你的邮件还没准备好，不过我喜欢你的热情。在 '+func('time', 'get_time_string', 11, 0)+' 到 '+func('time', 'get_time_string', 12, 0)+' 之间再来找我吧。到时候应该就准备好了。”'
+
+					act '别管他': gt 'post_office', 'start'
+				elseif hour > 11 and job_last_work_day['pav_mailgirl'] <> daystart:
+					!! if it''s Saturday but you''re late
+					*clr & cla
+					minut += 2
+					job_last_work_day['pav_mailgirl'] = daystart
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+					'“你迟到了，<<$pcs_firstname>>！”看到你走进办公室，邮政局长嗤笑道。“我已经叫阿列克谢来顶你的班了。他不高兴，我也不高兴。别养成这种习惯……”'
+					'你试图道歉，但他不感兴趣，让你别烦他。'
+
+					act '离开他的办公室': gt 'post_office', 'start'
+				end
+			end
+		end
+
+		act $func('wrap', 'v_neg', '辞去工作'):
+			*clr & cla
+			minut += 5
+			gs 'jobs', 'set_terminated', 'pav_mailgirl'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+			'“<<$pcs_nickname>>，”邮政局长从办公桌上抬起头说。“有什么可以帮你的吗？”'
+			'你叹了口气，告诉他你想辞掉这份工作：“嗯，我来就是想辞职的。谢谢你给我这个机会，但我的情况变了，我没办法继续做我的班次了。”'
+			'“你确定吗？阿列克谢真的很享受和家人在一起的时光。”'
+			'你点头确认：“是的，我确定。”'
+			'“那好吧；祝你未来的计划顺利，<<$pcs_nickname>>”'
+			'你向他道谢后离开了。'
+			act '离开': gt 'post_office', 'start'
+		end
+
+	elseif $job_status['pav_mailgirl'] = 'fired':
+		*clr & cla
+		if $job_termination_reason['pav_mailgirl'] = 'no_show':
+			!! Fired for missing too many shifts
+			'“<<$pcs_firstname>>……”看到你，邮政局长叹了口气，摇了摇头。“我真的很想让这事顺利下去，但你让我别无选择。你一直不来上班，阿列克谢也没法总是临时替你顶班。很抱歉，我不得不让你走。”'
+			'他看起来真的很失望。“我真希望你至少提前告诉我你来不了。我会理解的。但就这么不来？这可不是这么玩的。”'
+		else
+			!! Fired for burning mail or other serious offence
+			'“你？！滚出去！”你走进他的办公室时，他愤怒地喊道。“这里没有你的工作！现在没有，永远都没有！你那次搞砸的事毁了我们完美的记录！”'
+			'你试图解释发生了什么，但他对你所说的话完全不感兴趣。看来他再考虑雇用你的可能性微乎其微。'
+		end
+
+		act '别管他': gt 'post_office', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'scolding':
+	!! Postmaster scolds player for unacknowledged missed shifts
+	!! Escalates based on total misses (booking_debt tracks penalty strikes)
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+
+	if job_booking_debt['pav_mailgirl'] = 1:
+		'“<<$pcs_firstname>>，”邮政局长皱着眉从办公桌上抬起头说。“你周六没来上班。我最后一刻才把阿列克谢叫来顶班，他对此<i>非常</i>不高兴。”'
+		'他叹了口气。“听着，我理解总会有些突发状况。但如果你来不了，<b>请提前告诉我</b>，这样我好做安排。别就这么把我晾着，好吗？”'
+	elseif job_booking_debt['pav_mailgirl'] = 2:
+		'“<<$pcs_firstname>>！”看到你，邮政局长厉声说道。“这是你第二次不打声招呼就不来了！你知道临时找人来替你有多难吗？”'
+		'他沮丧地摇了摇头。“我给你另一次机会，是因为你真正来上班时工作做得不错。但我警告你——别养成这种习惯。”'
+	elseif job_booking_debt['pav_mailgirl'] >= 3:
+		'“<<$pcs_firstname>>。”邮政局长的声音冰冷。“你没来。又没来。连句话都没有。”'
+		'他身体前倾，表情极其严肃。“这是你最后一次警告。再放一次鸽子，我就把你的工作给真正想要它的人。阿列克谢一直在要求拿回他的周六班次，而我现在很难想出不让他拿回的理由。”'
+	end
+
+	!! Mark misses as acknowledged
+	job_miss_acknowledged['pav_mailgirl'] = job_missed_total['pav_mailgirl']
+	act '道歉并离开': gt 'post_office', 'start'
+end
+
+
+if $ARGS[0] = 'ask_for_work':
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	'“工作？我这里没有工作，”他耸耸肩。'
+	'就在你转身准备离开时，他叫住了你。“其实，阿列克谢一直提起他想在周末多陪陪生病的女儿。也许……回来吧，姑娘。”'
+	'他又仔细打量了你一番，似乎沉思了一会儿，然后满意地哼了一声。'
+	'“好吧，我给你一个证明自己的机会。你可以在周六下午送一些急件和包裹。干得好的话，你会拿到和阿列克谢一样的报酬。<<$func(''money'', ''string_profit'', 500)>>总共，约三个小时的工作 - 从 '+func('time', 'get_time_string', 12, 0)+' 到大约 '+func('time', 'get_time_string', 15, 0)+'. 如果你干得好，就可以每周都做，”他提议。'
+
+	act '拒绝':
+		cla
+		job_hiring_step['pav_mailgirl'] = 1
+		'“抱歉，我不知道。这不是我要找的工作，”你回答。'
+		'邮政局长困惑地看着你，想知道你到底期望在这里得到什么样的工作。不过，他还是叹了口气。“随你便。那就只能怪阿列克谢倒霉了。好吧，如果你改变主意就告诉我，”他说完便回去工作了。'
+		act '别管他': gt 'post_office', 'start'
+	end
+	act '接受工作':
+		cla
+		job_hiring_step['pav_mailgirl'] = 2
+		'“听起来太棒了，谢谢你！”你笑着说。'
+		'“<b>周六在这里见我，在 '+func('time', 'get_time_string', 11, 0)+' 和 '+func('time', 'get_time_string', 12, 0)+' 之间。</b>到时候我会跟你详细说明，”他咕哝道。“顺便说一句：只要有人投诉邮件没有完好送达，你就出局了。我们邮局的投递记录几乎完美无缺，我打算继续保持下去！”'
+		'“<b>并且确保你该到的时候真的出现，</b>”他严厉地补充道。“如果你来不了，那没关系，但一定要提前告诉我！阿列克谢需要知道他到底要不要上班。”'
+		'他迅速记下你的个人信息，然后让你离开，自己回去工作了。'
+		act '别管他': gt 'post_office', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'visit_after_refusing':
+	minut += 2
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	'“等等……你之前是不是来过？”看到你的脸，他问道。“对了，你是为了那个周六的工作来的！如果你还想要的话，它仍然有效？”'
+	'当你向他询问细节时，他提醒你。“你可以在周六下午送一些急件和包裹。干得好的话，你会拿到和阿列克谢一样的报酬。<<$func(''money'', ''string_profit'', 500)>>总共，约三个小时的工作 - 从 '+func('time', 'get_time_string', 12, 0)+' 到大约 '+func('time', 'get_time_string', 15, 0)+'. 如果你干得好，就可以每周都做。”'
+
+	act '拒绝':
+		cla
+		'“抱歉，我不知道……”你告诉他。'
+		'他挑了挑眉毛。“还拒绝？好吧……如果你对这份工作不感兴趣，那再来看我也没意义了，因为我不会有别的工作。如果你改变主意就告诉我。在那之前，别再浪费我的时间了。”'
+		'他很快又回去工作了。'
+		act '别管他': gt 'post_office', 'start'
+	end
+	act '接受工作':
+		cla
+		job_hiring_step['pav_mailgirl'] = 2
+		'“听起来太棒了，谢谢你！”你笑着说'
+		'“<b>周六在这里见我，在 '+func('time', 'get_time_string', 11, 0)+' 和 '+func('time', 'get_time_string', 12, 0)+' 之间。</b>到时候我会跟你详细说明，”他咕哝道。“顺便说一句：只要有人投诉邮件没有完好送达，你就出局了！我们邮局的投递记录几乎完美无缺，我打算继续保持下去！”'
+		'“<b>并且确保你该到的时候真的出现，</b>”他严厉地补充道。“如果你来不了，那没关系，但一定要提前告诉我！”'
+		'他随后点头示意你可以走了，然后回去工作。'
+		act '别管他': gt 'post_office', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'visit_after_refusing2':
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	'看到你时，邮政局长期待地看着你。“你好，<<$pcs_firstname>>。希望你带来了好消息？”'
+
+	act '拒绝这份工作':
+		cla
+		job_hiring_step['pav_mailgirl'] = 1
+		'“我想过了，但还是不行。你得另找别人了，”你告诉他。'
+		'“太遗憾了。你本可以成为一个很棒的女邮递员！好吧，谢谢你告诉我，”他低声嘟囔着，显然很失望。“如果你改变主意，我的门随时为你敞开。”'
+
+		act '离开邮政局长的办公室': gt 'post_office', 'start'
+	end
+	act '接受工作':
+		cla
+		temp_prev_job_last_work_day = job_last_work_day['pav_mailgirl']
+		gs 'jobs', 'set_employed', 'pav_mailgirl'
+		job_last_work_day['pav_mailgirl'] = temp_prev_job_last_work_day
+		killvar 'temp_prev_job_last_work_day'
+		'“我想过了，我愿意接受这份工作，”你告诉他。'
+		'“太好了！这样的话，我会告诉阿列克谢他周末不用再来了。周六见！”他握着你的手说。'
+		'你现在可以每周六送信了，从 '+func('time', 'get_time_string', 12, 0)+' 到 '+func('time', 'get_time_string', 15, 0)+'。'
+		act '离开邮政局长的办公室': gt 'post_office', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'visit_outside_work_hours':
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	'邮政局长困惑地看着你，不知道你为什么在这里。“嗯？还有问题？你看起来像是有话想问……”'
+	'“你能再跟我说说这份工作吗？”你问道。'
+	'他点了点头。“当然。你可能知道，俄罗斯邮政周六不送普通邮件，只送优先邮件。你要送的就是这些。邮件不算多，但人们选择周六送达，那一定很重要！这是个很大的责任，但我相信你能完成任务。根据以往经验，大概需要三个小时。有些日子多一些，有些日子少一些。<b>确保你在 '+func('time', 'get_time_string', 11, 0)+' 和 '+func('time', 'get_time_string', 12, 0)+' 星期六到场，这样我就能告诉你具体要做些什么。</b>”'
+	'你努力记下这一切时，他看了你一会儿。“就这些了吗？我真的得回去工作了……”他有些不耐烦地说。'
+
+	act '别管他': gt 'post_office', 'start'
+end
+
+
+if $ARGS[0] = 'start_work':
+	minut += 60 - minut
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	'“啊，太好了，你来了！”你走进邮局时，邮政局长笑着说。“而且来得正是时候！请跟我来。”'
+	'他带你来到后面的房间，那里有一些小包裹和信件装在一个包里。'
+	'“地址都在附近。看起来可能很多，但你应该能在 '+func('time', 'get_time_string', 15, 0)+' 前完成，”他向你保证。“很简单：把邮件送到该去的地方，让收件人在这个单子上签名，然后把因故没送出去的邮件带回来。”'
+	'他又继续讲了一会儿规则，但那些规则看起来不言自明，你没有太仔细听他说话。'
+	'“哦，趁我还没忘：你可能要避开某些街道，”他警告你。“我在地图上标出来了。你不是第一个被流氓抢劫的人，他们指望在包裹里找到值钱的东西。你也不会是第一个在包里没有值钱东西时挨揍的人。总之，避开这些区域就没事了。”'
+	'他递给你一张地图，上面标出了一堆街道和广场。他还画出了今天的最佳路线。'
+	act '开始巡逻':
+		*clr & cla
+		minut += 60
+		job_last_work_day['pav_mailgirl'] = daystart
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+		'第一个小时过得相当快。这活儿挺轻松，但你注意到，为了避开那些''危险''的街道，你浪费了很多时间。只要需要时直接穿过它们，你就能轻松省下半小时，甚至更多。'
+		'不过话说回来，如果这真的不重要，他也不会警告你，还费劲画了一张地图……'
+		*nl
+		act '走那些''安全''的街道':
+			*clr & cla
+			minut += 115
+			money += 500
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+			'他警告你是有原因的，所以你认为最好还是稳妥行事，尤其是第一天。'
+			'你按他建议的路线走，送完剩下的邮件，度过了相当平静的一天。你刚好赶在 '+func('time', 'get_time_string', 15, 0)+'。'
+			'“你把邮件全送完了？太棒了！”你把空包放回原处时，邮政局长眉开眼笑。'
+			'他立刻把你的工资递给你，还有另一笔<<$func(''money'', ''string_profit'', 50)>>额外收入。“这是阿列克谢给的。他说谢谢你能让他几个月来第一次在周六休息！他和他女儿之前来过，他看起来开心极了！”他解释道。“在我看来，这份工作以后每个周末都是你的了。你觉得怎么样，下周六同一时间？”'
+
+			gs 'post_master', 'job_offer'
+		end
+		gs 'willpower', 'misc', 'self'
+		if pcs_willpwr < will_cost:
+			act '使用更危险的捷径' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '使用更危险的捷径' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'self'
+				minut += 70
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+				'你又走过一条空荡荡的街道，再次看了看地图。你决定无视风险，拐进了其中一条被标记为危险的街道。'
+				'当一小群看起来吵吵闹闹的家伙打量你时，你偶尔会觉得有点不自在，但幸运的是他们没有找你麻烦，你的包不一会儿就空了。'
+				'你比计划提前了将近一个小时完成，回到邮政局长那里时，才刚过 '+func('time', 'get_time_string', 14, 10)+'。'
+				'他怀疑地看了你一眼，摇了摇头。“你要是听了我说的，不可能这么快就回来。你无视了我的警告，是不是？”'
+
+				act '说实话':
+					*clr & cla
+					money += 500
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+					'“是的……”你承认道。“但我能保护好自己！”'
+					'他无奈地叹了口气，但还是点了点头。“我画那张地图是为了你的安全，姑娘，不过算了。只要你把工作做好，大家都按时收到邮件，我不会过问你是怎么做到的。小心点，好吗？”'
+					'尽管你完成得更快，他还是把全额报酬递给你。你甚至发现里面多了<<$func(''money'', ''string_profit'', 50)>>。“这是阿列克谢给的。他说谢谢你能让他几个月来第一次在周六休息！他和他女儿之前来过，他看起来开心极了！”他解释道。“总之，在我看来，这份工作以后每个周末都是你的了。你觉得怎么样，下周六同一时间？”'
+
+					gs 'post_master', 'job_offer'
+				end
+
+				act '撒谎':
+					*clr & cla
+					money += 500
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+					'“没有，我只是手脚麻利，”你撒了个谎。'
+					'他看穿了你的谎话，但忍不住笑了起来。“你们这些年轻人啊，就是年轻气盛！我画那张地图是为了你的安全，不过算了。只要你把工作做好，大家都按时收到邮件，我不会过问你是怎么做到的。小心点，好吗？”'
+					'尽管你完成得更快，他还是把全额报酬递给你。你甚至发现里面多了<<$func(''money'', ''string_profit'', 50)>>。“这是阿列克谢给的。他说谢谢你能让他几个月来第一次在周六休息！他和他女儿之前来过，他看起来开心极了！”他解释道。“总之，在我看来，这份工作以后每个周末都是你的了。你觉得怎么样，下周六同一时间？”'
+
+					gs 'post_master', 'job_offer'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'job_offer':
+	act '还不确定':
+		cla
+		job_hiring_step['pav_mailgirl'] = 3
+		minut += 2
+		gs 'stat'
+		'“我还不知道下周会怎么样。能让我考虑一下吗？”你问道。'
+		'“可以吧，但那样的话我就得告诉阿列克谢他下周六得来上班。我可不能靠“也许”来安排工作，”他耸耸肩。“如果你想要这份工作，就在周六之前告诉我，我好做安排。如果周五下班前我还没收到你的消息，我就当你不会来了。”'
+		'你理解地点了点头。“这很公平。我做出决定后会来告诉你的。”'
+		act '离开邮政局长的办公室': gt 'post_office', 'start'
+	end
+	act '接受工作':
+		cla
+		temp_prev_job_last_work_day = job_last_work_day['pav_mailgirl']
+		gs 'jobs', 'set_employed', 'pav_mailgirl'
+		job_last_work_day['pav_mailgirl'] = temp_prev_job_last_work_day
+		killvar 'temp_prev_job_last_work_day'
+		minut += 2
+		gs 'stat'
+		'你告诉他你想下周六继续来上班。'
+		'“太好了！这样的话，我会告诉阿列克谢他周末不用再来了。下周见！”他握着你的手说。“也谢谢你干得这么漂亮！”'
+		'你现在可以每周六送信了，从 '+func('time', 'get_time_string', 12, 0)+' 到 '+func('time', 'get_time_string', 15, 0)+'。'
+		act '离开邮政局长的办公室': gt 'post_office', 'start'
+	end
+end
+
+
+
+--- post_master ---------------------------------

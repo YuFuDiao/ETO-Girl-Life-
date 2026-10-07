@@ -1,0 +1,239 @@
+# city_sauna
+!! 2021/05/08
+
+CLOSE ALL
+gs 'themes', 'indoors'
+
+if $ARGS[0] = '':
+	*clr & cla
+	menu_off = 0
+	phone_off = 0
+	gs 'core_library', 'setloc', 'city_sauna', ''
+	$location_type = 'public_outdoors'
+	sauna += 1
+	gs 'stat'
+	'<center><b>桑拿</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sauna.jpg"></center>'
+	'一座建于很久以前的豪华高品质公共桑拿浴室。这里为男性和女性客人分别设有独立的更衣室和淋浴设施。'
+
+	act '离开': minut += 10 & gt 'city_residential'
+
+	if saunaWhore >= 1: act '去工作': gt 'city_saunawhore', 'saunawork'
+
+	if week = 5 and workDisk = 2:
+		'入口处有一个保安正在等你到来。'
+
+		act '交出磁盘':
+			cls
+			minut += 20
+			workDisk = 3
+			konvert = 1
+			gs 'stat'
+			'你交出磁盘，对方递给你一个厚厚的信封。'
+
+			act '离开': minut += 10 & gt 'city_residential'
+		end
+	end
+
+	if hour >= 8: act '去蒸桑拿': gt 'city_sauna', 'sauna2'
+end
+
+
+if $ARGS[0] = 'sauna2':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_sauna', 'sauna2'
+	$location_type = 'public_indoors'
+	minut += 5
+	gs 'stat'
+	$func('wrap', 'header center b', '桑拿')
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sauna1.jpg"></center>'
+	'一小时时长的服务收费 ' + $func('money', 'string_price', 2000) + '。'
+
+	act '离开': gt 'city_sauna'
+
+	if saunaday ! daystart:
+		act '留下' + $func('money', 'get_cost_string', 2000):
+			if func('money', 'can_afford', 2000) = 0:
+				$noMoney
+			else
+				cls
+				gs 'money', 'pay', 2000
+				minut += 60
+				fat -= 10
+				pcs_sweat = rand(0, 5)
+				gs 'din_van', 'showerdin'
+				saunaday = daystart
+				gs 'mood', 'raise', 'medium'
+				pcs_horny -= 50
+				if pcs_horny < 0: pcs_horny = 0
+				pcs_health += healthmax/5
+				pcs_stam = stammax
+				if sauna_daystart ! daystart:
+					sauna_daystart = daystart
+					pcs_skin += rand(2, 4)
+					pcs_willpwr += 5
+				end
+				pcs_mana = (pcs_intel*pcs_magik) + pcs_magik*100 + pcs_vital*10 + rikudo
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/shared/sauna/sau.jpg"></center>'
+				'你在桑拿的热气里放松了一个小时，然后冲了个凉水澡、穿好衣服。你感觉自己精神焕发。'
+
+				act '离开': gt 'city_sauna'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'saunaroom':
+	*clr & cla
+	menu_off = 0 & phone_off = 1
+	gs 'core_library', 'setloc', 'city_sauna', 'saunaroom'
+	$locBroom = 'city_sauna'
+	$metkaBroom = 'saunaroom'
+	$location_type = 'private'
+	saunaYouRoom = 1
+	gs 'stat'
+	gs 'kit_din'
+	$func('wrap', 'header center b', '房间')
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/saunaroom.jpg"></center>'
+	*nl
+	'<br>房间里有一张光秃秃的<a href="exec:minut += 1 & gt ''bed2''">床</a>和一个廉价的<a href="exec:gt ''wardrobe'', ''start''">衣橱</a>，你可以在这里挑选衣服、整理衣物。'
+	*nl
+
+	if pcs_energy >= 10:
+		'<br>墙上挂着一面肮脏的<a href="exec:gt ''mirror'', ''start''">镜子</a>。地板上散落着几十本色情杂志，房间里到处散落着各种各样的性玩具。东西堆得到处都是，几乎没有足够的空间做一些基本的<a href="exec:gt ''city_sauna'', ''saunafitness''">锻炼</a>。'
+	else
+		'<br>墙上挂着一面肮脏的<a href="exec:gt ''mirror'', ''start''">镜子</a>。地板上散落着几十本色情杂志，房间里到处散落着各种各样的性玩具。东西堆得到处都是，几乎没有足够的空间做一些基本的锻炼，但你饿得什么也做不了。'
+	end
+	*nl
+
+	$func('alarmclock', 'base_alarmclock_text')
+
+	*nl
+
+	'如果你用完了个人卫生或美容用品，可以花钱再要一些。'
+	*nl
+
+	!! Use all your money to pay off as much of the debt as possible every time
+	if workDolg > 0:
+		gs 'money', 'debt_pay', 'workDolg'
+		if workDolg <= 0: abductionReturned = 1
+		'你的债务是 ' + $func('money', 'string_debt', workDolg)
+	end
+
+	act '<b>桑拿出口</b>': gt 'city_saunawhore', 'saunawork'
+
+	if workDolg > 0:
+		act '吃点东西（0:30）（欠账增加 <<$func(''money'', ''string_debt'', 200)>>）':
+			gs 'food', 'medium_meal'
+			gs 'money', 'debt_add', 'workDolg', 200
+		end
+
+		act '喝些水 (0:05)': gs 'beverage', 'water'
+
+		if mc_inventory['cosmetics'] = 0:
+			act '要些化妆品（欠账增加 <<$func(''money'', ''string_debt'', 1200)>>）':
+				gs 'money', 'debt_add', 'workDolg', 1200
+				mc_inventory['cosmetics'] += 20
+				gt 'city_sauna', 'saunaroom'
+			end
+		end
+		if mc_inventory['shampoo'] = 0:
+			act '要些洗发水（欠账增加 <<$func(''money'', ''string_debt'', 400)>>）':
+				gs 'money', 'debt_add', 'workDolg', 400
+				mc_inventory['shampoo'] += 20
+				gt 'city_sauna', 'saunaroom'
+			end
+		end
+		if mc_inventory['razor'] = 0:
+			act '要些剃刀（欠账增加 <<$func(''money'', ''string_debt'', 700)>>）':
+				gs 'money', 'debt_add', 'workDolg', 700
+				mc_inventory['razor'] += 20
+				gt 'city_sauna', 'saunaroom'
+			end
+		end
+		if mc_inventory['tampons'] = 0:
+			act '要些卫生棉条（欠账增加 <<$func(''money'', ''string_debt'', 400)>>）':
+				gs 'money', 'debt_add', 'workDolg', 400
+				mc_inventory['tampons'] += 20
+				gt 'city_sauna', 'saunaroom'
+			end
+		end
+		if mc_inventory['deodorant'] = 0:
+			act '要些除臭剂（欠账增加 <<$func(''money'', ''string_debt'', 200)>>）':
+				gs 'money', 'debt_add', 'workDolg', 200
+				mc_inventory['deodorant'] += 20
+				gt 'city_sauna', 'saunaroom'
+			end
+		end
+		if mc_inventory['vitamins'] = 0:
+			act '要些维生素（欠账增加 <<$func(''money'', ''string_debt'', 150)>>）':
+				gs 'money', 'debt_add', 'workDolg', 150
+				mc_inventory['vitamins'] += 30
+				gt 'city_sauna', 'saunaroom'
+			end
+		end
+	elseif saunaWhore >= 1:
+		act '买点吃的 (0:30)' + $func('money', 'get_cost_string', 200):
+			if func('money', 'can_afford', 200) = 0:
+				$noMoney
+			else
+				gs 'food', 'medium_meal'
+				gs 'money', 'pay', 200
+			end
+		end
+
+		gs 'core_library', 'kitchen', 'hotel'
+	end
+
+	gs 'library_functions', 'set_read_porn_act'
+
+	if pcs_horny >= 50: act '自慰': gt 'selfplay', 'start'
+
+	if pcs_sleep <= 80:
+		if $clothingworntype = 'nude':
+			$sleep_txt = '去睡觉'
+		else
+			$sleep_txt = '脱掉衣服去睡觉'
+		end
+
+		if succubusQW = 2:
+			act '<<$sleep_txt>>':
+				gt 'pre_sleep', 'start'
+			end
+		else
+			if workDolg <= 0 and func('money', 'can_afford', 850) = 0:
+				'<br>你今晚没有足够的钱在这里睡觉。'
+			else
+				act '<<$sleep_txt>>':
+					gs 'shortgs', 'autosave'
+					if workDolg > 0:
+						gs 'money', 'debt_add', 'workDolg', 850
+					else
+						gs 'money', 'pay', 850
+					end
+					gt 'pre_sleep', 'start'
+				end
+			end
+		end
+
+		killvar 'sleep_txt'
+	end
+end
+
+
+if $ARGS[0] = 'saunafitness':
+	*clr & cla
+	'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/exercises/push_nude.mp4"></video></center>'
+	gs 'exercise', 'tier2', 30, 'stren'
+	'你做了30分钟的俯卧撑，力量得到了提升。'
+
+	gs 'exercise', 'pushups_inner'
+	gs 'stat'
+	act '完成': gt $loc, $loc_arg
+end
+
+
+--- city_sauna ---------------------------------

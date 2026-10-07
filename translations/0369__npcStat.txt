@@ -1,0 +1,778 @@
+# npcStat
+
+!{
+For setting the $npcID, $npcdesc, dick, $dick_girth, etc. with a single call for a npc
+Used for translating generated variables (like npc_haircol) to useable strings.
+Use with a gosub and match the ARGS[0] with the correct char
+A generated NPC would be gs 'npcStat', $npclastcalled
+Other NPCs may be called either by number if they are a static NPC, or by letter and number otherwise.
+eg. "gs 'npcStat', 'A56'" would call for Roma. Likewise, "gs 'npcStat', 'A56'" also calls for Roma.
+A second argument calls for multiple partners. They are output as:
+e.g. gs 'npcStat', 'A54', 'a' would set $npcID1 to 'A54'
+	'a' for stats1
+	'b' for stats2
+	'c' for stats3
+	'd' for stats4
+	'e' for stats5
+	'f' for stats6
+	'g' for stats7
+	'h' for stats8
+	'i' for stats9
+	'j'-'z' are reserved for internal functions and can, and will, be overwritten.
+		DO NOT USE 'j'-'z' for events!!!
+If ARGS[1] is not set it defaults to zero, so you can use the variables it sets with or without [0] e.g. dick or dick[0] are equivalent
+$ARGS[2] is the condom type. Current types are:
+	- 'none':			no condom
+	- 'normal':			a normal condom
+	- 'sabotaged'		a sabotaged condom
+	- 'sabotaged_other'	a condom sabotaged by another npc (aka not Sveta)
+	- 'broken'			a broken condom
+	- 'extra_thin'		a thin condom (more likely to break)
+	- 'ribbed'			a ribbed condom
+
+eg. to equip a male NPC with an extra thin condom you would call:
+	gs 'npcStat', $npcID, 0, 'extra_thin'
+to equip two condoms of different types on two different male NPCs, you could call:
+	gs 'npcStat', $npcID, 0, 'normal'
+	gs 'npcStat', $npcID, 1, 'ribbed'
+	to set dick[0] with a normal condom and dick[1] with a ribbed condom
+or you could call 
+	gs 'npcStat', $npcID, 0, 'normal'
+	gs 'npcStat', $npcID, 'a', 'extra_thin'
+	gs 'npcStat', $npcID, 'b', 'ribbed'
+	to set dick1 with a normal condom and dick2 with a thin condom and dick3 with a ribbed condom
+!}
+
+
+if ($ARGS[0] = '' and ARGS[0] > 0) or $ARGS[0] <> '' and isnum($ARGS[0]):
+	npclastcalledn = iif($ARGS[0] <> '' and isnum($ARGS[0]), val($ARGS[0]), ARGS[0])
+	$npcStatVars['tempID'] = 'A' + npclastcalledn
+elseif len($ARGS[0]) > 1 and isnum($mid($ARGS[0], 2)):
+	$npcStatVars['tempID'] = $ucase($ARGS[0])
+else
+	msg "在 $npcID 传递代码中发生了错误。请将此消息出现前您正在进行的操作告知开发者，以便修复该错误。错误类型：npcStat 的值无效。调用的是 '<<$ARGS[0]>>'"
+	$npcStatVars['tempID'] = 'D' + rand(0, 7)
+end
+
+
+$npclastcalled = $npcStatVars['tempID']
+npclastcalledn = val($mid($npcStatVars['tempID'], 2))
+if instr('ABCDM', $mid($npcStatVars['tempID'], 1, 1)) > 0:
+	if isnum($npc_usedname[$npclastcalled]) or $npc_usedname[$npclastcalled] = '':
+		!! this is a workaround which compensate incomplete settings in npc_static files, it can be removed later …
+		$npc_usedname[$npclastcalled] = $npc_firstname[$npclastcalled]
+	end
+
+	npcStatVars['gender']				= npc_gender[$npclastcalled]
+	npcStatVars['inanimate']			= npc_isinanimate[$npclastcalled]
+	$npcStatVars['name']				= $npc_usedname[$npclastcalled]
+	npcStatVars['dick_length']			= npc_dick[$npclastcalled]
+	npcStatVars['dick_girth']			= npc_girth[$npclastcalled]
+	$npcStatVars['thdick']				= $npc_thdick[$npclastcalled]
+	$npcStatVars['dick_class']			= $npc_dick_class[$npclastcalled]
+	$npcStatVars['dick_desc']			= $npc_dick_desc[$npclastcalled]
+	npcStatVars['spermpot']				= npc_spermpot[$npclastcalled]
+	npcStatVars['spermvol']				= npc_spermvol[$npclastcalled]
+	$npcStatVars['height_desc']			= $npc_height_desc[$npclastcalled]
+	$npcStatVars['height_desc_pref']	= $npc_height_desc_pref[$npclastcalled]
+	$npcStatVars['build_desc']			= $npc_build_desc[$npclastcalled]
+	$npcStatVars['build_desc_pref']		= $npc_build_desc_pref[$npclastcalled]
+	npcStatVars['dob']					= npc_dob[$npclastcalled]
+	npcStatVars['apprnc']				= npc_apprnc[$npclastcalled]
+	npcStatVars['hotcat']				= npc_hotcat[$npclastcalled]
+
+	npcStatVars['sexskill']		= npc_sexskill[$npclastcalled]
+	npcStatVars['height']		= npc_height[$npclastcalled]
+	npcStatVars['weight']		= npc_weight[$npclastcalled]
+	npcStatVars['haircol']		= npc_haircol[$npclastcalled]
+	npcStatVars['eyecol']		= npc_eyecol[$npclastcalled]
+	$npcStatVars['outfit']		= $npc_outfit[$npclastcalled]
+	$npcStatVars['occupation']	= $npc_occupation[$npclastcalled]
+	$npcStatVars['relation']	= $npc_rel_type[$npclastcalled]
+
+
+		!!------------------------------------------------------------!!
+		!!                         ATTRACTION                         !!
+		!!------------------------------------------------------------!!
+
+	gs 'set_npc_attraction', $npclastcalled, -1
+	npcStatVars['attraction'] = npc_attraction[$npclastcalled]
+	npcStatVars['rel_hotcat'] = npc_rel_hotcat[$npclastcalled]
+
+else
+	npcStatVars['gender'] = 0
+	if npclastcalledn = 0:
+		$npcStatVars['name'] = '微小尺寸'
+		npcStatVars['dick_length'] = 5
+		npcStatVars['dick_girth'] = 8
+		npcStatVars['sexskill'] = rand(10, 30)
+		npcStatVars['spermpot'] = rand(4000, 11500)
+		npcStatVars['spermvol'] = rand(5, 45)
+	elseif npclastcalledn = 1:
+		$npcStatVars['name'] = '小尺寸'
+		npcStatVars['dick_length'] = 10
+		npcStatVars['dick_girth'] = 9
+		npcStatVars['sexskill'] = rand(15, 40)
+		npcStatVars['spermpot'] = rand(6000, 12500)
+		npcStatVars['spermvol'] = rand(15, 55)
+	elseif npclastcalledn = 2:
+		$npcStatVars['name'] = '中等尺寸'
+		npcStatVars['dick_length'] = 15
+		npcStatVars['dick_girth'] = 10
+		npcStatVars['sexskill'] = rand(20, 50)
+		npcStatVars['spermpot'] = rand(7500, 13500)
+		npcStatVars['spermvol'] = rand(22, 63)
+	elseif npclastcalledn = 3:
+		$npcStatVars['name'] = '大尺寸'
+		npcStatVars['dick_length'] = 20
+		npcStatVars['dick_girth'] = 11
+		npcStatVars['sexskill'] = rand(25, 60)
+		npcStatVars['spermpot'] = rand(8500, 14500)
+		npcStatVars['spermvol'] = rand(27, 68)
+	elseif npclastcalledn = 4:
+		$npcStatVars['name'] = '巨大尺寸'
+		npcStatVars['dick_length'] = 25
+		npcStatVars['dick_girth'] = 12
+		npcStatVars['sexskill'] = rand(30, 70)
+		npcStatVars['spermpot'] = rand(8500, 14500)
+		npcStatVars['spermvol'] = rand(27, 68)
+	elseif npclastcalledn = 5:
+		$npcStatVars['name'] = '巨型尺寸'
+		npcStatVars['dick_length'] = 30
+		npcStatVars['dick_girth'] = 13
+		npcStatVars['sexskill'] = rand(25, 80)
+		npcStatVars['spermpot'] = rand(9000, 15000)
+		npcStatVars['spermvol'] = rand(30, 70)
+	elseif npclastcalledn = 6:
+		$npcStatVars['name'] = '超大尺寸'
+		npcStatVars['dick_length'] = 35
+		npcStatVars['dick_girth'] = 14
+		npcStatVars['sexskill'] = rand(20, 90)
+		npcStatVars['spermpot'] = rand(9000, 15000)
+		npcStatVars['spermvol'] = rand(30, 70)
+	else
+		$npcStatVars['name'] = '马屌尺寸'
+		npcStatVars['dick_length'] = 40
+		npcStatVars['dick_girth'] = 15
+		npcStatVars['sexskill'] = rand(15, 100)
+		npcStatVars['spermpot'] = rand(9500, 15500)
+		npcStatVars['spermvol'] = rand(32, 73)
+	end
+
+	npcStatVars['height'] = rand(160, 180)
+	npcStatVars['weight'] = rand(45, 90)
+	npcStatVars['haircol'] = rand(0, 3)
+	npcStatVars['eyecol'] = rand(0, 3)
+	$npcStatVars['occupation'] = ''
+	$npcStatVars['relation'] = 'stranger'
+	npcStatVars['age'] = rand(18, 35)
+	npcStatVars['apprnc'] = rand(0, 100) + rand(0, 100)
+	npcStatVars['hotcat'] = func('AppearanceSystem', 'ConvertToHotcat', npcStatVars['apprnc'])
+	npcStatVars['attraction'] = pcs_apprnc
+	npcStatVars['rel_hotcat'] = pcs_hotcat
+end
+
+if npcStatVars['inanimate']:
+	npcStatVars['sexskill'] = stat['mast'] / 3
+	npcStatVars['spermpot'] = -1
+	npcStatVars['spermvol'] = -1
+end
+
+if npcStatVars['spermpot'] = 0:
+	if npcStatVars['gender'] = 0:
+		npcStatVars['spermpot'] = 10000
+	else
+		npcStatVars['spermpot'] = -1
+	end
+end
+if npcStatVars['spermvol'] = 0:
+	if npcStatVars['gender'] = 0:
+		npcStatVars['spermvol'] = 40
+	else
+		npcStatVars['spermvol'] = -1
+	end
+end
+
+if instr(';none;normal;extra thin;ribbed;broken;sabotaged;sabotaged_other;', ';<<$ARGS[2]>>;') > 0:
+	$npcStatVars['condom'] = $ARGS[2]
+	!! if $npcStatVars['condom'] = 'normal':
+	!!	$npcStatVars['condom_string']
+else
+	if preziktype = 0 and (mc_inventory['equipped_condoms']+mc_inventory['normal_condoms']) > 0:
+		$npcStatVars['condom'] = 'normal'
+	elseif preziktype = 2 and (mc_inventory['equipped_condoms']+mc_inventory['sabotaged_condoms']) > 0:
+		$npcStatVars['condom'] = 'sabotaged'
+	else
+		$npcStatVars['condom'] = 'none'
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                            AGE                             !!
+		!!------------------------------------------------------------!!
+
+
+if npcStatVars['dob'] <> 0:
+	npcStatVars['bday'] = (npcStatVars['dob'] mod 100)
+	npcStatVars['bmonth'] = (npcStatVars['dob'] / 100) mod 100
+	npcStatVars['byear'] = npcStatVars['dob'] / 10000
+
+	npcStatVars['age'] = year - npcStatVars['byear']
+	if npcStatVars['bmonth'] > month:
+		npcStatVars['age'] -= 1
+	elseif npcStatVars['bmonth'] = month and npcStatVars['bday'] > day:
+		npcStatVars['age'] -= 1
+	end
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          PRONOUNS                          !!
+		!!------------------------------------------------------------!!
+
+
+if npcStatVars['inanimate']:
+	$npcStatVars['xe']			= '它'
+	$npcStatVars['xec']			= '它'
+	$npcStatVars['xem']			= '它'
+	$npcStatVars['xemc']		= '它'
+	$npcStatVars['xyr']			= '它的'
+	$npcStatVars['xyrc']		= '它的'
+	$npcStatVars['xyrs']		= '它的'
+	$npcStatVars['xyrsc']		= '它的'
+	$npcStatVars['xemself']		= '它自己'
+	$npcStatVars['xemselfc']	= '它自己'
+	$npcStatVars['person']		= '物品'
+	$npcStatVars['personc']		= '它'
+elseif npcStatVars['gender'] = 0:
+	$npcStatVars['xe']			= '他'
+	$npcStatVars['xec']			= '他'
+	$npcStatVars['xem']			= '他'
+	$npcStatVars['xemc']		= '他'
+	$npcStatVars['xyr']			= '他的'
+	$npcStatVars['xyrc']		= '他'
+	$npcStatVars['xyrs']		= '他的'
+	$npcStatVars['xyrsc']		= '他'
+	$npcStatVars['xemself']		= '他自己'
+	$npcStatVars['xemselfc']	= '他自己'
+	$npcStatVars['person']		= '男人'
+	$npcStatVars['personc']		= '男人'
+elseif npcStatVars['gender'] = 1:
+	$npcStatVars['xe']			= '她'
+	$npcStatVars['xec']			= '她'
+	$npcStatVars['xem']			= '她'
+	$npcStatVars['xemc']		= '她'
+	$npcStatVars['xyr']			= '她的'
+	$npcStatVars['xyrc']		= '她'
+	$npcStatVars['xyrs']		= '她的'
+	$npcStatVars['xyrsc']		= '她的'
+	$npcStatVars['xemself']		= '她自己'
+	$npcStatVars['xemselfc']	= '她自己'
+	$npcStatVars['person']		= '女人'
+	$npcStatVars['personc']		= '女人'
+elseif 1:
+	$npcStatVars['xe']			= '他们'
+	$npcStatVars['xec']			= '他们'
+	$npcStatVars['xem']			= '他们'
+	$npcStatVars['xemc']		= '他们'
+	$npcStatVars['xyr']			= '他们的'
+	$npcStatVars['xyrc']		= '他们的'
+	$npcStatVars['xyrs']		= '他们的'
+	$npcStatVars['xyrsc']		= '他们的'
+	$npcStatVars['xemself']		= '他们自己'
+	$npcStatVars['xemselfc']	= '他们自己'
+	$npcStatVars['person']		= '人'
+	$npcStatVars['personc']		= '人'
+else
+	$npcStatVars['xe']			= '其'
+	$npcStatVars['xec']			= '其'
+	$npcStatVars['xem']			= '其'
+	$npcStatVars['xemc']		= '其'
+	$npcStatVars['xyr']			= '其的'
+	$npcStatVars['xyrc']		= '其的'
+	$npcStatVars['xyrs']		= '其的'
+	$npcStatVars['xyrsc']		= '其的'
+	$npcStatVars['xemself']		= '其自己'
+	$npcStatVars['xemselfc']	= '其自己'
+	$npcStatVars['person']		= '人'
+	$npcStatVars['personc']		= '人'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         HAIRCOLOR                          !!
+		!!------------------------------------------------------------!!
+
+
+if npcStatVars['haircol'] = 0:
+	$npcStatVars['hair'] = 'black'
+elseif npcStatVars['haircol'] = 1:
+	$npcStatVars['hair'] = iif(npcStatVars['gender'] = 0, 'brown', 'brunette')
+elseif npcStatVars['haircol'] = 2:
+	$npcStatVars['hair'] = 'red'
+elseif npcStatVars['haircol'] = 3:
+	$npcStatVars['hair'] = iif(npcStatVars['gender'] = 0, 'blond', 'blonde')
+else
+	$npcStatVars['hair'] = '染色的'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          EYECOLOR                          !!
+		!!------------------------------------------------------------!!
+
+
+if npcStatVars['eyecol'] = 0:
+	$npcStatVars['eyes'] = 'brown'
+elseif npcStatVars['eyecol'] = 1:
+	$npcStatVars['eyes'] = 'grey'
+elseif npcStatVars['eyecol'] = 2:
+	$npcStatVars['eyes'] = 'green'
+elseif npcStatVars['eyecol'] = 3:
+	$npcStatVars['eyes'] = 'blue'
+else
+	$npcStatVars['eyes'] = '迷人的'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          CLOTHING                          !!
+		!!------------------------------------------------------------!!
+
+
+if $npcStatVars['outfit'] = '':
+	temp_rand = rand(0, 2)
+	if temp_rand = 0:
+		$npcStatVars['outfit'] = '一套运动服'
+	elseif temp_rand = 1:
+		$npcStatVars['outfit'] = '牛仔裤和一件 ' + iif(npcStatVars['gender'] = 0, 'sweater', 'blouse')
+	else
+		$npcStatVars['outfit'] = '一件昂贵的 ' + iif(npcStatVars['gender'] = 0, 'suit', 'dress')
+	end
+	killvar 'temp_rand'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        PREFERENCES                         !!
+		!!------------------------------------------------------------!!
+
+
+dynamic $replace($npc_preferences[$ARGS[0]], 'npc_pref', 'npc_stat_pref')
+temp_statVars['i_max'] = arrsize('$npc_stat_pref_traits')
+if temp_statVars['i_max'] > 0:
+	temp_statVars['i'] = 0
+	:pref_loop
+		$temp_trait = $npc_stat_pref_traits[temp_statVars['i']]
+		if func('pcs_has_attr', $temp_trait):
+			if npc_stat_pref_values[$temp_trait] > 0:
+				$npcStatVars['likes'] += ';' + $temp_trait
+			elseif npc_stat_pref_values[$temp_trait] < 0:
+				$npcStatVars['dislikes'] += ';' + $temp_trait
+			end
+		end
+		temp_statVars['i'] += 1
+	if temp_statVars['i'] < temp_statVars['i_max']: jump 'pref_loop'
+
+	if len($npcStatVars['likes']) > 0: $npcStatVars['likes'] += ';'
+	if len($npcStatVars['dislikes']) > 0: $npcStatVars['dislikes'] += ';'
+end
+
+killvar 'npc_stat_pref_traits'
+killvar 'npc_stat_pref_values'
+
+
+		!!------------------------------------------------------------!!
+		!!                          PREFIXES                          !!
+		!!------------------------------------------------------------!!
+
+
+$npcStatVars['pref_func'] = "$result = iif(instr('aeiou', mid($ARGS[0], 1, 1)) > 0, 'an ', 'a ') + $ARGS[0]"
+
+
+		!!------------------------------------------------------------!!
+		!!                            BODY                            !!
+		!!------------------------------------------------------------!!
+
+
+if npcStatVars['height'] = 0:
+	npcStatVars['bmi'] = 200
+else
+	npcStatVars['bmi'] = 100000 * npcStatVars['weight'] / (npcStatVars['height'] * npcStatVars['height'])
+end
+
+if npcStatVars['gender'] = 0:
+	npcStatVars['av_height'] = 175
+else
+	npcStatVars['av_height'] = 165
+end
+
+if $npcStatVars['height_desc'] = '' or $npcStatVars['height_desc_pref'] = '':
+	if npcStatVars['height'] < npcStatVars['av_height'] - 5:
+		temp_body = 1
+		$npcStatVars['height_desc'] = 'short'
+	elseif npcStatVars['height'] <= npcStatVars['av_height'] + 5:
+		temp_body = 2
+		$npcStatVars['height_desc'] = 'average'
+	else
+		temp_body = 3
+		$npcStatVars['height_desc'] = '高挑的'
+	end
+end
+
+$npcStatVars['height_desc_pref'] = dyneval($npcStatVars['pref_func'], $npcStatVars['height_desc'])
+
+
+if $npcStatVars['build_desc'] = '' or $npcStatVars['build_desc_pref'] = '':
+	if npcStatVars['gender'] = 0:
+		if npcStatVars['bmi'] < 190:
+			$npcStatVars['build_desc'] = 'thin'
+		elseif npcStatVars['bmi'] < 225:
+			$npcStatVars['build_desc'] = 'athletic'
+		elseif npcStatVars['bmi'] < 250:
+			$npcStatVars['build_desc'] = 'chunky'
+		else
+			$npcStatVars['build_desc'] = 'fat'
+		end
+	else
+		if npcStatVars['bmi'] < 190:
+			if temp_body = 1:
+				$npcStatVars['build_desc'] = 'petite'
+			else
+				$npcStatVars['build_desc'] = 'slender'
+			end
+		elseif npcStatVars['bmi'] < 225:
+			$npcStatVars['build_desc'] = '匀称的'
+		elseif npcStatVars['bmi'] < 250:
+			$npcStatVars['build_desc'] = 'average'
+		else
+			$npcStatVars['build_desc'] = '丰满的'
+		end
+	end
+end
+killvar 'temp_body'
+
+$npcStatVars['build_desc_pref'] = dyneval($npcStatVars['pref_func'], $npcStatVars['build_desc'])
+
+
+
+		!!------------------------------------------------------------!!
+		!!                            DICK                            !!
+		!!------------------------------------------------------------!!
+
+
+if $npcStatVars['thdick'] = '':
+	if npcStatVars['dick_girth'] <= 9:
+		$npcStatVars['thdick'] = 'skinny'
+	elseif npcStatVars['dick_girth'] = 10:
+		$npcStatVars['thdick'] = 'slim'
+	elseif npcStatVars['dick_girth'] = 11:
+		$npcStatVars['thdick'] = 'well proportioned'
+	elseif npcStatVars['dick_girth'] = 12:
+		$npcStatVars['thdick'] = 'thicker than average'
+	elseif npcStatVars['dick_girth'] = 13:
+		$npcStatVars['thdick'] = 'thick'
+	elseif npcStatVars['dick_girth'] = 14:
+		$npcStatVars['thdick'] = 'massive'
+	else
+		$npcStatVars['thdick'] = 'monstrous'
+	end
+elseif npcStatVars['dick_girth'] = 0:
+	if $npcStatVars['thdick'] = 'skinny':
+		npcStatVars['dick_girth'] = 7
+	elseif $npcStatVars['thdick'] = 'slim':
+		npcStatVars['dick_girth'] = 10
+	elseif $npcStatVars['thdick'] = 'well proportioned':
+		npcStatVars['dick_girth'] = 11
+	elseif $npcStatVars['thdick'] = 'thicker than average':
+		npcStatVars['dick_girth'] = 12
+	elseif $npcStatVars['thdick'] = 'thick':
+		npcStatVars['dick_girth'] = 13
+	elseif $npcStatVars['thdick'] = 'massive':
+		npcStatVars['dick_girth'] = 14
+	elseif $npcStatVars['thdick'] = 'monstrous':
+		npcStatVars['dick_girth'] = 15
+	end
+end
+
+$npcStatVars['thdick_pref'] = dyneval($npcStatVars['pref_func'], $npcStatVars['thdick'])
+
+
+
+!!	$npc_dick_desc is set here
+!!	this variable is to set a shorthand method of checking dick size without looking for specific numbers
+!!	it is organized by length and then ascending girth
+!!	$npc_dick_class is a fast way of determining size by category
+
+!! short dicks
+if $npcStatVars['dick_class'] = '' or $npcStatVars['dick_desc'] = '':
+	if npcStatVars['dick_length'] <= 9:
+		$npcStatVars['dick_class'] = 'short'
+		if npcStatVars['dick_girth'] <= 9:
+			$npcStatVars['dick_desc'] = 'tiny'
+		elseif npcStatVars['dick_girth'] <= 11:
+			$npcStatVars['dick_desc'] = 'short'
+		else
+			$npcStatVars['dick_desc'] = 'chode'
+		end
+
+	!! average length dicks
+	elseif npcStatVars['dick_length'] <= 14:
+		$npcStatVars['dick_class'] = 'average'
+		if npcStatVars['dick_girth'] <= 10:
+			$npcStatVars['dick_desc'] = 'skinny'
+		elseif npcStatVars['dick_girth'] <= 12:
+			$npcStatVars['dick_desc'] = 'normal'
+		else
+			$npcStatVars['dick_desc'] = 'thick'
+		end
+
+	!! long dicks
+	elseif npcStatVars['dick_length'] <= 19:
+		$npcStatVars['dick_class'] = 'big'
+		if npcStatVars['dick_girth'] <= 11:
+			$npcStatVars['dick_desc'] = 'long'
+		elseif npcStatVars['dick_girth'] <= 13:
+			$npcStatVars['dick_desc'] = 'huge'
+		else
+			$npcStatVars['dick_desc'] = 'enormous'
+		end
+
+	!! extremely long dicks
+	else
+		$npcStatVars['dick_class'] = 'extra_big'
+		if npcStatVars['dick_girth'] <= 12:
+			$npcStatVars['dick_desc'] = 'lengthy'
+		elseif npcStatVars['dick_girth'] <= 14:
+			$npcStatVars['dick_desc'] = 'gigantic'
+		else
+			$npcStatVars['dick_desc'] = 'monstrous'
+		end
+	end
+end
+
+$npcStatVars['dick_desc_pref'] = dyneval($npcStatVars['pref_func'], $npcStatVars['dick_desc'])
+
+
+		!!------------------------------------------------------------!!
+		!!                            WORK                            !!
+		!!------------------------------------------------------------!!
+
+
+if $npcStatVars['occupation'] = 'cashier_supermarket':
+	$npcStatVars['work'] = '一家普通超市的收银员'
+elseif $npcStatVars['occupation'] = 'cashier_liquor':
+	$npcStatVars['work'] = '一家酒类商店的收银员'
+elseif $npcStatVars['occupation'] = 'cashier_coffee':
+	$npcStatVars['work'] = '一家咖啡店的收银员'
+elseif $npcStatVars['occupation'] = 'barista':
+	$npcStatVars['work'] = '一家咖啡店的咖啡师'
+elseif $npcStatVars['occupation'] = 'fast_food':
+	$npcStatVars['work'] = '一家连锁汉堡店的快餐店员'
+elseif $npcStatVars['occupation'] = 'taxi_driver':
+	$npcStatVars['work'] = '城里的出租车司机'
+elseif $npcStatVars['occupation'] = 'masseuse':
+	$npcStatVars['work'] = '城里的按摩师'
+elseif $npcStatVars['occupation'] = 'masseuse_sexual':
+	$npcStatVars['work'] = '城里的按摩师'
+elseif $npcStatVars['occupation'] = 'factory':
+	$npcStatVars['work'] = '纺织厂工人'
+elseif $npcStatVars['occupation'] = 'bartender':
+	$npcStatVars['work'] = '调酒师'
+elseif $npcStatVars['occupation'] = 'mechanic':
+	$npcStatVars['work'] = '机械师'
+elseif $npcStatVars['occupation'] = 'line_cook':
+	$npcStatVars['work'] = '流水线厨师'
+elseif $npcStatVars['occupation'] = 'waiter':
+	$npcStatVars['work'] = '市中心一家餐厅的服务员'
+elseif $npcStatVars['occupation'] = 'personal_trainer':
+	$npcStatVars['work'] = '健身房的私人教练'
+elseif $npcStatVars['occupation'] = 'programmer':
+	$npcStatVars['work'] = '程序员'
+elseif $npcStatVars['occupation'] = 'pimp':
+	if npc_criminal_open = 1:
+		$npcStatVars['work'] = '皮条客'
+	else
+
+	end
+elseif $npcStatVars['occupation'] = 'drug_dealer':
+	if npc_criminal_open = 1:
+		$npcStatVars['work'] = '毒贩'
+	else
+		$npcStatVars['work'] = '药剂师'
+	end
+elseif $npcStatVars['occupation'] = 'enforcer':
+	if npc_criminal_open = 1:
+		$npcStatVars['work'] = '帮派打手'
+	else
+		$npcStatVars['work'] = '掮客'
+	end
+elseif $npcStatVars['occupation'] = 'thief':
+	if npc_criminal_open = 1:
+		$npcStatVars['work'] = '小偷'
+	else
+		$npcStatVars['work'] = '推销员'
+	end
+elseif $npcStatVars['occupation'] = 'businessman':
+	$npcStatVars['work'] = '一家汽车进口公司的首席执行官'
+elseif $npcStatVars['occupation'] = 'lawyer':
+	$npcStatVars['work'] = '律师事务所合伙人'
+elseif $npcStatVars['occupation'] = 'investment_banker':
+	$npcStatVars['work'] = '投资银行家'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        RELATIONSHIP                        !!
+		!!------------------------------------------------------------!!
+
+
+if $npcStatVars['relation'] = '':
+	$npcStatVars['relat'] = 'stranger'
+elseif $npcStatVars['relation'] = 'sugar_daddy':
+	$npcStatVars['relat'] = 'daddy'
+elseif $npcStatVars['relation'] = 'ex-sugar_daddy':
+	$npcStatVars['relat'] = '前干爹'
+else
+	$npcStatVars['relat'] = $npcStatVars['relation']
+end
+
+
+
+npcStat_i = instr('abcdefghijklmnopqrstuvwxyz', $ARGS[1])
+if $ARGS[1] <> '' and npcStat_i > 0:
+
+	dynamic "
+		npcStatCalled<<npcStat_i>>		= daystart
+		$npcID<<npcStat_i>>				= $npclastcalled
+		npcInanimate<<npcStat_i>>		= npcStatVars['inanimate']
+		$npcdesc<<npcStat_i>>			= $npcStatVars['name']
+		dick_length<<npcStat_i>>		=  npcStatVars['dick_length']
+		dick_width<<npcStat_i>>			=  npcStatVars['dick_girth']
+		npcSexskill<<npcStat_i>>		=  npcStatVars['sexskill']
+		npcSpermPot<<npcStat_i>>		= npcStatVars['spermpot']
+		npcSpermVol<<npcStat_i>>		= npcStatVars['spermvol']
+
+		!! Deprecated, leaving active for the foreseeable future.
+		$boy<<npcStat_i>>				= $npcID<<npcStat_i>>
+		$boydesc<<npcStat_i>>			= $npcdesc<<npcStat_i>>
+		dick<<npcStat_i>>				=  dick_length<<npcStat_i>>
+
+		if npcSexskill<<npcStat_i>> > 2:
+			silavag<<npcStat_i>>		=  max(0, min(npcSexskill<<npcStat_i>> / 34, 2))
+		else
+			silavag<<npcStat_i>>		=  npcSexskill<<npcStat_i>>
+		end
+
+		$dick_girth<<npcStat_i>>		= $npcStatVars['thdick']
+		$dick_girth_pref<<npcStat_i>>	= $npcStatVars['thdick_pref']
+		$dick_class<<npcStat_i>>		= $npcStatVars['dick_class']
+		$dick_desc<<npcStat_i>>			= $npcStatVars['dick_desc']
+		$dick_desc_pref<<npcStat_i>>	= $npcStatVars['dick_desc_pref']
+		npcAge<<npcStat_i>>				=  npcStatVars['age']
+		npcGender<<npcStat_i>>			=  npcStatVars['gender']
+		npcApprnc<<npcStat_i>>			=  npcStatVars['apprnc']
+		npcHotcat<<npcStat_i>>			=  npcStatVars['hotcat']
+		$npcHair<<npcStat_i>>			= $npcStatVars['hair']
+		$npcEyes<<npcStat_i>>			= $npcStatVars['eyes']
+		$npcClo<<npcStat_i>>			= $npcStatVars['outfit']
+		$npcWork<<npcStat_i>>			= $npcStatVars['work']
+		$npcHeight<<npcStat_i>>			= $npcStatVars['height_desc']
+		$npcHeight_pref<<npcStat_i>>	= $npcStatVars['height_desc_pref']
+		$npcBuild<<npcStat_i>>			= $npcStatVars['build_desc']
+		$npcBuild_pref<<npcStat_i>>		= $npcStatVars['build_desc_pref']
+		$npcRelat<<npcStat_i>>			= $npcStatVars['relat']
+		npcAttraction<<npcStat_i>>		=  npcStatVars['attraction']
+		npcRelHotcat<<npcStat_i>>		=  npcStatVars['rel_hotcat']
+		$npcLikes<<npcStat_i>>			= $npcStatVars['likes']
+		$npcDislikes<<npcStat_i>>		= $npcStatVars['dislikes']
+
+		$npcCondom<<npcStat_i>>			= $npcStatVars['condom']
+		!! $npcCondom_string<<npcStat_i>>	= $npcStatVars['condom_string']
+
+		$xe<<npcStat_i>>				= $npcStatVars['xe']
+		$xec<<npcStat_i>>				= $npcStatVars['xec']
+		$xem<<npcStat_i>>				= $npcStatVars['xem']
+		$xemc<<npcStat_i>>				= $npcStatVars['xemc']
+		$xyr<<npcStat_i>>				= $npcStatVars['xyr']
+		$xyrc<<npcStat_i>>				= $npcStatVars['xyrc']
+		$xyrs<<npcStat_i>>				= $npcStatVars['xyrs']
+		$xyrsc<<npcStat_i>>				= $npcStatVars['xyrsc']
+		$xemself<<npcStat_i>>			= $npcStatVars['xemself']
+		$xemselfc<<npcStat_i>>			= $npcStatVars['xemselfc']
+		$person<<npcStat_i>>			= $npcStatVars['person']
+		$personc<<npcStat_i>>			= $npcStatVars['personc']
+	"
+
+else
+	npcStat_i = iif($ARGS[1] <> '' and isnum($ARGS[1]), val($ARGS[1]), ARGS[1])
+
+	npcStatcalled[npcStat_i]	= daystart
+	$npcID[npcStat_i]			= $npclastcalled
+	npcInanimate[npcStat_i]		= npcStatVars['inanimate']
+	$npcdesc[npcStat_i]			= $npcStatVars['name']
+	dick_length[npcStat_i]		=  npcStatVars['dick_length']
+	dick_width[npcStat_i]		=  npcStatVars['dick_girth']
+	npcSexskill[npcStat_i]		=  npcStatVars['sexskill']
+	npcSpermPot[npcStat_i]		=  npcStatVars['spermpot']
+	npcSpermVol[npcStat_i]		=  npcStatVars['spermvol']
+
+	!! Deprecated, leaving active for the foreseeable future.
+	$boy[npcStat_i]				= $npcID[npcStat_i]
+	$boydesc[npcStat_i]			= $npcdesc[npcStat_i]
+	dick[npcStat_i]				=  dick_length[npcStat_i]
+
+	if npcSexskill[npcStat_i] > 2:
+		silavag[npcStat_i]		= max(0, min(npcSexskill[npcStat_i] / 34, 2))
+	else
+		silavag[npcStat_i]		=  npcSexskill[npcStat_i]
+	end
+
+	$dick_girth[npcStat_i]		= $npcStatVars['thdick']
+	$dick_girth_pref[npcStat_i]	= $npcStatVars['thdick_pref']
+	$dick_class[npcStat_i]		= $npcStatVars['dick_class']
+	$dick_desc[npcStat_i]		= $npcStatVars['dick_desc']
+	$dick_desc_pref[npcStat_i]	= $npcStatVars['dick_desc_pref']
+	npcAge[npcStat_i]			=  npcStatVars['age']
+	npcGender[npcStat_i]		=  npcStatVars['gender']
+	npcApprnc[npcStat_i]		=  npcStatVars['apprnc']
+	npcHotcat[npcStat_i]		=  npcStatVars['hotcat']
+	$npcHair[npcStat_i]			= $npcStatVars['hair']
+	$npcEyes[npcStat_i]			= $npcStatVars['eyes']
+	$npcClo[npcStat_i]			= $npcStatVars['outfit']
+	$npcWork[npcStat_i]			= $npcStatVars['work']
+	$npcHeight[npcStat_i]		= $npcStatVars['height_desc']
+	$npcHeight_pref[npcStat_i]	= $npcStatVars['height_desc_pref']
+	$npcBuild[npcStat_i]		= $npcStatVars['build_desc']
+	$npcBuild_pref[npcStat_i]	= $npcStatVars['build_desc_pref']
+	$npcRelat[npcStat_i]		= $npcStatVars['relat']
+	npcAttraction[npcStat_i]	=  npcStatVars['attraction']
+	npcRelHotcat[npcStat_i]		=  npcStatVars['rel_hotcat']
+	$npcLikes[npcStat_i]		= $npcStatVars['likes']
+	$npcDislikes[npcStat_i]		= $npcStatVars['dislikes']
+
+	$npcCondom[npcStat_i]		= $npcStatVars['condom']
+
+	$xe[npcStat_i]				= $npcStatVars['xe']
+	$xec[npcStat_i]				= $npcStatVars['xec']
+	$xem[npcStat_i]				= $npcStatVars['xem']
+	$xemc[npcStat_i]			= $npcStatVars['xemc']
+	$xyr[npcStat_i]				= $npcStatVars['xyr']
+	$xyrc[npcStat_i]			= $npcStatVars['xyrc']
+	$xyrs[npcStat_i]			= $npcStatVars['xyrs']
+	$xyrsc[npcStat_i]			= $npcStatVars['xyrsc']
+	$xemself[npcStat_i]			= $npcStatVars['xemself']
+	$xemselfc[npcStat_i]		= $npcStatVars['xemselfc']
+	$person[npcStat_i]			= $npcStatVars['person']
+	$personc[npcStat_i]			= $npcStatVars['personc']
+end
+
+gs 'boy_updater'
+
+killvar 'npcStatVars'
+killvar 'npcStat_i'
+killvar 'npclastcalledn'
+
+
+--- npcStat ---------------------------------

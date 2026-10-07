@@ -1,0 +1,758 @@
+# bank
+
+!! Leave the bank
+if $ARGS[0] = 'leave':
+	minut += 2
+	if $region = 'city':
+		gt 'city_center'
+	else
+		gt 'pav_commercial'
+	end
+end
+
+
+!! Open a bank account
+if $ARGS[0] = 'open_account':
+	cla
+	minut += 30
+	bankAccount = 1
+	bankShortCutMoney = 1000
+	bankDebtLimit = 0
+	gs 'money', 'bank_transfer', 1000, 'to_bank'
+	gs 'stat'
+	'你被领进一间开放的办公室，一名银行职员核对了你的资料和身份证件，然后收取了 ' + $func('money', 'string_price', 1000) + '，才为你开设账户。'
+	'"你的账户现已开通，内有 ' + $func('money', 'string_price', 1000) + '。目前你的账户没有分配透支保护，所以要小心。"'
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+	exit
+end
+
+
+!! Ask for overdraft protection
+if $ARGS[0] = 'ask_overdraft':
+	cla
+	menu_off = 1
+	minut += 15
+	'你走到柜台前。"你好。我想在我的账户上开通透支保护。"'
+	'柜员刷了你的卡，点了点头。"当然可以，<<$pcs_lastname>>小姐。此服务需支付少量费用，金额为<<$func(''money'', ''format'', 500)>>。此费用允许您从账户中提取超出余额的资金，直至一定限额。然而，透支保护仅适用于银行信誉良好的账户持有人。具体而言，我们要求您在最近60天内维持最低余额达到<<$func(''money'', ''format'', 10000)>>。或者，银行信用额度达到<<$func(''money'', ''format'', 50000)>>也可使您有资格享受此服务。请稍等，我查看一下您的账户详情。"'
+	*nl
+	if bank_last_less_than_10k + 60 <= daystart or (karta - bankDebtLimit) >= 50000:
+		'过了一会儿，她抬起头，微笑着说："都办好了，<<$pcs_lastname>>小姐。您的透支保护现已生效，限额为<<$func(''money'', ''format'', 5000)>>。请记住，任何透支金额都将按透支金额的0.055%收取每日费用，直至还清。"'
+		bankDebtLimit = 5000
+		karta += 4500
+	else
+		'过了一会儿，她抬起头，皱起了眉头。"很抱歉，<<$pcs_lastname>>小姐，但目前看来您还不符合透支保护的条件。等您在未来更长时间内维持了更高的余额之后，欢迎随时再来咨询。"'
+	end
+	gs 'stat'
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+end
+
+
+!!=================================================
+!!============== Bank Transactions ================
+!!=================================================
+
+
+!! Deposit a specified amount
+if $ARGS[0] = 'deposit_amount':
+	cla
+	menu_off = 1
+	kartaIN = input ("你想往账户里存入多少钱？")
+
+	if kartaIN <= 0 or kartaIN > money:
+		'这不是有效的操作。'
+	else
+		gs 'money', 'bank_transfer', kartaIN, 'to_bank'
+		gs 'bank', 'set_deposit_text', kartaIN
+	end
+	killvar 'kartaIN'
+	gs 'stat'
+
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+end
+
+
+!! Deposit except shortcut
+if $ARGS[0] = 'deposit_shortcut':
+	cla
+	menu_off = 1
+	kartaIN = money - bankShortCutMoney
+	gs 'money', 'bank_transfer', kartaIN, 'to_bank'
+	gs 'bank', 'set_deposit_text', kartaIN
+	gs 'stat'
+	killvar 'kartaIN'
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+end
+
+
+!! Deposit all cash
+if $ARGS[0] = 'deposit_all':
+	cla
+	menu_off = 1
+	kartaIN = money
+	gs 'money', 'bank_transfer', kartaIN, 'to_bank'
+	gs 'bank', 'set_deposit_text', kartaIN
+	gs 'stat'
+	killvar 'kartaIN'
+	gs 'stat'
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+end
+
+
+!! Withdraw specified amount
+if $ARGS[0] = 'withdraw_amount':
+	cla
+	menu_off = 1
+	gs 'bank', 'withdraw_cash', 0
+	gs 'stat'
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+end
+
+
+!! Withdraw shortcut amount
+if $ARGS[0] = 'withdraw_shortcut':
+	cla
+	menu_off = 1
+	gs 'money', 'bank_transfer', bankShortCutMoney, 'to_cash'
+	gs 'bank', 'set_withdraw_text', bankShortCutMoney
+	gs 'stat'
+	act '返回大厅': gt 'bank', 'start'
+	act '离开银行': gt 'bank', 'leave'
+end
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	$loc = 'bank'
+	$loc_arg = 'start'
+	$menu_loc = 'bank'
+	$menu_arg = 'start'
+	menu_off = 0
+	$location_type = 'public_indoors'
+	minut += 2
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '银行')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/bank.jpg"></center>'
+
+	if week <= 5 and hour = 16 and minut >= 30 and mey_vika['mey_vika_qw'] >= 32 and $region = 'city': '看起来<a href="exec:gs''mey_tamara_events'',''tamara''">塔玛拉·梅诺尔德</a>正要回家。'
+
+	if bankAccount = 0:
+		'你想开一个账户吗？'
+		act '开设账户':
+			if func('money', 'can_afford', 1000, 'cash') = 1:
+				gs 'bank', 'open_account'
+			else
+				'银行柜员抱歉地看着你。"很抱歉，要开户的话，我们需要最低初始存款<<$func(''money'', ''string_price'', 1000)>>。"'
+			end
+		end
+	else
+		if money > 0:
+			act '存入现金': gs 'bank', 'deposit_amount'
+			act '存入你所有的现金': gs 'bank', 'deposit_all'
+			if bankShortCutMoney > 0 and money > bankShortCutMoney:
+				act '存入你所有的现金，除了<<$func(''money'', ''format'', bankShortCutMoney)>>.':
+					gs 'bank', 'deposit_shortcut'
+				end
+			end
+		end
+
+		if karta > 0:
+			act '取款': gs 'bank', 'withdraw_amount'
+			if bankShortCutMoney > 0 and karta >= bankShortCutMoney:
+				act '取款<<$func(''money'', ''format'', bankShortCutMoney)>>':
+					gs 'bank', 'withdraw_shortcut'
+				end
+			end
+		end
+		if bankDebtLimit = 0:
+			act '咨询开通基本信用或透支保护': gs 'bank', 'ask_overdraft'
+		elseif bankDebtLimit = 5000:
+			act '咨询提高你的信用额度':
+				if $region = 'city':
+					gt 'bank', 'loan_officer', 'start'
+				else
+					delact $selact
+					'你走到柜台前。"你好。我想找个人谈谈提高我的信用额度的事。"'
+					'柜员点了点头。"很遗憾，我们的高级信用额度业务由圣彼得堡分行负责办理。我相信在那里他们会很乐意帮你的。"'
+				end
+			end
+		end
+		act '修改快捷方式数量':
+			temp_bankShortCutMoney = input('你希望快捷操作使用多少钱？[-1 以禁用]')
+			if temp_bankShortCutMoney < 0:
+				bankShortCutMoney = -1
+			elseif temp_bankShortCutMoney > 0:
+				bankShortCutMoney = temp_bankShortCutMoney
+			end
+			killvar 'temp_bankShortCutMoney'
+			gt 'bank', 'start'
+		end
+		if karta < bankDebtLimit:
+			'你有一笔债务，金额为 ' + $func('wrap', 'neg', '<<$func(''money'', ''format'', bankDebtLimit - karta)>>.')
+			'你可以贷款 ' + $func('wrap', 'accent','<<$func(''money'', ''format'', karta)>>!')
+		else
+			'你的账户里有<<$func(''money'', ''format'', karta - bankDebtLimit)>>。'
+			if bankDebtLimit = 0:
+				'你的账户没有开通透支保护。'
+			else
+				'你可以贷款 ' + $func('wrap', 'accent','<<$func(''money'', ''format'', bankDebtLimit)>>!')
+			end
+		end
+	end
+
+	act '离开': gt 'bank', 'leave'
+
+	if BurgerQW['BankTask'] = 1 and BurgerQW['BankTaskDay'] = daystart:
+		act '出示文件':
+			*clr & cla
+			menu_off = 1
+			minut += 15
+			BurgerQW['BankTask'] = 2
+			gs 'stat'
+			'你走进办公室，向经理出示所需文件。'
+
+			act '离开': minut += 5 & gt 'bank', 'leave'
+		end
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'loan_officer':
+	if $ARGS[1] = 'start':
+		*clr & cla
+		menu_off = 1
+		minut += 15
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/001.jpg"></center>'
+		'你和柜员交谈，她让你在等候室坐下。'
+		'等了大约15分钟后，你被叫进一间办公室，一位英俊的年轻主管正在那里等你。'
+		'他伸出手。"你好，<<$pcs_lastname>>小姐，我是菲利普·卡尔片科，VTB银行的信贷员。今天有什么可以帮你的？"'
+
+		act '谈谈提高信用额度的事':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/002.jpg"></center>'
+			'卡尔片科点了点头。"你想贷多大一笔款？"'
+			'你努力显得自信。"我在想，也许…… <<$func(''money'', ''format'', 50000)>>？"'
+			*nl
+			'"让我先查看一下你的资料，"他回答，然后开始在电脑上打字。'
+			'他读着显示器上的内容，脸上隐约浮现出一丝皱眉，你突然觉得自己开口要这么多钱实在有些愚蠢。'
+			*nl
+			gs 'stat'
+			if bank_last_less_than_100k + 100 <= daystart or (karta - bankDebtLimit) >= 200000:
+				'你在椅子上挪了挪身子，接下来的几分钟似乎格外漫长，卡尔片科终于从屏幕上抬起头。"我很高兴地通知您，基于您优秀的账户历史，银行很乐意将您的信用额度提高到<<$func(''money'', ''format'', 50000)>>。"'
+				bankDebtLimit += 45000
+				karta += 45000
+				act '向他道谢并返回大厅': gt 'bank', 'start'
+				act '向他道谢并离开银行': gt 'bank', 'leave'
+			else
+				'你在椅子上挪了挪身子，接下来的几分钟似乎格外漫长，卡尔片科终于从屏幕上抬起头。"很抱歉，您似乎没什么资产或抵押物，而且以您的年纪，贷这么大一笔款实在太年轻了。恐怕银行目前无法在这笔交易上冒险。"'
+				act '询问提高信用额度的条件':
+					delact $selact
+					'"我明白了，"你低声说。"我需要满足什么样的条件才能获得更多信用额度？"'
+					*nl
+					'"嗯，<<$pcs_lastname>>小姐，"卡尔片科回答，"银行需要看到您有能力偿还这样的贷款。以您目前的情况来看，这意味着您需要维持最低余额<<$func(''money'', ''format'', 100000)>>至少100天，或者当前余额达到<<$func(''money'', ''format'', 200000)>>。"'
+				end
+				if pcs_inhib >= 35 and stat['vaginal'] ! 0:
+					act '试着勾引他':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/003.jpg"></center>'
+						'"很抱歉，<<$pcs_lastname>>小姐，但我的决定是最终的，"他坚定地说。'
+						*nl
+						'你从椅子上站起来，但没有转身离开。相反，你走向他，俯身靠近，让他把你的乳沟看得一清二楚。'
+						'"我确实没有什么真正的抵押物，"你用轻柔而性感的嗓音告诉他。"但这并不意味着我没有你想要的东西。如果我们都开动脑筋，一定能想出对双方都有利的条件……"'
+						*nl
+						'卡尔片科盯着你的胸脯，然后看着你的眼睛。"我想也许有办法让我们达成一笔交易，只要你愿意……配合。"'
+
+						gs 'bank', 'loan_officer', 'sex_start'
+					end
+				end
+				act '离开':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/004.jpg"></center>'
+					'"等等，<<$pcs_lastname>>小姐，"卡尔片科在你转身时说道。"你看起来是个值得信赖的年轻姑娘。如果你愿意……配合的话，也许有办法让我安排这笔贷款。"'
+					*nl
+					'你还年轻，但即便如此，他暗示的是哪种"配合"也毋庸置疑。你站在他面前时，他眼神中的那种"脱衣"意味让他的意图再明白不过。'
+					'他想让你用自己的身体作抵押！这真的是你会考虑的事情吗？这笔贷款真的值得你付出这么多吗？'
+
+					gs 'bank', 'loan_officer', 'sex_start'
+				end
+			end
+		end
+
+		act '改变主意':
+			minut += 3
+			gt 'bank', 'start'
+		end
+
+	elseif $ARGS[1] = 'sex_start':
+		menu_off = 1
+		gs 'stat'
+		if pcs_inhib >= 35 and stat['vaginal'] ! 0:
+			gs 'willpower', 'sex', 'self', 'medium'
+			if pcs_willpwr < will_cost:
+				act '合作' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '合作' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'pay', 'self'
+					gs 'stat'
+					gs 'npcgeneratec', 0, '卡尔彭科先生，VTB 银行贷款专员', rand(21, 27)
+					$npc_thdick[$npclastgenerated] = 'thick'
+					npc_dick[$npclastgenerated] = 21
+					$npc_firstname[$npclastgenerated] = 'Filip'
+					$npc_nickname[$npclastgenerated] = '卡尔彭科先生'
+					$npc_usedname[$npclastgenerated] = '卡尔彭科'
+					$npc_lastname[$npclastgenerated] = '卡尔彭科'
+					$npc_notes[$npclastgenerated] = 'VTB银行的一名年轻信贷员'
+					gs 'npcpreservec', $npclastgenerated
+					gs 'npcStat', $npclastsaved
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/005.jpg"></center>'
+					'"该让你的嘴来兑现我的钱了，姑娘，"卡尔片科咧嘴一笑，笑容让人有点不寒而栗。你开始觉得，和这个男人打交道，你要付出的可能远超你的预期，但现在想反悔已经太晚了。'
+					'你摆出最性感的步伐和最饥渴的眼神，走向正从椅子上站起来的他。你张开嘴想说几句听起来很有情调的打趣话，但卡尔片科一把抓住你的腰把你拉向他，用他探入的舌头堵住了你的嘴，打断了你的话。'
+					'他强势的攻势让你不由自主地倒吸一口气，但片刻之后你又找回了一些镇定。你开始回吻他，一会儿探入他的口中，一会儿像吸吮一根小号鸡巴一样吸他的舌头。'
+					gs 'arousal', 'kiss', 10, 'sub'
+					gs 'stat'
+
+					act '把他的鸡巴弄硬':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/007.jpg"></center>'
+						'几分钟后，卡尔片科带着猥琐的笑容坐在椅子上。"你是来这儿求贷款的，对吧？我觉得婊子跪在地上、嘴里塞满东西时求人效果最好。"'
+						'"是的，先生，"你低声说着，跪了下去，爬到桌子底下。'
+						'你拉开他的拉链掏出他的鸡巴时，它已经在裤子里硬了。你只停了一瞬间来欣赏这根家伙——21厘米粗壮又雄伟，值得小小地赞叹一下——然后就用你熟练的嘴开工了。你的舌头沿着底部那根粗大的血管向上舔，感受着他的滚烫，品尝着他咸咸的味道，一直舔到他张开的龟头。你的眼睛与他对视，舌头绕着龟头打转，然后把他整根吞进喉咙。'
+						*nl
+						'你的努力终于有了回报。"我们去沙发上吧。该让你那骚穴派上用场了！"'
+						gs 'arousal', 'bj', 15, 'sub'
+						gs 'stat'
+
+						act '侧身躺下':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/008.jpg"></center>'
+							'卡尔片科领你走到那张皮质沙发前，躺了下来，把你拉过来和他侧身相拥。你刚躺好，他就转过你的头开始吻你。几分钟后，他把鸡巴插进了你的小穴。'
+							'在一个单一，迅速的动作中，他将自己埋入你体内，他那粗长的家伙让你对着他的嘴喘气并开始操你，臀部向前推进你的屁股。不久，你沉浸在快感中并发现自己向后迎合他。'
+							gs 'arousal', 'kiss', -5, 'sub'
+							gs 'arousal', 'vaginal', 15, 'sub'
+							gs 'stat'
+
+							act '爬上去骑他':
+								*clr & cla
+								$func('wrap', 'header center b', '卡尔彭科先生')
+								'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/009.jpg"></center>'
+								'"我要你在上面，你这可爱的小婊子，"他低吼着，把鸡巴从你体内抽出，翻身仰躺。你跨到他身上，他扶着你的腰，你伸手到两腿之间握住他的鸡巴。你慢慢坐下去，再次感觉它填满了你的小穴，两人同时倒吸一口气。你把它全部吞入体内，然后闭上眼睛，开始在他身上驰骋。'
+								'"你可真是个下流的小荡妇，<<$pcs_lastname>>小姐，"卡尔片科看着你在身上颠簸，若有所思地说。他粗大的鸡巴把你撑开，探到了你小穴深处美妙的境地。你用力扭动胯部，摩擦着你的阴蒂，把他整根吞到底。'
+								gs 'arousal', 'vaginal', 15, 'sub'
+								gs 'stat'
+
+								act '拿走它': gt 'bank', 'loan_officer', 'sex_finish'
+							end
+						end
+
+						act '骑上来':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/009.jpg"></center>'
+							'卡尔片科领你走到那张柔软的皮质沙发前，仰面躺下。你毫不迟疑地跨到他身上，他扶着你的腰，你伸手到两腿之间握住他的鸡巴。你慢慢坐下去，再次感觉它填满了你的小穴，两人同时倒吸一口气。你把它全部吞入体内，然后闭上眼睛，开始在他身上驰骋。'
+							'"你可真是个下流的小荡妇，<<$pcs_lastname>>小姐，"卡尔彭科看着你在身上颠簸，若有所思地说。他粗大的鸡巴把你撑开，探到了你小穴深处美妙的境地。你用力扭动胯部，摩擦着你的阴蒂，把他整根吞到底。'
+							gs 'arousal', 'vaginal', 15, 'sub'
+							gs 'stat'
+
+							act '侧身相拥操干':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/008.jpg"></center>'
+								'"现在侧过身去，"卡尔片科粗声粗气地命令你。你从他身上爬下来，让他靠着沙发靠背调整好姿势，然后过去与他相拥。他粗暴地抓住你，把你拉过来和他侧身相拥，随即转过你的头开始吻你。几分钟后，他把鸡巴插进了你的小穴。'
+								'在一个单一，迅速的动作中，他将自己埋入你体内，他那粗长的家伙让你对着他的嘴喘气并开始操你，臀部向前推进你的屁股。不久，你沉浸在快感中并发现自己向后迎合他。'
+								gs 'arousal', 'kiss', -5
+								gs 'arousal', 'vaginal', 15, 'sub'
+								gs 'stat'
+
+								act '像母狗一样承受': gt 'bank', 'loan_officer', 'sex_finish'
+							end
+						end
+					end
+				end
+			end
+		end
+
+		act '拒绝':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/006.jpg"></center>'
+			'"对不起，"你一边抽身一边说，"我真的不是那种女孩。抱歉浪费你的时间。"'
+			'你转身朝门口走去，但还没走到，卡尔片科的声音就叫住了你。"稍等，<<$pcs_lastname>>小姐。在您离开之前，我想让您知道，这个提议仍然有效。如果您改变主意，随时可以回来，我们会为您安排您想要的贷款。"'
+			'"我会……记住的，"你嘟囔着，猛地推开门，跑回安全的大厅。'
+			gs 'stat'
+
+			act '逃离':
+				minut += 10
+				gt 'bank', 'start'
+			end
+		end
+
+	elseif $ARGS[1] = 'sex_finish':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/010.jpg"></center>'
+		'几分钟后，卡尔片科拍了一下你的屁股。"我现在想从后面操你。趴在桌子上。"'
+		'你从沙发上滑下来，俯下身去，抬起一条腿搭在桌面上稳住自己。转瞬之间，卡尔彭科的双手就按在了你的屁股上，他的鸡巴重新插进了你的身体。他猛烈地抽插，每次胯部撞上你的臀部，你的整个身体都会颤抖，小穴紧紧裹着他，任由他猛进猛出。'
+		'你努力想保持安静，但他太猛烈了，很快你就随着每一次抽插发出响亮而呻吟的喘息，沉浸在快感中，根本顾不上别的。你不知道这一切持续了多久，正迷失在快感中时，你突然意识到他做了最后一次特别深的冲刺，紧接着感觉他的鸡巴在你体内抽动起来。'
+		gs 'arousal', 'vaginal', 15, 'sub'
+		gs 'stat'
+
+		act '你做了什么？！':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/bank/sex/011.jpg"></center>'
+			'突如其来的恐慌涌上你的心头，瞬间驱散了快感。"你刚刚是不是射在我里面了？！？"'
+			'卡尔片科后退一步，你感觉到他的精液从你的小穴里流出，顺着大腿淌下，他粗重地喘息着。"你刚刚拿到了一笔<<$func(''money'', ''format'', 50000)>>的贷款。你真的以为我会批给像你这样的女孩这样一笔贷款，却不在里面结束吗？"'
+			'"但我可能会怀孕！"你抗议道。'
+			*nl
+			'"你完全买得起一大堆事后避孕药，"他耸耸肩说，把鸡巴收好，坐回办公桌前。"记住，这笔贷款和其他贷款一样，你需要偿还，而且别以为以后还能回来再贷一笔类似的款。好了，失陪了，我还有工作要做。我相信你知道怎么出去。"'
+			'你感到羞辱，整理好衣服，推开办公室的门走进走廊。你第一眼看到的是三个女银行职员聚在一起看着你，从她们得意的窃笑和交头接耳的样子，你能看出她们完全知道你和信贷员做了什么。你羞得脸颊发烫，匆匆离去。'
+			gs 'cum_call', '', $boy, 1, '', '', 110
+			gs 'cuminsidereact', '卡尔彭科先生'
+			gs 'fame', 'city', 'sex', 3
+			gs 'arousal', 'end'
+			bankDebtLimit += 45000
+			karta += 45000
+			minut += 30
+			gs 'stat'
+
+			*nl
+			*nl
+			'<i>您的最高信用额度已提高到<<$func(''money'', ''format'', bankDebtLimit)>></i>'
+
+			act '返回大厅': gt 'bank', 'start'
+		end
+	end
+end
+
+
+!! ARGS[1] = fee. Defaults to 100
+if $ARGS[0] = 'deposit_cash':
+	if arrsize('ARGS') = 1: ARGS[1] = 100
+
+	kartaIN = input("你想往账户里存多少钱？" + iif(ARGS[1] <= 0, ""," (手续费<<$func('money', 'format', ARGS[1])>>)"))
+
+
+	if kartaIN <= ARGS[1] or kartaIN > money:
+		'无效操作。'
+	else
+		atmDeposit[] = kartaIN - ARGS[1]
+		atmDepositDate[] = daystart + 2
+		money -= kartaIN
+
+		'<br>扣除费用后，您存入<<$func(''money'', ''format'', atmDeposit[])>>到您的账户。'
+		'资金需要2天才能到账。您的新余额将为<<$func(''money'', ''format'', karta - bankDebtLimit + atmDeposit[])>>.'
+	end
+	killvar 'kartaIN'
+end
+
+
+!! ARGS[1] = fee. Defaults to 0
+if $ARGS[0] = 'withdraw_cash':
+	if arrsize('ARGS') = 1: ARGS[1] = 0
+	if ARGS[1] < 0: ARGS[1] = 0
+
+	kartaOUT = input("你想取多少钱？" + iif(ARGS[1] <= 0, ""," (手续费<<$func('money', 'format', ARGS[1])>>)"))
+	if kartaOUT <= ARGS[1] or kartaOUT > karta:
+		'<br>无效操作。'
+	else
+		gs 'money', 'bank_transfer', kartaOUT, 'to_cash'
+		if ARGS[1] > 0: money -= ARGS[1]
+		gs 'bank', 'set_withdraw_text', kartaOUT
+	end
+	killvar 'kartaOUT'
+end
+
+
+!! ARGS[1] amount withdrawn
+if $ARGS[0] = 'set_withdraw_text':
+	*p '<br>您取款<<$func(''money'', ''format'', ARGS[1])>>. '
+	if karta > bankDebtLimit:
+		*pl '你的银行账户里还剩<<$func(''money'', ''format'', karta - bankDebtLimit)>>。'
+	elseif karta = bankDebtLimit:
+		*pl '你的银行账户里已经没有钱了。'
+	else
+		*pl $func('wrap', 'neg', '您的银行账户已透支<b><<$func(''money'', ''format'', bankDebtLimit - karta)>></b>.')
+	end
+end
+
+
+!! ARGS[1] amount deposited
+if $ARGS[0] = 'set_deposit_text':
+	*p '<br>您存入<<$func(''money'', ''format'', ARGS[1])>>. '
+	*pl '您的账户余额现在为 ' + iif(karta >= bankDebtLimit, '<<$func(''money'', ''format'', karta - bankDebtLimit)>>', $func('wrap', 'neg', '<<$func(''money'', ''format'', bankDebtLimit - karta)>>')) + '。'
+end
+
+
+if $ARGS[0] = 'cikl':
+	!! ------------------------------------------------------------------------------------------------------------
+	!!	Banking
+	!! ------------------------------------------------------------------------------------------------------------
+
+	!! MJ: Add some (daily) interest to the bank account.
+	!! Not very realistic but won''t make anyone too rich.
+
+	if bankAccount = 1:
+		kartatotal = karta - bankDebtLimit
+		:kartaloop
+		if kartatotal > 20000000:
+			kartacount += 1
+			largekarta[kartacount] = 20000000
+			kartatotal -= 20000000
+			jump 'kartaloop'
+		else
+			largekarta[0] = kartatotal
+		end
+		if karta - bankDebtLimit >= 2000000:
+			!! yearly interest of 2.3% recalculated into daily interest = 0.006% daily
+			intrate = 60
+		elseif karta - bankDebtLimit >= 0:
+			!! yearly interest of 1.15% recalculated into daily interest = 0.003% daily
+			intrate = 30
+		else
+			!! yearly overdraft interest of 20% recalculated into daily interest = 0.055% daily
+			intrate = 550
+		end
+		:intloop
+		if kartacount = 0:
+			smallmoneypos += (largekarta[0] * intrate)
+			largekarta[0] = 0
+			kartacount = 0
+		else
+			smallmoneypos += (largekarta[kartacount] * intrate)
+			if smallmoneypos >= 1000000 or smallmoneypos <= -1000000: karta += smallmoneypos / 1000000 & smallmoneypos = smallmoneypos mod 1000000
+			largekarta[kartacount] = 0
+			kartacount -= 1
+			jump 'intloop'
+		end
+
+		if smallmoneypos >= 1000000 or smallmoneypos <= -1000000:
+			karta += smallmoneypos / 1000000
+			smallmoneypos = smallmoneypos mod 1000000
+		end
+
+
+		bank_i = 0
+		:atmdeposit_loop
+		if bank_i < arrsize('atmDeposit'):
+			if atmDepositDate[bank_i] <= daystart:
+				if atmDeposit[bank_i] > 0:
+					karta += atmDeposit[bank_i]
+				end
+				killvar 'atmDeposit', bank_i
+				killvar 'atmDepositDate', bank_i
+			else
+				bank_i += 1
+			end
+			jump 'atmdeposit_loop'
+		end
+		killvar 'bank_i'
+
+
+
+		!! Daily Internet and mobile checks
+		gs 'internet_mobile', 'check_subscription_actions'
+		bank_max_i = arrsize('$internet_action_messages')
+		if bank_max_i > 0:
+			bank_i = 0
+			:loop_messages
+				if $internet_action_messages[bank_i] ! '': *pl $internet_action_messages[bank_i]
+				bank_i += 1
+			if bank_i < bank_max_i: jump 'loop_messages'
+			killvar 'bank_i'
+		end
+		killvar 'bank_max_i'
+	end
+
+	!! ------------------------------------------------------------------------------------------------------------
+	!!	Payments
+	!! ------------------------------------------------------------------------------------------------------------
+
+	if day ! 25:
+		if paydayHusb = 1: paydayHusb = 0
+		!! No idea what haday is, it does not show up anywhere else beyond this one line
+		!! All the checks for the whether Sveta owns certain properties make no sense, if it is the 25th, haday, electroday and
+		!! kabelday are set to 0. The fact that Sveta doesn''t own or rent properties only means that their value is meaningless
+		!! anyway.
+		if haday = 1: haday = 0
+		if electroday = 1: electroday = 0
+		if kabelday = 1: kabelday = 0
+		if scholarshipday = 1: scholarshipday = 0
+		if nopaytanwork = 1: nopaytanwork = 0
+
+	else
+
+		!! Default to bank transfer, but fallback to cash if the player has no bank account
+		if bankAccount = 1:
+			$temp_pay_method = 'bank'
+			$temp_pay_display = '已存入你的银行账户'
+		else
+			$temp_pay_method = 'cash'
+			$temp_pay_display = '神秘地出现在你的口袋里'
+		end
+
+		!! meynold payment
+		if mey_vika['mey_vika_qw'] >= 35 and mey_tamara['qw_end'] = 0:
+			if mey_tamara['help_count'] < 10:
+				gs 'money', 'earn', 10000, $temp_pay_method
+				'<b><font color=green>塔玛拉阿姨给了你<<$func(''money'', ''string_profit'', 10000)>>作为对你努力的回报</font></b>'
+			else
+				gs 'money', 'earn', 15000, $temp_pay_method
+				'<b><font color=green>塔玛拉阿姨给了你<<$func(''money'', ''string_profit'', 15000)>>作为对你努力的回报</font></b>'
+			end
+			mey_tamara['help_count'] = 0
+		end
+
+		if $job_status['city_diner_secretary'] = 'employed' and job_worked_count['city_diner_secretary'] > 0:
+			pay = func('jobs', 'paycheck', 'city_diner_secretary', $temp_pay_method)
+			$func('wrap', 'v_pos b', '你的薪水是<<$func(''money'', ''string_profit'', pay)>> <<$temp_pay_display>>，这是你担任秘书的工资。')
+		end
+
+		if $job_status['city_cafe_waitress'] = 'employed' and job_worked_count['city_cafe_waitress'] > 0:
+			pay = func('jobs', 'paycheck', 'city_cafe_waitress', $temp_pay_method)
+			$func('wrap', 'v_pos b', '你的薪水是<<$func(''money'', ''string_profit'', pay)>> <<$temp_pay_display>>，这是你在咖啡馆当服务员的工资。')
+		end
+
+		if $job_status['city_hospital_nurse'] = 'employed' and job_worked_count['city_hospital_nurse'] > 0:
+			pay = func('jobs', 'paycheck', 'city_hospital_nurse', $temp_pay_method)
+			$func('wrap', 'v_pos b', '你的薪水是<<$func(''money'', ''string_profit'', pay)>> <<$temp_pay_display>>，这是你在医院工作的工资。')
+		end
+
+		if tanwork = 1 and nopaytanwork = 0:
+			nopaytanwork = 1
+			gs 'money', 'earn', 10000, $temp_pay_method
+			$func('wrap', 'v_pos b', '你的薪水是<<$func(''money'', ''string_profit'', 10000)>> <<$temp_pay_display>>，这是你当女佣的工资。')
+		end
+
+		if $job_status['city_office_secretary'] = 'employed' and job_worked_count['city_office_secretary'] > 0:
+			pay = func('jobs', 'paycheck', 'city_office_secretary', $temp_pay_method)
+			$func('wrap', 'v_pos b', '你的薪水是<<$func(''money'', ''string_profit'', pay)>> <<$temp_pay_display>>，这是你担任秘书的工资。')
+		end
+
+		if $job_status['pav_factory'] = 'employed':
+			pay = func('jobs', 'paycheck', 'pav_factory', $temp_pay_method)
+			$func('wrap', 'v_pos b', '你的薪水是<<$func(''money'', ''string_profit'', pay)>> <<$temp_pay_display>>，这是你在服装厂工作的工资。')
+		end
+
+		if $husID ! '' and paydayHusb = 0:
+			paydayHusb = 1
+
+			if npc_finance[$husID] = 0:
+				huspay = 20000
+			elseif npc_finance[$husID] = 1:
+				huspay = 30000
+			else
+				huspay = 40000
+			end
+
+			gs 'money', 'earn', huspay, $temp_pay_method
+			$func('wrap', 'v_pos b', '<<$func(''money'', ''string_profit'', huspay)>>来自你丈夫，<<$temp_pay_display>>。')
+			killvar 'huspay'
+		end
+
+		if $wifID ! '' and paydayWife = 0:
+			paydayWife = 1
+
+			if npc_finance[$wifID] = 0:
+				wifpay = 20000
+			elseif npc_finance[$wifID] = 1:
+				wifpay = 30000
+			else
+				wifpay = 40000
+			end
+
+			gs 'money', 'earn', wifpay, $temp_pay_method
+			$func('wrap', 'v_pos b', '<<$func(''money'', ''string_profit'', wifpay)>>来自你妻子，<<$temp_pay_display>>。')
+			killvar 'wifpay'
+		end
+
+		if func('uniutil', 'scholarship' , 'is_active') and scholarshipday = 0:
+			scholarshipday = 1
+			gs 'money', 'earn', func('uniutil', 'scholarship', 'get'), $temp_pay_method
+			$func('wrap', 'v_pos b', '你已收到 ' + $func('money', 'string_price', func('uniutil', 'scholarship', 'get')) + ' 作为奖学金。')
+		end
+
+		!! Utilities for all apartments.
+		if func('homes_properties', 'get_owned_homes_count') > 0 and electroday = 0:
+			gs 'housing', 'util'
+			if bankAccount = 1 and func('money', 'can_afford', elektro * hcount_util, 'bank'):
+				$func('wrap', 'v_pos b', '<<$func(''money'', ''string_price'', elektro * hcount_util)>>的水电费已自动从你的银行账户中扣除。')
+				electroday = 1
+				if elektro >= 2000:
+					elektro = 2000 + rand(0, 100)
+					gs 'money', 'pay', elektro * hcount_util, 'bank'
+				end
+			elseif bankAccount = 0 and money >= elektro:
+				$func('wrap', 'neg b', '您目前没有设置用于自动支付水电费的银行账户。 <<$func(''money'', ''string_price'', elektro * hcount_util)>>已从您的现金中扣除。')
+				electroday = 1
+				if elektro >= 2000:
+					elektro = 2000 + rand(0, 100)
+					gs 'money', 'pay', elektro * hcount_util, 'cash'
+				end
+			else
+				$func('wrap', 'v_neg b', '自动扣款时，你的银行卡被拒付了<<$func(''money'', ''string_price'', elektro * hcount_util)>>用于自动支付水电费。')
+			end
+		end
+
+		!! Cable for all apartments
+		if kabel > 0 and kabelday = 0:
+			gs 'housing', 'cable'
+			if bankAccount = 1 and karta - bankDebtLimit >= (300 * hcount_cable):
+				$func('wrap', 'v_pos b', '<<$func(''money'', ''string_price'', 300 * hcount_cable)>>已从您的银行账户中扣除，用于您的有线电视订阅。')
+				kabelday = 1
+				gs 'money', 'pay', 300 * hcount_cable, 'bank'
+			elseif bankAccount = 1 and karta >= (300 * hcount_cable):
+				$func('wrap', 'v_pos b', '<<$func(''money'', ''string_price'', 300 * hcount_cable)>>已被从你的银行账户和透支额度中扣除，用于支付你的有线电视订阅费。')
+				kabelday = 1
+				gs 'money', 'pay', 300 * hcount_cable, 'bank'
+			elseif bankAccount = 0 and money >= (300 * hcount_cable):
+				$func('wrap', 'neg b', '你目前没有设置银行账户来自动支付你的有线电视订阅费。 <<$func(''money'', ''string_price'', 300 * hcount_cable)>>已从你的现金中扣除。')
+				kabelday = 1
+				gs 'money', 'pay', 300 * hcount_cable, 'cash'
+			else
+				$func('wrap', 'v_neg b', '自动扣款时，你的银行卡被拒付了<<$func(''money'', ''string_price'', 300 * hcount_cable)>>用于有线电视订阅费。')
+			end
+		end
+
+		killvar 'temp_pay_method'
+		killvar 'temp_pay_display'
+	end
+
+	!! Checking for tenants moving out
+	gs 'homes_properties', 'tenant_move_out_check'
+
+	!! ----------------------------------------
+	!! Rent
+	!! ----------------------------------------
+	!! property_rent, property_days, $property_name, $property_display $property_code
+	gs 'homes_properties', 'get_rented_properties'
+	bank_max_i = arrsize('property_name')
+	if bank_max_i > 0:
+		bank_i = 0
+		:loop_rent_payments
+			if property_days[bank_i] <= 2:
+				!! From bank
+				if bankAccount = 1 and func('money', 'can_afford', property_rent[bank_i], 'bank'):
+					if property_rent[bank_i] > 0: '<font color="green">你为你的<<$property_name[bank_i]>>支付的房租<<$func(''money'', ''string_price'', property_rent[bank_i])>>已自动从你的银行账户中扣除' + iif(karta >= bankDebtLimit, '', ' 和透支额度。关于透支还款，请联系你的银行') + '。</font><br>'
+					gs 'homes_properties', 'pay_rent', $property_code[bank_i], 'bank'
+				elseif property_days[bank_i] <= 0:
+					gs 'homes_properties', 'cancel_rent', $property_code[bank_i]
+				elseif bankAccount = 0:
+					$func('wrap', 'neg', '你目前没有设置银行账户用于自动扣除房租<<$func(''money'', ''string_price'', property_rent[bank_i])>> ，对应房产<<$property_name[bank_i]>>。为避免被驱逐，请尽快手动付款。<br>')
+				else
+					$func('wrap', 'v_neg', '你的银行卡在自动扣除房租时被拒付<<$func(''money'', ''string_price'', property_rent[bank_i])>> ，对应房产<<$property_name[bank_i]>>。为避免被驱逐，请尽快解决。<br>')
+				end
+			end
+			bank_i += 1
+		if bank_i < bank_max_i: jump 'loop_rent_payments'
+		gs 'homes_properties', 'clean_up_property_data'
+		killvar 'bank_i'
+	end
+	killvar 'bank_max_i'
+	!! ------------------------------------------------------------------------------------------------------------
+end
+
+
+--- bank ---------------------------------

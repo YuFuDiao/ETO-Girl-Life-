@@ -1,0 +1,1326 @@
+# pav_disco
+!! 2021/07/12
+
+if $ARGS[0] = '':
+	killvar 'temp'
+	if hour > 19: pav_disco_in = daystart
+	menu_off = 0
+	if sound_settings['music_off'] = 0:
+		$track_loop = 'sound/komb.mp3'
+		volume = 80
+		music_loop = 1
+	end
+	gs 'core_library', 'setloc', 'pav_disco', ''
+	$location_type = 'public_indoors'
+	$region = 'pav'
+	boynumBlock = 0
+	stat['last_disco'] = daystart
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'anushka_konstantinov_schedule'
+	*nl
+
+!! check against clothing and makeup impacting social groups only once per day
+	if social_check['disco'] ! daystart and hour > 6:
+		social_check['disco'] = daystart
+		if func('pcs_has_attr', 'clothes_pants_any'):
+			grupvalue[1] -= 1
+			if func('pcs_has_attr', 'clothes_quality_high'): grupvalue[1] += 1
+		end
+		if func('pcs_has_attr', 'clothes_quality_low'):
+			grupvalue[1] -= 5
+		elseif func('pcs_has_attr', 'clothes_quality_medium'):
+			grupvalue[1] -= 1
+		end
+		if PCloInhibit >= 35:
+			grupvalue[1] -= 3
+			grupvalue[2] -= 1
+		elseif PCloInhibit >= 20:
+			grupvalue[2] += 1
+			grupvalue[4] += 1
+		end
+		if func('pcs_has_attr', 'shoes_quality_low'):
+			grupvalue[1] -= 1
+		else
+			grupvalue[1] += 1
+		end
+		if func('pcs_has_attr', 'shoes_heels_flat'): grupvalue[1] -= 2
+		if func('pcs_has_attr', 'cosmetics_makeup_running'):
+			grupvalue[1] -= 5
+			grupvalue[2] -= 5
+			grupvalue[4] -= 1
+		elseif func('pcs_has_attr', 'cosmetics_makeup_none'):
+			grupvalue[1] -= 5
+			grupvalue[2] -= 3
+			grupvalue[4] -= 1
+		elseif func('pcs_has_attr', 'cosmetics_makeup_light'):
+			grupvalue[4] -= 1
+		elseif func('pcs_has_attr', 'cosmetics_makeup_moderate'):
+			grupvalue[1] += 1
+		elseif func('pcs_has_attr', 'cosmetics_makeup_bimbo'):
+			grupvalue[1] += 3
+		elseif func('pcs_has_attr', 'cosmetics_makeup_goth'):
+			grupvalue[1] -= 3
+			grupvalue[2] -= 5
+		else
+			grupvalue[2] -= 1
+			grupvalue[4] += 1
+		end
+	end
+
+	if NikoVolkovQW = 5 and NikoEv = 7 and NikoDate_Day ! daystart: gt 'NikoDates', 'disco'
+
+	if hour < 20:
+		$func('wrap', 'header center b', '迪斯科')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/closing.jpg"></center>'
+		'今晚迪斯科就要关门了。主灯亮起，音乐声渐渐消散，大家开始陆续离开。'
+		act '出去': gt 'pav_commcenter'
+	else
+		$func('wrap', 'header center b', '迪斯科')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club.jpg"></center>'
+		if LariskaQW['story'] = 14: '你觉得在舞池里看到了一个<a href="exec: gt ''lariska_storyline'', ''Boyfriend_5''">认识的人</a>。'
+
+		act '出去': gt 'pav_commcenter'
+
+		act '去厕所': gt 'gdktoilet', 'start'
+
+		if $start_type['loc'] = 'sg' and yearstart <= 1: '你看到了几个<a href="exec: gt ''pav_disco_classmates'', ''classmates''">同学</a>。有的在跳舞，有的则聚在自己小圈子里聊天。'
+
+		if artemQW['bf'] = 1:
+			act '发短信叫阿尔乔姆来迪斯科': gt 'pav_disco', 'artem_disco'
+		end
+
+		if dimaRevenge = 7 and dimaRevChoice = 4 and dimadisco = 0: gt 'dimaRevenge', 5, 'disco'
+
+		if rand(0, 2) = 0 and soniaQW['slut'] < 1 and soniadisco_day ! daystart and gschoolVars['school_diploma'] = 0 and month > 9 and npc_grupTipe['A25'] ! 5 and $start_type['loc'] = 'sg' and gschoolVars['attendance_count'] > 0 and hour < 22:
+			'你注意到索尼娅正在和维泰克谈论着什么事情。'
+			act '观察索尼娅': soniadisco_day = daystart & gt 'soniadisco', 'start'
+		end
+
+		act '跳舞 (0:15)': gt 'pav_disco', 'disco_dance'
+		act '靠墙站着': gt 'pav_disco', 'wall_stand'
+
+		act '挑逗地跳舞':
+			minut += 15
+			pcs_stam -= 5
+			gs 'sweat', 'add', 3
+			fat -= 1
+			gs 'exp_gain', 'danc', 1
+			gs 'mood', 'raise', 'tiny'
+			gs 'archetypes', 'lose', 'prude', 'tiny', '在迪斯科舞厅跳挑逗的舞'
+			gs 'archetypes', 'gain', 'bimbo', 'tiny', '在迪斯科舞厅跳挑逗的舞'
+			frost = 0
+			gs 'stat'
+			cla & *clr
+			$func('wrap', 'header center b', '迪斯科')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/dance.jpg"></center>'
+			'你走向舞池，一心想着要引起些注意。没过多久，就有人注意到了你……'
+			gs 'pav_disco', 'dance_partner'
+			gs 'stat'
+			exit
+		end
+
+		if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0: act '寻找你的同学': gt 'pav_disco_classmates', 'classmates'
+	end
+end
+
+
+if $ARGS[0] = 'disco_dance':
+	*clr & cla
+	menu_off = 1
+	if pcs_inhib < 40: inhib_exp += rand(1, 2)
+	if (cumloc[6] = 1 or cumloc[7] = 1) or cumloc[11] = 1:
+		pav_discocum = daystart
+		gs 'fame', 'pav', 'sex', 5
+		gs 'mood', 'lower', 'huge'
+		gs 'stat'
+		$func('wrap', 'header center b', '迪斯科')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/sex/cumface1.jpg"></center>'
+		'当你走上舞池时，一个男人走到你面前，注意到你身上还残留着精液，指了指你。'
+		'「快看看这个骚货！嘿，哥们儿们，这小妞脸上全是精液！」他身边站着的人凑了过来。「婊子，你是忘了咽下去了吗？」'
+		'你羞得脸颊通红，赶紧朝出口走去。'
+		act '离开': gt 'pav_commcenter'
+	else
+		minut += 15
+		pcs_stam -= 5
+		gs 'sweat', 'add', 3
+		fat -= 1
+		gs 'exp_gain', 'danc', 1
+		gs 'mood', 'raise', 'tiny'
+		frost = 0
+		gs 'stat'
+		if alko = 0:
+			$func('wrap', 'header center b', '迪斯科')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/dance.jpg"></center>'
+			if $pantyworntype = 'none' and PCloSkirt > 2:
+				inhib_exp += 1
+				'你环顾四周，微微一笑。没人知道你没穿内裤，一想到这一点，一股刺激的战栗感就传遍全身。'
+			end
+			if pcs_danc <= 30:
+				'你在舞池里玩得很开心。你跳舞的动作笨拙得可怕，看起来就像在抽搐一样，可你根本不在乎。你没有留意任何其他人，甚至连音乐都没去在意。'
+			elseif pcs_danc <= 60:
+				'你在舞池里玩得很开心，随意地摆动着身体，几乎没注意到周围的其他人。'
+			elseif pcs_dancero <= 40:
+				grupvalue[1] += 1
+				grupvalue[2] += 1
+				'你在舞池里玩得很开心，随着音乐的节拍，用一种挑逗的姿态摆动着身体。'
+			else
+				grupvalue[1] += 2
+				grupvalue[2] += 2
+				'你在舞池里玩得很开心，娴熟地随着音乐的节拍，用一种诱人的姿态舞动着身体。'
+			end
+		elseif alko = 1:
+			$func('wrap', 'header center b', '迪斯科')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/tipsy_dance.jpg"></center>'
+			if $pantyworntype = 'none' and PCloSkirt > 2:
+				inhib_exp += 1
+				'你环顾四周，微微一笑。没人知道你没穿内裤，一想到这一点，一股刺激的战栗感就传遍全身。'
+			end
+			if pcs_danc <= 30:
+				'虽然你跳舞的水平糟透了，微醺的状态也帮不上什么忙，但你在舞池里还是玩得很开心。'
+				'你笨拙的动作看起来更像是在抽搐而不是跳舞，但你并不在意。你没有注意其他人或音乐。'
+			elseif pcs_danc <= 60:
+				'你在舞池里玩得很开心。带着几分醉意，你在舞池里跳着舞，几乎没有注意到其他人。'
+			elseif pcs_dancero <= 40:
+				grupvalue[1] += 1
+				grupvalue[2] += 1
+				'尽管你有些醉意，但你在舞池里还是玩得很开心，舞跳得也相当不错。你随着音乐的节拍，用一种挑逗的姿态舞动着身体。'
+			else
+				grupvalue[1] += 2
+				grupvalue[2] += 2
+				'你在舞池里玩得很开心。你娴熟地随着音乐的节拍，用一种诱人的姿态舞动身体，大多数人都看不出你其实已经微醺了。'
+			end
+		elseif alko < 4:
+			$func('wrap', 'header center b', '迪斯科')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/tipsy_dance.jpg"></center>'
+			if $pantyworntype = 'none' and PCloSkirt > 2:
+				inhib_exp += 1
+				'你环顾四周，微微一笑。没人知道你没穿内裤，一想到这一点，一股刺激的战栗感就传遍全身。'
+			end
+			if pcs_danc <= 30:
+				'虽然你跳舞的水平糟透了，醉意也帮不上什么忙，但你在舞池里还是玩得很开心。'
+				'你笨拙的动作看起来更像是在抽搐而不是跳舞，但你并不在意。你没有注意其他人或音乐。'
+			elseif pcs_danc <= 60:
+				'你在舞池里玩得很开心。带着几分醉意，你在舞池里跳着舞，几乎没有注意到其他人。'
+			elseif pcs_dancero <= 40:
+				grupvalue[1] += 1
+				grupvalue[2] += 1
+				'尽管你已经有些醉了，但你在舞池里还是玩得很开心，舞跳得也相当不错。你随着音乐的节拍，用一种挑逗的姿态舞动着身体。'
+			else
+				grupvalue[1] += 2
+				grupvalue[2] += 2
+				'你在舞池里玩得很开心。你娴熟地随着音乐的节拍，用一种诱人的姿态舞动身体，大多数人都看不出你已经有些醉了。'
+			end
+		elseif alko < 6:
+			$func('wrap', 'header center b', '迪斯科')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/drunk_dance.jpg"></center>'
+			if $pantyworntype = 'none' and PCloSkirt > 2:
+				inhib_exp += 1
+				'你环顾四周，微微一笑。没人知道你没穿内裤，一想到这一点，一股刺激的战栗感就传遍全身。'
+			end
+			if pcs_danc <= 30:
+				grupvalue[1] -= 3
+				grupvalue[2] -= 3
+				grupvalue[4] += 1
+				'虽然你跳舞的水平糟透了，醉酒也帮不上什么忙，但你在舞池里还是玩得很开心。'
+				'你笨拙的动作看起来更像是在抽搐而不是跳舞，但你并不在意。你没有注意其他人或音乐。'
+			elseif pcs_danc <= 60:
+				grupvalue[1] -= 2
+				grupvalue[2] -= 2
+				grupvalue[4] += 1
+				'你在舞池里玩得很开心。带着颇为浓重的醉意，你在舞池里跳着舞，几乎没有注意到其他人。'
+			elseif pcs_dancero <= 40:
+				grupvalue[1] -= 1
+				grupvalue[2] -= 1
+				grupvalue[4] += 1
+				'尽管你醉得不轻，但你在舞池里还是玩得很开心，舞跳得也相当不错。你随着音乐的节拍，用一种挑逗的姿态舞动着身体。'
+			else
+				grupvalue[4] += 1
+				'你在舞池里玩得很开心。你娴熟地随着音乐的节拍，用一种诱人的姿态舞动身体，大多数人都看不出你已经喝醉了。'
+			end
+			gs 'pav_disco', 'too_drunk_low_chance'
+		elseif alko < 10:
+			if $pantyworntype = 'none' and PCloSkirt > 2:
+				*clr & cla
+				inhib_exp += 3
+				$func('wrap', 'header center b', '迪斯科')
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/community/disco/very_drunk_dance.mp4"></video></center>'
+				if pcs_danc <= 25:
+					grupvalue[1] -= 6
+					grupvalue[2] -= 6
+					grupvalue[4] += 2
+					'你醉得很厉害，忘了自己根本没穿内裤。当你笨拙地试着跳舞时，醉得压根没注意到裙子被撩了起来，把私处暴露给了舞池里那些眼尖的人。'
+				elseif pcs_danc <= 40:
+					grupvalue[1] -= 5
+					grupvalue[2] -= 5
+					grupvalue[4] += 2
+					'你醉得很厉害，忘了自己根本没穿内裤。当你醉醺醺地舞动时，裙子被撩了起来，把私处暴露给了舞池里那些比较眼尖的人。'
+				elseif pcs_dancero <= 30:
+					grupvalue[1] -= 4
+					grupvalue[2] -= 4
+					grupvalue[4] += 2
+					'你醉得很厉害，忘了自己根本没穿内裤。就你醉的程度来说，你跳得还算不错，却醉得没注意到裙子被撩了起来，把私处暴露给了舞池里那些比较眼尖的人。'
+				else
+					grupvalue[1] -= 3
+					grupvalue[2] -= 3
+					grupvalue[4] += 2
+					'你醉得很厉害，忘了自己根本没穿内裤。'
+					'你娴熟地以一种诱人的姿态舞动身体，大多数人很难看出你已经醉得很厉害，但你醉得没注意到裙子被撩了起来，把私处暴露给了舞池里那些比较眼尖的人。'
+				end
+				gs 'pav_disco', 'too_drunk_medium_chance'
+			else
+				*clr & cla
+				$func('wrap', 'header center b', '迪斯科')
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/very_drunk_dance.jpg"></center>'
+				if pcs_danc <= 25:
+					grupvalue[1] -= 4
+					grupvalue[2] -= 4
+					'你醉得很厉害，不过你在舞池里还是玩得很开心。你跳舞的水平糟透了，醉酒也帮不上什么忙。'
+					'你笨拙的动作看起来更像是在抽搐而不是跳舞，但你并不在意。你没有注意其他人或音乐。'
+				elseif pcs_danc <= 40:
+					grupvalue[1] -= 3
+					grupvalue[2] -= 3
+					'你醉得很厉害，不过你在舞池里还是玩得很开心。你舞动着，几乎没有注意到其他人。'
+				elseif pcs_dancero <= 30:
+					grupvalue[1] -= 2
+					grupvalue[2] -= 2
+					'你醉得很厉害，不过你在舞池里还是玩得很开心。就你醉的程度来说，你跳得还算不错，随着音乐的节拍，用一种挑逗的姿态舞动着身体。'
+				else
+					grupvalue[1] -= 1
+					grupvalue[2] -= 1
+					'你醉得很厉害，不过你在舞池里还是玩得很开心。你娴熟地随着音乐的节拍，用一种诱人的姿态舞动身体，大多数人都看不出你已经喝醉了。'
+				end
+				gs 'pav_disco', 'too_drunk_medium_chance'
+			end
+		else
+			grupvalue[1] -= 5
+			grupvalue[2] -= 5
+			grupvalue[4] -= 1
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/wasted_dance.jpg"></center>'
+			'你醉得实在太厉害了，几乎连站都站不稳。你本想在舞池里跳舞，结果却只是一身醉醺醺地撞到别人身上。'
+
+			gs 'pav_disco', 'too_drunk_high_chance'
+		end
+		gs 'stat'
+		act '继续': gt 'pav_disco'
+		if alko < 6:
+			if rand(0, 99) < pcs_danc:
+				gs 'pav_disco', 'dance_partner'
+				gs 'stat'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'too_drunk_low_chance':
+	gs 'pav_disco', 'too_drunk_base', rand(0, 9)
+end
+
+
+if $ARGS[0] = 'too_drunk_medium_chance':
+	gs 'pav_disco', 'too_drunk_base', rand(-1, 7)
+end
+
+
+if $ARGS[0] = 'too_drunk_high_chance':
+	gs 'pav_disco', 'too_drunk_base', rand(-2, 5)
+end
+
+
+if $ARGS[0] = 'too_drunk_base':
+	if $start_type['loc'] = 'sg':
+		temp_rand = ARGS[1]
+		if temp_rand <= 0 and katjaQW['QWstage'] > 1:
+			gt 'pav_disco', 'katja_too_drunk'
+		elseif temp_rand = 1 and npc_rel['A25'] >= 50 and discobloc['A25'] ! daystart and soniaQW['hate'] < 1 and (soniaQW['fallenangel'] < 1 or daystart > soniaQW['fallday'] + 7):
+			gt 'pav_disco', 'sonia_too_drunk'
+		elseif temp_rand = 2 and npc_rel['A144'] >= 50 and locat['A144'] = 25:
+			gt 'pav_disco', 'anushka_too_drunk'
+		elseif temp_rand = 3 and (AlbinaQW['Friends'] = 2 or (npc_rel['A23'] >= 70 and grupTipe <= 3)) and locat['A23'] = 5:
+			gt 'pav_disco', 'albina_too_drunk'
+		end
+		killvar 'temp_rand'
+	end
+end
+
+
+if $ARGS[0] = 'wall_stand':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	!! fat -= 1
+	gs 'mood', 'lower', 'tiny'
+	frost = 0
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	if (cumloc[6] = 1 or cumloc[7] = 1) or cumloc[11] = 1:
+		pav_discocum = daystart
+		gs 'fame', 'pav', 'sex', 5
+		gs 'mood', 'lower', 'huge'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/sex/cumface1.jpg"></center>'
+		'你靠着墙站着时，一个男人注意到你衣服上的精液，指着你大喊。'
+		'"快看，这婊子身上全是精液！你忘了把脏东西咽下去了吗？" 他嘲笑着说。'
+		'你羞得脸颊通红，朝出口走去。'
+		act '离开': gt 'pav_commcenter'
+		exit
+	end
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/wallflower.jpg"></center>'
+	if alko > 0:
+		if alko = 1:
+			'你有点上头，靠着墙站着看别人跳舞。'
+		elseif alko < 4:
+			'你有些微醺，靠着墙站着看别人跳舞。'
+		elseif alko < 6:
+			'你醉得厉害，只能靠着墙支撑着身子看别人跳舞。'
+			gs 'pav_disco', 'too_drunk_low_chance'
+		else
+			'你醉得没法跳舞，只能靠着墙撑住自己以免摔倒。'
+			gs 'pav_disco', 'too_drunk_medium_chance'
+		end
+	else
+		'你站在墙边看着别人跳舞。'
+	end
+	gs 'stat'
+	act '继续': gt 'pav_disco'
+	if alko < 6:
+		if rand(0, 10) <= pcs_hotcat:
+			gs 'pav_disco', 'dance_partner'
+			gs 'stat'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'dance_partner':
+	cla
+	!! the creation of a partner to dance
+	temp['pav_disco_partner'] = rand(1, 300)
+	if temp['pav_disco_partner'] > boynum or (arrsize '$hookup_partners' = 0):
+		gs 'npcgeneratec', 0, '迪斯科舞厅里的男人', 0, rand(1, 4), 1, 'like'
+		if npc_finance[$npcID] = 2 and npc_age[$npcID] < 26: npc_age[$npcID] = rand(26, 45)
+		gs 'npcStat', $npclastgenerated
+		temp['pav_disco_partner'] = rand(0, 100)
+
+		if npc_finance[$npcID] < 2:
+			'一个穿着<<$npc_outfit[$npcID]>>的男人跳着舞来到你面前。'
+			if rand(0, 100) > 70:
+				temp['drunk_guy'] = 1
+				'他显然已经喝醉了。'
+			else
+				temp['drunk_guy'] = 0
+			end
+		else
+			!! traveling_expenses
+			'一个穿着<<$npc_outfit[$npcID]>>跳着舞向你走来。他的衣服看起来很贵。'
+		end
+		act '走开': gt 'pav_disco'
+		act '和这家伙跳舞': gt 'pav_disco', 'dance_boy'
+	else
+		gs 'npcStat', func('lover', 'draw_random_from', 'all')
+		if $npc_residence[$npcID] = 'pav_residential' or npc_finance[$npcID] = 2:
+			gt 'pav_disco', 'known_partner'
+		else
+			gs 'pav_disco', 'dance_partner'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'kotov_love':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big9.jpg"></center>'
+	'维捷克怒气冲冲地冲到你面前，狠狠推了那家伙一把。'
+	'"你他妈是谁？这是<i>我</i>的姑娘！你想让我把你揍扁吗？！"'
+	if DPgrup = 1:
+		fightboyrand = rand(0, 10)
+
+		if fightboyrand <= 5:
+			'被吓到的男人开口说话。"我不知道！我这就走。"'
+			'维捷克推了那家伙一把。"滚出去，别再回来！"'
+		elseif fightboyrand > 5 and fightboyrand < 10:
+			'那家伙反推了维捷克一把。"拿开你的手，混蛋！"'
+			'维捷克突然飞起一脚，又快又狠地踹在那家伙身上。那人痛得摔倒在地，维捷克从他身上跨过去，抓住他的衬衫把他从地上拽起来，狠狠撞到墙上。'
+			'"怎么样，混蛋？！ 你以为你能抢走属于我的东西？！ 要不要我把你所有的东西也拿走？！"'
+			'被吓坏的男人痛得蜷缩成一团。"你要什么都可以，我有的随便你拿！"'
+		elseif fightboyrand >= 10:
+			'那家伙一拳打在维捷克脸上。他被打得后退一步，随即也重重回敬一脚。接着两人扭打在一起，拳脚你来我往，互不相让。'
+			'最终，维捷克一记重击把那家伙打得飞撞上墙，瘫倒在地。维捷克随即冲过去，对着他的脸就是一顿猛揍。'
+			'那家伙不再挣扎，显然已经失去了意识。'
+		end
+	elseif DPgrup = 2:
+		'那家伙一脸得意的神情，招呼他的朋友们过来，一群人围着维捷克站成一圈。'
+		'维捷克的朋友们则过来给他撑腰，但在一番叫嚣和推搡之后，两拨人平静地分开，各走各路。'
+	elseif DPgrup = 3:
+		'那家伙举起双手。"抱歉老兄，我不知道她是你的女人。"'
+		'维捷克推了那家伙一把。"回城里待着去，别再来这里。"'
+	end
+	act '去找维捷克':
+		numnpc = 9
+		gs 'npc', 'intro', 'A9', 'images/characters/shared/headshots_main/big9.jpg'
+		gs 'kotovtalker'
+	end
+end
+
+
+if $ARGS[0] = 'reakt_dance':
+	*clr & cla
+	menu_off = 1
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance1.jpg"></center>'
+	if alko >= 3:
+		'你感到自己因那家伙的动作而兴奋起来。'
+		gs 'arousal', 'foreplay', 5
+		gs 'arousal', 'end'
+	else
+		if pcs_horny > 0: pcs_horny -= 5
+		gs 'mood', 'lower', 'tiny'
+		'你对那家伙的动作感到厌恶。'
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'dance_boy':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	if pcs_danc < 50 and pcs_agil >= pcs_danc: gs 'exp_gain', 'danc', 1
+	if pcs_inhib < 40: gs 'exp_gain', 'inhib', rand(1, 2)
+	if arrpos('$lover', $npcID) > 0:
+		$tempnameU = $npcdesc
+		$tempnameL = $npcdesc
+	else
+		$tempnameU = '这家伙'
+		$tempnameL = '这家伙'
+	end
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	if temp['drunk_guy'] = 0:
+		if npc_rough[$npcID] = 1:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance4.jpg"></center>'
+			'你接受了邀请并<<$tempnameL>>牵着你的手并把你带到舞池，你们开始一起跳舞。'
+			'<<$tempnameU>>跳到你身边，靠得很近，你能感到乳房蹭着他的胸膛，他手绕到后面揉捏你的屁股。'
+			*nl
+			if $npc_dick_class[$npcID] = 'extra_big':
+				'更别提那<i>硕大</i>的硬挺从前面顶着你。你能看到它撑起他整条裤腿的轮廓，真难想象他裤裆里鼓着那么个东西还能怎么跳舞。'
+			elseif $npc_dick_class[$npcID] = 'big':
+				'更别提那<i>大</i>的硬挺从前面顶着你。你能看到它顺着他裤腿撑起的轮廓，你确信它比一般尺寸要大得多。'
+			elseif $npc_dick_class[$npcID] = 'average':
+				'更不用说那从前面顶着你、已经全硬的家伙了。你能看到它在他裤裆里完全硬挺，不时撞上你的小腹，偶尔还碰到你的大腿。'
+			elseif $npc_dick_class[$npcID] = 'short':
+				'更不用说那从前面顶着你、已经全硬的家伙了。偶尔瞥上一眼，你什么都没看出来，但它仍会明显地用力撞你的小腹，偶尔顶到你的大腿，实在让人看不出大小……'
+			end
+		elseif npc_gentle[$npcID] = 1:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+			'你接受了邀请并<<$tempnameL>>牵着你的手并把你带到舞池，你们开始一起跳舞。'
+			'<<$tempnameU>>和你跳舞，双手扶着你的腰，那种握法让你能感觉到他手的存在，却又像是几乎没碰到你。'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+			'你接受了邀请并<<$tempnameL>>牵着你的手并把你带到舞池，你们开始一起跳舞。'
+			'<<$tempnameU>>就在你身边跳，上下蹦跳，偶尔和你碰碰胯，显然玩得很开心。'
+			if $npc_dick_class[$npcID] = 'big' or $npc_dick_class[$npcID] = 'extra_big':
+				*nl
+				'你很难不去注意他裤子里和身体一起蹦跳的<i>某个东西</i>. 那可能是他的手机，但你相当确定那个"包裹"可比手机大多了……'
+			end
+		end
+		gs 'pav_disco', 'dance_react'
+	elseif temp['drunk_guy'] = 1:
+		if npc_rough[$npcID] = 1:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance4.jpg"></center>'
+			'你接受了邀请并<<$tempnameL>>牵着你的手并把你带到舞池，你们开始一起跳舞。'
+			'<<$tempnameU>>贴着你跳舞，醉醺醺地用自己的身体磨蹭你。你能感到乳房实实在在压扁在那男人的胸膛上，而他绕到你身后揉抓你的屁股。'
+		elseif npc_gentle[$npcID] = 1:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+			'你接受了邀请并<<$tempnameL>>牵着你的手并把你带到舞池，你们开始一起跳舞。'
+			'<<$tempnameU>>和你跳舞，双手扶着你的腰，那种握法让你能感觉到他手的存在，却又像是几乎没碰到你。因为有些醉了，他的脚步只是<i>略微</i>有点笨拙。'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+			'你接受了邀请并<<$tempnameL>>牵着你的手并把你带到舞池，你们开始一起跳舞。'
+			'<<$tempnameU>>就在你身边跳，上下蹦跳，醉醺醺地笨拙地用胯撞你的胯。'
+			if $npc_dick_class[$npcID] = 'big' or $npc_dick_class[$npcID] = 'extra_big':
+				*nl
+				'你很难不去注意他裤子里和身体一起蹦跳的<i>某个东西</i>. 那可能是他的手机，但你相当确定那个"包裹"可比手机大多了……'
+			end
+		end
+		gs 'pav_disco', 'dance_react'
+	end
+end
+
+
+if $ARGS[0] = 'dance_react':
+	act '他真无聊':
+		cla & *nl
+		menu_off = 1
+		if pcs_horny > 0: pcs_horny -= 5
+		gs 'mood', 'lower', 'tiny'
+		gs 'stat'
+		if npc_rough[$npcID] = 1:
+			'<i>呃，这家伙真无聊，</i>你想，他又抓了一把你的屁股，这次更用力了。 <i>典型的人渣...</i>'
+		elseif npc_gentle[$npcID] = 1:
+			'<i>呃，这家伙真无聊，</i>你想，忍不住注意到他那么小心翼翼地搂着你，就好像如果他像个真正的男人一样握你的手，你就会碎成碎片似的。'
+		else
+			'<i>呃，这家伙真无聊，</i>你想，看着他就在你身边上下蹦跳。 <i>他就不能找块属于自己的地方跳舞吗？</i>'
+		end
+		xgt 'pav_disco', 'dance_boy2', 'boring_react'
+	end
+
+	act '享受和他跳舞':
+		*clr & cla
+		menu_off = 1
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+		gs 'stat'
+		$func('wrap', 'header center b', '迪斯科')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance1.jpg"></center>'
+		if npc_rough[$npcID] = 1:
+			gs 'arousal_oneline', 'foreplay', 5
+			'他又抓起一把屁股，这次更用力，一阵兴奋的颤栗涌过你的全身。这家伙的强势和侵略性真是让你兴奋不已。'
+		elseif npc_gentle[$npcID] = 1:
+			gs 'arousal_oneline', 'foreplay', 5
+			'你微笑着把双手搭在他的肩上，任由他带着你随音乐起舞。瞥见别的女孩的屁股像捏压力球一样被人又抓又揉，你愈发觉得这家伙温柔的触碰很讨人喜欢。'
+		else
+			gs 'arousal_oneline', 'foreplay', 5
+			'他的兴奋很有感染力，你发现自己也跳着撞向他，能量毫不逊色。他显然很享受你的投入，他看着你的<<$pcdesc_breasts>>在你的' + iif($braworntype <> '', '胸罩里跳动。', '上衣里跳动。')
+		end
+		gs 'stat'
+		xgt 'pav_disco', 'dance_boy2', 'enjoy_react'
+	end
+end
+
+
+if $ARGS[0] = 'dance_boy2':
+	act '不再和他跳舞':
+		if $ARGS[1] = 'enjoy_react':
+			'你和这家伙跳舞跳得很尽兴，这正是你想要的。所以当音乐结束、他试图靠得更近时，你反而迅速抽身离开。'
+		else
+			'厌恶之情淹没你，你迅速从<<$tempnameL>>.'
+		end
+		act '离开舞池': gt 'pav_disco'
+		act '继续跳舞': gt 'pav_disco', 'disco_dance'
+	end
+
+	act '继续和他跳舞':
+		*clr & cla
+		gs 'stat'
+		$func('wrap', 'header center b', '迪斯科')
+
+		if $ARGS[1] = 'enjoy_react':
+			$temp['disco_mood'] = 'enjoy_md'
+			if npc_rough[$npcID] = 1:
+				gs 'arousal_oneline', 'foreplay', 5
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/grab/ass_grab1.mp4"></video></center>'
+				'随着音乐继续，你一直和他跳舞，让臀部随之摆动，把屁股向后压进他的手里。而他则用力抓着你两瓣臀肉，你能感到他的手指隔着布料在你臀缝间滑动，你确定' + iif($pantyworntype <> '', '他能感觉到你的内裤。', '他能感觉到你根本没穿内裤。')
+			elseif npc_gentle[$npcID] = 1:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+				'跳舞持续了一阵子，你们俩都随着节奏摇摆，含情脉脉地彼此对望。'
+			else
+				if $pantyworntype = 'none' and PCloSkirtShortness >= 3:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance5.jpg"></center>'
+					'你继续和他跳舞，在他身边上下蹦跳。有好几次你确信他看到了你裙子翻起来、露出你没穿内裤的样子。'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance6.jpg"></center>'
+					'你继续和他跳舞，在他身边上下蹦跳，尽情享受你们共度的时光。'
+				end
+			end
+		else
+			if $ARGS[1] = 'boring_react': $temp['disco_mood'] = 'bore_md'
+			if npc_rough[$npcID] = 1:
+				gs 'arousal_oneline', 'foreplay', 5
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/grab/ass_grab1.mp4"></video></center>'
+				'随着音乐继续，你一直和他跳舞，努力压下满心的厌恶，任由他不停地揉抓你的屁股。没过多久，他就用力抓起你的两瓣臀肉，你能感到他的手指隔着布料在你臀缝间向上滑动。'
+				if $pantyworntype <> 'none':
+					'"这屁股我能抓一整晚，" 他几乎是贴着你的耳朵大喊。'
+					'<i>你已经在这么做了！</i>你脸上勉强挤出微笑，在心里大声回敬道。'
+				else
+					'"操！你居然没穿内裤！" 他在你耳边低吼，把手指透过你的衣物插得更深。'
+				end
+			elseif npc_gentle[$npcID] = 1:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+				'跳舞持续了一阵子，你们俩都随着节奏摇摆，而你全程都在强忍着叹息。'
+			else
+				if $pantyworntype = 'none' and PCloSkirtShortness >= 3:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance5.jpg"></center>'
+					'你继续跳着，与其说是在和他跳舞，不如说是在努力无视他，尽管你确定他并不这么认为。有好几次你确信他看到了你裙子翻起来、露出你没穿内裤的样子。'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance6.jpg"></center>'
+					'你继续跳着，与其说是在和他跳舞，不如说是在努力无视他，尽管你确定他并不这么认为。'
+				end
+			end
+		end
+		*nl
+		'终于，音乐结束了，他咧嘴笑着问你："嘿，要不要出去聊一会儿？"'
+
+		if alko < 6 or pcs_horny <= 75:
+			act '拒绝': gt 'pav_disco'
+		else
+			gs 'willpower', 'misc', 'resist', 'medium'
+			if pcs_willpwr < will_cost:
+				act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '拒绝' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					if pcs_sprt <= 30: gs 'exp_gain', 'sprt', rand(0, 1)
+					gs 'stat'
+					gt 'pav_disco'
+				end
+			end
+		end
+
+		act '好的':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/dk_night.jpg"></center>'
+			if $ARGS[1] = 'enjoy_react':
+				'"好啊，" 你微笑着任他领着你走出门。'
+			else
+				'"好吧，那就去，" 你语气有些平淡地说，任他领着你走出门。'
+			end
+			act '继续': gt 'pav_disco_outside', 'routing_matrix'
+		end
+
+		!! gs 'pav_disco', 'slut_invite'
+	end
+end
+
+
+if $ARGS[0] = 'invite_outside':
+	if npc_finance[$npcID] < 2:
+		if temp['drunk_guy'] = 0:
+			if rand(1, 2) = 1:
+				if npc_rough[$npcID] = 1:
+					'那个家伙不停地在摸你的屁股和胸，还试图吻你，显然相当兴奋。每次你贴紧他，你都会感觉到他裤子里有个硬东西。'
+					'歌曲终于结束，那个男人提议带你出去喝一杯。'
+				else
+					'“我是<<$npcdesc>>。你叫什么名字？”那个男人问道。'
+					'“我叫<<$pcs_firstname>>，但人们都叫我<<$pcs_nickname>>，”你回答说。'
+					'歌曲结束后，那个男人邀请你坐下跟他聊聊天。'
+				end
+
+				act '跟那家伙走': gt 'pav_disco_outside', 'routing_matrix'
+			else
+				if DPtipe = 1:
+					'“我是<<$npcdesc>>。你叫什么名字？”那个男人问道。'
+					'“我叫<<$pcs_firstname>>，但人们都叫我<<$pcs_nickname>>，”你回答说。'
+					'歌曲结束后，那个男人问你想不想跟他一起出去。'
+				elseif DPtipe = 2:
+					'“我是<<$npcdesc>>。你叫什么名字？”醉醺醺的男人问道。'
+					'“我叫<<$pcs_firstname>>，但人们都叫我<<$pcs_nickname>>，”你回答说。'
+					'他兴奋得满脸通红，请求你和他一起出去透透气，到外面聊聊。'
+				end
+				act '跟那家伙走': gt 'pav_disco', 'hookup_nice'
+			end
+		elseif temp['drunk_guy'] = 1:
+			if rand(1, 2) = 1:
+				if npc_rough[$npcID] = 1:
+					'“我是<<$npcdesc>>。你叫什么名字？”那个男人问道。'
+					'“我叫<<$pcs_firstname>>，但人们都叫我<<$pcs_nickname>>，”你回答说。'
+					'他兴奋得满脸通红，请求你和他一起出去透透气，到外面聊聊。'
+					act '出去': gt 'pav_disco_sex', 'outside', 'aggressiv'
+				else
+					'那个家伙不停地在摸你的屁股和胸，还试图吻你，显然相当兴奋。每次你贴紧他，你都会感觉到他裤子里有个硬东西。'
+					'歌曲终于结束，那个男人提议带你出去喝一杯。'
+					gs 'arousal', 'foreplay', 5
+					gs 'stat'
+					act '出去': gt 'pav_disco_sex', 'outside', 'aggressiv'
+				end
+			else
+				if rand(1, 2) = 1:
+					'那个家伙不停地在摸你的屁股和胸，还试图吻你，显然相当兴奋。每次你贴紧他，你都会感觉到他裤子里有个硬东西。'
+					'歌曲终于结束，那个男人问你想不想出去透透气。'
+					gs 'arousal', 'foreplay', 5
+					gs 'stat'
+					act '跟他走': gt 'pav_disco', 'hookup_aggressive'
+				else
+					'那个家伙不停地在摸你的屁股和胸，还试图吻你，显然相当兴奋。每次你贴紧他，你都会感觉到他裤子里有个硬东西。'
+					'歌曲终于结束，那个男人问你想不想出去透透气。'
+					gs 'arousal', 'foreplay', 5
+					gs 'stat'
+					act '跟他走': gt 'pav_disco', 'hookup_aggressive'
+				end
+			end
+		end
+	else
+		$npc_usedname[$npcID] = $npc_nickname[$npcID]
+		gs 'npcStat', $npcID
+		if temp['drunk_guy'] = 0:
+			'那个男人舞姿从容而优雅。歌曲结束后，他提议带你出去透透气。'
+			act '跟那个男人走':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				'你和那个男人一起走出去。走的时候，他把胳膊搭在你的腰上。“我是<<$npcdesc>>。你叫什么名字？”他问道。'
+				'“我叫<<$pcs_firstname>>，但人们都叫我<<$pcs_nickname>>，”你回答说，男人继续说道。'
+				'“真是个不错的名字。我这次出差来到镇上，住在附近的一家酒店。这镇子上实在没什么可玩的，不如你跟我回酒店吧？我们可以喝点威士忌聊聊天。”'
+				if alko < 6 or pcs_horny <= 75 or fame['pav_slut'] <= 50:
+					gs 'willpower', 'drink', 'resist'
+					if pcs_willpwr < will_cost:
+						act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+					else
+						act '拒绝' + $func('willpower', 'get_willcost_string'):
+							gs 'willpower', 'drink', 'resist'
+							gs 'willpower', 'pay', 'resist'
+							if pcs_sprt <= 30: gs 'exp_gain', 'sprt', rand(0, 1)
+							gs 'stat'
+							gt 'pav_disco'
+						end
+					end
+				end
+				act '去酒店': sex_ev['pav_hotel'] = 1 & gt 'pav_disco_sex', 'hotel'
+			end
+		elseif temp['drunk_guy'] = 1:
+			'醉酒的男人在整支舞期间一直猥亵你。'
+			'歌曲终于结束时，他在你耳边低语。“我叫<<$npcdesc>>。你呢？”'
+			'“我叫<<$pcs_firstname>>，但人们都叫我<<$pcs_nickname>>，”你回答说，心里有些厌恶。'
+			'“<<$pcs_nickname>>……我……不是……本地的。我住在……附近的……酒店，所以……咱们打车去……去我的房间……”他醉醺醺地结结巴巴地说。'
+			gs 'arousal', 'foreplay', 5
+			gs 'stat'
+			act '去酒店': gt 'pav_disco_sex', 'hotel'
+		end
+	end
+	if kotovLoveQW > 0: gt 'pav_disco', 'kotov_love'
+end
+
+
+if $ARGS[0] = 'slut_invite':
+	if (gdk_nice_guy = 1 and fame['pav_slut'] >= 250) or (gdk_nice_guy = 0 and fame['pav_slut'] >= 150):
+		gs 'boymass', 'B'
+		'“别废话了；全镇都知道你是个荡妇。我想让你给我口交，这里是<<$func(''money'', ''string_profit'', 100)>>。”'
+		'他从裤子里掏出鸡巴然后期待地看着你。'
+
+		gs 'pav_disco_sex', 'decline', 250
+		act '在他面前蹲下': gt 'pav_disco_sex', 'blowjob', 'paid'
+	elseif (gdk_nice_guy = 1 and fame['pav_slut'] >= 200 and fame['pav_slut'] < 250) or (gdk_nice_guy = 0 and fame['pav_slut'] >= 130 and fame['pav_slut'] < 150):
+		'我哥们说你是个<<$gnikname>>。所以我也想跟你一起玩玩！"'
+		'他从裤子里掏出鸡巴然后期待地看着你。'
+
+		gs 'pav_disco_sex', 'decline', 200
+		gs 'pav_disco_sex', 'handjob'
+		act '在他面前蹲下': gt 'pav_disco_sex', 'blowjob', 'unpaid'
+	else
+		if rand(0, 3) = 0:
+			'我听说你嘴上功夫很不错，<<$pcs_firstname>>，所以我们来玩玩吧！"'
+			'他从裤子里掏出鸡巴然后期待地看着你。'
+		else
+			'我听说你挺会撩人的，<<$pcs_firstname>>。来吧，我们找点乐子！"'
+			'他从裤子里掏出鸡巴然后期待地看着你。'
+		end
+
+		gs 'pav_disco_sex', 'decline', 130
+		gs 'pav_disco_sex', 'handjob'
+		act '在他面前蹲下': gt 'pav_disco_sex', 'blowjob', 'unpaid'
+	end
+
+	if (gdk_nice_guy = 1 and fame['pav_slut'] >= 130) or (gdk_nice_guy = 0 and fame['pav_slut'] >= 70):
+		gs 'willpower', 'sex', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			if temp['pav_disco_partner'] < 90:
+				act '让他滚开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				!! traveling_expenses
+				$npc_residence[$npcID] = 'city_center'
+				npc_finance[$npcID] = 2
+				bmtimeTipe = 2
+				DrunkDPTrand = rand(0, 100)
+			end
+		else
+			act '让他滚开' + $func('willpower', 'get_willcost_string'):
+				cla
+				minut += 3
+				if gdk_nice_guy = 1:
+					if fame['pav_sex'] > 10: gs 'fame', 'pav', 'sex', rand(-2, -4)
+					if fame['pav_prostitute'] > 10: gs 'fame', 'pav', 'prostitute', rand(-2, -4)
+				elseif gdk_nice_guy = 0:
+					if fame['pav_sex'] > 10: gs 'fame', 'pav', 'sex', rand(0, -2)
+					if fame['pav_prostitute'] > 10: gs 'fame', 'pav', 'prostitute', rand(0, -2)
+				end
+				gs 'willpower', 'sex', 'resist', 'hard'
+				gs 'willpower', 'pay', 'self'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/pc/reactions/fuckoff3.jpg"></center>'
+				'“搞什么鬼？！”你愤怒地喊道。“你是什么白痴？！哪能就这么叫一个姑娘做那种事！”'
+				'<<$npcdesc>>被你突如其来的爆发吓了一跳。“可是……那些男人说……你……”'
+				'“那也不代表就是真的！唉，男人有时候真是太好骗了！”你对他说，几乎忍不住要冲他吼出来。'
+				*nl
+				'<<$npcdesc>>这下被吓得不轻，连忙道歉。“听着，对不起！我不知道他们是在开玩笑！”'
+				'你耸耸肩，一言不发地离开，暗自偷笑。男人有时候真是<i>太好骗</i>了。'
+				'在走回迪斯科舞厅的路上，几个男人困惑地看着你。消息传得很快，男人们都得知你其实并不好上手。因此，你的名声稍稍好转了一些。'
+
+				act '回到迪斯科舞厅': gt 'pav_disco'
+			end
+		end
+
+		if ((gdk_nice_guy = 1 and fame['pav_slut'] < 250) or (gdk_nice_guy = 0 and fame['pav_slut'] < 150)) and (stat['prostitution_count'] > 0):
+			act '告诉他你可以为了钱做':
+				cla
+				minut += 3
+				if gdk_nice_guy = 1:
+					gs 'fame', 'pav', 'prostitute', rand(1, 3)
+				elseif gdk_nice_guy = 0:
+					gs 'fame', 'pav', 'prostitute', rand(3, 9)
+				end
+				gs 'money', 'earn', 200
+				stat['prostitution_count'] += 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+				if stat['prostitution_count'] <= 10: '你深吸一口气。你不想碰他，但你能从中得到些好处。“我不是对谁都会这样随随便便！不过，要是你肯付钱的话……”你耸耸肩。'
+				if stat['prostitution_count'] > 10: '更糟的事你也干过。“<<$func(''money'', ''string_profit'', 200)>>，”你只说了这么一句。'
+				'<<$npcdesc>>看起来有些困惑，但还是把<<$func(''money'', ''string_profit'', 200)>>给了你。'
+				act '在他面前蹲下': gt 'pav_disco_sex', 'blowjob', 'paid'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'known_partner':
+	*clr & cla
+	menu_off = 1
+	!! boynum = arrsize $hookup_partners - 1
+	!! $npcID = $hookup_partners[rand(0, arrsize('$hookup_partners') - 1)]
+	!! gs 'lover', 'draw_random_from', 'all'
+	gs 'npcStat', $npcID
+	gs 'stat'
+	if arrpos('$fuckbuddy', $npcID) > 0:
+		'“嘿。”'
+		'你听到呼喊转过身，看到<<$npcdesc>>滑步过来和你跳舞。'
+	elseif arrpos('$hookup_partners', $npcID) > 0:
+
+	end
+	if npc_finance[$npcID] < 2:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/normal1.jpg"></center>'
+		'一个你认识的男子，穿着<<$npc_outfit[$npcID]>>，以跳舞的方式来到你身边。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/normal1.jpg"></center>'
+		'一个你认识的男子，穿着看起来很昂贵的<<$npc_outfit[$npcID]>>，以跳舞的方式来到你身边。'
+	end
+	act '离开': gt 'pav_disco'
+	*nl
+	if $npc_rel_type[$npcID] = 'sugar_daddy':
+		'“嘿，<<$pcs_usedname[$npcID]>>，”他微笑着，占有欲十足地把胳膊搭在你身上。“真高兴在这儿见到你。”'
+		'他俯身到你耳边低语。'
+		'“我订了酒店，身上也有大把的钱。我们离开这儿，好让我把这些钱花掉吧？”'
+		act '今晚不行':
+			cla & *nl
+			'“对不起，干爹。我今晚不行，也许下次吧。”'
+			'你对他苦笑了一下然后从他身边移开。'
+			act '离开': gt 'pav_disco'
+			act '继续跳舞': gt 'pav_disco', 'disco_dance'
+		end
+		act '接受提议':
+			minut += 5
+			gs 'stat'
+			cla & *nl
+			'“听起来不错，”你甜甜地笑着，任由他挽着你的手臂走到街上。他叫了辆出租车，你们一起前往酒店。'
+			act '和他一起去酒店': gt 'sex_ev_start', 'fb_hotel_start'
+		end
+	elseif $npc_rel_type[$npcID] = 'fuckbuddy':
+		'<<$npcdesc>>占有欲十足地把胳膊搭在你身上。“真高兴在这儿见到你。”'
+		'他俯身到你耳边低语。'
+		if npc_finance[$npcID] = 2:
+			'“我们不如开个房间，好好干一场，干到神魂颠倒？”'
+		elseif $npc_residence[$npcID] = 'city_center' or $npc_residence[$npcID] = 'city_residential':
+			'“我们不如回我城里的住处，好好干到神魂颠倒吧？”'
+			!! '"Why don''t we get out of here and have some real fun? I''ll show you my home in St.Petersburg."'
+		else
+			'“我们不如离开这儿，找点真正的乐子？”'
+		end
+
+		act '今晚不行':
+			cla & *nl
+			'“对不起，我今晚不行。改天吧。”'
+			'你对他苦笑了一下然后从他身边移开。'
+			act '离开': gt 'pav_disco'
+		end
+		if npc_finance[$npcID] = 2:
+			act '返回酒店':
+				minut += 5
+				cla & *nl
+				'“听起来挺好玩的，”你回以甜甜的坏笑，任由他挽着你的手臂走到街上，前往集市旁的酒店。'
+				act '继续': gt 'sex_ev_start', 'hotel_start'
+			end
+		else
+			act '回他家去':
+				minut += 5
+				cla & *nl
+				'“听起来挺好玩的，”你回以甜甜的坏笑，任由他挽着你的手臂走到街上，回到他的住处。'
+				act '继续': gt 'sex_ev_start', 'npc_home_start'
+			end
+		end
+		gs 'family_schedule'
+		if locat['Fam_inGad'] = 1 and $home['current'] = 'parents_home':
+			act '回你家去':
+				cla & *nl
+				if $npc_residence[$npcID] = 'city_center' or $npc_residence[$npcID] = 'city_residential':
+					'“可是城里好远呀，”你撅着嘴说。你保持这副表情片刻，然后让它化为一抹勾人的微笑，凑近<<$npcdesc>>的耳边低语。“不如回我家去吧？<i>我爸妈今晚不在家……</i>”'
+				else
+					'你带着媚惑的笑容，凑近<<$npcdesc>>的耳边。'
+					'"<i>我爸妈今晚不在家……</i>"'
+				end
+				'他眼神里的含义你一看便知，你们俩一起赶回了庄园。'
+				act '冲回家': gt 'sex_ev_start', 'pc_home_start'
+			end
+		end
+		if $home['current'] = 'mey_home':
+			act '回梅诺尔德家':
+				cla & *nl
+				'“听起来挺好玩的。要不要来我这儿坐坐？”你问道。“我的室友们不会介意的。”'
+				'他眼中的神情已经说明了一切，你俩一起冲向梅诺尔德家。'
+				act '冲回家': gt 'sex_ev_start', 'pc_home_start'
+			end
+		end
+	elseif $npc_rel_type[$npcID] = 'boyfriend':
+		'这是<<$npcdesc>>，你的男朋友。'
+		'“真高兴在这儿见到你，”他朝你微笑着说。'
+		act '和他跳舞': gt 'pav_disco', 'dance_boy'
+	elseif $npc_rel_type[$npcID] = 'hookup' or $npc_rel_type[$npcID] = '':
+		if $virgin_stats['taker_ID'] = $npcID:
+			'“还记得我吗？我是<<$npcdesc>>。你的初夜是我拿走的。”'
+		elseif npc_hookup[$npcID] > 0:
+			if npc_last_sex[$npcID] >= daystart - 7:
+				'“还记得我吗？我是<<$npcdesc>>。我们前几天刚上过床。”'
+			elseif npc_last_sex[$npcID] >= daystart - 30:
+				'“还记得我吗？我是<<$npcdesc>>。我们几周前上过床。”'
+			else
+				'“还记得我吗？我是<<$npcdesc>>。我们之前上过床。”'
+			end
+		elseif npc_anal_count[$npcID] > 0:
+			'“还记得我吗？我是<<$npcdesc>>。我干过你的屁股。”'
+		elseif npc_vaginal_count[$npcID] > 0:
+			'“还记得我吗？我是<<$npcdesc>>。我们做过爱，对吧？”'
+		elseif npc_titstuff_count[$npcID] > 0:
+			'“还记得我吗？我是<<$npcdesc>>。你帮我乳交过。”'
+		elseif npc_oral_count[$npcID] > 0:
+			'“还记得我吗？我是<<$npcdesc>>。你给我口交过。”'
+		elseif npc_handstuff_count[$npcID] > 0:
+			'“还记得我吗？我是<<$npcdesc>>。你给我打过手枪。”'
+		elseif bmGANG[$npcID] > 0:
+			'“还记得我吗？我是<<$npcdesc>>。你让我和我朋友一起干过你。”'
+		else
+			if bmKISS[$npcID] > 0 or bmTITS[$npcID] > 0:
+				'“还记得我吗？我是<<$npcdesc>>。我们以前一起玩过，还一起喝了啤酒。”'
+			else
+				'“还记得我吗？我是<<$npcdesc>>。我们一起跳过舞。”'
+			end
+		end
+		act '和他跳舞': gt 'pav_disco', 'dance_boy'
+	else
+		'这是<<$npcdesc>>.'
+		act '和他跳舞': gt 'pav_disco', 'dance_boy'
+	end
+	!!{
+	act '跳舞':
+
+	!! legacy stuff commented out until I''m sure it isn''t deleting content
+		*clr & cla
+		gs 'stat'
+		!! gs 'boystat', $bmNane[Tboynum]
+		!! $hookupboy = $bmNane[Tboynum]
+
+
+		if npc_finance[$npcID] < 2:
+			'舞蹈结束后，<<$npcdesc>>提议出去喝啤酒。'
+		else
+			'舞蹈结束后，<<$npcdesc>>提议去他的酒店。'
+		end
+
+		gs 'willpower', 'drink', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'exp_gain', 'sprt', rand(0, 1)
+				gs 'willpower', 'drink', 'resist'
+				gs 'willpower', 'pay'
+				gs 'stat'
+				gt 'pav_disco'
+			end
+		end
+
+		act '同意':
+			*clr & cla
+			boynumBlock = 1
+
+			if bmTip[Tboynum] = 0:
+				gdk_nice_guy = 1
+				gt 'pav_disco_sex', 'outside'
+			end
+			if bmTip[Tboynum] = 1: gt 'pav_disco_sex', 'outside'
+			if bmTip[Tboynum] = 2:
+				DPtipe = 2
+				sex_ev['pav_hotel'] = 1
+				gt 'pav_disco_sex', 'hotel'
+			end
+		end
+	end}
+end
+
+
+if $ARGS[0] = 'familiar_fb':
+
+end
+
+
+if $ARGS[0] = 'katja_too_drunk':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/school_kids/katja_help.jpg"></center>'
+	'卡佳向你走来。“<<$pcs_nickname>>，你醉了吗？！我们送你回家吧，我来帮你。”'
+	act '跟卡佳走': gt 'pav_disco_coolkids', 'katja_walkhome'
+end
+
+
+if $ARGS[0] = 'sonia_too_drunk':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big25.jpg"></center>'
+	'索尼娅向你走来，脸上带着微笑。“<<$pcs_nickname>>，你醉得真厉害。我们送你回家吧，我陪你一起走。”'
+	act '跟索尼娅走': gt 'pav_disco_coolkids', 'sonia_walkhome'
+end
+
+
+if $ARGS[0] = 'anushka_too_drunk':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big144.jpg"></center>'
+	'阿努什卡走过来戳了你一下，害得你猛地一缩身子。这一缩让你踉跄着差点摔倒，但她一把抓住你的胳膊，帮你稳住了身形。'
+	'“今晚有人喝得可真凶，不是吗？也许有点太凶了。趁还没人想占你便宜，我们先送你回家吧。”'
+	act '和阿努什卡走': gt 'pav_disco_gopniks', 'anushka_walkhome'
+end
+
+
+if $ARGS[0] = 'albina_too_drunk':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big23.jpg"></center>'
+	'你几乎站不稳，踉踉跄跄地撞到了旁边的一个女孩。过了几秒钟你才意识到，自己的脸正深深埋在她的乳沟里，你赶紧缩了回去，这让周围的男孩子们大失所望。'
+	'“看来有人玩得太嗨了。”你抬起头，发现是阿尔比娜。“趁你还没做出什么让自己后悔的事，我们送你回家吧。”'
+	act '跟阿尔比娜走': gt 'pav_disco_jocks', 'albina_walkhome'
+end
+
+
+if $ARGS[0] = 'hookup_aggressive':
+	*clr & cla
+	$hookup['pickup'] = 'pav_disco'
+	gs 'fame', 'pav', 'sex', 1
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+	if $npc_residence[$npcID] = 'city_center' or $npc_residence[$npcID] = 'city_residential':
+		'“嘿，回我在圣彼得堡的住处干一场怎么样！”'
+		$apartment_txt = '他抓住你的胳膊，你们俩开始朝圣彼得堡走去'
+	else
+		'“嘿，回我住处干一场怎么样！”'
+		$apartment_txt = '他抓住你的胳膊，开始把你拉向附近的一栋公寓楼'
+	end
+
+	act '不用了，谢谢':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+		'“不用了，谢谢。我对一夜情没兴趣。”你回答说。'
+		'“哈？！”<<$npcdesc>>满脸怒容地看着你。“我都陪你跳成那样了，你还不打算从了我？”'
+		'他对你的拒绝大加表演，他朝你发出嘘声并往地上吐唾沫，险些吐到你的鞋上然后愤然离去。你翻了个白眼等他走了才自己离开。'
+		gs 'arousal', 'end'
+		act '离开': gt $loc, $loc_arg
+		act '回到舞会': gt 'pav_disco'
+	end
+
+	act '滚开':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/reactions/fuckoff3.jpg"></center>'
+		'“你在我这儿没戏，所以还不赶紧滚蛋？”你冷冷地回敬道。'
+		'“哈？！”<<$npcdesc>>满脸怒容地看着你。“我都陪你跳成那样了，你还不打算从了我？”'
+		'他对你的拒绝大加表演，他朝你发出嘘声并往地上吐唾沫，险些吐到你的鞋上然后愤然离去。你翻了个白眼等他走了才自己离开。'
+		gs 'arousal', 'end'
+		act '离开': gt $loc, $loc_arg
+		act '回到舞会': gt 'pav_disco'
+	end
+
+	act '听起来不错':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+		'“听起来不错。”你笑着说。'
+		'他凑过来，给了你一个短暂却热烈的吻。“太棒了！”' + $apartment_txt + '，一路上在你耳边低语着污言秽语。'
+		gs 'arousal', 'kiss', 5
+		gs 'arousal', 'end'
+		act '去他家': gt 'sex_ev_start', 'npc_home_start', 'hookup'
+	end
+
+	act '听起来很棒':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+		'“操，那可太棒了。”你回了他一句。'
+		'他俯身靠近，给了你一个短暂却热烈的吻。"我就知道我喜欢你。"' + $apartment_txt + '。'
+		gs 'arousal', 'kiss', 5
+		gs 'arousal', 'end'
+
+		act '去他家': gt 'sex_ev_start', 'npc_home_start', 'hookup'
+	end
+
+	if locat['Fam_inGad'] = 1:
+		act '带他回家':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/dk_night.jpg"></center>'
+			'“不如去我家吧？”你问道。你带着诱惑的笑容，凑到<<$npcdesc>>的耳边低声细语。'
+			'"<i>我爸妈今晚不在家……</i>"'
+			'他眼神里的含义你一看便知，你们俩一起赶回了庄园。'
+			act '继续': gt 'sex_ev_start', 'hookup_pc_home_start'
+		end
+	end
+
+	killvar 'apartment_txt'
+end
+
+
+if $ARGS[0] = 'hookup_nice':
+	$hookup['pickup'] = 'pav_disco'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+	'“嘿，”<<$npcdesc>>说。“今晚和你跳舞我真的很开心，我想知道……你愿不愿意去我家坐坐？我可以请你喝一杯，也许还能……”'
+	act '抱歉':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+		'“哦，呃……我不太确定……我现在是不是真的想那样。抱歉……”'
+		'“哦，没关系，没关系的。你不用觉得抱歉。”<<$npcdesc>>略带失望地说。“不过至少我尽力试过了。谁知道呢，说不定哪天我还能在这儿再见到你。”'
+		act '离开': gt $loc, $loc_arg
+		act '回到舞会': gt 'pav_disco'
+	end
+
+	act '不用了，谢谢':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_talk.jpg"></center>'
+		'“不用了，谢谢，我没兴趣。”你回答说'
+		'“哦，没关系。呃，抱歉我开了口。”他略带一丝失望地说。'
+		'你耸耸肩走开了。'
+		act '离开': gt $loc, $loc_arg
+		act '回到舞会': gt 'pav_disco'
+	end
+
+	act '跟他回家':
+		*clr & cla
+		gs 'fame', 'pav', 'sex', 1
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+		'“听起来不错。”你微笑着说。'
+		'“太好了！那么，我们走吧……”'
+		'你跟着他回了他在附近一栋公寓楼里的住处'
+		gs 'stat'
+		act '去他家': gt 'date_hangout', 'start', 'disco'
+	end
+
+	act '想操吗？':
+		*clr & cla
+		gs 'fame', 'pav', 'sex', 5
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+		'“……要操吗？”你问。'
+		'他被你的话弄得目瞪口呆。“呃……”'
+		'“操。”你又重复了一遍。“想回你家干一场吗？连酒都可以省了。”'
+		'<<$npcdesc>>被你的直白惊到了，不过最终还是开口回答。“好啊！”'
+		'“太好了！带路吧！”你咧嘴一笑，随后你们俩一起匆匆穿过街道，走向附近的一栋公寓楼。'
+		gs 'stat'
+		act '去他家': gt 'sex_ev_start', 'npc_home_start', 'hookup'
+	end
+
+	gs 'family_schedule'
+	if locat['Fam_inGad'] = 1:
+		act '邀请他回家（约炮）':
+			*clr & cla
+			gs 'fame', 'pav', 'sex', 1
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/outside_kiss.jpg"></center>'
+			'“你想来我家吗？”你凑到他耳边低声问道。“<i>我爸妈今晚不在家。</i>”'
+			'他眼神里的含义你一看便知，你们俩一起赶回了庄园。'
+			act '继续': gt 'sex_ev_start', 'hookup_pc_home_start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'artem_disco':
+	*clr & cla
+	menu_off = 1
+	minut += 15
+	gs 'stat'
+	$func('wrap', 'header center b', '迪斯科')
+	'<center><img <<$set_imgh>> src="images/pc/activities/phone/text_indoor.jpg"></center>'
+	'你环顾四周，真希望阿尔乔姆此刻就在身边，于是你掏出手机给他发了条消息。“你在干嘛呢？”'
+	'几秒钟后他回了消息。“在打游戏呢。怎么了？”'
+	'你回复道。“我在迪斯科舞会这儿，过来陪我跳支舞吧。”'
+	*nl
+	'沉默了一会儿后，他终于回了消息。“好，我马上到。”'
+	'你站在原地听着音乐，直到阿尔乔姆终于出现。'
+	'他看到你后笑着挥了挥手，走过来给了你一个拥抱。'
+	'“这里本来不太合我的口味，但既然我的女孩想跳舞，那就跳吧。”他说着，带你走向舞池。'
+	act '和他跳舞':
+		*clr & cla
+		gs 'npc_relationship', 'modify', 'A2', 'like'
+		if hour > 0: minut += (24 -hour)*60 -minut
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/disco/club_dance3.jpg"></center>'
+		'你们俩跳了整整一夜，偶尔停下来休息、喝点东西，然后又会重新回到舞池。'
+		'那些古惑仔冷嘲热讽，酷孩子们也对他蹩脚的舞姿评头论足，但他尽力不去理会，只想为你把这一夜变得尽可能开心。'
+		*nl
+		'当灯光亮起、所有人都被告知该回家时，你们俩一路笑着聊着走出门去。'
+		'“真高兴你叫了我。这一晚比我预想的开心多了。”他笑着说。'
+		'你朝他点点头。“我也很高兴你玩得开心。”'
+		if anushkaQW['artem_dom'] >= 1:
+			'阿尔乔姆紧紧抱住你。“我送你回家吧。”'
+			'就在你们俩开始走时，你注意到阿努什卡从其他古惑仔身边分开走了。你心里琢磨，阿尔乔姆会不会也愿意送她回家。'
+		elseif npc_rel['A144'] >= 60:
+			'阿尔乔姆紧紧抱住你。“我送你回家吧。”'
+			'就在你们俩开始走时，你注意到阿努什卡从其他古惑仔身边分开走了。你心想，究竟怎样才能让阿尔乔姆有足够的勇气，也去陪她走一段呢……'
+		else
+			'阿尔乔姆紧紧抱住你。“我送你回家吧。”'
+			'就在你们俩开始走时，你注意到阿努什卡从其他古惑仔身边分开走了。既然你跟她并不怎么熟，你决定就让她自己走自己的路吧。'
+		end
+		act '和阿尔乔姆一起走回家':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/artem/walking.jpg"></center>'
+			'你和阿尔乔姆手牵着手，一路聊着今晚你们俩玩得有多开心。'
+			'阿尔乔姆一路把你送到你家公寓门口，你在那里笑着亲吻了他。“晚安，亲爱的。”'
+			'他抱住你。“回头见，宝贝。”'
+			'在你走进公寓之前，他又吻了你一次。'
+			act '回家': minut += 4 & pavhome_enter = 1 & gt 'korrPar'
+		end
+		if anushkaQW['artem_dom'] >= 1:
+			act '和阿努什卡一起走':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big144.jpg"></center>'
+				'你指了指独自离开的阿努什卡。“我们可以送努什回家……”'
+				'阿尔乔姆看了她一眼，又看了看你。“呃……好吧，我想可以……”'
+				'你捏了捏他的胳膊，试着暗示他。“是啊，深更半夜我们三个孤零零地走在一起，周围又没有别人……”'
+				*nl
+				'“嗯，我觉得可以……除非我们撞见别人。”他耸耸肩，似乎没领会你的暗示。'
+				'到了这一步，你决定把暗示说得很直白。“要不我们走那些小巷子，这样周围就没人了……谁知道会发生什么呢……”'
+				'他盯着你看了一会儿，你看到他脑子里的齿轮慢慢转动起来，直到他终于恍然大悟。“哦！”'
+				'他瞟了一眼阿努什卡。“你觉得她会愿意吗？”'
+				act '只有试过才知道':
+					*clr & cla
+					gs 'npc_relationship', 'modify', 'A144', 'like'
+					'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big2.jpg"></center>'
+					'你耸耸肩。“不试试怎么知道。”'
+					'他又看了她一眼，然后咧嘴笑了。“你说得对。那我们去找她问清楚吧。”'
+					'你们俩快步追上去，赶上了阿努什卡。等你走近时，她转过头来看，挑了挑纤细的眉毛，显然在纳闷你们俩为什么这么着急。'
+					*nl
+					'“我们想送你回家，确保你平安到那儿。”阿尔乔姆笑着说。'
+					'她的目光越过阿尔乔姆看向你。你只是回以她一个友善的微笑。'
+					'“好吧……不过我确实不需要一个书呆子来护送……”'
+					*nl
+					'阿尔乔姆没理会她的嘲讽。“说不定黑暗的角落里正蹲着一个书呆子，我们可不想让哪个书呆子突然扑向你。你可能会对他们百依百顺，让他们占你的便宜或别的什么……”'
+					'你看到她摇了摇头，但什么都没说，由着他继续说下去。“我，我的意思是，<i>咱们</i>都知道，你会让任何一个凑上来的书呆子把你变成他的私人玩物，让你任他摆布。”'
+					'她没有反驳他的话，只是又摇了摇头。“随便啦……”'
+					act '送阿努什卡回家': gt 'artem_nush_sex', 'artem_nush_disco_walk'
+				end
+			end
+		end
+	end
+end
+
+
+--- pav_disco ---------------------------------

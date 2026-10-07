@@ -1,0 +1,472 @@
+# pav_hotel
+
+if $ARGS[0] = '' or $ARGS[0] = 'skip_resepevent':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_hotel', 'skip_resepevent'
+	$region = 'pav'
+	$location_type = 'public_indoors'
+	if temp ! 0: killvar 'temp'
+
+	$receptionName = '伊丽莎白'
+	if daystart = hotelRoomDays['pav'] and hour > 11: HotelRoom['pav'] = 0
+	if daystart > hotelRoomDays['pav']: HotelRoom['pav'] = 0
+	gs 'stat'
+
+	!! use this args if some event transfers you directly to the lobby and it is can happen between midnight and 01:00.
+	if $ARGS[0] <> 'skip_resepevent':
+		if hour = 0 and hotresepQW_day ! daystart and (hotresepQW < 3 or (hotresepQW = 3 and rand(1, 10) = 10)):
+			if HotelRoom['pav'] = 0 and therapistQW['hotel_key'] ! 3:
+				gt 'pav_hotel', 'resep_event1'
+			elseif resepseen = 0:
+				!! gs on purpose
+				gs 'pav_hotel', 'resep_event2'
+			else
+				gt 'pav_hotel', 'resep_event3'
+			end
+
+		end
+	end
+
+	if temp = 1:
+		killvar 'temp'
+	else
+		'<center><h4>巴甫洛夫斯克酒店</h4></center>'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.hole.jpg"></center>'
+		if pavHotelMaid = 0:
+			'你总是很惊讶，这家酒店外表破旧，内部却如此豪华。一个可爱的深褐色头发女孩正守着<a href="exec:minut += 1 & gt ''pav_hotelReception''">前台</a>.'
+			'当你进入她的视线范围时，她友好地朝你点了点头。'
+		else
+			'你总是很惊讶，这家酒店外表破旧，内部却如此豪华。埃丽萨贝特 正守着<a href="exec:minut += 1 & gt ''pav_hotelReception''">前台</a>.'
+			'当你进入她的视线范围时，她友好地朝你点了点头。'
+		end
+	end
+
+	gs 'schedule', 'A186'
+	if therapistQW['hotel_key'] = 2 and locat['A186'] = 2 and week = 6 and hour >= 20 and therapistQW['hotel_day'] ! daystart and therapistQW['escaped'] = 0:
+		therapistQW['hotel_day'] = daystart
+		gs 'willpower', 'misc', 'resist', 'medium'
+
+		act '去看心理医生': gt 'therapist_hotel', 'start'
+
+		if pcs_willpwr < will_cost:
+			act '不去看心理医生' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '不去看心理医生':
+				gs 'willpower', 'pay', 'medium'
+				gt 'pav_hotel'
+			end
+		end
+		exit
+	end
+
+
+	if hour >= 12 and hour < 20 and proshotelopen = 1: '<a href="exec:gt ''pav_hotel'',''Pavlin''">Pavlin</a>正坐在大堂里，寻找新鲜的猎物。'
+
+	if hour >= 12 and hour <= 13 and job_hiring_step['pav_hotel_maid'] >= 2: '前台旁边有一扇门，门上标着<a href="exec:minut += 1 & gt ''pav_hotelAdmin''">"管理处"</a>. 那一定是酒店经理办公的地方。门目前开着。'
+
+	if hotwait = 1: '你坐在大堂一张舒适的椅子上，看着客人来来往往办理入住和退房。' & hotwait = 0
+
+	if job_hiring_step['pav_hotel_maid'] <= 1:
+		*nl
+		*nl
+		'你看到房间角落里有一张<a href="exec:minut += 1 & gt ''pav_hotel'', ''poster''">"招聘启事"</a>.'
+	end
+
+	act '离开酒店': minut += 3 & gt 'pav_market'
+
+	gs 'pav_hotelWork', 'set_hotel_acts'
+
+	if hotelcouple = 2 and week = 4 and hour >= 20 and hour < 23 and hcday ! daystart: act '拜访207房间的那对情侣': gt 'pav_hotelWork', 'hotcouple'
+
+	if hour = 20 and IgorevnaBDSM >= 5 and IgorevnaBDSM < 14 and week < 3 and AnnaQW['daystart'] ! daystart:
+		act '寻找安娜': AnnaQW['daystart'] = daystart & gt 'hotel_anna', 'meeting'
+	end
+
+	if HotelRoom['pav'] > 0 or therapistQW['hotel_key'] = 3:
+		act '回你的房间':
+			if therapistQW['hotel_key'] = 3:
+				gt 'HotelRoom', 'therapist'
+			elseif HotelRoom['pav'] = 1:
+				gt 'HotelRoom', 'normal'
+			elseif HotelRoom['pav'] = 2:
+				gt 'HotelRoom', 'better'
+			end
+		end
+	end
+
+	act '在大堂消磨时间':
+		gs 'obj_din', 'wait'
+		hotwait = 1
+		gt 'pav_hotel'
+	end
+
+	gs 'lover', 'lover_events'
+end
+
+
+if $ARGS[0] = 'poster':
+	*clr & cla
+	minut += 1
+	'<center><img <<$set_imgh>> src="images/shared/newspaper/hotelmaidoffer.jpg"></center>'
+	'走近海报，你看到酒店正在招聘保洁人员。'
+	'"<b>招聘女仆！</b>巴甫洛夫斯克酒店正在招聘一名勤劳的女仆。无需经验。时间灵活。请亲自到酒店前台应聘。"'
+	'<i>这份工作看起来并不光鲜，但至少是份正经活儿。</i>'
+	job_hiring_step['pav_hotel_maid'] = 1
+	act '回去': gt 'pav_hotel'
+	act '去前台': minut += 1 & gt 'pav_hotelReception'
+	exit
+end
+
+
+if $ARGS[0] = 'resep_event1':
+	'当你走近酒店时，你注意到大门紧闭。'
+	'你试着敲门，却没有人来开门。'
+	act '回到集市':
+		minut += 3
+		killvar 'home_name'
+		gt 'pav_market'
+	end
+
+	if hotresepQW = 3:
+		'前台女孩和经理大概又在那儿鬼混了。'
+		act '等他们完事':
+			hotresepQW_day = daystart
+			minut += rand(1, 60 - minut)
+			gt 'pav_hotel'
+		end
+	elseif resepseen = 0:
+		'真奇怪。大堂应该24小时开放的。'
+	else
+		'如果你想抓 埃丽萨贝特 的现行，就得另想办法在午夜进入大堂。'
+		if hotresepQW < 2: hotresepQW = 2
+		gs 'exp_gain', 'observ', 3
+	end
+end
+
+
+if $ARGS[0] = 'resep_event2':
+	temp = 1
+	gs 'exp_gain', 'observ', rand(0, 1)
+	'<center><h4>巴甫洛夫斯克酒店</h4></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event2.jpg"></center>'
+	'你走进大堂，看到前台女孩和经理正在交谈。他们注意到你时，都投来非常失望的眼神。'
+	'你感觉自己打扰了什么好事。'
+	*nl
+end
+
+
+if $ARGS[0] = 'resep_event3':
+	hotresepQW = 3
+	*clr & cla
+	gs 'exp_gain', 'observ', 3
+	gs 'stat'
+	if $prevloc = 'HotelRoom':
+		'你蹑手蹑脚地溜到大堂，绕到拐角处，小心翼翼地偷看了一眼。'
+	else
+		'你发现门关着，意识到前台女孩和经理大概又在胡闹了。你用钥匙小心地打开门，尽可能悄无声息地走进去。'
+		'你小心地挪到拐角处，偷偷看了一眼。'
+	end
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event1.jpg"></center>'
+	'你看见 埃丽萨贝特 正露出胸部，掀着裙子一上一下，脸上带着邪恶的笑容。'
+	'然后你看到一个男人朝她走去。是 列昂尼多维奇 先生，酒店经理。'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event2.jpg"></center>'
+	'"塔尼奇 小姐，你在干什么？！ 要是客人看到你这副样子怎么办？！"'
+	'你想起在他办公室里发现的那几张照片，纳闷他为什么装得这么惊讶。'
+	'"哦！列昂尼多维奇 先生！" 她撅着嘴说。"我是个不乖的小女孩，对吧，爸爸？"'
+	'你明白了他们只是在玩某种游戏，被撞见露胸也是他们古怪小角色扮演的一部分。'
+
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event9.jpg"></center>'
+		'她突然开始吻他，而他正给她脱衣服。'
+		*nl
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event3.jpg"></center>'
+		'她脱光后，跪下来把他硬挺的阴茎含进嘴里。'
+		'她的嘴唇沿着他的阴茎一路滑下，留下一道亮晶晶的唾液痕迹，然后她专注于吮吸龟头。'
+		*nl
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event4.jpg"></center>'
+		'她突然把他的阴茎从嘴里吐出来，然后用双乳夹住它，开始给他做乳交。'
+		'"塔尼奇 小姐，请慢一点！我可不想在尝到你那甜蜜的小穴之前就射出来。"'
+
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event5.jpg"></center>'
+			'她松开他的阴茎，把他推倒在长凳上。然后她转过身，缓缓沉下腰肢，随着他的阴茎滑入她的阴部而呻吟起来。'
+			'她开始在他身上骑乘，而他伸手揉捏着她的乳房。'
+			'他掐了一下她的乳头，疼得她叫出声。他只是笑了笑，又掐了一下。'
+			*nl
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event6.jpg"></center>'
+			'几分钟后，她转过身来，两人面对面地骑乘起来。'
+			'从经理脸上的表情可以看出，他已经有点跟不上她的节奏了。'
+			gs 'arousal', 'voyeur_sex', 60
+			gs 'arousal', 'end'
+
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event7.jpg"></center>'
+				'"好了，现在轮到我了。" 经理突然喊道。'
+				'前台女孩似乎完全明白他的意思，立刻从他身上下来，四肢着地趴好。'
+				'他绕到她身后，开始用后入式操她，但没能坚持太久。'
+				'几分钟后，他又喊了一声，在把精液全射到她屁股上之前抽出了她的阴部。'
+				*nl
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/sex/resep_event8.jpg"></center>'
+				'"谢谢你，塔尼奇 小姐。我认为你这个月的奖金又拿得理所应当。"'
+				'她只是对他笑了笑，炫耀着自己沾满精液的屁股。'
+				'你看够了，悄悄回到自己的房间。'
+
+				act '继续':
+					if therapistQW['hotel_key'] = 3:
+						gt 'HotelRoom', 'therapist'
+					elseif HotelRoom['pav'] = 1:
+						gt 'HotelRoom', 'normal'
+					elseif HotelRoom['pav'] = 2:
+						gt 'HotelRoom', 'better'
+					elseif HotelRoom['pav'] = 3:
+						gt 'HotelRoom', 'best'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Pavlin':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/pavlin/pavlin.jpg"></center>'
+	'瓦尔索诺菲·克列斯托沃兹是个小混混，靠让巴甫洛夫斯克那些弱势女性卖淫赚钱。很少有人知道他的真名，因为他通常被叫做<<$npc_nickname[''A217'']>> （孔雀）。'
+	if npc_rel['A217'] = -1: '<<$npc_nickname[''A217'']>>杀死了你未出生的孩子；你真心恨他。如果你不想让这些负面情绪完全吞噬你的人格，就应该去找些帮助。'
+	if npc_rel['A217'] < 20 and npc_rel['A217'] >= 0: '你和<<$npc_nickname[''A217'']>>之间是一种不太正常的关系。你为他工作，但只是众多女孩中的一个。'
+	if npc_rel['A217'] >= 20 and npc_rel['A217'] < 40: '你对<<$npc_nickname[''A217'']>>更了解了一些。你知道他有极其暴力的一面，但也摸索出了一些避免他爆发的策略。'
+	if npc_rel['A217' ] >= 40 and npc_rel['A217'] < 60: '你和<<$npc_nickname[''A217'']>>之间是正常的关系。'
+	if npc_rel['A217'] >= 60 and npc_rel['A217'] < 80: '你和<<$npc_nickname[''A217'']>>之间关系不错。'
+	if npc_rel['A217'] >= 80: '你和<<$npc_nickname[''A217'']>>之间关系非常好。'
+	act '走开': gt 'pav_hotel', 'skip_resepevent'
+	if proshotelday ! daystart: act '履行你的职责': gt 'pavlin', 'pavgenpros'
+	if firstfemalecust = 1:
+		if pavprosnofemales = 1:
+			act '开始接待女性顾客':
+				cla
+				pavprosnofemales = 0
+				'"<<$npc_nickname[''A217'']>>, 我想跟你谈谈……我想开始接待女性顾客。"'
+				'"当然，我可以给你安排。反正她们通常付得更多。"'
+				act '完成': gt 'pav_hotel', 'Pavlin'
+			end
+		else
+			gs 'willpower', 'prostitution', 'self', 'hard'
+			if pcs_willpwr < will_cost:
+				act '停止接待女性顾客' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '停止接待女性顾客' + $func('willpower', 'get_willcost_string'):
+					cla
+					gs 'willpower', 'prostitution', 'self', 'hard'
+					gs 'willpower', 'pay', 'self'
+					gs 'stat'
+					pavprosnofemales = 0
+					'"<<$npc_nickname[''A217'']>>, 我想跟你谈谈……我想停止接待女性顾客。"'
+					'"行吧。如果你真的不想做，那我就只给你找男顾客。"'
+					act '完成': gt 'pav_hotel', 'Pavlin'
+				end
+			end
+		end
+	end
+	if npc_rel['A217'] >= 40:
+		act '聊聊天':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/pavlin/pavlin.jpg"></center>'
+			minut += 10
+			if pavchat ! daystart: gs 'npc_relationship', 'modify', 'A217', 2
+			pavchat = daystart
+			talkrand = rand(0, 6)
+			gs 'stat'
+			if talkrand = 0:
+				'<<$npc_nickname[''A217'']>>抱怨在巴甫洛夫斯克这种鬼地方找正经姑娘有多难。'
+				'…'
+				'"你是两年前我在这儿开张以来，第一个为我工作的正经姑娘。"'
+				'你微笑着感谢他的恭维。'
+			elseif talkrand = 1:
+				'你告诉<<$npc_nickname[''A217'']>>你很喜欢去城里，在购物中心花钱。你问他下次去的时候要不要一起去。'
+				'"抱歉，<<$pcs_firstname>>, 但我永远不能再回城里了。"'
+				'他喝了一口啤酒，突然显得非常沮丧。'
+				'看来你真的触到了他的痛处。你好奇那到底是怎么回事。'
+			elseif talkrand = 2:
+				'<<$npc_nickname[''A217'']>>给你讲了一个他童年的故事。'
+				'"我父亲以前每天都打我。我12岁那年，又一顿毒打之后，我求母亲管管这件事。'
+				'他哼了一声。"那婊子又开始打我，还只让我穿着内裤，把我锁在阳台外冻了2个小时。那可是一月中旬，我没冻死算是走运了。"'
+				'看来他有过非常艰难的童年。'
+			elseif talkrand = 3:
+				'<<$npc_nickname[''A217'']>>给你讲了一个他童年的故事。'
+				'"我父亲经常把做皮肉生意的姑娘带回家惩罚。运气好的话，他只是把她们揍一顿。如果她们犯的错更严重，他就会让我母亲掺和进来，而她……"'
+				'"这么说吧，只要我母亲收拾完她们，这些姑娘就再也不敢违抗我父亲的意愿了。"'
+				'"我一直很同情她们，不想看，但他们总是强迫我看。"'
+				'看来他有过非常艰难的童年。'
+			elseif talkrand = 4:
+				'<<$npc_nickname[''A217'']>>告诉你他是怎么入了这一行的。'
+				'"我基本上是步了我父亲的后尘。我19岁时，在圣彼得堡的街头带出了我的第一个姑娘。可惜她有个讨厌的习惯，总是跟我顶嘴。"'
+				'"把她牙齿打掉很管用。可惜把她打得太丑，挣不了钱了，哈哈哈！"'
+				'他发出一阵邪恶的笑声，你觉得那不像是在开玩笑。'
+			elseif talkrand = 5:
+				'<<$npc_nickname[''A217'']>>给你讲了一个他童年的故事。'
+				'"我6岁那年，不小心打碎了我母亲的一座水晶小雕像。她用鞋跟狠狠砸我的头，到现在你还能看到那道疤。"'
+				'他把头凑向你，拨开头发。你确实看到他头皮上有一道大疤。'
+				'"那之后，她有2个星期不给我饭吃，我只能靠垃圾堆里捡来的残羹剩饭度日。"'
+				'看来他有过非常艰难的童年。'
+			elseif talkrand = 6:
+				'"你永远不会违抗我，对吧<<$pcs_firstname>>? 你的脸这么漂亮……我真的不想毁了它……"'
+				'"你在说什么，<<$npc_nickname[''A217'']>>? 别这样！你吓到我了……"'
+				'"什么？我夸你一句你就<i>害怕</i>了？你不用怕我，我连一只苍蝇都不会伤害。"'
+				'他显然是喝多了，在说胡话。'
+			end
+			act '完成': gt 'pav_hotel', 'Pavlin'
+		end
+	end
+	if pavlevent = 1 and pavldaystart2 ! daystart :
+		act '谈谈那次殴打':
+			*clr & cla
+			minut += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/pavlin/pavlin.jpg"></center>'
+			if pavldaystart = daystart:
+				PavlinQW = 5
+				'你还没来得及说一个字，<<$npc_nickname[''A217'']>>就已经冲你吼了起来。'
+				if pavldom = 0:
+					'"一只熊猫眼还没挨够？你真想再添一只？"'
+				else
+					'"你该庆幸我们现在在公共场合，不然我他妈非宰了你不可！"'
+				end
+				'"走开，<<$pcs_firstname>>! 我现在太生气了。我们以后再谈。"'
+
+				pavldaystart2 = daystart
+			elseif pavtalk = 0:
+				PavlinQW = 6
+				'"<<$npc_nickname[''A217'']>>, 我……" 你刚开口，他立刻打断了你。'
+				'"我希望你记住了教训，<<$pcs_firstname>>. 我很抱歉不得不那么做，但你需要明白这里的情况。"'
+				'你原本希望能和他坦诚地谈谈那件事，但显然那是不可能的，至少现在还不是时候。'
+				pavtalk = 1
+				pavldaystart2 = daystart
+			elseif pavtalk = 1:
+				'"<<$npc_nickname[''A217'']>>, 我需要……" 你刚开口，他立刻打断了你。'
+				'"又怎么了？！ 别烦我了，回去干活！"'
+				'你原本希望能和他坦诚地谈谈那件事，但显然那是不可能的，至少现在还不是时候。'
+				pavtalk = 2
+				pavldaystart2 = daystart
+			elseif pavtalk = 2:
+				'"<<$npc_nickname[''A217'']>>, 我需要谈谈……" 你刚开口，他立刻打断了你。'
+				'"我想我已经说得很清楚了，<<$pcs_firstname>>. 回去干活。"'
+				'自你认识他以来，你第一次在他眼中看到一丝不安。你也许正在打动他。'
+				pavtalk = 3
+			elseif pavtalk = 3:
+				'"<<$npc_nickname[''A217'']>>, 我需要跟你谈谈我们之间那……小小的不愉快……"'
+				'"我为自己的行为感到非常抱歉。我不知道自己当时是怎么了。那天我过得很糟，你的要求只是压垮我的最后一根稻草。我希望你能原谅我，我们还能继续共事。"'
+				'"你那样对待我，我真的非常震惊，我需要你保证不会再发生这种事。" 你回答。'
+				'"当然，<<$pcs_firstname>>. 从现在起，我会以你应得的尊重对待你。关于钱我也不是开玩笑。以后我要分更大的一份。"'
+				'"好吧。我会看看我能做些什么。"'
+				minut += 4
+				gs 'npc_relationship', 'set', 'A217', 7
+				PavlinQW = 7
+				pavlevent = 2
+				pavldaystart2 = daystart
+			end
+			act '走开': gt 'pav_hotel', 'skip_resepevent'
+		end
+	end
+	if npc_rel['A217'] > 19 and proshotelday ! daystart and $start_type['loc'] = 'sg' and TwinQW < 0:
+		!!! TwinQW: 0 quest not started; > 0: quest started; < 5: talking with sis; 5: sis agreed; 6: finished
+		!!! changing 'TwinQW < 0' in the above if statement to 'TwinQW < 1' reenables the quest line
+		!!! Kevin Smarts:
+		!!! The twin event is meant to be disabled as it does not fit Anya''s personality. It is waiting to be redone with a more suitable "twin".
+		if tmp_TwinQW_AskedToday < daystart:
+			act '假双胞胎请求':
+				*clr & cla
+				tmp_TwinQW_AskedToday = daystart
+				minut += 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/pavlin/pavlin.jpg"></center>'
+				'"<<$pcs_firstname>>, 我有个客户愿意花一大笔钱找一对双胞胎玩3P. 你碰巧认识愿意赚点快钱的双胞胎吗？" <<$npc_nickname[''A217'']>>问道，看起来很期待。'
+				'你想了一会儿才回答。"不，我不认识。不过，很多人说我姐姐和我长得很像。如果我把头发梳成她那样，再化足够的妆，我们也许能冒充双胞胎。"'
+				'"这主意太棒了！你觉得她会愿意做吗？" 他问道，一想到这个前景，突然变得非常兴奋。'
+				if sisterLesb < 5:
+					'"什么？不，我只是说我们长得像。我可不敢跟她提这种主意。"'
+					'他的兴奋迅速化为暴怒，举起手来准备扇你。"那你他妈提她干什么，你这个蠢婊子？！"'
+					'你做好挨打的准备，紧紧闭上眼睛，但耳光始终没有落下。你睁开眼睛看到<<$npc_nickname[''A217'']>>已经退开了。你一开始有些困惑，但注意到他那一通发作之后，大堂里的人都在看着你们俩。'
+					'你迅速站起来，不再理他。除非你对这个请求有更积极的回应，否则最好别再提起这个话题了。'
+				else
+					'一想到你姐姐，你下腹就一阵发麻。'
+					'"她当然愿意！" 你不假思索地脱口而出。'
+					'"太好了，<<$pcs_firstname>>! 等你准备好了，把她带过来，我介绍你认识客户。"'
+					'意识到自己刚刚许下的承诺，担忧开始渗入心头。你希望姐姐真的能行，因为你害怕如果你兑现不了，<<$npc_nickname[''A217'']>>会作何反应。'
+					TwinQW = 1
+					killvar 'tmp_TwinQW_AskedToday'
+				end
+				act '返回大厅': gt 'pav_hotel'
+			end
+		end
+	end
+	if npc_rel['A217'] > 29 and proshotelday ! daystart and ClownQW ! 1:
+		act '马戏团请求':
+			*clr & cla
+			minut += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/pavlin/pavlin.jpg"></center>'
+			'"<<$pcs_firstname>>, 你听说了吗，马戏团来城里了？"'
+			'你惊讶地盯着<<$npc_nickname[''A217'']>>. "我不知道你还喜欢马戏团。你想去看表演还是怎么着？"'
+			'"什么？不，别傻了，姑娘！马戏团来这儿，意味着城里至少有50个男人会在演出结束后找乐子。"'
+			'"有时候甚至演出间隙也要！" 他笑着说。"其实现在就有两个演员在等姑娘。我打电话叫了一个，但她还得10分钟才能到。他们快等不及了，因为他们马上要开始下一场演出。你觉得你能接这活儿吗？"'
+			act '不用了，谢谢':
+				cla
+				*nl
+				'"不了，谢谢。我今天就接个普通客人吧。"'
+				'"没问题。一个普通客人马上就到。你可以先去老房间等着。"'
+				act '履行你的职责': gt 'pavlin', 'pavgenpros'
+			end
+			act '好的':
+				cla
+				*nl
+				'"好，你可以去312房间。他们在等你。"'
+				'<<$npc_nickname[''A217'']>>把酒店房间的钥匙递给你。'
+				act '去312房间': gt 'pavlin', 'clown'
+			end
+		end
+	end
+	if npc_rel['A217'] > 39 and proshotelday ! daystart and preghumdone ! 1:
+		act '孕妇请求':
+			*clr & cla
+			minut += 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/pavlin/pavlin.jpg"></center>'
+			'"<<$pcs_firstname>>, 我今天接到了一个要孕妇的请求。孕妇！我他妈上哪儿找一个怀孕了还愿意干这事的姑娘？" 他摇着头说。'
+			if knowpreg = 1 and pregChem >= 3600:
+				cla
+				'你心里的火气直往上冲，冲着<<$npc_nickname[''A217'']>>. "你到底有没有注意过我？你看不出我怀孕了吗？" 你一边说，一边指着自己隆起的肚子。'
+				'"我当然知道！" 他皱起眉头，让你知道他开始生气了。你心里七上八下，恐惧与愤怒交织。'
+				'他继续说下去之前，表情稍微缓和了一些。"这个客户有些相当古怪的要求。你能接受吗？"'
+
+				act '不完全是': gt 'pav_hotel', 'Pavlin'
+				act '什么古怪的要求？':
+					'"他告诉我他特别喜欢给怀孕的姑娘尿尿，" 他说，你听了这话直皱眉头。'
+					'"真他妈变态，对吧？但他愿意出一大笔钱！你真的能接受吗？"'
+					act '只要价钱合适': gt 'pavlin', 'PregBDSM'
+					act '不完全是': gt 'pav_hotel', 'Pavlin'
+				end
+				act '只要价钱合适': gt 'pavlin', 'PregBDSM'
+			elseif knowpreg = 1 and pregChem < 3600:
+				cla
+				'"我怀孕了，但还没怎么显怀。"'
+				'"太好了。等你显怀了，再来找我，我介绍你。"'
+				act '好的': gt 'pav_hotel', 'Pavlin'
+			elseif knowpreg = 0:
+				cla
+				'<<$npc_nickname[''A217'']>>打量着你的身体，你知道他在想什么。'
+				'"是啊，那确实挺难的。祝你好运。" 你说完便迅速离开。'
+				act '返回大厅': gt 'pav_hotel'
+			end
+		end
+	end
+end
+
+
+--- pav_hotel ---------------------------------

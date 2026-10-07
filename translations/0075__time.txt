@@ -1,0 +1,578 @@
+# time
+!! Calculate the number of the current day since the start of the game.
+
+
+if $ARGS[0] = '':
+	if minut < 0 or hour < 0: gs 'time', 'time_cheat_fix'
+
+	!! total amount of minutes since the start of the game
+	prevtotmin = totminut
+	!! sync totminut with daystart, hour, and minut
+	totminut = minut + hour * 60 + daystart * 1440
+
+	if totminut <> prevtotmin:
+		:time_time_loop
+			time_temp_jump_flag = 0
+			if minut >= 60:
+				!! Hourly Changes
+				hour += 1
+				minut -= 60
+				gs 'hourly_events'
+				time_temp_jump_flag = 1
+			end
+			if hour >= 24:
+				hour -= 24
+				daystart += 1
+				gs 'time', 'update_date'
+				gs 'cikl'
+				time_temp_jump_flag = 1
+			end
+		if time_temp_jump_flag = 1: jump 'time_time_loop'
+		killvar 'time_temp_jump_flag'
+
+		gs 'time', 'update_daystage', totminut
+	end
+	killvar 'dateVars'
+	exit
+end
+
+
+if $ARGS[0] = 'time_cheat_fix':
+	if minut < 0:
+		hour -= 1
+		minut += 60
+		jump 'time_time_loop'
+	end
+	if hour < 0:
+		daystart -= 1
+		hour += 24
+		jump 'time_time_loop'
+	end
+
+	gs 'time', 'update_date'
+	exit
+end
+
+
+if $ARGS[0] = 'update_date':
+	gs 'time', 'to_date', daystart
+	day = dateVars['day']
+	month = dateVars['month']
+	$monthName = $dateVars['monthName']
+	$season = $dateVars['season']
+	year = dateVars['year']
+	week = dateVars['week']
+	$weekName = $dateVars['weekName']
+	odd_week = dateVars['odd_week']
+	$day_suffix = $dateVars['suffix']
+	day_of_year = dateVars['day_of_year']
+	gs 'time', 'init_monthends', year
+	exit
+end
+
+
+!! ARGS[1] = daystart
+if $ARGS[0] = 'to_date':
+	if arrsize('ARGS') = 1: ARGS[1] = daystart
+	dateVars['daystart'] = ARGS[1]
+
+	!! daystart = 1 -> Fri 1 Jan 2016
+	!! mod_daystart = 0 -> Mon 1 Jan 1901
+	temp_timeVars['mod_daystart'] = dateVars['daystart'] + 151574
+	temp_timeVars['week_drift'] = 6
+
+	dateVars['odd_week'] = ((temp_timeVars['mod_daystart'] + 6 - temp_timeVars['week_drift']) / 7) mod 2
+	dateVars['week'] = (temp_timeVars['mod_daystart'] + 7 - temp_timeVars['week_drift']) mod 7
+	if dateVars['week'] = 0: dateVars['week'] = 7
+	$dateVars['weekName'] = $weekName[dateVars['week']]
+
+	temp_timeVars['inner_daystart'] = temp_timeVars['mod_daystart']
+	dateVars['year'] = 1601
+
+	temp_timeVars['400cycles'] = temp_timeVars['inner_daystart'] / 146097	& !! (cycle of 400 years)
+	dateVars['year'] += 400 * temp_timeVars['400cycles']
+	temp_timeVars['inner_daystart'] -= 146097 * temp_timeVars['400cycles']
+
+	temp_timeVars['100cycles'] = temp_timeVars['inner_daystart'] / 36524	& !! (cycle of 100 years)
+	dateVars['year'] += 100 * temp_timeVars['100cycles']
+	temp_timeVars['inner_daystart'] -= 36524 * temp_timeVars['100cycles']
+
+	temp_timeVars['4cycles'] = temp_timeVars['inner_daystart'] / 1461		& !! (cycle of 4 years)
+	dateVars['year'] += 4 * temp_timeVars['4cycles']
+	temp_timeVars['inner_daystart'] -= 1461 * temp_timeVars['4cycles']
+
+	!! The remaining years in this cycle of 4 years
+	if temp_timeVars['inner_daystart'] >= 1095:
+		temp_timeVars['inner_years'] = 3
+	elseif temp_timeVars['inner_daystart'] >= 730:
+		temp_timeVars['inner_years'] = 2
+	elseif temp_timeVars['inner_daystart'] >= 365:
+		temp_timeVars['inner_years'] = 1
+	else
+		temp_timeVars['inner_years'] = 0
+	end
+	dateVars['year'] += temp_timeVars['inner_years']	& !! The remaining years in this cycle of 4 years
+	temp_timeVars['inner_daystart'] -= 365 * temp_timeVars['inner_years']
+
+	temp_timeVars['leapyear'] = 0
+	if ((dateVars['year'] mod 4) = 0 and (dateVars['year'] mod 100) <> 0) or (dateVars['year'] mod 400 = 0):
+		if temp_timeVars['inner_daystart'] >= 59:
+			temp_timeVars['leapyear'] = 1
+			temp_timeVars['inner_daystart'] -= 1
+		end
+	end
+
+	dateVars['day_of_year'] = 1 + temp_timeVars['inner_daystart']
+	!! temp_inner_days starts at 0!
+	if temp_timeVars['inner_daystart'] < 31:
+		dateVars['month'] = 1
+	elseif temp_timeVars['inner_daystart'] < 59:
+		dateVars['month'] = 2
+		temp_timeVars['inner_daystart'] += temp_timeVars['leapyear']
+		temp_timeVars['inner_daystart'] -= 31
+	elseif temp_timeVars['inner_daystart'] < 90:
+		dateVars['month'] = 3
+		temp_timeVars['inner_daystart'] -= 59
+	elseif temp_timeVars['inner_daystart'] < 120:
+		dateVars['month'] = 4
+		temp_timeVars['inner_daystart'] -= 90
+	elseif temp_timeVars['inner_daystart'] < 151:
+		dateVars['month'] = 5
+		temp_timeVars['inner_daystart'] -= 120
+	elseif temp_timeVars['inner_daystart'] < 181:
+		dateVars['month'] = 6
+		temp_timeVars['inner_daystart'] -= 151
+	elseif temp_timeVars['inner_daystart'] < 212:
+		dateVars['month'] = 7
+		temp_timeVars['inner_daystart'] -= 181
+	elseif temp_timeVars['inner_daystart'] < 243:
+		dateVars['month'] = 8
+		temp_timeVars['inner_daystart'] -= 212
+	elseif temp_timeVars['inner_daystart'] < 273:
+		dateVars['month'] = 9
+		temp_timeVars['inner_daystart'] -= 243
+	elseif temp_timeVars['inner_daystart'] < 304:
+		dateVars['month'] = 10
+		temp_timeVars['inner_daystart'] -= 273
+	elseif temp_timeVars['inner_daystart'] < 334:
+		dateVars['month'] = 11
+		temp_timeVars['inner_daystart'] -= 304
+	else
+		dateVars['month'] = 12
+		temp_timeVars['inner_daystart'] -= 334
+	end
+	$dateVars['monthName'] = $monthName[dateVars['month']]
+
+	if dateVars['month'] >= 12 or dateVars['month'] < 3:
+		$dateVars['season'] = 'winter'
+	elseif dateVars['month'] < 6:
+		$dateVars['season'] = 'spring'
+	elseif dateVars['month'] < 9:
+		$dateVars['season'] = 'summer'
+	else
+		$dateVars['season'] = 'fall'
+	end
+
+	dateVars['day'] = 1 + temp_timeVars['inner_daystart']
+
+	$dateVars['suffix'] = $func('time', 'get_number_suffix', dateVars['day'])
+
+	if $ARGS[2] = 'test':
+		*nl
+		'新的一天开始：<<ARGS[1]>> | 旧的一天开始：<<daystart>>'
+		*nl
+		'新的一天：<<dateVars[''day'']>> | 旧的一天：<<day>>'
+		'新月份：<<dateVars[''month'']>> | 旧月份：<<month>>'
+		'新一年：<<dateVars[''year'']>> | 旧一年：<<year>>'
+		'新的一周：<<dateVars[''week'']>> | 旧的一周：<<week>>'
+		'新的单周：<<dateVars[''odd_week'']>> | 旧的单周：<<odd_week>>'
+		*nl
+		'临时值：'
+		'mod_daystart: <<temp_timeVars[''mod_daystart'']>>'
+		'内部日开始：<<temp_timeVars[''inner_daystart'']>>'
+		'闰年：<<temp_timeVars[''leapyear'']>>'
+		'4周期：<<temp_timeVars[''4cycles'']>>'
+		'100周期：<<temp_timeVars[''100cycles'']>>'
+		'400周期：<<temp_timeVars[''400cycles'']>>'
+		'内部年数：<<temp_timeVars[''inner_years'']>>'
+	end
+
+	killvar 'temp_timeVars'
+	exit
+end
+
+
+if $ARGS[0] = 'get_week_from_daystart':
+	result = (ARGS[1] + 4) mod 7
+	if result <= 0: result += 7
+	exit
+end
+
+
+if $ARGS[0] = 'get_odd_week_from_daystart':
+	result = ((ARGS[1] + 4) / 7) mod 2
+	if result < 0: result = 1
+	exit
+end
+
+
+if $ARGS[0] = 'get_number_suffix':
+	!! Get the selected day and apply an appropriate suffix - takes a valid day int from ARGS[1]
+
+	if (ARGS[1] >= 4 and ARGS[1] <= 20):
+		$result = ''
+	elseif ARGS[1] mod 10 = 1:
+		$result = ''
+	elseif ARGS[1] mod 10 = 2:
+		$result = ''
+	elseif ARGS[1] mod 10 = 3:
+		$result = ''
+	else
+		$result = ''
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'to_daystart':
+	dateVars['year']	= ARGS[1]
+	dateVars['month']	= ARGS[2]
+	dateVars['day']		= ARGS[3]
+
+	if dateVars['year'] < 1601: dateVars['year'] = 1601
+	if dateVars['month'] < 1: dateVars['month'] = 1
+	if dateVars['day'] < 1: dateVars['day'] = 1
+
+
+	temp_timeVars['year_diff'] = dateVars['year'] - 1601
+	temp_timeVars['daystart_offset'] = 151575
+
+	temp_timeVars['mod_daystart'] = temp_timeVars['year_diff'] * 365
+	temp_timeVars['mod_daystart'] += temp_timeVars['year_diff'] / 4
+	temp_timeVars['mod_daystart'] -= temp_timeVars['year_diff'] / 100
+	temp_timeVars['mod_daystart'] += temp_timeVars['year_diff'] / 400
+
+
+	if dateVars['month'] > 1:	temp_timeVars['mod_daystart'] += 31
+	if dateVars['month'] > 2:
+		if ((dateVars['year'] mod 4 = 0) and (dateVars['year'] mod 100 <> 0)) or (dateVars['year'] mod 400 = 0):
+			temp_timeVars['mod_daystart'] += 29
+		else
+			temp_timeVars['mod_daystart'] += 28
+		end
+	end
+	if dateVars['month'] > 3:	temp_timeVars['mod_daystart'] += 31
+	if dateVars['month'] > 4:	temp_timeVars['mod_daystart'] += 30
+	if dateVars['month'] > 5:	temp_timeVars['mod_daystart'] += 31
+	if dateVars['month'] > 6:	temp_timeVars['mod_daystart'] += 30
+	if dateVars['month'] > 7:	temp_timeVars['mod_daystart'] += 31
+	if dateVars['month'] > 8:	temp_timeVars['mod_daystart'] += 31
+	if dateVars['month'] > 9:	temp_timeVars['mod_daystart'] += 30
+	if dateVars['month'] > 10:	temp_timeVars['mod_daystart'] += 31
+	if dateVars['month'] > 11:	temp_timeVars['mod_daystart'] += 30
+
+	temp_timeVars['mod_daystart'] += dateVars['day']
+
+	dateVars['daystart'] = (temp_timeVars['mod_daystart'] - temp_timeVars['daystart_offset'])
+
+	if $ARGS[4] = 'test':
+		'新日开始<<dateVars[''daystart'']>> | 旧日开始<<daystart>>'
+		'mod_daystart: <<temp_timeVars[''mod_daystart'']>>'
+		'年差：<<temp_timeVars[''year_diff'']>>'
+		'日开始偏移：<<temp_timeVars[''daystart_offset'']>>'
+	end
+	killvar 'temp_timeVars'
+	exit
+end
+
+
+if $ARGS[0] = 'update_daystage':
+	if arrsize('ARGS') = 1: ARGS[1] = totminut
+
+	DayLength = func('time', 'get_DayLength', totminut / 1440)
+
+	CurTimeSun = func('time', 'get_CurTimeSun', totminut)
+
+	!! 1 - dawn
+	!! 2 - midday
+	!! 3 - sunset
+	!! 4 - the beginning of the night
+	!! 5 - night
+	!! 6 - the end of the night
+	!! phases 1, 3, 4 and 6 last for 64 minutes
+	if CurTimeSun < -DayLength - 64:
+		DayStage = 5
+
+		BColorBase = 0		& !! Black
+	elseif CurTimeSun < -DayLength:
+		DayStage = 6
+
+		!! CurTimeSun - negative
+		!! result = 128 - [64 -> 0] * 2
+		BColorBase = 128 + (DayLength + CurTimeSun) * 2
+	elseif CurTimeSun < -DayLength + 64:
+		DayStage = 1
+
+		!! CurTimeSun - negative
+		!! result = 128 + [0 -> 64] * 2
+		BColorBase = 128 + (DayLength + CurTimeSun) * 2
+	elseif CurTimeSun < DayLength - 64:
+		DayStage = 2
+
+		BColorBase = 255	& !! White
+	elseif CurTimeSun < DayLength:
+		DayStage = 3
+
+		!! CurTimeSun - positive
+		!! result = 128 + [64 -> 0] * 2
+		BColorBase = 128 + (DayLength - CurTimeSun) * 2
+	elseif CurTimeSun < DayLength + 64:
+		DayStage = 4
+
+		!! CurTimeSun - positive
+		!! result = 128 - [0 -> 64] * 2
+		BColorBase = 128 + (DayLength - CurTimeSun) * 2
+	else
+		DayStage = 5
+
+		BColorBase = 0		& !! Black
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_DayLength':
+	if arrsize('ARGS') = 1: ARGS[1] = daystart
+
+	!!  half of daylight duration
+	!!  used as an offset for solar noon
+	!!  to get time when day starts and ends
+
+	if ARGS[1] = daystart:
+		temp_timeVars['day_of_year'] = day_of_year
+	else
+		if dateVars['daystart'] <> ARGS[1]:
+			gs 'time', 'to_date', ARGS[1]
+		end
+		temp_timeVars['day_of_year'] = dateVars['day_of_year']
+	end
+
+	temp_timeVars['DayLengthMin'] = 177		& !! Minutes from dawn to noon
+	temp_timeVars['DayLengthMax'] = 563
+
+	!! distance from summer solstice (longest day of the year)
+	if temp_timeVars['day_of_year'] < 172:
+		temp_timeVars['DayInYear2'] = 172 - temp_timeVars['day_of_year']
+	elseif temp_timeVars['day_of_year'] < 355:
+		temp_timeVars['DayInYear2'] = temp_timeVars['day_of_year'] - 172
+	else
+		temp_timeVars['DayInYear2'] = 536 - temp_timeVars['day_of_year']
+	end
+
+	result = temp_timeVars['DayLengthMax'] - ((temp_timeVars['DayLengthMax'] - temp_timeVars['DayLengthMin']) * temp_timeVars['DayInYear2']) / 182
+
+	killvar 'temp_timeVars'
+	exit
+end
+
+
+if $ARGS[0] = 'get_CurTimeSun':
+	if arrsize('ARGS') = 1: ARGS[1] = totminut
+
+	!!  solar noon coincides with CurTimeSun of 0 which happens at 13:00
+	!! Solar Noon (13:00) minus DayLength - time when day starts
+	!! Solar Noon (13:00) plus DayLength - time when day ends
+
+	!! distance from 13:00 (Solar Noon) in minutes
+	!!    at midnight its -780
+	!!    0 is 13:00
+	!!    1 minute before midnight (23:59) is 659
+
+	result = (ARGS[1] mod 1440) - 780
+	exit
+end
+
+
+if $ARGS[0] = 'get_duration_string':
+	!! $result = func('time', 'get_duration_string', total_minutes)
+	!! Human-readable elapsed span, e.g. "2 hours and 15 minutes" or "3 days, 1 hour and 5 minutes".
+	!! Only non-zero units are shown, so a wait of a few hours doesn''t print "0 days".
+	temp_dur['days'] = ARGS[1] / 1440
+	temp_dur['hours'] = (ARGS[1] mod 1440) / 60
+	temp_dur['mins'] = ARGS[1] mod 60
+	temp_dur['n'] = 0
+
+	if temp_dur['days'] > 0:
+		$temp_dur_part[temp_dur['n']] = "<<temp_dur['days']>>天"
+		temp_dur['n'] += 1
+	end
+	if temp_dur['hours'] > 0:
+		$temp_dur_part[temp_dur['n']] = "<<temp_dur['hours']>>小时"
+		temp_dur['n'] += 1
+	end
+	if temp_dur['mins'] > 0 or temp_dur['n'] = 0:
+		$temp_dur_part[temp_dur['n']] = "<<temp_dur['mins']>>分钟"
+		temp_dur['n'] += 1
+	end
+
+	if temp_dur['n'] = 1:
+		$result = $temp_dur_part[0]
+	elseif temp_dur['n'] = 2:
+		$result = $temp_dur_part[0] + $temp_dur_part[1]
+	else
+		$result = $temp_dur_part[0] + $temp_dur_part[1] + $temp_dur_part[2]
+	end
+
+	killvar 'temp_dur'
+	killvar 'temp_dur_part'
+	exit
+end
+
+
+if $ARGS[0] = 'get_time_string':
+	if arrsize('$ARGS') <= 1: ARGS[1] = hour
+	if arrsize('$ARGS') <= 2: ARGS[2] = minut
+	if arrsize('$ARGS') <= 3: ARGS[3] = cheatVars['time_format']
+
+	if ARGS[3] = 0 and $ARGS[3] = '':
+		$result = '<<$mid(100 + ARGS[1], 2, 2)>>:<<$mid(100 + ARGS[2], 2, 2)>>'
+	else
+		$dateVars['period'] = 'AM'
+		if ARGS[1] >= 12:
+			$dateVars['period'] = 'PM'
+			if ARGS[1] > 12: ARGS[1] -= 12
+		elseif ARGS[1] = 0:
+			ARGS[1] = 12
+		end
+		if ARGS[2] = 0:
+			$result = '<<ARGS[1]>>&nbsp;<<$dateVars[''period'']>>'
+		else
+			$result = '<<$mid(100 + ARGS[1], 2, 2)>>:<<$mid(100 + ARGS[2], 2, 2)>>&nbsp;<<$dateVars[''period'']>>'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_date_string':
+	!! ── Arguments ───────────────────────────────────────────────────
+	!! ARGS[1] = year  (defaults to current year)
+	!! ARGS[2] = month (defaults to current month)
+	!! ARGS[3] = day   (defaults to current day)
+	!! ARGS[4] = format (optional; defaults to 0)
+	!!
+	!!  All formats include the full weekday name ($weekName).
+	!!
+	!!   0 = Monday 14th April 2004        (default)
+	!!   1 = Monday, 2004-04-14            (ISO 8601)
+	!!   2 = Monday, 14/04/2004            (DD/MM/YYYY)
+	!!   3 = Monday, April 14th, 2004      (Month DDth, YYYY)
+	!!   4 = Monday, 04/14/2004            (MM/DD/YYYY)
+	if arrsize('ARGS') <= 1: ARGS[1] = year
+	if arrsize('ARGS') <= 2: ARGS[2] = month
+	if arrsize('ARGS') <= 3: ARGS[3] = day
+
+	$temp_date_suffix = $func('time', 'get_number_suffix', ARGS[3])
+	gs 'time', 'to_daystart', ARGS[1], ARGS[2], ARGS[3]
+	$temp_date_weekName = $weekName[func('time', 'get_week_from_daystart', dateVars['daystart'])]
+
+	if ARGS[4] = 1:
+		!! Monday, 2004-04-14 (ISO 8601)
+		$result = str(ARGS[1]) + '-' + $mid(100 + ARGS[2], 2, 2) + '-' + $mid(100 + ARGS[3], 2, 2) + ' ' + $temp_date_weekName
+	elseif ARGS[4] = 2:
+		!! Monday, 14/04/2004
+		$result = $mid(100 + ARGS[3], 2, 2) + '/' + $mid(100 + ARGS[2], 2, 2) + '/' + str(ARGS[1]) + ' ' + $temp_date_weekName
+	elseif ARGS[4] = 3:
+		!! Monday, April 14th, 2004
+		$result = str(ARGS[1]) + '年' + $monthName[ARGS[2]] + str(ARGS[3]) + '日 ' + $temp_date_weekName
+	elseif ARGS[4] = 4:
+		!! Monday, 04/14/2004 (MM/DD/YYYY — American)
+		$result = $mid(100 + ARGS[2], 2, 2) + '/' + $mid(100 + ARGS[3], 2, 2) + '/' + str(ARGS[1]) + ' ' + $temp_date_weekName
+	else
+		!! Format 0 (default): Monday, 14th April 2004
+		$result = str(ARGS[1]) + '年' + $monthName[ARGS[2]] + str(ARGS[3]) + '日 ' + $temp_date_weekName
+	end
+
+	killvar 'temp_date_suffix'
+	killvar 'temp_date_weekName'
+	exit
+end
+
+
+if $ARGS[0] = 'get_age':
+	if arrsize('ARGS') <= 1: ARGS[1] = birthyear
+	if arrsize('ARGS') <= 2: ARGS[2] = birthmonth
+	if arrsize('ARGS') <= 3: ARGS[3] = birthday
+	if arrsize('ARGS') <= 4: ARGS[4] = year
+	if arrsize('ARGS') <= 5: ARGS[5] = month
+	if arrsize('ARGS') <= 6: ARGS[6] = day
+
+	result = ARGS[4] - ARGS[1]
+	if ARGS[5] < ARGS[2] or ARGS[5] = ARGS[2] and ARGS[6] < ARGS[3]:
+		result -= 1
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           INITIALIZATION                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'init_monthnames':
+	$monthName[1] = '1月'
+	$monthName[2] = '2月'
+	$monthName[3] = '3月'
+	$monthName[4] = '4月'
+	$monthName[5] = '5月'
+	$monthName[6] = '6月'
+	$monthName[7] = '7月'
+	$monthName[8] = '8月'
+	$monthName[9] = '9月'
+	$monthName[10] = '10月'
+	$monthName[11] = '11月'
+	$monthName[12] = '12月'
+	exit
+end
+
+
+if $ARGS[0] = 'init_weeknames':
+	$weekName[1] = '周一'
+	$weekName[2] = '周二'
+	$weekName[3] = '周三'
+	$weekName[4] = '周四'
+	$weekName[5] = '周五'
+	$weekName[6] = '周六'
+	$weekName[7] = '周日'
+	exit
+end
+
+
+if $ARGS[0] = 'init_monthends':
+	if arrsize('ARGS') = 1: ARGS[1] = year
+
+	monthsend[1] = 31
+	monthsend[2] = 28
+	if ((ARGS[1] mod 4 = 0) and (ARGS[1] mod 100 <> 0)) or (ARGS[1] mod 400 = 0):
+		monthsend[2] += 1
+	end
+	monthsend[3] = 31
+	monthsend[4] = 30
+	monthsend[5] = 31
+	monthsend[6] = 30
+	monthsend[7] = 31
+	monthsend[8] = 31
+	monthsend[9] = 30
+	monthsend[10] = 31
+	monthsend[11] = 30
+	monthsend[12] = 31
+	exit
+end
+
+
+--- time ---------------------------------

@@ -1,0 +1,1541 @@
+# date_after
+
+if $ARGS[0] = 'exit':
+	minut += 2
+	!! exit should be based on type of apartment and location
+	if date_ev['unique_npc'] = 1:
+		gs 'date_after', 'ending'
+		gt $date_ev_exit['exit_file'], $date_ev_exit['exit_arg']
+	else
+		if $date_ev['locat'] = 'npc_home':
+			gs 'date_after', 'ending'
+			if $npc_residence[$npcID] = 'pav_residential':
+				!! Pav residential exit
+				gt 'pav_residential'
+			elseif $npc_residence[$npcID] = 'uni_grounds':
+				!! Student dorms exit
+				gt 'uni_grounds'
+			elseif $npc_residence[$npcID] = 'city_residential':
+				!! St. Petersburg Residential exit
+				gt 'city_residential'
+			elseif $npc_residence[$npcID] = 'city_center':
+				!! St. Petersburg City Center exit
+				gt 'city_center'
+			elseif $npc_residence[$npcID] = '':
+				!! failsafe for an npc with no residence set
+				!! $region is 'pav', 'city', 'gad', 'pushkin'
+				if $region = 'pav':
+					gt 'pav_residential'
+				elseif $region = 'city':
+					gt 'city_residential'
+				else
+					msg '上报安全退出！'
+					gt 'pav_residential'
+				end
+			end
+		elseif $date_ev['locat'] = 'hotel_room':
+			if date_ev['hotel_days'] > 0:
+				if $region = 'pav':
+					$hotel = 'pav_hotel'
+					gs 'date_after', 'ending'
+					gt 'HotelRoom', 'better'
+				elseif $region = 'city':
+					$hotel = 'city_hotel'
+					gs 'date_after', 'ending'
+					gt 'HotelRoom', 'best'
+				else
+					$hotel = 'pav_hotel'
+					gs 'date_after', 'ending'
+					msg '上报安全退出！ (hotel_room, hotel_days > 0, unhandled $region)'
+					gt 'HotelRoom', 'better'
+				end
+			else
+				if $region = 'pav':
+					gs 'date_after', 'ending'
+					gt 'pav_hotel'
+				elseif $region = 'city':
+					gs 'date_after', 'ending'
+					gt 'city_hotel'
+				else
+					gs 'date_after', 'ending'
+					msg '上报安全退出！ (hotel_room, unhandled $region)'
+					gt 'pav_hotel'
+				end
+			end
+	!!		gt $date_ev_exit['exit_file'], $date_ev_exit['exit_arg']
+		elseif $date_ev['locat'] = 'pc_home':
+			gs 'date_after', 'ending'
+			if $home['current'] = 'parents_home':
+				if $date_ev_exit['loc'] = 'bedroom':
+					gt 'bedrPar'
+				elseif $date_ev_exit['loc'] = 'hallway':
+					gt 'korrPar'
+				else
+					msg '上报安全退出！ (pc_home, parents_home, unhandled $date_ev_exit[''loc''])'
+					gt 'bedrPar'
+				end
+			else
+				if $date_ev_exit['loc'] = 'bedroom':
+					gt 'bedr'
+				elseif $date_ev_exit['loc'] = 'hallway':
+					gt 'korr'
+				else
+					msg '上报安全退出！ (pc_home, unhandled $date_ev_exit[''loc''])'
+					gt 'bedr'
+				end
+			end
+		else
+			gs 'date_after', 'ending'
+			!! $region is 'pav', 'city', 'gad', 'pushkin'
+			if $region = 'pav':
+				gt 'pav_residential'
+			elseif $region = 'city':
+				gt 'city_residential'
+			else
+				msg '上报安全退出！（未处理的 $region）'
+				gt 'pav_residential'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'exit_into_loc':
+	!! for when you end the event and continue to hang out at a lover''s apartment or hotel
+	if $date_ev['locat'] = 'npc_home':
+		gs 'date_after', 'ending'
+		gs 'lover_home', 'bedroom'
+	elseif $date_ev['locat'] = 'hotel_room':
+		if date_ev['hotel_days'] > 0:
+			if $region = 'pav':
+				$hotel = 'pav_hotel'
+				gs 'date_after', 'ending'
+				gt 'HotelRoom', 'better'
+			elseif $region = 'city':
+				$hotel = 'city_hotel'
+				gs 'date_after', 'ending'
+				gt 'HotelRoom', 'best'
+			else
+				$hotel = 'pav_hotel'
+				gs 'date_after', 'ending'
+				msg 'Report failsafe exit_into_loc! (hotel_room, hotel_days > 0, unhandled $region)'
+				gt 'HotelRoom', 'better'
+			end
+		else
+			if $region = 'pav':
+				gs 'date_after', 'ending'
+				gt 'pav_hotel'
+			elseif $region = 'city':
+				gs 'date_after', 'ending'
+				gt 'city_hotel'
+			else
+				gs 'date_after', 'ending'
+				msg 'Report failsafe exit_into_loc! (hotel_room, unhandled $region)'
+				gt 'pav_hotel'
+			end
+		end
+	elseif $date_ev['locat'] = 'pc_home':
+		if $date_ev_exit['loc'] = 'bedroom':
+			gs 'date_after', 'ending'
+			pcs_romance['lover_here'] = 1
+			gt 'bedr'
+		elseif $date_ev_exit['loc'] = 'hallway':
+			pcs_romance['lover_here'] = 1
+			gs 'date_after', 'ending'
+			gt 'korr'
+		else
+			gs 'date_after', 'ending'
+			pcs_romance['lover_here'] = 1
+			msg 'Report failsafe exit_into_loc! (pc_home, unhandled $date_ev_exit[''loc''])'
+			gt 'bedr'
+		end
+	else
+		msg 'Report failsafe exit_into_loc! (unhandled $date_ev[''locat''])'
+		gt 'date_after', 'exit'
+	end
+end
+
+if $ARGS[0] = 'ending':
+!!	gs 'date_ev', 'save_stats'
+	gs 'date_after', 'end_code'
+	if arrsize('sex_ev') > 0: gs 'sex_ev_leave', 'end_code'
+end
+
+if $ARGS[0] = 'end_code':
+	if $npc_rel_type[$npcID] = '' or $npc_rel_type[$npcID] = 'hookup': $npc_rel_type[$npcID] = 'casual'
+	gs 'arousal', 'end'
+!!	if $clothingworntype = 'nude': gs 'date_after', 'dress'
+	if $date_ev['prostitution_flag'] = 'prostitution' or date_ev['prostitution'] = 1: npc_prostitution_count[$npcID] += 1
+
+	if date_ev['hotel_days'] > 0:
+		if $region = 'pav':
+			HotelRoom['pav_hotel'] = 2
+		elseif $region = 'city':
+			HotelRoom['city_hotel'] = 3
+		end
+		hotelRoomDays['<<$region>>_hotel'] = daystart + date_ev['hotel_days']
+		HotelRoom['<<$region>>_room_service_free'] = 1
+	end
+	if $date_ev['locat'] = 'pc_home' and $home['current'] = 'parents_home':
+		sisterQW['sex_room'] = 1
+		stat['parents_home_sex'] += 1
+	end
+	if date_ev['break_up'] > 0:
+		if $npc_rel_type[$npcID] = 'fuckbuddy':
+			gs 'lover', 'remove_fuckbuddy', $npcID
+		elseif $npc_rel_type[$npcID] = 'sugar_daddy':
+			gs 'lover', 'remove_sugar_daddy', $npcID
+		else
+			gs 'lover', 'remove_boyfriend', $npcID
+		end
+	end
+	if date_ev['not_a_date'] = 0:
+		npc_last_date[$npcID] = daystart
+		npc_date_count[$npcID] += 1
+	end
+	killvar 'date_ev'
+	killvar 'npc_pref_traits'
+	killvar 'npc_pref_values'
+end
+
+
+!! ---------------------------------------- AFTER DATE -----------------------------------------
+
+
+if $ARGS[0] = 'after_date':
+	if date_ev['at_home'] = 1:
+		gs 'date_ev', 'living_room_img'
+		act '说再见': gt 'date_after', 'goodbye_route'
+		gs 'date_after', 'stay_ask'
+	else
+		if hour >= 19 or daystage >= 4:
+			gt 'date_after', 'evening_after_menu'
+		else
+			gt 'date_after', 'daytime_after_menu'
+		end
+	end
+end
+
+if $ARGS[0] = 'after_outside_image':
+	*clr & cla
+	if $region = 'city':
+		if $date_ev['type'] = 'park_date':
+			gs 'city_park', 'image'
+		elseif $date_ev['type'] = 'casual_restaurant':
+			if month >= 11 or month <= 3:
+				if daystage = 2 or daystage = 3:
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/streetw.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/streetwn.jpg"></center>'
+				end
+			else
+				if daystage = 2 or daystage = 3:
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/street.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/street_night.jpg"></center>'
+				end
+			end
+		else
+			if month >= 11 or month <= 3:
+				if daystage = 2 or daystage = 3:
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/downw.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/downwn.jpg"></center>'
+				end
+			else
+				if daystage = 2 or daystage = 3:
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/down.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/down_night.jpg"></center>'
+				end
+			end
+		end
+	else
+		if $date_ev['type'] = 'park_date' or $date_ev['type'] = 'cinema_date':
+			gs 'pav_park', 'pav_park_image'
+		else
+			if month >= 11 or month <= 3:
+				if daystage = 2 or daystage = 3:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavreswinter.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavreswintern.jpg"></center>'
+				end
+			else
+				if daystage = 2 or daystage = 3:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavres.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavresn_' + rand(1, 2) + '.jpg"></center>'
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'evening_after_menu':
+	if date_ev['first_ask'] = 0:
+		date_ev['first_ask'] = 1
+		if date_ev['at_home'] = 0: gs 'date_after', 'after_outside_image'
+		'“那么，你现在想做点什么？”'
+	end
+	if date_ev['at_home'] = 0:
+		act '说再见': gt 'date_after', 'goodbye_route'
+		act '过来喝杯咖啡': gt 'date_after', 'coffee_after_ask'
+		!!{
+		if hour < 21:
+			if arrpos('$date_ev', 'dinner_date') < 0: act '去吃晚饭': gt 'date_ev', 'dinner_after_ask'
+		end
+		if arrpos('$date_ev', 'park_date') < 0: act '去散步': gt 'date_ev', 'dinner_after_ask'
+		if arrpos('$date_ev', 'cinema_date') < 0: act '去看电影': gt 'date_ev', 'cinema_after_ask'
+		}
+	end
+	gs 'date_after', 'date_sex_ask'
+end
+
+if $ARGS[0] = 'daytime_after_menu':
+	if date_ev['at_home'] = 0: gs 'date_after', 'after_outside_image'
+	'“那么，你现在想做点什么？”'
+	act '说再见': gt 'date_after', 'goodbye_route'
+	act '过来喝杯咖啡': gt 'date_after', 'coffee_after_ask'
+	act '去他家玩': xgt 'date_after', 'hangout_ask'
+	!!{
+	if hour < 14:
+		if arrpos('$date_ev', 'lunch_date') < 0: act '去吃午饭': gt 'date_ev', 'lunch_after_ask'
+	elseif hour < 21:
+		if arrpos('$date_ev', 'dinner_date') < 0: act '去吃晚饭': gt 'date_ev', 'dinner_after_ask'
+	end
+	if arrpos('$date_ev', 'park_date') < 0: act '去散步': gt 'date_ev', 'dinner_after_ask'
+	if arrpos('$date_ev', 'cinema_date') < 0: act '去看电影': gt 'date_ev', 'cinema_after_ask'
+	}
+	gs 'date_after', 'date_sex_ask'
+end
+
+if $ARGS[0] = 'date_sex_ask':
+	act '暗示想做爱（委婉）':
+		cla & *nl
+		'“我能想到几件我们可以做的事……”你狡黠地说，手指在他胸口画着圈。“比如需要一张床，穿得不多，还有……”'
+		if date_ev['at_home'] = 0:
+			if $home['region'] ! $region and $npc_residence[$npcID] ! 'region':
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我觉得我回不了家了，”他咧嘴一笑。“我们最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif npc_wife[$npcID] > 0 and npc_finance >= 1:
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我老婆在家，”他咧嘴一笑。“最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif npc_girlfriend[$npcID] > 0 and npc_finance >= 1:
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我女朋友在家，”他咧嘴一笑。“最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif $sex_ev['loc'] = 'hotel_room':
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“回酒店房间？”他咧嘴一笑。'
+				'“好啊。”'
+				act '冲回去': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			else
+				'“去你家还是我家？”他咧嘴一笑。'
+				act '他家':
+					cla & *nl
+					date_ev['npc_home_sex'] = 1
+					$date_ev['locat'] = 'npc_home'
+					'“去你家。”'
+					'你们俩匆匆赶回他的公寓。'
+					act '冲回家': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+				end
+
+				if $home['current'] ! 'parents_home':
+					act '你家':
+						cla & *nl
+						date_ev['pc_home_sex'] = 1
+						$date_ev['locat'] = 'pc_home'
+						'“回我那儿吧。”'
+						'你们俩匆匆赶回你住的地方。'
+						act '冲回家': gt 'sex_ev_start', 'initiate_pre', $npcID, 'pc_home'
+					end
+				end
+			end
+		else
+			'你牵起他的手，把他领到床边。'
+			if $date_ev['locat'] = 'npc_home':
+				date_ev['npc_home_sex'] = 1
+				act '继续': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+			elseif $date_ev['locat'] = 'pc_home':
+				date_ev['pc_home_sex'] = 1
+				act '继续': gt 'sex_ev_start', 'initiate_pre', $npcID, 'pc_home'
+			end
+		end
+	end
+
+	act '"来操我吧"':
+		cla & *nl
+		if date_ev['at_home'] = 0:
+			'“我们干嘛不找张床干一场？”你咧嘴笑道。'
+			if $home['region'] ! $region and $npc_residence[$npcID] ! 'region':
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我觉得我回不了家了，”他咧嘴一笑。“我们最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif npc_wife[$npcID] > 0 and npc_finance >= 1:
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我老婆在家，”他咧嘴一笑。“最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif npc_girlfriend[$npcID] > 0 and npc_finance >= 1:
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我女朋友在家，”他咧嘴一笑。“最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif $sex_ev['loc'] = 'hotel_room':
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“回酒店房间？”他咧嘴一笑。'
+				'“好啊。”'
+				act '冲回去': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			else
+				'“去你家还是我家？”他咧嘴一笑。'
+				act '他家':
+					cla & *nl
+					date_ev['npc_home_sex'] = 1
+					$date_ev['locat'] = 'npc_home'
+					'“去你家。”'
+					'你们俩匆匆赶回他的公寓。'
+					act '冲回家': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+				end
+
+				if $home['current'] ! 'parents_home':
+					act '你家':
+						cla & *nl
+						date_ev['pc_home_sex'] = 1
+						$date_ev['locat'] = 'pc_home'
+						'“回我那儿吧。”'
+						'你们俩匆匆赶回你住的地方。'
+						act '冲回家': gt 'sex_ev_start', 'initiate_pre', $npcID, 'pc_home'
+					end
+				end
+			end
+		else
+			'“我们干一场吧，”你朝他咧嘴一笑，转眼间你们就一起走向床边。'
+			if $date_ev['locat'] = 'npc_home':
+				date_ev['npc_home_sex'] = 1
+				act '卧室': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+			elseif $date_ev['locat'] = 'pc_home':
+				date_ev['pc_home_sex'] = 1
+				act '卧室': gt 'sex_ev_start', 'initiate_pre', $npcID, 'pc_home'
+			end
+		end
+	end
+
+	act '"我们做爱吧"':
+		cla & *nl
+		if date_ev['at_home'] = 0:
+			'"我不想让这个' + iif(hour >= 19 or daystage >= 4, '夜晚', '白天') + '结束，"你在他耳边低语，声音沙哑而急促。"<i>我们来做爱吧</i>。"'
+			if $home['region'] ! $region and $npc_residence[$npcID] ! 'region':
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我觉得我们回不了家了，”他低声回道。“我们最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif npc_wife[$npcID] > 0 and npc_finance >= 1:
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我老婆在家，”他低声回道。“最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			elseif npc_girlfriend[$npcID] > 0 and npc_finance >= 1:
+				date_ev['hotel_sex'] = 1
+				$date_ev['locat'] = 'hotel_room'
+				'“我女朋友在家，”他低声回道。“最好开个酒店房间。”'
+				act '去最近的酒店': gt 'sex_ev_start', 'initiate_pre', $npcID, 'hotel'
+			else
+				'“去你家还是我家？”他低声回道。'
+				act '他家':
+					cla & *nl
+					date_ev['npc_home_sex'] = 1
+					$date_ev['locat'] = 'npc_home'
+					'“去你家。”'
+					'你们俩匆匆赶回他的公寓。'
+					act '冲回家': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+				end
+
+				if $home['current'] ! 'parents_home':
+					act '你家':
+						cla & *nl
+						date_ev['pc_home_sex'] = 1
+						$date_ev['locat'] = 'pc_home'
+						'“回我那儿吧。”'
+						'你们俩匆匆赶回你住的地方。'
+						act '冲回家': gt 'sex_ev_start', 'initiate_pre', $npcID, 'pc_home'
+					end
+				end
+			end
+		else
+			'“我们干一场吧，”你朝他咧嘴一笑，转眼间你们就一起走向床边。'
+			if $date_ev['locat'] = 'npc_home':
+				date_ev['npc_home_sex'] = 1
+				act '卧室': gt 'sex_ev_start', 'initiate_pre', $npcID, 'npc_home'
+			elseif $date_ev['locat'] = 'pc_home':
+				date_ev['pc_home_sex'] = 1
+				act '卧室': gt 'sex_ev_start', 'initiate_pre', $npcID, 'pc_home'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'stay_ask':
+	if date_ev['cant_stay'] = 0:
+		act '请求待一会儿':
+			*clr & cla
+			gs 'date_ev', 'living_room_img'
+			'“你介意我在这儿陪你待一会儿吗？”你问道。'
+			if npc_cheating_know[$npcID] = 1:
+				!! this means he''s cheating on someone with you and you know it
+				if rand(1, 10) > 7 and hour < 20 and hour > 16:
+					date_ev['cant_stay'] = 1
+					if $date_ev['locat'] = 'npc_home':
+						'“抱歉，不行。我女朋友快过来了。其实你最好快点走，别让她撞见你。”'
+					elseif $date_ev['locat'] = 'hotel_room':
+						'“抱歉，不行。这房间是我订来跟女朋友约会的。其实你现在就该走，别等她到。”'
+					end
+					'“呃。<i>贱人！</i>”'
+					'“是啊，我知道。真倒霉。”'
+					gs 'date_after', 'after_date'
+				else
+					if $date_ev['locat'] = 'npc_home':
+						'“当然，我女朋友不会过来。你可以待一会儿。”'
+					elseif $date_ev['locat'] = 'hotel_room':
+						'“当然。反正房间订到明天。”'
+					else
+						'“当然，”他笑道。'
+					end
+
+					act '继续': gt 'date_after', 'exit_into_loc'
+				end
+			else
+				!! this means he''s cheating on someone with you
+				if rand(1, 10) > 7 and hour < 22:
+					date_ev['cant_stay'] = 1
+					'“抱歉，不行。我有点事要办，不能把你一个人留在这儿。”'
+					'“呃，真的吗？”'
+					'“是啊，我知道。真倒霉。”'
+					gs 'date_after', 'after_date'
+				elseif npc_girlfriend[$npcID] = 1 and hour < 20 and hour > 16:
+					date_ev['cant_stay'] = 1
+					npc_cheating_know[$npcID] = 1
+					'“抱歉，我女朋友快过来了。不能让她在这儿撞见你。”'
+					'“呃，真的吗？”'
+					'“是啊，我知道。真倒霉。”'
+					gs 'date_after', 'after_date'
+				else
+					'“当然，我没什么事，你可以待一会儿。”'
+					act '继续': gt 'date_after', 'exit_into_loc'
+				end
+			end
+		end
+
+		if (hour >= 21 or hour < 5) and $date_ev['locat'] ! 'pc_home':
+			act '请求过夜':
+				date_ev['spend_night'] = 1
+				*clr & cla
+				gs 'date_ev', 'bed_room_img'
+				if $date_ev['locat'] = 'npc_home':
+					$date_ev['spend_night_question'] = '“介意我今晚留下过夜吗？”你问道'
+				elseif $date_ev['locat'] = 'hotel_room':
+					$date_ev['spend_night_question'] = '“我可以睡这儿吗？”你问道'
+				end
+				'<<$date_ev[''spend_night_question'']>>'
+				act '我不想回家':
+					*clr & cla
+					gs 'date_ev', 'bed_room_img'
+					'<<$date_ev[''spend_night_question'']>>。“我今晚不想回家。”'
+					gs 'date_after', 'spend_night'
+				end
+
+				if $start_type['loc'] = 'sg':
+					act '我受够我妈了':
+						*clr & cla
+						gs 'date_ev', 'bed_room_img'
+						'<<$date_ev[''spend_night_question'']>>。“我妈最近真是个泼妇，我不想见到她。”'
+						gs 'date_after', 'spend_night'
+					end
+				end
+
+				if hour < 5:
+					if $start_type['loc'] = 'sg':
+						act '躲着我妈':
+							*clr & cla
+							gs 'date_ev', 'bed_room_img'
+							'<<$date_ev[''spend_night_question'']>>。“我现在要是回家，我妈肯定会因为我回来太晚骂我一顿。她之后还是会骂我，但我不想现在应付这些。”'
+							gs 'date_after', 'spend_night'
+						end
+					end
+				end
+
+				if hour >= 22 or hour < 5:
+					act '太晚了':
+						*clr & cla
+						gs 'date_ev', 'bed_room_img'
+						'<<$date_ev[''spend_night_question'']>>。“太晚了，我不想走。”'
+						gs 'date_after', 'spend_night'
+					end
+				end
+
+				if pcs_lover - pcs_girlfriends > 0 and living_with_npc > 0:
+					act '我不想见男朋友（恼火）':
+						*clr & cla
+						gs 'date_ev', 'bed_room_img'
+						'<<$date_ev[''spend_night_question'']>>。“我男朋友最近总惹我生气，我不想回家面对他。”'
+						gs 'date_after', 'spend_night'
+					end
+
+					!!{
+					act '我不想见男朋友（愧疚）':
+
+
+					end
+					}
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'spend_night':
+	if npc_cheating_know[$npcID] = 1:
+		!! this means he''s cheating on someone with you and you know it
+		if rand(1, 10) > 7 and hour < 20 and hour > 16:
+			date_ev['cant_stay'] = 1
+			if $date_ev['locat'] = 'npc_home':
+				'“抱歉，不行。我女朋友今晚想过来。其实你最好快点走，免得被她撞见。”'
+			elseif $date_ev['locat'] = 'hotel_room':
+				'“抱歉，不行。我订了房间是要跟女朋友约会的。其实你现在就该走了，免得她到了撞见你。”'
+			end
+			'“唉。<i>贱人！</i>”'
+			'“是啊，我知道。真倒霉。”'
+			gs 'date_after', 'after_date'
+		else
+			if $date_ev['locat'] = 'npc_home':
+				'“当然，我女朋友有一阵子不会来。你可以在这儿凑合一晚。”'
+			elseif $date_ev['locat'] = 'hotel_room':
+				'“当然。反正这房间订到明天。”'
+			else
+				'“当然，”他笑着说。'
+			end
+			gs 'date_after', 'sleep_over'
+		end
+	else
+		!! this means he''s cheating on someone with you
+		if rand(1, 10) > 7 and hour < 22:
+			date_ev['cant_stay'] = 1
+			'“抱歉，不行。我早上有事。”'
+			'“唉，真的吗？”'
+			'“是啊，我知道。真倒霉。”'
+			gs 'date_after', 'after_date'
+		elseif npc_girlfriend[$npcID] = 1 and hour < 20 and hour > 16:
+			date_ev['cant_stay'] = 1
+			npc_cheating_know[$npcID] = 1
+			'“抱歉，我女朋友马上就要来了。不能让她在这儿撞见你。”'
+			'“唉，真的吗？”'
+			'“是啊，我知道。真倒霉。”'
+			gs 'date_after', 'after_date'
+		else
+			'“当然，我明天没什么事。你可以在这儿凑合一晚。”'
+			'“谢谢，”你打着哈欠，依偎进<<$npcdesc>>怀里。“谢了。”'
+			gs 'date_after', 'sleep_over'
+		end
+	end
+end
+
+if $ARGS[0] = 'coffee_after_ask':
+	gs 'date_after', 'after_outside_image'
+	'“我能去你那儿喝杯咖啡吗？”你问道。'
+	!! institute restrictions later
+	'“当然。”'
+	'你们俩去了他家喝咖啡。'
+	act '继续': gt 'date_after', 'coffee_after_start'
+end
+
+if $ARGS[0] = 'hangout_ask':
+	act '你累了':
+		gs 'date_after', 'after_outside_image'
+		if rand(1,3) = 1 and $npc_humor[$npcID] = 'perverted':
+			'“也许我们可以去你那儿待一会儿？我累瘫了。”'
+			if $npc_know_pubes[$npcID] <> '':
+				if $pube_style['word'] = 'untrimmed':
+					'“累瘫了？我看是长成一片森林了吧，嗯？” <<$npcdesc>>得意地笑着，瞥了 ' + iif(PCloDress = 0, '你裤子的裆部', '垂在你双腿间的裙子') + '一眼，好让你明白他的意思。'
+				elseif $pube_style['word'] = 'bush':
+					'“是啊，你确实是，” <<$npcdesc>>得意地笑着，瞥了 ' + iif(PCloDress = 0, '你裤子的裆部', '垂在你双腿间的裙子') + '一眼，好让你明白他的意思。'
+				elseif $pube_style['word'] = 'trimmed':
+					'“你那下面更像草坪，不是灌木丛，不是吗？” <<$npcdesc>>带着得意的笑和扬起的眉毛说道，看了一眼 ' + iif(PCloDress = 0, '你裤子的裆部', '垂在你双腿间的裙子') + ', 好让你明白他的意思。'
+				elseif $pube_style['word'] = 'shaved':
+					'“累瘫了？你不是正好相反吗？” <<$npcdesc>>得意地笑着，瞥了 ' + iif(PCloDress = 0, '你裤子的裆部', '垂在你双腿间的裙子') + '一眼，好让你明白他的意思。'
+				else
+					'错误。$pube_style[''word''] 未设置。'
+				end
+
+				act '脸红':
+					cla & *nl
+					'他粗俗的玩笑让你一下子脸就热了起来，你连看都不敢看他，而他的坏笑变成了放声大笑。'
+					'“好啊，当然。我们可以回我家待一会儿。”'
+					act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+				end
+
+				act '笑':
+					gs 'npc_relationship', 'modify', $npcID, 'like'
+					cla & *nl
+					'他的玩笑虽然粗俗，却让你忍不住噗嗤笑出声，而他也得意地朝你咧嘴笑。'
+					'“好啊，当然。我们可以回我家待一会儿。”'
+					act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+				end
+
+				act '"白痴"':
+					cla & *nl
+					'当<<$npcdesc>>为自己的笑话得意地轻笑，你翻白眼翻得眼睛都疼了。'
+					'“你真是个白痴。”'
+					'“一个有点幽默感的白痴，”他咧嘴笑道。“不过话说回来，我们可以回我家待一会儿。”'
+					act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+				end
+			else
+				'“累瘫了是吗？我还不知道你下面原来长这样，” <<$npcdesc>>带着得意的笑和扬起的眉毛说道，看了一眼 ' + iif(PCloDress = 0, '你裤子的裆部', '垂在你双腿间的裙子') + ', 好让你明白他的意思。'
+
+				act '坏笑':
+					gs 'npc_relationship', 'modify', $npcID, 'like'
+					cla & *nl
+					'“也许吧，”你坏笑着。“也许不是。你得自己来弄清楚。”'
+					'“既然这样，那我们<i>绝对</i>得回我家了，”他咧嘴笑道。'
+					act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+				end
+
+				act '"白痴"':
+					cla & *nl
+					'当<<$npcdesc>>为自己的笑话得意地轻笑，你翻白眼翻得眼睛都疼了。'
+					'“你真是个白痴。”'
+					'“一个有点幽默感的白痴，”他咧嘴笑道。“不过话说回来，我们可以回我家待一会儿。”'
+					act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+				end
+				'“好啊，当然。我们可以回我家待一会儿。”'
+				act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+			end
+		else
+			'“好啊，当然。我们可以回我家待一会儿。”'
+			act '去<<$npcdesc>>家': gt 'date_hangout', 'start', 'together'
+		end
+	end
+end
+
+if $ARGS[0] = 'coffee_init':
+	$date_ev['loc'] = 'date_after'
+	$date_ev['talk_img'] = 'coffee_talk_img'
+	$date_ev['loc_img'] = 'kitchen_img'
+end
+
+if $ARGS[0] = 'coffee_talk_img':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/romance/activities/apartment/coffee<<rand(1,2)>>.jpg"></center>'
+end
+
+if $ARGS[0] = 'kitchen_img':
+	cla & *clr
+	gs 'date_ev', 'kitchen_img'
+end
+if $ARGS[0] = 'coffee_after_start':
+	gs 'date_after', 'coffee_init'
+	$date_ev['locat'] = 'npc_home'
+	date_ev['at_home'] = 1
+	if rand(0, 10) < npc_sexdrive[$npcID]:
+		gs 'date_ev', 'hall_img'
+		'<<$npcdesc>>让你进了他的公寓，但你没往厨房走，而是很快发现他的手在扯你的衣服。'
+		act '咖啡到此为止':
+			cla & *nl
+			'<i>好吧，咖啡就算了吧，</i>你心里想着，<<$npcdesc>>把你往卧室推去。'
+			xgt 'sex_ev_start', 'date_npc_home_start'
+		end
+
+		act '咖啡只是个借口':
+			cla & *nl
+			'<i>很好，</i>你想着，咧嘴一笑<<$npcdesc>>把你往卧室推去。<i>反正我也不是真想喝咖啡……</i>'
+			xgt 'sex_ev_start', 'date_npc_home_start'
+		end
+	else
+		gs 'date_ev', 'kitchen_img'
+		'<<$npcdesc>>让你进了他的公寓，你自在地待着，他则去煮了些咖啡。'
+		act '继续': gt 'date_after', 'coffee_after1'
+	end
+end
+
+
+if $ARGS[0] = 'coffee_after1':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/shared/romance/activities/apartment/coffee<<rand(1,2)>>.jpg"></center>'
+	'你们一边一起喝着咖啡，一边聊着各种事情。'
+	if npc_sexdrive >= rand(1,10) or ($npc_rel_goal[$npcID] = 'sex' and npc_pushy[$npcID] > 0): xgt 'date_after', 'boy_pushing_sex'
+	if npc_living_together[$npcID] > 0:
+		act '结束约会': gs 'date_ev', 'date_finish' & gt 'lover_home', 'kitchen'
+	else
+		if hour >= 20 or hour <= 3:
+			act '说晚安': gt 'date_after', 'apartment_date_end'
+		else
+			act '说再见': gt 'date_after', 'apartment_date_end'
+		end
+	end
+	act '开始暗示（想做爱）': gt 'date_after', 'dropping_hints'
+	act '分手': msg '开发中'
+end
+
+
+if $ARGS[0] = 'dropping_hints':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/romance/activities/apartment/coffee2.jpg"></center>'
+	'“和你在一起我真的很开心，”你娇声娇气地说道。'
+	'“是啊，我也是。”'
+	'你开始用火热的眼神看他，在桌下挑逗地磨蹭着双腿。'
+	'“感觉真好……我只是不知道该不该现在就回家……”'
+	if npc_prcptn[$npcID] >= rand(1,50):
+		'“那我们为什么不让这一刻再久一点呢，”他冲你微笑着，让你明白他显然领会了你的意思。'
+		act '去卧室': xgt 'sex_ev_start', 'date_npc_home_start'
+	else
+		'“我知道，我也是，”他同情地说。“但天下没有不散的筵席。”'
+		*nl
+		'<i>他是不想做爱，还是只是太迟钝了？？</i>'
+		if hour >= 20 or hour <= 3:
+			act '说晚安': gt 'date_after', 'apartment_date_end'
+		else
+			act '说再见': gt 'date_after', 'apartment_date_end'
+		end
+		act '直接挑明':
+			cla & *clr
+			gs 'date_ev', 'kitchen_img'
+			'“嘿，<<$npcdesc>>。你想做爱吗？”'
+			'“啊？”他看起来很困惑，没想到你居然会这么问。'
+			'“做爱。你现在想和我做爱吗？”'
+			'“哦！呃，想啊！”'
+			*nl
+			'至少他总算听明白了。'
+			act '去卧室': xgt 'sex_ev_start', 'date_npc_home_start'
+		end
+	end
+end
+
+if $ARGS[0] = 'boy_pushing_sex':
+	*nl
+	gs 'arousal', 'foreplay', 5
+	gs 'stat'
+	if npc_sensual_lover[$npcID] > 0:
+		'开始得很慢，<<$npcdesc>>的手覆在你的手上。然后他坐到你身边。接着他开始亲你的脖子。他拉扯着你的衣服。'
+	else
+		'你不确定发生了什么、是什么时候发生的，但很快你就发现<<$npcdesc>>坐到了你旁边。然后他贴了上来。他的手在你乳房上乱摸。'
+	end
+
+	act '等等等等！':
+		cla & *clr
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/grab/kotovpr.mp4"></video></center>'
+		'“等等，等等！”你结结巴巴地说，恐慌感不断上涌。'
+		'“别这样，宝贝，”他不以为然地低声说。“这会让你很舒服的……”'
+		gs 'willpower', 'resist', 'sex'
+		if pcs_willpwr < will_cost:
+			act '挣脱' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '挣脱' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'self'
+				gs 'stat'
+				'他的手在你身上到处乱摸但你只能一边重复拒绝一边设法挣脱。'
+				'“我真的得走了！”你尖声说道。'
+				if $npc_rel_goal[$npcID] = 'sex' and npc_arrogant[$npcID] > 0:
+					'当你朝门口走去时，<<$npcdesc>>忍不住皱起了眉头。'
+				else
+					'<<$npcdesc>>惆怅地撇了撇嘴' + iif(rand(1,10) < npc_sexdrive[$npcID] or npc_womanizer[$npcID] > 0, ' 上下打量你的身体，目光始终没有高过你的领口。', '以一种似乎在说，<i>不能怪他想试试</i>.')
+				end
+				xgt 'date_after', 'leaving_dialogue_choices'
+			end
+		end
+
+		act '无力地抗议':
+			cla & *nl
+			'“等等——！等一下，我——”你想找些借口，但你的声音很无力，就像你被推着走向' + iif(npc_apt_type[$npcID] < 3, '床。', '卧室。')
+			act '继续':
+				gs 'sex_ev_stats', 'starting_mood', 'reluctant'
+				if $npcRelat ! '':
+					gt 'sex_ev_start', 'npc_home_start'
+				else
+					gt 'sex_ev_start', 'npc_home_start', 'hookup'
+				end
+			end
+		end
+
+		act '哦，好吧':
+			cla & *nl
+			'“等等——！等一下，我——！……算了吧，”你的抗议渐渐消失，你咯咯笑了起来，任由自己被推向' + iif(npc_apt_type[$npcID] < 3, '床。', '卧室。')
+			act '继续':
+				if $npcRelat ! '':
+					gt 'sex_ev_start', 'npc_home_start'
+				else
+					gt 'sex_ev_start', 'npc_home_start', 'hookup'
+				end
+			end
+		end
+	end
+
+	act '任由自己被诱惑':
+		cla & *clr
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/grab/kotovpr.mp4"></video></center>'
+		'“<i>嗯……</i>，”你在他的抚摸下轻声呻吟。“<<$npcdesc>>……哦——！”'
+		'你爆发出一阵笑声，<<$npcdesc>>捏了捏你的屁股，开始把你推向' + iif(npc_apt_type[$npcID] < 3, '床。', '卧室。')
+		act '继续':
+			if $npcRelat ! '':
+				gt 'sex_ev_start', 'npc_home_start'
+			else
+				gt 'sex_ev_start', 'npc_home_start', 'hookup'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'apartment_date_end':
+	*clr & cla
+	gs 'date_ev', 'kitchen_img'
+	if hour >= 20 or hour <= 3:
+		'“嗯，已经很晚了……”你惆怅地看着时钟说。“我大概该走了……”'
+	else
+		'“那个，我大概该走了……”你惆怅地看着时钟说。'
+	end
+	if rand(0, 10) < npc_sexdrive[$npcID]:
+		if npc_dirty_lover[$npcID] > 0:
+			'“一定要走吗？也许你可以再待一会儿，然后……” <<$npcdesc>>的声音渐渐消失了，他用一只手顺着你的腰侧向下滑。如果之前你对他的意图还有什么疑虑，那么在他用力抓住你屁股的那一刻，一切就再清楚不过了。'
+		elseif npc_sensual_lover[$npcID] > 0:
+			'“一定要走吗？也许你可以再待一会儿，然后……” <<$npcdesc>>的声音渐渐消失了，他把一只手覆在你的手上，手指轻轻划过你的肌肤。'
+		else
+			'“一定要走吗？也许你可以再待一会儿，然后……” <<$npcdesc>>说着说着就没了声音，他的一只手顺着你的腰侧向下滑去。'
+		end
+		xgt 'date_after', 'sex_inv_offer'
+	elseif rand(0, 99) < npc_rel[$npcID] and hour >= 20 or hour <= 3:
+		'“你不一定非得走，” <<$npcdesc>>说着，和你一起站了起来。“不如……留下来过夜？”'
+		xgt 'date_after', 'spend_night_offer'
+	else
+		'“好啊，”他回答道。'
+		act '说再见': gt 'date_after', 'goodbye_route'
+	end
+end
+
+if $ARGS[0] = 'spend_night_offer':
+	act '不用了，谢谢':
+		date_ev['cant_stay'] = 1
+		*clr & cla
+		gs 'date_ev', 'hall_img'
+		'“谢谢，不过还是算了，”你惆怅地朝门口走去。“我今晚真的得回家。”'
+		gs 'date_after', 'npc_home_leave'
+	end
+
+	act '嗯……':
+		cla & *nl
+		'“那个……”你停顿了一下，考虑着。你<i>可以</i>今晚留下来。也许你并不<i>想</i>非得走……'
+		act '不，我不应该':
+			date_ev['cant_stay'] = 1
+			*clr & cla
+			gs 'date_ev', 'hall_img'
+			'“……不，”你叹了口气。“我真的不应该。我想留下，但我不能。”'
+			gs 'date_after', 'npc_home_leave'
+		end
+
+		act '我想也许可以……':
+			*clr & cla
+			gs 'date_ev', 'kitchen_img'
+			'“……我想应该可以……”你松口了。'
+			act '脱掉衣服，上床和他躺在一起':
+				if $clothingworntype ! 'nude': gs 'clothing', 'strip'
+				if $braworntype ! 'none': gs 'bras', 'remove'
+				if $pantyworntype ! 'none': gs 'panties', 'remove'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/shared/sex/after/cuddle1.jpg"></center>'
+				'你溜回床上，依偎着<<$npcdesc>>, 你赤裸的身体伏在他身上。他也张开双臂抱住你然后你们两人放松下来，听着彼此的呼吸声。'
+				gs 'date_after', 'sleep_over'
+			end
+		end
+	end
+
+	act '我真的得走了':
+		date_ev['cant_stay'] = 1
+		*clr & cla
+		gs 'date_ev', 'dress_loop'
+		'“我也想留下，但我真的得走了，”你说道，<<$date_ev[''dress_describe'']>>。“今晚对我来说实在不行。”'
+		gs 'date_after', 'npc_home_leave'
+	end
+end
+
+if $ARGS[0] = 'sex_inv_offer':
+	act '坚决拒绝':
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		cla & *clr
+		gs 'date_ev', 'kitchen_img'
+		if npc_sensual_lover[$npcID] > 0:
+			'“不行，”你说道，语气强硬，用力把手从他那里抽了回来。'
+		else
+			'“不行，”你说道，语气强硬，你抓住他的手腕，把它们从你腰上掰开，坚决地推回到他自己的地盘上。'
+		end
+		if $npc_rel_goal[$npcID] = 'sex' and npc_arrogant[$npcID] > 0:
+			'当你朝门口走去时，<<$npcdesc>>忍不住皱起了眉头。'
+		else
+			'<<$npcdesc>>惆怅地撇了撇嘴' + iif(rand(1, 10) < npc_sexdrive[$npcID] or npc_womanizer[$npcID] > 0, ' 上下打量你的身体，目光始终没有高过你的领口。', '以一种似乎在说，<i>不能怪他想试试</i>.')
+		end
+		xgt 'date_after', 'leaving_dialogue_choices'
+	end
+
+	act '勉强拒绝':
+		cla & *clr
+		gs 'date_ev', 'kitchen_img'
+		if npc_sensual_lover[$npcID] > 0:
+			'“不行，”你轻声说道，轻轻把他的手从你腰上拿开，让他的手在你手中停留了片刻。“我不能。”'
+		else
+			'“不行，”你轻声说道，手指翻转着与他的手指交扣在一起，贪恋地握住他那份温暖片刻。“我不能。”'
+		end
+		if $npc_rel_goal[$npcID] = 'sex' and (npc_abusive[$npcID] > 0 or npc_assertive > 0 or npc_misogynist > 0):
+			'“别这样嘛，”他坚持道，把你拉回他身边。“我只是想和你好好开心一下。”'
+			gs 'willpower', 'resist', 'sex'
+			if pcs_willpwr < will_cost:
+				act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '拒绝' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'pay', 'self'
+					gs 'stat'
+
+					'他的手在你身上到处乱摸但你只能一边重复拒绝一边设法挣脱。'
+					if $npc_rel_goal[$npcID] = 'sex' and npc_arrogant[$npcID] > 0:
+						'当你朝门口走去时，<<$npcdesc>>忍不住皱起了眉头。'
+					else
+						'<<$npcdesc>>惆怅地撇了撇嘴' + iif(rand(1,10) < npc_sexdrive[$npcID] or npc_womanizer[$npcID] > 0, ' 上下打量你的身体，目光始终没有高过你的领口。', '以一种似乎在说，<i>不能怪他想试试</i>.')
+					end
+					xgt 'date_after', 'leaving_dialogue_choices'
+				end
+			end
+			act '改变主意（做爱）':
+				cla & *nl
+				'他的坚持赢得了你的心，你不由自主地，一抹微笑爬上了你的脸。'
+				'“好吧，”你低声说道，任由他领着你走向床边。'
+				xgt 'sex_ev_start', 'date_npc_home_start'
+			end
+
+			act '让步（勉强）':
+				cla & *nl
+				'你不知道该怎么办。你其实并不想顺他的意，但你又看不出不把事情弄得更糟还能怎么脱身。你一再试着拒绝他，可每一次拒绝似乎都毫无进展，等你回过神来，你已经站在他的床边了。'
+				xgt 'sex_ev_start', 'date_npc_home_start'
+			end
+		else
+			if $npc_rel_goal[$npcID] = 'sex' and npc_arrogant[$npcID] > 0:
+				'当你朝门口走去时，<<$npcdesc>>忍不住皱起了眉头。'
+			else
+				'<<$npcdesc>>惆怅地撇了撇嘴' + iif(rand(1,10) < npc_sexdrive[$npcID] or npc_womanizer[$npcID] > 0, ' 上下打量你的身体，目光始终没有高过你的领口。', '以一种似乎在说，<i>不能怪他想试试</i>.')
+			end
+			xgt 'date_after', 'leaving_dialogue_choices'
+		end
+	end
+
+	act '开心地接受':
+		cla & *nl
+		if npc_dirty_lover[$npcID] > 0:
+			'你和他四目相对，嘴角勾起一抹坏笑，你向前迈了一步。他的手捏住你的臀瓣，隔着你的' + iif(PCloSkirtShortness > 0, '裙子。', '裤子。') + '你们俩跌跌撞撞地走向卧室。'
+		elseif npc_sensual_lover[$npcID] > 0:
+			'你和他四目相对，十指交错，缠绕在一起，就这样在门口逗留了片刻。几分钟？说不清。你的包掉在地上。你们俩谁都没说话，<<$npcdesc>>领着你走向卧室。'
+		else
+			'你与他对视，嘴角勾起一抹微笑，向前迈了一步。他的双手在你腰上收紧，你环抱住他的背。你们一起走向卧室，什么都不必说。'
+		end
+		xgt 'sex_ev_start', 'date_npc_home_start'
+	end
+
+	act '勉强接受':
+		date_ev['reluctant_sex'] += 1
+		cla & *clr
+		gs 'date_ev', 'kitchen_img'
+		if npc_dirty_lover[$npcID] > 0:
+			'“呃……嗯……”你朝门口瞥了一眼，就在这时他猛地一把揉住你的屁股，一阵震惊感穿过你全身。你想说不，但你做不到。他已经拉着你走向卧室，冲你咧嘴笑着。你唯一能做的就是回报一个勉强的微笑，默许得连你自己都不确定……'
+		elseif npc_sensual_lover[$npcID] > 0:
+			'“呃……嗯……”你朝门口瞥了一眼，这时<<$npcdesc>>的手指扣进了你的指缝。你真的很想离开，但他已经把你拉近了。压力太大了。你没法拒绝。他冲你咧嘴一笑，在他把你拉向卧室时，你回报了一个勉强的微笑，默许得连你自己都不确定……'
+		else
+			'“呃……嗯……”你朝门口瞥了一眼，就在这时他把你拉得更近了。你的目光移回去与他对视。他硬起的鸡巴顶在你的骨盆上。你喉咙发紧。压力太大了。你没法拒绝。他冲你咧嘴一笑，在他把你拉向卧室时，你回报了一个勉强的微笑，默许得连你自己都不确定……'
+		end
+		xgt 'sex_ev_start', 'date_npc_home_start'
+	end
+end
+
+if $ARGS[0] = 'goodbye_route':
+	if $date_ev['locat'] = 'npc_home' or $date_ev['locat'] = 'hotel_room':
+		gt 'date_after', 'npc_home_leave'
+	elseif $date_ev['locat'] = 'pc_home':
+		gt 'date_after', 'pc_home_leave'
+	else
+		gt 'date_after', 'street_goodbye'
+	end
+end
+
+if $ARGS[0] = 'street_goodbye':
+	gs 'date_after', 'after_outside_image'
+	'约会大概最好就到这里结束吧。'
+	xgt 'date_after', 'leaving_dialogue_choices', 'outside'
+end
+
+if $ARGS[0] = 'sleep_over':
+	act '和<<$npcdesc>>':
+		*clr & cla
+		gs 'date_ev', 'bed_room_img'
+		'你给<<$npcdesc>>一起上床，脸上带着感激的微笑，脱去衣服，爬上床和他躺在一起。'
+		'没过多久，你们两人就在彼此的呼吸声中睡着了。'
+		act '. . .': gt 'date_after', 'sleep_function'
+	end
+end
+
+if $ARGS[0] = 'sleep_function':
+	gs 'arousal', 'end'
+
+	if rand(0, 10) < npc_sexdrive[$npcID] + npc_sleep_sex_okay[$npcID] + npc_selfish[$npcID] and (stat['think_virgin'] <> 1 or sex_ev['fuck_count'] > 0) and sex_ev['sleep_fuck'] = 0 and sex_ev['lover_left'] <> 1:
+		date_ev['sleepover'] = 1
+		if rand(0, 1) = 1:
+			minut += 60 * date_ev['sleep_time']
+			if trait_vars['sleep_duration'] = 1:
+				pcs_sleep += 17 * date_ev['sleep_time']
+			elseif trait_vars['sleep_duration'] = -1:
+				pcs_sleep += (944 * date_ev['sleep_time']) / 100
+			else
+				pcs_sleep += 12 * date_ev['sleep_time']
+			end
+			pcs_health += 5 * date_ev['sleep_time']
+			gs 'stat'
+			sex_ev['sleep_fuck'] = 1
+		else
+			if alko > 6:
+				gs 'sleep_simple', 'simple'
+				gs 'pain', 3, 'head', 'ache'
+			else
+				gs 'sleep_simple', 'simple'
+			end
+			sex_ev['wake_fuck'] = 1
+		end
+	else
+		date_ev['sleepover'] = 1
+		if alko > 6:
+			date_ev['hangover'] = 1
+			gs 'sleep_simple', 'simple'
+			gs 'pain', 3, 'head', 'ache'
+		else
+			gs 'sleep_simple', 'simple'
+		end
+
+		if $start_type['loc'] = 'sg' and func('homes_properties', 'has_access', 'parents_home'): sveta_punishment['no_come_home'] = 1
+		gt 'sex_ev_wakeup', 'start'
+	end
+
+	if npc_latesleeper[$npcID] = 0 and npc_caretaker[$npcID] = 1 and rand(1, 4) < 4 and $date_ev['locat'] ! 'hotel_room':
+		date_ev['boy_make_breakfast'] = 1
+		if date_ev['boy_shower'] = 1: date_ev['boy_shower'] = 0
+	elseif npc_earlyriser[$npcID] = 1 and sex_ev['wake_fuck'] ! 1:
+		if rand(1, 2) = 1:
+			date_ev['boy_in_shower'] = 1
+		else
+			date_ev['boy_shower'] = 1
+			date_ev['npc_morning_shower'] = 1
+		end
+!!	else
+!!		if date_ev['boy_shower'] = 1: date_ev['boy_shower'] = 0
+	end
+
+	if sex_ev['wake_fuck'] + sex_ev['sleep_fuck'] > 0:
+		gs 'sex_ev_start', 'begin'
+		gs 'sex_ev_start', 'lover_home_img_init'
+	end
+
+	if sex_ev['wake_fuck'] = 1:
+		gt 'sex_ev_sex', 'wakeup_sex'
+	elseif sex_ev['sleep_fuck'] = 1:
+		gt 'sex_ev_sex', 'sleep_sex'
+	elseif sex_ev['sleep_fuck'] = 0:
+		gt 'date_ev', 'wakeup'
+	else
+		!! failsafe option
+		gt 'date_ev', 'wakeup'
+	end
+end
+
+if $ARGS[0] = 'npc_home_leave':
+	*clr & cla
+	gs 'date_ev', 'hall_img'
+	'你和<<$npcdesc>>一起站在门口。'
+	xgt 'date_after', 'leaving_dialogue_choices', 'inside'
+end
+
+if $ARGS[0] = 'leaving_dialogue_choices':
+	if (date_ev['mad'] = 1 or date_ev['angry_after']) and $ARGS[1] = 'inside':
+		act '愤怒地离开':
+			*clr & cla
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart1.mp4"></video></center>'
+			'你没有回答，只是烦躁地抓起东西大步走出门。'
+			act '离开': gt 'date_after', 'exit'
+		end
+
+		act '掩饰恼怒':
+			cla & *nl
+			'“回头见，”你冷冷地说，抓起自己的东西大步走出门去。'
+			act '离开': gt 'date_after', 'exit'
+		end
+	else
+		act '"拜拜"':
+			$date_ev['leave_dialogue'] = '拜拜'
+			gs 'date_after', 'leaving_action'
+		end
+
+		act '"回见"':
+			$date_ev['leave_dialogue'] = '回头见'
+			gs 'date_after', 'leaving_action'
+		end
+
+		act '"我玩得很开心"':
+			$date_ev['leave_dialogue'] = '我玩得很开心'
+			gs 'date_after', 'leaving_action'
+		end
+		if $npc_rel_type[$npcID] ! '':
+			act '"我们再约一次吧"':
+				$date_ev['leave_dialogue'] = '我们找时间再来一次'
+				gs 'date_after', 'leaving_action'
+			end
+
+			if $npc_rel_type[$npcID] = 'sugar_daddy':
+				act '随时给我发短信':
+					$date_ev['leave_dialogue'] = '任何时候想要人陪就给我发短信'
+					gs 'date_after', 'leaving_action'
+				end
+			else
+				act '"给我发短信"':
+					$date_ev['leave_dialogue'] = '给我发短信'
+					gs 'date_after', 'leaving_action'
+				end
+			end
+
+			!!{
+			if npc_booty_call_date[$npcID] = daystart and date_ev['sleepover'] = 1:
+				act '"回头见"':
+					$date_ev['leave_dialogue'] = '很快再见'
+					gs 'date_after', 'leaving_action'
+				end
+			elseif npc_booty_call_date[$npcID] = daystart + 1:
+				act '"明天见"':
+					$date_ev['leave_dialogue'] = '明天见'
+					gs 'date_after', 'leaving_action'
+				end
+			else
+				act '"下次见"':
+					$date_ev['leave_dialogue'] = '下次再见'
+					gs 'date_after', 'leaving_action'
+				end
+			end
+			}
+		end
+
+		if $npc_rel_type[$npcID] = 'sugar_daddy':
+			act '别忘了钱':
+				$date_ev['leave_dialogue'] = '下次记得把钱准备好'
+				gs 'date_after', 'leaving_action'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'leaving_action':
+	cla
+	act '微笑':
+		$date_ev['leave_action'] = '，向他飞快地笑了笑'
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '挥手告别':
+
+		$date_ev['leave_action'] = '，向他摆动手指'
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '眨眼':
+		$date_ev['leave_action'] = '，朝他眨了眨眼'
+
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '给他一个飞吻':
+		$date_ev['leave_action'] = '，给了他一个飞吻'
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '亲吻他的脸颊':
+		$date_ev['leave_action'] = '，停下来在他脸颊上轻轻一吻'
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '吻他':
+		$date_ev['leave_action'] = '，停下来在他唇上快速亲了一下'
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '深深地吻他':
+		$date_ev['leave_action'] = '，停下来给他一个绵长而深情的吻。好几秒后你才退开，舌头离开他口腔时还牵着一缕唾液。'
+		gt 'date_after', 'leaving_end'
+	end
+
+	act '若无其事':
+		$date_ev['leave_action'] = '，若无其事，头也不回地走出了门'
+		gt 'date_after', 'leaving_end'
+	end
+end
+
+if $ARGS[0] = 'leaving_end':
+	cla
+	'“<<$date_ev[''leave_dialogue'']>>，”你说道<<$date_ev[''leave_action'']>>。'
+	if $date_ev['leave_dialogue'] = '拜拜':
+		'“再见，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '回头见':
+		'“嗯，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '我玩得很开心':
+		'“我也是，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '我们找时间再来一次':
+		'“好啊，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '任何时候想要人陪就给我发短信':
+		'“没问题，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '给我发短信':
+		'“会的，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '下次再见':
+		'“嗯，”他微笑着目送你离开。'
+	elseif $date_ev['leave_dialogue'] = '下次记得把钱准备好':
+		'“我会的，”他微笑着目送你离开。'
+	else
+		'“再见，”他微笑着目送你离开。'
+	end
+	act '离开': gt 'date_after', 'exit'
+end
+
+if $ARGS[0] = 'pc_home_leave':
+	!! if $npcID = 'A34':
+	!!	gs 'date_ev_A34', 'kolka_leave'
+	!! else
+		!!{
+		if npc_latesleeper[$npcID] = 1 and date_ev['boy_wakeup'] = 0 and date_ev['boy_asleep'] = 1 and $home['current'] ! 'parents_home':
+			act '起身离开，把<<$npcdesc>>留在床上':
+				*clr & cla
+				gs 'date_ev', 'bed_room_img'
+				'不想吵醒<<$npcdesc>>, 你偷偷走到门边，悄悄出去，尽可能轻地随手关上了身后的门。'
+				act '离开': gt 'date_after', 'exit'
+			end
+
+		else
+		}
+		act '叫<<$npcdesc>>离开':
+			*clr & cla
+			gs 'date_ev', 'bed_room_img'
+			if date_ev['angry_after'] = 1 or date_ev['annoyed'] > 0:
+				'"你应该走了，"你面无表情地说。'
+				'<<$npcdesc>>僵硬地从床上爬起来，穿好衣服，你们俩都没有真正地和对方对视。过了一两分钟，他穿好了，一句话也没说就离开了。'
+				act '完成': gt 'date_after', 'exit'
+			else
+				if $home['current'] = 'parents_home' and locat['Fam_inGad'] = 1 and week = 7 and hour > 16:
+					'"这次玩得挺开心，不过你大概该走了。"你苦笑了一下。"我父母快回来了。"<<$npcdesc>>点点头，开始捡起他的衣服穿好。'
+				else
+					'"这次玩得挺开心，不过你大概该走了，"你对<<$npcdesc>>说，他点点头，开始捡起他的衣服穿好。'
+				end
+				gs 'date_after', 'pc_home_leaving_action'
+			end
+		end
+		!! end
+	!! end
+end
+
+if $ARGS[0] = 'pc_home_leaving_action':
+	cla
+	if $clothingworntype = 'nude':
+		act '赖在床上（盖着被子）':
+			$date_ev_exit['loc'] = 'bedroom'
+			$date_ev['leave_action1'] = '你坐在床上，端庄地拉起床单裹住自己，以保持一点体面，看着<<$npcdesc>>穿好衣服。等他结束时，你说，'
+			$date_ev['leave_action2'] = '他冲你快速一笑，然后收拾好剩下的东西离开，随手关上了门。'
+			gs 'date_after', 'pc_home_leaving_dialogue'
+		end
+
+		act '赖在床上（不盖被子）':
+			$date_ev_exit['loc'] = 'bedroom'
+			$date_ev['leave_action'] = '你仍坐在床上，随意地赤裸着躺在床单上，看着<<$npcdesc>>穿好衣服。他穿衣时不止一次向你投来欣赏的目光，结束后你说，'
+			$date_ev['leave_action2'] = '他冲你快速一笑，然后收拾好剩下的东西离开，随手关上了门。'
+			gs 'date_after', 'pc_home_leaving_dialogue'
+		end
+	end
+
+	act '吻别':
+		$date_ev_exit['loc'] = 'bedroom'
+		$date_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。他穿好之后，你走过去，在他唇上轻轻一吻，说，'
+		$date_ev['leave_action2'] = '他冲你快速一笑，然后收拾好剩下的东西离开，随手关上了门。'
+		gs 'date_after', 'pc_home_leaving_dialogue'
+	end
+
+	act '送<<$npcdesc>>到门口':
+		if $clothingworntype = 'nude':
+			$date_ev_exit['loc'] = 'hallway'
+			$date_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。他穿好之后，你带他走向门口，完全没有自己穿衣服的意思。你为他打开门，他走出去，而你全裸地站在门框里说，'
+			$date_ev['leave_action2'] = '他回你一个快速的微笑，然后走开了。你目送他离去片刻，然后回到屋里，关上了身后的门。'
+		else
+			$date_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。他穿好之后，你带他走向门口。他走出去时，你说，'
+			$date_ev['leave_action2'] = '他回你一个快速的微笑，然后走开了。你目送他离去片刻，然后回到屋里，关上了身后的门。'
+		end
+		gs 'date_after', 'pc_home_leaving_dialogue'
+	end
+
+	act '在门口亲吻<<$npcdesc>>':
+		$date_ev_exit['loc'] = 'hallway'
+		if $clothingworntype = 'nude':
+			$date_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。等他穿好你便带他到门口，自己却完全没有要穿衣服的意思。就在<<$npcdesc>>走出去时，你抓住他的衬衫把他拉回来，来一个热烈的吻，把他紧紧拉向你赤裸的身体，这景象任何能看到你家前门的人都能看见。过了好几秒，你才断开这个吻，说道，'
+			if rand(1, 1) = 5:
+				$date_ev['leave_action2'] = '你拉<<$npcdesc>>又回来吻了一下，但更温柔也更短暂。你退开时，一个人从他身后走过，瞪大了眼看着你的胸部。'
+			else
+				$date_ev['leave_action2'] = '你拉<<$npcdesc>>回来再次亲吻，但更轻柔更快。他回以一个短暂的笑容，然后离开。你目送他走了一会儿，才关上身后的门。'
+			end
+		else
+			$date_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。等他穿好你便带他到门口，自己却完全没有要穿衣服的意思。就在<<$npcdesc>>走出去时，你抓住他的衬衫，把他拉进一个热烈的吻。过了好几秒，你断开这个吻，说道，'
+			$date_ev['leave_action2'] = '你拉<<$npcdesc>>回来再次亲吻，但更轻柔更快。他回以一个短暂的笑容，然后离开。你目送他走了一会儿，才转身进屋并关上了门。'
+		end
+		gs 'date_after', 'pc_home_leaving_dialogue'
+	end
+end
+
+if $ARGS[0] = 'pc_home_leaving_dialogue':
+	cla
+	act '"谢谢你过来。"':
+		if date_ev['sleepover'] = 1:
+			$date_ev['leave_dialogue'] = '“谢谢你昨晚过来。我玩得很开心。”'
+		else
+			$date_ev['leave_dialogue'] = '“谢谢你过来。我玩得很开心。”'
+		end
+
+		gs 'date_after', 'pc_home_leaving_end'
+	end
+
+	act '"回见"':
+		$date_ev['leave_dialogue'] = '“回头见。”'
+		gs 'date_after', 'pc_home_leaving_end'
+	end
+
+	if $npc_rel_type[$npcID] = '':
+
+		!!{
+		if date_ev['sleepover'] = 1 or hour < 5:
+			act '"还想再来一次吗？"':
+				date_ev['invite_today'] = 1
+				gs 'date_after', 'pc_home_leaving_end'
+			end
+		else
+			act '"还想再来一次吗？明天？"':
+				date_ev['invite_tomorrow'] = 1
+				gs 'date_after', 'pc_home_leaving_end'
+			end
+		end
+		}
+	else
+		act '"给我发短信"':
+			$date_ev['leave_dialogue'] = '“给我发短信。”'
+			gs 'date_after', 'pc_home_leaving_end'
+		end
+
+		if npc_booty_call_date[$npcID] = daystart and date_ev['sleepover'] = 1:
+			act '"回头见"':
+				$date_ev['leave_dialogue'] = '“很快再见。”'
+				gs 'date_after', 'pc_home_leaving_end'
+			end
+		elseif npc_booty_call_date[$npcID] = daystart + 1:
+			act '"明天见"':
+				$date_ev['leave_dialogue'] = '“明天见。”'
+				gs 'date_after', 'pc_home_leaving_end'
+			end
+		else
+			act '"下次见"':
+				$date_ev['leave_dialogue'] = '“下次再见。”'
+				gs 'date_after', 'pc_home_leaving_end'
+			end
+	!!{		if date_ev['sleepover'] = 1 or hour < 5:
+				act '"还想再来一次吗？"':
+					date_ev['invite_today'] = 1
+					gs 'date_after', 'pc_home_leaving_end'
+				end
+			else
+				act '"还想再来一次吗？明天？"':
+					date_ev['invite_tomorrow'] = 1
+					gs 'date_after', 'pc_home_leaving_end'
+				end
+			end}
+		end
+	end
+end
+
+if $ARGS[0] = 'pc_home_leaving_end':
+	cla & *nl
+	if date_ev['invite_today'] = 0 and date_ev['invite_tomorrow'] = 0:
+		'<<$date_ev[''leave_action1'']>> <<$date_ev[''leave_dialogue'']>> <<$date_ev[''leave_action2'']>>'
+	elseif date_ev['invite_today'] = 1:
+		'<<$date_ev[''leave_action1'']>>'
+		*nl
+		'“以后还想再来一次吗？”你问道。'
+		*nl
+		'<<$date_ev[''leave_action2'']>>'
+	elseif date_ev['invite_tomorrow'] = 1:
+		'<<$date_ev[''leave_action1'']>>'
+		*nl
+		'“明天还想再来一次吗？”你问道。'
+		*nl
+		'<<$date_ev[''leave_action2'']>>'
+	end
+	act '离开': gt 'date_after', 'exit'
+end
+
+if $ARGS[0] = 'hurry_leave':
+	act '没时间告别':
+		cla & *nl
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		$date_ev['leave_dialogue'] = '，连再见都没说'
+		gs 'date_after', 'hurry_leave2'
+	end
+
+	act '"待会儿见！"':
+		cla & *nl
+		$date_ev['leave_dialogue'] = '，在你身后的门砰地关上之前喊道：“待会儿见！”'
+		gs 'date_after', 'hurry_leave2'
+	end
+
+	act '"给我发短信！"':
+		cla & *nl
+		$date_ev['leave_dialogue'] = '，在你身后的门砰地关上之前喊道：“给我发短信！”'
+		gs 'date_after', 'hurry_leave2'
+	end
+
+	if $date_ev['type'] = 'hookup':
+		act '留下你的号码（炮友）':
+			date_ev['fuckbuddy_invite'] = 1
+			cla & *nl
+			if date_ev['fuck_count'] > 0:
+				$date_ev['leave_dialogue'] = '，停下来随手在一张纸上写下你的号码。“想再干一次就给我发短信！”你冲出门口、把门砰地关上时回头喊道。'
+			else
+				$date_ev['leave_dialogue'] = '，停下来随手在一张纸上写下你的号码。“想再玩玩就给我发短信！”你冲出门口、把门砰地关上时回头喊道。'
+			end
+			gs 'date_after', 'hurry_leave2'
+		end
+
+		act '留下你的号码（约会对象）':
+			cla & *nl
+			date_ev['date_invite'] = 1
+			$date_ev['leave_dialogue'] = '，停下来随手在一张纸上写下你的号码。“以后想出去约会就给我发短信！”你冲出门口、把门砰地关上时回头喊道。'
+			gs 'date_after', 'hurry_leave2'
+		end
+	end
+
+	if npc_booty_call_date[$npcID] = daystart and date_ev['sleepover'] = 1 and $npc_rel_type[$npcID] ! 'husband':
+		act '"回头见"':
+			$date_ev['leave_dialogue'] = '，在你身后的门砰地关上之前喊道：“很快再见！”'
+			gs 'date_after', 'hurry_leave2'
+		end
+	elseif npc_booty_call_date[$npcID] = daystart + 1:
+		act '"明天见"':
+			$date_ev['leave_dialogue'] = '，在你身后的门砰地关上之前喊道：“明天见！”'
+			gs 'date_after', 'hurry_leave2'
+		end
+	end
+end
+
+
+--- date_after ---------------------------------

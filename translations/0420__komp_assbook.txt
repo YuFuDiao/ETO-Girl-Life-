@@ -1,0 +1,364 @@
+# komp_assbook
+
+if $ARGS[0] = 'main' or $ARGS[0] = '':
+	gs 'stat'
+	$subs = $access['subscription']
+
+	act '关闭屁股书': gt 'komp', 'browse'
+
+	'<center><b>屁股书</b></center>'
+	if subscription[$subs] < 1:
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/eror.jpg"></center>'
+		'你没有网络， ' + iif(access['metered'], ' 你得先购买更多分钟。', ' 也许你忘了交网费？')
+		act '<b>关闭浏览器</b>': gt 'komp', 'start'
+	else
+		'<center><img <<$set_imgh>> src="images/system/image_needed.png"></center>'
+		'你现在在俄罗斯最大的社交网站"Assbook"上。几乎人人都有这里的账号'
+		*nl
+		if $assbook['account_name'] = '':
+			'点击此处登录或<a href="exec:gt ''komp_assbook'', ''signup'' ">注册</a>'
+		else
+			'点击此处<a href="exec:gt ''komp_assbook'', ''login'' ">登录</a>或注册'
+			act '前往你的主页': gt 'komp_assbook', 'login'
+		end
+
+		act '浏览屁股书 (0:20)': gt 'komp_assbook', 'browse'
+		act '查看你朋友的动态': gt 'komp_assbook', 'friends'
+
+		if shantfoto > 0: act '找到你在公园里拍过照片的那个女孩': gt 'komp_assbook', 'blackmail'
+		act '了解更多关于屁股书的信息': gt 'komp_assbook', 'mission_statements'
+	end
+end
+
+
+if $ARGS[0] = 'signup':
+	'<center><b>屁股书</b></center>'
+	'<center><img <<$set_imgh>> src="images/system/image_needed.png"></center>'
+	'你考虑要用哪个名字注册。'
+	$assbook['account_name'] = input('你想用哪个名字？（留空则使用<<$pcs_nickname>>)')
+	if $assbook['account_name'] = '': $assbook['account_name'] = '<<$pcs_nickname>>'
+	'你填写了个人信息，不一会儿就创建好了账号。你甚至可以在自己的主页上传照片。'
+	minut += 5
+	elektro += 1
+	gs 'internet_mobile', 'use_internet', $subs, 5
+	act '返回主页': gt 'komp_assbook', 'main'
+end
+
+
+if $ARGS[0] = 'browse':
+	minut += 20
+	elektro += 2
+	gs 'internet_mobile', 'use_internet', $subs, 20
+	gs 'stat'
+
+	'你花了一些时间浏览社交媒体'
+
+	act '继续浏览屁股书 (0:20)': gt 'komp_assbook', 'browse'
+	act '返回主页': gt 'komp_assbook', 'main'
+end
+
+
+if $ARGS[0] = 'friends':
+	'你不知道你朋友的账号名 :('
+
+	$func('wrap', 'neg', '此内容为开发中内容。')
+
+	act '返回主页': gt 'komp_assbook', 'main'
+end
+
+
+if $ARGS[0] = 'login':
+	'<center><img <<$set_imgh>> src="images/system/image_needed.png"></center>'
+
+	$func('wrap', 'neg', '此内容为开发中内容。')
+	*nl
+	'<a href="exec: gt ''komp_assbook'', ''upload_photo''">上传新照片</a>'
+	*nl
+	'已上传的照片：'
+	gs 'phone_selfies', 'Phone_selfie_totals'
+
+	temp_locationCnt = 0
+	:LocationLoop
+		gs 'komp_assbook', 'showlocation', temp_locationCnt
+		temp_locationCnt += 1
+	if temp_locationCnt < arrsize('$selfieLoc'): jump 'LocationLoop'
+
+	act '返回主页': gt 'komp_assbook', 'main'
+end
+
+
+if $ARGS[0] = 'showlocation':
+	!! '<center><h4><font color="maroon"><<$selfieLocDesc[ARGS[1]]>> selfies</font></h4></center>'
+	*nl
+	gs 'komp_assbook', 'listretrieve', ARGS[1], $selfieLoc[ARGS[1]]
+end
+
+
+if $ARGS[0] = 'listretrieve':
+	$temp_table = '<center><table width=80%>'
+	$temp_table += $func('komp_assbook', 'retrieve_clothed_selfies',	ARGS[1], $ARGS[2])
+	$temp_table += $func('komp_assbook', 'retrieve_swim_selfies',	ARGS[1], $ARGS[2])
+	$temp_table += '</table></center>'
+	*pl $temp_table
+	killvar 'temp_table'
+end
+
+
+!!  ARGS[1] is the index of the location in $selfieLoc[]
+!! $ARGS[2] is the selfie location
+if $ARGS[0] = 'retrieve_clothed_selfies':
+	!! Loop for clothed selfies, dynamics set variables as mixing them in loop instructions is bad
+	if selfieClotot[ARGS[1]] > 0:
+		!! '<center><b>Clothed selfies</b></center>'
+		$result += '<tr></tr><tr>'
+
+		temp_cnum = 0
+		temp_clocnt = 1
+		:retr_clothed_loop
+			!! setting value to unmixed variable so it can be checked in the if below
+			dynamic 'assbook_locval = assbook_<<$ARGS[2]>>_clothed[<<temp_clocnt>>]'
+			if assbook_locval = 1:
+				if temp_cnum = 5: $result += '</tr><tr>' & temp_cnum = 0
+				$result += '<td width="20%">' + $func('phone_selfies_popup', 'set_selfie', $ARGS[2], 'clothed', ARGS[1], temp_clocnt) + '</td>'
+				temp_cnum += 1
+			end
+			temp_clocnt += 1
+		if temp_clocnt <= selfieClotot[ARGS[1]]: jump 'retr_clothed_loop'
+		if temp_cnum ! 4: $result += '<td></td>'
+		$result += '</tr><tr></tr>'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'retrieve_swim_selfies':
+	if selfieSwimtot[ARGS[1]] > 0:
+		!! '<center><b>Swimwear selfies</b></center>'
+		$result += '<tr></tr><tr>'
+
+		temp_cnum = 0
+		temp_swicnt = 1
+		:retr_swim_loop
+			!! setting value to unmixed variable so it can be checked in the if below
+			dynamic 'assbook_locval = assbook_<<$ARGS[2]>>_bikini[<<temp_clocnt>>]'
+			if phone_locval = 1:
+				if temp_cnum = 5: $result += '</tr><tr>' & temp_cnum = 0
+				$result += '<td width="20%">' + $func('phone_selfies_popup', 'set_selfie', $ARGS[2], 'bikini', ARGS[1], temp_clocnt) + '</td>'
+				temp_cnum += 1
+			end
+			temp_swicnt += 1
+		if temp_swicnt <= selfieSwimtot[ARGS[1]]: jump 'retr_swim_loop'
+		if temp_cnum ! 4: $result += '<td></td>'
+		$result += '</tr><tr></tr>'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'upload_photo':
+	menu_off = 1
+	temp_suppress_other_selfies = 1
+	$temp_ssh_ret_loc = 'komp_assbook'
+	$temp_ssh_ret_arg = 'upload_photo2'
+
+
+	gs 'phone_selfies', 'Phone_selfie_totals'
+
+	temp_locationCnt = 0
+	:LocationLoop_upload
+		gs 'komp_assbook', 'showlocation2', temp_locationCnt
+		temp_locationCnt += 1
+	if temp_locationCnt < arrsize('$selfieLoc'): jump 'LocationLoop_upload'
+
+
+	act '返回你的主页':
+		menu_off = 0
+		killvar 'temp_suppress_other_selfies'
+		killvar 'temp_ssh_ret_loc'
+		killvar 'temp_ssh_ret_arg'
+
+		minut += 1
+		gs 'internet_mobile', 'use_internet', $subs, 1
+
+		gt 'komp_assbook', 'login'
+	end
+end
+
+
+if $ARGS[0] = 'upload_photo2':
+	dynamic 'assbook_<<$ARGS[2]>>_<<$ARGS[3]>>[<<ARGS[5]>>] = 1'
+	menu_off = 0
+	killvar 'temp_suppress_other_selfies'
+	killvar 'temp_ssh_ret_loc'
+	killvar 'temp_ssh_ret_arg'
+
+	minut += 5
+	elektro += 1
+	gs 'internet_mobile', 'use_internet', $subs, 5
+
+	gt 'komp_assbook', 'login'
+end
+
+
+if $ARGS[0] = 'showlocation2':
+	$func('wrap', 'header center h4', '<<$selfieLocDesc[ARGS[1]]>>自拍')
+	*nl
+	gs 'komp_assbook', 'listretrieve2', ARGS[1], $selfieLoc[ARGS[1]]
+end
+
+
+if $ARGS[0] = 'listretrieve2':
+	$temp_table = '<center><table width=80%>'
+	$temp_table += $func('komp_assbook', 'upload_clothed_selfies',	ARGS[1], $ARGS[2])
+	$temp_table += $func('komp_assbook', 'upload_swim_selfies',		ARGS[1], $ARGS[2])
+	$temp_table += '</table></center>'
+	*pl $temp_table
+	killvar 'temp_table'
+end
+
+
+!!  ARGS[1] is the index of the location in $selfieLoc[]
+!! $ARGS[2] is the selfie location
+if $ARGS[0] = 'upload_clothed_selfies':
+	!! Loop for clothed selfies, dynamics set variables as mixing them in loop instructions is bad
+	if selfieClotot[ARGS[1]] > 0:
+		!! '<center><b>Clothed selfies</b></center>'
+		$result += '<tr></tr><tr>'
+
+		temp_cnum = 0
+		temp_clocnt = 1
+		:upl_clothed_loop
+			!! setting value to unmixed variable so it can be checked in the if below
+			dynamic 'assbook_locval = assbook_<<$ARGS[2]>>_clothed[<<temp_clocnt>>]'
+			dynamic 'phone_locval = <<$ARGS[2]>>_closelfie[<<temp_clocnt>>]'
+			if assbook_locval = 0 and phone_locval = 1:
+				if temp_cnum = 5: $result += '</tr><tr>' & temp_cnum = 0
+				$result += '<td width="20%">' + $func('phone_selfies_popup', 'set_selfie', $ARGS[2], 'clothed', ARGS[1], temp_clocnt) + '</td>'
+				temp_cnum += 1
+			end
+			temp_clocnt += 1
+		if temp_clocnt <= selfieClotot[ARGS[1]]: jump 'upl_clothed_loop'
+		if temp_cnum ! 4: $result += '<td></td>'
+		$result += '</tr><tr></tr>'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'upload_swim_selfies':
+	if selfieSwimtot[ARGS[1]] > 0:
+		!! '<center><b>Swimwear selfies</b></center>'
+		$result += '<tr></tr><tr>'
+
+		temp_cnum = 0
+		temp_swicnt = 1
+		:upl_swim_loop
+			!! setting value to unmixed variable so it can be checked in the if below
+			dynamic 'assbook_locval = assbook_<<$ARGS[2]>>_bikini[<<temp_clocnt>>]'
+			dynamic 'phone_locval = <<$ARGS[2]>>_swim[<<temp_clocnt>>]'
+			if assbook_locval = 0 and phone_locval = 1:
+				if temp_cnum = 5: $result += '</tr><tr>' & temp_cnum = 0
+				$result += '<td width="20%">' + $func('phone_selfies_popup', 'set_selfie', $ARGS[2], 'bikini', ARGS[1], temp_clocnt) + '</td>'
+				temp_cnum += 1
+			end
+			temp_swicnt += 1
+		if temp_swicnt <= selfieSwimtot[ARGS[1]]: jump 'upl_swim_loop'
+		if temp_cnum ! 4: $result += '<td></td>'
+		$result += '</tr><tr></tr>'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'mission_statements':
+	'隆重介绍Assbook：在这里，联系比言语更有力量！'
+	'潜入Assbook这个充满活力与生机的世界吧，它是你通往数字领域的通行证，那里充满了丰富多彩的俄罗斯文化、多元的社群和无与伦比的社交互动。以下就是为什么Assbook是你一直在等待的社交媒体平台：'
+	*nl
+	'<b>文化底蕴：</b>'
+	'Assbook不仅仅是一个社交媒体网站，它更是对俄罗斯文化的礼赞。沉浸在这样一个珍视艺术、历史和独特传统的社区中，正是这些传统让俄罗斯成为一幅多元的画卷。从引人入胜的故事到惊艳的视觉效果，Assbook是你窥见这个非凡国家灵魂的窗口。'
+	*nl
+	'<b>有目的的连接：</b>'
+	'与其他社交媒体平台不同，Assbook旨在促进有意义的联系。参与重要的讨论，分享经历，寻找那些懂得人际交往深度的志同道合者。从思想上的辩论到发自内心的交谈，Assbook鼓励超越表面的联系。'
+	*nl
+	'<b>视觉叙事：</b>'
+	'通过Assbook身临其境的视觉体验，捕捉并分享你生活中的瞬间。无论是令人叹为观止的风景、艺术表达，还是日常生活的快照，让你的图片讲述故事。Assbook注重视觉叙事，把你的信息流变成一幅情感的画布，通过图像的力量激发联系。'
+	*nl
+	'<b>隐私与安全：</b>'
+	'你的网络安全是我们的首要任务。Assbook采用最先进的安全措施，确保你的个人信息保持私密。放心享受无忧的社交体验，因为你的数据是安全的。'
+	*nl
+	'<b>社区驱动的功能：</b>'
+	'Assbook会根据用户反馈不断发展。有建议或希望看到的功能？我们以社区为导向的方式意味着你的声音很重要。按照你的需求塑造这个平台，让Assbook成为你的专属。'
+	*nl
+	'<b>专属活动和群组：</b>'
+	'发现并参与为你量身定制的专属活动和群组。从文化聚会到小众社群，Assbook为你提供了一个与志趣相投的人建立联系的平台。'
+	*nl
+	'<b>面向企业的Assbook：</b>'
+	'企业家和商家们注意了！Assbook提供了一个独特的平台，用于人脉拓展、品牌推广和触达目标受众。利用Assbook社区的力量来提升你的品牌，并联系潜在客户。'
+	*nl
+	'今天就加入Assbook革命，体验超越平凡的社交媒体。拥抱俄罗斯文化之美，建立持久的联系，让Assbook成为你的数字家园！'
+
+	act '返回主页': gt 'komp_assbook', 'main'
+end
+
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'blackmail':
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+	'你现在在俄罗斯最大的社交网站"Assbook"上。几乎人人都有这里的账号，很可能包括你前几天拍过照片的那个女孩！'
+	'"也许我能找到她，然后勒索她"，你暗自想。"毕竟这张照片非常露骨……我敢打赌，如果她是个有头有脸的人，肯定不愿意看到它被公开！"'
+	'你看着它时，忍不住不时地揉着自己的小穴。不管怎样，你可能会自己留一份副本！'
+
+	act '试着找出她是谁 (1:00)':
+		cla
+		minut += 60
+		elektro += 6
+		gs 'internet_mobile', 'use_internet', $subs, 60
+		temp_rand = rand(0, 9)
+
+		if temp_rand < 7:
+			'尽管你尽了最大努力，这次你还是没能找到那个女孩。'
+			act '返回"屁股书"主页': gt 'komp_assbook', 'main'
+		else
+			shantfoto -= 1
+			'尽管你尽了最大努力，你还是没能……等等，就是她！你找到她了！'
+
+			temp_randB = rand(0, 99)
+			if temp_randB < 70:
+				'当你查看她的资料时，发大财的美梦迅速破灭了。廉价的衣服、寥寥无几的朋友、住在城市的贫民区……这个女孩不值得勒索。'
+
+				act '返回"屁股书"主页': gt 'komp_assbook', 'main'
+			elseif temp_randB < 95:
+				shantsr += 1
+				'当你翻阅她的资料时，你估计她是个不知名的中产女孩。不过，她有很多朋友，照片里穿的衣服看起来也很时髦……她有钱可花。'
+				'"为什么不让她为我花点钱呢？"你暗自好笑，开始写一条私信。'
+				'你把照片的副本连同私信发给她，并告诉她转账一小笔<<$func(''money'', ''string_profit'', 5000)>>到你的银行账户。如果她不想那张照片被发给她的全部好友列表（你在发送消息前已经把照片保存了下来），那么钱必须在48小时内到达你的银行账户。'
+
+				act '返回"屁股书"主页': gt 'komp_assbook', 'main'
+			else
+				shantbog += 1
+				'读到她的资料时，你几乎不敢相信，这个女孩是个名人！如果这张照片被公开，绝对会是一桩大丑闻！'
+				'你把照片的副本连同私信发给她，并告诉她转账<<$func(''money'', ''string_profit'', 30000)>>到你的银行账户。如果她不想那张照片被发给媒体，那么钱必须在48小时内到达你的银行账户。'
+
+				act '返回"屁股书"主页': gt 'komp_assbook', 'main'
+			end
+			killvar 'temp_randB'
+		end
+		killvar 'temp_rand'
+	end
+
+	act '返回"屁股书"主页': gt 'komp_assbook', 'main'
+end
+
+
+--- komp_assbook ---------------------------------

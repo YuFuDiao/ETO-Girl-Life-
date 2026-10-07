@@ -1,0 +1,1117 @@
+# booty_call_sms
+
+!! =====   Reply example here ==================================================================================!
+
+!!	gs 'SMStext_builder', 'add_reply', [$text], [$location], [$args0], [$args1], [$args2], ...
+!!	examples:
+!!		gs 'SMStext_builder', 'add_reply', 'No, I do''t want to come over', 'booty_call_sms', 'Choice_a', $ARGS[1], $ARGS[2]
+!!		gs 'SMStext_builder', 'add_reply', 'Good luck!', 'band_tour_anushka_SMS', 'Week1', 'Choice_a'
+
+!! =============================================================================================================!
+
+
+!! =====   Adding Images to SMS ================================================================================!
+
+!!	You can add images at the end of the text by using:
+!!		gs 'SMStext_builder', 'add_end_img', [$imagepath]
+!!	Up to 4 images can be added this way.
+
+!!	You can also always add a picture to the text, scaling is an issue though:
+!!		gs 'SMStext_builder', 'send_img', [$imagepath], [$alt_text]
+!!	alt_text is an optional variable which displays the alternative text if the image does not load.
+!!	examples:
+!!		gs 'SMStext_builder', 'send_img', 'images/characters/shared/headshots_main/144.jpg', 'Anushka''s Face'
+
+!! =============================================================================================================!
+
+
+
+!! $ARGS[1] = npc_code
+if $ARGS[0] = 'start':
+	gs 'telefon', 'ClearInSMSSchedule', $ARGS[1]
+	if npc_last_booty_call[$ARGS[1]] = daystart: exit
+
+	if npc_std_test[$ARGS[1]] = 1:
+		gs 'booty_call_sms', 'Add_std_free_SMS', $ARGS[1]
+	elseif npc_booty_call[$ARGS[1]] = daystart:
+		gs 'booty_call_sms', 'Add_pre-planned_SMS', $ARGS[1]
+	elseif sugar_daddy_call[$ARGS[1]] = 1:
+		gs 'booty_call_sms', 'Add_new_booty_call_SMS', $ARGS[1]
+	!{
+	elseif not_free:
+		gs 'booty_call_sms', 'Add_delayed_booty_call_SMS', $ARGS[1]
+	!}
+	else
+		gs 'booty_call_sms', 'Add_new_booty_call_SMS', $ARGS[1]
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              STD FREE                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'std_free_Tree':
+!!	Structure:
+!!		0: boy
+!!			1: player
+!!				2: boy
+!!					a3: player - 1st reply, choice A
+!!						a4: boy
+!!							aa5: player - 2nd reply, choice A: decline booty call
+!!								aa6: boy
+!!							ab5: player - 2nd reply, choice B: accept booty call
+!!								ab6: boy
+!!					b3: player - 1st reply, choice B
+!!						b4: boy
+!!							ba5: player - 2nd reply, choice A: decline booty call
+!!								ba6: boy
+!!							bb5: player - 2nd reply, choice B: accept booty call
+!!								bb6: boy
+
+		!! boy
+	$SMSTree['0'] = 'hey <<$pcs_nickname>>'
+			!! player
+		$SMSTree['1'] = '嗨，<<$npc_nickname[$ARGS[1]]>>'
+				!! boy
+			$SMSTree['2'] = '有个好消息'
+					!! player response 1 option 1
+				$SMSTree['a3'] = '哦？'
+						!! boy response 1
+					$SMSTree['a4'] = '我的性病检测结果很干净，我们为什么不一起庆祝一下呢'
+							!! player response 2 option 1
+						if hour < 21:
+							$SMSTree['aa5'] = '抱歉，我去不了。我还有事要做'
+						else
+							$SMSTree['aa5'] = '太晚了。如果你想让我过去，就早点发消息。'
+						end
+									!! boy response 2 option 1
+								$SMSTree['aa6'] = '操，那也许下次吧'
+
+							!! player response 2 option 2
+						$SMSTree['ab5'] = '我马上就来 ;)'
+								!! boy response 2 option 2
+							if $npc_humor[$ARGS[1]] = 'perverted' and rand(0, 1) = 0:
+								if rand(0, 1) = 0:
+									$SMSTree['ab6'] = '在街上？？ 妈的！到这儿之前管好你的裤子！'
+								else
+									$SMSTree['ab6'] = '只要之后你能让我射出来'
+								end
+							elseif $npc_humor[$ARGS[1]] = 'intellectual' and rand(0, 1) = 0:
+								$SMSTree['ab6'] = '注意措辞'
+							elseif rand(0, 1) = 0:
+								$SMSTree['ab6'] = '我已经硬了'
+							else
+								$SMSTree['ab6'] = '等不及了'
+							end
+
+					!! player response 1 option 2
+				$SMSTree['b3'] = '怎么了？'
+						!! boy response 2
+					$SMSTree['b4'] = '我的性病检测结果很干净'
+							!! player response 2 option 1
+						$SMSTree['ba5'] = $SMSTree['aa5']
+								!! boy response 2 option 1
+							$SMSTree['ba6'] = $SMSTree['aa6']
+							!! player response 2 option 2
+						$SMSTree['bb5'] = $SMSTree['ab5']
+								!! boy response 2 option 2
+							$SMSTree['bb6'] = $SMSTree['ab6']
+end
+
+
+!! Does not work with pre-planned?
+if $ARGS[0] = 'Add_std_free_SMS':
+	gs 'booty_call_sms', 'std_free_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['1'], 'booty_call_sms', 'SMS_Base', $ARGS[1]
+		gs 'SMStext_builder', 'add_sms', $ARGS[1]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'SMS_Base':
+	gs 'booty_call_sms', 'std_free_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['1']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a3'], 'booty_call_sms', 'bc_choice1', $ARGS[1], 'a'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b3'], 'booty_call_sms', 'bc_choice1', $ARGS[1], 'b'
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'bc_choice1':
+	gs 'booty_call_sms', 'std_free_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[2] + '3']
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[2] + '4']
+		gs 'SMStext_builder', 'add_reply', $SMSTree[$ARGS[2] + 'a5'], 'booty_call_sms', 'bc_choice2', $ARGS[1], $ARGS[2] + 'a', 'decline_booty_calla'
+		gs 'SMStext_builder', 'add_reply', $SMSTree[$ARGS[2] + 'b5'], 'booty_call_sms', 'bc_choice2', $ARGS[1], $ARGS[2] + 'b', 'accept_booty_call'
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+
+	killvar 'SMSTree'
+
+elseif $ARGS[0] = 'bc_choice2':
+	gs 'booty_call_sms', 'std_free_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[2] + '5']
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[2] + '6']
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+	gs 'SMStext_builder', 'end'
+
+	gs 'booty_call_sms', $ARGS[3], $ARGS[1], ARGS[4]
+	killvar 'SMSTree'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            PRE-PLANNED                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'pre_planned_booty_call_Tree':
+!!	Structure:
+!!		0: boy
+!!			a1: player - 1st reply, choice A: cancel booty call
+!!			b1: player - 1st reply, choice B
+!!				b2: boy
+!!					ba3: player - 2nd reply, choice A: cancel booty call
+!!						ba4: boy
+!!					bb3: player - 2nd reply, choice B: confirm booty call
+!!						bb4: boy
+
+
+		!! boy
+	$SMSTree['0'] = '嗨<<$pcs_nickname>>，你要过来吗？'
+			!! player choice 1 option 1
+		$SMSTree['a1'] = '抱歉，突然有事'
+			!! player choice 1 option 2
+		$SMSTree['b1'] = '已经在路上了'
+
+				!! boy
+			temp_rand = rand(0, 2)
+			if temp_rand = 0:
+				$SMSTree['b2'] = '来我家吧，我们像兔子一样狠狠干一场'
+			elseif temp_rand = 1:
+				$SMSTree['b2'] = '来我家吧，我想听你尖叫我的名字'
+			else
+				$SMSTree['b2'] = '来我家吧，今天好好爽一爽'
+			end
+			killvar 'temp_rand'
+
+				!! player choice 2 option 1
+				$SMSTree['ba3'] = '抱歉，我去不了。我还有事要做'
+					!! boy
+					$SMSTree['ba4'] = '操，那也许下次吧'
+
+
+				!! player choice 2 opiton 2
+				$SMSTree['bb3'] = '我马上就来 ;)'
+
+					!! boy
+					if $npc_humor[$ARGS[1]] = 'perverted':
+						if rand(0, 1) = 1:
+							$SMSTree['bb4'] = '在街上？？ 妈的！到这儿之前管好你的裤子！'
+						else
+							$SMSTree['bb4'] = '只要之后你能让我射出来'
+						end
+					elseif $npc_humor[$ARGS[1]] = 'intellectual':
+						if rand(0, 1) = 1:
+							$SMSTree['bb4'] = '注意措辞'
+						else
+							$SMSTree['bb4'] = '只要之后你能让我射出来'
+						end
+					else
+						$SMSTree['bb4'] = '我已经硬了'
+					end
+end
+
+
+!! For pre-planned
+if $ARGS[0] = 'Add_pre-planned_SMS':
+	gs 'booty_call_sms', 'pre_planned_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a1'], 'booty_call_sms', 'Choice2_a', $ARGS[1]
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b1'], 'booty_call_sms', 'Choice2_b', $ARGS[1]
+		gs 'SMStext_builder', 'add_sms', $ARGS[1]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Choice2_a':
+	gs 'booty_call_sms', 'pre_planned_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['a1']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Choice2_b':
+	gs 'booty_call_sms', 'pre_planned_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['b1']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['b2']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['ba3'], 'booty_call_sms', 'Choice2_b2', $ARGS[1], 'ba', 'decline_booty_calla'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['bb3'], 'booty_call_sms', 'Choice2_b2', $ARGS[1], 'bb', 'accept_booty_call'
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+
+elseif $ARGS[0] = 'Choice2_b2':
+	!! booty call is declined
+
+	gs 'booty_call_sms', 'pre_planned_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[2] + '3']
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[2] + '4']
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+	gs 'SMStext_builder', 'end'
+
+	gs 'booty_call_sms', $ARGS[3], $ARGS[1], ARGS[4]
+	killvar 'SMSTree'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          NEW BOOTY CALLS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'new_booty_call_Tree':
+	gs 'booty_call_sms', 'new_booty_call_Tree1', $ARGS[1]
+	gs 'booty_call_sms', 'new_booty_call_Tree2', $ARGS[1]
+	gs 'booty_call_sms', 'new_booty_call_Tree3', $ARGS[1]
+end
+
+
+if $ARGS[0] = 'new_booty_call_Tree1':
+!!	Structure:
+!!		0: boy
+!!			1: player
+!!				2: player
+!!					3: player
+
+	$SMSTree['0'] = 'hey <<$pcs_nickname>>'
+		$SMSTree['1'] = '嗨，<<$npc_nickname[$ARGS[1]]>>'
+			$SMSTree['a2'] = '怎么了？'
+			$SMSTree['b2'] = '嗨，小美人'
+
+			!! hour > 20 or hour < 4
+			$SMSTree['c2'] = '是有点晚了，不过对你我永远有时间 :)'
+			$SMSTree['d2'] = '很晚了。你想干什么？'
+			$SMSTree['e2'] = '太晚了，下次早点发消息给我。'
+
+			!! hour - message_received_hour >= 3
+			!! Add daystart as well??
+			$SMSTree['f2'] = '抱歉'
+				$SMSTree['fa3'] = '我刚才才看到你的消息'
+					$SMSTree['fa4'] = '怎么了？'
+				$SMSTree['fb3'] = '我刚才在做点事'
+					$SMSTree['fb4'] = $SMSTree['fa3']
+				$SMSTree['fc3'] = '我在健身房'
+					$SMSTree['fc4'] = $SMSTree['fa3']
+				$SMSTree['fd3'] = '我在上课'
+					$SMSTree['fd4'] = $SMSTree['fa3']
+end
+
+
+if $ARGS[0] = 'new_booty_call_Tree2':
+	if 0:
+		!! Date invite
+
+	elseif $npc_rel_type[$ARGS[1]] = 'sugar_daddy':
+		$SMSTree['10'] = '我想见你'
+			$SMSTree['11'] = '我订了个酒店房间'
+
+	elseif $npc_rel_type[$ARGS[1]] = 'casual_date' or $npc_rel_type[$ARGS[1]] = 'fuckbuddy':
+		$SMSTree['10'] = '我一直在想你'
+				!! player response 1 option 1
+			$SMSTree['a11'] = '你刚才在想什么？'
+					!! boy response 1
+				if npc_finance[$ARGS[1]] = 2 and func('homes_properties_attr', 'get_property_attribute', '$town', $home['current']) ! 'city' and mid($npc_residence[$ARGS[1]], 1, 4) = 'city':
+					$SMSTree['a12'] = '我在帕夫订了个酒店房间。你为什么不过来？'
+				else
+					if $npc_fav_pos[$ARGS[1]] = 'blowjob' and rand(0, 2) = 0:
+						$SMSTree['a12'] = '你的嘴含着我的鸡巴'
+					elseif npc_know_virgin[$ARGS[1]] ! 1:
+						if $npc_cum_pref[$ARGS[1]] = 'creampie' and (npc_condom_conscious[$ARGS[1]] = 0 or $npc_bareback[$ARGS[1]] = 'never_use') and rand(0, 2) = 0:
+							$SMSTree['a12'] = '用小穴盛满我的精液'
+						elseif npc_sex_speed[$ARGS[1]] = 3 and rand(0, 2) = 0:
+							$SMSTree['a12'] = '干得你腿软'
+						elseif $npc_cum_pref[$ARGS[1]] = 'facial' and rand(0, 2) = 0:
+							$SMSTree['a12'] = '让我的精液涂满你漂亮的脸'
+						elseif $npc_cum_pref[$ARGS[1]] = 'mouth' and rand(0, 2) = 0:
+							$SMSTree['a12'] = '看着你吞下我的精液'
+						elseif $npc_cum_pref[$ARGS[1]] = 'tits' and rand(0, 2) = 0:
+							$SMSTree['a12'] = '让我的精液射满你的奶子'
+						elseif $npc_fav_pos[$ARGS[1]] = 'doggy' and rand(0, 2) = 0:
+							$SMSTree['a12'] = '让你趴跪着狠狠干你'
+						elseif $npc_fav_pos[$ARGS[1]] = 'cowgirl' and rand(0, 2) = 0:
+							$SMSTree['a12'] = '让你疯狂地骑在我身上'
+						else
+							if rand(0, 1) = 0:
+								$SMSTree['a12'] = '你光着身子躺在我床上'
+							else
+								$SMSTree['a12'] = '想过来玩玩吗？'
+							end
+						end
+					else
+						$SMSTree['a12'] = 'PLACEHOLDER 1'
+					end
+				end
+
+				!! player response 1 option 2
+			$SMSTree['b11'] = '我也是'
+					!! boy response 2
+				if npc_finance[$ARGS[1]] = 2 and func('homes_properties_attr', 'get_property_attribute', '$town', $home['current']) ! 'city' and mid($npc_residence[$ARGS[1]], 1, 4) = 'city':
+					$SMSTree['b12'] = '我在帕夫订了个酒店房间。你为什么不过来？'
+				else
+					if $npc_fav_pos[$ARGS[1]] = 'blowjob' and rand(0, 2) = 0:
+						$SMSTree['b12'] = '我想让你的嘴含住我的鸡巴'
+					elseif npc_know_virgin[$ARGS[1]] ! 1:
+						if $npc_cum_pref[$ARGS[1]] = 'creampie' and (npc_condom_conscious[$ARGS[1]] = 0 or $npc_bareback[$ARGS[1]] = 'never_use') and rand(0, 2) = 0:
+							$SMSTree['b12'] = '我想把你灌满精液'
+						elseif npc_sex_speed[$ARGS[1]] = 3 and rand(0, 2) = 0:
+							$SMSTree['b12'] = '过来，我想听你尖叫我的名字'
+						elseif $npc_cum_pref[$ARGS[1]] = 'facial' and rand(0, 2) = 0:
+							$SMSTree['b12'] = '我想射你一脸'
+						elseif $npc_cum_pref[$ARGS[1]] = 'mouth' and rand(0, 2) = 0:
+							$SMSTree['b12'] = '我想看着你吞下我的精液'
+						elseif $npc_cum_pref[$ARGS[1]] = 'tits' and rand(0, 2) = 0:
+							$SMSTree['b12'] = '让我用精液涂满你的奶子'
+						elseif $npc_fav_pos[$ARGS[1]] = 'doggy' and rand(0, 2) = 0:
+							$SMSTree['b12'] = '我想让你跪趴着，狠狠干你'
+						elseif $npc_fav_pos[$ARGS[1]] = 'cowgirl' and rand(0, 2) = 0:
+							$SMSTree['b12'] = '我要你像没有明天一样疯狂地骑在我身上'
+						else
+							if rand(0, 1) = 0:
+								$SMSTree['b12'] = '我们今天像兔子一样狠狠干一场吧'
+							else
+								$SMSTree['b12'] = '过来吧，今天好好爽一爽'
+							end
+						end
+					else
+						$SMSTree['b12'] = 'PLACEHOLDER 2'
+					end
+				end
+
+	elseif instr('boyfriend;girlfriend;husband;wife', $npc_rel_type[$ARGS[1]]) > 0:
+		if 0:
+			!! living with husband/wife
+			if npc_dirty_lover[$ARGS[1]] = 1:
+				$SMSTree['10'] = '回家吧'
+					$SMSTree['11'] = '我想干得你失去理智'
+			elseif npc_sensual_lover[$ARGS[1]] = 1:
+				$SMSTree['10'] = '你很快回家吗'
+					$SMSTree['11'] = '我们做爱吧'
+			else
+				$SMSTree['10'] = '你很快回家吗'
+					$SMSTree['11'] = '我们来点刺激的'
+			end
+		else
+			if npc_dirty_lover[$ARGS[1]] = 1:
+				$SMSTree['10'] = '过来吧'
+					$SMSTree['11'] = '我想干得你失去理智'
+			elseif npc_sensual_lover[$ARGS[1]] = 1:
+				$SMSTree['10'] = '我想见你'
+					$SMSTree['11'] = '我们做爱吧'
+			else
+				$SMSTree['10'] = '你该过来'
+					$SMSTree['11'] = '我们来点刺激的'
+			end
+		end
+
+	elseif $npc_rel_type[$ARGS[1]] = 'boyfriend':
+		!! temp
+		$SMSTree['10'] = '$npc_rel_type = boyfriend!!'
+			$SMSTree['11'] = 'PLACEHOLDER3'
+
+	elseif $npc_rel_type[$ARGS[1]] = 'girlfriend':
+		!! temp
+		$SMSTree['10'] = '$npc_rel_type = ''girlfriend''!!'
+			$SMSTree['11'] = 'PLACEHOLDER4'
+
+	else
+		!! temp
+		$SMSTree['10'] = '$npc_rel_type = ''<<$npc_rel_type[$ARGS[1]]>>''!!'
+			$SMSTree['11'] = 'PLACEHOLDER5'
+	end
+end
+
+
+if $ARGS[0] = 'new_booty_call_Tree3':
+	!! Final Choice
+			!! player response 2 option 1
+	if hour < 21:
+		$SMSTree['a20'] = '抱歉，我去不了。我还有事要做'
+	else
+		$SMSTree['a20'] = '太晚了。如果你想让我过去，就早点发消息。'
+	end
+				!! boy response 2 option 1
+			$SMSTree['a21'] = '操，那也许下次吧'
+
+			!! player response 2 option 2
+		$SMSTree['b20'] = '我马上就来 ;)'
+				!! boy response 2 option 1
+			if $npc_humor[$ARGS[1]] = 'perverted' and rand(0, 1) = 0:
+				if rand(0, 1) = 0:
+					$SMSTree['b21'] = '在街上？？ 妈的！到这儿之前管好你的裤子！'
+				else
+					$SMSTree['b21'] = '只要之后你能让我射出来'
+				end
+			elseif $npc_humor[$ARGS[1]] = 'intellectual' and rand(0, 1) = 0:
+				$SMSTree['b21'] = '注意措辞'
+			elseif rand(0, 1) = 0:
+				$SMSTree['b21'] = '我已经硬了'
+			else
+				$SMSTree['b21'] = '等不及了'
+			end
+
+	$SMSTree['c20'] = '是有点晚了'
+		$SMSTree['c21'] = '抱歉'
+			$SMSTree['c22'] = '也许下次？'
+end
+
+
+!! $ARGS[1] = npc_code
+if $ARGS[0] = 'Add_new_booty_call_SMS':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['1'], 'booty_call_sms', 'new_routing1', $ARGS[1], '<<totminut>>'
+		gs 'SMStext_builder', 'add_sms', $ARGS[1]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = totminut string
+!!  ARGS[3] = smsID
+if $ARGS[0] = 'new_routing1':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['1']
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		if func('booty_call_sms', 'check_late', $ARGS[1], $ARGS[2], ARGS[3]):
+			gs 'SMStext_builder', 'end'
+			exit
+		end
+
+		if totminut >= val($ARGS[2]) + 180:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['f2'], 'booty_call_sms', 'new_delayed', '1', $ARGS[1], $ARGS[2]
+		elseif hour >= 21 or hour < 4:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['c2'], 'booty_call_sms', 'new_routing2', $ARGS[1], $ARGS[2], 'c2', 'gs ''''npc_relationship'''', ''''modify'''', ''''<<$ARGS[1]>>'''', 1'
+			gs 'SMStext_builder', 'add_reply', $SMSTree['d2'], 'booty_call_sms', 'new_routing2', $ARGS[1], $ARGS[2], 'd2', 'gs ''''npc_relationship'''', ''''modify'''', ''''<<$ARGS[1]>>'''', -2'
+			gs 'SMStext_builder', 'add_reply', $SMSTree['e2'], 'booty_call_sms', 'new_end', $ARGS[1], 'e2', 'decline_booty_calla', ''
+		else
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a2'], 'booty_call_sms', 'new_routing2', $ARGS[1], $ARGS[2], 'a2', ''
+			gs 'SMStext_builder', 'add_reply', $SMSTree['b2'], 'booty_call_sms', 'new_routing2', $ARGS[1], $ARGS[2], 'b2', ''
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = '1' or 'a'/'b'/'c'
+!! $ARGS[2] = npc_code
+!! $ARGS[3] = totminut string
+!!  ARGS[4] = smsID
+if $ARGS[0] = 'new_delayed':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		if $ARGS[1] = '1':
+			gs 'SMStext_builder', 'send', $SMSTree['f2']
+
+			if func('booty_call_sms', 'check_late', $ARGS[2], $ARGS[3], ARGS[4]):
+				gs 'SMStext_builder', 'end'
+				exit
+			end
+
+			gs 'SMStext_builder', 'add_reply', $SMSTree['fa3'], 'booty_call_sms', 'new_delayed', 'a', $ARGS[2], $ARGS[3]
+			gs 'SMStext_builder', 'add_reply', $SMSTree['fb3'], 'booty_call_sms', 'new_delayed', 'b', $ARGS[2], $ARGS[3]
+			gs 'SMStext_builder', 'add_reply', $SMSTree['fc3'], 'booty_call_sms', 'new_delayed', 'c', $ARGS[2], $ARGS[3]
+			if (gschoolVars['school_diploma'] = 0 or university['student'] = 1) and kanikuli = 0:
+				gs 'SMStext_builder', 'add_reply', $SMSTree['fd3'], 'booty_call_sms', 'new_delayed', 'd', $ARGS[2], $ARGS[3]
+			end
+		else
+			gs 'SMStext_builder', 'send', $SMSTree['f<<$ARGS[1]>>3']
+
+			if func('booty_call_sms', 'check_late', $ARGS[2], $ARGS[3], ARGS[4]):
+				gs 'SMStext_builder', 'end'
+				exit
+			end
+
+			gs 'SMStext_builder', 'add_reply', $SMSTree['f<<$ARGS[1]>>4'], 'booty_call_sms', 'new_routing2', $ARGS[2], $ARGS[3], 'f<<$ARGS[1]>>4', ''
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = totminut string
+!! $ARGS[3] = code reply send
+!! $ARGS[4] = dynamic code to be executed
+!!  ARGS[5] = smsID
+if $ARGS[0] = 'new_routing2':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	dynamic $ARGS[4]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[3]]
+		gs 'SMStext_builder', 'show_sms', ARGS[5]
+
+		if func('booty_call_sms', 'check_late', $ARGS[1], $ARGS[2], ARGS[5]):
+			gs 'SMStext_builder', 'end'
+			exit
+		end
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['10']
+		gs 'SMStext_builder', 'show_sms', ARGS[5]
+
+		if $npc_rel_type[$ARGS[1]] = 'casual_date' or $npc_rel_type[$ARGS[1]] = 'fuckbuddy':
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a11'], 'booty_call_sms', 'new_bootycall', $ARGS[1], $ARGS[2], 'a'
+			gs 'SMStext_builder', 'add_reply', $SMSTree['b11'], 'booty_call_sms', 'new_bootycall', $ARGS[1], $ARGS[2], 'b'
+		else
+
+			wait 250
+
+			gs 'SMStext_builder', 'receive', $SMSTree['11']
+
+			if 1:
+				!! not living together
+				!! sugar daddy, or boy/girlfriend, or husband/wife (not living together) or date invite
+				gs 'SMStext_builder', 'add_reply', $SMSTree['a20'], 'booty_call_sms', 'new_routing3', $ARGS[1], $ARGS[2], 'a', 'decline_booty_calla', 'gs ''''npc_relationship'''', ''''modify'''', ''''<<$ARGS[1]>>'''', -2'
+				gs 'SMStext_builder', 'add_reply', $SMSTree['b20'], 'booty_call_sms', 'new_routing3', $ARGS[1], $ARGS[2], 'b', 'accept_booty_call', ''
+				if hour >= 21 or hour <= 4: gs 'SMStext_builder', 'add_reply', $SMSTree['c20'], 'booty_call_sms', 'late_apology', '1', $ARGS[1], $ARGS[2], 'c20'
+			end
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[5]
+	gs 'SMStext_builder', 'end'
+	if 0:
+		!! living together
+		if rand(0, 1) = 0: wait 250 & gs 'booty_call_sms', 'sexting1', 'a', $ARGS[1], ARGS[5]
+	end
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = totminut string
+!! $ARGS[3] = code reply send
+!!  ARGS[4] = smsID
+if $ARGS[0] = 'new_bootycall':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[3] + '11']
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+
+		if func('booty_call_sms', 'check_late', $ARGS[1], $ARGS[2], ARGS[4]):
+			gs 'SMStext_builder', 'end'
+			exit
+		end
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[3] + '12']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a20'], 'booty_call_sms', 'new_routing3', $ARGS[1], $ARGS[2], 'a', 'decline_booty_calla', ''
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b20'], 'booty_call_sms', 'new_routing3', $ARGS[1], $ARGS[2], 'b', 'accept_booty_call', ''
+		gs 'SMStext_builder', 'show_sms', ARGS[4]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = '1' or '2'
+!! $ARGS[2] = npc_code
+!! $ARGS[3] = totminut string
+!! $ARGS[4] = code reply send
+!!  ARGS[5] = smsID
+if $ARGS[0] = 'late_apology':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[2]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[4]]
+
+		if func('booty_call_sms', 'check_late', $ARGS[2], $ARGS[3], ARGS[5]):
+			gs 'SMStext_builder', 'end'
+			exit
+		end
+
+		if $ARGS[1] = '1':
+			gs 'SMStext_builder', 'add_reply', $SMSTree['c22'], 'booty_call_sms', 'late_apology', '2', $ARGS[2], $ARGS[3], 'c22'
+		elseif $ARGS[1] = '2':
+			gs 'SMStext_builder', 'add_reply', $SMSTree['c23'], 'booty_call_sms', 'new_routing3', $ARGS[2], $ARGS[3], 'c23'
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[5]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = totminut string
+!! $ARGS[3] = code reply send
+!! $ARGS[4] = 'accept_booty_call' or 'decline_booty_call'
+!! $ARGS[5] = dynamic code to be executed
+!!  ARGS[6] = smsID
+if $ARGS[0] = 'new_routing3':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	dynamic $ARGS[5]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[3] + '20']
+		gs 'SMStext_builder', 'show_sms', ARGS[6]
+
+		if func('booty_call_sms', 'check_late', $ARGS[1], $ARGS[2], ARGS[6]):
+			gs 'SMStext_builder', 'end'
+			exit
+		end
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[3] + '21']
+		gs 'SMStext_builder', 'show_sms', ARGS[6]
+	gs 'SMStext_builder', 'end'
+	gs 'booty_call_sms', $ARGS[4], $ARGS[1], ARGS[6]
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = code reply send
+!! $ARGS[3] = 'accept_booty_call' or 'decline_booty_call'
+!! $ARGS[4] = dynamic code to be executed
+!!  ARGS[5] = smsID
+if $ARGS[0] = 'new_end':
+	gs 'booty_call_sms', 'new_booty_call_Tree', $ARGS[1]
+	dynamic $ARGS[4]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[2]]
+		gs 'SMStext_builder', 'show_sms', ARGS[5]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+	gs 'booty_call_sms', $ARGS[3], $ARGS[1], ARGS[5]
+end
+
+
+!! $ARGS[1] = npc_code
+!!  ARGS[2] = smsID
+if $ARGS[0] = 'accept_booty_call':
+	booty_call_invite[$ARGS[1]] = daystart
+	$booty_call_hotel[$ARGS[1]] = ''
+	!! if npc_finance[$ARGS[1]] < 2 or mid($npc_residence[$ARGS[1]], 1, 4) ! 'city':
+	$temp_town = $func('homes_properties_attr', 'get_property_attribute', '$town', $home['current'])
+	if $npc_rel_type[$ARGS[1]] = 'sugar_daddy':
+		if $temp_town = 'city':
+			$booty_call_hotel[$ARGS[1]] = 'city'
+		else
+			$booty_call_hotel[$ARGS[1]] = 'pav'
+		end
+	elseif $npc_rel_type[$ARGS[1]] = 'casual_date' or $npc_rel_type[$ARGS[1]] = 'fuckbuddy':
+		if npc_finance[$ARGS[1]] = 2 and $temp_town ! 'city' and mid($npc_residence[$ARGS[1]], 1, 4) = 'city':
+			$booty_call_hotel[$ARGS[1]] = 'pav'
+		end
+	end
+	killvar 'temp_town'
+
+!! $ARGS[1] = npc_code
+!!  ARGS[2] = smsID
+elseif $ARGS[0] = 'decline_booty_calla':
+	gs 'booty_call_sms', 'decline_booty_call_core', 'a', $ARGS[1], ARGS[2]
+
+!! $ARGS[1] = npc_code
+!!  ARGS[2] = smsID
+elseif $ARGS[0] = 'decline_booty_callb':
+	gs 'booty_call_sms', 'decline_booty_call_core', 'a', $ARGS[1], ARGS[2]
+
+!! $ARGS[1] = 'a' or 'b'
+!! $ARGS[2] = npc_code
+!!  ARGS[3] = smsID
+elseif $ARGS[0] = 'decline_booty_call_core':
+	if sugar_daddy_call[$ARGS[2]] = 1:
+		gs 'npc_relationship', 'modify', $ARGS[2], -2
+		sugar_daddy_call[$ARGS[2]] = 0
+		gs 'booty_call', 'set_sugar_daddy_schedule', $ARGS[2]
+	end
+
+	if rand(0, 1) = 0:
+		wait 250
+		gs 'booty_call_sms', 'sexting1', $ARGS[1], $ARGS[2], ARGS[3]
+	end
+
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              EXPIRED                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'new_expired_booty_call':
+	$SMSTree['0'] = '抱歉，我不行了。也许我们可以改天再试'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = totminut string
+!!  ARGS[3] = smsID
+if $ARGS[0] = 'check_late':
+	result = 0
+	if totminut >= val($ARGS[2]) + 480:
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+			wait 250
+
+			gs 'booty_call_sms', 'new_expired_booty_call', $ARGS[1]
+			gs 'SMStext_builder', 'receive', $SMSTree['0']
+			gs 'SMStext_builder', 'show_sms', ARGS[3]
+		gs 'SMStext_builder', 'end'
+		gs 'booty_call_sms', 'decline_booty_callb', $ARGS[1], ARGS[3]
+		killvar 'SMSTree'
+		result = 1
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              SEXTING                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'new_sexting_Tree':
+	$SMSTree['a0'] = '那给我发张照片？'
+	$SMSTree['b0'] = '不过我可不会拒绝自拍'
+
+		$SMSTree['a1'] = 'refuse'
+			$SMSTree['a2'] = 'no'
+		$SMSTree['b1'] = '下次吧，老虎'
+		$SMSTree['c1'] = '我不在家！'
+			if npc_dirty_lover[$ARGS[1]] = 1:
+				if rand(0, 1) = 0:
+					$SMSTree['c2'] = '真火辣'
+				else
+					$SMSTree['c2'] = '那又怎样？'
+				end
+			else
+				$SMSTree['c2'] = '那我就靠想象了'
+			end
+		$SMSTree['s1'] = '从你的相册里发一张自拍'
+end
+
+
+!! $ARGS[1] = 'a' or 'b'
+!! $ARGS[2] = npc_code
+!!  ARGS[3] = smsID
+if $ARGS[0] = 'sexting1':
+	gs 'booty_call_sms', 'new_sexting_Tree', $ARGS[2]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[1] + '0']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a1'], 'booty_call_sms', 'sexting_refuse', $ARGS[2], 'refuse'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b1'], 'booty_call_sms', 'sexting_refuse', $ARGS[2], 'next'
+		if instr($location_type, 'outdoors') > 0 or instr($location_type, 'public') > 0:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['c1'], 'booty_call_sms', 'sexting_public', $ARGS[2]
+		end
+		gs 'SMStext_builder', 'send_selfie', $SMSTree['s1'], 'n|b|sh|ft|fa|fp', 'booty_call_sms', 'sexting_send', $ARGS[2]
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!!  ARGS[2] = smsID
+if $ARGS[0] = 'sexting_public':
+	gs 'booty_call_sms', 'new_sexting_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['c1']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['c2']
+		if npc_dirty_lover[$ARGS[1]] = 1:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a1'], 'booty_call_sms', 'sexting_refuse', $ARGS[1], 'refuse'
+			gs 'SMStext_builder', 'add_reply', $SMSTree['b1'], 'booty_call_sms', 'sexting_refuse', $ARGS[1], 'next'
+			gs 'SMStext_builder', 'send_selfie', $SMSTree['s1'], 'n|b|sh|ft|fa|fp', 'booty_call_sms', 'sexting_send', $ARGS[1]
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!! $ARGS[2] = 'refuse' or 'next'
+!!  ARGS[3] = smsID
+if $ARGS[0] = 'sexting_refuse':
+	gs 'booty_call_sms', 'new_sexting_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		if $ARGS[2] = 'refuse':
+			gs 'SMStext_builder', 'send', $SMSTree['a2']
+			gs 'npc_relationship', 'modify', $ARGS[1], -1
+		else
+			gs 'SMStext_builder', 'send', $SMSTree['b1']
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! $ARGS[1] = npc_code
+!!  ARGS[2] = smsID
+!! $ARGS[3] = image path
+!! $ARGS[4] = location
+!! $ARGS[5] = state of dress (clothed, nude, etc)
+!!  ARGS[6] = is the index of the location in $selfieLoc[] and $selfieFilePrefix
+!!  ARGS[7] = the selfie number
+if $ARGS[0] = 'sexting_send':
+	gs 'booty_call_sms', 'new_sexting_Tree', $ARGS[1]
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send_img', $ARGS[3]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', 'damn!!'
+		gs 'npc_relationship', 'modify', $ARGS[1], 3
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'send', ':)'
+		!! Add responses based on the result??
+		!{
+		if $ARGS[6] = 'clothed':
+		elseif $ARGS[6] = 'nude' or $ARGS[6] = 'pussyflash':
+		end
+		!}
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         DELAYED BOOTY CALL                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'delayed_booty_call_Tree':
+!!	Structure:
+!!		0: boy
+!!			1: player
+!!				2: boy
+!!					3: player
+!!						4: player
+!!							5: boy
+!!								6: boy
+!!									7: player
+!!										8: boy
+!!											9: player
+!!												10: boy
+
+	$SMSTree['0'] = '嗨'
+		$SMSTree['1'] = '嗨'
+			$SMSTree['2'] = '你今天忙吗？'
+				$SMSTree['a3'] = 'no'
+				$SMSTree['b3'] = '看情况'
+				$SMSTree['c3'] = '也许'
+				$SMSTree['d3'] = 'yes'
+
+					$SMSTree['4'] = '为什么？'
+						$SMSTree['5'] = '想一起待会儿'
+							$SMSTree['a6'] = '你可以来我家'
+							$SMSTree['b6'] = '我可以订个酒店房间'
+
+								$SMSTree['a7'] = '抱歉，今天不行'
+								$SMSTree['b7'] = '什么时候？'
+									$SMSTree['b8'] = '不如 ' + func('time', 'get_time_string', npc_start_free_time[$ARGS[1]], 0) + '?'
+										$SMSTree['ba9'] = '抱歉，没空'
+										$SMSTree['bb9'] = '听起来不错'
+											$SMSTree['bb10'] = '好，到时候见'
+end
+
+
+if $ARGS[0] = 'Add_delayed_booty_call_SMS':
+	gs 'booty_call_sms', 'delayed_booty_call_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['1'], 'booty_call_sms', 'delayed1', $ARGS[1]
+		gs 'SMStext_builder', 'add_sms', $ARGS[1]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'delayed1':
+	gs 'booty_call_sms', 'delayed_booty_call_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['1']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a3'], 'booty_call_sms', 'delayed2', $ARGS[1], 'a'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b3'], 'booty_call_sms', 'delayed2', $ARGS[1], 'b'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['c3'], 'booty_call_sms', 'delayed2', $ARGS[1], 'c'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['d3'], 'booty_call_sms', 'delayed_decline', $ARGS[1], $SMSTree['d3']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'delayed2':
+	gs 'booty_call_sms', 'delayed_booty_call_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[2] + '3']
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		wait 250
+
+		gs 'SMStext_builder', 'send', $SMSTree['4']
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['5']
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		wait 250
+
+		!! NOTE TO HG: Not entirely sure how to check if it''s hotel vs home.
+		if NO hotel:
+			gs 'SMStext_builder', 'receive', $SMSTree['a6']
+			!! set variable for home meetup
+		else
+			gs 'SMStext_builder', 'receive', $SMSTree['b6']
+			!! set variable for hotel meetup
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		wait 250
+
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a7'], 'booty_call_sms', 'delayed_decline', $ARGS[1], $SMSTree['a7']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b7'], 'booty_call_sms', 'delayed3', $ARGS[1]
+
+
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'delayed_decline':
+	gs 'booty_call_sms', 'delayed_booty_call_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $ARGS[2]
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+	gs 'booty_call_sms', 'decline_booty_call', $ARGS[1], ARGS[3]
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'delayed3':
+	gs 'booty_call_sms', 'delayed_booty_call_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['b7']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'send', $SMSTree['b8']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['ba9'], 'booty_call_sms', 'delayed_decline', $ARGS[1], $SMSTree['ba9']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['bb9'], 'booty_call_sms', 'delayed4', $ARGS[1]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'delayed4':
+	gs 'booty_call_sms', 'delayed_booty_call_Tree', $ARGS[1]
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree['ba9']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'send', $SMSTree['ba10']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	gs 'booty_call_sms', 'accept_booty_call', $ARGS[1], ARGS[2]
+	killvar 'SMSTree'
+end
+
+
+--- booty_call_sms ---------------------------------

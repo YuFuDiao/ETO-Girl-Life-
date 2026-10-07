@@ -1,0 +1,395 @@
+# pushkin_ballet_init
+
+!! Date Created: 17th Sept, 2022
+!! Modified date:
+!! Version: .01 - initial release
+!! Version: .02 - Content updates, bug fixes and assessment system.
+!!
+!! Author: Hooded Silence
+!!
+!! Ballet Summer School
+!!
+!! This is the initiator for the ballet story arc. Triggers in June, 2016 on start, and is open to the Dancer at the start of July.
+!!
+!! Variables
+!!
+!! balletqw[blocker]- quest line initiator to start/stop the quests.
+!! balletqw[letter]- temp blocker to prevent the letter being read multiple times.
+!! ballet[hypno] = 1 - hypno content trapdoor
+!! school_ballet_grade_score[''total''] combines ballet_grade_score[''class''] and ballet_grade_score[''homework''] to assess attendance and homework completion.
+!! balletqw[school] - Holding variable for final score 2 - passed, 3 - passed with Rudolph''s help, 4 - passed with Maya''s help, 5 = Merit, 1 - failed
+!! balletqw[rank] - What stage of her career, 0 failed, 1 apprenticeship, 2 sponsored apprenticeship, 3 part of Corp de ballet, 4 full member of the Theatre.
+!! Ranks Corps De Ballet, coryphée, demi-soloist, soloist, principle dancer.
+!! balletqw[performances] - How many shows performed
+!! mayaqw[grave] - Did you attend Anitchka''s grave with Maya, 3 means you talked to Maya, 4 means you were empathic. Has impact later on Maya''s actions towards the player.
+!! mayaqw[trust] - How much Maya trusts you and works in conjunction with npc_rel
+!! mayaqw[path] - progress tracker for maya quests
+!! Rudolph quest is broken into two variables the main tracker being rudolphqw[stage] and rudolphqw[corruption], the latter reflects his slow insidious undermining of Sveta''s
+!! confidence and the former is how much she has submitted to his authority and demands. Corruption opens dialogue options.
+!!
+!! AlbinaQW[StarletsJoined] - 0 not yet invited, 1 joined, -1 kicked out, -2 quit,
+!!   -3 declined the invitation. Any non-zero value prevents the invite from firing again.
+!!
+
+if $ARGS[0] = 'check_for_init':
+	!! Parents Home Triggers
+	if balletqw['blocker'] = 0 and $start_type['cat'] = 'dancer':
+		if ((daystart >= 158 and daystart <= 198) and balletqw['letter'] = 0) or (daystart >= 198 and balletqw['school'] > 1):
+			gs 'pushkin_ballet_init', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'init':
+	!! Start the School
+	if $start_type['cat'] = 'dancer':
+		!! Pushkin residential block
+		if $loc = 'pushkin_sq':
+			*nl
+			'就在奥赫洛普科夫广场附近你会看到通往芭蕾舞学校的路<a href="exec:gt ''pushkin_ballet_center'',''start''">住宅区</a>。'
+			act '前往住宅区': gt 'pushkin_ballet_center', 'start'
+		end
+
+		if $loc = 'pushkin_ballet_res' and (hour = 7 and minut >= 30):
+			!! trigger late event for Maya with fall back
+			$balletEv['trigger'] = 'late'
+			gs 'npc_274_init', 'summer_school'
+		elseif $loc = 'pushkin_ballet_res' and $loc_arg = 'hallway' and (hour >= 6 and hour < 8) and (day >= 1 or day <= 6):
+			act '去学校（'+func('time', 'get_time_string', 7, 30)+' 开始）': gt 'pushkin_ballet_class', 'start'
+		end
+		if daystart > 188 and $loc = 'bedrPar' and balletqw['letter'] = 1:
+			gs 'array', 'remove_element', 'balletqw', 'blocker'
+			gs 'array', 'remove_element', 'balletqw', 'letter'
+			msg '你已经错过了芭蕾舞学校的开学日期，也许将来还会有其他机会。'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'start':
+	!! Initial acceptance
+	if $loc = 'kuhrPar' and $start_type['cat'] = 'dancer':
+		if locat['Mother'] = 4 and balletqw['letter'] < 1 and daystart <= 167:
+			!! Trigger first act
+			act '<b>读信</b>': gt 'pushkin_ballet_evt', 'letter'
+		end
+		if locat['Mother'] = 4 and balletqw['letter'] = 1 and daystart >= 198:
+			!! Trigger second act
+			act '<b>读信</b>': gt 'pushkin_ballet_evt', 'letter'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'outside_events':
+	!! Summer School
+	!! $start_type['cat'] is the mc backstory for dancer start
+	if $start_type['cat'] = 'dancer':
+		!! Pavlovsk
+		if $loc = 'gdksport':
+			!! Close down Starlets
+			if balletqw['letter'] = 1 and daystart <= 185:
+				if AlbinaQW['StarletsJoined'] > 0 and AlbinaQW['StarletsShutDown'] = 0 and npc_pregtalk['A23'] = 0 and AlbinaQW['startletsday'] ! daystart:
+					if hour >= 15 and starlets_on = 1:
+						act '把信的事告诉阿尔宾娜': gt 'pushkin_ballet_evt', 'starlets'
+					end
+				end
+			end
+			!! Dance job?
+		end
+		if $loc = 'pav_commcenter':
+			if balletqw['letter'] = 1 and (daystart = 185 and hour = 16):
+				!! Pre-flight - travel to school dorms
+				act '<b>前往芭蕾舞学校</b>': gt 'pushkin_ballet_res', 'start'
+			end
+		end
+		!! Pushkin
+		!! Theatre
+		!! Other Events
+	end
+end
+
+
+if $ARGS[0] = 'exercise_pain':
+	gs 'pain', rand(1, 3), 'legL', 'stretch'
+	gs 'pain', rand(1, 3), 'legR', 'stretch'
+	gs 'pain', rand(1, 3), 'shoulders', 'stretch'
+	gs 'pain', rand(1, 3), 'armL', 'stretch'
+	gs 'pain', rand(1, 3), 'armR', 'stretch'
+	gs 'pain', rand(1, 3), 'back', 'stretch'
+	gs 'pain', rand(1, 3), 'chest', 'stretch'
+end
+
+
+if $ARGS[0] = 'reputation':
+	!! Check reputation to have a conversation with the warden
+	if fame['pav_modelling'] >= 10 or fame['pav_slut'] > 9 or fame['city_prostitute'] > 0 or fame['ciy_sexind'] > 0 or fame['city_modelling'] >= 10 or fame['city_slut'] > 30 or fame['city_prostitute'] > 19 or fame['city_sexind'] > 19 or fame['pushkin_modelling'] >= 10 or fame['pushkin_slut'] > 0 or fame['pushkin_sex'] > 0 or fame['pushkin_prostitute'] > 0 or fame['pushkin_sexind'] > 0:
+
+		!! gt 'pushkin_ballet_res', 'warden', 'reputation'
+	end
+end
+
+
+if $ARGS[0] = 'daily_assessment':
+	!! Grade appearance, behaviour and other factors.
+	!! Daily Appearance
+	if school_daily_check ! daystart and (nclass > 0 or nclass <= 5):
+		gs 'shortgs', 'clothing_status'
+		if ballet_debug = 1: if nclass > 0: $ballet_class_debug += nclass + ' - ' + $loc_arg + iif(nclass = 5, ' -|- <br>', ', ')
+		!! Positive additions:
+		ballet_grade_attendance[week] += 1
+		if pcs_makeup > 1:
+			ballet_grade_mua[week] += 1
+		else
+			ballet_grade_mua[week] -= 1
+		end
+		if hbraids > 0 or hpingripw > 0 or pcs_hairlng <= 80:
+			ballet_grade_braids[week] += 1
+		elseif hscrunchw > 0:
+			ballet_grade_braids[week] -= 1
+		end
+		if pcs_pubes < 4 and pcs_leghair < 4:
+			ballet_grade_shave[week] += 1
+		else
+			ballet_grade_shave[week] -= 1
+		end
+		if $apparel['status'] = 'sport' or $apparel['status'] = 'dance':
+			ballet_grade_uniform[week] += 1
+		else
+			ballet_grade_uniform[week] -= 1
+		end
+		!! Negative deductions:
+		!! large busts can affect balance so will penalise performances - penalise if over a c cup
+		if pcs_cupsize > 20: ballet_grade_appearance[week] -= 1
+		!! pregnancy check - unlikely but in place due to cheats - automatic fail on course
+		if thinkpreg > 1 or knowpreg > 1: ballet_grade_discipline[week] -= 200
+		!! Teeth checks, appearance is everything and should only affects if custom or cheat stats
+		if pcs_missing_teeth > 0 or pcs_teeth ! -1: ballet_grade_appearance[week] -= 5
+		if pcs_brace > 1: ballet_grade_discipline[week] -= 1
+		!! Don''t do drugs kids - school is zero tolerance to any form of drugs, this only affects the residency week.
+		if drugVars['cigarettes_used'] > 1: ballet_grade_discipline[week] -= 5
+		if alko > 1: ballet_grade_discipline[week] -= 1
+		if drugVars['heroin_high'] > 0 or drugVars['weed_high'] > 0 or drugVars['heroin_high'] > 0 or drugVars['cocaine_system'] > 0 or drugVars['amphetamine_high'] > 0: ballet_grade_discipline[week] -= 50
+	end
+	if nclass = 5 and school_daily_check ! daystart:
+		!! Daily class score
+		ballet_daily_score[week] = ballet_grade_attendance[week] + ballet_grade_mua[week] + ballet_grade_braids[week] + ballet_grade_shave[week] + ballet_grade_uniform[week] + ballet_homework[week] - ballet_grade_discipline[week]
+		!! Cumulative daily score
+		ballet_grade_score['class'] += ballet_daily_score[week]
+	end
+
+	if $ARGS[1]= 'grade':
+		!! theoretical max score is 175 allowing for 30pts a day, lessons + 5 points (less exam day) in homework lessons.
+		!! Bonus points will be added on the assessment day such as taking care of feet.
+
+		ballet_grade_score['total'] = 100 * (ballet_grade_score['class'] + ballet_grade_score['homework'] + ballet_grade_health + (danc_lvl / 10)) / 210
+		!! Three score levels, fail, pass and merit. Fail is one route for corruption path, pass is either low or no pay, merit is low to low +10%.
+		if ballet_grade_score['total'] <= 40:
+			balletqw['school'] = 0
+		elseif ballet_grade_score['total'] >= 41 and ballet_grade_score['total'] < 70:
+			!! Interim pass until quest lines are integrated for Maya/Rudolph - see header for stage no.
+			!! balletqw['school'] = 4
+			balletqw['school'] = 2
+			balletqw['rank'] = 1
+		elseif ballet_grade_score['total'] >= 70 and ballet_grade_score['total'] <= 90:
+			balletqw['school'] = 2
+			balletqw['rank'] = 1
+		elseif ballet_grade_score['total'] >= 91:
+			gs 'pushkin_ballet_init', 'famemodifier', ballet_grade_score['total']
+			balletqw['school'] = 5
+			balletqw['rank'] = 1
+		end
+		$balletqw['final_report'] += '<centre><h2>普希金芭蕾舞学校 - 成绩报告</h2></centre>'
+		$balletqw['final_report'] += '<br>'
+		if ballet_grade_score['class'] < 125:
+			$balletqw['final_report'] += '这真的值得你花时间去上学吗？你没有参加全部课程或存在纪律问题。很明显你对芭蕾或艺术毫无兴趣。'
+		elseif ballet_grade_score['class'] >= 125:
+			$balletqw['final_report'] += '你参加了所有指定的课程，并且没有表现出纪律问题。你对艺术持续的奉献和专注值得称赞。'
+		else
+			$balletqw['final_report'] += '<font color="red"><b>课堂出勤调试：</b></font> <<ballet_grade_score[''class''] >>'
+		end
+		$balletqw['final_report'] += '<br>'
+		if ballet_grade_score['homework'] >=6 and ballet_grade_score['homework'] <= 14:
+			$balletqw['final_report'] += '你在完成所有指定作业时表现出的奉献精神和自律在学生中是值得称赞的，但如果你希望成为首席舞者我们期望你未来付出更多努力。'
+		elseif ballet_grade_score['homework'] >= 15:
+			$balletqw['final_report'] += '你表现出的非凡才能和自律超出了我们对你家庭作业的预期。这正是我们对那些立志并致力于成为首席舞者的舞者的期望。'
+		elseif ballet_grade_score['homework'] <= 5:
+			$balletqw['final_report'] += '你没有完成布置给你的全部作业，你缺乏成为我校柯里菲的纪律和才能。'
+		else
+			$balletqw['final_report'] += '<font color="red"><b>作业调试：</b></font> <<ballet_grade_score[''homework'']>> '
+		end
+		$balletqw['final_report'] += '<br><br>'
+		if balletqw['school'] = 5:
+			$balletqw['final_report'] += '你的技艺和奉献让我们非常高兴地授予你优秀奖并且你已被接纳为获得我们音乐学院赞助的学徒。'
+		elseif balletqw['school'] = 3 or balletqw['school'] = 4:
+			$balletqw['final_report'] += '经过深思熟虑我们很高兴为你提供我们学校的名额。不幸的是你在学校的表现不足以让你获得赞助。你需要在指定日期参加与鲁道夫的入学面试以讨论额外训练然后才能被录取进入柯里菲。'
+		elseif balletqw['school'] = 2:
+			$balletqw['final_report'] += '我们很高兴为你提供我们学校的名额，不幸的是你在学校的表现不足以让你获得赞助。你将按照老师的指示就读音乐学院。'
+		elseif balletqw['school'] = 1:
+			$balletqw['final_report'] += '你的表现和纪律严重不足，令人失望。你对艺术的态度是一种耻辱，我们从未有过如此漠视你所获特权的学生。因此，你将不会被授予学校柯里菲的席位，也不会被邀请参加进一步的机会。'
+		else
+			$balletqw['final_report'] += '<font color="red"><b>奖项调试：</b></font> <<balletqw[''school'']>>'
+		end
+		gs $loc, 'cleanup_var'
+		balletqw['letter'] = 1
+	end
+end
+
+
+if $ARGS[0] = 'famemodifier':
+	gs 'fame', 'pushkin', 'ballet', 'small', 'local'
+end
+
+
+if $ARGS[0] = 'cleanup_var':
+	!! Clean up school variables upon completion.
+	!! Debug - remove all variables associated with mod
+
+	if $ARGS[]= 'debug':
+	!! Maya
+		gs 'array', 'remove_element', 'mayaqw', 'trust'
+		gs 'array', 'remove_element', 'mayaqw', 'grave'
+	!! Rudolph
+		gs 'array', 'remove_element', 'rudolphqw', 'corruption'
+		gs 'array', 'remove_element', 'rudolphqw', 'stage'
+	!! School events
+		gs 'array', 'remove_element', 'balletqw', 'school'
+		gs 'array', 'remove_element', 'balletqw', 'performances'
+		gs 'array', 'remove_element', 'balletqw', 'rank'
+	end
+	killvar 'ballet_awol'
+	killvar 'school_running_tally'
+	killvar 'sharedmeal'
+	killvar 'study_tally'
+	killvar 'school_prep'
+	killvar 'ballet_day'
+	killvar 'ballet_first_bedroom'
+	killvar 'feet_track'
+	killvar 'homework_active'
+	!! Running tallies for grading
+	killvar 'debug_day'
+	killvar 'total_daily'
+	killvar 'ballet_grade_attendance'
+	killvar 'ballet_grade_mua'
+	killvar 'ballet_grade_braids'
+	killvar 'ballet_grade_shave'
+	killvar 'ballet_grade_uniform'
+	killvar 'ballet_grade_health'
+	killvar 'ballet_class_debug'
+	killvar 'letter_delay'
+	gs 'array', 'remove_element', 'balletqw', 'daystart'
+end
+
+
+!! Debug Menu
+if $ARGS[0] = 'debug_menu':
+	if $debug_menu = 'open':
+		cla
+		!! act 'Debug Grade': gs 'pushkin_ballet_init', 'score_debug'
+		act '创建日志': gs 'pushkin_ballet_init', 'debug_vars'
+		act '查看日志': gs 'pushkin_ballet_init', 'ballet_debug'
+		act '清除日志':
+			cla
+			act '<font color = "red">你确定吗？</font>':
+				killvar 'ballet_log'
+				'<font color = "green">---- 日志已清除 ---- </font>'
+				cla
+				act '返回': gt $loc, $loc_arg
+			end
+			act '不': gt $loc, $loc_arg
+		end
+		act '关闭调试菜单': $debug_menu = '' & gt $loc, $loc_arg
+	else
+		act '<b>打开调试菜单</b>':
+			$debug_menu = 'open'
+			gs 'pushkin_ballet_init', 'debug_menu'
+		end
+	end
+end
+
+
+!! Daily ranking score dump
+if $ARGS[0] = 'score_debug':
+	$ballet_log[] = '<h3>学校评分</h3>'
+		debug_day = 1
+		:jmp_debug_score
+			total_daily = ballet_daily_score[debug_day] + ballet_homework[debug_day]
+
+			$ballet_log[] = '<b>日：<<debug_day>></b>'
+			$ballet_log[] = '化妆得分：<<ballet_grade_mua[debug_day]>>'
+			$ballet_log[] = '外貌 - 头发：<<ballet_grade_braids[debug_day]>>'
+			$ballet_log[] = '外貌 - 剃毛：<<ballet_grade_shave[debug_day]>>'
+			$ballet_log[] = '外貌 - 制服：<<ballet_grade_uniform[debug_day]>>'
+			$ballet_log[] = '规则与纪律：<<ballet_grade_discipline[debug_day]>>'
+			$ballet_log[] = '生命：<<ballet_grade_discipline[''feetcare'']>>'
+			$ballet_log[] = '作业：<<ballet_homework[debug_day]>>'
+			$ballet_log[] = '出勤：<<ballet_grade_attendance[debug_day]>>'
+			$ballet_log[] = '当日总分：<<total_daily>>'
+			$ballet_log[] = '<b>- - - 第<<debug_day>>天结束 - - -</b>'
+			debug_day += 1
+		if debug_day <= 5: jump 'jmp_debug_score'
+		$ballet_log[] = '累计每日得分：<<ballet_grade_score[''class'']>>'
+		$ballet_log[] = '累计作业得分：<<ballet_grade_score[''homework'']>>'
+		$ballet_log[] = '及格线：' + 100 * (ballet_grade_score['class'] + ballet_grade_score['homework']) / 210
+		killvar 'debug_day'
+		killvar 'total_daily'
+end
+
+
+!! Quest Var dump
+if $ARGS[0] = 'debug_vars':
+	$ballet_log[] = '<center><h2>芭蕾 - 变量</h2></center>'
+	$ballet_log[] = '<h3>常规</h3>'
+	$ballet_log[] = 'balletqw[blocker]: ' + balletqw['blocker']
+	$ballet_log[] = 'balletqw[letter]: ' + balletqw['letter']
+	$ballet_log[] = '新星状态：' + AlbinaQW['StarletsJoined']
+	$ballet_log[] = 'ballet[hypno]: ' + ballet['hypno']
+	$ballet_log[] = '芭蕾日追踪：' + ballet_day
+	$ballet_log[] = 'birthday_party[events]: ' + birthday_party['events']
+	$ballet_log[] = '<h3>关系</h3>'
+	$ballet_log[] = '<h4><<$npc_firstname[''A274'']>> <<$npc_lastname[''A274'']>> - A274</h4>'
+	$ballet_log[] = '关系：' + npc_rel['A274']
+	$ballet_log[] = 'mayaqw[trust]: ' + mayaqw['trust']
+	$ballet_log[] = 'mayaqw[grave]: ' + mayaqw['grave']
+	$ballet_log[] = 'mayaqw[piano]: ' + mayaqw['piano']
+	$ballet_log[] = 'mayaqw[path]: ' + mayaqw['path']
+	$ballet_log[] = '<h4><<$npc_firstname[''A280'']>> <<$npc_lastname[''A280'']>> - A280</h4>'
+	$ballet_log[] = '关系：' + npc_rel['A280']
+	$ballet_log[] = 'gashaqw[trust]: ' + gashaqw['trust']
+	$ballet_log[] = '<h4><<$npc_firstname[''A283'']>> <<$npc_lastname[''A283'']>> - A283</h4>'
+	$ballet_log[] = '关系：' + npc_rel['A283']
+	$ballet_log[] = 'rudolphqw[trust]: ' + rudolphqw['trust']
+	$ballet_log[] = 'rudolphqw[stage]: ' + rudolphqw['stage']
+	$ballet_log[] = 'rudolphqw[corruption]: ' + rudolphqw['corruption']
+	$ballet_log[] = 'rudolphqw[stage]: ' + rudolphqw['stage']
+	$ballet_log[] = '<h3>学校</h3>'
+	$ballet_log[] = 'balletqw[school]: ' + balletqw['school']
+	$ballet_log[] = 'balletqw[rank]: ' + balletqw['rank']
+	$ballet_log[] = 'balletqw[performances]: ' + balletqw['performances']
+	if ballet_day > 0 and balletqw['school'] = 0: gs 'pushkin_ballet_init', 'score_debug'
+	msg '---- 变量已导出到日志 ----'
+end
+
+
+!! Debug messages
+if $ARGS[0] = 'ballet_debug':
+	*clr & cla
+	if arrsize('ballet_log') > 0:
+		i = 0
+		'---- 芭蕾舞调试日志 ----'
+		'日期：<<daystart>> - <<year>>, <<month>>, <<day>>'
+		'Girl Life 版本：<<version_major+"."+version_minor+"."+version_revision+"."+version_patch+iif($git_hash ! "", "<br>"+$git_hash+" (开发版)", "")>>'
+		:debug_ballet_loop
+			*nl
+			'记录<<i>>:' + $ballet_log[i]
+			i += 1
+		if i < arrsize('ballet_log') : jump 'debug_ballet_loop'
+	else
+		'没有调试消息'
+	end
+	'<b><center>---- 日志结束 ----</center></b>'
+	act '返回': gt $loc, $loc_arg
+	killvar 'i'
+end
+--- pushkin_ballet_init ---------------------------------

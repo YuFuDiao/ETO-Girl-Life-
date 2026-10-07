@@ -1,0 +1,2047 @@
+# sex_ev_leave
+
+if $ARGS[0] = 'exit':
+	minut += 2
+	menu_off = 0
+	!! exit should be based on type of apartment and location
+	if sex_ev['unique_npc'] = 1:
+		gs 'sex_ev_leave', 'ending'
+		gt $sex_ev_exit['exit_file'], $sex_ev_exit['exit_arg']
+	else
+		if $sex_ev['loc'] = 'npc_home':
+			gs 'sex_ev_leave', 'ending'
+			if $npc_residence[$npcID] = 'pav_residential':
+				!! Pav residential exit
+				gt 'pav_residential'
+			elseif $npc_residence[$npcID] = 'uni_grounds':
+				!! Student dorms exit
+				gt 'uni_grounds'
+			elseif $npc_residence[$npcID] = 'city_residential':
+				!! St. Petersburg Residential exit
+				gt 'city_residential'
+			elseif $npc_residence[$npcID] = 'city_center':
+				!! St. Petersburg City Center exit
+				gt 'city_center'
+			elseif $npc_residence[$npcID] = '':
+				!! failsafe for an npc with no residence set
+				if $region = 'pav':
+					gt 'pav_residential'
+				elseif $region = 'pav_park':
+					gt 'pav_park', 'start'
+				elseif $region = 'city':
+					gt 'city_residential'
+				elseif $region = 'city_center':
+					gt 'city_center'
+				elseif $region = 'city_park':
+					gt 'city_park', 'start'
+				elseif $region = 'city_island':
+					gt 'city_island'
+				end
+			end
+		elseif $sex_ev['loc'] = 'hotel_room':
+			if sex_ev['hotel_days'] > 0:
+				if $region = 'pav':
+					$hotel = 'pav_hotel'
+					gs 'sex_ev_leave', 'ending'
+					gt 'HotelRoom', 'better'
+				elseif $region = 'city':
+					$hotel = 'city_hotel'
+					gs 'sex_ev_leave', 'ending'
+					gt 'HotelRoom', 'best'
+				end
+			else
+				if $region = 'pav':
+					gs 'sex_ev_leave', 'ending'
+					gt 'pav_hotel'
+				elseif $region = 'city':
+					gs 'sex_ev_leave', 'ending'
+					gt 'city_hotel'
+				end
+			end
+	!!		gt $sex_ev_exit['exit_file'], $sex_ev_exit['exit_arg']
+		elseif $sex_ev['loc'] = 'pc_home':
+			gs 'sex_ev_leave', 'ending'
+			if $sex_ev_exit['loc'] = 'bedroom':
+				!! gt 'bedr'
+				gt $home['bedroom'], $home['bedroom_arg']
+			elseif $sex_ev_exit['loc'] = 'hallway':
+				!! gt 'korr'
+				gt $home['entrance'], $home['entrance_arg']
+			end
+		elseif $sex_ev['loc'] = 'house_party':
+			gs 'sex_ev_leave', 'ending'
+			!! party exit
+		end
+	end
+end
+
+if $ARGS[0] = 'exit_into_loc':
+	!! for when you end the event and continue to hang out at a lover''s apartment or hotel
+	if $sex_ev['loc'] = 'npc_home':
+		gs 'sex_ev_leave', 'ending'
+		gs 'lover_home', 'loc_init'
+		gt 'lover_home', 'bedroom'
+!!	elseif $sex_ev['loc'] = 'hotel_room':
+!!		if $region = 'pav':
+!!		gs 'sex_ev_leave', 'ending'
+!!		gs 'lover_home', 'hotel_room'
+	elseif $sex_ev['loc'] = 'pc_home':
+		if $sex_ev_exit['loc'] = 'bedroom':
+			gs 'sex_ev_leave', 'ending'
+			pcs_romance['lover_here'] = 1
+			gt 'bedr'
+		elseif $sex_ev_exit['loc'] = 'hallway':
+			pcs_romance['lover_here'] = 1
+			gs 'sex_ev_leave', 'ending'
+			gt 'korr'
+		end
+	end
+end
+
+if $ARGS[0] = 'exit_into_date':
+	$temp_npcID = $npcID
+	gs 'sex_ev_sex', 'session_reset'
+	gs 'sex_ev_clothing', 'dress_loop_end'
+	sex_ev['dress_end'] = 0
+	sex_ev['extra_cum'] += 5
+end
+
+if $ARGS[0] = 'break_up':
+	if $npc_rel_type[$npcID] = 'fuckbuddy':
+		gs 'lover', 'remove_fuckbuddy', $npcID
+	elseif $npc_rel_type[$npcID] = 'sugar_daddy':
+		gs 'lover', 'remove_sugar_daddy', $npcID
+	else
+		gs 'lover', 'remove', $npcID
+	end
+	gt 'sex_ev_leave', 'exit'
+end
+
+if $ARGS[0] = 'ending':
+	gs 'sex_ev_leave', 'end_code'
+	if arrsize('date_ev') > 0: gs 'date_ev', 'end_code'
+end
+
+if $ARGS[0] = 'end_code':
+	gs 'sex_ev_stats', 'save_stats'
+	if sugar_daddy_call[$npcID] = 1:
+		sugar_daddy_call[$npcID] = 0
+		sugar_gift_day[$npcID] = 0
+	end
+	$booty_call_hotel[$npcID] = ''
+	gs 'arousal', 'end'
+	if $clothingworntype = 'nude': gs 'sex_ev_leave', 'dress'
+	if sex_ev['fuck'] > 0: know_virgin[$npcID] = 0
+	if sex_ev['creampie_orgasm_count'] > 0: stat_memory['creampie_orgasm'] = daystart
+	npc_last_sex[$npcID] = daystart
+	if $sex_ev['prostitution_flag'] = 'prostitution' or sex_ev['prostitution'] = 1: npc_prostitution_count[$npcID] += 1
+	if sex_ev['set_date'] ! 1: npc_booty_call_date[$npcID] = 0
+
+	if sex_ev['hotel_days'] > 0:
+		if $region = 'pav':
+			hotelRoom['pav_hotel'] = 2
+		elseif $region = 'city':
+			hotelRoom['city_hotel'] = 3
+		end
+		hotelRoomDays['<<$region>>_hotel'] = daystart + sex_ev['hotel_days']
+		hotelRoom['<<$region>>_room_service_free'] = 1
+	end
+	if $sex_ev['loc'] = 'pc_home' and $home['current'] = 'parents_home':
+		sisterQW['sex_room'] = 1
+		stat['parents_home_sex'] += 1
+	end
+	if sex_ev['break_up'] > 0:
+		if $npc_rel_type[$npcID] = 'fuckbuddy':
+			gs 'lover', 'remove_fuckbuddy', $npcID
+		elseif $npc_rel_type[$npcID] = 'sugar_daddy':
+			gs 'lover', 'remove_sugar_daddy', $npcID
+		else
+			gs 'lover', 'remove_boyfriend', $npcID
+		end
+	end
+	killvar 'sex_ev'
+	killvar 'npc_pref_traits'
+	killvar 'npc_pref_values'
+end
+
+if $ARGS[0] = 'leave_options':
+	act '离开': gt 'sex_ev_leave', 'exit'
+	!!{ if sex_ev['prostitution'] = 1 or $sex_ev['type'] = 'hookup':
+		act '羞耻地走回家':
+	end
+	}
+end
+
+if $ARGS[0] = 'leave_router':
+	cla & *clr
+	$sex_ev['bed_room']
+	if sex_ev['sleepover'] = 1 and npc_latesleeper[$npcID] = 1 and sex_ev['boy_asleep'] ! 0 and $sex_ev['loc'] ! 'pc_home':
+		xgt 'sex_ev_leave', 'sneak_out1'
+	elseif sex_ev['boy_asleep'] ! 1 and sex_ev['dress_end'] < 1:
+		xgt 'sex_ev_leave', 'dressing1'
+	elseif sex_ev['boy_asleep'] ! 1:
+		xgt 'sex_ev_leave', 'leaving_dialogue'
+	else
+		xgt 'sex_ev_leave', 'sneak_out1'
+	end
+end
+
+if $ARGS[0] = 'hang_out_after':
+	cla & *clr
+	$sex_ev['bed_room']
+	lover_ev['just_had_sex'] = 1
+	'"你介意我在这儿陪你待一会儿吗？"你问道。'
+	if npc_cheating_know[$npcID] = 1:
+		!! this means he''s cheating on someone with you and you know it
+		if rand(1, 10) > 7 and hour < 20 and hour > 16:
+			sex_ev['cant_stay'] = 1
+			if $sex_ev['loc'] = 'npc_home':
+				'"抱歉，不行。我女朋友快过来了。说实话，你最好在她发现你之前赶紧走。"'
+			elseif $sex_ev['loc'] = 'hotel_room':
+				'"抱歉，不行。房间是我订来跟女朋友约会的。说实话，你最好趁她还没到赶紧走。"'
+			end
+			'"呃。<i>贱人！</i>"'
+			'"是啊，我知道。真糟糕。"'
+			gs 'sex_ev_after', 'after_sex2'
+		elseif $sex_ev['loc'] ! 'hotel_room':
+			!! hotel room is blocked off for now until hanging out in the hotel room has some kind of content
+			if $sex_ev['loc'] = 'npc_home':
+				'"当然可以，我女朋友不会过来。你可以待一会儿。"'
+			elseif $sex_ev['loc'] = 'hotel_room':
+				'"当然。反正房间订到了明天。"'
+			else
+				'"当然可以，"他笑着说。'
+			end
+
+			act '继续': gt 'sex_ev_leave', 'exit_into_loc'
+		end
+	else
+		!! this means he''s cheating on someone with you
+		if rand(1, 10) > 7 and hour < 22:
+			sex_ev['cant_stay'] = 1
+			'"抱歉，不行。我还有事要做，不能把你一个人留在这儿。"'
+			'"呃，真的吗？"'
+			'"是啊，我知道。真糟糕。"'
+			gs 'sex_ev_after', 'after_sex2'
+		elseif npc_girlfriend[$npcID] = 1 and hour < 20 and hour > 16:
+			sex_ev['cant_stay'] = 1
+			npc_cheating_know[$npcID] = 1
+			'"抱歉，我女朋友快过来了。不能让她在这儿撞见你。"'
+			'"呃，真的吗？"'
+			'"是啊，我知道。真糟糕。"'
+			gs 'sex_ev_after', 'after_sex2'
+		else
+			!!{the commented out content is blocked until the content is finished
+			'"当然，反正我也没别的事，你可以待一会儿。"'
+			act '继续': gt 'sex_ev_leave', 'exit_into_loc'}
+			sex_ev['cant_stay'] = 1
+			'"抱歉，不行。我还有事要做，不能把你一个人留在这儿。"'
+			'"呃，真的吗？"'
+			'"是啊，我知道。真糟糕。"'
+			gs 'sex_ev_after', 'after_sex2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'go_out_check':
+	if sex_ev['unique_npc'] = 0 and hour >= 11 and hour <= 20 and $sex_ev['loc'] ! 'house_party' and sex_ev['go_out_check'] = 0:
+		sex_ev['go_out_check'] = 1
+		if arrpos('$date_ev', 'lunch_date') < 0 and hour <= 14: sex_ev['lunch_flag'] = 1
+		if arrpos('$date_ev', 'dinner_date') < 0 and hour >= 17: sex_ev['dinner_flag'] = 1
+	end
+end
+
+if $ARGS[0] = 'scared_exit':
+	act '收拾东西离开':
+		*clr & cla
+		$sex_ev['bed_room']
+		'看到他爆发出的怒火，你一刻也不想多待。你飞快地穿上衣服，抓起东西，跑出了门。'
+		act '逃跑': gt 'sex_ev_leave', 'exit'
+	end
+end
+
+if $ARGS[0] = 'go_out_after':
+	gs 'sex_ev_leave', 'go_out_check'
+	if (sex_ev['lunch_flag'] = 1 or sex_ev['dinner_flag'] = 1) and sex_ev['decline_date'] = 0:
+		act '想吃点东西吗？':
+			gs 'sex_ev_pillow_talk', 'pillow_picture1', 4
+			if arrpos('$date_ev', 'lunch_date') < 0:
+				'"你饿吗？想不想去吃点东西？"'
+			else
+				'"你又饿了吗？想去吃个晚饭吗？"'
+			end
+
+			if $sex_ev['type'] = 'hookup' and $npc_rel_goal[$npcID] = 'sex' and date_ev = 0:
+				if npc_assertive[$npcID] < 0:
+					'"我，呃……没打算认真交往，" <<$npc_usedname[$npcID]>>结结巴巴地说。"刚才那只是做爱而已……"'
+				else
+					'"我没打算认真交往，" <<$npc_usedname[$npcID]>>说。"刚才那只是做爱而已。"'
+				end
+
+				act '哦……（尴尬）':
+					cla & *clr
+					sex_ev['decline_date'] = 1
+					$sex_ev['bed_room']
+					'"哦——哦……"'
+					'好吧，这可真尴尬。'
+					gs 'sex_ev_after', 'after_sex2'
+				end
+
+				act '你知道的':
+					cla & *nl
+					'"这只是吃饭而已，"你翻了个白眼，嗤笑一声。"我不是在说什么约会之类的。我只是问你饿不饿。"'
+					'"嗯……算是吧。"'
+					act '穿好衣服': gt 'sex_ev_leave', 'go_out_together'
+				end
+			else
+				'"当然，我可以去吃点东西，" <<$npc_usedname[$npcID]>>笑着说。'
+				if $clothingworntype = 'nude':
+					act '穿好衣服': gt 'sex_ev_leave', 'go_out_together'
+				else
+					act '出去': gt 'sex_ev_leave', 'go_out_together'
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'go_out_together':
+	gs 'outfit', 'restore', 'sex_ev'
+	sex_ev['undressed_check'] = 0
+	cla & *clr
+	$sex_ev['hall_way']
+	'你们俩都穿好衣服，一起出了门。'
+	act '走到当地的咖啡馆': gs 'sex_ev_leave', 'exit_into_date' & gt 'date_casual_meal', 'start', 'together'
+end
+
+if $ARGS[0] = 'leaving_dialogue':
+	'"我得走了，"你说。'
+	'"好，回头见。"'
+	gs 'sex_ev_leave', 'leaving_dialogue_choices'
+end
+
+if $ARGS[0] = 'leaving_dialogue_choices':
+	if sex_ev['mad'] = 1 or sex_ev['angry_after']:
+		act '愤怒地离开':
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart1.mp4"></video></center>'
+			'你没有回答，只是烦躁地抓起东西大步走出门。'
+			act '离开': gt 'sex_ev_leave', 'exit'
+		end
+
+		act '掩饰恼怒':
+			cla & *nl
+			'"回头见，"你冷冷地说，抓起东西大步走出门去。'
+			act '离开': gt 'sex_ev_leave', 'exit'
+		end
+	else
+		act '"再见"':
+			$sex_ev['leave_dialogue'] = '再见'
+			gs 'sex_ev_leave', 'leaving_action'
+		end
+
+		act '"回头见"':
+			$sex_ev['leave_dialogue'] = '回头见'
+			gs 'sex_ev_leave', 'leaving_action'
+		end
+
+		act '"拜拜"':
+			$sex_ev['leave_dialogue'] = '拜拜'
+			gs 'sex_ev_leave', 'leaving_action'
+		end
+		if $npc_rel_type[$npcID] ! '':
+			act '"我们找时间再来一次"':
+				$sex_ev['leave_dialogue'] = '我们找时间再来一次'
+				gs 'sex_ev_leave', 'leaving_action'
+			end
+
+			if $npc_rel_type[$npcID] = 'sugar_daddy':
+				act '随时给我发短信':
+					$sex_ev['leave_dialogue'] = '任何时候想要人陪就给我发短信'
+					gs 'sex_ev_leave', 'leaving_action'
+				end
+			else
+				act '"给我发短信"':
+					$sex_ev['leave_dialogue'] = '给我发短信'
+					gs 'sex_ev_leave', 'leaving_action'
+				end
+			end
+
+			if npc_booty_call_date[$npcID] = daystart and sex_ev['sleepover'] = 1:
+				act '"很快再见"':
+					$sex_ev['leave_dialogue'] = '很快再见'
+					gs 'sex_ev_leave', 'leaving_action'
+				end
+			elseif npc_booty_call_date[$npcID] = daystart + 1:
+				act '"明天见"':
+					$sex_ev['leave_dialogue'] = '明天见'
+					gs 'sex_ev_leave', 'leaving_action'
+				end
+			else
+				act '"下次再见"':
+					$sex_ev['leave_dialogue'] = '下次再见'
+					gs 'sex_ev_leave', 'leaving_action'
+				end
+			end
+		end
+
+		if $npc_rel_type[$npcID] = 'sugar_daddy':
+			act '别忘了钱':
+				$sex_ev['leave_dialogue'] = '下次记得把钱准备好'
+				gs 'sex_ev_leave', 'leaving_action'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'leaving_action':
+	cla
+	act '微笑':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，冲他飞快地笑了一下，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，冲他飞快地笑了一下，然后随手关上了身后的门'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '挥手告别':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，冲他摆了摆手指，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，冲他摆了摆手指，然后随手关上了身后的门'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '眨眼':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，冲他眨了眨眼，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，冲他眨了眨眼，然后随手关上了身后的门'
+		end
+
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '给他一个飞吻':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，冲他抛了个飞吻，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，冲他抛了个飞吻，然后随手关上了身后的门'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '亲吻他的脸颊':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，停下来在他脸颊上轻轻亲了一下，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，停下来在他脸颊上轻轻亲了一下，然后走出门去'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '吻他':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，停下来在他嘴唇上轻轻亲了一下，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，停下来在他嘴唇上轻轻亲了一下，然后走出门去'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '深深地吻他':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，停下来与他深深长吻。过了好几秒你才抽身退开，舌头从他嘴里退出时还牵着一缕唾液。他最后看到的，是你重新走回派对前投向他的那炽热眼神'
+		else
+			$sex_ev['leave_action'] = '，停下来与他深深长吻。过了好几秒你才抽身退开，舌头从他嘴里退出时还牵着一缕唾液。他最后看到的，是你出门前投向他的那炽热眼神'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '扭扭你的屁股':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，冲他挑逗地扭了扭屁股，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，冲他挑逗地扭了扭屁股，然后随手关上了身后的门'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+
+	act '若无其事':
+		if $sex_ev['loc'] = 'house_party':
+			$sex_ev['leave_action'] = '，一脸淡然，然后重新走回派对中'
+		else
+			$sex_ev['leave_action'] = '，一脸淡然，头也不回地走出门去'
+		end
+		gs 'sex_ev_leave', 'leaving_end'
+	end
+end
+
+if $ARGS[0] = 'leaving_end':
+	gs 'sex_ev_stats', 'prostitution_pay_calc'
+	if sex_ev['sugar_daddy_paid'] = 0 and sex_ev['prostitution_paid'] = 0:
+		cla & *nl
+		if $npc_rel_type[$npcID] = 'sugar_daddy' and sex_ev['sugar_daddy_paid'] = 0:
+			if npc_prostitution_tab[$npcID] > 0 and sex_ev['prostitution_bonus'] > 0:
+				'就在你离开之前，<<$npcdesc>>递给你<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>，包括上次他欠你的奖金和钱。'
+			elseif npc_prostitution_tab[$npcID] > 0:
+				'就在你离开之前，<<$npcdesc>>递给你<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>，包括上次他欠你的钱。'
+			elseif sex_ev['prostitution_bonus'] > 0:
+				'就在你离开之前，<<$npcdesc>>递给你<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>，包括他欠你的奖金。'
+			else
+				'就在你离开之前，<<$npcdesc>>递给你<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>.'
+			end
+		elseif sex_ev['prostitution'] = 1 and sex_ev['prostitution_paid'] = 0:
+			if npc_prostitution_tab[$npcID] > 0 and sex_ev['prostitution_bonus'] > 0:
+				'离开前，你务必拿走<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>，那是<<$npcdesc>>答应给你的卖身钱，包括上次他欠你的奖金和钱。'
+			elseif npc_prostitution_tab[$npcID] > 0:
+				'离开前，你务必拿走<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>，那是<<$npcdesc>>答应给你的卖身钱，包括上次他欠你的钱。'
+			elseif sex_ev['prostitution_bonus'] > 0:
+				'离开前，你务必拿走<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>，那是<<$npcdesc>>答应给你的卖身钱，包括他欠你的奖金。'
+			else
+				'就在你离开之前，<<$npcdesc>>递给你<<$func(''money'', ''string_profit'', sex_ev[''prostitution_owed''])>>.'
+			end
+		end
+	end
+	gs 'sex_ev_stats', 'prostitution_pay_code'
+	cla & *nl
+	'"<<$sex_ev[''leave_dialogue'']>>,"你说<<$sex_ev[''leave_action'']>>。'
+	xgt 'sex_ev_leave', 'leave_options'
+end
+
+if $ARGS[0] = 'npc_leave':
+	if $npcID = 'A34':
+		gs 'sex_ev_A34', 'kolka_leave'
+	else
+	!!{	if npc_latesleeper[$npcID] = 1 and sex_ev['boy_wakeup'] = 0 and sex_ev['boy_asleep'] = 1 and $home['current'] ! 'parents_home':
+			act '起身离开床上的<<$npcdesc>>':
+				cla & *clr
+				$sex_ev['bed_room']
+				'不想吵醒<<$npcdesc>>, 你偷偷走到门边，悄悄出去，尽可能轻地随手关上了身后的门。'
+				act '离开': gt 'sex_ev_leave', 'exit'
+			end}
+	!!	else
+			act '告诉<<$npcdesc>>离开':
+				cla & *clr
+				$sex_ev['bed_room']
+				if sex_ev['angry_after'] = 1 or sex_ev['annoyed'] > 0:
+					'"你该走了，"你淡淡地说。'
+					'<<$npcdesc>>他僵硬地下了床穿好衣服，你们俩谁也没有真正看着对方的眼睛他做这一切时。一两分钟后，他穿好衣服，没再说一句话就离开了。'
+					act '完成': gt 'sex_ev_leave', 'exit'
+				else
+					if $home['current'] = 'parents_home' and locat['Fam_inGad'] = 1 and week = 7 and hour > 16:
+						'"刚才很开心，不过你大概该走了。"你苦笑了一下。"我爸妈快回家了。" <<$npcdesc>>点点头，开始捡起衣服穿上。'
+					else
+						'"刚才很开心，不过你大概该走了，"你对<<$npcdesc>>说，他点了点头，开始捡起衣服穿上。'
+					end
+					gs 'sex_ev_leave', 'npc_leaving_action'
+				end
+			end
+	!!	end
+	end
+end
+
+if $ARGS[0] = 'npc_leaving_action':
+	cla
+	if $clothingworntype = 'nude':
+		act '留在床上（盖着被子）':
+			$sex_ev_exit['loc'] = 'bedroom'
+			$sex_ev['leave_action1'] = '你坐在床上，端庄地拉起床单裹住自己，以保持一点体面，看着<<$npcdesc>>穿好衣服。等他结束时，你说，'
+			$sex_ev['leave_action2'] = '他冲你快速一笑，然后收拾好剩下的东西离开，随手关上了门。'
+			gs 'sex_ev_leave', 'npc_leaving_dialogue'
+		end
+
+		act '留在床上（掀开被子）':
+			$sex_ev_exit['loc'] = 'bedroom'
+			$sex_ev['leave_action'] = '你仍坐在床上，随意地赤裸着躺在床单上，看着<<$npcdesc>>穿好衣服。他穿衣时不止一次向你投来欣赏的目光，结束后你说，'
+			$sex_ev['leave_action2'] = '他冲你快速一笑，然后收拾好剩下的东西离开，随手关上了门。'
+			gs 'sex_ev_leave', 'npc_leaving_dialogue'
+		end
+	end
+
+	act '吻别':
+		$sex_ev_exit['loc'] = 'bedroom'
+		$sex_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。他穿好之后，你走过去，在他唇上轻轻一吻，说，'
+		$sex_ev['leave_action2'] = '他冲你快速一笑，然后收拾好剩下的东西离开，随手关上了门。'
+		gs 'sex_ev_leave', 'npc_leaving_dialogue'
+	end
+
+	act '送<<$npcdesc>>到门口':
+		if $clothingworntype = 'nude':
+			$sex_ev_exit['loc'] = 'hallway'
+			$sex_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。他穿好之后，你带他走向门口，完全没有自己穿衣服的意思。你为他打开门，他走出去，而你全裸地站在门框里说，'
+			$sex_ev['leave_action2'] = '他回你一个快速的微笑，然后走开了。你目送他离去片刻，然后回到屋里，关上了身后的门。'
+		else
+			$sex_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。他穿好之后，你带他走向门口。他走出去时，你说，'
+			$sex_ev['leave_action2'] = '他回你一个快速的微笑，然后走开了。你目送他离去片刻，然后回到屋里，关上了身后的门。'
+		end
+		gs 'sex_ev_leave', 'npc_leaving_dialogue'
+	end
+
+	act '在门口亲吻<<$npcdesc>>':
+		$sex_ev_exit['loc'] = 'hallway'
+		if $clothingworntype = 'nude':
+			$sex_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。等他穿好你便带他到门口，自己却完全没有要穿衣服的意思。就在<<$npcdesc>>走出去时，你抓住他的衬衫把他拉回来，来一个热烈的吻，把他紧紧拉向你赤裸的身体，这景象任何能看到你家前门的人都能看见。过了好几秒，你才断开这个吻，说道，'
+			if rand(1, 1) = 5:
+				$sex_ev['leave_action2'] = '你拉<<$npcdesc>>又回来吻了一下，但更温柔也更短暂。你退开时，一个人从他身后走过，瞪大了眼看着你的胸部。'
+			else
+				$sex_ev['leave_action2'] = '你拉<<$npcdesc>>回来再次亲吻，但更轻柔更快。他回以一个短暂的笑容，然后离开。你目送他走了一会儿，才关上身后的门。'
+			end
+		else
+			$sex_ev['leave_action'] = '你坐在床上，耐心地等着<<$npcdesc>>去穿衣服。等他穿好你便带他到门口，自己却完全没有要穿衣服的意思。就在<<$npcdesc>>走出去时，你抓住他的衬衫，把他拉进一个热烈的吻。过了好几秒，你断开这个吻，说道，'
+			$sex_ev['leave_action2'] = '你拉<<$npcdesc>>回来再次亲吻，但更轻柔更快。他回以一个短暂的笑容，然后离开。你目送他走了一会儿，才转身进屋并关上了门。'
+		end
+		gs 'sex_ev_leave', 'npc_leaving_dialogue'
+	end
+end
+
+if $ARGS[0] = 'npc_leaving_dialogue':
+	cla
+	act '"谢谢你过来。"':
+		if sex_ev['sleepover'] = 1:
+			$sex_ev['leave_dialogue'] = '"谢谢你昨晚过来。很开心。"'
+		else
+			$sex_ev['leave_dialogue'] = '"谢谢你过来。很开心。"'
+		end
+
+		gs 'sex_ev_leave', 'npc_leaving_end'
+	end
+
+	act '"回见"':
+		$sex_ev['leave_dialogue'] = '"回见。"'
+		gs 'sex_ev_leave', 'npc_leaving_end'
+	end
+
+	if $npc_rel_type[$npcID] = '':
+
+!!{		if sex_ev['sleepover'] = 1 or hour < 5:
+			act '"还想再来一次吗？"':
+				sex_ev['invite_today'] = 1
+				gs 'sex_ev_leave', 'npc_leaving_end'
+			end
+		else
+			act '"还想再来一次吗？明天？"':
+				sex_ev['invite_tomorrow'] = 1
+				gs 'sex_ev_leave', 'npc_leaving_end'
+			end
+		end}
+	else
+		act '"给我发短信"':
+			$sex_ev['leave_dialogue'] = '"给我发短信。"'
+			gs 'sex_ev_leave', 'npc_leaving_end'
+		end
+
+		if npc_booty_call_date[$npcID] = daystart and sex_ev['sleepover'] = 1:
+			act '"很快再见"':
+				$sex_ev['leave_dialogue'] = '"很快再见。"'
+				gs 'sex_ev_leave', 'npc_leaving_end'
+			end
+		elseif npc_booty_call_date[$npcID] = daystart + 1:
+			act '"明天见"':
+				$sex_ev['leave_dialogue'] = '"明天见。"'
+				gs 'sex_ev_leave', 'npc_leaving_end'
+			end
+		else
+			act '"下次见"':
+				$sex_ev['leave_dialogue'] = '"下次见。"'
+				gs 'sex_ev_leave', 'npc_leaving_end'
+			end
+	!!{		if sex_ev['sleepover'] = 1 or hour < 5:
+				act '"还想再来一次吗？"':
+					sex_ev['invite_today'] = 1
+					gs 'sex_ev_leave', 'npc_leaving_end'
+				end
+			else
+				act '"还想再来一次吗？明天？"':
+					sex_ev['invite_tomorrow'] = 1
+					gs 'sex_ev_leave', 'npc_leaving_end'
+				end
+			end}
+		end
+	end
+end
+
+if $ARGS[0] = 'npc_leaving_end':
+	cla & *nl
+	if sex_ev['invite_today'] = 0 and sex_ev['invite_tomorrow'] = 0:
+		'<<$sex_ev[''leave_action1'']>> <<$sex_ev[''leave_dialogue'']>> <<$sex_ev[''leave_action2'']>>'
+	elseif sex_ev['invite_today'] = 1:
+		'<<$sex_ev[''leave_action1'']>>'
+		*nl
+		'"以后还想再来一次吗？"你问。'
+		*nl
+		'<<$sex_ev[''leave_action2'']>>'
+	elseif sex_ev['invite_tomorrow'] = 1:
+		'<<$sex_ev[''leave_action1'']>>'
+		*nl
+		'"明天还想再来一次吗？"你问。'
+		*nl
+		'<<$sex_ev[''leave_action2'']>>'
+	end
+	act '离开': gt 'sex_ev_leave', 'exit'
+end
+
+if $ARGS[0] = 'hurry_leave':
+	act '没时间告别':
+		cla & *nl
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		$sex_ev['leave_dialogue'] = '，连句再见都没说'
+		gs 'sex_ev_leave', 'hurry_leave2'
+	end
+
+	act '"回头见！"':
+		cla & *nl
+		$sex_ev['leave_dialogue'] = '，回头喊着"回头见！"，话音刚落门就在你身后砰地关上。'
+		gs 'sex_ev_leave', 'hurry_leave2'
+	end
+
+	act '"给我发短信！"':
+		cla & *nl
+		$sex_ev['leave_dialogue'] = '，回头喊着"给我发短信！"，话音刚落门就在你身后砰地关上。'
+		gs 'sex_ev_leave', 'hurry_leave2'
+	end
+
+	if $sex_ev['type'] = 'hookup':
+		act '留下你的号码（炮友）':
+			sex_ev['fuckbuddy_invite'] = 1
+			cla & *nl
+			if sex_ev['fuck_count'] > 0:
+				$sex_ev['leave_dialogue'] = '，停下来在一张随手抓来的纸上写下你的号码。"想再操我的话就发短信给我！"你一边冲出门去一边回头喊道，随手把门砰地关上。'
+			else
+				$sex_ev['leave_dialogue'] = '，停下来在一张随手抓来的纸上写下你的号码。"想再玩玩的话就发短信给我！"你一边冲出门去一边回头喊道，随手把门砰地关上。'
+			end
+			gs 'sex_ev_leave', 'hurry_leave2'
+		end
+
+		act '留下你的号码（约会对象）':
+			cla & *nl
+			sex_ev['date_invite'] = 1
+			$sex_ev['leave_dialogue'] = '，停下来在一张随手抓来的纸上写下你的号码。"要是想找时间出去约个会，就发短信给我！"你一边冲出门去一边回头喊道，随手把门砰地关上。'
+			gs 'sex_ev_leave', 'hurry_leave2'
+		end
+	end
+
+	if npc_booty_call_date[$npcID] = daystart and sex_ev['sleepover'] = 1 and $npc_rel_type[$npcID] ! 'husband':
+		act '"很快再见"':
+			$sex_ev['leave_dialogue'] = '，回头喊道"很快再见！"，话音刚落门就在你身后砰地关上。'
+			gs 'sex_ev_leave', 'hurry_leave2'
+		end
+	elseif npc_booty_call_date[$npcID] = daystart + 1:
+		act '"明天见"':
+			$sex_ev['leave_dialogue'] = '，回头喊道"明天见！"，话音刚落门就在你身后砰地关上。'
+			gs 'sex_ev_leave', 'hurry_leave2'
+		end
+	end
+end
+
+if $ARGS[0] = 'hurry_leave2':
+	cla
+	act '快跑！':
+		cla & *nl
+		$sex_ev['leave_action'] = '你最后迅速检查了一下衣服都穿好了，然后冲向门口'
+		gs 'sex_ev_leave', 'hurry_leave_finish'
+	end
+
+	act '轻吻脸颊':
+		cla & *nl
+		$sex_ev['leave_action'] = '你最后迅速检查好衣服都穿好了，然后冲到<<$npcdesc>>面前，在他脸颊上轻轻一吻'
+		gs 'sex_ev_leave', 'hurry_leave_finish'
+	end
+
+	act '轻吻嘴唇':
+		cla & *nl
+		$sex_ev['leave_action'] = '你最后迅速检查好衣服都穿好了，然后冲到<<$npcdesc>>面前，在他嘴唇上轻轻一吻'
+		act '离开': gs 'sex_ev_leave', 'hurry_leave_finish'
+	end
+
+	act '热吻':
+		cla & *nl
+		$sex_ev['leave_action'] = '你最后迅速检查好衣服都穿好了，然后冲到<<$npcdesc>>面前去吻他。尽管你很匆忙，你依然珍惜这一刻，感受着<<$npcdesc>>的嘴唇，同时把舌头探进他嘴里与他的舌头纠缠。整整五秒钟过去，你才结束这个吻'
+		act '离开': gs 'sex_ev_leave', 'hurry_leave_finish'
+	end
+end
+
+if $ARGS[0] = 'hurry_leave_finish':
+	cla & *nl
+	'"<<$sex_ev[''leave_action'']>><<$sex_ev[''leave_dialogue'']>>.'
+	if (rand(1, 3) = 1 or $npc_rel_goal[$npcID] = 'serious') and sex_ev['fuckbuddy_invite'] = 1:
+		act '离开': msg '可惜的是，他最终也没给你发来短信。' & gt 'sex_ev_leave', 'exit'
+	elseif (rand(1, 3) = 1 or $npc_rel_goal[$npcID] = 'sex') and sex_ev['date_invite'] = 1:
+		act '离开': msg '可惜的是，他最终也没给你发来短信。' & gt 'sex_ev_leave', 'exit'
+	else
+		if sex_ev['fuckbuddy_invite'] = 1:
+			gs 'sex_ev_stats', 'fuckbuddy_add'
+		elseif sex_ev['date_invite'] = 1:
+			gs 'sex_ev_stats', 'lover_add'
+		end
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+end
+
+if $ARGS[0] = 'breakup_start':
+	if $npc_rel_type[$npcID] ! 'husband' and $sex_ev['type'] ! 'hookup':
+		act '断绝关系':
+			cla & *clr
+			$sex_ev['bed_room']
+			iif($sex_ev['loc'] ! 'pc_home','"这是我最后一次过来，"你突然说道。','"这是你最后一次能过来，"你突然说道。')
+			'"啊？" <<$npcdesc>>奇怪地看着你。"你在说什么？"'
+			gs 'sex_ev_leave', 'breakup_mid'
+		end
+	end
+end
+
+if $ARGS[0] = 'breakup_mid':
+	cla
+	if $npc_rel_type[$npcID] = 'boyfriend':
+		'"我要跟你分手。"'
+		'"什么？！"他问道。'
+		act '不要解释':
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+			'"我不能再跟你在一起了，"你说。"对不起。"'
+			'你抓起自己的东西离开了。'
+			act '离开': gt 'sex_ev_leave', 'break_up'
+		end
+!!				gs 'sex_ev_leave', 'found_someone_else_breakup'
+!!				gs 'sex_ev_leave', 'cheating_on_you_breakup'
+
+	else
+		'"以后别再发短信叫我过来了。"'
+		'"为什么不行？"他问道。'
+		act '不要解释':
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+			'"我不能再这样下去了，"你说。"对不起。"'
+			'你抓起自己的东西离开了。'
+			act '离开': gt 'sex_ev_leave', 'break_up'
+		end
+		gs 'sex_ev_leave', 'unsatisfied_breakup'
+		gs 'sex_ev_leave', 'no_more_cheating_breakup'
+	end
+end
+
+if $ARGS[0] = 'unsatisfied_breakup':
+	act '你满足不了我':
+		cla & *clr
+		$sex_ev['bed_room']
+		'"你不是我想要的那种炮友，"你淡淡地说。'
+		act '性生活不和谐':
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+			'"你不是我想要的那种炮友，"你淡淡地说。"我觉得我们在性这方面合不来。"'
+			*nl
+			'你耸了耸肩，抓起自己的东西，然后一言不发地离开了。'
+			act '离开': gt 'sex_ev_leave', 'break_up'
+		end
+		if npc_sexdrive[$npcID] = 1 or npc_two_pump[$npcID] = 1:
+			act '你两下就完事了':
+				cla & *clr
+				$sex_ev['bed_room']
+				'"你不是我想要的那种炮友，"你淡淡地说。"你射得太快了。我没法指望你让我爽到。"'
+				*nl
+				'"等等，可是——"'
+				gs 'sex_ev_leave', 'isnt_going_to_work'
+			end
+		elseif npc_sexdrive[$npcID] < 5:
+			act '你坚持得不够久':
+				cla & *clr
+				$sex_ev['bed_room']
+				'"你不是我想要的那种炮友，"你淡淡地说。"你硬不起来，我没法指望你让我爽到。"'
+				*nl
+				'"等等，可是——"'
+				gs 'sex_ev_leave', 'isnt_going_to_work'
+			end
+		else
+			act '你坚持得太久':
+				cla & *clr
+				$sex_ev['bed_room']
+				'"你不是我想要的那种炮友，"你淡淡地说。"说实话，你的性欲实在太强了。等你满足的时候，我的小穴都疼了。"'
+				*nl
+				'"等一下——"'
+				gs 'sex_ev_leave', 'isnt_going_to_work'
+			end
+		end
+
+!!		act 'You''re boring':
+	end
+end
+
+if $ARGS[0] = 'no_more_cheating_breakup':
+	if (stat['boyfriends_current'] > 0 or stat['girlfriends_current'] > 0) and (npc_know_have_boyfriend + npc_know_have_girlfriend = 0):
+		act '我开始和别人约会了':
+			cla & *clr
+			npc_know_cheat[$npcID] = 1
+			$sex_ev['bed_room']
+			'"其实，我已经开始和别人交往了。性爱确实很爽，但是……"你摇了摇头，抓起自己的手提包。"我不能再这样下去了。我不想把这件事搞砸。"'
+			if $npc_fidelity_label[$boy] ! 'faithful' and $npc_fidelity_label[$boy] ! 'open':
+				'"别这样嘛，"他说。"我们只是玩玩而已。纯粹肉体关系的话，算不上出轨。你在洗澡时自慰的时候，难道算是在跟花洒出轨吗？"'
+				act '不要就是不要':
+					cla & *clr
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+					'"你改变不了我的主意，"你说。"我们结束了。"'
+					*nl
+					'说完，你就走出了门。'
+					act '离开': gt 'sex_ev_leave', 'break_up'
+				end
+
+				act '嗯……':
+					cla & *nl
+					'你停顿了一下，咬着嘴唇思索着。'
+					act '只要只是身体关系':
+						cla & *clr
+						$sex_ev['bed_room']
+						'"嗯……"你缓缓地说。"只要<i>真的</i>只是肉体关系……"'
+						'"这才乖嘛，"<<$npcdesc>>在床上咧嘴笑道。'
+						gs 'sex_ev_after', 'cheating_end'
+					end
+
+					act '定一些规矩':
+						cla & *nl
+						'"好吧……"你说。"但得有规矩！"'
+						gs 'sex_ev_talk', 'cheating_rules'
+					end
+				end
+			else
+				'"哦。"<<$npc_firstname[$npclastsaved]>>看着你。"我觉得这样很公平。那么……以后有缘再见？"'
+				act '再见':
+					cla & *nl
+					'"嗯，"你怅然地嘟囔道。"再见……"'
+					*nl
+					'说完，你就走出了门。'
+					act '离开': gt 'sex_ev_leave', 'break_up'
+				end
+
+				act '我才不会':
+					cla & *clr
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+					'"不，我不会再见了，"你皱眉道。"这正是重点。"'
+					*nl
+					'说完，你就走出了门。'
+					act '离开': gt 'sex_ev_leave', 'break_up'
+				end
+			end
+		end
+
+		if stat['boyfriends_current'] > 0:
+			act '我不能再继续背叛我男朋友了':
+				cla & *clr
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+				if npc_know_cheat[$npcID] = 1:
+					'"我不能再这样背着男朋友出轨了，"你说着，羞愧地低下头。"这是不对的，我真的不能再这样下去了。我得走了。"'
+				else
+					'"其实，我已经在和别人交往了，"你说着，羞愧地低下头。"这段时间我一直在背着他和你偷情。这是不对的，我——我真的不能再这样下去了！"'
+				end
+				'你抓起你的东西，冲出门去。'
+				act '离开': gt 'sex_ev_leave', 'break_up'
+			end
+		end
+		if stat['girlfriends_current'] > 0:
+			act '我不能再继续背叛我女朋友了':
+				cla & *clr
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+				if npc_know_cheat[$npcID] = 1:
+					'"我不能再这样背着女朋友出轨了，"你说着，羞愧地低下头。"这是不对的，我真的不能再这样下去了。我得走了。"'
+				else
+					'"其实，我已经在和别人交往了，"你说着，羞愧地低下头。"这段时间我一直在背着她和你偷情。这是不对的，我——我真的不能再这样下去了！"'
+				end
+				'你抓起你的东西，冲出门去。'
+				act '离开': gt 'sex_ev_leave', 'break_up'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'isnt_going_to_work':
+	act '拿起你的东西':
+		cla & *clr
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+		'"这样下去是不行的，"你打断了他的话。"我们结束了。"'
+		*nl
+		'说完，你就走出了门。'
+		act '离开': gt 'sex_ev_leave', 'break_up'
+	end
+end
+
+if $ARGS[0] = 'no_condom_breakoff':
+	if npc_no_condoms_know[$npcID] = 1:
+		act '我做不到（断绝关系）':
+			!! add in rape chance later
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/depart_annoyed1.mp4"></video></center>'
+			'"去他妈的，"你说着，起身抓起自己的衣服。'
+			'"你他妈要去哪儿？"<<$npcdesc>>一脸困惑地问道。'
+			'"我可不会跟一个从来不用避孕套的男人当炮友，"你轻蔑地对他说。"<i>别</i>再给我发短信了。"'
+			*nl
+			'你刚穿好衣服就大步走出门，随手在身后把门砰地关上。'
+			act '离开': gt 'sex_ev_leave', 'break_up'
+		end
+	end
+end
+
+if $ARGS[0] = 'sneak_out1':
+	act '溜出去': gt 'sex_ev_leave', 'sneak_out2'
+	act '留张字条':
+		cla & *clr
+		$sex_ev['hall_way']
+		'不想不辞而别但也不想吵醒<<$npcdesc>>要么，你找到一张纸和一支笔，匆匆写下一段话。'
+		gs 'sex_ev_leave', 'sneak_out_note1'
+	end
+	if $pantyworntype ! 'none':
+		act '留下你的内裤':
+			npc_panty_give[$npcID] += 1
+			gs 'panties', 'dispose'
+			cla & *clr
+			$sex_ev['hall_way']
+			if PCloSkirt > 0:
+				'突然感到调皮，你迅速将内裤褪到腿上，让阴部在裙子下裸露。你将温热的内裤绕在<<$npcdesc>>的卧室门，然后悄悄地溜出他的公寓，只留下你的礼物。'
+			else
+				'突然感到调皮，你褪下裤子，花了一分钟解开缠绕的双腿，然后把裤子提回来，没穿内裤。你将温热的内裤绕在<<$npcdesc>>的卧室门，然后悄悄地溜出他的公寓，只留下你的礼物。'
+			end
+			act '离开': gt 'sex_ev_leave', 'exit'
+		end
+
+		act '在内裤上留张字条':
+			sex_ev['panty_note'] = 1
+			npc_panty_give[$npcID] += 1
+			gs 'panties', 'dispose'
+			cla & *clr
+			$sex_ev['hall_way']
+			if PCloSkirt > 0:
+				'不想不辞而别但也不想吵醒<<$npcdesc>>要么，你开始找纸，这时一个调皮的想法闪过脑海。无法抗拒这个念头，你迅速从裙子下脱下内裤，然后翻找一支大记号笔。'
+			else
+				'不想不辞而别但也不想吵醒<<$npcdesc>>要么，你开始找纸，这时一个调皮的想法闪过脑海。无法抗拒这个念头，你迅速褪下裤子，花了一分钟解开缠绕的双腿，然后把裤子提回来，没穿内裤。然后你翻找一支大记号笔。'
+			end
+			*nl
+			'你咧嘴一笑，拧开口红盖，开始涂写起来。'
+			gs 'sex_ev_leave', 'sneak_out_note1'
+		end
+	end
+
+	if sex_ev['prostitution'] = 1 and sex_ev['prostitution_paid'] = 0 and sex_ev['boy_asleep'] = 1:
+		act '叫醒他要钱': xgt 'sex_ev_leave', 'prostitution_wakeup1'
+	end
+end
+
+if $ARGS[0] = 'prostitution_wakeup1':
+	gs 'sex_ev_stats', 'prostitution_pay_code'
+	cla
+	act '客气一点':
+		cla & *clr
+		$sex_ev['bed_room']
+		'轻轻地，你摇<<$npcdesc>>''的肩膀，直到他惊醒过来。'
+		'"嗯——？"他环顾四周，困惑地眨着眼。'
+		if sex_ev['sleepover'] = 1:
+			iif($npc_rel_type[$npcID] = 'sugar_daddy', '"嘿，"你柔柔地笑着说。"昨晚我过得很开心，但我真的得走了。你的宝贝女孩能拿到她的糖吗？"', '"嘿，"你柔柔地笑着说。"昨晚我过得很开心，但我真的得走了。我能，呃……拿到这次的报酬吗……？"')
+		else
+			iif($npc_rel_type[$npcID] = 'sugar_daddy', '"嘿，"你柔柔地笑着说。"我过得很开心，但我真的得走了。你的宝贝女孩能拿到她的糖吗？"', '"嘿，"你柔柔地笑着说。"我过得很开心，但我真的得走了。我能，呃……拿到这次的报酬吗……？"')
+		end
+		'"哦。好，"他含糊地说着，慢慢坐起身。"等我一下……"'
+		*nl
+		'他非常缓慢地从钱包里抽出几张钞票，需要反复数好几遍才能凑出正确的<<func(''money'', ''string_profit'', sex_ev[''prostitution_paid''])>>.'
+		gs 'sex_ev_leave', 'prostitution_wakeup2'
+	end
+
+	act '公事公办':
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		cla & *clr
+		$sex_ev['bed_room']
+		'不带任何特别的礼貌或关心，你摇<<$npcdesc>>''的肩膀，直到他惊醒过来。'
+		'"嗯——？"他环顾四周，困惑地眨着眼。'
+		'"我得走了，"你直截了当地说。"我的钱呢？"'
+		'"哦。好，"他含糊地说着，慢慢坐起身。"等我一下……"'
+		*nl
+		'他非常缓慢地从钱包里抽出几张钞票，需要反复数好几遍才能凑出正确的<<func(''money'', ''string_profit'', sex_ev[''prostitution_paid''])>>.'
+		*nl
+		'"谢了。"你一把抓过钱，几乎没停下脚步就把它塞进手提包，径直朝门口走去。'
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+end
+
+if $ARGS[0] = 'prostitution_wakeup2':
+	act '谢谢他':
+		cla & *clr
+		$sex_ev['bed_room']
+		'"谢谢干爹，"你说着，把钱塞进手提包，然后悄悄出了门。'
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+
+	act '亲吻他的脸颊':
+		cla & *clr
+		$sex_ev['bed_room']
+		'"谢谢干爹，"你笑着说，把钱塞进手提包，在他脸颊上飞快地亲了一下，然后悄悄出了门。'
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+
+
+	act '轻吻他的嘴唇':
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+		cla & *clr
+		$sex_ev['bed_room']
+		'"谢谢干爹，"你笑着说，把钱塞进手提包，在他嘴唇上飞快地亲了一下，然后悄悄出了门。'
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+
+	act '深深地吻他':
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+		cla & *clr
+		$sex_ev['bed_room']
+		'"谢谢干爹，"你笑着说。你把钱塞进手提包，转过身来，突然把<<$npcdesc>>''的脸拉过来深深一吻，吸着他的味道、他的气息，把舌头探进他的双唇之间。好几秒后你才让这个吻结束，当你们终于分开时，一丝唾液在你们之间拉长。你灼灼地凝视了他一番，舔了舔嘴唇，悄悄出了门。'
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+end
+
+if $ARGS[0] = 'sneak_out_note1':
+	act '谢谢你让我留宿':
+		cla & *clr
+		$sex_ev['hall_way']
+		$sex_ev['note_desc1'] = '<i>谢谢你让我留宿一晚。</i>'
+		$sex_ev['note_desc1']
+		gs 'sex_ev_leave', 'sneak_out_note2'
+	end
+
+	act '我玩得很开心':
+		cla & *clr
+		$sex_ev['hall_way']
+		$sex_ev['note_desc1'] = '<i>昨晚我过得很开心。</i>'
+		$sex_ev['note_desc1']
+		gs 'sex_ev_leave', 'sneak_out_note2'
+	end
+
+	if sex_ev['fuck_count'] > 0:
+		act '谢谢这一炮':
+			cla & *clr
+			$sex_ev['hall_way']
+			$sex_ev['note_desc1'] = '<i>谢谢这一炮。</i>'
+			$sex_ev['note_desc1']
+			gs 'sex_ev_leave', 'sneak_out_note2'
+		end
+	end
+
+	if sex_ev['prostitution'] = 1 and sex_ev['prostitution_paid'] = 0:
+		act '这次算免费':
+			cla & *clr
+			gs 'npc_relationship', 'modify', $npcID, 'like'
+			sex_ev['prostitution_freebie'] = 1
+			$sex_ev['hall_way']
+			$sex_ev['note_desc1'] = '<i>就把昨晚当成免费的吧。</i>'
+			'你昨晚没有拿到钱，而他还在睡觉，但你无法狠心叫醒他。'
+			$sex_ev['note_desc1']
+			if sex_ev['orgasm_count'] > 0:
+				'你撇了撇嘴，露出一丝苦笑，把写好的前半句划掉。也许从某些方面来说，你得到的高潮已经足够当作报酬了。'
+			else
+				'你撇了撇嘴，露出一丝苦笑，把写好的前半句划掉。也许从某些方面来说，你们做的爱已经足够当作报酬了。'
+			end
+			gs 'sex_ev_leave', 'sneak_out_note2'
+		end
+
+		act '记你账上':
+			cla & *clr
+			gs 'npc_relationship', 'modify', $npcID, 'like'
+			npc_prostitution_tab[$npcID] += sex_ev['prostitution_sum']
+			$sex_ev['hall_way']
+			$sex_ev['note_desc1'] = '<i>我会把今晚记在你的账上。</i>'
+			'你昨晚没有拿到钱，而他还在睡觉，但你无法狠心叫醒他。'
+			$sex_ev['note_desc1']
+			if sex_ev['orgasm_count'] > 0:
+				'你撇了撇嘴，露出一丝苦笑，把写好的前半句划掉。也许这样值得他晚点付钱。'
+			else
+				'你撇了撇嘴，露出一丝苦笑，把写好的前半句划掉。也许从某些方面来说，你们做的爱值得他晚点付钱。'
+			end
+			gs 'sex_ev_leave', 'sneak_out_note2'
+		end
+	end
+end
+
+if $ARGS[0] = 'prostitution_tab_note1':
+
+end
+
+if $ARGS[0] = 'sneak_out_note2':
+	act '很好玩':
+		$sex_ev['note_desc2'] = '<i>挺开心的。</i>'
+		gs 'sex_ev_leave', 'sneak_out_note3'
+	end
+
+	act '回头见':
+		$sex_ev['note_desc2'] = '<i>回头见。</i>'
+		gs 'sex_ev_leave', 'sneak_out_note3'
+	end
+
+	if $sex_ev['type'] = 'hookup':
+		act '给我发短信（炮友）':
+			sex_ev['fuckbuddy_invite'] = 1
+			if sex_ev['fuck_count'] > 0:
+				$sex_ev['note_desc2'] = '<i>想再操一次就给我发短信。</i>'
+			else
+				$sex_ev['note_desc2'] = '<i>想再玩玩就给我发短信。</i>'
+			end
+			gs 'sex_ev_leave', 'sneak_out_note3'
+		end
+
+		act '给我发短信（约会对象）':
+			sex_ev['date_invite'] = 1
+			$sex_ev['note_desc2'] = '<i>想找个时间出去约会就给我发短信。</i>'
+			gs 'sex_ev_leave', 'sneak_out_note3'
+		end
+	else
+		act '给我发短信':
+			$sex_ev['note_desc2'] = '<i>别忘了给我发短信。</i>'
+			gs 'sex_ev_leave', 'sneak_out_note3'
+		end
+	end
+
+	act '下次再见':
+		$sex_ev['note_desc2'] = '<i>下次见。</i>'
+		gs 'sex_ev_leave', 'sneak_out_note3'
+	end
+end
+
+if $ARGS[0] = 'sneak_out_note3':
+	cla & *clr
+	$sex_ev['hall_way']
+	'<<$sex_ev[''note_desc1'']>> <<$sex_ev[''note_desc2'']>>'
+	'你在上面签上……'
+	act '只签你的名字':
+		cla & *clr
+		$sex_ev['hall_way']
+		'<<$sex_ev[''note_desc1'']>> <<$sex_ev[''note_desc2'']>> - <<$pcs_nickname>>'
+		gs 'sex_ev_leave', 'sneak_out_note_end'
+	end
+
+	act '一个笑脸':
+		cla & *clr
+		$sex_ev['hall_way']
+		'<<$sex_ev[''note_desc1'']>> <<$sex_ev[''note_desc2'']>> <b><i>:)</i></b>'
+		*nl
+		'你画了个小小的笑脸，嘴角的弧线上点出两只小眼睛，忍不住自己也笑了起来。'
+		gs 'sex_ev_leave', 'sneak_out_note_end'
+	end
+
+	act '一个眨眼笑脸':
+		cla & *clr
+		$sex_ev['hall_way']
+		'<<$sex_ev[''note_desc1'']>> <<$sex_ev[''note_desc2'']>> <b><i>;)</i></b>'
+		*nl
+		'你画了个小小的笑脸，嘴角的弧线上点出两只眨眼的小眼睛，忍不住自己也笑了起来。'
+		gs 'sex_ev_leave', 'sneak_out_note_end'
+	end
+
+	act '一颗心':
+		cla & *clr
+		$sex_ev['hall_way']
+		'<<$sex_ev[''note_desc1'']>> <<$sex_ev[''note_desc2'']>> <b><i><3</i></b>'
+		*nl
+		'你在纸条上添了一颗小小的心，画的时候胸口涌起一阵暖意。'
+		gs 'sex_ev_leave', 'sneak_out_note_end'
+	end
+
+	if pcs_makeup > 2:
+		act '一个吻':
+			cla & *clr
+			$sex_ev['hall_way']
+			'<<$sex_ev[''note_desc1'']>> <<$sex_ev[''note_desc2'']>>'
+			*nl
+			if sex_ev['panty_note'] = 1:
+				'你用舌头舔过嘴唇，把它们抿了一下，然后在纸条上印下一个又大又湿的吻。当你退开时，你的口红在你丢弃的内裤上留下了一个大大的唇印。幸好你出门前化好了妆。'
+			else
+				'你用舌头舔过嘴唇，把它们抿了一下，然后在纸条上印下一个又大又湿的吻。当你退开时，你的口红在纸上留下了一个大大的唇印。幸好你出门前化好了妆。'
+			end
+			gs 'sex_ev_leave', 'sneak_out_note_end'
+		end
+	end
+end
+
+if $ARGS[0] = 'sneak_out_note_end':
+	*nl
+	if sex_ev['panty_note'] = 1:
+		'满足地，你把内裤留在柜台上，悄悄溜出门，想着<<$npcdesc>>发现它们时会怎么想。'
+	else
+		'满足地，你把纸条留在柜台上，悄悄溜出门，随手把门轻轻带上。'
+	end
+
+	if (rand(1, 3) = 1 or $npc_rel_goal[$npcID] = 'serious') and sex_ev['fuckbuddy_invite'] = 1:
+		act '离开': msg '不幸的是，他最后再也没有给你发短信。' & gt 'sex_ev_leave', 'exit'
+	elseif (rand(1, 3) = 1 or $npc_rel_goal[$npcID] = 'sex') and sex_ev['date_invite'] = 1:
+		act '离开': msg '不幸的是，他最后再也没有给你发短信。' & gt 'sex_ev_leave', 'exit'
+	else
+		if sex_ev['fuckbuddy_invite'] = 1:
+			gs 'sex_ev_stats', 'fuckbuddy_add'
+		elseif sex_ev['date_invite'] = 1:
+			gs 'sex_ev_stats', 'lover_add'
+		end
+		act '离开': gt 'sex_ev_leave', 'exit'
+	end
+end
+
+if $ARGS[0] = 'sneak_out2':
+	$sex_ev['hall_way']
+	'你蹑手蹑脚地走向门口，尽可能轻地转动门把手，以免吵醒<<$npcdesc>>, 在你身后轻轻咔哒一声关上了门。'
+	act '离开': gt 'sex_ev_leave', 'exit'
+end
+
+if $ARGS[0] = 'dress':
+	if sex_ev['skip_dress']:
+		gs 'outfit', 'safe_transfer_backup', 'lover_ev', 'sex_ev'
+	else
+		if $lastwornclothingtype['sex_ev'] <> 'nude':
+			gs 'outfit', 'restore', 'sex_ev'
+		end
+		if $clothingworntype = 'nude':
+			gs 'clothing', 'wear_last_worn', 'force'
+		end
+		if $shoeworntype = 'none':
+			gs 'shoes', 'wear_last_worn'
+		end
+	end
+	gs 'stat'
+end
+
+if $ARGS[0] = 'dressing_image':
+
+!!	elseif $sex_ev['dress_describe'] = 'pulling your panties up your legs and fastening your bra around your chest':
+!!		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_underwear1.mp4"></video></center>'
+	if $sex_ev['dress_describe'] = '把胸罩扣在胸前':
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_bra1.mp4"></video></center>'
+	elseif $sex_ev['dress_describe'] = '把裙子顺着腿提上来':
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_skirt1.mp4"></video></center>'
+!!	elseif $sex_ev['dress_describe'] = 'zipping your skirt up over your panties':
+!!		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_skirt1.mp4"></video></center>'
+	elseif $sex_ev['dress_describe'] = '把内裤顺着腿提上来':
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_panties1.mp4"></video></center>'
+	elseif $sex_ev['dress_describe'] = '把上衣拉过胸前':
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_top1.mp4"></video></center>'
+!!	elseif $sex_ev['dress_describe'] = 'pulling your top over your bra':
+!!		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_top1.mp4"></video></center>'
+	elseif $sex_ev['dress_describe'] = '把裤子拽过臀部':
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_1.mp4"></video></center>'
+	elseif sex_ev['CloDress'] = 1 and sex_ev['dress_end'] = 0:
+		'<center><img <<$set_imgh>> src="images/shared/romance/lovers/misc/bed_dress.jpg"></center>'
+	elseif sex_ev['hotel'] = 1:
+		!! IMAGE HERE
+		!! hotel room image
+	else
+		$sex_ev['bed_room']
+	end
+end
+
+if $ARGS[0] = 'pc_or_npc_dressing':
+	if sex_ev['dressing_start'] ! 1:
+
+	else
+
+	end
+end
+
+
+if $ARGS[0] = 'dressing1':
+	cla & *clr
+!!	gs 'sex_ev_leave', 'dress'
+	gs 'sex_ev_clothing', 'dress_loop'
+	if sex_ev['angry_after'] = 1 or sex_ev['annoyed'] > 0:
+		'"我得走了，"你面无表情地说，低头去拿自己的衣服，看都没看<<$npcdesc>>一眼。'
+		xgt 'sex_ev_leave', 'dressing2'
+	elseif sex_ev['cant_stay'] = 1:
+		!! there is an additional dress_loop here to make it possible to give panties here
+		gs 'sex_ev_clothing', 'dress_loop_code'
+		'"那我该走了，"你叹了口气，<<$sex_ev[''dress_describe'']>>。'
+		xgt 'sex_ev_leave', 'dressing2'
+	elseif sex_ev['npc_late'] = 1:
+		'<<$npcdesc>>开始在你旁边穿衣服。'
+		xgt 'sex_ev_leave', 'dressing2'
+	else
+		if sex_ev['boy_in_shower'] = 1:
+			sex_ev['boy_in_shower'] = 0
+			'<<$npcdesc>>回到房间时，你正<<$sex_ev[''dress_describe'']>>，他腰间围着一条毛巾，头发还湿着。'
+			'"嘿，怎么了？你要走了？"他问道。'
+		elseif sex_ev['npc_late'] = 0:
+			'"你要走了？"<<$npcdesc>>在你<<$sex_ev[''dress_describe'']>>的时候问道。'
+		end
+
+		gs 'sex_ev_leave', 'not_leaving'
+		gs 'sex_ev_leave', 'leaving_soon'
+		gs 'sex_ev_leave', 'something_to_do'
+		gs 'sex_ev_leave', 'see_a_friend'
+		gs 'sex_ev_leave', 'another_fuckbuddy'
+		if sex_ev['sleepover'] < 1:
+			gs 'sex_ev_leave', 'going_disco'
+			gs 'sex_ev_leave', 'mom_late'
+			gs 'sex_ev_leave', 'need_homework'
+			gs 'sex_ev_leave', 'school_night'
+		end
+		gs 'sex_ev_leave', 'going_school'
+		gs 'sex_ev_leave', 'go_church1'
+		act '结束与<<$npcdesc>>': xgt 'sex_ev_dress_talking', 'break_up_ev'
+!!		gs 'sex_ev_dress_talking', 'dress_talk'
+
+	end
+
+!!	act 'Talk while you dress':
+!!		gs 'sex_ev_dress_talking', 'dress_talk'
+!!	end
+end
+
+if $ARGS[0] = 'dressing2':
+	sex_ev['leaving'] = 1
+	if sex_ev['sleepover'] = 1:
+		gs 'sex_ev_morning', 'end_morning'
+
+!!		gs 'sex_ev_hookup_leave', 'end_morning'
+	else
+		act '穿好衣服': xgt 'sex_ev_leave', 'dressing_finish'
+	end
+	if sex_ev['dress_talking_flag'] = 1: xgt 'sex_ev_dress_talking', 'dress_talk'
+	if sex_ev['boy_asleep'] = 0:
+		act '边穿衣服边聊': cla & xgt 'sex_ev_dress_talking', 'dress_talk'
+	end
+	act '结束与<<$npcdesc>>': xgt 'sex_ev_dress_talking', 'break_up_ev'
+	if sex_ev['ma_pill_money'] = 0 and npc_pay_for_ma_pill[$npcID] = 1 and sex_ev['creampie_count'] > 0:
+		cla
+		act '继续': cla & gs 'sex_ev_dress_talking', 'money_for_ma_pill'
+	end
+	gs 'sex_ev_leave', 'panty_gift'
+end
+
+if $ARGS[0] = 'dressing_finish':
+!!	if sex_ev['dress_end'] = 0:
+	sex_ev['dressed_to_go'] = 1
+	cla & *clr
+!!			$sex_ev['bed_room']
+	if sex_ev['dressing_start'] = 0:
+		gs 'sex_ev_clothing', 'dress_loop'
+		'你迅速穿好衣服。'
+	else
+		gs 'sex_ev_clothing', 'dress_loop'
+		'你完成<<$sex_ev[''dress_describe'']>>。'
+	end
+	gs 'sex_ev_clothing', 'dress_loop_end'
+	if sex_ev['sleepover'] = 1 and npc_latesleeper[$npcID] = 1 and sex_ev['boy_asleep'] ! 0:
+		gs 'sex_ev_leave', 'sneak_out1'
+	else
+		gs 'sex_ev_leave', 'leaving_dialogue'
+	end
+end
+
+if $ARGS[0] = 'not_leaving':
+	if $sex_ev['type'] ! 'hookup':
+		act '还没':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"你要走了？"<<$npcdesc>>问道。'
+			'"还没，"你说着，<<$sex_ev[''dress_describe'']>>。"只是光着身子待久了有点烦。"'
+			'"我可从来不会看你看腻。"'
+			act '翻白眼':
+				cla & *nl
+				'"随便吧，"你叹了口气，朝天翻了个白眼。'
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'leaving_soon':
+	act '嗯':
+		sex_ev['leaving'] = 1
+		cla & *clr
+		gs 'sex_ev_clothing', 'dress_loop'
+		'"你要走了？"<<$npcdesc>>问道。'
+		if sex_ev['sleepover'] < 1:
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。' + iif($sex_ev['loc'] = 'pc_home', ' "把你的衣服穿上，好让我赶紧走人。"', ' ')
+			xgt 'sex_ev_leave', 'dressing2'
+		else
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。'
+			if rand(1, 3) = 3 and (npc_day_off[$npcID] = week and sex_ev['sleepover'] = 1) or ((npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+				gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+			else
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+end
+
+if $ARGS[0] = 'going_disco':
+	if hour >= 18 and (week = 5 or week = 6):
+		if $region = 'pav':
+			act '去迪斯科舞厅':
+				cla & *clr
+				gs 'sex_ev_clothing', 'dress_loop'
+				'"你要走了？"<<$npcdesc>>问道。'
+				if sex_ev['disco_after'] = 1:
+					'"你没在听我说话吗？"你说着，<<$sex_ev[''dress_describe'']>>。"我告诉过你，我今晚要去迪斯科舞厅。' + iif($sex_ev['loc'] = 'pc_home', '那就快点把衣服穿上，好让我赶得上！"','"')
+				else
+					'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"我想去迪斯科舞厅。' + iif($sex_ev['loc'] = 'pc_home', '那就快点把衣服穿上，好让我赶得上！"','"')
+				end
+				!! add spontaneous disco date
+				gs 'sex_ev_leave', 'dressing2'
+				if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+			end
+		else
+			act '去夜店':
+				cla & *clr
+				gs 'sex_ev_clothing', 'dress_loop'
+				'"你要走了？"<<$npcdesc>>问道。'
+				if sex_ev['club_after'] = 1:
+					'"你没在听我说话吗？"你说着，<<$sex_ev[''dress_describe'']>>。"我告诉过你，我今晚要去夜店。"' + iif($sex_ev['loc'] = 'pc_home', '那就快点把衣服穿上，好让我赶在打烊前到！"','"')
+				else
+					'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"我今晚想去夜店玩。"' + iif($sex_ev['loc'] = 'pc_home', '那就快点把衣服穿上，好让我赶在打烊前到！"','"')
+				end
+				!! add spontaneous club date
+				gs 'sex_ev_leave', 'dressing2'
+				if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'mom_late':
+	if $start_type['loc'] = 'sg' and hour >= 20 and $sex_ev['loc'] ! 'pc_home':
+		act '妈妈会杀了我的':
+			sex_ev['mom_kill'] = 1
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"你要走了？"<<$npcdesc>>问道。'
+			if hour < 3:
+				'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"我现在就已经要挨骂了，要是我今晚干脆不回家，我妈会杀了我的。"'
+			else
+				'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"我要是赶不上门禁前回家，我妈会杀了我的。"'
+			end
+			gs 'sex_ev_leave', 'dressing2'
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+end
+
+if $ARGS[0] = 'need_homework':
+	if lernHome > 0:
+		act '我得写完作业':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"你要走了？"<<$npcdesc>>问道。'
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"我得写作业。' + iif($sex_ev['loc'] = 'pc_home', '那就穿好衣服赶紧走人，好让我把作业写完。"','"')
+!!			if rand(0,1) = 1:
+			if npc_intel[$npcID] < 30 and npc_finance[$npcID] < 2:
+				'"真的假的？你就为这个这么急？"'
+				act '我想去上大学':
+					cla & *clr
+					gs 'sex_ev_clothing', 'dress_loop'
+					'"我想上大学，"你说着，<<$sex_ev[''dress_describe'']>>。"要是我因为不写作业而挂科退学，那就上不成了。"'
+					gs 'sex_ev_leave', 'dressing2'
+					if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+				end
+				act '别这么混蛋':
+					cla & *clr
+					gs 'sex_ev_clothing', 'dress_loop'
+					'"别这么混蛋，"你瞪着眼说，<<$sex_ev[''dress_describe'']>>。"我的成绩对我很重要。比多花时间操你更重要。"'
+					gs 'sex_ev_leave', 'dressing2'
+					if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+				end
+			else
+				'"我觉得你毕业后的前途确实挺重要的，"<<$npcdesc>>说。'
+				act '谢谢理解':
+					gs 'sex_ev_clothing', 'dress_loop'
+					'"谢谢，"你说着，<<$sex_ev[''dress_describe'']>>。"你能理解，这对我来说意义很大。"'
+					gs 'sex_ev_leave', 'dressing2'
+					if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+				end
+
+				act '想去上大学':
+					gs 'sex_ev_clothing', 'dress_loop'
+					'"我真的很想上大学，"你说着，<<$sex_ev[''dress_describe'']>>。"所以跟上课程对我来说非常重要。"'
+					gs 'sex_ev_leave', 'dressing2'
+					if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+				end
+
+				act '说得没错':
+					gs 'sex_ev_clothing', 'dress_loop'
+					'"说得没错，"你说着，<<$sex_ev[''dress_describe'']>>。"为了操你而荒废学业，最后可能会毁了我一辈子！"'
+					gs 'sex_ev_leave', 'dressing2'
+					if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+				end
+
+				act '别往心里去':
+					gs 'sex_ev_clothing', 'dress_loop'
+					'"别往心里去，好吗？"你问道，<<$sex_ev[''dress_describe'']>>。"我真的很喜欢你，我只是不能冒被学校开除的风险。"'
+					gs 'sex_ev_leave', 'dressing2'
+					if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+				end
+			end
+			gs 'sex_ev_leave', 'panty_gift'
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+end
+
+if $ARGS[0] = 'something_to_do':
+	act '我得去办点事':
+		sex_ev['leaving'] = 1
+		cla & *clr
+		gs 'sex_ev_clothing', 'dress_loop'
+		'"你要走了？"<<$npcdesc>>问道。'
+		if sex_ev['sleepover'] < 1:
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"有几件事得去办。' + iif($sex_ev['loc'] = 'pc_home', ' 抱歉这么快就把你赶走。"','"')
+			xgt 'sex_ev_leave', 'dressing2'
+		else
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"有几件事得去办。' + iif($sex_ev['loc'] = 'pc_home',' 抱歉这么快就把你赶走。"',' 谢谢你让我留宿一晚。"')
+
+			if rand(1, 3) = 3 and (npc_day_off[$npcID] = week or (npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+				gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+			else
+				iif($sex_ev['loc'] = 'pc_home','"没事。我明白。"','"没问题。昨晚挺开心的。"')
+				gs 'sex_ev_morning', 'end_morning'
+			end
+		end
+		!!if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+	end
+end
+
+if $ARGS[0] = 'see_a_friend':
+	act '去见个朋友':
+		sex_ev['leaving'] = 1
+		cla & *clr
+		gs 'sex_ev_clothing', 'dress_loop'
+		'"你要走了？"<<$npcdesc>>问道。'
+		if sex_ev['sleepover'] < 1:
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"待会儿要去见个朋友。' + iif($sex_ev['loc'] = 'pc_home', '抱歉这么快就把你赶走。"','"')
+			xgt 'sex_ev_leave', 'dressing2'
+		else
+			'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"待会儿要去见个朋友。' + iif($sex_ev['loc'] = 'pc_home','抱歉这么快就把你赶走。"','谢谢你让我留宿一晚。"')
+
+			if rand(1, 3) = 3 and (npc_day_off[$npcID] = week or (npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+				gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+			else
+				'"没问题。"'
+				gs 'sex_ev_morning', 'end_morning'
+			end
+		end
+		if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+	end
+end
+
+if $ARGS[0] = 'another_fuckbuddy':
+	if stat['fuckbuddies_current'] > 1:
+		act '又是一场炮约':
+			sex_ev['leaving'] = 1
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"你要走了？"<<$npcdesc>>问道。'
+			if $sex_ev['type'] = 'hookup':
+				'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"还有个炮约得去赴。"'
+			else
+				'"是啊，"你说着，<<$sex_ev[''dress_describe'']>>。"又有场炮约得去赴。"'
+			end
+			'"你还真是到处留情，是不是？" <<$npcdesc>>笑着回敬道。'
+			gs 'sex_ev_leave', 'dressing2'
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+end
+
+if $ARGS[0] = 'going_school':
+	if kanikuli = 0 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0 and week < 6 and hour < 9 and hour > 5:
+		act '学校':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"你要走了？" <<$npcdesc>>问道。'
+			if $sex_ev['loc'] = 'pc_home':
+				if sex_ev['late_for_school'] = 1 and hour >= 8:
+					'"我早就跟你说过了，我上学要迟到了，"你说，<<$sex_ev[''dress_describe'']>>。"你得赶紧出去，我好锁门。"'
+				elseif sex_ev['late_for_school'] = 1:
+					'"我早就跟你说过了，我上学快要迟到了，"你说，<<$sex_ev[''dress_describe'']>>。"你得赶紧出去，我好锁门。"'
+				elseif hour = 7:
+					'"我得去学校了，"你说，<<$sex_ev[''dress_describe'']>>。"而且你得赶紧出去，我好锁门。"'
+				else
+					'"我得准备去学校了，"你说，<<$sex_ev[''dress_describe'']>>。"而且你得赶紧出去，我好锁门。"'
+				end
+				if rand(1, 3) = 3 and (npc_day_off[$npcID] = week or (npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+					gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+				else
+					'"没问题。"'
+					gs 'sex_ev_morning', 'end_morning'
+				end
+			else
+				if sex_ev['late_for_school'] = 1 and hour >= 8:
+					'"我早就跟你说过了，我上学要迟到了，"你说，<<$sex_ev[''dress_describe'']>>。 ' + iif(sex_ev['sleepover'] = 1, '"不过谢谢你让我在这儿过夜。"', ' ')
+				elseif sex_ev['late_for_school'] = 1:
+					'"我早就跟你说过了，我上学快要迟到了，"你说，<<$sex_ev[''dress_describe'']>>。 ' + iif(sex_ev['sleepover'] = 1, '"也谢谢让我在这儿过夜。还有第二炮，"你眨眨眼补充道。', ' ')
+				elseif hour = 7:
+					'"我得去学校了，"你说，<<$sex_ev[''dress_describe'']>>。 ' + iif(sex_ev['sleepover'] = 1, '"谢谢你让我在这儿过夜。"', ' ')
+				else
+					'"我得准备去学校了，"你说，<<$sex_ev[''dress_describe'']>>。 ' + iif(sex_ev['sleepover'] = 1, '"谢谢你让我在这儿过夜。"', ' ')
+				end
+				if rand(1, 3) = 3 and (npc_day_off[$npcID] = week or (npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+					gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+				else
+					if sex_ev['sleepover'] = 1: '"没问题。"'
+					gs 'sex_ev_morning', 'end_morning'
+				end
+			end
+			gs 'sex_ev_dress_talking', 'dress_talk'
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+end
+
+if $ARGS[0] = 'school_night':
+	if kanikuli = 0 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0 and (week < 5 or week = 7) and (hour > 19 or hour < 5):
+		act '明天要上学':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"你要走了？" <<$npcdesc>>问道。'
+			!! if gschoolVars['absence_count'] = 1:
+			if $sex_ev['loc'] = 'pc_home':
+				'"明天要上学，"你说，<<$sex_ev[''dress_describe'']>>。"你得走了，我明天还得早起去上课。"'
+				if rand(1, 10) < 0:
+					'"你确定我不能在这儿过夜吗？'
+				else
+					'"好吧。"'
+					if rand(1, 3) = 3 and (npc_day_off[$npcID] = week or (npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+						gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+					else
+						gs 'sex_ev_leave', 'dressing2'
+					end
+					gs 'sex_ev_dress_talking', 'dress_talk'
+				end
+			else
+				'"明天要上学，"你说，<<$sex_ev[''dress_describe'']>>。"我得回家定好闹钟，明天还得早起去上课。"'
+				if rand(1, 3) = 3 and (npc_day_off[$npcID] = week or (npc_day_off[$npcID] = week + 1) or (week = 7 and npc_day_off[$npcID] = 1)):
+					gs 'sex_ev_dress_talking', 'sex_ev_invite_later'
+				else
+					gs 'sex_ev_leave', 'dressing2'
+				end
+				gs 'sex_ev_dress_talking', 'dress_talk'
+			end
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+end
+
+if $ARGS[0] = 'go_church1':
+	if week = 6 and hour >= 17 and hour <= 22 and churchday ! daystart:
+		act '去参加晚祷':
+			gs 'sex_ev_clothing', 'dress_loop'
+			if hour < 19:
+				'"我得准备去晚祷了，"你说，<<$sex_ev[''dress_describe'']>>。'
+			else
+				'"我晚祷要迟到了，"你匆匆说着，<<$sex_ev[''dress_describe'']>>。'
+			end
+			gs 'sex_ev_leave', 'go_church2'
+		end
+	elseif week = 7 and hour >= 7 and hour < 12 and churchday ! daystart:
+		act '去做礼拜':
+			gs 'sex_ev_clothing', 'dress_loop'
+			if hour < 9:
+				'"我早上得准备去做礼拜，"你说，<<$sex_ev[''dress_describe'']>>。'
+			else
+				'"我做礼拜要迟到了，"你匆匆说着，<<$sex_ev[''dress_describe'']>>。'
+			end
+			gs 'sex_ev_leave', 'go_church2'
+		end
+	end
+end
+
+if $ARGS[0] = 'go_church_reply':
+	if sex_ev['fuck_count'] = 0 and sex_ev['anal_count'] = 0:
+		'"我猜这就解释了为什么没有插进来，" <<$npc_usedname[$npcID]>>干巴巴地说。'
+	elseif $npc_humor[$npcID] = 'perverted':
+		'"我就喜欢你这种信教的女孩，" <<$npc_usedname[$npcID]>>咧嘴笑道。"你总是最骚的。"'
+	else
+		'"你可真不像是信教的那种人，" <<$npc_usedname[$npcID]>>评论道，看起来觉得好笑。'
+	end
+end
+
+if $ARGS[0] = 'go_church2':
+	gs 'sex_ev_leave', 'go_church_reply'
+
+	act '维持形象':
+		gs 'sex_ev_clothing', 'dress_loop'
+		gs 'sex_ev_leave', 'go_church_reply'
+		'"我得维持形象，不然所有人都会知道我是个骚货，"你开玩笑似的笑道，<<$sex_ev[''dress_describe'']>>。'
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+
+	act '让我妈别烦我':
+		gs 'sex_ev_clothing', 'dress_loop'
+		gs 'sex_ev_leave', 'go_church_reply'
+		if sex_ev['fuck_count'] = 0 and sex_ev['anal_count'] = 0:
+			'"不是因为这个，"你补充道，<<$sex_ev[''dress_describe'']>>。"是因为我妈。这只是我为了不让她唠叨而不得不做的又一件事。"'
+		else
+			'"我<i>才不</i>信教，"你气呼呼地说，<<$sex_ev[''dress_describe'']>>。"我这么做只是为了让我妈别烦我。"'
+		end
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+
+	act '洗净罪孽':
+		gs 'sex_ev_clothing', 'dress_loop'
+		gs 'sex_ev_leave', 'go_church_reply'
+		'"呃，我犯了罪之后总得忏悔，不是吗？"你说，<<$sex_ev[''dress_describe'']>>。'
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+
+	if sex_ev['fuck_count'] = 0:
+		act '只有性才是罪':
+			gs 'sex_ev_clothing', 'dress_loop'
+			gs 'sex_ev_leave', 'go_church_reply'
+			if sex_ev['anal_count'] > 0:
+				'"只有插小穴才算罪，"你解释道，<<$sex_ev[''dress_describe'']>>。"弄屁股不算。"'
+			else
+				'"只有插小穴才算罪，"你解释道，<<$sex_ev[''dress_describe'']>>。"口交不算。"'
+			end
+			'"你说是就是吧，"他说，一脸不信服的样子。'
+			xgt 'sex_ev_leave', 'dressing2'
+		end
+	end
+end
+
+if $ARGS[0] = 'panty_gift':
+	if $pantyworntype ! 'none' and $braworntype = 'none' and $clothingworntype = 'nude' and sex_ev['mad'] = 0 and sex_ev['fuck_count'] > 0 and $sex_ev['loc'] ! 'pc_home':
+		act '把你的内裤给他':
+			npc_panty_give[$npcID] += 1
+			gs 'panties', 'dispose'
+			cla & *clr
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/misc/panty_gift.mp4"></video></center>'
+			'你刚穿上内裤，一个性感的念头就冒了出来。'
+			*nl
+			'"不过在我走之前，"你坏笑着说。"我有个礼物要送给你。"'
+			if npc_panty_give[$npcID] = 1:
+				'"礼物？" <<$npcdesc>>好奇地问道。'
+				*nl
+				'你一气呵成地脱下内裤，让它顺着双腿滑落，然后轻轻地将它们扔到你曾在上头做过爱的那张床的凌乱床单上<<$npcdesc>>.'
+				gs 'sex_ev_leave', 'panty_gift2'
+			else
+				'"又是你的内裤？" <<$npcdesc>>咧嘴笑道。'
+				'"你猜对了，"你也咧嘴一笑。"而你的奖品就是——！"'
+				*nl
+				'你动作流畅地把内裤顺着双腿褪下，优雅地丢进刚刚操过你的那张凌乱床单上。'
+				*nl
+				!!'"Enjoy," you smirk.'
+				gs 'sex_ev_leave', 'panty_gift2'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'panty_gift2':
+	cla
+	act '你干得很好':
+		cla & *clr
+		gs 'sex_ev_clothing', 'dress_loop'
+		'"你干得不错，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"就当这是你的奖赏吧。"'
+		if npc_girlfriend[$npcID] = 1 and npc_fidelity[$npcID] = 6:
+			if pc_know_npc_has_girlfriend[$npcID] = 0: pc_know_npc_has_girlfriend[$npcID] = 1
+			'"等我女朋友回家，我该怎么处理这些东西？"他问道，饶有兴致地看着它们。'
+			if $sex_ev['type'] = 'hookup':
+				gs 'sex_ev_leave', 'panty_gift_girlfriend'
+			else
+				gs 'sex_ev_leave', 'panty_gift_girlfriend'
+			end
+		else
+			'<<$npcdesc>>没有回答，但他的表情表明他并不反感。'
+			if $sex_ev['type'] = 'hookup':
+				gs 'sex_ev_hookup_leave', 'leave_menu'
+			else
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+		end
+		if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+	end
+
+	act '纪念这个时刻':
+		cla & *clr
+		gs 'sex_ev_clothing', 'dress_loop'
+		if daystage > 3:
+			'"留个纪念这一夜的东西，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"记住那些美好时光。"'
+		else
+			'"留个纪念这一天的东西，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"记住那些美好时光。"'
+		end
+		if npc_girlfriend[$npcID] = 1 and npc_fidelity[$npcID] = 6:
+			if pc_know_npc_has_girlfriend[$npcID] = 0: pc_know_npc_has_girlfriend[$npcID] = 1
+			'"等我女朋友回家，我该怎么处理这些东西？"他问道，饶有兴致地看着它们。'
+			if $sex_ev['type'] = 'hookup':
+				gs 'sex_ev_hookup_leave', 'panty_gift_girlfriend'
+			else
+				gs 'sex_ev_leave', 'panty_gift_girlfriend'
+			end
+		else
+			'"也许我该把它裱起来，" <<$npcdesc>>窃笑道。'
+			if $sex_ev['type'] = 'hookup':
+				gs 'sex_ev_hookup_leave', 'leave_menu'
+			else
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+		end
+		if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+	end
+
+	act '把它当作一个战利品':
+		cla & *clr
+		gs 'sex_ev_clothing', 'dress_loop'
+		'"一件战利品，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"就把它当作征服的证明吧。"'
+		if npc_girlfriend[$npcID] = 1 and npc_fidelity[$npcID] = 6:
+			if pc_know_npc_has_girlfriend[$npcID] = 0: pc_know_npc_has_girlfriend[$npcID] = 1
+			'"等我女朋友回家，我该怎么处理这些东西？"他问道，饶有兴致地看着它们。'
+			if $sex_ev['type'] = 'hookup':
+				gs 'sex_ev_hookup_leave', 'panty_gift_girlfriend'
+			else
+				gs 'sex_ev_leave', 'panty_gift_girlfriend'
+			end
+		else
+			'<<$npcdesc>>没有回答，但他的表情表明他并不反感。'
+			if $sex_ev['type'] = 'hookup':
+				gs 'sex_ev_hookup_leave', 'leave_menu'
+			else
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+		end
+		if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+	end
+
+	if sex_ev['virgin'] = 1:
+		act '纪念我的童贞':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"为了纪念我的童贞，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"也纪念你让我变成了女人。"'
+			if npc_girlfriend[$npcID] = 1 and npc_fidelity[$npcID] = 6:
+				if pc_know_npc_has_girlfriend[$npcID] = 0: pc_know_npc_has_girlfriend[$npcID] = 1
+				'"等我女朋友回家，我该怎么处理这些东西？"他问道，饶有兴致地看着它们。'
+				if $sex_ev['type'] = 'hookup':
+					gs 'sex_ev_hookup_leave', 'panty_gift_girlfriend'
+				else
+					gs 'sex_ev_leave', 'panty_gift_girlfriend'
+				end
+			else
+				'<<$npcdesc>>没有回答，但他的表情表明他并不反感。'
+				if $sex_ev['type'] = 'hookup':
+					gs 'sex_ev_hookup_leave', 'leave_menu'
+				else
+					xgt 'sex_ev_leave', 'dressing2'
+				end
+			end
+			if sex_ev['hookup_continuation_check'] = 0 and $sex_ev['type'] = 'hookup': gs 'sex_ev_hookup_leave', 'hookup_continuation'
+		end
+	end
+
+	if sex_ev['orgasm_count'] > 0:
+		act '因为你让我高潮了':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			'"为了让我高潮，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"这值得一份奖赏。"'
+			if npc_girlfriend[$npcID] = 1:
+				if pc_know_npc_has_girlfriend[$npcID] = 0: pc_know_npc_has_girlfriend[$npcID] = 1
+				'"等我女朋友回家，我该怎么处理这些东西？"他问道，饶有兴致地看着它们。'
+				if $sex_ev['type'] = 'hookup':
+					gs 'sex_ev_hookup_leave', 'panty_gift_girlfriend'
+				else
+					gs 'sex_ev_leave', 'panty_gift_girlfriend'
+				end
+			else
+				'<<$npcdesc>>没有回应，但看他眼中淫光闪烁，他似乎相当满意。'
+				if $sex_ev['type'] = 'hookup':
+					gs 'sex_ev_hookup_leave', 'leave_menu'
+				else
+					xgt 'sex_ev_leave', 'dressing2'
+				end
+			end
+		end
+
+		act '因为你让我高潮了（传统）':
+			cla & *clr
+			gs 'sex_ev_clothing', 'dress_loop'
+			if npc_panty_give[$npcID] <= 1:
+				'"因为你让我高潮了，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"哪个男孩让我高潮，我都会把内裤送给他。"'
+			else
+				'"因为你让我高潮了，"你微笑着说，<<$sex_ev[''dress_describe'']>>。"你知道的，哪个男孩让我高潮，我都会把内裤送给他。"'
+			end
+			if npc_girlfriend[$npcID] = 1:
+				if pc_know_npc_has_girlfriend[$npcID] = 0: pc_know_npc_has_girlfriend[$npcID] = 1
+				'"等我女朋友回家，我该怎么处理这些东西？"他问道，饶有兴致地看着它们。'
+				if $sex_ev['type'] = 'hookup':
+					gs 'sex_ev_hookup_leave', 'panty_gift_girlfriend'
+				else
+					gs 'sex_ev_leave', 'panty_gift_girlfriend'
+				end
+			else
+				'<<$npcdesc>>没有回应，但看他眼中淫光闪烁，他似乎相当满意。'
+				if $sex_ev['type'] = 'hookup':
+					gs 'sex_ev_hookup_leave', 'leave_menu'
+				else
+					xgt 'sex_ev_leave', 'dressing2'
+				end
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'panty_gift_girlfriend':
+	act '把它们藏起来':
+		cla & *nl
+		'"就藏起来呗，"你说，<<$sex_ev[''dress_describe'']>>。"你都能把一个操过的女孩藏在床上，藏条内裤肯定不成问题。"'
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+
+	act '说是她的':
+		cla & *nl
+		'"就说是她的，"你带着一丝坏笑耸耸肩，<<$sex_ev[''dress_describe'']>>。"说不定她会以为是自己买的。"'
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+
+	act '说是你的':
+		gs 'sex_ev_clothing', 'dress_loop_code'
+		cla & *nl
+		'"就说是你的，"你带着一丝坏笑耸耸肩，<<$sex_ev[''dress_describe'']>>。"大男人偶尔穿条可爱的内裤怎么了？"'
+		if npc_insecure[$npcID] = 1:
+			gs 'sex_ev_clothing', 'dress_loop_code'
+			'<<$npcdesc>>的脸立刻涨得通红，怒气冲冲地瞪着你。'
+			'"搞什么鬼？我可不是那种娘娘腔，像个死基佬一样穿女孩的内裤！"'
+			act '我是在开玩笑（好笑）':
+				cla & *clr
+				$sex_ev['bed_room']
+				'"我就是开个玩笑，"你窃笑着翻了个白眼。"玩笑开得不好，抱歉。"'
+				'你一边<<$sex_ev[''dress_describe'']>>一边往外走，但<<$npcdesc>>还是用眼角余光又瞪了你一会儿，才把目光移开。'
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+
+			act '我是在开玩笑（尖刻）':
+				cla & *clr
+				$sex_ev['bed_room']
+				'"天啊，我就是开个玩笑，"你说，露出一副受不了<<$npcdesc>>的表情。"我当然不是认真的。开个玩笑而已，白痴。"'
+				'你开始<<$sex_ev[''dress_describe'']>>，但<<$npcdesc>>还是用眼角余光又瞪了你一会儿，才把目光移开。'
+				xgt 'sex_ev_leave', 'dressing2'
+			end
+		else
+			'<<$npcdesc>>大笑出声。'
+			'"是啊，我敢说那样就能让我脱身了。"'
+			xgt 'sex_ev_leave', 'dressing2'
+		end
+	end
+
+	act '把它们送给她':
+		cla & *nl
+		'"送给她们好了，"你坏笑着说，<<$sex_ev[''dress_describe'']>>。"说不定她会穿上。"'
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+
+	act '把它们扔掉':
+		cla & *nl
+		'"那就扔掉呗，"你耸耸肩，<<$sex_ev[''dress_describe'']>>。"我不在乎。你想怎么处理就怎么处理。'
+		gs 'sex_ev_clothing', 'dress_loop_code'
+		'"毕竟，它们现在是你的内裤了，"你微微一笑补充道，<<$sex_ev[''dress_describe'']>>。'
+		xgt 'sex_ev_leave', 'dressing2'
+	end
+end
+
+if $ARGS[0] = 'walk_of_shame':
+	if sex_ev['prostitution'] = 1:
+		if $sex_ev['loc'] = 'hotel_room':
+			'asdfaes'
+		else
+			'asdfaes'
+		end
+	else
+		'asdfaes'
+	end
+end
+
+--- sex_ev_leave ---------------------------------

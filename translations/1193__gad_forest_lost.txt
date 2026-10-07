@@ -1,0 +1,849 @@
+# gad_forest_lost
+
+!! this file holds all the current code and events for player when lost
+!! it is structured like the normal gad_forest file with similar actions and arguments but with unique events
+if $ARGS[0] = 'forest_outskirts':
+	*clr & cla
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_forest_lost', 'forest_outskirts'
+	$location_type = 'secluded'
+	$forest_args1 = 'forest_outskirts'
+
+	gs 'gadukino_event', 'sound'
+	gs 'stat'
+
+	gs 'gad_forest_lost', 'gad_forest_lost_picture'
+
+	!! having a bonfire increases chances of being rescued and decreases chances of wolves attacking
+	foresteventrand = rand(1, 40)
+	if foresteventrand <= (2+(bonfire*5)) and daystart >= forest_lostday and month >= 6 and month <= 9 and hour >= 8 and hour <= 16 and mushroom_pickersday ! daystart: mushroom_pickers = 2 & gt 'gad_forest_lost', 'rescue', 'pickers', 'forest_outskirts'
+	if foresteventrand <= (4+(bonfire*5)) and daystart > forest_lostday and month >= 4 and month <= 10 and ((hour >= 8 and hour < 12) or (hour >= 14 and hour < 18)) and daystart > forest_lostday + 1: gt 'gad_forest_lost', 'rescue', 'hunters', 'forest_outskirts'
+	if foresteventrand <= (6+(bonfire*5)) and daystart > forest_lostday: gt 'gad_forest_lost', 'rescue', 'ranger', 'forest_outskirts'
+	if foresteventrand <= (8-(bonfire*5)) and (hour < 6 or hour > 22): gt 'gad_forest_lost', 'wolves', 'forest_outskirts'
+
+	gs 'gad_forest_lost', 'wander'
+
+	act '在这里休息一下': gt 'gad_forest_lost', 'relax'
+
+	gs 'gad_forest_lost', 'picking'
+end
+
+
+if $ARGS[0] = 'forest_center':
+	*clr & cla
+
+	$loc = 'gad_forest_lost'
+	$loc_arg = 'forest_center'
+	$location_type = 'secluded'
+
+	$menu_loc = 'gad_forest_lost'
+	$menu_arg = 'forest_center'
+	menu_off = 0
+
+	$forest_args1 = 'forest_center'
+
+	CLOSE ALL
+	gs 'gadukino_event', 'sound'
+	gs 'stat'
+
+	gs 'gad_forest_lost', 'gad_forest_lost_picture'
+
+	!! having a bonfire increases chances of being rescued and decreases chances of wolves attacking
+	foresteventrand = rand(1, 40)
+	if foresteventrand <= (1+(bonfire*2)) and daystart > forest_lostday and month >= 4 and month <= 10 and ((hour >= 8 and hour < 12) or (hour >= 14 and hour < 18)) and daystart > forest_lostday: gt 'gad_forest_lost', 'rescue', 'hunters', 'forest_center'
+	if foresteventrand <= (3+(bonfire*2)) and daystart > forest_lostday + 1: gt 'gad_forest_lost', 'rescue', 'ranger', 'forest_center'
+	if foresteventrand <= (8-(bonfire*2)) and (hour < 6 or hour > 22): gt 'gad_forest_lost', 'wolves', 'forest_center'
+
+	gs 'gad_forest_lost', 'wander'
+
+	act '在这里休息一下': gt 'gad_forest_lost', 'relax'
+
+	gs 'gad_forest_lost', 'picking'
+end
+
+
+!! this gs handles the bushcraft increases, clothing degradation, while lost in the forest
+!! $ARGS[1] - location of forest where this is called from
+!! Example: gs 'gad_forest_lost', 'bushcraft', 'forest_outskirts'
+if $ARGS[0] = 'bushcraft':
+	if $ARGS[1] = 'forest_outskirts':
+		bushcraft_rand = 2
+		bushcraft_lost = 20
+		torncloth_high_bushcraft = 9
+		torncloth_low_bushcraft = 7
+	elseif $ARGS[1] = 'forest_center':
+		bushcraft_rand = 3
+		bushcraft_lost = 30
+		torncloth_high_bushcraft = 8
+		torncloth_low_bushcraft = 5
+	end
+	!! No limit on earning bushcraft while lost but still random
+	gs 'exp_gain', 'bushcraft', rand(0, bushcraft_rand)
+
+	ripclothesrand = rand(1, 10)
+	if pcs_bushcraft < bushcraft_limit:
+		if ripclothesrand >= torncloth_low_bushcraft: gs 'gad_forest', 'torncloth'
+	else
+		if ripclothesrand >= torncloth_high_bushcraft: gs 'gad_forest', 'torncloth'
+	end
+	gs 'stat'
+end
+
+
+!! this gs handles Sveta trying to find her way in the forest when lost
+!! $forest_args1 - location of forest where this is called from
+!! Example: gs 'gad_forest_lost', 'wander'
+if $ARGS[0] = 'wander':
+	if DayStage < 4:
+		act '四处走动，尝试辨别方向 (1:30)':
+			*clr & cla
+			menu_off = 1
+			minut += 90
+			gs 'stat'
+
+			gs 'gad_forest_lost', 'bushcraft', $forest_args1
+
+			'<center><h4>森林里的某个地方</h4></center>'
+			if $clothingworntype = 'nude': '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestsearch_nude0.'+rand(1, 4)+'.jpg"></center>'
+			if $clothingworntype ! 'nude' and PCloSkirt = 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestsearch0.'+rand(1, 4)+'.jpg"></center>'
+			if $clothingworntype ! 'nude' and PCloSkirt > 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestsearch_ski0.'+rand(1, 4)+'.jpg"></center>'
+			*nl
+
+			if pcs_bushcraft < bushcraft_lost:
+				lostrand = rand(1, bushcraft_lost)
+				if pcs_bushcraft > lostrand:
+					gt 'gad_forest_lost', 'finish', $forest_args1
+				else
+					'走了半个小时后，你觉得自己只是在原地绕圈。'
+					act '继续': gt 'gad_forest_lost', $forest_args1
+				end
+			else
+				gt 'gad_forest_lost', 'finish', $forest_args1
+			end
+		end
+	end
+end
+
+
+!! $forest_args1 - location of forest where this is called from
+!! Example: gt 'gad_forest_lost', 'relax'
+if $ARGS[0] = 'relax':
+	*clr & cla
+
+	gs 'core_library', 'setloc', 'gad_forest_lost', 'relax'
+	$location_type = 'secluded'
+	menu_off = 0
+
+	CLOSE ALL
+	gs 'gadukino_event', 'sound'
+	gs 'stat'
+
+	if $forest_args1 = 'forest_outskirts':
+		!! having a bonfire increases chances of being rescued and decreases chances of wolves attacking
+		foresteventrand = rand(1, 30)
+		if foresteventrand <= (2+(bonfire*5)) and daystart >= forest_lostday and month >= 6 and month <= 9 and hour >= 8 and hour <= 16 and mushroom_pickersday ! daystart: mushroom_pickers = 2 & gt 'gad_forest_lost', 'rescue', 'pickers', $forest_args1
+		if foresteventrand <= (4+(bonfire*5)) and daystart > forest_lostday and month >= 4 and month <= 10 and ((hour >= 8 and hour < 12) or (hour >= 14 and hour < 18)): gt 'gad_forest_lost', 'rescue', 'hunters', $forest_args1
+		if foresteventrand <= (6+(bonfire*5)) and daystart > forest_lostday+1: gt 'gad_forest_lost', 'rescue', 'ranger', $forest_args1
+	elseif $forest_args1 = 'forest_center':
+		!! having a bonfire increases chances of being rescued and decreases chances of wolves attacking
+		foresteventrand = rand(1, 40)
+		if foresteventrand <= (1+(bonfire*5)) and daystart > forest_lostday and month >= 4 and month <= 10 and ((hour >= 8 and hour < 12) or (hour >= 14 and hour < 18)): gt 'gad_forest_lost', 'rescue', 'hunters', $forest_args1
+		if foresteventrand <= (3+(bonfire*5)) and daystart > forest_lostday + 1: gt 'gad_forest_lost', 'rescue', 'ranger', $forest_args1
+	end
+
+	'<center><h4>森林里的某个地方</h4></center>'
+	if $clothingworntype = 'nude': '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_nude'+ rand(1, 3) +'.jpg"></center>'
+	if $clothingworntype ! 'nude' and PCloSkirt = 0 and bonfire = 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax1.jpg"></center>'
+	if $clothingworntype ! 'nude' and PCloSkirt = 0 and bonfire = 1: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax2.jpg"></center>'
+	if $clothingworntype ! 'nude' and PCloSkirt > 0 and bonfire = 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_ski1.jpg"></center>'
+	if $clothingworntype ! 'nude' and PCloSkirt > 0 and $pantyworntype ! 'none' and bonfire = 1: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_ski2.jpg"></center>'
+	if $clothingworntype ! 'nude' and PCloSkirt > 0 and $pantyworntype = 'none' and bonfire = 1: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_ski3.jpg"></center>'
+	*nl
+	'你觉得这里和其他地方一样，是个停下来休息的好地方。'
+	if bonfire = 0:
+		$func('wrap', 'neg', '你应该生一堆篝火，以增加被救援的机会，减少被狼袭击的机会。')
+	else
+		$func('wrap', 'v_pos', '你的篝火熊熊燃烧，增加了被救援的机会，减少了被狼袭击的机会。')
+	end
+	act '探索森林': gt 'gad_forest_lost', $forest_args1
+
+	if bonfire = 0:
+		act '生一堆篝火 (0:30)':
+			*clr & cla
+			menu_off = 1
+			minut += 30
+			bonfire = 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_bonfire1.jpg"></center>'
+			*nl
+			'几分钟后，你成功生起了一堆像样的篝火。'
+
+			act '继续': gt 'gad_forest_lost', 'relax'
+		end
+		act '坐下来休息 (1:00)':
+			*clr & cla
+			menu_off = 1
+			minut += 60
+			gs 'stat'
+
+			if $clothingworntype = 'nude': '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_nude' + rand(1, 2) + '.jpg"></center>'
+			if $clothingworntype ! 'nude' and PCloSkirt = 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax3.jpg"></center>'
+			if $clothingworntype ! 'nude' and $pantyworntype ! 'none' and PCloSkirt > 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_ski4.jpg"></center>'
+			if $clothingworntype ! 'nude' and $pantyworntype = 'none' and PCloSkirt > 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_ski5.jpg"></center>'
+			*nl
+			'你花了半小时放松，努力假装这只不过是你平常在林间散步而已。'
+
+			act '继续': gt 'gad_forest_lost', 'relax'
+		end
+		if pcs_sleep < 40:
+			act '在地上小睡 (2:00)':
+				*clr & cla
+				menu_off = 1
+				gs 'mood', 'raise', 'tiny'
+				pcs_health -= 5
+				gs 'sleep_simple', 'nap_base', 120
+
+				if $clothingworntype = 'nude': '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_sleepnude1.' + rand(1, 2) + '.jpg"></center>'
+				if $clothingworntype ! 'nude' and PCloSkirt = 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_sleep.jpg"></center>'
+				if $clothingworntype ! 'nude' and $pantyworntype ! 'none' and PCloSkirt > 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_sleepski.jpg"></center>'
+				if $clothingworntype ! 'nude' and $pantyworntype = 'none' and PCloSkirt > 0: '<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_sleepski1.jpg"></center>'
+				*nl
+				'你设法让自己睡着了大约两小时，但仅此而已。如果你想睡个整觉就得想办法离开森林。'
+				'尽管你不得不睡在地上，你醒来时确实感觉更有希望也更休息好了。'
+
+				act '继续': gt 'gad_forest_lost', 'relax'
+			end
+		end
+	elseif bonfire = 1:
+		act '在篝火旁取暖 (1:00)':
+			*clr & cla
+			menu_off = 1
+			minut += 60
+			if frost > 0: frost -= 1
+			gs 'stat'
+
+			if hour >= 6 and hour < 21:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_bonfire2.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_bonfire3.jpg"></center>'
+			end
+			*nl
+			'你蜷缩在火焰旁待了半小时'
+
+			act '继续': gt 'gad_forest_lost', 'relax'
+		end
+		if pcs_sleep < 40:
+			act '在篝火旁小睡 (2:00)':
+				*clr & cla
+				menu_off = 1
+				gs 'mood', 'raise', 'small'
+				frost = 0
+				gs 'sleep_simple', 'nap_base', 120
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestrelax_bonfiresleep.jpg"></center>'
+				*nl
+				'你设法让自己睡着了大约两小时，但仅此而已。如果你想睡个整觉就得想办法离开森林。'
+				'尽管你不得不睡在地上，你醒来时确实感觉更有希望也更休息好了。'
+
+				act '继续': gt 'gad_forest_lost', 'relax'
+			end
+		end
+		if boletus > 0:
+			act '在火上烤些蘑菇 (0:15)':
+				*clr & cla
+				menu_off = 1
+				minut += 15
+				boletus_cooked += 1
+				boletus -= 1
+				frost = 0
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/boletushot.jpg"></center>'
+				*nl
+				'你花了15分钟在火上烤了些蘑菇。'
+
+				act '继续': gt 'gad_forest_lost', 'relax'
+			end
+		end
+	end
+	if boletus_cooked > 0:
+		act '吃烤好的蘑菇 (0:15)':
+			*clr & cla
+			menu_off = 1
+			minut += 15
+			boletus_cooked -= 1
+			gs 'mood', 'raise', 'tiny'
+			gs 'food', 'light_snack_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/boletuscook.jpg"></center>'
+			*nl
+			'你吃了些烤好的蘑菇。就你目前的处境来说，味道还算不错。'
+
+			act '继续': gt 'gad_forest_lost', 'relax'
+		end
+	end
+	if bilberry > 0:
+		act '吃浆果 (0:15)':
+			*clr & cla
+			menu_off = 1
+			minut += 15
+			bilberry -= 1
+			gs 'food', 'bilberry_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/bilberry.jpg"></center>'
+			*nl
+			'你吃了些浆果。就算没迷路，这些浆果也会很好吃。'
+
+			act '继续': gt 'gad_forest_lost', 'relax'
+		end
+	end
+end
+
+
+!! this gs handles mushroom and berry picking for Sveta in the various locations of the forest when she is lost
+!! $forest_args1 - location of forest where this is called from
+!! Example: gs 'gad_forest_lost', 'picking'
+if $ARGS[0] = 'picking':
+	if DayStage < 4 and month >= 6 and month <= 9 and boletus + boletus_cooked + bilberry < 5:
+		act '寻找蘑菇和浆果 (0:30)':
+			*clr & cla
+			menu_off = 1
+
+			if $forest_args1 = 'forest_outskirts':
+				outskirts_pickingday = daystart
+				mushroom_pickers_check = 2
+				max_boletus = 2
+				max_bilberry = 2
+			elseif $forest_args1 = 'forest_center':
+				center_pickingday = daystart
+				mushroom_pickers_check = 3
+				max_boletus = 3
+				max_bilberry = 3
+			end
+
+			minut += 30
+			new_boletus = 0
+			new_bilberry = 0
+			gs 'gad_forest_lost', 'bushcraft', $forest_args1
+			if $clothingworntype = 'nude' and pcs_inhib < 50: inhib_exp += rand(1, 5)
+			gs 'stat'
+
+			if mushroom_pickers ! mushroom_pickers_check:
+				new_boletus += max_boletus
+				new_bilberry += max_bilberry
+				boletus += new_boletus
+				bilberry += new_bilberry
+				gs 'mood', 'raise', 'tiny'
+				gs 'stat'
+
+				gs 'gad_forest', 'picking_clothes', $forest_args1, 'berry'
+				*nl
+				'搜寻了半小时的蘑菇和浆果后你找到了<<new_boletus>>公斤蘑菇和<<new_bilberry>>公斤浆果。'
+			elseif mushroom_pickers = mushroom_pickers_check:
+				new_boletus += rand(0, max_boletus)
+				new_bilberry += rand(0, max_bilberry)
+				boletus += new_boletus
+				bilberry += new_bilberry
+				gs 'stat'
+
+				if new_boletus > 0 and new_bilberry > 0:
+					gs 'mood', 'raise', 'tiny'
+					gs 'stat'
+
+					gs 'gad_forest', 'picking_clothes', $forest_args1, 'berry'
+					*nl
+					'搜寻了半小时的蘑菇和浆果后你找到了<<new_boletus>>公斤蘑菇和<<new_bilberry>>公斤浆果。'
+				elseif new_boletus = 0 and new_bilberry > 0:
+					gs 'mood', 'raise', 'tiny'
+					gs 'stat'
+
+					gs 'gad_forest', 'picking_clothes', $forest_args1, 'berry'
+					*nl
+					'搜寻了半小时的蘑菇和浆果后你找到了<<new_bilberry>>公斤浆果。'
+				elseif new_boletus > 0 and new_bilberry = 0:
+					gs 'mood', 'raise', 'tiny'
+					gs 'stat'
+
+					gs 'gad_forest', 'picking_clothes', $forest_args1, 'mushroom'
+					*nl
+					'搜寻了半小时的蘑菇和浆果后你找到了<<new_boletus>>公斤蘑菇'
+				elseif new_boletus = 0 and new_bilberry = 0:
+					gs 'mood', 'lower', 'small'
+					gs 'stat'
+
+					gs 'gad_forest', 'picking_clothes_empty', $forest_args1
+					*nl
+					'搜寻了半小时的蘑菇和浆果后，你什么也没找到。'
+				end
+			end
+			act '继续': gt 'gad_forest_lost', $forest_args1
+		end
+	end
+end
+
+
+!! $ARGS[1] - location of forest where this is called from
+if $ARGS[0] = 'finish':
+	*clr & cla
+	menu_off = 1
+	bonfire = 0
+	gs 'mood', 'raise', 'small'
+	gs 'exp_gain', 'bushcraft', rand(1, 5)
+	gs 'clothing', 'gad_swamp_clothes', 0
+	gs 'stat'
+
+	'<center><h4>森林里的某个地方</h4></center>'
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadjoy.jpg"></center>'
+	*nl
+	'走了半个小时后，你终于看到了一些熟悉的景象。'
+
+	if $clothingworntype = 'nude':
+		if $ARGS[1] = 'forest_outskirts':
+			act '继续':
+				if gad_meadow_found = 1:
+					foresteventrand = rand(1, 3)
+				else
+					foresteventrand = rand(1, 2)
+				end
+				if foresteventrand = 1: minut += 15 & gt 'gad_forest', 'forest_edge'
+				if foresteventrand = 2: gt 'gad_forest', 'forest_outskirts'
+				if foresteventrand = 3: minut += 35 & gt 'gad_meadow', 'start'
+			end
+		elseif $ARGS[1] = 'forest_center':
+			act '继续':
+				if hunterVars['cabin'] = 1 and gad_meadow_found = 1:
+					foresteventrand = rand(1, 5)
+				elseif gad_meadow_found = 1:
+					foresteventrand = rand(1, 4)
+				else
+					foresteventrand = rand(1, 3)
+				end
+				if foresteventrand = 1: minut += 30 & gt 'gad_forest', 'forest_edge'
+				if foresteventrand = 2: minut += 15 & gt 'gad_forest', 'forest_outskirts'
+				if foresteventrand = 3: gt 'gad_forest', 'forest_center'
+				if foresteventrand = 4: minut += 50 & gt 'gad_meadow', 'start'
+				if foresteventrand = 5: minut += 30 & gt 'gad_swamp_yard', 'start'
+			end
+		end
+	else
+		if $ARGS[1] = 'forest_outskirts':
+			act '继续':
+				if gad_meadow_found = 1:
+					foresteventrand = rand(1, 6)
+				else
+					foresteventrand = rand(1, 5)
+				end
+				if foresteventrand = 1: minut += 15 & gt 'gad_forest', 'forest_edge'
+				if foresteventrand = 2: gt 'gad_forest', 'forest_outskirts'
+				if foresteventrand = 3: minut += 40 & gt 'gad_field', 'field'
+				if foresteventrand = 4: minut += 30 & gt 'gad_road', 'start'
+				if foresteventrand = 5: minut += 40 & gt 'gad_river', 'start'
+				if foresteventrand = 6: minut += 35 & gt 'gad_meadow', 'start'
+			end
+		elseif $ARGS[1] = 'forest_center':
+			act '继续':
+				if hunterVars['cabin'] = 1 and gad_meadow_found = 1:
+					foresteventrand = rand(1, 8)
+				elseif gad_meadow_found = 1:
+					foresteventrand = rand(1, 7)
+				else
+					foresteventrand = rand(1, 6)
+				end
+				if foresteventrand = 1: minut += 30 & gt 'gad_forest', 'forest_edge'
+				if foresteventrand = 2: minut += 15 & gt 'gad_forest', 'forest_outskirts'
+				if foresteventrand = 3: gt 'gad_forest', 'forest_center'
+				if foresteventrand = 4: minut += 55 & gt 'gad_field', 'field'
+				if foresteventrand = 5: minut += 45 & gt 'gad_road', 'start'
+				if foresteventrand = 6: minut += 55 & gt 'gad_river', 'start'
+				if foresteventrand = 7: minut += 50 & gt 'gad_meadow', 'start'
+				if foresteventrand = 8: minut += 30 & gt 'gad_swamp_yard', 'start'
+			end
+		end
+	end
+end
+
+
+!! $ARGS[1] - who is rescuing player
+!! $ARGS[2] - location of forest where this is called from
+if $ARGS[0] = 'rescue':
+	*clr & cla
+	menu_off = 1
+	bonfire = 0
+	gs 'mood', 'raise', 'small'
+	gs 'exp_gain', 'bushcraft', rand(1, 5)
+	lost_girl = 0
+	if swamp_clothes = 1:
+		'你脱下了猎人们给你的那身根本算不上衣服的东西。你确信在爷爷奶奶家能找到更好的衣服穿。'
+		gs 'clothing', 'strip', 'gad_forest'
+		gs 'clothing', 'gad_swamp_clothes', 0
+	end
+	gs 'stat'
+
+	if $ARGS[1] = 'pickers':
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/mushroom_pickers2.jpg"></center>'
+		*nl
+		'突然你听到有人接近的声音。一群来自村里的采蘑菇人从灌木丛中走了出来。'
+		if bonfire = 1: '他们注意到了你的火堆并称赞你："迷路的时候待在原地生一堆火是很聪明的做法。火能让你保暖，也能让别人看到你。"'
+		if grandmaQW['block'] = 0:
+			'他们走到你面前说："你的爷爷奶奶非常担心你。他们让我们留意你。跟我们走吧，我们会带你回'+iif($clothingworntype ! 'nude', '他们家里。"', '森林边缘。"')
+			if $clothingworntype ! 'nude':
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 45 & gt 'gad_gphouse', 'start'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 60 & gt 'gad_gphouse', 'start'
+				end
+			else
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 15 & gt 'gad_forest', 'forest_edge'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 30 & gt 'gad_forest', 'forest_edge'
+				end
+			end
+		else
+			'他们走到你面前说："我们听说森林里可能有个失踪的女孩。跟我们走吧，我们会带你'+iif($clothingworntype ! 'nude', '走出森林。"', '到森林边缘。"')
+			if $clothingworntype ! 'nude':
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 30 & gt 'gad_road', 'start'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 45 & gt 'gad_road', 'start'
+				end
+			else
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 15 & gt 'gad_forest', 'forest_edge'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 30 & gt 'gad_forest', 'forest_edge'
+				end
+			end
+		end
+	elseif $ARGS[1] = 'hunters':
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanters.jpg"></center>'
+		*nl
+		'突然你听到有人接近的声音。 '+iif(hunterVars['were_met']=1, '来自沼泽的猎人 ', '一群猎人 ')+'从灌木丛中出现了。'
+		if bonfire = 1: '他们注意到了你的火堆并称赞你："迷路的时候待在原地生一堆火是很聪明的做法。火能让你保暖，也能让别人看到你。"'
+		if grandmaQW['block'] = 0:
+			'他们走到你面前说："你的爷爷奶奶非常担心你。他们让我们留意你。跟我们走吧，你可以暂时待在我们的营地里，直到有人能把你带回去。"'
+			if $ARGS[2] = 'forest_outskirts':
+				act '继续': minut += 45 & gt 'hunter_interactions', 'meet_hunters_after_rescue'
+			else
+				act '继续': minut += 30 & gt 'hunter_interactions', 'meet_hunters_after_rescue'
+			end
+		else
+			'他们走到你面前说："我们听说森林里可能有个失踪的女孩。跟我们走吧，你可以暂时待在我们的营地里，直到有人能把你带回去。"'
+			if $ARGS[2] = 'forest_outskirts':
+				act '继续': minut += 45 & gt 'hunter_interactions', 'meet_hunters_after_rescue'
+			else
+				act '继续': minut += 30 & gt 'hunter_interactions', 'meet_hunters_after_rescue'
+			end
+		end
+	elseif $ARGS[1] = 'ranger':
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/forester.jpg"></center>'
+		*nl
+		'突然你听到有人接近的声音。一个你隐约觉得眼熟的村里男人从灌木丛中走了出来。'
+		if bonfire = 1: '他们注意到了你的火堆并称赞你："迷路的时候待在原地生一堆火是很聪明的做法。火能让你保暖，也能让别人看到你。"'
+		if grandmaQW['block'] = 0:
+			'他走到你面前说："你的爷爷奶奶非常担心你。他们让我留意你。跟我走吧，我会带你回'+iif($clothingworntype ! 'nude', '他们家里。"', '森林边缘。"')
+			if $clothingworntype ! 'nude':
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 45 & gt 'gad_gphouse', 'start'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 60 & gt 'gad_gphouse', 'start'
+				elseif $ARGS[2] = 'gad_swamp_yard':
+					act '继续': minut += 90 & gt 'gad_gphouse', 'start'
+				end
+			else
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 15 & gt 'gad_forest', 'forest_edge'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 30 & gt 'gad_forest', 'forest_edge'
+				elseif $ARGS[2] = 'gad_swamp_yard':
+					act '继续': minut += 60 & gt 'gad_forest', 'forest_edge'
+				end
+			end
+		else
+			'他走到你面前说："我听说森林里可能有个失踪的女孩。跟我走吧，我会带你'+iif($clothingworntype ! 'nude', '走出森林。"', '到森林边缘。"')
+			if $clothingworntype ! 'nude':
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 30 & gt 'gad_road', 'start'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 45 & gt 'gad_road', 'start'
+				elseif $ARGS[2] = 'gad_swamp_yard':
+					act '继续': minut += 75 & gt 'gad_road', 'start'
+				end
+			else
+				if $ARGS[2] = 'forest_outskirts':
+					act '继续': minut += 15 & gt 'gad_forest', 'forest_edge'
+				elseif $ARGS[2] = 'forest_center':
+					act '继续': minut += 30 & gt 'gad_forest', 'forest_edge'
+				elseif $ARGS[2] = 'gad_swamp_yard':
+					act '继续': minut += 60 & gt 'gad_forest', 'forest_edge'
+				end
+			end
+		end
+	end
+end
+
+
+!! $ARGS[1] - location of forest where this is called from
+if $ARGS[0] = 'wolves':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/howl.jpg"></center>'
+	*nl
+	'突然，你听到附近传来一声可怕的嚎叫。'
+
+	act '逃跑':
+		*clr & cla
+		gs 'exercise', 'tier4', 5, 'run'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run.jpg"></center>'
+		*nl
+		'本能驱使着你，你毫不犹豫地开始狂奔。'
+
+		if $ARGS[1] = 'forest_edge':
+			if pcs_bushcraft < 80 and pcs_agil < 70 and pcs_stren < 70:
+				foresteventrand = rand(0, 19)
+			else
+				foresteventrand = rand(1, 19)
+			end
+
+			if foresteventrand = 0:
+				gs 'exp_gain', 'bushcraft', rand(1, 2)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/horror.jpg"></center>'
+				*nl
+				'狼群实在太快了你无法甩掉它们。突然你感到一阵剧痛因为一只狼咬住了你的腿。'
+			elseif foresteventrand <= 10:
+				gs 'exp_gain', 'bushcraft', rand(1, 3)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end2.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，但不幸的是，你仍然还在森林里。'
+			else
+				gs 'exp_gain', 'bushcraft', rand(1, 5)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end1.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，而且也不再在森林里了。'
+			end
+
+			act '继续':
+				if foresteventrand = 0:
+					gs 'gameover', 'check', 11
+					msg '<font color=red><b>你应该死在这片森林里，但作弊模式让你活着。</b></font>'
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 10:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 13:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 15:
+					gt 'gad_field', 'field'
+				elseif foresteventrand <= 17:
+					gt 'gad_road', 'start'
+				else
+					gt 'gad_river', 'start'
+				end
+			end
+
+		elseif $ARGS[1] = 'forest_outskirts':
+			if pcs_bushcraft < 80 and pcs_agil < 70 and pcs_stren < 70:
+				foresteventrand = rand(0, 19)
+			else
+				foresteventrand = rand(1, 19)
+			end
+
+			if foresteventrand = 0:
+				gs 'exp_gain', 'bushcraft', rand(1, 2)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/horror.jpg"></center>'
+				*nl
+				'狼群实在太快了你无法甩掉它们。突然你感到一阵剧痛因为一只狼咬住了你的腿。'
+			elseif foresteventrand <= 14:
+				gs 'exp_gain', 'bushcraft', rand(1, 3)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end2.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，但不幸的是，你仍然在森林里迷路了。'
+			else
+				gs 'exp_gain', 'bushcraft', rand(1, 5)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end1.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，而且认出了周围的环境不再迷路了。'
+			end
+
+			act '继续':
+				if foresteventrand = 0:
+					gs 'gameover', 'check', 11
+					msg '<font color=red><b>你应该死在这片森林里，但作弊模式让你活着。</b></font>'
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 9:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 14:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand = 15:
+					gt 'gad_forest', 'forest_outskirts'
+				elseif foresteventrand = 16:
+					gt 'gad_forest', 'forest_edge'
+				elseif foresteventrand = 17:
+					gt 'gad_field', 'field'
+				elseif foresteventrand = 18:
+					gt 'gad_road', 'start'
+				else
+					gt 'gad_river', 'start'
+				end
+			end
+
+		elseif $ARGS[1] = 'forest_center':
+			if pcs_bushcraft < 80 and pcs_agil < 70 and pcs_stren < 70:
+				foresteventrand = rand(0, 19)
+			else
+				foresteventrand = rand(1, 19)
+			end
+
+			if foresteventrand = 0:
+				gs 'exp_gain', 'bushcraft', rand(1, 2)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/horror.jpg"></center>'
+				*nl
+				'狼群实在太快了你无法甩掉它们。突然你感到一阵剧痛因为一只狼咬住了你的腿。'
+			elseif foresteventrand <= 13:
+				gs 'exp_gain', 'bushcraft', rand(1, 3)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end2.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，但不幸的是，你仍然在森林里迷路了。'
+			else
+				gs 'exp_gain', 'bushcraft', rand(1, 5)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end1.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，而且认出了周围的环境不再迷路了。'
+			end
+
+			act '继续':
+				if foresteventrand = 0:
+					gs 'gameover', 'check', 11
+					msg '<font color=red><b>你应该死在这片森林里，但作弊模式让你活着。</b></font>'
+					gt 'gad_forest_lost', 'forest_center'
+				elseif foresteventrand <= 8:
+					gt 'gad_forest_lost', 'forest_center'
+				elseif foresteventrand <= 11:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 13:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand = 14:
+					gt 'gad_forest', 'forest_center'
+				elseif foresteventrand = 15:
+					gt 'gad_forest', 'forest_outskirts'
+				elseif foresteventrand = 16:
+					gt 'gad_forest', 'forest_edge'
+				elseif foresteventrand = 17:
+					gt 'gad_field', 'field'
+				elseif foresteventrand = 18:
+					gt 'gad_road', 'start'
+				else
+					gt 'gad_river', 'start'
+				end
+			end
+
+		elseif $ARGS[1] = 'swamp':
+			if pcs_bushcraft < 80 and pcs_agil < 70 and pcs_stren < 70:
+				foresteventrand = rand(0, 19)
+			else
+				foresteventrand = rand(1, 19)
+			end
+
+			if foresteventrand = 0:
+				gs 'exp_gain', 'bushcraft', rand(1, 2)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/horror.jpg"></center>'
+				*nl
+				'狼群实在太快了你无法甩掉它们。突然你感到一阵剧痛因为一只狼咬住了你的腿。'
+			elseif foresteventrand <= 8:
+				gs 'exp_gain', 'bushcraft', rand(1, 3)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end2.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，但不幸的是，你仍然在森林里迷路了。'
+			else
+				gs 'exp_gain', 'bushcraft', rand(1, 5)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/run_end1.jpg"></center>'
+				*nl
+				'你成功逃脱了狼群，而且也不再在森林里了。'
+			end
+
+			act '继续':
+				if foresteventrand = 0:
+					gs 'gameover', 'check', 11
+					msg '<font color=red><b>你应该死在这片森林里，但作弊模式让你活着。</b></font>'
+					gt 'gad_forest_lost', 'forest_center'
+				elseif foresteventrand <= 4:
+					gt 'gad_forest_lost', 'forest_center'
+				elseif foresteventrand <= 6:
+					gt 'gad_forest_lost', 'forest_center'
+				elseif foresteventrand <= 8:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand <= 10:
+					gt 'gad_forest_lost', 'forest_outskirts'
+				elseif foresteventrand = 11:
+					gt 'gad_swamp_yard', 'start'
+				elseif foresteventrand = 12:
+					gt 'gad_forest', 'forest_center'
+				elseif foresteventrand = 13:
+					gt 'gad_forest', 'forest_outskirts'
+				elseif foresteventrand = 14:
+					gt 'gad_forest', 'forest_edge'
+				elseif foresteventrand = 15:
+					gt 'gad_field', 'field'
+				elseif foresteventrand = 16:
+					gt 'gad_road', 'start'
+				elseif foresteventrand = 17:
+					gt 'gad_river', 'start'
+				elseif foresteventrand = 18:
+					gt 'gad_swamp_yard', 'start'
+				else
+					gt 'gad_swamp_woods', 'start'
+				end
+			end
+		end
+	end
+end
+
+
+!! this gs handles images for generic forest locations while lost
+!! Example: gs 'gad_forest_lost', 'gad_forest_lost_picture'
+if $ARGS[0] = 'gad_forest_lost_picture':
+	'<center><h4>森林里的某个地方</h4></center>'
+	if month >= 4 and month <= 10:
+		if DayStage < 4:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestlost0.'+rand(1, 6)+'.jpg"></center>'
+			*nl
+			'你在树林里迷路了。你认不出周围的任何环境并且没有任何好的地标来帮助你确定自己的位置。'
+			'你通常会认为树林是个放松且风景优美的地方，但现在太紧张无法欣赏大自然的美。'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestlost_night0.'+rand(1, 4)+'.jpg"></center>'
+			*nl
+			'你在树林里迷路了。你认不出周围的任何环境并且没有任何好的地标来帮助你确定自己的位置。'
+			$func('wrap', 'v_neg', '夜幕降临时，你找到路的可能性几乎为零。你应该停下来休息到天亮。')
+		end
+	else
+		if DayStage < 4:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestlost_winter0.'+rand(1, 5)+'.jpg"></center>'
+			*nl
+			'你在树林里迷路了。你认不出周围的任何环境并且没有任何好的地标来帮助你确定自己的位置。'
+			'你通常会认为树林是个放松且风景优美的地方，但现在太紧张无法欣赏大自然的美。'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/forest/gadforestlost_winter_night0.'+rand(1, 4)+'.jpg"></center>'
+			*nl
+			'你在树林里迷路了。你认不出周围的任何环境并且没有任何好的地标来帮助你确定自己的位置。'
+			$func('wrap', 'v_neg', '夜幕降临时，你找到路的可能性几乎为零。你应该停下来休息到天亮。')
+		end
+	end
+end
+
+--- gad_forest_lost ---------------------------------

@@ -1,0 +1,166 @@
+# gschool
+
+
+if $ARGS[0] = 'schedule':
+	if school_period = 0:
+		*nl
+		if week = 1: '<b>下一节课</b>: 数学'
+		if week = 2: '<b>下一节课</b>: 英语'
+		if week = 3: '<b>下一节课</b>: 数学'
+		if week = 4: '<b>下一节课</b>: 英语'
+		if week = 5: '<b>下一节课</b>: 数学'
+		!! '8.00 - 8.45'
+	elseif school_period = 1:
+		*nl
+		if week = 1: '<b>下一节课</b>: 俄语'
+		if week = 2: '<b>下一节课</b>: 地理'
+		if week = 3: '<b>下一节课</b>: 俄语'
+		if week = 4: '<b>下一节课</b>: 地理'
+		if week = 5: '<b>下一节课</b>: 俄语'
+		!! '8.50 - 9.35'
+	elseif school_period = 2:
+		*nl
+		'<b>下一节</b>：课间休息'
+		!! '9.35 - 9.55'
+	elseif school_period = 3:
+		*nl
+		if week = 1: '<b>下一节课</b>: 文学'
+		if week = 2: '<b>下一节课</b>: 科学'
+		if week = 3: '<b>下一节课</b>: 生物'
+		if week = 4: '<b>下一节课</b>: 科学'
+		if week = 5: '<b>下一节课</b>: 文学'
+		!! '9.55 - 10.40'
+	elseif school_period = 4:
+		*nl
+		if week = 1: '<b>下一节课</b>: 艺术'
+		if week = 2: '<b>下一节课</b>: 手工'
+		if week = 3: '<b>下一节课</b>: 历史'
+		if week = 4: '<b>下一节课</b>: 手工'
+		if week = 5: '<b>下一节课</b>: 艺术'
+		!! '10.45 - 11.30'
+	elseif school_period = 5:
+		*nl
+		'<b>下一节</b>：午休'
+		!! '11.30 - 12.25'
+	elseif school_period = 6:
+		*nl
+		if week = 1: '<b>下一节课</b>: 生物'
+		if week = 2: '<b>下一节课</b>: 计算机'
+		if week = 3: '<b>下一节课</b>: 计算机'
+		if week = 4: '<b>下一节课</b>: 计算机'
+		if week = 5: '<b>下一节课</b>: 历史'
+		!! '12.25 - 13.10'
+	elseif school_period = 7:
+		*nl
+		if week = 1: '<b>下一节课</b>: 体育'
+		if week = 2: '<b>下一节课</b>: 音乐'
+		if week = 3: '<b>下一节课</b>: 体育'
+		if week = 4: '<b>下一节课</b>: 音乐'
+		if week = 5: '<b>下一节课</b>: 体育'
+		!! '13.15 - 15.00'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'weekly grade update':
+	if kanikuli = 0 and week = 1 and gschoolVars['school_diploma'] = 0:
+		if lernHome > 0 and petkaQW['homework'] = 1: gs 'grades', 'homework', 'school', 'yes', rand(0, lernHome), 2, 'A6'
+		trait_vars['academic_exp'] -= min(lernHome, 5)
+		if lernHome <= 1:
+			trait_vars['academic_exp'] += trait_vars['nerd_learn_home']
+			if trait_vars['nerd_learn_home'] < 5:
+				trait_vars['nerd_learn_home'] += 1
+			else
+				trait_vars['nerd_learn_home'] = 0
+			end
+		end
+		lernHome = 0
+		if class['first_grade_check'] > 0:
+			gs 'grades', 'calculate_grade', 'school'
+			gs 'grades', 'assign_grade_description', 'school'
+		else
+			i = 0
+			:grade_loop
+			dynamic 'class[''school_<<$class_list_name[i]>>_weekly_grade_gain''] = 0'
+			i += 1
+			if arrsize('class_list_institution') > i: jump 'grade_loop'
+		end
+	end
+	exit
+end
+
+
+!! Compute messages and icons for stat_display, called from stat_display_compute
+if $ARGS[0] = 'compute_stat_display':
+	!! School ───────────────────────────────────────────────────────
+	if $start_type['loc'] = 'sg' and gschoolVars['block'] = 0 and gschoolVars['school_diploma'] = 0 and daystart < 513:
+		$sd_sched[1] = '数学、俄语、文学、艺术、生物和体育。'
+		$sd_sched[2] = '英语、地理、科学、手工、计算机和音乐。'
+		$sd_sched[3] = '数学、俄语、生物、历史、计算机和体育。'
+		$sd_sched[4] = '英语、地理、科学、手工、计算机和音乐。'
+		$sd_sched[5] = '数学、俄语、文学、艺术、历史和体育。'
+		if week >= 1 and week <= 5: $stat_texts['school_schedule'] = ' 你今天有以下课程：<<$sd_sched[week]>>'
+		killvar 'sd_sched'
+
+		if kanikuli = 0 and week < 6:
+			if hour < 9:
+				$stat_texts['school'] = '你必须于<<$func(''time'', ''get_time_string'', 7, 55)>>前到校，否则就会迟到。'
+				gs 'stat_display_compute', 'queue_msg', 'school', '', 'status/gschool', 4
+				if hour >= 7: gs 'stat_display_compute', 'queue_alert', '学校马上要上课了，请在7:55前到校。', 'neg'
+			elseif hour < 15:
+				if gschoolVars['last_attendance'] <> daystart:
+					$stat_texts['school'] = '你缺课了。'
+					gs 'stat_display_compute', 'queue_msg', 'school', '', 'status/gschool_red', 4
+				else
+					$stat_texts['school'] = $stat_texts['school_schedule']
+					gs 'stat_display_compute', 'queue_msg', 'school', '', 'status/gschool', 4
+				end
+			end
+		else
+			if week = 6 and hour < 9 and detention_set = 1 and gschoolVars['school_diploma'] = 0:
+				$stat_texts['school'] = '你今天早上有留堂，并且到校时间不得晚于<<$func(''time'', ''get_time_string'', 9, 0)>>.'
+				gs 'stat_display_compute', 'queue_msg', 'school', '', 'status/gschool', 4
+				if hour >= 7: gs 'stat_display_compute', 'queue_alert', '今天早上有留堂。你必须在9:00前到校。', 'neg'
+			end
+		end
+	end
+
+	!! Schoolgirl Events ────────────────────────────────────────────
+	if $start_type['loc'] = 'sg':
+		if daystart = sisboyday + 1 and hour < 18:
+			if (npc_QW['A33'] = 3 or npc_QW['A33'] = 5 or npc_QW['A33'] = 7 or (npc_QW['A33'] >= 9 and sisboytrioQW <> 1)):
+				$stat_texts['sg_sisroom'] = '你答应过你姐姐不要进入你的房间在<<$func(''time'', ''get_time_string'', 16, 0, cheatVars[''time_format''])>>.'
+				gs 'stat_display_compute', 'queue_msg', 'sg_sisroom'
+			end
+			if sisboytrioQW = 1:
+				$stat_texts['sg_sistrio'] = '你答应过你姐姐你会在你的房间见她，在<<$func(''time'', ''get_time_string'', 16, 0, cheatVars[''time_format''])>>.'
+				gs 'stat_display_compute', 'queue_msg', 'sg_sistrio'
+				if hour >= 14: gs 'stat_display_compute', 'queue_alert', '你姐姐正在你的房间等你，时间是 ' + $func('time', 'get_time_string', 16, 0) + '。', 'neg'
+			end
+		end
+
+		if day = nyp_day and month = 12 and gschoolVars['school_diploma'] = 0 and hour >= 5 and hour <= 14:
+			$stat_texts['sg_ny_school'] = '学校的新年派对将于<<$func(''time'', ''get_time_string'', 14, 0, cheatVars[''time_format''])>>开始。'
+			gs 'stat_display_compute', 'queue_msg', 'sg_ny_school'
+			if hour >= 12: gs 'stat_display_compute', 'queue_alert', '学校的新年派对即将开始（' + $func('time', 'get_time_string', 14, 0) + '）。', 'neg'
+		elseif InvitationToDimkaNYparty = 1 and month = 12 and day = 31:
+			$stat_texts['sg_dimka_party'] = '去住宅区参加 季姆卡 的新年派对，时间在<<$func(''time'', ''get_time_string'', 15, 0, cheatVars[''time_format''])>>到<<$func(''time'', ''get_time_string'', 18, 0, cheatVars[''time_format''])>>之间。'
+			gs 'stat_display_compute', 'queue_msg', 'sg_dimka_party'
+			if hour >= 13: gs 'stat_display_compute', 'queue_alert', '季姆卡 的新年派对将于 ' + $func('time', 'get_time_string', 15, 0) + ' 开始。', 'neg'
+		end
+		if gopnik_initiation = 1 and gopnik_initiation_day = daystart and hour > 15 and hour < 21:
+			$stat_texts['sg_gopnik'] = '八点在地下停车场见列娜和莱拉。'
+			gs 'stat_display_compute', 'queue_msg', 'sg_gopnik'
+			if hour >= 18: gs 'stat_display_compute', 'queue_alert', '八点在地下停车场见列娜和莱拉。', 'neg'
+		end
+		if nerd_night_game = 1 and nerd_night_game_day = daystart and hour > 15 and hour < 21:
+			$stat_texts['sg_nerd'] = '八点在社区中心加入书呆子们。'
+			gs 'stat_display_compute', 'queue_msg', 'sg_nerd'
+			if hour >= 18: gs 'stat_display_compute', 'queue_alert', '八点在社区中心加入书呆子们。', 'neg'
+		end
+	end
+	exit
+end
+
+--- gschool ---------------------------------

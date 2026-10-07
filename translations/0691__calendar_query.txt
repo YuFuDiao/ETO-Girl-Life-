@@ -1,0 +1,374 @@
+# calendar_query
+
+!! =======================================
+!! Calendar v2 - Query Layer Module
+!! =======================================
+!!
+!! This module answers questions about events without modifying them.
+!! Acts as the interface between raw event storage and the schedule builder.
+
+
+if $ARGS[0] = 'ts_to_str':
+	$result = func('time', 'get_time_string', ARGS[1] / 4, (ARGS[1] mod 4) * 15)
+	exit
+end
+
+
+if $ARGS[0] = 'format_relative_day':
+	!! $result = func('calendar_query', 'format_relative_day', target_daystart)
+	!! -> 'today' | 'tomorrow' | a weekday name, relative to the current in-game day.
+	temp_frd_offset = ARGS[1] - daystart
+	if temp_frd_offset = 0:
+		$result = 'today'
+	elseif temp_frd_offset = 1:
+		$result = 'tomorrow'
+	else
+		$result = $weekName[((week - 1 + temp_frd_offset) mod 7) + 1]
+	end
+	killvar 'temp_frd_offset'
+	exit
+end
+
+
+if $ARGS[0] = 'get_event_display_range':
+	!! Input: $ARGS[1] = event_id, ARGS[2] = daystart
+	!! Output: Sets result_start_ts, result_end_ts, result_is_flex, result_window_end_ts, result_duration_ts
+	!! Calls: calendar_events.get_event
+
+	!! Get event details
+	gs 'calendar_events', 'get_event', $ARGS[1]
+
+	!! All-day events span the entire day
+	if event_vars['all_day'] = 1:
+		result_start_ts = 0
+		result_end_ts = 95
+		result_is_flex = 0
+		result_window_end_ts = 0
+		result_duration_ts = 0
+		exit
+	end
+
+	!! Check flex_type and return appropriate range
+	if event_vars['flex_type'] = 1:
+		!! Flexible event: return full window range (earliest arrival to latest possible end)
+		result_start_ts = event_vars['window_start_ts']
+		result_end_ts = event_vars['window_end_ts'] + event_vars['duration_ts'] - 1
+		result_is_flex = 1
+		result_window_end_ts = event_vars['window_end_ts']
+		result_duration_ts = event_vars['duration_ts']
+	else
+		!! Fixed event: return display range
+		result_start_ts = event_vars['start_ts']
+		result_end_ts = event_vars['start_ts'] + event_vars['duration_ts'] - 1
+		result_is_flex = 0
+		result_window_end_ts = 0
+		result_duration_ts = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_events_for_day':
+	!! Input: ARGS[1] = daystart value
+	!! Output: $query_events_for_day[] array of event IDs occurring on that day
+	!! Calls: calendar_events.event_occurs_in_day
+
+	killvar 'query_events_for_day'
+
+	temp_count = 0
+	temp_i = 0
+
+	:loop_events_day
+		if temp_i < arrsize('$events_list'):
+			$temp_event_id = $events_list[temp_i]
+			if $temp_event_id <> '':
+				if func('calendar_events', 'event_occurs_in_day', $temp_event_id, ARGS[1]) = 1:
+					$query_events_for_day[temp_count] = $temp_event_id
+					temp_count += 1
+				end
+			end
+			temp_i += 1
+			jump 'loop_events_day'
+		end
+
+	killvar 'temp_count'
+	killvar 'temp_i'
+	killvar 'temp_event_id'
+	exit
+end
+
+if $ARGS[0] = 'get_events_for_time_range':
+	!! Input: ARGS[1] = daystart value,ARGS[2] = timeslot (0-95), ARGS[3] = timeslot length
+	!! Output: $query_events_for_day[] array of event IDs occurring on that time range
+	!! Calls: get_events_for_day,get_event_display_range
+
+	killvar 'query_events_for_time_range'
+
+	!! get all events on the day
+	gs 'calendar_query', 'get_events_for_day', ARGS[1]
+	copyarr '$day_events', '$query_events_for_day'
+
+	temp_count = 0
+	temp_i = 0
+	temp_timeslot_start = ARGS[2]
+	temp_timeslot_end = ARGS[2] + ARGS[3]
+
+	:loop_events_time_range
+		if temp_i < arrsize('$day_events'):
+			$temp_event_id = $day_events[temp_i]
+			if $temp_event_id <> '':
+				!! Get event''s display range
+				gs 'calendar_query', 'get_event_display_range', $temp_event_id, ARGS[1]
+
+				!! Store range locally to avoid any variable persistence issues
+				temp_range_start = result_start_ts
+				temp_range_end = result_end_ts
+
+				!! Check if timeslot falls within event''s range. All-day events span the whole
+				!! day and would otherwise always match - they are not a real time conflict.
+				if event_vars['all_day'] = 0 and temp_timeslot_start <= temp_range_end and temp_timeslot_end >= temp_range_start:
+					$query_events_for_time_range[temp_count] = $temp_event_id
+					temp_count += 1
+				end
+			end
+			temp_i += 1
+			jump 'loop_events_time_range'
+		end
+
+	killvar 'temp_count'
+	killvar 'temp_i'
+	killvar 'temp_event_id'
+	killvar 'temp_timeslot_start'
+	killvar 'temp_timeslot_end'
+	killvar 'temp_range_start'
+	killvar 'temp_range_end'
+	killvar 'day_events'
+	exit
+end
+
+
+if $ARGS[0] = 'should_event_be_visible':
+	!! Input: $ARGS[1] = event_id, ARGS[2] = daystart
+	!! Output: result = 1 if visible on this day, 0 if hidden
+	!! Calls: calendar_events.get_event, get_events_for_day, get_event_display_range
+
+	!! Get event details
+	gs 'calendar_events', 'get_event', $ARGS[1]
+
+	check_priority = event_vars['priority']
+	check_all_day = event_vars['all_day']
+
+	!! High priority (2) and all-day events are never hidden
+	if check_priority = 2 or check_all_day = 1:
+		result = 1
+		killvar 'check_priority'
+		killvar 'check_all_day'
+		exit
+	end
+
+	!! Get this event''s display range
+	gs 'calendar_query', 'get_event_display_range', $ARGS[1], ARGS[2]
+	check_start_ts = result_start_ts
+	check_end_ts = result_end_ts
+
+	!! Get all events for this day
+	gs 'calendar_query', 'get_events_for_day', ARGS[2]
+	copyarr '$day_events', '$query_events_for_day'
+
+	!! Check for conflicts with higher priority events
+	temp_i = 0
+	:loop_check_conflicts
+		if temp_i < arrsize('$day_events'):
+			$other_event_id = $day_events[temp_i]
+			if $other_event_id <> '' and $other_event_id <> $ARGS[1]:
+				!! Get other event details
+				gs 'calendar_events', 'get_event', $other_event_id
+
+				!! Only check if other event has higher priority and is not all-day
+				if event_vars['priority'] > check_priority and event_vars['all_day'] = 0:
+					!! Get other event''s display range
+					gs 'calendar_query', 'get_event_display_range', $other_event_id, ARGS[2]
+					other_start_ts = result_start_ts
+					other_end_ts = result_end_ts
+
+					!! Check for time overlap
+					if other_start_ts <= check_end_ts and other_end_ts >= check_start_ts:
+						!! This event is hidden by the higher priority event
+						result = 0
+						killvar 'check_priority'
+						killvar 'check_all_day'
+						killvar 'check_start_ts'
+						killvar 'check_end_ts'
+						killvar 'temp_i'
+						killvar 'other_event_id'
+						killvar 'other_start_ts'
+						killvar 'other_end_ts'
+						killvar 'day_events'
+						exit
+					end
+				end
+			end
+			temp_i += 1
+			jump 'loop_check_conflicts'
+		end
+
+	!! No conflicts found - event is visible
+	result = 1
+	killvar 'check_priority'
+	killvar 'check_all_day'
+	killvar 'check_start_ts'
+	killvar 'check_end_ts'
+	killvar 'temp_i'
+	killvar 'other_event_id'
+	killvar 'other_start_ts'
+	killvar 'other_end_ts'
+	killvar 'day_events'
+	exit
+end
+
+
+if $ARGS[0] = 'get_event_span_for_day':
+	!! Input: $ARGS[1] = event_id, ARGS[2] = daystart
+	!! Output: result = number of 15-min timeslots event spans on this day
+	!! Calls: calendar_events.get_event
+
+	!! Get event details
+	gs 'calendar_events', 'get_event', $ARGS[1]
+
+	!! Return span based on event type
+	if event_vars['flex_type'] = 1:
+		!! Flexible event: total span is window + duration
+		result = (event_vars['window_end_ts'] - event_vars['window_start_ts']) + event_vars['duration_ts']
+	else
+		!! Fixed event: span is duration
+		result = event_vars['duration_ts']
+	end
+
+	!! TODO: Handle edge cases for multi-day events spanning midnight
+	!! For now, we assume events fit within a single day
+
+	exit
+end
+
+
+if $ARGS[0] = 'get_event_start_timeslot':
+	!! Input: $ARGS[1] = event_id, ARGS[2] = daystart
+	!! Output: result = starting timeslot (0-95) for event on this day
+	!! Calls: calendar_events.get_event
+
+	!! Get event details
+	gs 'calendar_events', 'get_event', $ARGS[1]
+
+	!! All-day events start at timeslot 0
+	if event_vars['all_day'] = 1:
+		result = 0
+		exit
+	end
+
+	!! Return start timeslot based on event type
+	if event_vars['flex_type'] = 1:
+		!! Flexible event: start at earliest arrival time
+		result = event_vars['window_start_ts']
+	else
+		!! Fixed event: start at fixed time
+		result = event_vars['start_ts']
+	end
+
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ get_upcoming — find next N upcoming calendar events             │
+!! │ ARGS[1] = max results (default 3)                               │
+!! │ ARGS[2] = reference daystart (default = daystart)               │
+!! │ ARGS[3] = reference timeslot (default = hour*4 + minut/15)      │
+!! │ Output: $upcoming_ids[], upcoming_days[], upcoming_ts[],         │
+!! │         upcoming_count                                           │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_upcoming':
+	upc['max'] = iif(ARGS[1] > 0, ARGS[1], 3)
+	upc['today'] = iif(ARGS[2] > 0, ARGS[2], daystart)
+	upc['cur_ts'] = ARGS[3]
+	killvar 'upcoming_ids'
+	killvar 'upcoming_days'
+	killvar 'upcoming_ts'
+	upc['count'] = 0
+	upc['ei'] = 0
+	upc['emax'] = arrsize('$events_list')
+
+	:upc_event_loop
+	if upc['ei'] < upc['emax']:
+		$upc['id'] = $events_list[upc['ei']]
+		if $upc['id'] <> '':
+			gs 'calendar_events', 'get_event', $upc['id']
+			gs 'calendar_events', 'load_new_ev', 1
+
+			!! Search from today-1, clamped to no earlier than event daystart.
+			!! Prevents recurring events not yet started from appearing as today.
+			upc['search_from'] = max(upc['today'] - 1, event_vars['daystart'] - 1)
+			if $new_ev['recur'] = '':
+				upc['occ'] = iif(new_ev['daystart'] >= upc['search_from'] + 1, new_ev['daystart'], -1)
+			else
+				upc['occ'] = func('calendar_events', 'next_occurrence_daystart', upc['search_from'])
+			end
+
+			!! If today: skip if timeslot already past (non-all-day events only)
+			if upc['occ'] = upc['today'] and event_vars['all_day'] = 0:
+				upc['ets'] = iif(event_vars['flex_type'] = 1, event_vars['window_end_ts'], event_vars['start_ts'])
+				if upc['ets'] <= upc['cur_ts']:
+					upc['occ'] = func('calendar_events', 'next_occurrence_daystart', upc['occ'])
+				end
+			end
+
+			if upc['occ'] >= 0:
+				upc['sort_ts'] = iif(event_vars['all_day'] = 1, 0, iif(event_vars['flex_type'] = 1, event_vars['window_start_ts'], event_vars['start_ts']))
+
+				!! Sorted insert into buffer (ascending by day then timeslot)
+				upc['do_insert'] = 0
+				if upc['count'] < upc['max']:
+					upc['ins'] = upc['count']
+					upc['count'] += 1
+					upc['do_insert'] = 1
+				elseif upc['occ'] < upcoming_days[upc['count'] - 1] or (upc['occ'] = upcoming_days[upc['count'] - 1] and upc['sort_ts'] < upcoming_ts[upc['count'] - 1]):
+					upc['ins'] = upc['count'] - 1
+					upc['do_insert'] = 1
+				end
+
+				if upc['do_insert'] = 1:
+					$upcoming_ids[upc['ins']] = $upc['id']
+					upcoming_days[upc['ins']] = upc['occ']
+					upcoming_ts[upc['ins']] = upc['sort_ts']
+					!! Bubble up to maintain sort order
+					upc['bi'] = upc['ins']
+					:upc_bubble
+					if upc['bi'] > 0:
+						upc['bj'] = upc['bi'] - 1
+						if upcoming_days[upc['bi']] < upcoming_days[upc['bj']] or (upcoming_days[upc['bi']] = upcoming_days[upc['bj']] and upcoming_ts[upc['bi']] < upcoming_ts[upc['bj']]):
+							$upc['tmp'] = $upcoming_ids[upc['bj']]
+							upc['tmp_d'] = upcoming_days[upc['bj']]
+							upc['tmp_t'] = upcoming_ts[upc['bj']]
+							$upcoming_ids[upc['bj']] = $upcoming_ids[upc['bi']]
+							upcoming_days[upc['bj']] = upcoming_days[upc['bi']]
+							upcoming_ts[upc['bj']] = upcoming_ts[upc['bi']]
+							$upcoming_ids[upc['bi']] = $upc['tmp']
+							upcoming_days[upc['bi']] = upc['tmp_d']
+							upcoming_ts[upc['bi']] = upc['tmp_t']
+							upc['bi'] -= 1
+							jump 'upc_bubble'
+						end
+					end
+				end
+			end
+		end
+		upc['ei'] += 1
+		jump 'upc_event_loop'
+	end
+
+	upcoming_count = upc['count']
+	killvar 'upc'
+	exit
+end
+
+
+--- calendar_query ---------------------------------

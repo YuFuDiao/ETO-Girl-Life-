@@ -1,0 +1,237 @@
+# fetish
+
+!{
+This handles the new fetish system.
+Before 0.9.5.1 The fetishes were mostly internally handled within arousal.qsrc
+
+This file now handles all the fetishes, fetish preferences, xp gain in fetishes, tracking and so on
+
+------------ USAGE ------------
+ARGS[0]: name of the function
+ARGS[1]: name of the preference
+ARGS[2]: optional number between -100 and 100 to adjust the preference or experience for the fetish (higher = like that fetish more)
+if ARGS[2] is not set, it is assumed to be +1
+
+fetish_pref is always capped to range [-100 - 100]
+
+DO NOT DIRECTLY MODIFY THE FETISH ARRAY
+ALWAYS USE THE FUNCTIONS PROVIDED HERE
+
+example:
+	'PC 对粗暴性爱的经验为<<fetish[''rough_exp'']>>'
+	if fetishes['rough_pref'] > 10:
+		'PC喜欢粗暴性爱'
+	elseif fetishes['rough_pref'] < -10:
+		'PC讨厌粗暴性爱的想法'
+	else
+		'不确定自己对粗暴性爱是什么感觉'
+	end
+
+example:
+	gs 'fetish', 'exp', 'rough'
+	!! increases rough sex experience by 1
+
+example:
+	!! PC has a bad rough sex session
+	gs 'fetish', 'add_pref', 'rough', -5
+	!! decreases rough sex preference by 5
+
+example:
+	gs 'fetish', 'set_exp', 'creampie', 100
+	!! sets PC creampie experience to 100
+
+------------ Current Fetishes ------------
+valid fetishes are:
+	'maso' 'bound' 'beast' 'exhibitionism' 'rough' 'prostitution' 'dom' 'sub' 'incest' 'feet'
+	'lesbian' 'group' 'gangbang' 'humiliation' 'deepthroat' 'unknown' 'gloryhole' 'rape'
+	'shemale' 'masturbate' 'creampie' 'pregnant' 'orgy'
+
+!}
+
+$fetish_name[0] = 'maso'
+$fetish_name[1] = 'bound'
+$fetish_name[2] = 'beast'
+$fetish_name[3] = 'exhibitionism'
+$fetish_name[4] = 'rough'
+$fetish_name[5] = 'prostitution'
+$fetish_name[6] = 'dom'
+$fetish_name[7] = 'sub'
+$fetish_name[8] = 'incest'
+$fetish_name[9] = 'feet'
+$fetish_name[10] = 'lesbian'
+$fetish_name[11] = 'group'
+$fetish_name[12] = 'gangbang'
+$fetish_name[13] = 'humiliation'
+$fetish_name[14] = 'deepthroat'
+$fetish_name[15] = 'unknown'
+$fetish_name[16] = 'gloryhole'
+$fetish_name[17] = 'rape'
+$fetish_name[18] = 'shemale'
+$fetish_name[19] = 'masturbate'
+$fetish_name[20] = 'creampie'
+$fetish_name[21] = 'pregnant'
+$fetish_name[22] = 'orgy'
+
+!! MODS: use if arrpos('$fetish_name', 'myfetish') < 0: $fetish_name[] = 'myfetish'
+
+!! Numbers are percentage of exp/pref shared.
+!! $fetish_link['maso_0_name'] = 'bound'
+!! fetish_link['maso_0_strength'] = 10
+!! $fetish_link['maso_1_name'] = 'rough'
+!! fetish_link['maso_1_strength'] = 30
+
+!! $fetish_link['bound_0_name'] = 'maso'
+!! fetish_link['bound_0_strength'] = 10
+
+!! $fetish_link['group_0_name'] = 'gangbang'
+!! fetish_link['group_0_strength'] = 50
+
+!! $fetish_link['gangbang_0_name'] = 'group'
+!! fetish_link['gangbang_0_strength'] = 50
+
+!! $fetish_link['dom_0_name'] = 'sub'
+!! fetish_link['dom_0_strength'] = -33
+
+!! $fetish_link['sub_0_name'] = 'dom'
+!! fetish_link['sub_0_strength'] = -33
+
+!! traits related to fetishes
+!! $fetish_trait['creampie'] = "gs 'fetish', 'creampie_trait'"
+!! $fetish_trait['exhibitionism'] = "gs 'fetish', 'exhibitionism_trait'"
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                CIKL                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'cikl':
+	tempFetish['i'] = 0
+	tempFetish['maxi'] = arrsize('$fetish_name')
+	:fetish_cikl_loop
+		$tempFetish['name'] = $fetish_name[tempFetish['i']]
+		gs 'fetish', 'add_bonuses', $tempFetish['name']
+		fetishes[$tempFetish['name'] + '_pref'] = max(-100, min(fetishes[$tempFetish['name'] + '_pref'], 100))
+		gs 'fetish', 'check_for_traits', $tempFetish['name']
+		tempFetish['i'] += 1
+	if tempFetish['i'] < tempFetish['maxi']: jump 'fetish_cikl_loop'
+
+	killvar 'tempFetish'
+end
+
+
+if $ARGS[0] = 'add_bonuses':
+	if fetishes[$ARGS[1] + '_exp_bonus'] ! 0 or fetishes[$ARGS[1] + '_pref_bonus'] ! 0:
+		temp['j'] = 0
+		:fetish_cikl_loop1
+			$temp['link'] = $fetish_link[$ARGS[1] + '_<<temp[''j'']>>' + '_name']
+			temp['strength'] = fetish_link[$ARGS[1] + '_<<temp[''j'']>>' + '_strength']
+		if $temp['link'] <> '':
+			temp['exp_bonus'] = fetishes[$ARGS[1] + '_exp_bonus'] * temp['strength'] / 100
+			temp['pref_bonus'] = fetishes[$ARGS[1] + '_pref_bonus'] * temp['strength'] / 100
+			if temp['exp_bonus'] <> 0:	gs 'fetish', 'add_exp', $temp['link'], temp['exp_bonus'], 'no_bonus'
+			if temp['pref_bonus'] <> 0:	gs 'fetish', 'add_pref', $temp['link'], temp['pref_bonus'], 'no_bonus'
+			temp['j'] += 1
+			jump 'fetish_cikl_loop1'
+		end
+	end
+	fetishes[$ARGS[1] + '_exp_bonus'] = 0
+	fetishes[$ARGS[1] + '_pref_bonus'] = 0
+
+	killvar 'temp'
+end
+
+
+if $ARGS[0] = 'check_for_traits':
+	!! Here we can check whether something should happen when exp or pref is high enough.
+	!! KL: Something like this? Allows for mods to handle their own traits
+	if $fetish_trait[$ARGS[1]] ! '': dynamic $fetish_trait[$ARGS[1]]
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            EXP AND PREF                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'add_exp':
+	if $ARGS[1] = '': exit
+	if arrpos('$fetish_name', $ARGS[1]) < 0:
+		$func('wrap', 'neg', 'gs ''fetish'', ''add_exp'' 出错：<<$ARGS[1]>>不在 $fetish_name 中')
+		exit
+	end
+	if ARGS[2] = 0: ARGS[2] = 1
+	fetishes[$ARGS[1] + '_exp'] += ARGS[2]
+	if arrpos('$ARGS', 'no_bonus') < 0:
+		fetishes[$ARGS[1] + '_exp_bonus'] += ARGS[2]
+	end
+end
+
+
+if $ARGS[0] = 'set_exp':
+	if $ARGS[1] = '': exit
+	if arrpos('$fetish_name', $ARGS[1]) < 0:
+		$func('wrap', 'neg', 'gs ''fetish'', ''set_exp'' 出错：<<$ARGS[1]>>不在 $fetish_name 中')
+		exit
+	end
+	fetishes[$ARGS[1] + '_exp'] = ARGS[2]
+end
+
+
+if $ARGS[0] = 'get_exp':
+	if $ARGS[1] = '': exit
+	if arrpos('$fetish_name', $ARGS[1]) < 0:
+		$func('wrap', 'neg', 'gs ''fetish'', ''get_exp'' 出错：<<$ARGS[1]>>不在 $fetish_name 中')
+		exit
+	end
+	result = fetishes[$ARGS[1] + '_exp']
+end
+
+
+if $ARGS[0] = 'add_pref':
+	if $ARGS[1] = '': exit
+	if arrpos('$fetish_name', $ARGS[1]) < 0:
+		$func('wrap', 'neg', 'gs ''fetish'', ''add_pref'' 出错：<<$ARGS[1]>>不在 $fetish_name 中')
+		exit
+	end
+	if ARGS[2] = 0: ARGS[2] = 1
+	fetishes[$ARGS[1] + '_pref'] += ARGS[2]
+	if arrpos('$ARGS', 'no_bonus') < 0:
+		fetishes[$ARGS[1] + '_pref_bonus'] += ARGS[2]
+	end
+	fetishes[$ARGS[1] + '_pref'] = max(-100, min(fetishes[$ARGS[1] + '_pref'], 100))
+end
+
+
+if $ARGS[0] = 'set_pref':
+	if $ARGS[1] = '': exit
+	if arrpos('$fetish_name', $ARGS[1]) < 0:
+		$func('wrap', 'neg', 'gs ''fetish'', ''set_pref'' 出错：<<$ARGS[1]>>不在 $fetish_name 中')
+		exit
+	end
+	fetishes[$ARGS[1] + '_pref'] = ARGS[2]
+	fetishes[$ARGS[1] + '_pref'] = max(-100, min(fetishes[$ARGS[1] + '_pref'], 100))
+end
+
+
+if $ARGS[0] = 'get_pref':
+	if $ARGS[1] = '': exit
+	if arrpos('$fetish_name', $ARGS[1]) < 0:
+		$func('wrap', 'neg', 'gs ''fetish'', ''get_pref'' 出错：<<$ARGS[1]>>不在 $fetish_name 中')
+		exit
+	end
+	fetishes[$ARGS[1] + '_pref'] = max(-100, min(fetishes[$ARGS[1] + '_pref'], 100))
+	result = fetishes[$ARGS[1] + '_pref']
+end
+
+
+--- fetish ---------------------------------

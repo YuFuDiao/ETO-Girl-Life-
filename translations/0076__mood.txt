@@ -1,0 +1,246 @@
+# mood
+!{
+	Variables:
+		pcs_mood								momentary, short term mood
+		mood_trauma								trauma debuff to max mood, add to events to reduce maximum mood. Goes down over time
+
+		moodVars['disp_base']					raw mood baseline before archetype modifiers (stored value)
+		moodVars['disp']						effective mood baseline / Disposition (disp_base + arch_effects['disposition_effect'])
+		moodVars['momentum']					points towards increasing or decreasing base mood if mood is consistantly different
+		moodVars['inertia']						points towards increasing or decreasing base mood if it is different from neutral base (50)
+		moodVars['max']							maximum mood, based on mood_trauma
+		moodVars['min']							minimum mood
+		moodVars['hold_minut']					length of time in minutes to freeze current mood before beginning to decay
+
+	Calls:
+		gs 'mood', 'clamp'						clamp mood to min and max values, reduce health if min reached
+		gs 'mood', 'raise', 'medium'
+		gs 'mood', 'raise', x
+		gs 'mood', 'lower', 'small'
+		gs 'mood', 'lower', x					raise or lower mood by degrees or numerical values.
+												Degrees: max / min, huge (±40), large (±30), medium (±20), small (±10), tiny (±5)
+		gs 'mood', 'raise_disposition', 'medium'
+		gs 'mood', 'raise_disposition', x
+		gs 'mood', 'lower_disposition', 'small'
+		gs 'mood', 'lower_disposition', x				raise or lower base mood by degrees or numerical values.
+												Degrees: max / min, huge (±5), large (±4), medium (±3), small (±2), tiny (±1)
+		gs 'mood', 'doormat', 'lower|medium', 'lower|small', 'lower|tiny', 'raise|tiny'
+												apply mood change scaled by doormat trait level (0–3).
+												All four args mandatory: 'direction|degree' for levels 0–3. Use '' to skip a level.
+		gs 'mood', 'hold', x					hold current mood for x minutes before allowing decay to baseline
+		gs 'mood', 'decay'						shifts mood towards baseline
+		gs 'mood', 'update'						decays mood, updates baseline, clamps values
+		gs 'mood', 'status_effects', 'add'		adds new status effect. Name must appear in variable table
+		gs 'mood', 'status_effects', 'pop'		pops one instance of status effect
+		gs 'mood', 'status_effects', 'clear'	clears all instances of status effect
+
+		- Eva
+!}
+
+
+if $ARGS[0] = 'clamp':
+	mood_trauma = func('math', 'int_clamp', mood_trauma, 0, 15)
+	if moodVars['disp_base'] = 0: moodVars['disp_base'] = 50
+
+	!! Max mood
+	moodVars['max'] = 100
+	if gerpes >= 3: moodVars['max'] -= 5
+	if sifilis >= 21: moodVars['max'] -= 5
+	if triper > 2: moodVars['max'] -= 5
+	moodVars['max'] -= mood_trauma * 4
+	moodVars['max'] = max(40, moodVars['max'])
+
+	!! Min mood
+	moodVars['min'] = 1
+
+	!! Clamping
+	moodVars['disp_base'] = func('math', 'int_clamp', moodVars['disp_base'], 20, 70)
+	moodVars['disp'] = func('math', 'int_clamp', moodVars['disp_base'] + arch_effects['disposition_effect'], 20, 70)
+	pcs_mood = min(moodVars['max'], pcs_mood)
+	if pcs_mood < moodVars['min']:
+		pcs_health -= max(5, min(20, moodVars['min'] - pcs_mood))
+		pcs_mood = moodVars['min']
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'reset':
+	pcs_mood = moodVars['disp']
+	exit
+end
+
+
+if $ARGS[0] = 'interpret':
+	if $ARGS[1] = 'max':
+		result = 100 - pcs_mood
+	elseif $ARGS[1] = 'min':
+		result = pcs_mood
+	elseif $ARGS[1] = 'huge':
+		result = 40
+	elseif $ARGS[1] = 'large':
+		result = 30
+	elseif $ARGS[1] = 'medium':
+		result = 20
+	elseif $ARGS[1] = 'small':
+		result = 10
+	elseif $ARGS[1] = 'tiny':
+		result = 5
+	else
+		result = ARGS[1]
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'raise':
+	temp_val = iif(ARGS[1] <> 0, ARGS[1], func('mood', 'interpret', $ARGS[1]))
+	pcs_mood += func('_difficulty', 'get_multiplied', cheatVars['pos_mood_opt'], temp_val, cheatVars['pos_mood_mult'])
+	killvar 'temp_val'
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+if $ARGS[0] = 'lower':
+	temp_val = iif(ARGS[1] <> 0, ARGS[1], func('mood', 'interpret', $ARGS[1]))
+	pcs_mood -= func('_difficulty', 'get_multiplied', cheatVars['neg_mood_opt'], temp_val, cheatVars['neg_mood_mult'])
+	killvar 'temp_val'
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+!!{
+	gs 'mood', 'doormat', 'lower|medium', 'lower|small', 'lower|tiny', 'raise|tiny'
+
+	Applies a mood change scaled by doormat trait level (0–3).
+	All four arguments are mandatory: 'direction|degree' pairs for levels 0, 1, 2, 3.
+	Use '' to skip a level with no effect.
+!}
+if $ARGS[0] = 'doormat':
+	!! Pick the arg matching the current doormat level
+	$temp_mood_str = $ARGS[1 + min(3, trait_vars['doormat'])]
+
+	!! Apply if not empty
+	if $temp_mood_str ! '':
+		temp_pipe = instr($temp_mood_str, '|')
+		gs 'mood', $mid($temp_mood_str, 1, temp_pipe - 1), $mid($temp_mood_str, temp_pipe + 1)
+	end
+
+	killvar 'temp_pipe'
+	killvar 'temp_mood_str'
+	exit
+end
+
+
+if $ARGS[0] = 'raise_trauma':
+	mood_trauma += ARGS[1]
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+if $ARGS[0] = 'lower_trauma':
+	mood_trauma -= ARGS[1]
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+if $ARGS[0] = 'raise_disposition':
+	if $ARGS[1] = 'max':
+		moodVars['disp_base'] = 75
+	else
+		temp_val = iif(ARGS[1] <> 0, ARGS[1], func('mood', 'interpret', $ARGS[1]) / 5)
+	end
+	moodVars['disp_base'] += func('_difficulty', 'get_multiplied', cheatVars['pos_mood_opt'], temp_val, cheatVars['pos_mood_mult'])
+	killvar 'temp_val'
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+if $ARGS[0] = 'lower_disposition':
+	if $ARGS[1] = 'min':
+		moodVars['disp_base'] = 25
+	else
+		temp_val = iif(ARGS[1] <> 0, ARGS[1], func('mood', 'interpret', $ARGS[1]) / 5)
+	end
+	moodVars['disp_base'] -= func('_difficulty', 'get_multiplied', cheatVars['neg_mood_opt'], temp_val, cheatVars['neg_mood_mult'])
+	killvar 'temp_val'
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+if $ARGS[0] = 'hold':
+	moodVars['hold_minut'] = max(moodVars['hold_minut'], ARGS[1])
+	exit
+end
+
+
+if $ARGS[0] = 'status_effects':
+	moodSEValues['gerpes']	= -5
+	moodSEValues['sifilis']	= -5
+	moodSEValues['triper']	= -5
+
+	if $ARGS[1] = 'add':
+		moodSE[$ARGS[2]] += 1
+		gs 'mood', 'raise_disposition', moodSEValues[$ARGS[2]]
+	elseif $ARGS[1] = 'pop':
+		if moodSE[$ARGS[2]] = 0:
+			"试图移除不存在的心情基础状态效果<<$ARGS[2]>>。这是个 bug，请报告它"
+		else
+			moodSE[$ARGS[2]] -= 1
+			gs 'mood', 'lower_disposition', moodSEValues[$ARGS[2]]
+		end
+	elseif $ARGS[1] = 'clear':
+		gs 'mood', 'lower_disposition', (moodSEValues[$ARGS[2]] * moodSE[$ARGS[2]])
+		moodSE[$ARGS[2]] = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'decay':
+	!! Mood decay
+	if moodVars['hold_minut'] > 0:
+		moodVars['hold_minut'] -= min(15, moodVars['hold_minut'])
+	else
+		moodVars['leftover_mood'] += pcs_mood - moodVars['disp']
+		gs 'mood', 'lower', moodVars['leftover_mood'] / 15
+		moodVars['leftover_mood'] = moodVars['leftover_mood'] mod 15
+	end
+
+	!! momentum-based shift (thresholds based on raw disp_base)
+	moodVars['momentum'] += pcs_mood - moodVars['disp']
+	if moodVars['momentum'] > 5000 + 50*(moodVars['disp_base'] - 50):
+		gs 'mood', 'raise_disposition', 1
+		moodVars['momentum'] = 0
+	elseif moodVars['momentum'] < -4000 + 50*(moodVars['disp_base'] - 50):
+		gs 'mood', 'lower_disposition', 1
+		moodVars['momentum'] = 0
+	end
+
+	!! decay towards neutral base (based on raw disp_base)
+	moodVars['inertia'] += moodVars['disp_base'] - 50
+	if moodVars['inertia'] > 3200 - 50*(moodVars['disp_base'] - 50):
+		gs 'mood', 'lower_disposition', 1
+		moodVars['inertia'] = 0
+	elseif moodVars['inertia'] < -4000 - 50*(moodVars['disp_base'] - 50):
+		gs 'mood', 'raise_disposition', 1
+		moodVars['inertia'] = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'update':
+	gs 'mood', 'decay'
+	gs 'mood', 'clamp'
+	exit
+end
+
+
+--- mood ---------------------------------

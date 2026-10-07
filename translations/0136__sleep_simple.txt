@@ -1,0 +1,155 @@
+# sleep_simple
+
+if $ARGS[0] = '' or $ARGS[0] = 'simple' or $ARGS[0] = 'sleep':
+!! to avoid sleeping the whole day I decide to calculate the duration of the sleep in advance
+!! the quality of the sleep depends on many factors, so the time of sleep can be modify later, especially the part when the time of sleep is shortened
+
+	if trait_vars['sleep_duration'] = 1:
+		sleepVars['time_to_full'] = ((100 - pcs_sleep) * 353) / 100
+	elseif trait_vars['sleep_duration'] = -1:
+		sleepVars['time_to_full'] = ((100 - pcs_sleep) * 636) / 100
+	else
+		sleepVars['time_to_full'] = (100 - pcs_sleep) * 5
+	end
+	sleepVars['time_to_full'] += 60 + rand(0, 90)
+
+	gs 'sleep', 'calc_minutes_to_wakeup'
+
+	gs 'sleep_simple', 'loop'
+end
+
+
+if $ARGS[0] = 'forced':
+	if ARGS[1] <= 0:
+		gs 'sleep_simple', 'simple'
+		exit
+	end
+
+	if trait_vars['sleep_duration'] = 1:
+		sleepVars['time_to_full'] = ((100 - pcs_sleep) * 353) / 100
+	elseif trait_vars['sleep_duration'] = -1:
+		sleepVars['time_to_full'] = ((100 - pcs_sleep) * 636) / 100
+	else
+		sleepVars['time_to_full'] = (100 - pcs_sleep) * 5
+	end
+	sleepVars['time_to_full'] += 60 + rand(0, 90)
+	sleepVars['minutes_to_wakeup'] = ARGS[1]
+
+	gs 'sleep_simple', 'loop'
+end
+
+
+if $ARGS[0] = 'sleep_until':
+	temp_minutes = (ARGS[1] - hour) * 60 + ARGS[2] - minut
+	if temp_minutes < 0: temp_minutes += 1440
+
+	gs 'sleep_simple', 'forced', temp_minutes
+	killvar 'temp_minutes'
+end
+
+
+if $ARGS[0] = 'loop':
+	inSleep = 1
+	:sleep_simple_loop
+		minut += 1
+		sleepVars['stime'] += 1
+		sleepVars['time_now'] += 1
+		sleepVars['minutes_to_wakeup'] -= 1
+		sleepVars['time_to_full'] -= 1
+
+		if recuperation = 0 or sleepVars['no_health'] = 1: sleepVars['health_stock'] += healthmax
+		if sleepVars['health_stock'] >= 960:
+			pcs_health += sleepVars['health_stock'] / 960
+			sleepVars['health_stock'] = sleepVars['health_stock'] mod 960
+		end
+
+		if trait_vars['sleep_duration'] = 1:
+			!! Short sleeper: recover 17 points an hour
+			if sleepVars['stime'] mod 5 = 0: pcs_sleep += 1
+			if sleepVars['stime'] mod 11 = 0: pcs_sleep += 1
+		elseif trait_vars['sleep_duration'] = -1:
+			!! Long sleeper: recover 9.44 points an hour on average
+			if sleepVars['stime'] mod 7 = 0:
+				pcs_sleep += 1
+				if rand(1, 100) <= 18: pcs_sleep += 1
+			end
+		else
+			!! Normal sleeper: recover 12 points an hour
+			if sleepVars['stime'] mod 5 = 0: pcs_sleep += 1
+		end
+
+		if sleepVars['stime'] >= 60: sleepVars['stime'] = 0
+		if minut = 60: gs 'stat'
+
+		gs 'sleep_simple', 'mod_sleeptriggers'
+	if sleepVars['minutes_to_wakeup'] > 0: jump 'sleep_simple_loop'
+
+	sleepVars['no_health'] = 0
+	sleepVars['time_now'] = daystart * 1440 + hour * 60 + minut
+	inSleep = 0
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'mod_sleeptriggers':
+	!! This location is here to allow mods to hook into the system.
+	!! Check for: if $ARGS[0] = 'sleep_simple' and $ARGS[1] = 'mod_sleeptriggers'
+	!!
+	!! This is NOT for events!!
+	gs 'mod_system', 'sleep', 'sleep_simple', 'mod_sleeptriggers'
+end
+
+
+if $ARGS[0] = 'nap_bed':
+	cla
+	menu_off = 1
+	if pcs_sleep < 10:
+		gs 'shortgs', 'autosave'
+		gt 'pre_sleep', 'prepare_sleep'
+	elseif pcs_sleep <= 90:
+		inSleep = 1
+		gs 'sleep_simple', 'nap_base', 60
+		*nl
+		if ARGS[1] = 0: '你睡了大约一个小时。'
+	else
+		minut += 5
+		*nl
+		if ARGS[1] = 0: '你还没有累到能睡觉的程度，即使是小睡一会儿也不行。'
+	end
+	gs 'stat'
+	act '站起来': inSleep = 0 & gt 'bed_get_out', 'start'
+end
+
+
+if $ARGS[0] = 'nap':
+	cla
+	menu_off = 1
+	if pcs_sleep <= 90:
+		inSleep = 1
+		gs 'sleep_simple', 'nap_base', 60
+		*nl
+		if ARGS[1] = 0: '你小睡了大约一个小时。'
+	else
+		minut += 5
+		*nl
+		if ARGS[1] = 0: '你还没有累到能小睡一会儿的程度。'
+	end
+	gs 'stat'
+	inSleep = 0
+	act '站起来': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'nap_base':
+	if ARGS[1] > 0:
+		minut += ARGS[1]
+	else
+		ARGS[1] *= -1
+	end
+	pcs_sleep += ARGS[1] / 6
+	pcs_health += ARGS[1] / 12
+	gs 'stat'
+end
+
+
+--- sleep_simple ---------------------------------

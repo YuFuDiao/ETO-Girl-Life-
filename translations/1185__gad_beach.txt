@@ -1,0 +1,720 @@
+# gad_beach
+!! 2024/05/05 - Mira schedule introduced.
+
+$loc = 'gad_beach'
+
+if $ARGS[0] = 'start':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_beach', 'start'
+	$location_type = 'public_outdoors'
+	$locclass = 'beach'
+	gs 'miroslava_schedule'
+	gs 'stat'
+
+	'<center><h4>村庄海滩</h4></center>'
+	!! 125e
+	if hour >= 6 and hour < 22:
+		if sunWeather = 1:
+			if month >= 4 and month <= 10:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadbitch_summer.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadbitch_winter.jpg"></center>'
+			end
+		else
+			if month >= 4 and month <= 10:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadbitch_soft.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadbitch_cold.jpg"></center>'
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadbitch_night.jpg"></center>'
+	end
+
+	'一个乡间小海滩，你可以在这里晒日光浴和游泳。'
+
+	if (no func('miroslava_schedule', 'is_here')) and npc_QW['A63'] >= 13 and rand(0, 10) = 0 and hour >= 8 and hour < 20 and month >= 5 and month <= 9 and temper >= 15 and sunWeather = 1:
+		'<a href="exec: gt ''gad_beach'', ''GuysBeach'' ">科良巴和瓦西扬</a>正在河岸边休息。'
+	end
+
+	if func('miroslava_schedule', 'is_here'):
+		if rand(0, 10) < 5:
+			'<a href="exec:gt ''gad_beach'', ''Mira'', 1 ">米拉</a>正躺在沙滩上晒日光浴。'
+			if npc_rel['A60'] < 15: gs 'npc_relationship', 'modify', 'A60', 1
+		else
+			'<a href="exec:gt ''gad_beach'', ''Mira'', 0 ">米拉</a>正在河里泼水嬉戏。'
+			if npc_rel['A60'] < 15: gs 'npc_relationship', 'modify', 'A60', 1
+		end
+	end
+
+	act '走到河边 (0:05)':
+		cla
+		if PSwim = 1:
+			'你需要先穿上日常衣服。'
+			act '返回': gt 'gad_beach', 'start', 1
+		elseif $clothingworntype = 'nude':
+			'你得先穿上点衣服。'
+			act '返回': gt 'gad_beach', 'start', 1
+		else
+			minut += 5
+			gt 'gad_river', 'start'
+		end
+	end
+
+	if func('changingroom', 'count_swim_item') > 0: act '换衣服': gt 'changingroom'
+
+	if $clothingworntype = 'nude':
+		act '穿好衣服':
+			clothesAtLocation = func('clothing', 'lost_clothes_here', 'VillageRiver')
+			cla
+			minut += 5
+			if clothesAtLocation = 1:
+				gs 'outfit', 'recover_lost_outfit', 'VillageRiver', 1
+			end
+			act '继续': gt 'gad_beach', 'start', 1
+		end
+	end
+
+	if temper >= 15 and month >= 5 and month <= 9:
+		if $clothingworntype <> 'nude' and (pcs_inhib >= 25 or trait_vars['exhibitionist'] > 1):
+			act '脱光衣服':
+				cla
+				minut += 5
+				gs 'outfit', 'backup', 'swim'
+				gs 'outfit', 'strip_all', 'VillageRiver'
+				'你毫不犹豫地脱掉所有衣服，叠得整整齐齐放在一堆。没有衣服的束缚，你可以在河里好好游个泳，或者躺在沙地上晒日光浴。'
+				act '继续': gt 'gad_beach', 'start', 1
+			end
+		end
+		gs 'gad_beach', 'set_swimming_act'
+		gs 'gad_beach', 'set_sunbath_act'
+		gs 'gp_zlatek', 'check_for_chores', 'beach'
+	end
+
+!! extraordinary events at the river beach. Be aware, this part has to be at the end because it removes actions, which were set before.
+	if (no func('miroslava_schedule', 'is_here')) and func('miroslava_schedule', 'was_here'):
+		gt 'gad_beach', 'Mira_leaves'
+	elseif func('miroslava_schedule', 'is_here') and ARGS[1] = 0 and MiraVars['follow_time'] = 0:
+		gt 'gad_beach', 'arrive_Mira_already_there'
+	end
+end
+
+
+if $ARGS[0] = 'set_swimming_act':
+	if PSwim = 1 and pcs_stam >= (5 * (10 - sport_clothes_exercise_bonus)) / 2:
+		act '去游泳':
+			*clr & cla
+			gs 'cum_cleanup', 4
+
+			minut += 25
+			gs 'mood', 'raise', 'tiny'
+			gs 'exercise', 'tier1', 5, 'stren', 'vital'
+
+			if pcs_inhib < 50: inhib_exp += rand(1, 3)
+			pcs_sweat = 10 + rand(0, 4)
+			if rand(0, 10) < 5 and func('miroslava_schedule', 'is_here'):
+				if hour >= 22 or hour <= 6:
+					'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/rivertwogirls.jpg"></center>'
+					'你和米拉在夜里下河游泳，互相泼水，玩得很开心。'
+				else
+					'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/rivertwogirls.jpg"></center>'
+					'你和米拉在河里游泳，互相泼水，玩得很开心。'
+				end
+			else
+				if hour >= 22 or hour <= 6:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadriverswim_night.jpg"></center>'
+					'你在夜里下河游泳，清凉提神的水流过你的身体，让你精神一振。'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadriverswim.jpg"></center>'
+					'你在河里游泳，清凉提神的水流过你的身体。'
+				end
+			end
+			if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被水冲掉了。'
+
+			act '从水里出来':
+				temp_rand = rand(0, 9)
+				if temp_rand <= 1 and (no func('miroslava_schedule', 'is_here')) and npc_QW['A63'] >= 13 and hour >= 8 and hour < 20:
+					if temp_rand = 0:
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex13.jpg"></center>'
+						'当你决定该从河里出来时，你听到一阵男人的笑声，他们沿着河岸朝你走来。等他们走近，你看到村里的男孩子们嬉皮笑脸的脸，领头的正是Mitya，而此时你还站在浅水里。'
+						'他们飞快地脱掉衣服跳进水里。几秒钟之内，你就被这群坏笑着的男孩围住了。然后他们一言不发地伸手抓住你，粗暴地轮流逼你吮吸他们的鸡巴。'
+						minut += 5
+						gs 'arousal', 'bj', 15, 'gangbang', 'sub', 'rough'
+						gs 'arousal', 'hj', -15, 'gangbang', 'sub', 'rough'
+						gs 'arousal', 'end'
+						gs 'boyStat', 'A63'
+						npc_had_sex[$boy] = 1
+						gs 'cum_call', 'face', $boy, 1, '', '', 20
+						gs 'cum_call', 'hair', $boy, 1, '', '', 20
+						gs 'boyStat', 'A61'
+						npc_had_sex[$boy] = 1
+						gs 'cum_call', 'face', $boy, 1, '', '', 20
+						gs 'cum_call', 'mouth_swallow', $boy, 1, '', '', 20
+						gs 'boyStat', 'A62'
+						npc_had_sex[$boy] = 1
+						gs 'cum_call', 'face', $boy, 1, '', '', 20
+						gs 'cum_call', 'mouth_swallow', $boy, 1, '', '', 20
+						stat['gangbang_count'] += 1
+						gs 'stat'
+
+						act '完成': gt 'gad_beach', 'start', 1
+					else
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex19.jpg"></center>'
+						'你一从河里出来，就迎面撞上咧嘴笑着的科利亚姆巴。他邪恶地笑着，命令你手脚着地趴下，好让他干你的屁眼……'
+						gs 'arousal', 'auto_lube', 'anal'
+						gs 'boyStat', 'A61'
+						npc_had_sex[$boy] = 1
+						pose = 1
+						gs 'dinSex', 'boy_wants_anal'
+						gs 'arousal', 'anal', 20, 'sub'
+						gs 'cum_call', 'anus', $boy, 1, '', '', 20
+						gs 'cum_call', 'butt', $boy, 1, '', '', 20
+						gs 'arousal', 'end'
+
+						act '完成': gt 'gad_beach', 'start', 1
+					end
+				else
+					gt 'gad_beach', 'start', 1
+				end
+				killvar 'temp_rand'
+			end
+		end
+	else
+		if $clothingworntype = 'nude':
+			act '去裸泳':
+				*clr & cla
+				cumspclnt = 4
+				gs 'cum_cleanup'
+				minut = minut + 20
+				pcs_sweat = 10 + rand(0, 4)
+				gs 'mood', 'raise', 'tiny'
+				inhib_exp += rand(1, 3)
+				if pcs_stren < 30: gs 'exp_gain', 'stren', 1
+
+				if hour >= 22 and hour <= 6:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/river/watergirls1.jpg"></center>'
+					'你脱光衣服，慢慢走进冰冷的河水，知道黑暗会掩藏你的裸体。你在水里游来游去，清凉提神的水轻抚着你的身体。'
+				else
+					if rand(0, 15) >= 10 and func('miroslava_schedule', 'is_here'):
+						pcs_horny += rand(5, 15)
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/rivertwogirlsnude'+rand(0, 5)+'.jpg"></center>'
+						'你和米拉一起走进河里，来了一场经典的打水仗，互相泼水，直到一方最终认输。'
+					else
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/river/watergirls.jpg"></center>'
+						'你脱下衣服，迅速走进河里。你舒了一口气，感受着冰凉、清爽又提神的水。'
+					end
+				end
+				if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被水冲掉了。'
+				act '从水里出来':
+					if rand(0, 15) = 0 and (no func('miroslava_schedule', 'is_here')) and npc_QW['A63'] >= 13 and hour >= 8 and hour < 20:
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex12.jpg"></center>'
+						'你一从水里出来，就发现自己赤身裸体地站在三个来钓鱼的男孩面前。'
+						'看到你在裸泳，他们开始交头接耳，说你是个多么不知羞耻的骚货，你唯一的价值就是伺候男人。你让他们滚开，可他们早已兴奋过头，根本不理你。'
+						'其中一个男孩把你翻过来，开始插你的小穴，另一个男孩则把硬挺的鸡巴塞进你抗议的嘴里。他们开始认真地、充满欲望地疯狂干你。'
+						'你压抑的呻吟和湿漉漉的小穴被撞击的声音在空中回荡。男孩们很快就高潮了，决定把精液射满你全身，以示支配。'
+						gs 'arousal', 'vaginal', 10, 'gangbang', 'sub', 'rough'
+						gs 'arousal', 'anal', 10, 'gangbang', 'sub', 'rough'
+						gs 'arousal', 'hj', 10, 'gangbang', 'sub', 'rough'
+						gs 'arousal', 'bj', 10, 'gangbang', 'sub', 'rough'
+						gs 'arousal', 'end'
+						gs 'boyStat', 'A63'
+						npc_had_sex[$boy] = 1
+						gs 'cum_call', 'butt', $boy, 1
+						gs 'boyStat', 'A61'
+						npc_had_sex[$boy] = 1
+						gs 'cum_call', 'anus', $boy, 1, '', '', 20
+						gs 'boyStat', 'A62'
+						npc_had_sex[$boy] = 1
+						gs 'cum_call', 'mouth_swallow', $boy
+						gs 'stat'
+						stat['gangbang_count'] += 1
+
+						act '完成': gt 'gad_beach', 'start', 1
+					else
+						gt 'gad_beach', 'start', 1
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_sunbath_act':
+	if hour >= 8 and hour < 20 and sunWeather = 1:
+		if PSwim = 1 or $clothingworntype = 'nude':
+			act '晒日光浴 (1:00)':
+				if func('miroslava_schedule', 'is_here') and (no func('miroslava_schedule', 'was_here')):
+					*clr & cla
+					minut += 5
+					MiraVars['follow_time'] = 1
+					if pcs_inhib < 50: inhib_exp += rand(1, 3)
+					gs 'stat'
+					if $clothingworntype = 'nude':
+						'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mira_go_river_nude.jpg"></center>'
+					else
+						'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mira_go_river.jpg"></center>'
+					end
+					'你正在河边晒日光浴，这时米拉走了过来。你对她笑了笑，她脱掉衣服，把毛巾铺在你的旁边。'
+
+					act '继续': gt 'gad_beach', 'start', 1
+				elseif $clothingworntype = 'nude':
+					*clr & cla
+					minut += 60
+					inhib_exp += rand(1, 3)
+					if pcs_sweat < 35 : gs 'sweat', 'add', 5
+					gs 'mood', 'raise', 'tiny'
+					if func('miroslava_schedule', 'is_here'):
+						'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/beachtwogirlsnude.jpg"></center>'
+						'你躺在米拉身边，一边晒太阳，一边聊着村里人的闲话。'
+					else
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadrivernude.jpg"></center>'
+						'你躺在自己的毛巾上，开始晒日光浴。'
+					end
+					if mc_inventory['suncream'] = 0:
+						pcs_tan += 1
+					elseif mc_inventory['suncream'] > 0:
+						mc_inventory['suncream'] -= 1
+						'你把防晒油涂满全身，以防被晒伤。'
+						pcs_tan += 3
+					end
+					act '结束日光浴':
+						if rand(0, 9) = 0 and (no func('miroslava_schedule', 'is_here')) and npc_QW['A63'] >= 13 and hour >= 8 and hour < 20:
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex14.jpg"></center>'
+							'你听到几个男人的声音迅速靠近。突然，几个村里的男孩出现在你面前。发现你赤身裸体，他们顿时来了精神。几分钟后，尽管你激烈反抗，他们还是让你四肢着地，粗暴地干了你……'
+							gs 'arousal', 'vaginal', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'anal', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'bj', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'hj', 10, 'gangbang', 'sub', 'rough'
+							gs 'boyStat', 'A62'
+							npc_had_sex[$boy] = 1
+							gs 'cum_call', 'butt', $boy, 1
+							gs 'boyStat', 'A63'
+							npc_had_sex[$boy] = 1
+							gs 'cum_call', 'anus', $boy, 1, '', '', 20
+							gs 'boyStat', 'A61'
+							npc_had_sex[$boy] = 1
+							gs 'cum_call', 'mouth_swallow', $boy
+							gs 'arousal', 'end'
+
+							act '穿好衣服': gt 'gad_beach', 'start', 1
+						else
+							gt 'gad_beach', 'start', 1
+						end
+					end
+				else
+					*clr & cla
+					minut += 60
+					if pcs_sweat < 35 : gs 'sweat', 'add', 5
+					gs 'mood', 'raise', 'tiny'
+
+					if func('miroslava_schedule', 'is_here'):
+						'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/beachtwogirls.jpg"></center>'
+						'你躺在米拉身边，一边晒太阳，一边闲聊些琐事。'
+					else
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/river/gadrivergirl.jpg"></center>'
+						'你独自在河岸边晒着日光浴。'
+					end
+					if mc_inventory['suncream'] = 0:
+						pcs_tan += 1
+					elseif mc_inventory['suncream'] > 0:
+						mc_inventory['suncream'] -= 1
+						pcs_tan += 3
+						'你把防晒油涂满全身以防晒伤。接着，你浑身涂得油亮亮的，几分钟后开始晒日光浴。'
+					end
+					act '完成':
+						temp_rand = rand(0, 9)
+						if temp_rand = 0 and (no func('miroslava_schedule', 'is_here')) and npc_QW['A63'] >= 13 and hour >= 8 and hour < 20:
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex15.jpg"></center>'
+							'过了一会儿，你听到一些熟悉的声音迅速靠近。几分钟后，村里的男孩们从灌木丛里钻了出来。看到你在晒日光浴，他们顿时来了精神。但没过多久，尽管你激烈反抗，你的所有洞穴都被侵犯了……'
+							gs 'arousal', 'vaginal', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'anal', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'bj', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'hj', 10, 'gangbang', 'sub', 'rough'
+							gs 'arousal', 'end'
+							gs 'boyStat', 'A61'
+							npc_had_sex[$boy] = 1
+							gs 'cum_call', 'butt', $boy, 1
+							gs 'boyStat', 'A62'
+							npc_had_sex[$boy] = 1
+							gs 'cum_call', 'anus', $boy, 1, '', '', 20
+							gs 'boyStat', 'A63'
+							npc_had_sex[$boy] = 1
+							gs 'cum_call', 'mouth_swallow', $boy
+							stat['gangbang_count'] += 1
+							gs 'stat'
+
+							act '完成': gt 'gad_beach', 'start', 1
+						elseif temp_rand = 1 and func('miroslava_schedule', 'is_here') and MiraVars['QW'] >= 15 and hour >= 8 and hour < 20:
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex16.jpg"></center>'
+							'过了一会儿，你听到村里传来迅速靠近的说话声。几分钟后，你看到村里的男孩们从灌木丛里钻出来。看见米拉，他们下流地笑着，毫不犹豫地迅速围住躺在沙滩上的她。你坐起身，看着他们轮番干遍她的所有洞穴……'
+
+							gs 'arousal', 'voyeur_sex', 30, 'gangbang', 'dom'
+							gs 'arousal', 'end'
+
+							act '完成': gt 'gad_beach', 'start', 1
+						else
+							gt 'gad_beach', 'start', 1
+						end
+						killvar 'temp_rand'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Mira_leaves':
+	minut += 5
+	gs 'stat'
+	if $clothingworntype = 'nude':
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mira_go_home_nude.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mira_go_home.jpg"></center>'
+	end
+	*nl
+	'"<<$pcs_nickname>>，我得回家去了，"米拉说着，开始收拾她的东西。'
+
+	act '继续': gt 'gad_beach', 'start', 1
+end
+
+
+if $ARGS[0] = 'arrive_Mira_already_there':
+	'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mira_in_river.jpg"></center>'
+	*nl
+	'来到海滩，你看到米拉正躺在毛巾上晒日光浴。'
+	minut += 5
+	MiraVars['follow_time'] = 1
+	gs 'stat'
+
+	act '继续':
+		if MiraVars['swimday'] = daystart:
+			gt 'gad_beach', 'start', 1
+		else
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirariver.jpg"></center>'
+			*nl
+			'"<<$pcs_nickname>>，你一个人在岸边发什么呆？快下水和我一起游吧！"米拉一边蹚进河里，一边朝你喊道。'
+			minut += 1
+			MiraVars['swimday'] = daystart
+			gs 'stat'
+			act '好，我去换衣服':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/river/undressbch1.jpg"></center>'
+				*nl
+				'"等等，米拉，我得先把衣服换掉！"你大声回应，不过她已经在水里扑腾开了，根本听不见你说话。'
+				'你开始脱下衣服。'
+				if func('changingroom', 'count_swim_item') > 0:
+					act '换上泳装':
+						gs 'gad_beach', 'get_changed', 'start'
+					end
+				end
+				if pcs_inhib >= 25 or trait_vars['exhibitionist'] > 1:
+					act '脱光衣服':
+						cla
+						minut += 5
+						gs 'outfit', 'backup', 'swim'
+						gs 'outfit', 'strip_all', 'VillageRiver'
+						inhib_exp += rand(1, 3)
+						'你毫不犹豫地脱掉所有衣服，叠得整整齐齐放在一堆。没有衣服的束缚，你可以在河里好好游个泳，或者躺在沙地上晒日光浴。'
+
+						act '游泳':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/rivertwogirlsnude'+rand(0, 5)+'.jpg"></center>'
+							*nl
+							'你走进河里和米拉互相泼水玩得很开心。'
+							if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被水冲掉了。'
+							cumspclnt = 4 & gs 'cum_cleanup'
+
+							minut += 20
+							gs 'exercise', 'tier1', 10, 'stren', 'vital'
+
+							pcs_sweat = 10 + rand(0, 4)
+							gs 'stat'
+
+							act '从水里出来': gt 'gad_beach', 'start', 1
+						end
+					end
+				end
+				act '犹豫不决': gt 'gad_beach', 'second_thoughts'
+			end
+			act '拒绝': gt 'gad_beach', 'second_thoughts'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'get_changed':
+	$loc = 'gad_beach'
+	$loc_arg = 'get_changed'
+	if $ARGS[1] = 'start':
+		gt 'changingroom'
+	else
+		menu_off = 1
+		gs 'stat'
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/river/undressbch.jpg"></center>'
+		*nl
+		'你穿上泳装，把衣服叠好放在一堆。现在你可以在河里好好游个泳，或者干脆躺在沙地上晒日光浴。'
+		if PSwim = 0:
+			act '犹豫不决': gt 'gad_beach', 'second_thoughts'
+		else
+			act '游泳':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/rivertwogirls.jpg"></center>'
+				*nl
+				'你走进河里和米拉互相泼水玩得很开心。'
+				if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被水冲掉了。'
+				cumspclnt = 4 & gs 'cum_cleanup'
+
+				minut += 25
+				if pcs_inhib < 50: inhib_exp += rand(1, 2)
+				gs 'exercise', 'tier1', 5, 'stren', 'vital'
+
+
+				pcs_sweat = 10 + rand(0, 4)
+				gs 'stat'
+
+				act '从水里出来': gt 'gad_beach', 'start', 1
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'second_thoughts':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirariver.jpg"></center>'
+	*nl
+	if func('changingroom', 'count_swim_item') = 0:
+		'"其实，米拉，我现在不能下水，我没带泳衣，"你对她说道。"我就在岸边待一会儿。"'
+		*nl
+		'如果你想在海滩上待着，最好去买件泳衣。'
+		*nl
+	else
+		'"其实，米拉，我改主意了。我现在不太想游泳，"你对她说道。"我就在岸边待一会儿。"'
+	end
+	minut += 1
+	gs 'npc_relationship', 'modify', 'A60', -1
+	gs 'stat'
+
+	act '继续': gt 'gad_beach', 'start', 1
+end
+
+
+if $ARGS[0] = 'Mira':
+	menu_off = 1
+	minut += 2
+	killvar 'locclass'
+	gs 'stat'
+
+	if ARGS[1] = 1:
+		if MiraVars['QW'] < 12:
+			'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirabeach.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirabeachnude.jpg"></center>'
+		end
+	else
+		if MiraVars['QW'] < 12:
+			'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirariver.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirarivernude.jpg"></center>'
+		end
+	end
+
+	act '聊天':
+		delact $selact
+		minut += 10
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+
+		if MiraVars['QW'] < 7:
+			if npc_rel['A60'] < 15: gs 'npc_relationship', 'modify', 'A60', 1
+			'你和米拉正聊着些琐事。'
+		elseif MiraVars['QW'] = 7:
+			'你决定和米拉聊聊，"那这村里有什么好玩的吗？"'
+			'"这里比城里安静多了，不过我们有商店、这片可爱的海滩，还有几条风景不错的散步路线。除此之外就只有那些戈普尼克混混了，可他们只想要那一件事，我可不想那样。而且我爸会打死我的。"'
+		elseif MiraVars['QW'] = 8:
+			'米拉打破了沉默，"你怎么会来这个村子？"'
+			'"我爷爷奶奶住在这里。我爸妈喜欢夏天带我来这儿。他们觉得乡下的空气对我有好处。"'
+		elseif MiraVars['QW'] <= 10:
+			'你和米拉聊起住在村里的感觉。'
+		elseif MiraVars['QW'] <= 14:
+			'米拉向你打听巴甫洛夫斯克的事，你把自己知道的全告诉了她。'
+		elseif MiraVars['QW'] <= 19:
+			'你和米拉聊起衣服和购物，她特别喜欢鞋子，但因为到处都是泥，没法穿漂亮的高跟鞋。'
+		elseif MiraVars['QW'] <= 29 or MiraVars['prostitute'] = 0:
+			'和米拉聊天总是很愉快，你们还一起聊了些关于男生的八卦。'
+		elseif MiraVars['QW'] >= 30 and MiraVars['prostitute'] > 0:
+			'你和米拉聊起她当村里妓女的事，以及她怎么才能提高服务水平。'
+		end
+	end
+	act '离开': gt 'gad_beach', 'start', 1
+end
+
+
+if $ARGS[0] = 'GuysBeach':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	pcs_horny += 10
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/river/mitkaguysriver.jpg"></center>'
+	'"哦，嗨，<<$pcs_nickname>>。今天只有你一个人？"科利亚姆巴咧嘴一笑。'
+
+	temp_randA = rand(0, 10)
+	if temp_randA <= 4:
+		'"周围好像没有别人了，我们几个都像发情的公蛤蟆一样饥渴。想不想跟我们找点乐子？来吧，张开腿，让我们看看你的小穴，然后自己玩起来……"'
+	elseif temp_randA <= 8:
+		'"周围好像没人，我们都像发情的公蛤蟆一样饥渴。想不想跟我们找点乐子？不如给我们来一次口交？我们会很感激的，哈哈！"'
+	else
+		'"啊，不是米拉，是我们另一个辣妹。过来，小美人，我们有特别的东西要给你。"'
+	end
+	if temp_randA < 4:
+		act '取悦科利扬巴':
+			*clr & cla
+			gs 'npcStat', 'A61'			& !! Kolyamba
+			gs 'npcStat', 'A62', 'a'	& !! Vasyan
+			pose = 0
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex.jpg"></center>'
+			'你飞快地脱下裤子，爬上科利亚姆巴的身体，抓住他的鸡巴，引导它进入你的身体。'
+
+			gs 'arousal', 'vaginal', 10, $npcID, 'sub', 'group'
+			gs 'stat'
+
+			act '取悦瓦西扬':
+				*clr & cla
+				pose = 0
+				temp_randB = rand(0, 2)
+				if temp_randB = 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex1.jpg"></center>'
+					'瓦西扬把你翻过来仰面朝上，把鸡巴插进你湿漉漉的小穴。'
+					gs 'arousal', 'vaginal', 10, $npcID1, 'sub', 'group'
+				elseif temp_randB = 1:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex2.jpg"></center>'
+					'瓦夏走到你面前，掏出鸡巴的同时扇了你一耳光，逼你跪下，好让他用老二抽打你。'
+					'他用力把鸡巴塞进你嘴里，在你口中大量射精……'
+					gs 'arousal', 'bj', 5, $npcID1, 'sub', 'group', 'rough'
+					gs 'cum_call', 'mouth', $npcID1, 1
+				else
+					gs 'arousal_funcs', 'stretch', 'anal', 1
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex3.jpg"></center>'
+					'瓦西扬强迫你四肢着地，开始把老二往你屁眼里抽插。'
+					gs 'arousal', 'anal', 10, $npcID1, 'sub', 'group', 'rough'
+					gs 'cum_call', 'anus', $npcID1, 1
+				end
+				gs 'arousal', 'end'
+				act '离开': gt 'gad_beach', 'start', 1
+				killvar 'temp_randB'
+			end
+		end
+	elseif temp_randA < 8:
+		act '取悦科利扬巴':
+			*clr & cla
+			gs 'npcStat', 'A61'			& !! Kolyamba
+			gs 'npcStat', 'A62', 'a'	& !! Vasyan
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex4.jpg"></center>'
+			'你跪下来，开始舔科利亚姆巴的老二。过了一会儿，你像吃冰棍一样吮吸起来……'
+			'他只坚持了一小会儿，就在你嘴里射了出来……'
+
+			gs 'arousal', 'bj', 5, $npcID, 'sub', 'group', 'rough'
+			gs 'cum_call', 'mouth', $npcID, 1
+			gs 'stat'
+			act '取悦瓦西扬':
+				*clr & cla
+				pose = 0
+
+				temp_randC = rand(0, 2)
+				if temp_randC = 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex5.jpg"></center>'
+					'瓦西扬让你仰面躺下，手指一边刺激着你的阴唇，一边把鸡巴插进你湿漉漉的小穴。'
+					gs 'arousal', 'vaginal', 10, $npcID1, 'sub', 'group', 'rough'
+					gs 'arousal', 'end'
+				elseif temp_randC = 1:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex6.jpg"></center>'
+					'瓦西扬用手粗暴地揉搓了你一番，然后掏出老二，逼你给他口交。'
+					'他把鸡巴塞进你嘴里，很快就猛烈地射了出来……'
+					gs 'arousal', 'bj', 5, $npcID1, 'sub', 'group', 'rough'
+					gs 'cum_call', 'mouth', $npcID1, 1
+				else
+					gs 'arousal_funcs', 'stretch', 'anal', 1
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex7.jpg"></center>'
+					'瓦西扬强迫你四肢着地，说你会享受这个的。然后他掏出老二，开始干你的屁眼。'
+					gs 'arousal', 'anal', 10, $npcID1, 'sub', 'group', 'rough'
+					gs 'cum_call', 'anus', $npcID1, 1
+				end
+				gs 'arousal', 'end'
+				act '离开': gt 'gad_beach', 'start', 1
+				killvar 'temp_randC'
+			end
+		end
+	else
+		act '取悦科利扬巴':
+			*clr & cla
+			gs 'npcStat', 'A61'			& !! Kolyamba
+			gs 'npcStat', 'A62', 'a'	& !! Vasyan
+
+			gs 'arousal_funcs', 'stretch', 'anal', 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex8.jpg"></center>'
+			'科利亚姆巴直视着你的眼睛，问你信不信他。你咽了口唾沫，回答"信"。他拿出一条眼罩蒙住你的眼睛，让你看不见接下来发生的事。然后科利亚姆巴动手脱掉了你的全部衣服。你蒙着眼、赤身裸体地站在他面前，满怀期待。'
+			'他命令你跪下。他抓住你的头，让你张开嘴。正当你取悦他的时候，他命令你停下，把鸡巴从你嘴边移开。然后他躺到地上，让你骑上来。你骑到他身上，他抓住自己的鸡巴，引导它进入你的屁眼。他疯狂地抽插起来，没过多久就射了。'
+
+			gs 'arousal', 'bj', 10, $npcID, 'sub', 'group', 'rough'
+			gs 'arousal', 'anal', -10, $npcID, 'sub', 'group', 'rough'
+			gs 'cum_call', 'anus', $npcID, 1
+			gs 'stat'
+
+			act '取悦瓦西扬':
+				*clr & cla
+				pose = 1
+
+				temp_randD = rand(0, 2)
+				if temp_randD = 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex9.jpg"></center>'
+					'瓦西扬说他听说有一种能让两个人都达到极乐的性爱姿势。你被勾起了兴趣，脱下衣服，开始抚摸他的鸡巴。他拿开你的手，让你手脚着地趴下。瓦夏走到你身后，抓住鸡巴从后面进入你。他进入时你倒吸一口气。很快，你们俩同时达到高潮，一起射了出来。'
+
+					gs 'arousal', 'bj', 10, $npcID1, 'sub', 'group', 'rough'
+					$orgasm_or = 'yes'
+					gs 'arousal', 'vaginal', -10, $npcID1, 'sub', 'group', 'rough'
+					gs 'cum_call', '', $npcID1, 1
+				elseif temp_randD = 1:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex10.jpg"></center>'
+					'瓦西扬凑近你，说想让你吸他的鸡巴。你跪下来，开始吮吸他的龟头。'
+					'他对你的表现很不满意，抓住你的头，把鸡巴深深插进你的喉咙，嘴里嘟囔着要教你怎么好好做。最后，他在你嘴里射了出来……'
+					gs 'arousal', 'bj', 5, $npcID1, 'sub', 'group', 'rough', 'deepthroat'
+					gs 'cum_call', 'mouth', $npcID1, 1
+				else
+					gs 'boyStat', 'A62'
+					gs 'arousal_funcs', 'stretch', 'anal', 1
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguysriversex11.jpg"></center>'
+					'瓦西扬强迫你手脚着地，开始把老二往你的肛门里捅。'
+					gs 'arousal', 'anal', 10, $npcID1, 'sub', 'group', 'rough'
+					gs 'cum_call', 'anus', $npcID1, 1
+				end
+				gs 'arousal', 'end'
+				act '离开': gt 'gad_beach', 'start', 1
+				killvar 'temp_randD'
+			end
+		end
+	end
+	act '离开': gt 'gad_beach', 'start', 1
+	killvar 'temp_randA'
+end
+
+
+--- gad_beach ---------------------------------

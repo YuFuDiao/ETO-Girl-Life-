@@ -1,0 +1,510 @@
+# sister
+
+!! model Valentina Azarov - Megan Vale - Lupe Burnett
+sisterAge = year - ((npc_dob['A33'] - (npc_dob['A33'] mod 10000)) / 10000)
+$sisterLocationTitle = $func('wrap', 'header h1 center', '安雅')
+gs 'stat'
+'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/sister' + rand(1, 3) + '.jpg"></center>'
+'你姐姐安雅比你大一点，今年<<sisterAge>>岁。她中学毕业后，让你母亲大失所望的是，她没有去上大学，而是在巴甫洛夫斯克当地的超市工作。'
+gs 'sister_chat', 'checks'
+
+if hour = 8 and week < 6:
+	'该死的，<<$pcs_nickname>>！都是因为你，我要迟到了！'
+	act '道歉并让她去准备': gt $loc, $loc_arg
+	exit
+end
+
+
+if $ARGS[0] = 'pav_commcenter':
+	if sisboyparty_day + 1 = daystart and hour > 18 and sisboypartyQW = 1:
+		if sisboyparty = 1: sisboyparty = -1
+		if sisboyparty = 2:
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			sisboyparty = -1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/rekshome/party/sisboyqwparty_7.jpg"></center>'
+			'你忘了去参加雷克斯的生日派对，但你并没放在心上。' + $OpenInnerThought + '唉，算了。希望他不会太生气。' + $CloseInnerThought
+			act '走开': gt $loc, $loc_arg
+			exit
+		end
+	end
+	*clr & cla
+	if npc_rel['A33'] < 20:
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma1.jpg"></center>'
+		'"你想干什么？滚开！"安雅和她的朋友们指着你嘲笑，直到你离开。'
+		act '走开': gt $loc, $loc_arg
+	!! Showing up after party invite
+	elseif week = 5 and odd_week = 1 and sisterQW['party'] = 1 and daystart < 5 + sisterQW['partyday']:
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma2.jpg"></center>'
+		'安雅和她的一些朋友打扮得漂漂亮亮，正在为去派对做准备。安雅看到你，朝你挥了挥手。"来吧，我还在想你到底会不会来呢。"'
+		gs 'sister', 'partyanswer', 'anya'
+	!! Anya heading to party
+	elseif npc_rel['A33'] >= 70 and week = 5 and odd_week = 1 and (sisterQW['party'] = 0 or sisterQW['party'] = 2):
+		minut += 5
+		gs 'stat'
+		if npc_rel['A57'] >= 80:
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/reks/reks.jpg"></center>'
+			'安雅和她的朋友们打扮得漂漂亮亮的，正在闲逛，但看起来她们正要离开去某个地方。'
+			gs 'sister', 'partyanswer', 'rex'
+		else
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma2.jpg"></center>'
+			'安雅和她的朋友们打扮得漂漂亮亮的，正在闲逛，但看起来她们正要离开去某个地方。'
+			'你姐姐看到你，招手让你过去。"嘿，<<$pcs_nickname>>！我们要去雷克斯家参加派对。想一起来吗？"'
+			gs 'sister', 'partyanswer', 'anya'
+		end
+	else
+		cla
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anya.jpg"></center>'
+		'安雅和朋友们坐在一起喝啤酒。"嘿，<<$pcs_nickname>>！"安雅微笑着说。"来一杯啤酒吗？"'
+		act '喝啤酒':
+			*clr & cla
+			minut += 60
+			gs 'npc_relationship', 'modify', 'A33', 5
+			gs 'beverage', 'beer_stats', 3
+			if AniaFrends = 0:
+				AniaFrends = 1
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma1.jpg"></center>'
+				'你认识了安雅的朋友们，他们都是她以前的同学。有小巧机灵的露夏、冒冒失失的伊拉、一个大家都叫他"雷克斯"的高大健壮的家伙，还有一个瘦高红发的男生叫罗玛。介绍完之后，你和他们坐在一起，一边喝啤酒一边和安雅及她的朋友们聊天。'
+			else
+				gt 'sister', 'scene1'
+			end
+			act '走开': gt $loc, $loc_arg
+		end
+		gs 'willpower', 'drink', 'resist', 'easy'
+		if pcs_willpwr < will_cost:
+			act '拒绝并走开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝并走开' + $func('willpower', 'get_willcost_string'): gs 'willpower', 'pay', 'resist' & gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'partyanswer':
+	if $ARGS[1] = 'anya':
+		if mesec > 0 or pcs_mood < 25 or alko >= 3 or cumloc[11] = 1 or cumloc[6] = 1 or cumloc[7] = 1:
+			sisterQW['party'] = -1
+			if mesec > 0:
+				'"抱歉安雅，我今天没心情。你们去吧，别管我。"'
+				'"怎么，你今天来例假了？你早该告诉我！好吧，回家好好休息吧。"'
+				act '走开': gt $loc, $loc_arg
+			elseif pcs_mood < 25:
+				'"抱歉安雅，我今天没心情。你们去吧，别管我。"'
+				'"你看起来确实有点脸色发白，妹妹。回家好好休息吧。"'
+				act '走开': gt $loc, $loc_arg
+			elseif alko >= 3:
+				'"<<$pcs_nickname>>，你怎么这么快就醉成这样了？我本来想邀请你去参加派对的，可你看起来就像刚从派对上回来一样！回家睡一觉醒醒酒吧！"'
+				act '走开': gt $loc, $loc_arg
+			else
+				'她的笑容消失了，困惑了片刻，然后她涨红的脸上露出厌恶的表情。"天哪，你怎么满脸精液到处乱走！？你会毁了自己的名声！快回家洗掉！"随后她在朋友们注视的目光中把你赶走了。'
+				'你觉得自己这样在公共场合走来走去，让自己和姐姐都丢脸了，心里有点羞愧。'
+				act '走开': gt $loc, $loc_arg
+			end
+		else
+			act '拒绝':
+				*clr & cla
+				minut += 5
+				sisterQW['party'] = -1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/rekshome/party/party_sister_1.jpg"></center>'
+				'"我很想去，但我有很多作业要做。抱歉。"'
+				'"别担心。也许下次你能来？"'
+				act '走开': gt $loc, $loc_arg
+			end
+			act '去参加派对': if sisterQW['partycount'] > 0: gt 'rex_party', 'start' else gt 'rex_party_firstTime', 'sisboyQW_party'
+		end
+	elseif $ARGS[1] = 'rex':
+		if fame['pav_slut'] >= 250 or cumloc[11] = 1 or (cumloc[6] = 1 or cumloc[7] = 1):
+			rex_breakup = 1
+			reksLike = 0
+			gs 'npc_relationship', 'set', 'A57', 0
+			rexPark = 0
+			rexCar = 0
+			if fame['pav_slut'] >= 250:
+				'"<<$pcs_nickname>>，所有人都在说你是个该死的婊子。我以为我们是一对，关系越来越认真，可你竟然跟任何会动的东西上床？"'
+				'"我不知道自己是怎么了！我那时身不由己！请原谅我。"'
+				'"听着，我们还是做朋友吧，忘了在一起这回事，好吗？"'
+				'"好吧……"'
+				act '走开': gt $loc, $loc_arg
+			else
+				'"那是精液吗？！"他凑近想看清楚，然后厌恶地缩了回去。'
+				'你的手摸向脸上那忘记擦掉的干涸精液。'
+				'"离我远点，婊子！"他退开几步，你看到其他人要么厌恶地看着你，要么愤怒地看着你。'
+				'你不知该说什么，垂头丧气地走开了。'
+				act '走开': gt $loc, $loc_arg
+			end
+		elseif mesec > 0 or pcs_mood < 50:
+			'"抱歉亲爱的，我今天不太舒服。你自己去吧。"'
+			'"宝贝，我不想丢下你一个人，但我得跟哥们儿们去。保重。"'
+			'雷克斯在你脸颊上轻轻亲了一下便离开了。'
+			act '走开': gt $loc, $loc_arg
+		elseif alko >= 3:
+			'"<<$pcs_nickname>>，你喝醉了吗？我本来想邀请你去派对，可你看起来就像刚从派对上出来一样！回家睡一觉醒醒酒吧。"'
+			act '走开': gt $loc, $loc_arg
+		else
+			'"宝贝，去我家吧。我又要办一场派对。"'
+			act '拒绝':
+				cla
+				minut += 5
+				sisterQW['party'] = -1
+				gs 'stat'
+				'"抱歉，雷克斯。我很想去，但我有很多作业要做，不想考试挂科。"'
+				'"好吧，那你去吧。但下次你一定要来，听到了吗？"'
+				act '走开': gt $loc, $loc_arg
+			end
+			act '接受': gt 'rex_party', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'scene1':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma1.jpg"></center>'
+	'你姐姐和她的朋友们露夏、伊拉、雷克斯、罗玛正坐在社区中心外面喝啤酒。'
+	if npc_QW['A33'] = 1:
+		act '见见你姐姐的男朋友':
+			*clr & cla
+			minut += 5
+			npc_QW['A33'] = 2
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/sisboyqw_02.jpg"></center>'
+			'"<<$pcs_nickname>>，你想见我的男朋友，对吧？来，这是罗玛。罗玛，这是我妹妹<<$pcs_nickname>>。"'
+			'"为友谊干杯！！！"雷克斯醉醺醺地举起杯子喊道。你端起一杯满满的啤酒开始喝，一边偷偷打量你姐姐的男朋友。'
+			'红头发、身材瘦削的罗玛其实挺可爱的。他让你想起卡佳和维基，但更有男子气概。'
+			act '继续喝啤酒': gt 'sister', 'scene2'
+		end
+	else
+		temp = rand(0, 4)
+		if temp = 0:
+			'安雅不耐烦地拿起一瓶啤酒。"喂，你们几个！今天到底有没有人给我倒啤酒？"'
+			if rand(0, 1) = 0:
+				'雷克斯从安雅手里拿过瓶子。'
+				temprand = rand(0, 4)
+				if temprand = 0:
+					'"别喊了，我这不是在倒吗！"'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'"我还没开始喊呢。我要真喊起来，你就知道了！"安雅咯咯地笑着说。'
+					elseif temprand = 1:
+						'"快点，你个狗东西！"露夏说着啪的一声重重拍了下雷克斯的肩膀。'
+					else
+						'"别生气嘛，雷克斯！"伊拉微笑着说。'
+						if rand(0, 10) = 0: '安雅赶紧插话。"也许得把他拴在柱子上，直到他冷静下来。"'
+					end
+				elseif temprand = 1:
+					'"得了吧，你总是喜欢在热闹开始后才姗姗来迟。你这个大嗓门能不能消停会儿？我正忙着张罗呢。"'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'"我的屁股一向很放松！"安雅咯咯地笑着说。'
+						'罗玛搂住她，用手托住她的一侧胯部。"可不是嘛！"他说，逗得大家哈哈大笑。'
+					elseif temprand = 1:
+						'"要是有酒喝，我们自然就放松了！"露夏说着啪的一声重重拍了下雷克斯的肩膀。'
+					else
+						'罗玛咯咯地笑着说。"要是她再放松一点，就松得什么感觉都没有了。"'
+						'"那是因为你小鸡巴，"安雅打趣道，逗得大家哈哈大笑。'
+					end
+				elseif temprand = 2:
+					'"你自己也能打开啊，懒婆娘。你没有手吗？"他微笑着说。'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'安雅咯咯地笑着说。"是啊，可你的手还能干别的吗？"'
+						if rand(0, 10) = 0: '雷克斯装出一副愤愤不平的样子回答。"真的吗？也就只能再干一件事……"'
+					elseif temprand = 1:
+						'"你就是这么跟淑女说话的吗？"露夏说着啪的一声重重拍了下雷克斯的肩膀。'
+						if rand(0, 10) = 0: '雷克斯装出一副愤愤不平的样子回答。"是啊，我跟她说的是俄语。"'
+					else
+						'伊拉微笑着说。"别这么激动嘛，雷克斯！"'
+						if rand(0, 10) = 0: '安雅赶紧插话。"也许得把他拴在树上，才能让他安分下来。"'
+					end
+				elseif temprand = 3:
+					'"让我来，夫人。"'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'安雅咯咯地笑着说。"当然，先生。"'
+					elseif temprand = 1:
+						'"少叫我夫人！"安雅假装愤愤不平地说。'
+						if rand(0, 10) = 0: '雷克斯殷勤地鞠了一躬。"真的很抱歉，小姐。"'
+					else
+						'"快点倒，你这个活宝！"安雅不耐烦地说。'
+					end
+				else
+					'"妈的！杯子在哪儿？我们没买吗？"'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'安雅拿起杯子。"不就在这儿吗，你个瞎眼的白痴！"'
+					elseif temprand = 1:
+						'"雷克斯，杯子可是你买的。你的记性真的这么差吗？"罗玛问。'
+					else
+						'露夏举起杯子。"雷克斯，冷静点。"'
+					end
+				end
+				killvar 'temprand'
+			else
+				'罗玛从安雅手里拿过瓶子打开。"谁来端一下杯子。"'
+				temprand = rand(0, 3)
+				if temprand = 0:
+					'雷克斯拿着杯子，罗马倒啤酒。'
+				elseif temprand = 1:
+					'雷克斯接过杯子。"这个没用的家伙！"他咕哝着。"他就不能两只手一起用吗？"'
+				elseif temprand = 2:
+					'伊拉接过杯子。"快倒啊，你这个大笨蛋！"'
+				else
+					'罗玛往杯子里倒啤酒时，身体突然开始倾斜。他没能稳住重心，摔倒在地，把啤酒洒在了地上。'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'雷克斯怒不可遏。"你这个没用的醉鬼！你妈没教过你『倒酒要用两只手』吗？！"'
+					elseif temprand = 1:
+						'雷克斯怒不可遏。"搞什么鬼？！你真的已经醉成这样了？"'
+					else
+						'安雅用手扶住额头。"永远都是这副德行！醉得太快太猛……"她愤愤地嘟囔着。'
+					end
+				end
+				killvar 'temprand'
+			end
+		elseif temp = 1:
+			'"我们来这儿是喝酒的还是看酒的？"露夏愤愤地问，'
+		elseif temp = 2:
+			'伊拉抛着媚眼，眨了眨睫毛。"小伙子们，今天到底还喝不喝啤酒了？"'
+		elseif temp = 3:
+			if rand(0, 1) = 0:
+				'雷克斯拿起一瓶啤酒，啪的一声打开。'
+				if rand(0, 2) = 0:
+					'"妈的！杯子在哪儿？我们没买吗？"'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'安雅拿起杯子。"不就在这儿吗，你个瞎眼的白痴！"'
+					elseif temprand = 1:
+						'"雷克斯，杯子可是你买的。你的记性真的这么差吗？"罗玛问。"'
+					else
+						'露夏举起杯子。"雷克斯，冷静点。"'
+					end
+				else
+					'"罗玛，我倒酒的时候你端好杯子。"'
+				end
+			else
+				'雷克斯拿起一瓶啤酒递给罗玛。"这次你来倒。"'
+				'罗玛从雷克斯手里拿过瓶子打开。"谁来端一下杯子。"'
+				temprand = rand(0, 3)
+				if temprand = 0:
+					'雷克斯拿着杯子，罗马倒啤酒。'
+				elseif temprand = 1:
+					'雷克斯接过杯子。"这个没用的家伙！"他咕哝着。"他就不能两只手一起用吗？"'
+				elseif temprand = 2:
+					'伊拉接过杯子。"快倒啊，你这个大笨蛋！"'
+				else
+					'罗玛往杯子里倒啤酒时，突然开始倾斜。他无法重新保持平衡，倒了下去，把啤酒洒在了地上。'
+					temprand = rand(0, 2)
+					if temprand = 0:
+						'雷克斯怒不可遏。"你这个没用的醉鬼！你妈没教过你『倒酒要用两只手』吗？！"'
+					elseif temprand = 1:
+						'雷克斯怒不可遏。"搞什么鬼？！你真的已经醉成这样了？"'
+					else
+						'安雅用手扶住额头。"永远都是这副德行！醉得太快太猛……"她愤愤地嘟囔着。'
+					end
+				end
+				killvar 'temprand'
+			end
+		else
+			'罗玛拿起那瓶啤酒打开。"谁来端一下杯子。"'
+			temprand = rand(0, 3)
+			if temprand = 0:
+				'雷克斯拿着杯子，罗马倒啤酒。'
+			elseif temprand = 1:
+				'雷克斯接过杯子。"这个没用的家伙！"他咕哝着。"他就不能两只手一起用吗？"'
+			elseif temprand = 2:
+				'伊拉接过杯子。"快倒啊，你这个大笨蛋！"'
+			else
+				'罗玛往杯子里倒啤酒时，突然开始倾斜。他无法重新保持平衡，倒了下去，把啤酒洒在了地上。'
+				temprand = rand(0, 2)
+				if temprand = 0:
+					'雷克斯怒不可遏。"你这个没用的醉鬼！你妈没教过你『倒酒要用两只手』吗？！"'
+				elseif temprand = 1:
+					'雷克斯怒不可遏。"搞什么鬼？！你真的已经醉成这样了？"'
+				else
+					'安雅用手扶住额头。"永远都是这副德行！醉得太快太猛……"她愤愤地嘟囔着。'
+				end
+			end
+			killvar 'temprand'
+		end
+		killvar 'temp'
+		act '继续喝啤酒': gt 'sister', 'scene2'
+		if sisterQW['partycount'] > 0 and rex_breakup = 0:
+			act '和雷克斯聊天': gt 'rex_events', 'rexGdkTalk'
+		end
+	end
+
+
+	'最后，每个人的塑料杯里都倒满了冰镇啤酒，你们一起开怀畅饮。'
+	if reksLike = 1 and toiletRexSex = 0 and sisterQW['partycount'] > 0 and rex_breakup = 0:
+		temp = rand(1, 100)
+		if temp >= 70:
+			'你注意到雷克斯飞快地瞥了你的脚一眼。'
+			if pcs_horny > 30 and (PCloSkirt > 2 or PCloPants > 4):
+				act '秀一下你的腿':
+					cla
+					minut += 5
+					pcs_horny += 5
+					gs 'npc_relationship', 'modify', 'A57', 'love'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/reks/event/community/rexpod<<rand(1,3)>>.jpg"></center>'
+					'你把一只脚搭在另一条腿上，尽力表现得性感又不露痕迹。'
+					act '继续喝啤酒': gt 'sister', 'scene2'
+					exit
+				end
+			end
+		elseif alko > 2 and temp <= 20 and npc_rel['A57'] <= 60:
+			*clr & cla
+			minut += 5
+			gs 'npc_relationship', 'modify', 'A57', 'like'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big57.jpg"></center>'
+			'已经醉醺醺的雷克斯走到你身边。"让我给你把杯子满上，<<$pcs_nickname>>……"然而，他似乎是"不小心"把酒洒在了你身上。"哦，抱歉！来，我帮你擦干净。"'
+			'他开始用衬衫袖子擦拭你的腿。'
+			gs 'willpower', 'foreplay', 'resist', 'easy'
+			if pcs_willpwr < will_cost:
+				act '后退' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '后退' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'pay', 'resist'
+					minut += 5
+					gs 'npc_relationship', 'modify', 'A57', 'dislike'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/reks/event/community/rexnet.jpg"></center>'
+					'"没关系，我自己来就行，"你一边擦拭自己一边说。'
+					act '继续喝啤酒': gt 'sister', 'scene2'
+				end
+			end
+			act '等待':
+				*clr & cla
+				minut += 5
+				pcs_horny += 5
+				gs 'npc_relationship', 'modify', 'A57', 'love'
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/characters/pavlovsk/resident/reks/event/community/rexda.mp4"></video></center>'
+				'你笑着等雷克斯擦完。他渐渐大胆起来，放下袖子改用掌心，沿着你的腿一路向上摸向大腿。就在雷克斯的手快要滑向你大腿内侧时，你意识到发生了什么，赶紧把他的手拿开。'
+				act '继续喝啤酒': gt 'sister', 'scene2'
+			end
+		elseif rexPark = 1 and rexParkDay < daystart and rexSisTalk = 2:
+			cla
+			minut += 5
+			if npc_rel['A57'] > 50:
+				gs 'npc_relationship', 'set', 'A57', 50
+			else
+				gs 'npc_relationship', 'modify', 'A57', 'loathe'
+			end
+			rexPark = 0
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big57.jpg"></center>'
+			gs 'rex_events', 'rexRep'
+			'雷克斯走到你面前。"<<$pcs_nickname>>，昨天我在公园等你，活像个大傻瓜！那样可不太厚道……"'
+			act '继续喝啤酒': gt 'sister', 'scene2'
+		elseif rexCar = 1 and rexCarDay < daystart and rexSisTalk = 3:
+			cla
+			minut += 5
+			if npc_rel['A57'] > 50:
+				gs 'npc_relationship', 'set', 'A57', 50
+			else
+				gs 'npc_relationship', 'modify', 'A57', 'loathe'
+			end
+			rexCar = 0
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big57.jpg"></center>'
+			gs 'rex_events', 'rexRep'
+			'雷克斯走到你面前。"<<$pcs_nickname>>，昨晚我在你家门口等了快两个小时！你就那么放我鸽子，可不太厚道……"'
+			act '继续喝啤酒': gt 'sister', 'scene2'
+		elseif rexCar = 1 and rexCarDay < daystart and rexSisTalk = 4:
+			cla
+			minut += 5
+			if npc_rel['A57'] > 50:
+				gs 'npc_relationship', 'set', 'A57', 50
+			else
+				gs 'npc_relationship', 'modify', 'A57', 'loathe'
+			end
+			rexCar = 0
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big57.jpg"></center>'
+			gs 'rex_events', 'rexRep'
+			'雷克斯走到你面前。"<<$pcs_nickname>>，你至少可以告诉我你不想出门啊！昨晚简直是一场灾难！下次你要是来不了，请直接告诉我。"'
+			act '继续喝啤酒': gt 'sister', 'scene2'
+		elseif temp > 50 and npc_rel['A57'] >= 30:
+			cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big57.jpg"></center>'
+			gs 'rex_events', 'rexRep'
+			'雷克斯正在喝一杯啤酒。'
+			act '聊天':
+				cla
+				gs 'npc_relationship', 'modify', 'A57', 'love'
+				minut += 5
+				gt 'rex_events', 'rexGdkTalk'
+			end
+			act '继续喝啤酒': gt 'sister', 'scene2'
+
+		!! sisboyparty
+		!! -1 - don''t go to the party
+		!! 0 - don''t know about the parties
+		!! 1 - knows about the parties
+		!! 2 - agreed to go to the party
+		!! again want to change rexs party to only every other Friday
+
+		elseif week < 5 and week > 1 and odd_week = 1 and stat['think_virgin'] = 0 and (sisterQW['party'] = 0 or sisterQW['party'] = 2) and daystart - sisterQW['partyday'] > 3:
+			'罗玛抬起头看着你，突然想起了什么。"<<$pcs_nickname>>，雷克斯周五要办一场派对。你想来吗？"'
+			sisterQW['partyday'] = daystart
+			minut += 5
+			gs 'stat'
+			act '不去（学习）':
+				sisterQW['party'] = -1
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/rekshome/party/sisboyqwparty_3.jpg"></center>'
+				'你婉拒了邀请。"我很想去，但我在学校不能落下功课。我还有作业要做、书要读。你知道的。"'
+				act '完成': gt 'sister', 'pav_commcenter'
+			end
+			if runnerQW['prof_stage'] > 0:
+				act '不去（训练）':
+					sisterQW['party'] = -1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/rekshome/party/sisboyqwparty_4.jpg"></center>'
+					'你婉拒了邀请。"我很想去，但我有一场比赛要准备，必须去训练。"'
+					act '完成': gt 'sister', 'pav_commcenter'
+				end
+			end
+			if vballVars['on_team'] = 1:
+				act '不去（排球）':
+					sisterQW['party'] = -1
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/rekshome/party/sisboyqwparty_5.jpg"></center>'
+					'你婉拒了邀请。"抱歉，我去不了。教练不允许我在外面待到很晚，喝酒也是禁止的。"'
+					act '完成': gt 'sister', 'pav_commcenter'
+				end
+			end
+			act '去':
+				sisterQW['party'] = 1
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma1.jpg"></center>'
+				'你同意去参加聚会。'
+				'"太棒了！一定会很好玩。只要在 ' + func('time', 'get_time_string', 18, 0) + ' 之前到这里，不然我们就丢下你自己去了。"'
+				'安雅瞪了罗玛一眼，但他只是耸耸肩，不以为意。'
+				act '完成': gt 'sister', 'pav_commcenter'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'scene2':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/community/anyaroma1.jpg"></center>'
+	'啤酒很快就喝光了，这时大家都有些醉意，站起身摇摇晃晃地走进屋里。他们走的时候都朝你喊再见，你向他们挥手，然后继续赶路。'
+	act '离开': gt 'pav_commcenter'
+end
+
+--- sister ---------------------------------

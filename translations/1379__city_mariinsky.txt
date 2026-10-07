@@ -1,0 +1,212 @@
+# city_mariinsky
+!! Date Created: 27th Nov, 2024
+!! Version: .01 - initial release
+!! Author: Hooded Silence
+!!
+!! Ballet Theatre, restaurant and music hall - key location for magic play through as is one of the fae''s allowed meeting grounds.
+!! Also forms the main location for the ballet start player performances and plot lines
+
+if $ARGS[0] = 'init':
+	$setloc['imagepath'] = 'locations/city/mariinsky/'
+	$region = 'city'
+end
+
+!! Set up location
+
+
+if $ARGS[0] = 'setup':
+	*clr & cla
+	if $loc ! 'city_mariinsky': gs 'city_mariinsky', 'init'
+	gs 'core_library', 'setloc', 'city_mariinsky', $ARGS[1]
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	gs 'shortgs', 'clothing_status'
+	gs 'stat'
+	gs 'core_library', 'stage_title'
+	*nl
+end
+
+!! leave location - Stage events here for leaving the location and clear 'city_mariinsky' vars.
+
+
+if $ARGS[0] = 'exit':
+	!! Clean up as we leave
+	killvar 'marreturn'
+
+	gt 'city_artisan_quarter', 'start'
+end
+
+!! Meeting hall
+
+
+if $ARGS = 'hall' or $ARGS[0] = 'start':
+	$setloc['StageTitle'] = '马林斯基剧院休息厅'
+	$setloc['StageImage'] = $setloc['imagepath'] + 'mariinsky_hall'
+	gs 'city_mariinsky', 'setup', 'hall'
+
+	if mariinskyqw['ticket'] = 0: act '售票处': gt 'city_mariinsky', 'tickets'
+	if mariinskyqw['ticket'] = 1: act '主舞台': gt 'city_mariinsky', 'main'
+	if hour >= 8:
+		gs 'willpower', 'exhib', 'self'
+		if pcs_willpwr < will_cost:
+			act '进入男厕所' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '进入男厕所' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'exhib', 'self'
+				gs 'willpower', 'pay', 'self'
+				gs 'stat'
+				$marreturn = 'hall'
+				gt 'city_mariinsky', 'toilets_men'
+			end
+		end
+		act '进入女洗手间': $marreturn = 'hall' & gt 'city_mariinsky', 'toilets_women'
+	end
+	act '后台入口': gt 'city_mariinsky', 'stage_door'
+	act '退出': gt 'city_mariinsky', 'exit'
+
+	'你走进马林斯基剧院，来到宽敞开阔的大厅，灯光璀璨，海报上宣传着剧院即将上演的演出。'
+	if daystage <= 3:
+		'这个时候大厅相对安静，白天演出的场次不多。'
+	else
+		'大厅里挤满了人，衣着优雅的观众和音乐会爱好者们热切地讨论着即将上演的演出，或等着进场观看晚间的表演。'
+	end
+end
+
+!! Tickets booth
+
+
+if $ARGS[0] = 'tickets':
+	menu_off = 0
+	$setloc['StageTitle'] = '马林斯基剧院门票'
+	$setloc['StageImage'] = $setloc['imagepath'] + 'mariinsky_tickets'
+	gs 'city_mariinsky', 'setup', $ARGS[0]
+
+	'购买门票的占位文本'
+end
+
+!! Main Stage
+
+
+if $ARGS[0] = 'main':
+	$setloc['StageTitle'] = '马林斯基剧院主舞台'
+	$setloc['StageImage'] = $setloc['imagepath'] + 'mariinsky_stage'
+	gs 'city_mariinsky', 'setup', $ARGS[0]
+
+	act '观看演出': gt 'city_mariinsky', 'performance_evening'
+	act '离开': gt 'city_mariinsky', 'hall'
+	'两个多世纪以来，圣彼得堡这座宏伟的舞台一直是俄罗斯所有芭蕾舞和歌剧剧院中最负盛名的，每年都会为瓦岗诺娃芭蕾舞学院（Vaganova Ballet Academy）的学生们举办演出。你惊叹地在富丽堂皇的舞台前落座，感受着所有曾在这片舞台上走过的不朽艺术家们的气息。'
+end
+
+!! TODO: Concert hall
+
+!! TODO: Restaurant - the Mariinsky is considered one of the finest places to dine in St. Petersburg.
+
+
+if $ARGS[0] = 'toilets_men':
+	$setloc['StageTitle'] = '男洗手间'
+	gs 'city_mariinsky', 'setup', $ARGS[0]
+	$location_type = 'restroom'
+	$locclass = 'restroom'
+	'建设中 - 暂无内容。'
+	act '离开': gt 'city_mariinsky', $marreturn
+end
+
+
+if $ARGS[0] = 'toilets_women':
+	$setloc['StageTitle'] = '女洗手间'
+	gs 'city_mariinsky', 'setup', $ARGS[0]
+	$location_type = 'restroom'
+	$locclass = 'restroom'
+	act '离开': gt 'city_mariinsky', $marreturn
+
+	'你走进豪华的女洗手间。你看到一些洗手池和<a href="exec:gt ''mirror'',''start''">镜子</a>，你可以在那里' + iif(pcs_hairbsh = 0, '<a href="exec:gt ''mirror'',''brush''">梳理</a>', '梳理') + '你的头发。'
+
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	gs 'din_van', 'publicpan'
+end
+
+!! Theatre performance related blocks
+
+
+if $ARGS[0] = 'stage_door':
+	!! TODO: Stage Door events
+	if balletqw['rank'] >= 1:
+		act '进入':
+			!! 'You enter the stage door and are greeted by a stage hand. “Ah, hi <<$pcs_firstname>>, how are you today? The girls are in the channing rooms and waves you on。”'
+			gt 'city_mariinsky', 'changing_room'
+		end
+		act '离开': gt 'city_mariinsky', 'changing_room'
+	else
+		'你没有权限从后台门进入剧院。'
+		act '离开': gt 'city_mariinsky', 'foyer'
+	end
+end
+
+
+if $ARGS[0] = 'changing_room':
+	$setloc['StageTitle'] = '更衣室'
+	$setloc['StageImage'] = $setloc['imagepath'] + 'changing_room'
+	gs 'city_mariinsky', 'setup', $ARGS[0]
+	$location_type = 'private_shared'
+	*nl
+
+	if balletqw['rehearsals'] = 1:
+		!! rehearsal is a flag to determine if {mc} is rehearsing or performing
+		'你走进更衣室，看到其他舞者正在为今天的排练做准备。你迅速换上舞服，走向舞台。'
+		act '前往舞台': gt 'city_mariinsky', 'rehearsals'
+	elseif balletqw['performance_night'] >= 1:
+		!! performance_night is a counter for the number of performances the {mc} has to perform
+		balletqw['performance_night'] -= 1
+		'你走进更衣室，看到其他舞者正在为演出做准备。你迅速换上演出服，准备登台。'
+		act '前往舞台': gt 'city_mariinsky', 'performance_evening'
+	else
+		'空 - 暂无内容。请提交错误报告。'
+	end
+	gs 'core_library', 'bathroom'
+	act '离开剧院': gt 'city_mariinsky', 'city_artisans'
+end
+
+!! Flagged with Validator: Leave rehearsals and performance_evening as two separate blocks for future content and changes.
+
+
+if $ARGS[0] = 'production':
+	!! Check status of $balletqw[current_stage] to determine if rehearsing or performance week
+	if balletqw['rank'] > 0:
+		!! Call rehearsals library to trigger events - Rehearsals in theatre are twelve hours long
+		if $balletqw['current_stage'] = 'rehearsals':
+			gs 'city_mariinsky_rehearsals', 'init'
+		elseif $balletqw['current_stage'] = 'performance':
+			gs 'city_mariinsky_performances', 'init'
+		end
+	else
+		'错误 - balletqw[rank]未设置 - 请提交错误报告。'
+	end
+end
+
+
+if $ARGS[0] = 'performance_evening':
+	!! Track Mariinsky Theatre viewings
+	mariinskyqw['ticket'] = 0
+	mariinskyqw['performances_watched'] += 1
+end
+
+!! General events
+
+
+if $ARGS[0] = 'date_nights':
+end
+
+
+if $ARGS[0] = 'events':
+end
+
+!! Magic Content Below
+
+
+if $ARGS[0] = 'hallowed_ground':
+end
+
+
+--- city_mariinsky ---------------------------------

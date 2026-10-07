@@ -1,0 +1,660 @@
+# mitkabuh_group
+!! 2021/05/05
+!! 2021/05/05 - Mira schedule update
+
+if $ARGS[0] = '':
+	npc_drunk['A60'] = 0
+	GadBoy['drunk_event'] = 0
+	MiraVars['drunk_event'] = 0
+	GadBoy['drinkday'] = daystart
+	menu_off = 1
+	CLOSE ALL
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/mitka_old_trailer.jpg"></center>'
+	*nl
+	'你跟着男孩们走进树林。很快那辆熟悉的旧拖车映入眼帘。'
+
+	*nl
+	if sunWeather = 1:
+		'今天天空晴朗所以你们都决定今晚在外面喝酒。'
+		'你迅速走到长椅旁坐下趁别人还没来得及占它。'
+
+		act '在外面坐下':
+			gt 'mitkabuh_group', 'partywithMira'
+		end
+	else
+		'今天外面天气不好所以你们都决定今晚在室内喝酒。'
+		'拖车内部看起来和上次一样，只是可能多了几个散落的空瓶子和杯子。你迅速走向最好的沙发坐下趁别人还没占有它。'
+
+		act '进入拖车':
+			gt 'mitkabuh_group', 'partywithMira'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'partywithMira':
+	gs 'core_library', 'setloc', 'mitkabuh_group', partywithMira
+	$location_type = 'public_indoors'
+	menu_off = 0
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunk.jpg"></center>'
+	*nl
+	'你，米拉，米特卡，科良巴和瓦夏正坐在一些 '+iif(sunWeather=1, '外面的原木上', '拖车里的沙发上')+'。自酿烈酒管够，但没有什么零食。'
+
+	!! prevent drinking events from repeating after sex is done because the passage of time in the sex events allowed alko to decrease again
+	if GadBoy['drunk_event'] = 1 and alko < 10: alko = 10
+	if MiraVars['drunk_event'] = 1 and npc_drunk['A60'] < 10: npc_drunk['A60'] = 10
+
+	!! Sveta is drunk and Mira is drunk and boys fucked both already tonight
+	if npc_drunk['A60'] >= 10 and alko >= 10 and GadBoy['drunk_event'] = 1 and MiraVars['drunk_event'] = 1:
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/girls_go.jpg"></center>'
+		*nl
+		'你和米拉都醉得厉害，几乎站不住。男人们叫你们离开，说今晚已经操过你们了，但明天一定要再来一轮。'
+		'当你们离开时，男人们冲着你们俩喊道："嘿，婊子们，再来跟我们喝酒啊，我们爱操你们俩！！哈哈！"你们走出去时他们大笑不止。你醉得想不出任何回应，只能和米拉一起走开。'
+
+		act '离开': minut += 15 & gt 'gad_road', 'start'
+	!! Sveta is drunk and Mira is drunk and both not had sex with the boys
+	elseif npc_drunk['A60'] >= 10 and alko >= 10 and GadBoy['drunk_event'] = 0 and MiraVars['drunk_event'] = 0:
+		*clr & cla
+		GadBoy['drunk_event'] = 1
+		MiraVars['drunk_event'] = 1
+		temp_rand = rand(1, 6)
+		if temp_rand = 1:
+			gs 'boyStat', 'A61', '0'
+			gs 'boyStat', 'A62', '1'
+			gs 'boyStat', 'A63', '2'
+		elseif temp_rand = 2:
+			gs 'boyStat', 'A61', '0'
+			gs 'boyStat', 'A63', '1'
+			gs 'boyStat', 'A62', '2'
+		elseif temp_rand = 3:
+			gs 'boyStat', 'A62', '0'
+			gs 'boyStat', 'A61', '1'
+			gs 'boyStat', 'A63', '2'
+		elseif temp_rand = 4:
+			gs 'boyStat', 'A62', '0'
+			gs 'boyStat', 'A63', '1'
+			gs 'boyStat', 'A61', '2'
+		elseif temp_rand = 5:
+			gs 'boyStat', 'A63', '0'
+			gs 'boyStat', 'A62', '1'
+			gs 'boyStat', 'A61', '2'
+		elseif temp_rand = 6:
+			gs 'boyStat', 'A63', '0'
+			gs 'boyStat', 'A61', '1'
+			gs 'boyStat', 'A62', '2'
+		end
+		temp_rand = rand(1, 10)
+		if temp_rand <= 4 and mesec = 0:
+			gt 'mitkabuh_group', 'group_sex'
+		elseif temp_rand <= 7:
+			gt 'mitkabuh_group', 'group_bj'
+		elseif temp_rand <= 9:
+			gt 'mitkabuh_group', 'group_show'
+		else
+			gt 'mitkabuh_group', 'group_anal'
+		end
+		killvar 'temp_rand'
+	!! Sveta is not drunk and Mira is not drunk
+	else
+		gs 'willpower', 'drink', 'resist'
+		if pcs_willpwr < will_cost:
+			act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '离开' + $func('willpower', 'get_willcost_string'):
+				minut += 15
+				gs 'willpower', 'drink', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+
+				gt 'gad_road', 'start'
+			end
+		end
+		act '和米拉及男孩们一起喝':
+			*clr & cla
+			menu_off = 1
+			minut += 15
+			gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+			gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+			gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+			gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+			*nl
+			'米特卡把一些自酿酒倒进两个透明塑料小酒杯里，递给你们。'
+			'你拿起一杯递给米拉，另一杯则迅速一饮而尽。米拉也学着你把酒一口干了。'
+			'你和米拉对自酿烈酒的反应几乎一模一样。你们睁大眼睛，轻咳几声，带着微笑吸了口气。男人们也在喝酒，你们一起聊着天。'
+			'米特卡赞许地看着你："好东西，对吧？"'
+			'"跟你上次酿的那批一样好！"你回答。'
+
+			npc_drunk['A60'] += 5
+			gs 'beverage', 'moonshine_stats'
+			gs 'stat'
+
+			act '继续喝酒': gt 'mitkabuh_group', 'partywithMira'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'group_sex':
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/drunk1.jpg"></center>'
+	*nl
+	'和米拉喝酒时， <<$boydesc[0]>>走到你面前，开始脱你的衣服。与此同时<<$boydesc[1]>>也这样对待米拉。他们告诉你："我们现在就想分享你们俩。"'
+	'<<$boydesc[2]>>在一旁看着，但既不动也不说话。米拉懒得反抗，顺从地配合着。'
+
+	act '让他们继续':
+		*clr & cla
+
+		gs 'npc_relationship', 'modify', $boy[0], 1
+		gs 'npc_relationship', 'modify', $boy[1], 1
+		gs 'npc_relationship', 'modify', 'A60', 1
+		if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+		if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+		npc_had_sex[$boy[0]] = 1
+		npc_had_sex[$boy[1]] = 1
+		stat['gangbang_count'] += 1
+		gs 'arousal', 'vaginal', 10, 'sub', 'gangbang'
+		gs 'arousal', 'bj', 10, 'sub', 'gangbang'
+		gs 'stat'
+
+		mitkapicrand = rand(1, 5)
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhgroup1.'+mitkapicrand+'.jpg"></center>'
+		*nl
+		'<<$boydesc[0]>>和<<$boydesc[1]>>毫不浪费时间，迅速让你和米拉跪下来。他们把鸡巴塞进你们嘴里，你们一边努力避免干呕，一边给他们做着湿漉漉的口交。'
+		'<<$boydesc[0]>>把你转过来，开始快速抽插，与此同时米拉在你身边因为被<<$boydesc[1]>>操而呻吟着。'
+		'男孩们似乎总是不停地变换姿势，在你和米拉之间来回交换。'
+		'在你眼角余光中，你看到<<$boydesc[2]>>一边看着你和米拉一边自慰。你只走神了一秒钟，但就在那段时间里<<$boydesc[0]>>和<<$boydesc[1]>>开始往你和米拉身上射精。'
+		'<<$boydesc[2]>>走上前说："准备好第二轮了吗，姑娘们？"'
+
+		gs 'cum_call', '', $boy[0], 1
+		gs 'cum_call', '', $boy[1], 1
+		gs 'arousal', 'end'
+
+		act '寻欢<<$boydesc[2]>>与米拉':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $boy[2], 1
+			gs 'npc_relationship', 'modify', 'A60', 1
+			npc_had_sex[$boy[2]] = 1
+			stat['gangbang_count'] += 1
+			gs 'arousal', 'bj', 10, 'sub', 'gangbang'
+			gs 'stat'
+
+			mitkapicrand = rand(1, 4)
+			if mitkapicrand = 1:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh2.2.jpg"></center>'
+			elseif mitkapicrand = 2:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.1.jpg"></center>'
+			elseif mitkapicrand = 3:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.5.jpg"></center>'
+			elseif mitkapicrand = 4:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.6.jpg"></center>'
+			end
+			*nl
+			'米拉似乎和男孩们一样贪得无厌地抢在你前面冲向<<$boydesc[2]>>的鸡巴。她第一个用嘴唇含住它而你只能试着舔米拉当前没有塞进喉咙里的任何东西。'
+			'不过很快就轮到你了，当<<$boydesc[2]>>说："来吧米拉，给<<$pcs_nickname>>一个机会，我们俩的量绰绰有余。"'
+			'当米拉将<<$boydesc[2]>>的鸡巴从她嘴里她给你一个微笑和眨眼。你很快开始更加热情地吮吸，不想被米拉比下去。'
+
+			act '让<<$boydesc[2]>>射出来':
+				*clr & cla
+
+				mitkapicrand = rand(1, 8)
+				if mitkapicrand <= 5:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhcum0.'+mitkapicrand+'.jpg"></center>'
+				elseif mitkapicrand = 6:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.4.jpg"></center>'
+				elseif mitkapicrand = 7:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.5.jpg"></center>'
+				elseif mitkapicrand = 8:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkagroupcum2.jpg"></center>'
+				end
+				*nl
+				'<<$boydesc[2]>>在你们两人的合力下没有坚持多久。你甚至没有时间摆好姿势与米拉分享射精，他就朝你的脸喷出一大股精液。'
+				'米拉似乎并不介意她再次开始舔食流下你脸庞并积在你胸上和身上的精液。'
+
+				gs 'cum_call', 'breasts', $boy[2], 1
+				gs 'cum_call', 'stomach', $boy[2], 1
+				gs 'cum_call', 'face', $boy[2], 1
+				gs 'cum_call', 'mouth', $boy[2], 1
+				gs 'arousal', 'end'
+
+				if sunWeather = 1:
+					act '在外面坐下': gt 'mitkabuh_group', 'partywithMira'
+				else
+					act '坐进拖车里。': gt 'mitkabuh_group', 'partywithMira'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'group_bj':
+	*clr & cla
+	menu_off = 1
+
+	if rand(0, 1) = 0:
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/drunk1.jpg"></center>'
+		*nl
+		'当你和米拉喝酒时，<<$boydesc[0]>>开玩笑地说你们俩看起来美极了，但如果嘴里含着鸡巴会更好看。'
+		'米拉咯咯笑着回应："你是说这样吗？"，说着跪到他面前。她迅速把他的鸡巴从裤子里掏出来，用嘴唇裹住。'
+		'看到这一幕，<<$boydesc[1]>>立即走到你面前，也掏出了他的鸡巴。'
+
+		act '也吮吸<<$boydesc[1]>>':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			gs 'npc_relationship', 'modify', $boy[1], 1
+			gs 'npc_relationship', 'modify', 'A60', 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+			npc_had_sex[$boy[0]] = 1
+			npc_had_sex[$boy[1]] = 1
+			stat['gangbang_count'] += 1
+			gs 'arousal', 'hj', 10, 'sub', 'gangbang'
+			gs 'arousal', 'bj', 10, 'sub', 'gangbang'
+			gs 'stat'
+
+			mitkapicrand = rand(1, 4)
+			if mitkapicrand = 1:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh0.1.jpg"></center>'
+			elseif mitkapicrand = 2:
+				'<center><img <<$set_imgh>> src="images/shared/sex/group/four2.jpg"></center>'
+			elseif mitkapicrand = 3:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.4.jpg"></center>'
+			elseif mitkapicrand = 4:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.7.jpg"></center>'
+			end
+			*nl
+			'你效仿米拉的样子，顺从地跪下，也开始为<<$boydesc[1]>>口交。你们两人的头随着男孩们愉悦的呻吟一起上下摆动。'
+			'米拉偶尔看看你是否跟得上，但你完全没有任何困难。你已经习惯了这些夜间冒险，甚至开始享受它们。'
+
+			act '让<<$boydesc[1]>>射出来':
+				*clr & cla
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.1.jpg"></center>'
+				*nl
+				'在你眼角余光中，你看到<<$boydesc[2]>>一边看着你和米拉一边自慰。你只走神了一秒钟，但就在那段时间里<<$boydesc[0]>>和<<$boydesc[1]>>开始往你和米拉身上射精。'
+				'你惊讶地张开嘴，感到精液飞进嘴里。当你再次回头看向米拉时，她贪婪地用舌头舔掉你脸上的一些精液。你开始回报她，这时<<$boydesc[2]>>走上前说："准备好第二轮了吗，姑娘们？"'
+
+				gs 'cum_call', 'breasts', $boy[0], 1
+				gs 'cum_call', 'stomach', $boy[0], 1
+				gs 'cum_call', 'face', $boy[1], 1
+				gs 'cum_call', 'mouth', $boy[1], 1
+				gs 'arousal', 'end'
+
+				act '寻欢<<$boydesc[2]>>与米拉':
+					*clr & cla
+					gs 'npc_relationship', 'modify', $boy[2], 1
+					gs 'npc_relationship', 'modify', 'A60', 1
+					npc_had_sex[$boy[2]] = 1
+					stat['gangbang_count'] += 1
+					gs 'arousal', 'bj', 10, 'sub', 'gangbang'
+					gs 'stat'
+
+					mitkapicrand = rand(1, 4)
+					if mitkapicrand = 1:
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh2.2.jpg"></center>'
+					elseif mitkapicrand = 2:
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.1.jpg"></center>'
+					elseif mitkapicrand = 3:
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.5.jpg"></center>'
+					elseif mitkapicrand = 4:
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.6.jpg"></center>'
+					end
+					*nl
+					'米拉似乎和男孩们一样贪得无厌地抢在你前面冲向<<$boydesc[2]>>的鸡巴。她第一个用嘴唇含住它而你只能试着舔米拉当前没有塞进喉咙里的任何东西。'
+					'不过很快就轮到你了，当<<$boydesc[2]>>说："来吧米拉，给<<$pcs_nickname>>一个机会，我们俩的量绰绰有余。"'
+					'当米拉将<<$boydesc[2]>>的鸡巴从她嘴里她给你一个微笑和眨眼。你很快开始更加热情地吮吸，不想被米拉比下去。'
+
+					act '让<<$boydesc[2]>>射出来':
+						*clr & cla
+
+						mitkapicrand = rand(1, 8)
+						if mitkapicrand <= 5:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhcum0.'+mitkapicrand+'.jpg"></center>'
+						elseif mitkapicrand = 6:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.4.jpg"></center>'
+						elseif mitkapicrand = 7:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.5.jpg"></center>'
+						elseif mitkapicrand = 8:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkagroupcum2.jpg"></center>'
+						end
+						*nl
+						'<<$boydesc[2]>>在你们两人的合力下没有坚持多久。你甚至没有时间摆好姿势与米拉分享射精，他就朝你的脸喷出一大股精液。'
+						'米拉似乎并不介意她再次开始舔食流下你脸庞并积在你胸上和身上的精液。'
+
+						gs 'cum_call', 'breasts', $boy[2], 1
+						gs 'cum_call', 'stomach', $boy[2], 1
+						gs 'cum_call', 'face', $boy[2], 1
+						gs 'cum_call', 'mouth', $boy[2], 1
+						gs 'arousal', 'end'
+
+						if sunWeather = 1:
+							act '在外面坐下': gt 'mitkabuh_group', 'partywithMira'
+						else
+							act '坐进拖车里。': gt 'mitkabuh_group', 'partywithMira'
+						end
+					end
+				end
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/drunk1.jpg"></center>'
+		*nl
+		'当你和米拉喝酒时，<<$boydesc[0]>>开玩笑地说你们俩看起来美极了，但如果嘴里含着鸡巴会更好看。'
+		'米拉咯咯笑着回应："你是说这样吗？"，说着跪到他面前。她迅速把他的鸡巴从裤子里掏出来，用嘴唇裹住。'
+
+		act '看看米拉':
+			*clr & cla
+			gs 'arousal', 'voyeur_sex', 5, 'sub'
+			gs 'stat'
+
+			mitkapicrand = rand(1, 5)
+			if mitkapicrand <= 5:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh1.'+mitkapicrand+'.jpg"></center>'
+			elseif mitkapicrand = 6:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh0.3.jpg"></center>'
+			elseif mitkapicrand = 7:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh0.4.jpg"></center>'
+			elseif mitkapicrand = 8:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh0.5.jpg"></center>'
+			elseif mitkapicrand = 9:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh2.1.jpg"></center>'
+			end
+			*nl
+			'接下来的几分钟你都在看着米拉。看着她享受<<$boydesc[0]>>的鸡巴，你根本无法移开视线。'
+			'<<$boydesc[1]>>和<<$boydesc[2]>>注意到你的兴趣，走到你面前。他们掏出鸡巴对你说："别担心，我们也能让你乐一乐。"'
+
+			act '两个都吸':
+				*clr & cla
+
+				gs 'npc_relationship', 'modify', $boy[0], 1
+				gs 'npc_relationship', 'modify', $boy[1], 1
+				gs 'npc_relationship', 'modify', $boy[2], 1
+				gs 'npc_relationship', 'modify', 'A60', 1
+				if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+				if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+				npc_had_sex[$boy[1]] = 1
+				npc_had_sex[$boy[2]] = 1
+				stat['gangbang_count'] += 1
+				gs 'arousal', 'hj', 10, 'sub', 'gangbang'
+				gs 'arousal', 'bj', 10, 'sub', 'gangbang'
+				gs 'stat'
+
+				mitkapicrand = rand(2, 4)
+				if mitkapicrand <= 3:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.'+mitkapicrand+'.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoral0.8.jpg"></center>'
+				end
+				*nl
+				'你跪下来，在<<$boydesc[1]>>和<<$boydesc[2]>>之间摆好姿势。男孩们来回交换，轮流使用你的嘴，从不让你嘴里空着。'
+				'你努力取悦两人，确保同时撸动两个男孩。这对<<$boydesc[1]>>来说还不够，他把手放在你脑后，将他的鸡巴更深地塞进你的喉咙。'
+				'当你开始有些干呕时，<<$boydesc[2]>>用鸡巴拍打着你的脸笑道："完美，你就该待在这里。要知道，决定你和米拉谁更好操可真难，但既然我们两个都能拥有，为什么还要选呢！"'
+
+				act '让他们两个都射':
+					*clr & cla
+
+					mitkapicrand = rand(2, 3)
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.'+mitkapicrand+'.jpg"></center>'
+					*nl
+					'你加快了节奏，随着每次抽送，你的头移动得越来越快。 <<$boydesc[1]>>第一个射了，<<$boydesc[2]>>紧随其后。'
+					'他们俩都稍微往后退了一点，然后把精液射在你身上。相当多的精液落进你的头发里，顺着脸滴到身上。'
+
+					gs 'cum_call', 'breasts', $boy[2], 1
+					gs 'cum_call', 'stomach', $boy[2], 1
+					gs 'cum_call', 'face', $boy[1], 1
+					gs 'cum_call', 'hair', $boy[1], 1
+					gs 'stat'
+
+					act '再看看米拉':
+						*clr & cla
+						gs 'arousal', 'voyeur_sex', 5
+						gs 'arousal', 'end'
+
+						mitkapicrand = rand(1, 7)
+						if mitkapicrand <= 5:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhcum0.'+mitkapicrand+'.jpg"></center>'
+						elseif mitkapicrand = 6:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.4.jpg"></center>'
+						elseif mitkapicrand = 7:
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhoralcum0.5.jpg"></center>'
+						end
+						*nl
+						'男孩们和你完事后，你又看了米拉一眼，正好赶上看到<<$boydesc[0]>>射在她脸上。'
+						'米拉注意到你在看，微笑着指了指你们俩脸上的精液。'
+
+						if sunWeather = 1:
+							act '在外面坐下': gt 'mitkabuh_group', 'partywithMira'
+						else
+							act '坐进拖车里。': gt 'mitkabuh_group', 'partywithMira'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'group_show':
+	*clr & cla
+	menu_off = 1
+
+	if rand(0, 1) = 0 and sunWeather = 1 and temper >= 10:
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/drunk1.jpg"></center>'
+		*nl
+		'和米拉喝酒时， <<$boydesc[0]>>冲你大喊："我无聊死了！把你们的屁股挪过来，给我们跳个舞！"'
+		'<<$boydesc[1]>>和<<$boydesc[2]>>也都大声表示赞成。米拉含糊地应了一声，你猜那是同意，因为她开始脱衣服了。'
+		'<<$boydesc[0]>>看向你说："<<$pcs_nickname>>, 你为什么不加入她呢？"。当你决定该怎么做时，<<$boydesc[1]>>和<<$boydesc[2]>>开始为你加油助威。'
+
+		act '加入米拉':
+			*clr & cla
+
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			gs 'npc_relationship', 'modify', $boy[1], 1
+			gs 'npc_relationship', 'modify', $boy[2], 1
+			gs 'npc_relationship', 'modify', 'A60', 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+			gs 'stat'
+
+			mitkapicrand = rand(0, 3)
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhdance0.'+mitkapicrand+'.jpg"></center>'
+			*nl
+			'你跟着米拉，迅速脱掉衣服。没过多久，你们俩就在男孩们面前脱得一丝不挂。'
+			'你一丝不挂地在火堆旁旋转起舞。你和米拉跳得太开心了，几乎没有注意到男孩们在看你们。'
+			'男孩们掏出鸡巴，一边看着你和米拉为她们跳舞，一边开始撸动自己。男孩们玩得不亦乐乎，比赛看谁光靠看着你们俩就能先射出来。'
+			'男人们临近高潮时，靠得你越来越近。 <<$boydesc[0]>>是第一个射的，紧接着是<<$boydesc[1]>>和<<$boydesc[2]>>。三个男孩的精液组合洒满了你和米拉。'
+
+			gs 'cum_call', 'butt', $boy[0], 1
+			gs 'cum_call', 'labia', $boy[0], 1
+			gs 'cum_call', 'breasts', $boy[2], 1
+			gs 'cum_call', 'stomach', $boy[2], 1
+			gs 'cum_call', 'face', $boy[1], 1
+			gs 'cum_call', 'mouth', $boy[1], 1
+			gs 'cum_call', 'hair', $boy[1], 1
+			gs 'arousal', 'foreplay', 15, 'exhibitionism', 'sub'
+			gs 'arousal', 'end'
+			gs 'stat'
+
+			if sunWeather = 1:
+				act '在外面坐下': gt 'mitkabuh_group', 'partywithMira'
+			else
+				act '坐进拖车里。': gt 'mitkabuh_group', 'partywithMira'
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/drunk1.jpg"></center>'
+		*nl
+		'和米拉喝酒时， <<$boydesc[0]>>冲你大喊："我无聊死了！把你们的屁股挪过来，给我们来一场难忘的表演！让我们好好看看你们的洞！"'
+		'<<$boydesc[1]>>和<<$boydesc[2]>>也都大声表示赞成。米拉含糊地应了一声，你猜那是同意，因为她开始脱衣服了。'
+		'<<$boydesc[0]>>看向你说："<<$pcs_nickname>>, 你为什么不加入她呢？"。当你决定该怎么做时，<<$boydesc[1]>>和<<$boydesc[2]>>开始为你加油助威。'
+
+		act '加入米拉':
+			*clr & cla
+
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			gs 'npc_relationship', 'modify', $boy[1], 1
+			gs 'npc_relationship', 'modify', $boy[2], 1
+			gs 'npc_relationship', 'modify', 'A60', 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+			gs 'stat'
+
+			if sunWeather = 1:
+				mitkapicrand = rand(1, 3)
+				if mitkapicrand = 1:
+					gs 'cum_call', 'butt', $boy[0], 1
+					gs 'cum_call', 'legs', $boy[0], 1
+					gs 'cum_call', 'butt', $boy[2], 1
+					gs 'cum_call', 'legs', $boy[2], 1
+					gs 'cum_call', 'butt', $boy[1], 1
+					gs 'cum_call', 'legs', $boy[1], 1
+					gs 'arousal', 'foreplay', 15, 'exhibitionism', 'sub'
+					gs 'arousal', 'end'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhshow1.jpg"></center>'
+					*nl
+					'你跟着米拉，迅速脱掉衣服。没过多久，你们俩就在男孩们面前脱得一丝不挂。'
+					'你为男孩们弯下腰，让他们好好欣赏你的屁股。男孩们掏出鸡巴，一边看着你和米拉摆姿势，一边开始撸动自己。'
+					'男人们玩得不亦乐乎，比赛谁光靠看着你和米拉就能先射出来。临近高潮时，他们靠得你越来越近。'
+					'<<$boydesc[0]>>是第一个射的，紧接着是<<$boydesc[1]>>和<<$boydesc[2]>>。三个男孩的精液组合洒满了你和米拉。这足以让你也终于达到高潮。'
+				elseif mitkapicrand <= 3:
+					gs 'cum_call', 'breasts', $boy[0], 1
+					gs 'cum_call', 'stomach', $boy[0], 1
+					gs 'cum_call', 'breasts', $boy[2], 1
+					gs 'cum_call', 'stomach', $boy[2], 1
+					gs 'cum_call', 'face', $boy[1], 1
+					gs 'cum_call', 'mouth', $boy[1], 1
+					gs 'cum_call', 'hair', $boy[1], 1
+					$orgasm_or = 'custom'
+					gs 'arousal', 'clit_finger', 15, 'exhibitionism', 'sub', 'masturbate'
+					gs 'arousal', 'end'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhshow2.jpg"></center>'
+					*nl
+					'你跟着米拉，迅速脱掉衣服。没过多久，你们俩就在男孩们面前脱得一丝不挂。'
+					'你坐在地上，开始当着男孩们的面自慰。一开始有点不舒服，因为你只是按照吩咐用手指弄自己，没有任何前戏。但随着米拉在你身边呻吟起来，一种兴奋感很快占据了上风。'
+					'男孩们掏出鸡巴，开始一边看着你和米拉为他们自慰，一边撸动自己。男孩们玩得不亦乐乎，比赛看谁会先射出来，就只是看着你和米拉。'
+					'男人们临近高潮时，靠得你越来越近。 <<$boydesc[0]>>是第一个射的，紧接着是<<$boydesc[1]>>和<<$boydesc[2]>>。三个男孩的精液组合洒满了你和米拉。这足以让你也终于达到高潮。'
+				elseif mitkapicrand = 3 and pcs_ass > 15:
+					gs 'cum_call', 'butt', $boy[0], 1
+					gs 'cum_call', 'legs', $boy[0], 1
+					gs 'cum_call', 'butt', $boy[2], 1
+					gs 'cum_call', 'legs', $boy[2], 1
+					gs 'cum_call', 'butt', $boy[1], 1
+					gs 'cum_call', 'legs', $boy[1], 1
+					$orgasm_or = 'custom'
+					gs 'arousal', 'clit_finger', 15, 'exhibitionism', 'sub', 'masturbate'
+					gs 'arousal', 'end'
+					gs 'stat'
+
+					'<center><video autoplay loop <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhshow2.mp4"></video></center>'
+					*nl
+					'你跟着米拉，迅速脱掉衣服。没过多久，你们俩就在男孩们面前脱得一丝不挂。'
+					'你跪在地上，开始把手指探入自己的肛门。随着你越来越兴奋，你最终能把大半个手塞进肛门里。男孩们对这项绝技惊叹不已，纷纷凑近观看。'
+					'男孩们掏出鸡巴，开始一边看着你和米拉为他们自慰，一边撸动自己。男孩们玩得不亦乐乎，比赛看谁会先射出来，就只是看着你和米拉。'
+					'男人们临近高潮时，靠得你越来越近。 <<$boydesc[0]>>是第一个射的，紧接着是<<$boydesc[1]>>和<<$boydesc[2]>>。三个男孩的精液组合洒满了你和米拉。这足以让你也终于达到高潮。'
+				end
+			else
+				mitkapicrand = rand(1, 2)
+				if mitkapicrand = 1:
+					gs 'cum_call', 'breasts', $boy[0], 1
+					gs 'cum_call', 'stomach', $boy[0], 1
+					gs 'cum_call', 'breasts', $boy[2], 1
+					gs 'cum_call', 'stomach', $boy[2], 1
+					gs 'cum_call', 'face', $boy[1], 1
+					gs 'cum_call', 'mouth', $boy[1], 1
+					gs 'cum_call', 'hair', $boy[1], 1
+					gs 'arousal', 'foreplay', 15, 'exhibitionism', 'sub'
+					gs 'arousal', 'end'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh2.3.jpg"></center>'
+					*nl
+					'你跟着米拉，迅速脱掉衣服。没过多久，你们俩就在男孩们面前脱得一丝不挂。'
+					'你为男孩们张开双腿，让他们好好欣赏你的小穴。男孩们掏出鸡巴，一边看着你和米拉摆姿势，一边开始撸动自己。'
+					'男人们玩得不亦乐乎，比赛谁光靠看着你和米拉就能先射出来。临近高潮时，他们靠得你越来越近。'
+					'<<$boydesc[0]>>是第一个射的，紧接着是<<$boydesc[1]>>和<<$boydesc[2]>>。三个男孩的精液组合洒满了你和米拉。这足以让你也终于达到高潮。'
+				elseif mitkapicrand = 2:
+					gs 'cum_call', 'butt', $boy[0], 1
+					gs 'cum_call', 'legs', $boy[0], 1
+					gs 'cum_call', 'butt', $boy[2], 1
+					gs 'cum_call', 'legs', $boy[2], 1
+					gs 'cum_call', 'butt', $boy[1], 1
+					gs 'cum_call', 'legs', $boy[1], 1
+					gs 'arousal', 'foreplay', 15, 'exhibitionism', 'sub'
+					gs 'arousal', 'end'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuh2.4.jpg"></center>'
+					*nl
+					'你跟着米拉，迅速脱掉衣服。没过多久，你们俩就在男孩们面前脱得一丝不挂。'
+					'你四肢着地跪在男孩们面前，让他们好好欣赏你的屁股。男孩们掏出鸡巴，一边看着你和米拉摆姿势，一边开始撸动自己。'
+					'男人们玩得不亦乐乎，比赛谁光靠看着你和米拉就能先射出来。临近高潮时，他们靠得你越来越近。'
+					'<<$boydesc[0]>>是第一个射的，紧接着是<<$boydesc[1]>>和<<$boydesc[2]>>。三个男孩的精液组合洒满了你和米拉。这足以让你也终于达到高潮。'
+				end
+			end
+
+			if sunWeather = 1:
+				act '在外面坐下': gt 'mitkabuh_group', 'partywithMira'
+			else
+				act '坐进拖车里。': gt 'mitkabuh_group', 'partywithMira'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'group_anal':
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/drunk1.jpg"></center>'
+	*nl
+	'和米拉喝酒时， <<$boydesc[0]>>走到你面前，开始脱你的衣服。"我现在就要操你那漂亮的屁股"他说。'
+	'<<$boydesc[1]>>和<<$boydesc[2]>>大声表示赞同这个主意，走过去对米拉做同样的事。她懒得反抗，顺从地配合着。'
+
+	act '让<<$boydesc[0]>>操你的屁股':
+		*clr & cla
+
+		gs 'npc_relationship', 'modify', $boy[0], 1
+		if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+		if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+		npc_had_sex[$boy[0]] = 1
+		gs 'cum_call', 'anus', $boy[0], 1
+		gs 'arousal', 'anal', 10, 'sub', 'rough', 'deepthroat'
+		gs 'arousal', 'end'
+		gs 'stat'
+
+		mitkapicrand = rand(1, 5)
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhanal0.'+mitkapicrand+'.jpg"></center>'
+		*nl
+		'<<$boydesc[0]>>带你进到拖车里，把你脸朝下按倒在床上。当他进入你时，他自言自语地说着什么选对了女孩，鬼知道那是什么意思。'
+		'今晚你绝不会觉得这特别享受，因为<<$boydesc[0]>>毫不在意地粗暴抽插着你。以他保持的节奏，他坚持不了多久，很快就射在了你的屁股里。'
+		'<<$boydesc[0]>>让你把他的鸡巴舔干净，然后才带你回去，其他男孩也已经在米拉身上完事了。'
+
+		act '跟他一起回去':
+			*clr & cla
+
+			mitkapicrand = rand(1, 5)
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkabuhgroup0.'+mitkapicrand+'.jpg"></center>'
+			*nl
+			'当你走回你留下米拉的地方时，你看到<<$boydesc[1]>>和<<$boydesc[2]>>也刚刚在米拉身上完事。'
+			'<<$boydesc[0]>>走上前对他们说："我觉得我这边占了便宜，不过也许下次你们就能轮到<<$pcs_nickname>>了。"'
+
+			if sunWeather = 1:
+				act '在外面坐下': gt 'mitkabuh_group', 'partywithMira'
+			else
+				act '坐进拖车里。': gt 'mitkabuh_group', 'partywithMira'
+			end
+		end
+	end
+end
+
+
+--- mitkabuh_group ---------------------------------

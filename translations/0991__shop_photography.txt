@@ -1,0 +1,162 @@
+# shop_photography
+!! Photography shop in the City Center Mall
+!! Variables used:
+!! photographyEv = Track shop progression through buying a camera
+!!	0 = First visit
+!!	1 = Return visitor, but have not bought camera
+!!	2 = Bought camera, unlocks portfolio sharing
+!! photography_job = Track progression through job events
+!! photojob_daystart = Track when job last accepted - only allowed one job per week
+!! portfolio_locations[n] for storing which images Sveta has of locations (value of 1 for have)
+!! portfolio_people[n] for storing which images Sveta has of people
+
+!! The owner of the shop is Branko Volenskii
+if $ARGS[0] = 'start':
+	$loc = 'shop_photography'
+	$loc_arg = 'start'
+	$location_type = 'public_indoors'
+	cls
+	menu_off = 0
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '相机与摄影器材店')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/shop.jpg"></center>'
+	'这家店专营相机，墙上挂满了各式各样的相机来彰显这一点。靠着旁边的墙摆着一张孤零零的柜台，店主站在柜台后面，显然很渴望有顾客走进他的店里。'
+
+	if photography_start = 1 and week >= 6 and photography['datecheck'] ! daystart:
+		act '询问工作':
+			*clr & cla
+			minut += 10
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+			'你走到布兰科面前。"打扰一下，布兰科，你说过可能有些工作要给我。你这里有什么活儿吗？"'
+			'他朝你笑了笑。"是的是的，我记得你。你就是<<$pcs_nickname>>，对吧？让我查一下。"'
+			'他打开身旁柜台上的一台笔记本电脑，敲了几下键盘，然后抬头看向你。'
+
+			!! Init Job Array
+			photography['datecheck'] = daystart
+			gs 'photography_work', 'job_init'
+			gs 'jobs_gigs', 'disp_evt', 1
+		end
+	end
+	if photographyEv = 2 and photography_start = 0:
+		act '展示作品集': gt 'shop_photography' , 'showportfolio'
+	end
+	act '和店主交谈':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+		if photographyEv = 0:
+			!! first time in shop:
+			photographyEv = 1
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+			'"你好啊！你叫什么名字？"柜台后面那个友善的男人微笑着问道。'
+			'"<<$pcs_firstname>>，"你回答。'
+			'"很高兴认识你，<<$pcs_firstname>>。你看起来像是那种会对优质相机感兴趣的人。事实上，根据我面前看到的这种人来看，我正好有一款非常适合你的相机。只要<<$func(''money'', ''string_price'', 20000)>>!"'
+			*nl
+			'"嗯，我<i>确实</i>一直在考虑要不要涉足摄影……也许值得一试。"你回答说，他立刻开始滔滔不绝地谈论起相机会给你带来的种种乐趣。'
+			'他详细介绍了这款相机的功能和特点。对于一个认真想踏入摄影圈的人来说，这听起来确实是台完美的相机，但那个人是你吗？'
+			gs 'shop_photography', 'camera_options', 'first'
+		elseif photographyEv = 1:
+			!! returning to shop without buying camera
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+			'店主看到你时露出了微笑。"啊哈！我记得你！<<$pcs_firstname>>！你竟然又回到我的店里，真是太棒了！你改变主意要买相机了吗？"'
+			gs 'shop_photography', 'camera_options', 'repeat'
+		else
+			'店主看到你时露出了微笑。"啊哈！我记得你！<<$pcs_firstname>>！你竟然又回到我的店里，真是太棒了！你最近买的东西用得怎么样？我希望是很出色？我了解我所看到的东西，而我眼前就看到了光彩，所以你肯定也用得很出色！"'
+			act '走开': gt 'shop_photography' , 'start'
+		end
+	end
+
+	gs 'jobs_gigs', 'disp_evt', 3
+
+	act '离开': minut += 3 & gt 'city_mall'
+end
+
+
+if $ARGS[0] = 'camera_options':
+	if func('money', 'can_afford', 20000) = 1:
+		act '购买DSLR相机需花费 ' + $func('money', 'string_price', 20000): gt 'shop_photography', 'buycamera'
+	else
+		act '买不起相机':
+			*clr & cla
+			minut += rand(1, 2)
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+			if $ARGS[1] = 'first':
+				'你考虑了一会儿。你很想买下它，但你知道自己现在没有足够的钱。"也许改天吧？我真的买不起，不过谢谢你花时间给我讲解。"'
+				'他笑了笑。"这是我的荣幸，年轻的小姐。希望很快能再见到你。"'
+			else
+				'你考虑了一会儿。你很想买下它，但你知道自己现在没有足够的钱。"我很想买，但我还是买不起。不过我正在攒钱准备买它。"'
+				'他笑了笑。"那就祝你好运了！如果你愿意的话，可以随便看看。"'
+				'你花了一点时间，看了看那些你确实买不起的相机和配件。'
+			end
+			act '离开': minut += 3 & gt 'city_mall'
+		end
+	end
+	act '不买相机':
+		*clr & cla
+		minut += rand(1, 2)
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+		if $ARGS[1] = 'first':
+			'你考虑了一会儿，但决定不买。"也许改天吧，不过谢谢你花时间给我讲解。"'
+			'他笑了笑。"这是我的荣幸，年轻的小姐。如果你改变主意，你知道去哪里找我。"'
+		else
+			'你仍然不确定自己是否想进入摄影这个领域。"也许改天吧。我只是想随便看看。"'
+			'他笑了笑。"当然，当然！随便看，年轻的小姐。如果你改变主意，那你知道去哪里找我。"'
+		end
+
+		act '离开': minut += 3 & gt 'city_mall'
+	end
+end
+
+
+if $ARGS[0] = 'buycamera':
+	*clr & cla
+	minut += rand(1, 2)
+	gs 'money', 'pay', 20000
+	photographyEv = 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+	'"你的这次购买是一个重大的决定！这就是属于你自己的单反相机，从专业的商业摄影到小型活动的私人快照，它都能胜任。既然我已经开启了你的摄影启蒙之旅，在这个充满可能的世界里，你究竟打算如何利用这个机会呢？"'
+	'"我现在只想先积累一批照片作品集；用来检验我如何提升构图取景的能力。我可能会先从在附近走走、寻找值得拍摄的画面开始，逐步建立起一个照片图库。"'
+	'"太棒了！妙极了！这样吧；等你完成作品集之后带过来，我很想看一看！现在去吧！我把你释放进这个充满可能的新世界！"'
+	act '走开': gt 'shop_photography' , 'start'
+end
+
+
+if $ARGS[0] = 'showportfolio':
+	*clr & cla
+	minut += 15
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/photoshop/owner.jpg"></center>'
+	if pcs_photoskl <= 35:
+		'"啊，你的作品集！请务必让我好好欣赏一下！"'
+		'"嗯……还不错。你有些天赋，但你还需要学会更好地运用光线和角度。是的，是的，你有潜力，但你还需要更多经验。有空就回来吧，我很想看着你成长为我所知道你能成为的那位了不起的摄影师。"'
+		'"是的是的，等你有了更多经验，我可能会给你一个绝佳的生意机会！你看，除了你眼前的这家店，我还有一个承接商业摄影的副业，据我所见，你也许正是我要找的人；当然，你会得到报酬的！但首先得多练习，练习，再练习！"'
+		'你微微皱起眉头。至少他喜欢你的作品。"好吧，我会的。我会继续练习，等我感觉有进步了，我会再回来的。"'
+	elseif pcs_photoskl <= 50:
+		photography_start = 1
+		'"啊，你的作品集！请务必让我好好欣赏一下！"'
+		'"嗯……这些照片拍得很好。你真有眼光！再稍加练习，你就会成为一名非常出色的摄影师。"'
+		'"你可以叫我布兰科。我有一个绝佳的生意机会给你！你看，除了你眼前的这家店，我还有一个承接商业摄影的副业，据我所见，你是帮我处理一些额外工作的最佳人选。不会有压力，周末来我这家漂亮的店里看看，我会告诉你有没有你能帮我做的摄影工作；当然，你会得到报酬的！"'
+		'"哇，听起来很有趣。我会找时间来的。"'
+	elseif pcs_photoskl <= 75:
+		photography_start = 1
+		'"啊，你的作品集！请务必让我好好欣赏一下！"'
+		'"这些照片太棒了！令人惊叹，绝对令人惊叹！"'
+		'"你可以叫我布兰科。我有一个绝佳的生意机会给你！你看，除了你眼前的这家店，我还有一个承接商业摄影的副业，据我所见，你是帮我处理一些额外工作的最佳人选。不会有压力，来我这家漂亮的店里看看，我会告诉你有没有你能帮我做的摄影工作；当然是现金当场结清！"'
+		'"哇，听起来很有趣。我会找时间来的。"'
+	else
+		photography_start = 1
+		'"啊，你的作品集！请务必让我好好欣赏一下！"'
+		'"我的天哪……亲爱的，这些照片简直美得令人窒息，令人窒息！我这辈子还从没见过像你这样有潜力的人！再稍加历练，你就能成为我们这个时代最伟大的摄影师之一！"'
+		'"你可以叫我布兰科。我有一个绝佳的生意机会给你！你看，除了你眼前的这家店，我还有一个承接商业摄影的副业，据我所见，你是帮我处理一些额外工作的最佳人选。不会有压力，来我这家漂亮的店里看看，我会告诉你有没有你能帮我做的摄影工作；当然，你会得到报酬的！"'
+		'"哇，听起来很有趣。我会找时间来的。"'
+	end
+	act '走开': gt 'shop_photography' , 'start'
+end
+
+
+--- shop_photography ---------------------------------

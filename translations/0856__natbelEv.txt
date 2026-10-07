@@ -1,0 +1,568 @@
+# natbelEv
+!! 2022/06/19
+
+!! Events concerning Natasha Belova (and her mother)
+
+!! Natasha Schedule - a new one needed at a later time but for now this will work - Alaratt
+!! NatashaLoc tells us where Natasha is located
+!! ----------------------------------------------
+!! NatashaLoc = 0 (Natasha not home)
+!! NatashaLoc = 1 (Natasha in the hallway)
+!! NatashaLoc = 2 (Natasha in her room)
+!! NatashaLoc = 3 (Natasha in the kitchen)
+!! NatashaLoc = 4 (Natasha in the livingroom)
+!! NatashaLoc = 5 (Natasha in her mother''s room)
+!! NatashaLoc = 6 (Natasha in the bathroom)
+!! NatashaLoc = 7 (Natasha in the laundry room)
+!! ---------------------------------------------
+if $ARGS[0] = 'nat_schedule':
+	NatashaShower = 0
+	NatashaLoc = rand(0, 7)
+	if week >= 6 and hour >= 18: NatashaLoc = rand(1, 7)
+
+	if NatashaLoc = 0:
+		$NatashaLocMsg = '娜塔莎现在不在家。'
+	elseif NatashaLoc = 1:
+		$NatashaLocMsg = '哦，娜塔莎来了。我就不打扰你们俩了。'
+	elseif NatashaLoc = 2:
+		$NatashaLocMsg = '娜塔莎在她的房间里。你知道怎么走。'
+	elseif NatashaLoc = 3:
+		$NatashaLocMsg = '娜塔莎在厨房里。你知道怎么走。'
+	elseif NatashaLoc = 4:
+		$NatashaLocMsg = '娜塔莎在客厅里。你知道怎么走。'
+	elseif NatashaLoc = 5:
+		$NatashaLocMsg = '娜塔莎刚才还在她的房间里。你得去找她。'
+	elseif NatashaLoc = 6:
+		NatashaShower = 1
+		$NatashaLocMsg = '娜塔莎这会儿正在洗澡。你可以在她房间等她，或者如果你想的话，来客厅陪我坐坐。'
+	elseif NatashaLoc = 7:
+		$NatashaLocMsg = '娜塔莎正在洗衣服。你知道怎么走。'
+	end
+end
+
+
+if $ARGS[0] = 'natbel_go':
+	menu_off = 1
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big16.jpg"></center>'
+	'你走向娜塔莎，她问你："你愿意来我家一起做作业吗？"'
+
+	act '和娜塔莎一起去':
+		*clr & cla
+		minut += 10
+		if NatbelQW['VisitedHome'] = 0: NatbelQW['VisitedHome'] = 1
+		NatashaLoc = 2
+		gs 'stat'
+		$func('wrap', 'header center b', '<<$npc_firstname[''A16'']>> <<$npc_lastname[''A16'']>>')
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big16.jpg"></center>'
+		'你花了10分钟走到娜塔莎的公寓。你们聊着生活中那些让你们开心的小事。'
+
+		if NatbelQW['QWstage'] < 2:
+			act '走进公寓': gt 'natbelEv', 'study_together'
+		else
+			act '一起学习': gt 'natbelEv', 'study_together'
+			if NatbelQW['FriendLover'] = 0: gs 'natbel_cp_1', 'make_her_do_homework'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'study_together':
+	*clr & cla
+	menu_off = 1
+	minut += 60
+	gs 'npc_relationship', 'modify', 'A16', 'adore'
+	if lernHome > 1:
+		gs 'grades', 'homework', 'school', 'yes', 2, 1, 'A16'
+	else
+		gs 'grades', 'homework', 'school', 'yes', 1, 1, 'A16'
+	end
+	lern += rand(3, 6)
+	gs 'exp_gain', 'intel', rand(1, 2)
+	if NatbelQW['QWstage'] = 0: NatbelQW['QWstage'] = 1
+	NatbelQW['homework'] += 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/study.jpg"></center>'
+	'"我们来做作业吧。"你对娜塔莎说，同时开始从包里拿东西。'
+	'"好，我去厨房再拿把椅子来。"她说着，你坐到她的书桌前，翻开课本。'
+	'过了一会儿，娜塔莎回来了，把椅子放在你旁边，然后拿出自己的作业，坐在你身边。'
+	*nl
+	'"好，我们看看……"她说着，你们俩开始做第一道题。'
+	'你们花了将近一个小时做完所有作业。偶尔有谁不懂的时候，你们会互相讲解。'
+	'完成后，你很有信心作业会得到一个好分数。'
+	act '完成作业': gt 'natbelapt', 'natroom'
+end
+
+
+if $ARGS[0] = 'snack':
+	menu_off = 1
+	cla
+	*nl
+	!! Snack + Water
+	minut += 15
+	gs 'food', 'kitchen_snack_stats'
+	'"如果你要往那条路走，还不如继续挑挑拣拣呢。"你们一起笑了一会儿，然后聊起了别的话题。'
+	if rand(0, 4) = 0:
+		if NatbelQW['MetMother'] = 0:
+			'你走进厨房，看到一个女人坐在餐桌旁喝茶。'
+			'"哦，我不知道家里来客人了。你和娜塔莎是同学吗？"'
+			'"是的，我是<<$pcs_nickname>>。我们在同一个班。"'
+			'"很高兴认识娜塔莎的朋友。我是她的妈妈<<$npc_firstname[''A191'']>>, 但你可以叫我<<$npc_nickname[''A191'']>>."'
+			'"很高兴见到你，<<$npc_nickname[''A191'']>>。"'
+			act '回到她的房间': NatashaLoc = 2 & gt 'natbelapt', 'natroom'
+		else
+			'当你走进厨房时，你看到<<$npc_nickname[''A191'']>>正坐在餐桌旁喝茶。'
+			'"哦，我不知道家里来客人了。你好吗，<<$pcs_nickname>>？"'
+			'"嗨，<<$npc_nickname[''A191'']>>，我很好。你呢？"'
+			'"没什么可抱怨的，亲爱的。"'
+			'娜塔莎拿着一些零食和你们的饮料插话说："妈妈，我们得回去学习了。"'
+			act '回到她的房间': NatashaLoc = 2 & gt 'natbelapt', 'natroom'
+		end
+	else
+		'你走进厨房，娜塔莎指了指一个柜子。"从那里拿点薯片出来。"'
+		'趁你拿薯片的时候，她从冰箱里拿了几瓶饮料。等你们俩都拿到了扫荡厨房的战利品后，便回到了她的房间。'
+		act '回到她的房间': NatashaLoc = 2 & gt 'natbelapt', 'natroom'
+	end
+end
+
+
+if $ARGS[0] = 'natcumresponse':
+	if NatbelQW['KolkaCP'] = 0:
+		'娜塔莎突然试图从科尔卡身上挣脱开，说道："拔出来，别射在里面！我不想怀孕！"'
+	elseif NatbelQW['pregday'] > 0 and (daystart-NatbelQW['pregday']) > 20 and (daystart-NatbelQW['pregday']) <= 90:
+		'娜塔莎询问地看着你，想知道你是否会让他射在她体内。科尔卡可能让她怀孕这件事似乎并不让她困扰。'
+	elseif NatbelQW['pregday'] > 0 and (daystart-NatbelQW['pregday']) > 90:
+		'娜塔莎询问地看着你，想知道你是否会让他射在她体内。现在这已经不重要了，因为科尔卡已经让她怀孕了。'
+	elseif NatbelQW['pregday'] = 0 and npc_pregtalk['A16'] = 1 and NatbelQW['babycount'] = 0:
+		'娜塔莎看着你，几乎听不见地低语道："请让他射在我体内吧。我也想要个宝宝。"'
+	elseif NatbelQW['pregday'] = 0 and npc_pregtalk['A16'] = 1 and NatbelQW['babycount'] > 0:
+		'娜塔莎看着你，呻吟着说："请让他射在我体内吧。我需要他再给我一个宝宝。"'
+	else
+		'娜塔莎询问地看着你：是让他射在她体内，冒着怀上你的侄儿或侄女的风险，还是让她从你弟弟身上挣脱开。'
+	end
+end
+
+
+!! Check if Natasha''s mother is home from work so this can be called with: gs 'natbelEv', 'natmomhome'
+if $ARGS[0] = 'natmomhome':
+	if (hour >= 16 and hour < 23) or (week > 5 and hour >= 10 and hour < 23):
+		NatbelQW['MotherHome'] = 1
+	else
+		NatbelQW['MotherHome'] = 0
+	end
+end
+
+
+if $ARGS[0] = 'nat_mother_state':
+	!! Natasha''s mother''s state. If it''s 0 you get a random state.
+	if NatbelQW['MotherState'] = 0: NatbelQW['MotherState'] = rand(1, 6)
+	if NatbelQW['MotherState'] = 1:
+		$NatbelQW['MotherStateMsg'] = '很累'
+	elseif NatbelQW['MotherState'] = 2:
+		$NatbelQW['MotherStateMsg'] = 'happy'
+	elseif NatbelQW['MotherState'] = 3:
+		$NatbelQW['MotherStateMsg'] = '打扮好要去约会'
+	elseif NatbelQW['MotherState'] = 4:
+		$NatbelQW['MotherStateMsg'] = 'drunk'
+	elseif NatbelQW['MotherState'] = 5:
+		$NatbelQW['MotherStateMsg'] = '像是有心事'
+	elseif NatbelQW['MotherState'] = 6:
+		$NatbelQW['MotherStateMsg'] = '很生气'
+	end
+end
+
+
+if $ARGS[0] = 'ask_state':
+	menu_off = 1
+	'走进公寓时，你和<<$npc_nickname[''A191'']>>.'
+	if NatbelQW['MotherState'] = 1:
+		'"你今天看起来有点不舒服，<<$npc_nickname[''A191'']>>。你还好吗？"'
+		'"我偏头痛一整天了。我想先去沙发上躺会儿。今晚你能乖一点，把音乐声调小点吗？"'
+		'"当然，我们会小心不打扰你休息。"'
+	elseif NatbelQW['MotherState'] = 2:
+		'"你今天看起来心情很好，<<$npc_nickname[''A191'']>>。"'
+		'"哦，今天只是天气很好罢了。"'
+	elseif NatbelQW['MotherState'] = 3:
+		if rand(0, 1) = 0:
+			'"哇，<<$npc_nickname[''A191'']>>。你打扮成这样是专门为了我吗？还是说有个幸运的家伙？"你眨着眼说。'
+			'"谢谢你，<<$pcs_nickname>>。这正是我希望看到的反应。"她说着，脸颊微微泛红。'
+		else
+			'"哇，<<$npc_nickname[''A191'']>>。这身衣服穿在你身上真好看。"你欣赏完她的装扮后说。'
+			'"谢谢你，<<$pcs_nickname>>。这正是我希望看到的反应。"'
+		end
+	elseif NatbelQW['MotherState'] = 4:
+		'"哇，<<$npc_nickname[''A191'']>>。你刚从派对上回来？还是说派对就在这里？"你眨着眼说。'
+		'"唔，<<$pcs_nickname>>，就你我知道，有时候女人确实需要来一杯。"'
+	elseif NatbelQW['MotherState'] = 5:
+		'"<<$npc_nickname[''A191'']>>……你呃……你看起来有点难过，出什么事了吗？"'
+		if NatbelQW['pregday'] > 0 and (daystart-NatbelQW['pregday']) > 90:
+			'"娜塔莎最近有点怪怪的。"她突然专注地看着你。"如-如果发生了什么重要的事，你会告诉我的，对吧？"'
+		else
+			'"只是今天诸事不顺而已，<<$pcs_nickname>>。你继续和娜塔莎玩吧，我没事的。"'
+		end
+	elseif NatbelQW['MotherState'] = 6:
+		'"<<$npc_nickname[''A191'']>>……你呃……你看起来不太高兴见到我。是我……是我做了什么吗？"'
+		if NatbelQW['pregday'] > 0 and (daystart-NatbelQW['pregday']) > 120:
+			'"唔，<<$pcs_nickname>>，我还在努力接受我女儿怀孕这个事实。如果我还不能坦然面对这个小事实，请原谅我。"'
+			if func('body_din', 'pregnancyVisibility') = 1:
+				'"我不知道你们这些女孩是怎么想的。你们至少应该做好防护。<<age>>岁就怀孕，你根本没准备好养孩子！"她生气地说，看着你明显隆起的小腹。'
+				'你被她的语气指责得低下了头，嘟囔着"对-对不起……"从她身边走过，进了走廊。'
+			else
+				'"我-我相信娜塔莎足够聪明，会为孩子做出正确的选择。她又善良又聪明，一定会成为一个好妈妈。"'
+				'<<$npc_nickname[''A191'']>>低下头，把目光从你身上移开，你从她身边走过，进了走廊。'
+			end
+		else
+			'"哦不，<<$pcs_nickname>>。是工作上的事。没什么好担心的。"'
+		end
+	end
+	act '继续': gt 'natbelapt', 'hallway'
+end
+
+
+!! This is the book carrying event in Natasha''s questline -- needs a check to see if it isn''t a holiday
+!! if (hour >= 6 and hour < 8 and week < 6) and NatbelQW['QWstage'] > 4 and NatbelQW['Debt'] > 0 and ???: to be added from the hallway in Sveta''s home?
+if $ARGS[0] = 'carrybooks':
+	menu_off = 1
+	if NatbelQW['QWstage'] = 4: NatbelQW['QWstage'] = 5
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/natgetreadyschool.jpg"></center>'
+	'当你去娜塔莎的公寓接她时，她母亲打开门，告诉你她在房间准备，于是你走过去。'
+	'你打开门，看到娜塔莎坐在小沙发上，正在拉上丝袜。'
+	'"准备好了吗？"你问她，把你的包放在她旁边。'
+
+	act '去上学':
+		minut += 9
+		gt 'gschool_grounds', 'main'
+	end
+	if NatbelQW['QWstage'] < 6:
+		'娜塔莎拿起你们俩的包，然后你们一起向学校走去。'
+	elseif NatbelQW['QWstage'] < 7:
+		gs 'willpower', 'exhib', 'force', 'easy'
+		if pcs_willpwr < will_cost:
+			act '掀起她的裙子' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '掀起她的裙子' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'exhib', 'force', 'easy'
+				gs 'willpower', 'pay', 'force'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/skirt.jpg"></center>'
+				'你忍不住掀起她的裙子，她转过身来拿你的包。"内裤真可爱，娜塔莎，和丝袜很配。"'
+				'娜塔莎回头看着你，脸颊微微泛红。"我……呃……谢谢你，<<$pcs_nickname>>。"她低声说道。'
+				'为了不让你这只小骡子被学校抢走，你让她把裙子重新放下，然后去学校。'
+				act '去上学':
+					minut += 9
+					gt 'gschool_grounds', 'main'
+				end
+			end
+		end
+	else
+		gs 'willpower', 'exhib', 'force', 'easy'
+		if pcs_willpwr < will_cost:
+			act '掀起她的裙子' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '掀起她的裙子' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'exhib', 'force', 'easy'
+				gs 'willpower', 'pay', 'force'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/skirt.jpg"></center>'
+				'你忍不住掀起她的裙子，她转过身来拿你的包。"内裤真可爱，娜塔莎，和丝袜很配。"'
+				'娜塔莎回头看着你，脸颊微微泛红。"我……呃……谢谢你，<<$pcs_nickname>>。"她说着，朝你害羞地红了脸。'
+				'"离上学还有点时间。"你一边对她说，一边开始脱掉她的裙子和内裤。'
+				'"今天你要换一种方式穿它们。"你说着，把她推回沙发上。"张开腿。"'
+				'娜塔莎顺从地为你张开双腿，展示她漂亮的阴部。你毫不浪费时间地开始玩弄她，先是摩挲她的阴唇，然后更专注地挑逗她的阴蒂，同时仔细观察着娜塔莎的阴部越来越湿。'
+				act '把她的内裤塞进去':
+					*clr & cla
+					NatbelQW['panty_stuff_day'] = daystart
+					'<center><video autoplay loop <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/sex/stuffpanties.mp4"></video></center>'
+					'你停止玩弄她的阴部，抓起她的内裤递给她。"把它们塞进你的阴道里。"'
+					'娜塔莎困惑地看了你一秒，然后开始慢慢地把它们推进自己的阴部。'
+					'当只剩下一小截、方便你随时拽出来的时候，她停了下来，期待地看着你。"这样吗，<<$pcs_nickname>>？"'
+					'你伸手把最后一点也推了进去，用手指按了一会儿，然后再抽出手指。'
+					'"今天在学校里，你就这样为我穿着你的内裤，娜塔莎。"你告诉她。"现在把裙子穿回去，不然我们要迟到了。'
+					act '去上学':
+						minut += 9
+						gt 'natbelEv', 'schoolwalk'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'schoolwalk':
+	if rand(0, 4) > 0:
+		gt 'gschool_grounds', 'main'
+	end
+
+	if NatbelQW['KolkaTease'] = 0: NatbelQW['KolkaTease'] = 1
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/tease.jpg"></center>'
+	'当你们走到楼梯底部时，你注意到科尔卡也正从上面下来。'
+	'决定稍微戏弄他一下，你抓住娜塔莎的裙角，把它拉起来，同时自己也弯下腰，让他看到你们两个人的屁股。'
+	'娜塔莎迅速拍开你的手，你们俩继续向学校走去。走出大厅时，你听不到科尔卡的脚步声。他一定是被眼前景象惊呆了，停在原地。'
+	act '继续去学校': gt 'gschool_grounds', 'main'
+end
+
+
+!! This is the cucumber event in Natasha''s questline
+if $ARGS[0] = 'laundry':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'natbelEv', 'laundry'
+	minut += 1
+	gs 'stat'
+
+	if NatashaLoc <> 7:
+		'这里没有人。这个房间不够大，不适合待着，所以你转身出去了。'
+		act '去走廊': gt 'natbelapt', 'hallway'
+		exit
+	end
+
+	$func('wrap', 'header center b', '洗衣房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/natbelapt/sex/natlaundry.jpg"></center>'
+	'你走进去，看到娜塔莎正打开机器。她转过身来，看到你站在门口。'
+	act '去她的房间': NatashaLoc = 2 & gt 'natbelapt', 'natroom'
+
+	if NatbelQW['cucumber'] = 0 or NatbelQW['QWstage'] < 10:
+		'"哦，嗨，<<$pcs_nickname>>，我们去我的房间吧"'
+		exit
+	end
+
+	gs 'willpower', 'mast', 'force', 'easy'
+	if pcs_willpwr < will_cost:
+		act '让她用黄瓜玩' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '让她用黄瓜玩' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'force'
+
+			if NatbelQW['QWstage'] = 10: NatbelQW['QWstage'] = 11
+			NatbelQW['cucumber'] = 0
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/natbelapt/sex/natashacucumber01.jpg"></center>'
+			'你挪开位置，让她坐在上面。'
+			'"我本来想我们可以在这里找点乐子。洗衣机的噪音应该能盖过一切声音。"你一边把黄瓜递给她一边说。'
+			'"这是干什么用的？"她问你。"我想看你把它滑进你的小穴里，娜塔莎。"你脸上带着兴奋的笑容对她说。'
+			'"太大了，塞不进去的。"她犹豫地想退缩。"我看你吃过更大的。现在张开腿，把自己弄湿，不然我现在就亲自塞进去。"你对她嘶声道。'
+			act '进一步':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/natbelapt/sex/natashacucumber02.jpg"></center>'
+				'娜塔莎脸上露出震惊的表情，往后缩了缩，然后顺从地开始玩弄自己的小穴。你能看出她已经湿了。"被支配让她真的很兴奋。"你心里想。'
+				'"洗-洗衣机的震动……"她开始轻声呻吟。'
+				'"你最好开始把小穴弄开，不然等下会很疼，贱货。"你继续用之前那种威胁的语气说。娜塔莎呻吟着把两根手指滑了进去。"还挺顺利，现在加一根。"你命令她，令你高兴的是，她立刻把第三根手指塞进了自己的阴道。'
+				'"很好，现在掰开你的小穴，我想在黄瓜进去之前最后看一眼。"你又嘶声道，想确保她依然立刻服从你的命令。'
+				'你微笑着，看着她用手为你掰开小穴，向你展示她有多湿淋淋。'
+				act '现在把它放进去':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/natbelapt/sex/natashacucumber03.jpg"></center>'
+					'娜塔莎发出一声大声的呻吟，把黄瓜塞进自己的小穴，尽管她咬着嘴唇试图保持安静。第一下就滑进去了一半。"你看，一点都不大。"你称赞她。"现在我想看你狠狠地操自己。继续。"'
+					'她巴不得服从。她疯狂地用力快速将那根大蔬菜在体内抽插。呻吟声越来越大。几分钟后，你便看到了她美妙的性高潮。她的双腿颤抖着，又继续操了自己一会儿，最后才把黄瓜完全拔出来，向后靠去。脸上泛着深深的红晕。'
+					'你俯身热情地吻了她，然后对她说："我们去你的房间吧。"'
+					act '去她的房间': NatashaLoc = 2 & gt 'natbelapt', 'natroom'
+				end
+			end
+		end
+	end
+end
+
+
+!! This is an event where Sveta can spy on Natasha in the shower
+if $ARGS[0] = 'showerspy':
+	*clr & cla
+	CLOSE ALL
+	menu_off = 1
+	gs 'npcStat', 'A16'
+
+	gs 'core_library', 'setloc', 'natbelapt', 'bathroom'
+	$location_type = 'bathroom'
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/sex/natshowerspy01.jpg"></center>'
+	'你尽可能轻地打开浴室门，透过门缝看到娜塔莎正坐在淋浴间里剃阴毛，完全沉浸在自己的整理中。'
+	gs 'arousal', 'voyeur', 5, 'lesbian'
+
+	if NatbelQW['QWstage'] < 5 and NatbelQW['FriendLover'] < 8:
+		'你不想再打扰她，决定让她自己待着，重新关上了门。'
+	elseif NatbelQW['QWstage'] >= 5:
+		gs 'willpower', 'voyeur', 'self', 'easy'
+		if pcs_willpwr < will_cost:
+			act '凑近看' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '凑近看' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'self'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/sex/natshowerspy02.jpg"></center>'
+				'为了看得更清楚，你走进浴室，随手关上了门。'
+				'"我看你是在把自己打扮得体面些。"你咧嘴笑着说，这打断了娜塔莎的专注，她抬起头看着你，脸上带着尴尬的表情。'
+				'她耸耸肩，继续剃毛。"就-就是感觉很好……你懂的……"她说道。'
+				'"是啊，我懂。刚剃过的皮肤摸起来真的很舒服。"你一边继续看她剃完毛一边说道。'
+				gs 'arousal', 'erotic_nudity', 5, 'lesbian'
+				if NatbelQW['QWstage'] >= 9:
+					act '在她冲洗时继续聊天':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/sex/natshowerspy02.jpg"></center>'
+						'娜塔莎剃完后，迅速冲掉残留的剃须膏，然后抬起头，脸上带着调皮的笑容看着你。'
+						'"这种感觉更棒。"她说着，一只手掰开阴唇，把剃刀的手柄插进小穴，轻轻推进去，又慢慢拔出来几次。'
+						'"今天某人心情真好。"你称赞她，看着娜塔莎在淋浴间里自慰，你自己的小穴也开始湿了。"我觉得我们应该去你的房间继续。"'
+						'娜塔莎迅速站起来，冲洗完整个身体，她走出淋浴间时，你递给她一条毛巾。'
+						'"别磨蹭太久。我在你的房间等你。"你对她说，然后离开了浴室。'
+						gs 'arousal', 'erotic_nudity', 5, 'lesbian'
+						gs 'arousal', 'end'
+						act '离开': gt 'natbelapt', 'natroom'
+					end
+				else
+					gs 'arousal', 'end'
+					'娜塔莎剃完后，迅速冲掉残留的剃须膏，她走出淋浴间时，你递给她一条毛巾。'
+					'"你在这里慢慢弄完吧。我在你的房间等你。"你对她说，然后离开了浴室。'
+					act '离开': gt 'natbelapt', 'natroom'
+				end
+			end
+		end
+	else
+		act '加入她':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/kissing_games/natasha36.jpg"></center>'
+			'你尽可能轻地打开浴室门，透过门缝看到娜塔莎正在洗澡。'
+			'娜塔莎发现你，咧嘴笑了。"哦，<<$pcs_nickname>>，你是来偷看我的吗？不如你进来和我一起洗？"'
+			'你笑着回答。"你这么快就被我发现了？看来你已经想念我性感的身材了？"'
+			'听到这话她脸一下子红了。你脱掉衣服走进来，先来了一个长长的吻，然后你们俩开始互相抹肥皂。'
+
+			gs 'arousal', 'erotic_nudity', 10, 'lesbian'
+			gs 'arousal', 'flash', -2, 'lesbian'
+			gs 'arousal', 'kiss', -1, 'lesbian'
+
+			gs 'natbelEv', 'shower_escalation'
+		end
+	end
+	act '离开': gt 'natbelapt', 'hallway'
+end
+
+
+if $ARGS[0] = 'showerevent1':
+	gs 'npcStat', 'A16'
+	menu_off = 1
+	inhib_exp += 1
+	'尽管水流哗哗作响，你还是听到浴室门打开的声音，抬头看到<<$npc_nickname[''A191'']>>走了进来。'
+	'"抱歉，亲爱的，你没回应我的敲门声，而我要上厕所。"'
+	if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被淋浴冲掉了。'
+	act '让她':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/natbelapt/sex/shower01.jpg"></center>'
+		'你把身体侧向一边，避开门口说："哦，没关系，<<$npc_nickname[''A191'']>>。这是你家。"'
+		'你转过身继续洗澡，背对着<<$npc_nickname[''A191'']>>，听到她小便的声音。听着她排尿、冲水、洗手，你感到有点尴尬，最后门终于又咔哒一声关上了。'
+		act '走出淋浴间': gt 'natbelapt', 'bathroom'
+	end
+	if pcs_inhib >= 50:
+		act '稍微逗逗她':
+			*clr & cla
+			inhib_exp += 3
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/natbelapt/sex/shower02.jpg"></center>'
+			'你直视着她，对她微微一笑，然后抬起一条腿，让她把你湿漉漉的裸体正面看得清清楚楚。"<<$npc_nickname[''A191'']>>"，你马上开口，"我想听听女人的意见。你觉得我的胸部够大吗？"'
+			'<<$npc_nickname[''A191'']>>看着你裸露的身体几秒钟，脸颊微微泛红。'
+			'"<<$pcs_nickname>>，你的胸部大小没什么问题。"'
+			'你继续洗澡，特意多照顾了一下自己的胸部。<<$npc_nickname[''A191'']>>坐在马桶上，你能听到她小便的声音。你有点兴奋，不时偷看她。最后她站起来，冲了水，洗了手，又把你一个人留在浴室里。'
+			gs 'arousal', 'flash', 2, 'lesbian'
+			gs 'arousal', 'erotic_nudity', 3, 'lesbian'
+			gs 'arousal', 'end'
+			act '走出淋浴间': gt 'natbelapt', 'bathroom'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'stinky_shower':
+	gs 'npcStat', 'A16'
+	*clr & cla
+	CLOSE ALL
+	menu_off = 1
+	minut += 10
+
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/kissing_games/natasha36.jpg"></center>'
+	'"哦，<<$pcs_nickname>>！我该怎么说呢？你需要洗个澡！"娜塔莎说这话时有点不好意思地脸红了。'
+	'"是啊，我想我确实需要，抱歉，我太匆忙没时间洗。呃……要一起吗？"'
+	'"你确定吗，<<$pcs_nickname>>？"'
+	'"当然确定！这从来都不是问题！"你笑着回答。'
+	'你们俩一起走进浴室，脱掉衣服。娜塔莎打开淋浴，先停下来热烈地亲吻，然后才进去，互相给对方抹肥皂。'
+
+	gs 'arousal', 'erotic_nudity', -2, 'lesbian'
+	gs 'arousal', 'flash', -1, 'lesbian'
+
+	noshampoo = 1
+	gs 'din_van', 'showerdin'
+
+	gs 'stat'
+
+	gs 'natbelEv', 'shower_escalation'
+end
+
+
+if $ARGS[0] = 'shower_escalation':
+	gs 'npcStat', 'A16'
+	act '升级':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/kissing_games/natasha37.jpg"></center>'
+		'你们无法把手从对方身上移开，亲吻迅速升级。'
+		'娜塔莎的手很快滑到你双腿之间，手指开始施展魔力。'
+		'你也不甘示弱，将腿挤进娜塔莎腿间，而她开始在你腿上磨蹭。'
+
+		gs 'arousal', 'foreplay', 3, 'lesbian'
+		gs 'arousal', 'kiss', 2, 'lesbian'
+		gs 'stat'
+
+		act '磨蹭':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/kissing_games/natasha38.jpg"></center>'
+			'不久之后，你向前倾身，把臀部往后顶向娜塔莎的阴部，开始在她身上磨蹭。'
+			'哦！操！ <<$pcs_nickname>>! 我要去了…"'
+			'你决定在最后一刻抽身…'
+
+			gs 'arousal', 'foreplay', 5, 'lesbian'
+			gs 'stat'
+
+
+			act '舔':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/kissing_games/natasha39.jpg"></center>'
+				'你把娜塔莎的头按到你的阴部，定在那里不动。'
+				'你的双腿开始像果冻一样发软，于是你坐到小石台上。'
+				'娜塔莎跪在你面前，分开你的双腿，立刻开始玩弄你的阴蒂，并舔舐你的下身。'
+				'尽管这酝酿和高潮似乎持续了一个世纪，其实只过了几分钟，你就准备在她嘴里泄了。'
+				'"不……还……不行……"你喘着气说。"去卧室……现在！"'
+
+				gs 'arousal', 'cuni', 5, 'lesbian'
+				gs 'stat'
+
+
+				act '床':
+					*clr & cla
+					minut += 5
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/girl/natasha/events/kissing_games/natasha40.jpg"></center>'
+					'一到床上，经过又长又热情的一吻后，你们双双躺下，跨在彼此腿上，开始来回磨蹭…来回磨蹭。'
+					'随着兴奋感加剧，你们都不约而同地加快了速度。'
+					'你们的动作越来越快，彼此推挤着，迅速逼近无法回头的临界点。'
+					'你全身的肌肉都绷紧并搏动。你的阴部湿透了，阴道不受控制地抽搐。'
+					'突然，娜塔莎的阴蒂涌出爱液，你们同时达到高潮，咬着嘴唇以免尖叫。'
+					'当你在余韵中慢慢平复，和娜塔莎依偎在一起时，她带着调皮的笑容轻声对你说："嗯，刚才真不错，<<$pcs_nickname>>，以后我们得再来一次。"'
+					'你抱住她回答。"没错，百分之百，不过我们得小心别在水里泡太久，皮肤都起皱了。"'
+
+					gs 'arousal', 'kiss', 1, 'lesbian'
+					$orgasm_or = 'yes'
+					gs 'arousal', 'trib', 5, 'lesbian', 'no_orgasm_msg'
+					gs 'arousal', 'end'
+
+
+					if $loc = 'natbelapt':
+						act '回到她的房间': gt 'natbelapt', 'natroom'
+					else
+						act '返回': gt $loc, $loc_arg
+						!! Hotel, dorm room, apartment or property.
+					end
+				end
+			end
+		end
+	end
+end
+
+
+--- natbelEv ---------------------------------

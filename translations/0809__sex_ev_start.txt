@@ -1,0 +1,1128 @@
+# sex_ev_start
+!! ------------------------- Booty Call Content Start -----------------------
+
+menu_off = 1
+
+!! Clears any sex_ev left behind by a prior encounter that didn''t end properly
+if $ARGS[0] = 'cold_reset':
+	$temp_starting_mood = $sex_ev['starting_mood']
+	killvar 'sex_ev'
+	if $temp_starting_mood ! '': $sex_ev['starting_mood'] = $temp_starting_mood
+	killvar 'temp_starting_mood'
+end
+
+if $ARGS[0] = 'initiate_pre':
+	killvar 'sex_ev'
+	$sex_ev['locat'] = $ARGS[2]
+	gs 'sex_ev_start', 'npcstat_init', $ARGS[1]
+	sex_ev['npc_stam'] = (30 * (2 * npc_vital + npc_agil + npc_stren) + 1000) / 13
+	gs 'npc_get_preference', $npcID, 'randomPosIndNeg', 'hair_color'
+	if $ngpPrefResult['HasPos'] ! '' and $ngpPrefResult['NotPos'] ! '' and pcs_haircol <= 3: sex_ev['boy_likes_hair'] = 1
+	if $sex_ev['locat'] = 'npc_home':
+		gs 'sex_ev_start', 'lover_home_img_init'
+	elseif $sex_ev['locat'] = 'hotel':
+		gs 'sex_ev_start', '<<$region>>_hotel_img_init'
+	elseif $sex_ev['locat'] = 'pc_home':
+		gs 'sex_ev_start', 'pc_home_img_init'
+	else
+		$sex_ev['loc'] = $sex_ev['locat']
+		msg '错误 1：sex_ev_start 的 initiate_pre 中 $ARGS[2] 有误。给定值为 ''<<$ARGS[2]>>''，而非 ''npc_home''、''pc_home'' 或 ''hotel'' '
+		!!other init
+	end
+	killvar 'ngpPrefResult'
+	date_ev_sex_continuation = (date_ev['npc_home_sex'] = 1) or (date_ev['pc_home_sex'] = 1) or (date_ev['hotel_sex'] = 1)
+	if date_ev_sex_continuation = 0 and (sex_ev['date_before_sex'] + sex_ev['sex_before_date']) = 0:
+		sex_ev['sex_before_date'] = 1
+	else
+		sex_ev['date_before_sex'] = 1
+	end
+	!! sex_ev['sex_before_date'] is to check if the player is going straight into sex or had a date before hand
+	if date_ev_sex_continuation:
+		if date_ev['npc_home_sex'] = 1:
+			xgt 'sex_ev_start', 'date_npc_home_start'
+		elseif date_ev['pc_home_sex'] = 1:
+			xgt 'sex_ev_start', 'date_pc_home_start'
+		else
+			xgt 'sex_ev_start', 'date_hotel_start'
+		end
+	elseif instr(';dating;fuckbuddy;sugar_daddy;daddy;boyfriend;girlfriend;husband;wife;', ';<<$npcRelat>>;') > 0:
+		xgt 'sex_ev_start', 'lover_initiate', $sex_ev['loc']
+	elseif $mid($npcRelat, 1, 3) = 'ex-':
+		!! gs 'sex_ev_start', 'ex-lover_initiate', $sex_ev['loc']
+		xgt 'sex_ev_start', 'lover_initiate', $sex_ev['loc']
+	else
+		gs 'sex_ev_start', 'hookup_initiate'
+		gs 'sex_ev_start', 'begin'
+		xgt 'sex_ev_start', 'undress_menu'
+	end
+end
+
+if $ARGS[0] = 'npcstat_init':
+	if $ARGS[1] ! '':
+		gs 'npcStat', $ARGS[1]
+		dynamic $npc_preferences[$npcID]
+	end
+end
+
+if $ARGS[0] = 'neighborhood_image':
+	if $loc = 'pav_residential':
+		if month >= 11 or month <= 3:
+			if daystage = 2 or daystage = 3:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavreswinter.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavreswintern.jpg"></center>'
+			end
+		else
+			if daystage = 2 or daystage = 3:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavres.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavresn_'+ rand(1, 2) +'.jpg"></center>'
+			end
+		end
+	elseif $loc = 'city_residential':
+		if month >= 11 or month <= 3:
+			if daystage = 2 or daystage = 3:
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/streetw.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/streetwn.jpg"></center>'
+			end
+		else
+			if daystage = 2 or daystage = 3:
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/street.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/street_night.jpg"></center>'
+			end
+		end
+	elseif $loc = 'city_center':
+		if month >= 11 or month <= 3:
+			if daystage = 2 or daystage = 3:
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/downw.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/downwn.jpg"></center>'
+			end
+		else
+			if daystage = 2 or daystage = 3:
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/down.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/down_night.jpg"></center>'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'exit_set':
+	!! exit should be based on type of apartment and location
+	if $sex_ev['loc'] = 'pc_home':
+		gt $home['bedroom'], $home['bedroom_arg']
+	else
+		if npc_residence[$npcID] = 1:
+			!! Pav residential exit
+			gt 'pav_residential'
+		elseif npc_residence[$npcID] = 2:
+			!! Student dorms exit
+			gt 'city_island'
+		elseif npc_residence[$npcID] = 3:
+			!! St. Petersburg Residential exit
+			gt 'city_residential'
+		elseif npc_residence[$npcID] = 4:
+			!! St. Petersburg City Center exit
+			gt 'city_center'
+		else
+			if $region = 'pav':
+				gt 'pav_residential'
+			elseif $region = 'gad':
+				gt 'gadukino'
+			elseif $region = 'city':
+				gt 'city_residential'
+			elseif $region = 'pushkin':
+				gt 'pushkin'
+			else
+				gt 'city_residential'
+			end
+		!!{ disabled for bug testing
+			if $region = 'pav':
+				gt 'pav_residential'
+			elseif $region = 'pav':
+				gt 'pav_commercial'
+			elseif $region = 'pav_park':
+				gt 'pav_park', 'start'
+			elseif $region = 'city':
+				gt 'city_residential'
+			elseif $region = 'city_center':
+				gt 'city_center'
+			elseif $region = 'city_park':
+				gt 'city_park', 'start'
+			elseif $region = 'city_island':
+				gt 'city_island'
+			end}
+		end
+	end
+end
+
+if $ARGS[0] = 'lover_initiate':
+	if $npcRelat = 'husband' or $npcRelat = 'wife':
+		$sex_ev['type'] = 'married_sex'
+	elseif $npcRelat = 'boyfriend' or $npcRelat = 'girlfriend' or $npcRelat = 'dating':
+		$sex_ev['type'] = 'dating_sex'
+	elseif $npcRelat = 'fuckbuddy':
+		$sex_ev['type'] = 'booty_call'
+	elseif $npcRelat = 'daddy':
+		$sex_ev['type'] = 'booty_call'
+	elseif $mid($npcRelat, 1, 3) = 'ex-':
+		$sex_ev['type'] = 'booty_call'
+	end
+
+	if date_ev['npc_home_sex'] = 1:
+		gt 'sex_ev_start', 'date_npc_home_start'
+	elseif date_ev['pc_home_sex'] = 1:
+		gt 'sex_ev_start', 'date_pc_home_start'
+	elseif date_ev['hotel_sex'] = 1:
+		gt 'sex_ev_start', 'date_hotel_start'
+	else
+		if $sex_ev['type'] = 'booty_call' or $sex_ev['type'] = 'dating_sex':
+			if $npcRelat = 'daddy': sugar_daddy_call[$npcID] = 1
+			if $ARGS[1] = 'npc_home':
+				gs 'sex_ev_start', 'lover_home_img_init'
+				if (booty_call_invite[$npcID] = daystart or npc_booty_call_date[$npcID] = daystart or npc_booty_call_date[$npcID] = daystart) and npc_last_booty_call[$npcID] ! daystart:
+					if $booty_call_hotel[$npcID] = '':
+						gt 'sex_ev_start', 'fb_invited_start', 'npc_home'
+					else
+						gs 'sex_ev_start', 'neighborhood_image'
+						'你敲了敲<<$npcdesc>>的门，但没人应门。'
+						'<<$Xec>>大概正在酒店等你。'
+						act '离开': gt $loc, $loc_arg
+					end
+				elseif $npcRelat = 'fuckbuddy' and func('lover_schedule', 'is_free', $npcID) and npc_last_booty_call[$npcID] ! daystart and npc_no_booty_call[$npcID] ! daystart:
+					!! daddies disabled until cheating events can be established
+					gt 'sex_ev_start', 'fb_uninvited_start'
+				else
+					gs 'sex_ev_start', 'neighborhood_image'
+					'你敲了敲<<$npcdesc>>的门，但没人应门。'
+					act '离开': gt $loc, $loc_arg
+				end
+			elseif $ARGS[1] = 'hotel_room':
+				gt 'sex_ev_start', 'fb_invited_start', 'hotel_room'
+			else
+				msg '这里有个错误！请告诉 hornguy6 和 anjuna：sex_ev_start 中 lover_initiate 的 $ARGS[1] 是 ''<<$ARGS[1]>>''，而不是 ''npc_home'' 或 ''hotel_room''。你现在会被安全传送到街道上。'
+				gs 'sex_ev_start', 'neighborhood_image'
+				'你敲了敲<<$npcdesc>>的门，但没人应门。'
+				act '离开': gt $loc, $loc_arg
+			end
+		else
+			msg '这里有个错误！请告诉 hornguy6 和 anjuna：sex_ev_start 中的<<$sex_ev[''type'']>>有误，lover_initiate 是 ''<<$sex_ev[''type'']>>''，而不是 ''booty_call''。你现在会被安全传送到街道上。'
+			gs 'sex_ev_start', 'neighborhood_image'
+			'你敲了敲<<$npcdesc>>的门，但没人应门。'
+			act '离开': gt $loc, $loc_arg
+		end
+	end
+end
+
+if $ARGS[0] = 'hookup_initiate':
+	if $npcID ! $npclastgenerated and $npcID ! $npclastsaved:
+		if npcgen_lastrun >= 1 and npcgen_lastrun <= 2:
+			gs 'npcStat', $npclastgenerated
+		end
+	elseif $mid($npcID, 1, 1) = 'C':
+		gs 'npcpreservec', $npclastgenerated
+		gs 'npcStat', $npclastsaved
+	end
+	dynamic $npc_preferences[$npcID]
+	$npc_rel_type[$npcID] = 'hookup'
+	$npcRelat = 'hookup'
+	$sex_ev['type'] = 'hookup'
+	stat['hookup_count'] += 1
+	if arrpos('$hookup_partners', $npcID) < 0: $hookup_partners[] = $npcID
+	stat['last_hookup'] = daystart
+end
+
+if $ARGS[0] = 'pc_home_img_init':
+	$sex_ev['loc'] = 'pc_home'
+	if $loc = 'korrPar' or $home['current'] = 'parents_home':
+		$sex_ev['bed_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/bedrpar.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		$sex_ev['bath_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/vanrpar.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		$sex_ev['kitchen_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/kuhrpar.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		$sex_ev['living_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/sitrpar.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		$sex_ev['hall_way'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/korrpar.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	end
+end
+
+if $ARGS[0] = 'lover_home_img_init':
+	$sex_ev['loc'] = 'npc_home'
+	$sex_ev['bed_room'] = '<center><<$npc_apt_bedroom[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['bath_room'] = '<center><<$npc_apt_bathroom[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['kitchen_room'] = '<center><<$npc_apt_kitchen[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['living_room'] = '<center><<$npc_apt_livingroom[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['hall_way'] = '<center><<$npc_apt_hall[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+end
+
+if $ARGS[0] = 'pav_hotel_img_init':
+	$sex_ev['loc'] = 'hotel_room'
+	$sex_ev['bed_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.normal.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['bath_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.normal1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['kitchen_room'] = 'none'
+	$sex_ev['living_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.normal.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['hall_way'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.normal.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+end
+
+if $ARGS[0] = 'city_hotel_img_init':
+	$sex_ev['loc'] = 'hotel_room'
+	$sex_ev['bed_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['bath_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	$sex_ev['kitchen_room'] = 'none'
+	$sex_ev['living_room'] = 'none'
+	$sex_ev['hall_way'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+end
+
+if $ARGS[0] = 'fb_npc_home_start':
+!!	gs 'npcStat', $ARGS[1]
+	$sex_ev['type'] = 'booty_call'
+	if (booty_call_invite[$npcID] = daystart or npc_booty_call_date[$npcID] = daystart or npc_booty_call_date[$npcID] = daystart) and npc_last_booty_call[$npcID] ! daystart:
+		gt 'sex_ev_start', 'fb_invited_start'
+	elseif func('lover_schedule', 'is_free', $npcID) and npc_last_booty_call[$npcID] ! daystart and npc_no_booty_call[$npcID] ! daystart:
+		gt 'sex_ev_start', 'fb_uninvited_start'
+	else
+		gs 'sex_ev_start', 'neighborhood_image'
+		'你敲了敲<<$npcdesc>>的门，但没人应门。'
+		act '离开': gt $loc
+	end
+end
+
+if $ARGS[0] = 'fb_npc_home_fast_start':
+	gs 'sex_ev_start', 'begin'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'date_npc_home_start':
+!!	gs 'npcStat', $ARGS[1]
+	if arrpos('$lover', $npcID) < 0:
+		$sex_ev['type'] = 'hookup'
+	elseif $npc_rel_type[$npcID] = 'fuckbuddy':
+		$sex_ev['type'] = 'booty_call'
+	else
+		$sex_ev['type'] = 'lover_sex'
+	end
+	gs 'sex_ev_start', 'begin'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'date_pc_home_start':
+!!	gs 'npcStat', $ARGS[1]
+	if $sex_ev['type'] = '': $sex_ev['type'] = 'lover_sex'
+	gs 'sex_ev_start', 'begin'
+	gs 'sex_ev_start', 'pc_home_img_init'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'date_hotel_start':
+!!	gs 'npcStat', $ARGS[1]
+	if $sex_ev['type'] = '': $sex_ev['type'] = 'lover_sex'
+	gs 'sex_ev_start', 'begin'
+	if $region = 'pav':
+		gs 'sex_ev_start', 'pav_hotel_img_init'
+	else
+		gs 'sex_ev_start', 'city_hotel_img_init'
+	end
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'unique_pc_home_start':
+	sex_ev['unique_npc'] = 1
+	gs 'sex_ev_start', 'pc_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'hookup_pc_home_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[2] = 'prostitute':
+		sex_ev['prostitution_price'] = ARGS[3]
+		gs 'sex_ev_stats', 'prostitution_init'
+	end
+	gs 'sex_ev_start', 'hookup_initiate'
+	gs 'sex_ev_start', 'pc_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'hookup_npc_home_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[2] = 'prostitute':
+		sex_ev['prostitution_price'] = ARGS[3]
+		gs 'sex_ev_stats', 'prostitution_init'
+	end
+	gs 'sex_ev_start', 'hookup_initiate'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'pc_home_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[2] = 'prostitute':
+		sex_ev['prostitution_price'] = ARGS[3]
+		gs 'sex_ev_stats', 'prostitution_init'
+	end
+	if $ARGS[1] = 'hookup': gs 'sex_ev_start', 'hookup_initiate'
+	gs 'sex_ev_start', 'pc_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'npc_home_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[2] = 'prostitute':
+		sex_ev['prostitution_price'] = ARGS[3]
+		gs 'sex_ev_stats', 'prostitution_init'
+	end
+	if $ARGS[1] = 'hookup': gs 'sex_ev_start', 'hookup_initiate'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'hookup_hotel_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[2] = 'prostitute':
+		sex_ev['prostitution_price'] = ARGS[3]
+		gs 'sex_ev_stats', 'prostitution_init'
+	end
+	gs 'sex_ev_start', 'hookup_initiate'
+	if $region = 'pav':
+		gs 'sex_ev_start', 'pav_hotel_img_init'
+	else
+		gs 'sex_ev_start', 'city_hotel_img_init'
+	end
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'hotel_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[2] = 'prostitute':
+		sex_ev['prostitution_price'] = ARGS[3]
+		gs 'sex_ev_stats', 'prostitution_init'
+	end
+	if $ARGS[1] = 'hookup': gs 'sex_ev_start', 'hookup_initiate'
+	if $region = 'pav':
+		gs 'sex_ev_start', 'pav_hotel_img_init'
+	else
+		gs 'sex_ev_start', 'city_hotel_img_init'
+	end
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'hookup_party_start':
+	gs 'sex_ev_start', 'hookup_initiate'
+	$sex_ev['loc'] = 'house_party'
+	$sex_ev['bed_room'] = '<center><img <<$set_imgh>> src="images/shared/romance/lovers/homes/multibedroom/<<rand(1, 2)>>/bedroom.jpg"></center>'
+	sex_ev['action_restricted'] = 1
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'unique_npc_start':
+	sex_ev['unique_npc'] = 1
+	gs 'boy_updater', 'unique_NPC_stat_seed'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'unique_npc_bed_start':
+	sex_ev['unique_npc'] = 1
+	gs 'boy_updater', 'unique_NPC_stat_seed'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	gs 'sex_ev_start', 'begin'
+	gs 'sex_ev_clothing', 'undress_function'
+	gs 'sex_ev_foreplay', 'bed_start'
+end
+
+if $ARGS[0] = 'begin':
+	$location_type = 'event'
+	gs 'themes', 'indoors'
+	if minut > 45:
+		sex_ev['start_hour'] = hour + 1
+	else
+		sex_ev['start_hour'] = hour
+	end
+	gs 'sex_ev_stats', 'starting_stats'
+	gs 'sex_ev_stats', 'npc_update'
+	if sugar_daddy_call[$npcID] = 1 or sex_ev['prostitution'] = 1:
+		$sex_ev['prostitution_flag'] = 'prostitution'
+		sex_ev['prostitution'] = 1
+		npc_sugar_daddy_timer[$npcID] = daystart + 10
+	end
+	if sex_ev['prostitution'] = 1: gs 'sex_ev_stats', 'prostitution_pay_calc'
+	if $npc_rel_type[$npcID] = 'fuckbuddy': npc_last_booty_call[$npcID] = daystart
+end
+
+if $ARGS[0] = 'fb_hotel_start':
+	gs 'sex_ev_start', 'cold_reset'
+	if $region = 'pav':
+		gs 'sex_ev_start', 'pav_hotel_img_init'
+	else
+		gs 'sex_ev_start', 'city_hotel_img_init'
+	end
+	gs 'sex_ev_start', 'begin'
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'fb_invited_start':
+!!	$loc = 'sex_ev_start'
+!!	$loc_arg = 'fb_invited_start'
+!!	savegame 'autosave_sex_ev.sav'
+	gs 'sex_ev_start', 'cold_reset'
+	if $ARGS[1] = 'hotel_room':
+		gs 'sex_ev_start', '<<$region>>_hotel_img_init'
+	else
+		gs 'sex_ev_start', 'lover_home_img_init'
+	end
+	gs 'sex_ev_start', 'begin'
+	$sex_ev['hall_way']
+	'你敲了敲门，<<$npcdesc>>把门打开了。'
+	if pcs_sweat > 29:
+!!		if AlbinaQW['startletsday'] = daystart:
+			act '没时间':
+				cla & *nl
+				'"我没时间打理，"你微微一笑。"一看到你的消息我就立刻赶来了。"'
+				gs 'sex_ev_start', 'fuck_or_what'
+				gs 'sex_ev_shower', 'before_borrow_shower'
+			end
+			if stat['last_workout'] > totminut - 120:
+				act '在锻炼':
+					cla & *nl
+					if npc_gymrat[$npcID] = 1:
+						'"嗯，"你回以微笑。'
+					else
+						'"你发消息那会儿我正在健身，"你耸耸肩。'
+					end
+					gs 'sex_ev_start', 'fb_sweaty'
+				end
+			end
+
+			if stat['dance_day'] = daystart or AlbinaQW['startletsday'] = daystart:
+				act '刚从舞蹈课回来':
+					cla & *nl
+					'"我直接从舞蹈训练赶来的，"你耸耸肩。'
+					gs 'sex_ev_start', 'fb_sweaty'
+				end
+			end
+
+!!{			act 'Came from football':
+				cla & *nl
+				'"我看到你的消息时正在踢足球，"你耸耸肩。'
+					gs 'sex_ev_start', 'fb_sweaty'
+			end}
+
+			if stat['volleyball_day'] = daystart:
+				act '刚从排球训练回来':
+					cla & *nl
+					'"我直接从排球训练赶来的，"你耸耸肩。'
+					gs 'sex_ev_start', 'fb_sweaty'
+				end
+			end
+			if stat['run_day'] = daystart:
+				act '我刚才在跑步':
+					cla & *nl
+					'"你发消息那会儿我正在跑步，"你耸耸肩。'
+					gs 'sex_ev_start', 'fb_sweaty'
+				end
+			end
+
+			act '刚下班回来':
+				cla & *nl
+				'"我一下班就赶过来了，"你耸耸肩。"不想先回家洗澡收拾。"'
+				gs 'sex_ev_start', 'fuck_or_what'
+				gs 'sex_ev_shower', 'before_borrow_shower'
+			end
+
+			gs 'sex_ev_start', 'couldnt_wait'
+!!		end
+		if pcs_sweat > 39 and npc_gymrat[$npcID] < 1:
+			if npc_argumentative[$npcID] = 1:
+				'"搞什么鬼？"他皱着鼻子说。"你身上好臭。"'
+			else
+				'"今天味道有点冲啊？"他说着，你汗湿的身体散发的气味让他皱了皱眉，不过他还是苦笑了一下。'
+			end
+		elseif pcs_sweat > 29:
+			if rand(1, 2) = 1:
+				'"我是不是打断了你的健身？"他坏笑着，上下打量着你汗湿的身体。'
+			else
+				'"嗨，"他饶有兴味地上下打量你汗湿的身体。"你浑身都湿透了。"'
+				if pcs_horny >= 70:
+					act '嗯':
+						cla & *nl
+						'"嗯，"你沙哑地说，让欲望透进声音里。<<$npcdesc>>与你对视了那么一瞬间。'
+						'"上床？"'
+						'"现在，"你气喘吁吁地冲了进去。'
+						act '衣服。脱掉。现在。': gt 'sex_ev_clothing', 'frantic_undress'
+					end
+				end
+			end
+		end
+	else
+		if npc_selfish[$npcID] > 0 and rand(0,1) = 1:
+			'"操，你终于来了，"他说。'
+		else
+			'"嗨，"他朝你咧嘴一笑。'
+		end
+		act '嘿':
+			cla & *nl
+			'"嗨，"你回以微笑。"那么……"'
+			if npc_selfish[$npcID] > 0 and rand(0,1) = 1:
+				'"让我们脱光你吧，"<<$npcdesc>>说着，把你拉进屋里，并立刻开始拉扯你的衣服。'
+			else
+				'"进来吧，"他说着，把你领进屋。'
+			end
+			xgt 'sex_ev_clothing', 'undress_menu'
+		end
+
+		act '闭嘴，我们来做爱吧':
+			cla & *nl
+			if npc_apt_type[$npcID] < 3:
+				'"闭嘴，快干我吧，"你说着，双手按在他胸口，把他朝床那边推进去。"我来就是为了干。那就干吧。"'
+			else
+				'"闭嘴，快干我吧，"你说着，双手按在他胸口，把他往卧室里推。"我来就是为了干。那就干吧。"'
+			end
+			xgt 'sex_ev_clothing', 'undress_menu'
+		end
+
+		if pcs_makeup > makeup['base']:
+			act '别弄乱我的妆':
+				sex_ev['dont_ruin_makeup'] = 1
+				cla & *clr
+				$sex_ev['hall_way']
+				if npc_apt_type[$npcID] < 3:
+					'"别弄花我的妆，"你说着，从他身边走过，朝床走去。'
+				else
+					'"别弄花我的妆，"你说着，从他身边走过，朝卧室走去。'
+				end
+				gs 'sex_ev_clothing', 'undress_menu'
+				if date = daystart and date_hour_meet <= hour + 1:
+					act '我马上有约会':
+						cla & *clr
+						$sex_ev['hall_way']
+						sex_ev['date_soon'] = 1
+						if npc_apt_type[$npcID] < 3:
+							'"别弄花我的妆，"你说着，从他身边走过朝床走去。"完事之后我马上有个约会。"'
+						else
+							'"别弄花我的妆，"你说着，从他身边走过朝卧室走去。"完事之后我马上有个约会。"'
+						end
+						xgt 'sex_ev_clothing', 'undress_menu'
+					end
+				elseif date = daystart:
+					act '我晚点有约会':
+						cla & *clr
+						$sex_ev['hall_way']
+						sex_ev['date_soon'] = 1
+						if npc_apt_type[$npcID] < 3:
+							'"别弄花我的妆，"你说着，从他身边走过朝床走去。"我晚点有个约会。我可不想重来一遍。"'
+						else
+							'"别弄花我的妆，"你说着，从他身边走过朝床走去。"我晚点有个约会。我可不想重来一遍。"'
+						end
+						xgt 'sex_ev_clothing', 'undress_menu'
+					end
+				end
+				if hour >= 18 and $region = 'pav' and (week = 5 or week = 6):
+					act '我要去迪斯科':
+						cla & *clr
+						$sex_ev['hall_way']
+						sex_ev['disco_after'] = 1
+						!!if npc_apt_type[$npcID] < 3:
+							'"别弄花我的妆，"你任他把你拉进屋时说。"完事之后我要去迪斯科。"'
+						!!else
+						!!	'"Don''t mess up my makeup," you say, walking past him towards the bedroom. "I''m going to the disco after this."'
+						!!end
+						xgt 'sex_ev_clothing', 'undress_menu'
+					end
+				end
+			end
+		end
+		if kanikuli = 0 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0 and week < 6 and hour < 9 and hour >= 6:
+			act '快点（学校）':
+				cla & *nl
+				'"我们快点吧，"你说。"我还得赶去上课。"'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+		end
+		if mc_inventory['normal_condoms'] > 0 and $npc_bareback[$npcID] = '':
+			act '我带了避孕套':
+				pc_buy_condoms[$npcID] = 2
+				cla & *nl
+				'"我带了避孕套，"你咧嘴一笑，拿起套子给他看。'
+				if know_virgin[$npcID] = 1:
+					'<<$npcdesc>>敬畏地瞪大眼睛。'
+					'"那意思是……？"'
+					'"进来不就知道了，"你说着走了进去。'
+				else
+					'"操，太棒了，"他说着把你拽了进去。'
+				end
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+		end
+		if mc_inventory['morning_after_pill'] > 0 and npc_know_bc[$npcID] = 0:
+			act '带了事后避孕药':
+				cla
+				sex_ev['skip_condom'] = 1
+				!! sex_ev['no_condom'] = 1
+				sex_ev['ma_pill'] = 1
+				act '不戴套':
+					cla & *clr
+					$sex_ev['hall_way']
+					'"我带了紧急避孕药，"你在他耳边低语。"<i>今天我们可以不戴套了。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+
+				act '射进我里面':
+					sex_ev['creampie_allowance'] = 1
+					cla & *clr
+					$sex_ev['hall_way']
+					'"我带了紧急避孕药，"你在他耳边低语。"<i>把精液射满我里面吧。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+			end
+		end
+		if $pantyworntype = 'none' and $braworntype = 'none':
+			act '告诉他你没穿内裤':
+				sex_ev['commando'] = 1
+				cla & *clr
+				$sex_ev['hall_way']
+				'你走进去并靠近<<$npcdesc>>. 你靠过去并在他耳边低语……'
+				*nl
+				'<i>"我里面什么都没穿。"</i>'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+		end
+		if birth_control['think_safe'] = 1 and npc_know_bc[$npcID] = 0:
+			act '告诉他你在吃避孕药':
+				gs 'sex_ev_stats', 'birth_control_know'
+				cla & *clr
+				$sex_ev['hall_way']
+				'你走进去并靠近<<$npcdesc>>. 你靠过去并在他耳边低语……'
+				*nl
+				act '不戴套':
+					cla & *clr
+					$sex_ev['hall_way']
+					if npc_know_bc_not_effective[$npcID] = 1 or npc_bc_promise[$npcID] = 1:
+						'"<i>我的避孕措施已经准备好了。今天咱们不戴套吧。</i>"'
+					else
+						'"<i>我现在在避孕。今天咱们不戴套吧。</i>"'
+					end
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+
+				act '今天可以内射':
+					sex_ev['creampie_allowance'] = 1
+					cla & *clr
+					$sex_ev['hall_way']
+					if npc_know_bc_not_effective[$npcID] = 1 or npc_bc_promise[$npcID] = 1:
+						'"<i>我的避孕措施已经准备好了。你可以射进我里面。</i>"'
+					else
+						'"<i>我现在在避孕。你可以射进我里面。</i>"'
+					end
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+			end
+		elseif mesec > 0:
+			act '"我来月经了"':
+				cla & *clr
+				$sex_ev['hall_way']
+				'你走进去并靠近<<$npcdesc>>. 你靠过去并在他耳边低语……'
+				*nl
+				act '不戴套':
+					cla & *clr
+					$sex_ev['hall_way']
+					'"<i>我现在正来月经。今天咱们不戴套吧。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+
+				act '射进我里面':
+					sex_ev['creampie_allowance'] = 1
+					cla & *clr
+					$sex_ev['hall_way']
+					'"<i>我现在正来月经。你可以射进我里面。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+			end
+		end
+
+		if npc_shave_promise[$npcID] > 0 and $npc_shave_promise_style[$npcID] = $pube_style['word']:
+			npc_shave_promise[$npcID] = 0
+			if $npc_shave_promise_style[$npcID] = 'shaved':
+				act '告诉他你剃毛了':
+					cla & *clr
+					$sex_ev['hall_way']
+					'"我也有个特别的惊喜，"你说着，走进屋里靠近<<$npcdesc>>。你凑到他耳边低语，"<i>我为你把阴毛剃干净了。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+			elseif $npc_shave_promise_style[$npcID] = 'trimmed':
+				act '告诉他你剃毛了':
+					cla & *clr
+					$sex_ev['hall_way']
+					'"我也有个特别的惊喜，"你说着，走进屋里靠近<<$npcdesc>>。你凑到他耳边低语，"<i>我为你把阴毛修剪好了。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+			else
+				act '告诉他你留着阴毛':
+					cla & *clr
+					$sex_ev['hall_way']
+					'"我也有个特别的惊喜，"你说着，走进屋里靠近<<$npcdesc>>。你凑到他耳边低语，"<i>我的阴毛已经长回来了。</i>"'
+					xgt 'sex_ev_clothing', 'undress_menu'
+				end
+			end
+		end
+!!	act 'Stumble over to the couch': gt 'sex_ev_start', 'couch_start'
+	end
+	gs 'sex_ev_start', 'immediate_breakup'
+end
+
+if $ARGS[0] = 'couldnt_wait':
+	act '等不及了':
+		cla & *nl
+		'"我等不及了，"你咧嘴一笑。"<i>不能</i>再等。去卧室？"'
+		'"去卧室，"他点点头，把你拽了进去。'
+		act '衣服。脱掉。现在。': gt 'sex_ev_clothing', 'frantic_undress'
+	end
+end
+
+if $ARGS[0] = 'fuck_or_what':
+	act '我们到底做不做爱？':
+		cla & *nl
+		'"那我们是干还是不干，还是你就打算一直杵在那儿？"你咧嘴一笑。'
+		'<<$npcdesc>>一句话也没说，只是抓住你的胳膊，把你拽了进去。'
+		act '衣服。脱掉。现在。': gt 'sex_ev_clothing', 'frantic_undress'
+	end
+end
+
+
+if $ARGS[0] = 'fb_sweaty':
+	if npc_gymrat[$npcID] = 1 or $npc_apt_spare[$npcID] = 'gym':
+		gs 'sex_ev_start', 'fuck_or_what'
+		gs 'sex_ev_shower', 'before_borrow_shower'
+	else
+		'"你就不能先洗个澡吗？"'
+		gs 'sex_ev_start', 'couldnt_wait'
+		gs 'sex_ev_shower', 'before_borrow_shower'
+	end
+end
+
+if $ARGS[0] = 'fb_uninvited_start':
+	gs 'sex_ev_start', 'cold_reset'
+	gs 'sex_ev_start', 'begin'
+	gs 'sex_ev_start', 'lover_home_img_init'
+	$sex_ev['hall_way']
+	'你敲了敲门，听到门闩解锁，门打开了。'
+	act '我正好在附近':
+		cla & *nl
+		'"嗨，"你朝惊讶地眨着眼的<<$npcdesc>>微笑。"我正好在附近，忽然就想起你，想着你是不是想……胡闹一下什么的？"'
+		if npc_booty_call_date[$npcID] = daystart:
+			'"我刚想给你发消息呢，"他咧嘴一笑。'
+			'"那我到底进不进来？"你回以一笑。'
+		else
+			'"你就不能先打个电话吗？"'
+			'你耸耸肩。'
+			'"想给你个惊喜。那我到底进不进来？"'
+		end
+
+		if rand(1, 10) < npc_sexdrive[$npcID]:
+			if $npc_humor[$npcID] = 'perverted' and $npc_cum_pref[$npcID] = 'creampie':
+				'"要射进去的只有我，"他说着，色眯眯地盯着你的屁股，侧身让你进来。'
+			elseif $npc_humor[$npcID] = 'perverted' and $npc_cum_pref[$npcID] = 'mouth':
+				'"要射进去的只有我，"他说着，色眯眯地盯着你的屁股，侧身让你进来。"我是说射进你嘴里。"'
+			elseif npc_booty_call_date[$npcID] = daystart:
+				'"只要这些衣服能在接下来的 10 秒里脱下来，"他说着，色眯眯地盯着你的屁股，侧身让你进来。'
+			else
+				'"送上门的免费炮，我自然不会拒绝，"他坏笑着，侧身让你进来，色眯眯地盯着你走过的屁股。'
+			end
+			xgt 'sex_ev_clothing', 'undress_menu'
+		else
+			gs 'sex_ev_start', 'uninvited_deny'
+		end
+	end
+
+	act '惊喜！':
+		cla & *nl
+		if rand(1, 10) < npc_sexdrive[$npcID]:
+			'"惊喜！"你兴高采烈地冲受惊的<<$npcdesc>>喊道。"我正好路过，想着不如进来看看，看你愿不愿意玩玩？"你朝他咧嘴一笑，暗示地挑了挑眉。'
+			'"送上门的免费炮，我自然不会拒绝，"他坏笑着，侧身让你进来，色眯眯地盯着你走过的屁股。'
+			xgt 'sex_ev_clothing', 'undress_menu'
+		else
+			gs 'sex_ev_start', 'uninvited_deny'
+		end
+	end
+
+	act '我需要好好干一场':
+		cla & *nl
+		if rand(1, 10) < npc_sexdrive[$npcID]:
+			'<<$npcdesc>>站在那里目瞪口呆，而你上前一步，把手放在他的胸口。'
+			'"我需要好好干一场，现在就要，"你说。'
+			'片刻间，你带着炽热的目光凝视着他的眼睛，然后他把你拽进屋内，砰地关上了门。'
+			xgt 'sex_ev_clothing', 'undress_menu'
+		else
+			gs 'sex_ev_start', 'uninvited_deny'
+		end
+	end
+	gs 'sex_ev_start', 'immediate_breakup'
+end
+
+if $ARGS[0] = 'uninvited_deny':
+	npc_no_booty_call[$npcID] = daystart
+	'"你应该先发个消息的，"<<$npcdesc>>摇摇头说。"我现在没兴致，改天吧。"'
+	'他猛地关上了门，留下欲火焚身的你独自站在门外。'
+	act '离开': gt $loc
+end
+
+if $ARGS[0] = 'girlfriend_surprise1':
+	'你敲了敲门，听到门闩解锁，门打开了。'
+	act '我正好在附近':
+		cla & *nl
+		'"嗨，我正好路过——"你刚要露出笑容就僵住了，因为你发现眼前的人并不是<<$npcdesc>>，而是另一个女人。'
+
+	end
+
+	act '惊喜！':
+		cla & *nl
+		'"惊喜！"你兴高采烈地冲受惊的<<$npcdesc>>喊道。"我正好路过，想着不如进来看看，看你愿不愿意玩玩？"你朝他咧嘴一笑，暗示地挑了挑眉。'
+		'"送上门的免费炮，我自然不会拒绝，"他坏笑着，侧身让你进来，色眯眯地盯着你走过的屁股。'
+		xgt 'sex_ev_clothing', 'undress_menu'
+	end
+
+	act '我需要好好干一场':
+		cla & *nl
+		'<<$npcdesc>>站在那里目瞪口呆，而你上前一步，把手放在他的胸口。'
+		'"我需要好好干一场，现在就要，"你说。'
+		'片刻间，你带着炽热的目光凝视着他的眼睛，然后他把你拽进屋内，砰地关上了门。'
+		xgt 'sex_ev_clothing', 'undress_menu'
+	end
+
+	if drunk = 1:
+		cla & *nl
+		act '猜猜谁喝醉了！':
+
+		end
+	end
+end
+
+if $ARGS[0] = 'girlfriend_surprise2':
+
+end
+
+if $ARGS[0] = 'girlfriend_cheater1':
+	'你走进<<$npcdesc>>的公寓，一进门就看到一个女人站在那里，她显然没料到今天会有别人来，你顿时僵住了。'
+	'女人："你是谁？"'
+	'<<$pcs_nickname>>："呃，我是<<$pcs_nickname>>，我是来找<<$npcdesc>>的。'
+	'女人疑惑地看着你，不明白你为什么在这里，也想不通你是怎么会有公寓钥匙的。看着她的脸，你发现她渐渐明白你为什么来了。'
+	'"操"你心里暗想，意识到她要么是<<$npcdesc>>的另一个炮友——不知道他还在操别的女人——要么就是他的女朋友。'
+	'"为什么？"她说，语气里带着一丝恶毒。'
+	'<<$pcs_nickname>>："呃……我就是来……"'
+end
+
+if $ARGS[0] = 'starting_route':
+	if npc_alko[$npcID] >= npc_alko_limit[$npcID] and npc_alko_limit[$npcID] > 0:
+		xgt 'sex_ev_start', 'whiskey_dick'
+	else
+		if $sex_ev['loc'] ! 'pc_home' or $home['current'] ! 'parents_home':
+			act '到床上去': xgt 'sex_ev_foreplay', 'bed_start'
+		else
+			act '去你的床': xgt 'sex_ev_foreplay', 'bed_start'
+
+			act '去安雅的床': $sex_ev['bed_choice'] = 'anya_bed' & sisterQW['sex_bed_count'] += 1 & sisterQW['sex_bed'] = daystart & xgt 'sex_ev_foreplay', 'bed_start'
+		end
+	end
+end
+
+if $ARGS[0] = 'immediate_breakup':
+	act'和<<$npc_usedname[$npcID]>>分手':
+		if $npcRelat = 'boyfriend':
+			'"我过来就是为了告诉你，我要跟你分手。"'
+			'"什么？！'
+		else
+			'"我过来就是为了告诉你，我们结束了。"'
+			'"你在说什么？"'
+		end
+		gs 'sex_ev_leave', 'breakup_mid'
+	end
+end
+
+if $ARGS[0] = 'pre_reaction':
+	if $dick_desc = 'tiny' or $dick_desc = 'short':
+		'<<$npcdesc>>的裤子滑落，露出……搞什么鬼？那是根迷你鸡巴吗？'
+		'它基本上跟你小手指一样大。'
+	elseif $dick_desc = 'chode':
+		'<<$npcdesc>>将他那细长的肉棒缓缓插入你体内又抽出，比起速度更注重技巧。你的双腿间传来轻柔的咕啾声，听起来比平时更湿，大概是因为月经。但这份额外的润滑很受欢迎，他那纤细的肉棒顺畅地在你体内进出。'
+	elseif $dick_desc = 'skinny':
+		'<<$npcdesc>>将他那肉棒缓缓插入你体内又抽出，比起速度更注重技巧。你的双腿间传来轻柔的咕啾声，听起来比平时更湿，大概是因为月经。但这份额外的润滑很受欢迎，他的肉棒顺畅地在你体内进出。'
+	elseif $dick_desc = 'normal':
+		'<<$npcdesc>>将他那粗壮的肉棒缓缓插入你体内又抽出，比起速度更注重技巧。你的双腿间传来轻柔的咕啾声，听起来比平时更湿，大概是因为月经。但这份额外的润滑很受欢迎，他那粗壮的肉棒顺畅地在你体内进出。'
+	elseif $dick_desc = 'thick':
+		'<<$npcdesc>>将他那肉棒缓缓插入你体内又抽出，比起速度更注重技巧。你的双腿间传来轻柔的咕啾声，听起来比平时更湿，大概是因为月经。但他的肉棒很长，几乎放不进去，所以这份额外的润滑简直求之不得。'
+	elseif $dick_desc = 'long':
+		'<<$npcdesc>>缓慢地抽送着他的鸡巴，更注重技巧而非速度。你双腿之间传来轻柔的水声，听起来比平时更湿，大概是因为你正来着月经。不过他的鸡巴太长，几乎塞不进你体内，所以多出来的润滑倒是求之不得。'
+	elseif $dick_desc = 'huge':
+		'<<$npcdesc>>缓慢地抽送着他的阴茎，在你体内进进出出，更注重技巧而非速度。你的双腿间传来轻柔的噗嗤声，听起来比平时更湿一些，可能是因为你的经期。但每次抽插你仍会喘息，他巨大的阴茎每次都将你填满，所以多出来的润滑是再受欢迎不过了。'
+	elseif $dick_desc = 'enormous':
+		'<<$npcdesc>>缓慢地抽送着他的阴茎，在你体内进进出出，更注重技巧而非速度。你的双腿间传来轻柔的噗嗤声，听起来比平时更湿一些，可能是因为你的经期。但每次抽插你仍会喘息，他巨大的阴茎每次都将你填满，所以多出来的润滑是再受欢迎不过了。'
+	elseif $dick_desc = 'lengthy':
+		'<<$npcdesc>>将他那肉棒缓缓插入你体内又抽出，比起速度更注重技巧。你的双腿间传来响亮的咕啾声，听起来比平时更湿，大概是因为月经。但他的肉棒巨大，每一下都把你填得满满当当，所以这份额外的润滑简直求之不得。'
+	elseif $dick_desc = 'gigantic':
+		'<<$npcdesc>>将他那肉棒缓缓插入你体内又抽出，比起速度更注重技巧。你的双腿间传来响亮的咕啾声，听起来比平时更湿，大概是因为月经。但他的肉棒骇人巨大，每一下都几乎把你劈成两半，所以这份额外的润滑简直求之不得。'
+	elseif $dick_desc = 'monstrous':
+		'<<$npcdesc>>用他那巨大的肉棒慢慢地操你。你'
+	end
+end
+
+if $ARGS[0] = 'bed_start':
+	!! $sex_ev['bed_room']
+	if rand(0,1) = 1:
+		!! he wins initiative
+		if npc_caretaker[$npcID] = 1 or npc_pussyeater[$npcID] = 1:
+			gs 'sex_ev_foreplay', 'generous_initiative'
+		elseif npc_selfish[$npcID] = 1:
+			gs 'sex_ev_foreplay', 'selfish_initiative'
+		else
+			if rand(0,1) = 1:
+				gs 'sex_ev_foreplay', 'generous_initiative'
+			else
+				gs 'sex_ev_foreplay', 'selfish_initiative'
+			end
+		end
+	else
+		!! player wins initiative
+!!		'You both tear your clothes off, getting naked as fast as possible, you finishing just before he does. You take the extra moment to decide what you want to do...'
+		gs 'sex_ev_foreplay', 'foreplay_choose'
+	end
+end
+
+
+if $ARGS[0] = 'mey_home_start':
+	if $npcRelat ! 'stranger': gs 'sex_ev_start', 'hookup_initiate'
+	$sex_ev['bed_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/guestroom.jpg"></center>'
+	$sex_ev['bath_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+	$sex_ev['kitchen_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/kitchen.jpg"></center>'
+	$sex_ev['living_room'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/hall.jpg"></center>'
+	$sex_ev['hall_way'] = '<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/corridor.jpg"></center>'
+	gs 'vicky_meynold_schedule'
+	gs 'katja_meynold_schedule'
+	gs 'sex_ev_start', 'begin'
+	if (locat['Vicky'] = 9 or locat['Vicky'] = 12 or locat['Vicky'] = 13 or locat['Vicky'] = 15) and (locat['katja'] = 7 or locat['katja'] = 9):
+
+
+	elseif locat['Vicky'] = 9 or locat['Vicky'] = 12 or locat['Vicky'] = 13 or locat['Vicky'] = 15:
+		gs 'sex_ev_start', 'mey_vicky_spot'
+	elseif locat['katja'] = 7 or locat['katja'] = 9:
+
+	end
+	xgt 'sex_ev_clothing', 'undress_menu'
+end
+
+if $ARGS[0] = 'mey_vicky_spot':
+	cla & *clr
+	$sex_ev['hall_way']
+	'你领着<<$npcdesc>>进了梅诺尔德的家。'
+	if locat['Vicky'] = 15:
+		if rand(1, 2) = 1:
+			'就在这时，维姬猛地冲过拐角，脸紧贴着万尼亚的脸，双臂搂着他的脖子，而他砰的一声把她狠狠撞在墙上。'
+			'"哦！哦，<i>-操~！</i>"她呻吟着，他则把手伸进她的裙下。"宝贝，我现在就要你插进来！"'
+			'两人摇摇晃晃地沿着走廊朝维姬的房间走去，显然太沉浸在彼此之中，甚至没注意到你带了个男人回家。'
+		else
+			'就在这时，维姬挽着万尼亚的胳膊从拐角溜达过来，被他说的某句话逗得咯咯直笑。她眼角扫到你，惊讶地顿住了脚步。'
+			'"哦！<<$pcs_nickname>>！这是你的小玩物吗？"'
+			'"嗯，"你有点尴尬地承认。她只是反过来坏笑了一下。'
+			'"好了，我不想碍你们的事。好好操她一顿！"维姬朝<<$npcdesc>>眨眨眼说。"她值得你卖力。你要是不卖力，回头我非把细节都问出来不可！"'
+			'说完，她和瓦伊娜继续走向房子的别处。'
+		end
+	else
+		'就在这时，维姬恰好从拐角处溜达过来，正对着手机上的什么东西咯咯直笑，然后她看见了你。'
+		'"哦！"她尖声惊叫，一只手抬到嘴边，掩住那明显的笑意。"'
+		'"哦！<<$pcs_nickname>>！这是你的小玩物吗？"'
+		'"嗯，"你有点尴尬地承认。她只是反过来坏笑了一下。'
+		if $vicky_know_bc = 'shot':
+			gs 'sex_ev_stats', 'birth_control'
+			'"好了，我不想碍你们的事。好好操她一顿！"维姬开心地笑了。她凑近小声说。"她打了避孕针，所以你想射多少进她里面都行。"'
+			act '好尴尬！':
+				cla & *clr
+				$sex_ev['hall_way']
+				'"维姬！"你嘶声说，一股热流涌上脖颈。'
+				'她毫无羞愧之色，朝<<$npcdesc>>眨了眨眼，然后抛着飞吻走开了。'
+				'不想再撞见梅诺德一家人，你赶紧把<<$npcdesc>>拉进了你的卧室。'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+
+			act '只是微笑':
+				cla & *clr
+				$sex_ev['hall_way']
+				'你无话可说，只是对维姬笑了笑。她朝<<$npcdesc>>挑了挑眉，走开时在拐弯前向你抛了个飞吻。之后，你拉着<<$npcdesc>>进了你的房间。'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+
+			act '那<i>不</i>算允许':
+				cla & *clr
+				$sex_ev['hall_way']
+				'"等等，别——"你猛地转身，在<<$npcdesc>>面前严厉地摇了摇手指。"那<i>不是</i>允许你射进我里面！"'
+				'当你转身时，维姬朝<<$npcdesc>>挥了挥手便走开，拐弯前还给你抛了个飞吻，随后你拉着<<$npcdesc>>进了你的房间。'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+		elseif $vicky_know_bc = 'pill':
+			gs 'sex_ev_stats', 'birth_control'
+			'"好了，我不想碍你们的事。好好操她一顿！"维姬开心地笑了。她凑近小声说。"她在吃避孕药，所以你想射多少进她里面都行。"'
+			act '好尴尬！':
+				cla & *clr
+				$sex_ev['hall_way']
+				'"维姬！"你嘶声说，一股热流涌上脖颈。'
+				'她毫无羞愧之色，朝<<$npcdesc>>眨了眨眼，然后抛着飞吻走开了。'
+				'不想再撞见梅诺德一家人，你赶紧把<<$npcdesc>>拉进了你的卧室。'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+
+			act '只是微笑':
+				cla & *clr
+				$sex_ev['hall_way']
+				'你无话可说，只是对维姬笑了笑。她朝<<$npcdesc>>挑了挑眉，走开时在拐弯前向你抛了个飞吻。之后，你拉着<<$npcdesc>>进了你的房间。'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+
+			act '那<i>不</i>算允许':
+				cla & *clr
+				$sex_ev['hall_way']
+				'"等等，别——"你猛地转身，在<<$npcdesc>>面前严厉地摇了摇手指。"那<i>不是</i>允许你射进我里面！"'
+				'当你转身时，维姬朝<<$npcdesc>>挥了挥手便走开，拐弯前还给你抛了个飞吻，随后你拉着<<$npcdesc>>进了你的房间。'
+				xgt 'sex_ev_clothing', 'undress_menu'
+			end
+		else
+			'"好了，我不想碍你们的事。好好操她一顿！"维姬朝<<$npcdesc>>眨眨眼说。"她值得你卖力。你要是不卖力，回头我非把细节都问出来不可！"'
+			'说完，她走到房子的另一个地方，你趁她还没回来，赶紧把<<$npcdesc>>拖进了你的卧室。'
+			xgt 'sex_ev_clothing', 'undress_menu'
+		end
+	end
+end
+
+if $ARGS[0] = 'mey_katja_spot':
+	cla & *clr
+	$sex_ev['hall_way']
+	'你领着<<$npcdesc>>进了梅诺尔德的家。'
+	if locat['Vicky'] = 15:
+		if rand(1, 2) = 1:
+			'就在这时，维姬猛地冲过拐角，脸紧贴着万尼亚的脸，双臂搂着他的脖子，而他砰的一声把她狠狠撞在墙上。'
+			'"啊！啊<i>-操~！</i>"她呻吟着，他把手伸进她的裙底。"宝贝，我现在就需要你进来！"'
+			'两人摇摇晃晃地沿着走廊朝维姬的房间走去，显然太沉浸在彼此之中，甚至没注意到你带了个男人回家。'
+		else
+			'就在这时，卡佳挽着万尼亚的胳膊从拐角溜达过来，被他说的某句话逗得咯咯直笑。她眼角扫到你，惊讶地顿住了脚步。'
+			'"哦！<<$pcs_nickname>>！这是你的小玩物吗？"'
+			'"嗯，"你有点尴尬地承认。她只是反过来坏笑了一下。'
+			'"好了，我不想碍你们的事。好好操她一顿！"维姬朝<<$npcdesc>>眨眨眼说。"她值得你卖力。你要是不卖力，回头我非把细节都问出来不可！"'
+			'说完，她和瓦伊娜继续走向房子的别处。'
+		end
+	else
+		'就在这时，卡佳恰好从拐角处溜达过来。'
+		'"哦！"她尖声惊叫，一只手抬到嘴边，掩住那明显的笑意。"'
+		'"哦！<<$pcs_nickname>>！这是你的小玩物吗？"'
+		'"嗯，"你有点尴尬地承认。她只是反过来坏笑了一下。'
+		'"好了，我不想碍你们的事。好好操她一顿！"维姬朝<<$npcdesc>>眨眨眼说。"她值得你卖力。你要是不卖力，回头我非把细节都问出来不可！"'
+		'说完，她和瓦伊娜继续走向房子的别处。'
+	end
+end
+
+--- sex_ev_start ---------------------------------

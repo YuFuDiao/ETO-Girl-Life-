@@ -1,0 +1,411 @@
+# TerminalOffice
+menu_off = 0
+$location_type = 'public_indoors'
+minut += 1
+gs 'stat'
+
+!! In the office if he knows we can buy a product or to perform a task boss of bystrousky.
+!! verakassir > 0 - you can buy the product
+!! BurgerQW['TerminalTask'] = 1 and BurgerQW['TerminalTaskDay'] = daystart - you can fulfill the order
+!!
+!! In the office, several offices, one for the purchase of the goods, the second for documents from bystrousky, and the third for a bright future
+!!
+!! Administration accounting and Director work in better conditions than managery :)))
+!! The conditions at the time require elaboration
+!!
+
+TerminalOfficeDirWorkTime = 0
+TerminalOfficeBuhWorkTime = 0
+
+if ((hour >= 9 and hour < 13) or (hour >= 14 and hour < 18)) and week < 6: TerminalOfficeDirWorkTime = 1
+if ((hour >= 9 and hour < 13) or (hour >= 14 and hour < 20)) and week < 6: TerminalOfficeBuhWorkTime = 1
+
+
+if $ARGS[0] = 'TerminalOfficeScreen':
+	!! 1 - title
+	!! 2 - the name of the picture file
+	$func('wrap', 'header b center', $ARGS[1])
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/terminal/'+$ARGS[2]+'.jpg"></center>'
+	*nl
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              HALL 00                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '00':
+	*clr & cla
+	gs 'core_library', 'setloc', 'TerminalOffice', '00'
+	gs 'stat'
+
+	gs 'TerminalOffice', 'TerminalOfficeScreen', '办公大厅', 'terminal4'
+	'你站在终端办公楼的大厅里。'
+
+	act '离开办公室': minut += 5 & gt 'Terminal'
+	act '去销售部': minut += 1 & gt 'TerminalOffice', '11'
+	act '去会计部': minut += 1 & gt 'TerminalOffice', '21'
+	act '去见经理': minut += 1 & gt 'TerminalOffice', '31'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                       MANAGER A OFFICE - 1X                        !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '11':
+	!! You can buy the item if you know that you can buy
+	!! Can try to give the documents from Anatoly Chubais
+	!! Can I ask when running accounting
+	!! Can I ask when works Director
+
+	*clr & cla
+	gs 'core_library', 'setloc', 'TerminalOffice', '11'
+	gs 'stat'
+
+	gs 'TerminalOffice', 'TerminalOfficeScreen', '销售部', 'terminal2'
+	'"我能帮你什么？"经理问你。'
+
+	act '离开办公室': minut += 1 & gt 'TerminalOffice', '00'
+
+	if verakassir > 0:
+		gs 'TerminalOffice', '11_buy_goods'
+	end
+
+	if YouNotOpenDoorDir = 1:
+		!! Where the Director, the Door was closed dir
+		act '询问主管的情况':
+			cla
+			menu_off = 1
+			YouNotOpenDoorDir = 0
+			gs 'stat'
+
+			'"不好意思，我想知道能不能见见你的主管？"你问道。'
+			'经理咧嘴一笑："尤里通常在周一到周五都在这里，在 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 18, 0)+' 之间，除了 '+func('time', 'get_time_string', 13, 0)+' 到 '+func('time', 'get_time_string', 14, 0)+' 的午休时间。"'
+
+			act '离开': gt 'TerminalOffice', '11'
+		end
+	end
+
+	!! Where is the accountant? Buch the door was closed
+	if YouNotOpenDoorBuh = 1:
+		act '询问会计师的情况':
+			cla
+			menu_off = 1
+			YouNotOpenDoorBuh = 0
+			gs 'stat'
+
+			'"不好意思，我想知道能不能见见你们的会计？"你问道。'
+			'经理咧嘴一笑："伊丽莎白 通常在周一到周五都在这里，在 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 20, 0)+' 之间，除了 '+func('time', 'get_time_string', 13, 0)+' 到 '+func('time', 'get_time_string', 14, 0)+' 的午休时间。"'
+
+			act '离开': gt 'TerminalOffice', '11'
+		end
+	end
+
+	!! He Has papers, but a Manager should say to go to the accounting Department.
+	if AboutDocsManager = 0 and BurgerQW['TerminalTask'] = 1 and BurgerQW['TerminalTaskDay'] = daystart:
+		'"我是 "OOO 比斯特鲁什卡 limited" 公司的阿纳托利·丘拜斯。你有所需的文件吗？"'
+		act '把文件给他':
+			cla
+			menu_off = 1
+			AboutDocsManager = 1
+			gs 'stat'
+
+			'"看起来没问题。去会计部找 伊丽莎白 吧，她需要给你登记。你可以在隔壁找到她。"'
+
+			act '离开': gt 'TerminalOffice', '11'
+		end
+	end
+
+	!! The GG yet topics of conversation.
+	if verakassir = 0 and YouNotOpenDoorDir = 0 and YouNotOpenDoorBuh = 0 and BurgerQW['TerminalTask'] = 0:
+		'你没有别的话要说，也没有别的事要做。你可以离开办公室了。'
+	end
+end
+
+
+
+if $ARGS[0] = '11_buy_goods':
+	!! Buy goods
+
+	!! Flag zapolanski storage, reduction
+	!! this flag allows you to go shopping
+	DoNotBuy = 2
+
+	!! Amount and Quantity that we can buy(store)
+	BuyQuantity = 0
+	MaxQuantityHome = 0
+	MaxQuantityGarage = 0
+	MaxCost = 0
+
+	!! Description size of storage
+	TovarLimitHomeRepository = 30
+	TovarLimitGarageRepository = 100
+
+	'你和经理谈论购买小饰品的事…'
+
+	!! Get current balances
+	if mc_inventory['trinkets_home'] >= TovarLimitHomeRepository:
+		'家里没有多余的空间了。'
+	else
+		DoNotBuy -= 1
+		'你有 ' + mc_inventory['trinkets_home'] + ' 个小饰品存放在家里。你最多只能存放<<TovarLimitHomeRepository>>个小饰品。'
+		MaxQuantityHome = TovarLimitHomeRepository - mc_inventory['trinkets_home']
+	end
+
+	if YouCanGar > 0:
+		!! Get the current balances in the garage
+		if mc_inventory['trinkets_garage'] >= TovarLimitGarageRepository:
+			'车库里没有空间了。'
+		else
+			DoNotBuy -= 1
+			'你有 ' + mc_inventory['trinkets_garage'] + ' 个小饰品存放在车库里。你最多只能存放<<TovarLimitGarageRepository>>个小饰品。'
+			MaxQuantityGarage = TovarLimitGarageRepository - mc_inventory['trinkets_garage']
+		end
+	end
+
+	if DoNotBuy = 2:
+		'你想了一会儿，意识到自己根本没有地方存放货物，于是决定放弃这次购买。'
+	else
+		!! Produce purchase
+		act '小饰品的价格为<<$func(''money'', ''string_price'', 100)>>。请输入你想购买的小饰品数量。':
+			minut += 13
+			BuyQuantity = input("你想以每件<<$func('money', 'string_price', 100)>>的价格购买多少个小饰品？")
+
+			if BuyQuantity > (MaxQuantityHome + MaxQuantityGarage):
+				'<b><font color=red>你无处存放多余的<<BuyQuantity-(MaxQuantityHome + MaxQuantityGarage)>>个' + iif(BuyQuantity - (MaxQuantityHome + MaxQuantityGarage) = 1, '小饰品', '小饰品') + '。</front></b>'
+				cla
+				act '离开': gt 'TerminalOffice', '11'
+			end
+
+			MaxCost = BuyQuantity * 100
+
+			if func('money', 'can_afford', MaxCost, 'cash') = 0:
+				!! If not enough money
+				'你身上没有足够的现金。你需要先取钱才能继续购买。'
+				if func('money', 'can_afford', MaxCost) = 1:
+					!! The player can be plastic money
+					'你的信用卡上有足够的钱，你提议用信用卡付款。'
+					'"抱歉，我们没有刷卡机，"经理回答说，"我们只收现金。"'
+				end
+				cla
+				act '离开': gt 'TerminalOffice', '11'
+			else
+				!! If the money is written off money to fill warehouses
+
+				gs 'money', 'pay', MaxCost, 'cash'
+
+				'你购买了<<BuyQuantity>>小饰品，价值<<MaxCost>>.'
+
+				!! First fill home storage
+				if BuyQuantity >= MaxQuantityHome:
+					mc_inventory['trinkets_home'] = mc_inventory['trinkets_home'] + MaxQuantityHome
+					BuyQuantity -= MaxQuantityHome
+					if YouCanGar > 0 : *PL '你将把<<MaxQuantityHome>>个小饰品存放在家里。'
+				else
+					if YouCanGar > 0 : *PL '你将把<<BuyQuantity>>个小饰品存放在家里。'
+					mc_inventory['trinkets_home'] = mc_inventory['trinkets_home'] + BuyQuantity
+					BuyQuantity = 0
+				end
+
+				!! Now fill garage storage
+				if BuyQuantity > 0:
+					mc_inventory['trinkets_garage'] = mc_inventory['trinkets_garage'] + BuyQuantity
+					'你将存放<<BuyQuantity>>个小饰品在车库里。'
+				end
+
+				if YouCanGar = 0 and func('money', 'can_afford', 100, 'cash') = 1:
+					'你已经买了很多小玩意儿，但你一直在考虑扩大生意。但你能把它们都存放在哪里呢？也许你应该问问你的继父，能否用他车库里的空余空间…'
+				end
+
+				cla
+				act '完成购买': gt 'TerminalOffice', '11'
+			end
+		end
+
+		act '购买小饰品，价格为<<$func(''money'', ''string_price'', 100)>>名为 "眼球"。':
+			!! Purchase spend time
+			minut += 13
+
+			BuyQuantity = MaxQuantityHome + MaxQuantityGarage
+			MaxCost = BuyQuantity * 100
+
+			!! Hammered warehouses
+			if func('money', 'can_afford', MaxCost, 'cash') = 0:
+				!! If not enough money
+				'你身上没有足够的现金。你需要先取钱才能继续购买。'
+				if func('money', 'can_afford', MaxCost) = 1:
+					!! The player can be plastic money
+					'你的信用卡上有足够的钱，你提议用信用卡付款。'
+					'"抱歉，我们没有刷卡机，"经理回答说，"我们只收现金。"'
+				end
+
+				cla
+				act '离开': gt 'TerminalOffice', '11'
+			else
+
+				!! If the money is written off money to fill warehouses
+
+				gs 'money', 'pay', MaxCost, 'cash'
+
+				'你购买了<<BuyQuantity>>小饰品，价值<<MaxCost>>.'
+
+				!! First fill home storage
+				if BuyQuantity >= MaxQuantityHome:
+					mc_inventory['trinkets_home'] = mc_inventory['trinkets_home'] + MaxQuantityHome
+					BuyQuantity -= MaxQuantityHome
+					if YouCanGar > 0 : '你将把<<MaxQuantityHome>>个小饰品存放在家里。'
+				else
+					if YouCanGar > 0 : '你将把<<BuyQuantity>>个小饰品存放在家里。'
+					mc_inventory['trinkets_home'] = mc_inventory['trinkets_home'] + BuyQuantity
+					BuyQuantity = 0
+				end
+
+				!! Now fill garage storage
+				if BuyQuantity > 0:
+					mc_inventory['trinkets_garage'] = mc_inventory['trinkets_garage'] + BuyQuantity
+					'你将存放<<BuyQuantity>>个小饰品在车库里。'
+				end
+
+				if YouCanGar = 0 and func('money', 'can_afford', 100, 'cash') = 1:
+					'你已经买了很多小玩意儿，但你一直在考虑扩大生意。但你能把它们都存放在哪里呢？也许你应该问问你的继父，能否用他车库里的空余空间…'
+				end
+
+				cla
+				act '完成购买': gt 'TerminalOffice', '11'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                       ACCOUNTANT OFFICE - 2X                       !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '21':
+	!! Time control of the work of Buch disconnect until the issue is resolved temporal compatibility of obtaining a job in bystroushka
+	gs 'core_library', 'setloc', 'TerminalOffice', '21'
+
+	if TerminalOfficeBuhWorkTime = 0:
+		!! Accountant is not in place
+		*clr & cla
+		YouNotOpenDoorBuh = 1
+		gs 'stat'
+
+		gs 'TerminalOffice', 'TerminalOfficeScreen', '一扇挂着牌子的门', 'terminal6'
+		'你敲了敲门，但只有沉默。你试着按下门把手，但发现门被锁了。你只能改天再来。'
+
+		act '离开门口': minut += 1 & gt 'TerminalOffice', '00'
+	else
+		!! You can give the documents
+		*clr & cla
+		gs 'stat'
+
+		!! GG not a complete idiot, so will limit communication with only Buch documents, then that thread again
+		gs 'TerminalOffice', 'TerminalOfficeScreen', '会计的办公室', 'terminal3'
+		'一个可爱的女孩从显示器上抬起头来，转向你问道："我能帮你什么？"'
+
+		act '离开办公室': minut += 1 & gt 'TerminalOffice', '00'
+
+		if BurgerQW['TerminalTask'] <> 1 or BurgerQW['TerminalTaskDay'] <> daystart:
+			'你没有别的话要说，也没有别的事要做。你可以离开办公室了。'
+		else
+			'"我和 "OOO 比斯特鲁什卡 limited" 公司的阿纳托利·丘拜斯谈过，我奉命把这些文件送过来。"'
+			'"是的，我一直在等这些，可以给我吗？"她伸出手。'
+			act '把文件给她':
+				cla
+				minut += 1
+				BurgerQW['TerminalTask'] = 2
+				gs 'stat'
+
+				'你把文件夹递给女孩。她打开文件夹，快速检查了一下里面的内容。'
+				'"替我转告阿纳托利·鲍里索维奇，伊丽莎白 说谢谢。"'
+				'女孩微微一笑，然后把注意力转回显示器，开始在键盘上飞快地打字。'
+
+				act '离开办公室': minut += 1 & gt 'TerminalOffice', '00'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                       DIRECTORS OFFICE - 3X                        !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '31':
+	gs 'core_library', 'setloc', 'TerminalOffice', '31'
+
+	if TerminalOfficeDirWorkTime = 0:
+		!! The Director is not in place
+		*clr & cla
+		YouNotOpenDoorDir = 1
+		gs 'stat'
+
+		gs 'TerminalOffice', 'TerminalOfficeScreen', '一扇挂着牌子的门', 'terminal5'
+		'你敲了敲门，但只有沉默。你试着按下门把手，但发现门被锁了。你只能改天再来。'
+		act '离开门口': minut += 1 & gt 'TerminalOffice', '00'
+
+	else
+		!! You can try to give the documents
+		!! You can try to talk
+
+		*clr & cla
+		gs 'TerminalOffice', 'TerminalOfficeScreen', '主管的办公室', 'terminal1'
+
+		!! Before the development of the plot 'Talk' the Director will constantly be on the phone and send he tries out of the office
+		'你敲了敲门，推开门。在一张巨大的办公桌后面，你看到一个男人。他正在打电话，显然心情不佳。他有点惊讶，因为你并不是他等的那个人，于是他轻蔑地挥了挥手，清楚地示意你离开办公室。'
+
+		act '离开办公室': minut += 1 & gt 'TerminalOffice', '00'
+		if AboutBussines = 0:
+			act '交谈':
+				delact $selact
+				*clr
+				AboutBussines = 1
+
+				gs 'TerminalOffice', 'TerminalOfficeScreen', '主管的办公室', 'terminal1'
+				'"有人让我来找你谈一桩生意……"你开口道。'
+				'"我听说这里有可能开展一桩正当、合法且有利可图的贸易生意……"你继续说道。'
+				'那人把电话放到一旁，不耐烦地答道："你没看见我正在打电话吗？出去！"'
+			end
+		end
+
+		if AboutDocs = 0 and BurgerQW['TerminalTask'] = 1 and BurgerQW['TerminalTaskDay'] = daystart:
+			act '把文件给他':
+				delact $selact
+				AboutDocs = 1
+
+				gs 'TerminalOffice', 'TerminalOfficeScreen', '主管的办公室', 'terminal1'
+				'你走到桌边。那个男人无视了你，但你不会就此退缩，你身上有老板交代的重要任务。'
+				'"是 "OOO 比斯特鲁什卡 limited" 公司的阿纳托利·丘拜斯让我把这些文件交给你。"'
+				'那个男人停下通话，皱起眉头，指着门说道："你需要去会计的办公室。"'
+			end
+		end
+
+		if AboutBussines = 1 and AboutDocs = 1: '你没有别的话要说，也没有别的事要做。你可以离开办公室了。'
+	end
+end
+
+
+--- TerminalOffice ---------------------------------

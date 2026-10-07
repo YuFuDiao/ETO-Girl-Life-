@@ -1,0 +1,675 @@
+# road
+$location_type = 'public_outdoors'
+!! TODO: Scene: As Sveta is walking along she stops for a moment to catch her breath. Depending on her outfit, a driver may stop and ask for her tariff.
+!! Playing along, i.e. accepting the offer, she unlocks the road as a place to work.
+if $ARGS[0] = '' or isnum($ARGS[0]):
+	if $ARGS[0] ! '' and isnum($ARGS[0]):
+		nroad = val($ARGS[0])
+	else
+		$ARGS[0] = '<<nroad>>'
+	end
+
+	CLOSE ALL
+	menu_off = 0
+	if sound_settings['environment_off'] = 0: PLAY 'sound/highway.mp3', 50
+	gs 'core_library', 'setloc', 'road', $ARGS[0]
+	$region = 'other'
+	gs 'stat'
+	'<center><h2>圣彼得堡和巴甫洛夫斯克之间的主干道</h2></center>'
+	if month >= 11 or month <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/highway/roadwinter.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/highway/road.jpg"></center>'
+	end
+	'<center><<nroad>> km</center>'
+	'说它是高速公路未免太抬举它了，但这条路是从圣彼得堡前往20公里外的巴甫洛夫斯克镇的主要通道。'
+	'沿途可以看到名为加杜基诺和普希金的小村庄。汽车正高速从你身边驶过。'
+
+	if func('car_funcs', 'is_here') and nroad ! 10: '你把你的<a href="exec:gs ''carF'', ''start''"><<$car[''name'']>></a>停在'+iif(prostitute['road'] = 1, '一个更安静的地方。', '路边。')
+	if nroad = 0: act '步行前往城市工业区 (0:15)': minut += 15 & gt 'city_industrial'
+	if nroad = 1:
+		act '步行前往城市郊区 (0:15)': minut += 15 & gt 'city_suburbs', 'start'
+	end
+	if nroad = 16: act '去建筑工地看看 (1:00)': minut += 60 & gt 'obekt'
+	if nroad = 19:
+		act '步行前往普希金 (0:05)': minut += 5 & gt 'pushkin'
+	end
+	if nroad = 20:
+		act '步行前往巴甫洛夫斯克火车站 (0:15)': minut += 15 & gt 'pav_train_hall'
+		act '步行前往巴甫洛夫斯克商业区 (0:15)': minut += 15 & gt 'pav_commercial'
+		act '步行前往巴甫洛夫斯克工业区 (0:25)': minut += 25 & gt 'pav_industrial'
+		act '步行前往巴甫洛夫斯克市场 (0:15)': minut += 15 & gt 'pav_market'
+	end
+	if nroad < 20:
+		act '向巴甫洛夫斯克方向走 (0:20)':
+			if func('road', 'mistake_check'):
+				!! TODO: should be gt 'road', 'walking_mistake'
+				gt 'road', 'autostop_mistake', 'Pavlovsk'
+			else
+				killvar 'road_autostop_fails'
+				minut += 20
+				gt 'road', '<<nroad + 1>>'
+			end
+		end
+	end
+	if nroad > 0:
+		act '向圣彼得堡方向走 (0:20)':
+			if func('road', 'mistake_check'):
+				!! TODO: should be gt 'road', 'walking_mistake'
+				gt 'road', 'autostop_mistake', 'St. Petersburg'
+			else
+				killvar 'road_autostop_fails'
+				minut += 20
+				gt 'road', '<<nroad - 1>>'
+			end
+		end
+	end
+	if nroad > 0 and nroad < 20:
+		!! TODO: Adding a scene here of a driver mistaking Sveta for a whore and solicits her. If she accepts, that will unlock prostitution along the road.
+		act '尝试搭便车去巴甫洛夫斯克':
+			cls
+			minut += max(3, 15 - road_autostop_fails * 5)
+			gs 'stat'
+			gorand = rand(1, 100)
+			picrand = rand(1, 3)
+			!! Check if a misunderstanding is happening here
+			if func('road', 'mistake_check'):
+				gt 'road', 'autostop_mistake', 'Pavlovsk'
+			elseif gorand <= 60:
+				road_autostop_fails += 1
+				'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+				'<center><img <<$set_imgh>> src="images/locations/highway/autostop (<<picrand>>).jpg" ></center>'
+				'你试图引起开往巴甫洛夫斯克的司机的注意，但每个人都只是疾驰而过，完全无视你。'
+				act '继续': gt $loc, $loc_arg
+			elseif gorand > 60:
+				killvar 'road_autostop_fails'
+				gs 'road', 'autostop_d'
+				if nroad < 10:
+					act '请司机带你去加杜基诺':
+						$road_textrand0 = '加杜基诺'
+						gt 'road', 'autostop_money', 0, picrand
+					end
+				end
+				act '请司机带你去巴甫洛夫斯克':
+					$road_textrand0 = '巴甫洛夫斯克'
+					gt 'road', 'autostop_money', 0, picrand
+				end
+			end
+		end
+		!! TODO: Adding a scene here of a driver mistaking Sveta for a whore and solicits her. If she accepts, that will unlock prostitution along the road.
+		act '尝试搭便车去圣彼得堡':
+			cls
+			minut += max(5, 15 - road_autostop_fails * 5)
+			gs 'stat'
+			gorand = rand(1, 100)
+			picrand = rand(1, 3)
+			if func('road', 'mistake_check'):
+				gt 'road', 'autostop_mistake', 'St. Petersburg'
+			elseif gorand <= 60:
+				road_autostop_fails += 1
+				'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+				'<center><img <<$set_imgh>> src="images/locations/highway/autostop (<<picrand>>).jpg" ></center>'
+				'你试图引起开往圣彼得堡的司机的注意，但每个人都只是疾驰而过，完全无视你。'
+				act '继续': gt $loc, $loc_arg
+			elseif gorand > 60:
+				killvar 'road_autostop_fails'
+				gs 'road', 'autostop_d'
+				if nroad > 10:
+					act '请司机带你去加杜基诺':
+						$road_textrand0 = '加杜基诺'
+						gt 'road', 'autostop_money', 0, picrand
+					end
+				end
+				act '请司机带你去圣彼得堡':
+					$road_textrand0 = '圣彼得堡'
+					gt 'road', 'autostop_money', 0, picrand
+				end
+			end
+		end
+	end
+
+	if nroad = 0:
+		'你身处圣彼得堡的郊外。你看到树林边有许多简陋搭建的棚屋。想必有一群无家可归的人在这里寻求栖身之所。'
+		'一辆<a href="exec:minut += 5 & gt ''furi''">卡车</a>停在路边。司机正在休息抽烟。他或许能带你去加杜基诺或巴甫洛夫斯克，不过要收费…'
+	elseif nroad = 1:
+		'你离圣彼得堡不远了。你看到路边不远处有一片<a href="exec:minut += 15 & gt ''city_suburbs'',''start''">豪华住宅</a>。那片定居点看起来住着非常昂贵。'
+	elseif nroad = 2:
+		''
+	elseif nroad = 3:
+		'你看到一个牌子指向一个<a href="exec:minut += 15 & gt ''graveyard''">公墓</a>, 藏在许多树木之间。你觉得从这里走过去要15分钟。'
+		act '步行前往公交车站 (0:01)': minut += 1 & gt 'bus', 'graveyard'
+	elseif nroad = 4:
+		''
+	elseif nroad = 5:
+		'你看到一个<a href="exec:gt ''train'', ''communal''">火车站台</a>离公路不远。再远一点，有人建了<a href="exec:minut += 15 & gt ''dachi''">一排小别墅</a>。其中一些在出售。夏天住在这里一定很惬意！'
+	elseif nroad = 6:
+		''
+	elseif nroad = 7:
+		''
+	elseif nroad = 8:
+		''
+	elseif nroad = 9:
+		''
+	elseif nroad = 10:
+
+		display_bb = 1
+		gs 'stat'
+		act '步行前往加杜基诺 (0:15)': minut += 15 & gt 'gadukino'
+		act '步行前往火车站台 (0:15)': minut += 15 & gt 'train', 'gadukino'
+		'你看到一个<a href="exec:gt ''train'', ''gadukino''">火车站台</a>离公路不远。同一方向，一条土路通往<a href="exec:minut += 15 & gt ''gadukino''">加杜基诺</a>.'
+		'一辆<a href="exec:minut += 5 & gt ''furi''">卡车</a>停在路边。司机正在休息抽烟。他或许能带你去巴甫洛夫斯克或圣彼得堡，不过要收费…'
+		if MiraVars['QW'] > 15: '米拉就在这附近<a href="exec:gt ''gad_prostitutes'', ''start''">卖淫</a>。'
+		if func('car_funcs', 'is_here'): '你把你的<a href="exec:gs ''carF'', ''start''"><<$car[''name'']>></a>停在了通往加杜基诺的支路一个更安静的地方。'
+		if hour >= 16 and hour < 23 and prostitute['gadukino'] = 1:
+			gs 'prostitution_functions', 'work_clothes'
+			if prostitute['work_clothes']:
+				act '你可以在这里当妓女': gt 'gad_prostitutes', 'start'
+				if func('car_funcs', 'is_here') and prostitute['changed_for_work']:
+					act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'car'
+				elseif prostitute['changed_for_work']:
+					act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'road_side'
+				end
+			end
+			if prostitute['work_clothes'] = 0 and prostitute['outfit_is_set']:
+				if func('car_funcs', 'is_here'):
+					act '改行做妓女': gt 'prostitution_functions', 'change_to_work', 'car'
+				else
+					act '改行做妓女': gt 'prostitution_functions', 'change_to_work', 'road_side'
+				end
+			end
+		elseif prostitute['road'] = 1 and ((prostitute['wl_block'] = 0 and prostitute['full_block'] = 0) or (prostitute['wl_block'] = 1 and prostitute['payment_method'] = 1)):
+			gs 'prostitution_functions', 'work_clothes'
+			if prostitute['work_clothes'] = 0 and prostitute['outfit_is_set']:
+				if func('car_funcs', 'is_here'):
+					$loc_desc = '你在车里换上了更合适的衣服，然后沿着公路走一段路以引起路过车辆的注意。'
+					act '改行做妓女': gt 'prostitution_functions', 'change_to_work', 'car'
+				else
+					$loc_desc = '你在灌木丛后面换上了更合适的衣服，然后沿着公路走一段路以引起路过车辆的注意。'
+					act '改行做妓女': gt 'prostitution_functions', 'change_to_work', 'road_side'
+				end
+			elseif prostitute['work_clothes']:
+				act '当妓女': gt 'road_prostitution', 'work'
+				if func('car_funcs', 'is_here') and prostitute['changed_for_work']:
+					act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'car'
+				elseif prostitute['changed_for_work']:
+					act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'road_side'
+				end
+			end
+		end
+
+
+		!! if MiraVars['QW'] > 15 and GadBoy['river_gang'] = 2:
+		!!	'You and Mira can both <a href="exec:gt ''gad_prostitutes'', ''start''">prostitute</a> yourselves around here.'
+		!! elseif MiraVars['QW'] > 15:
+		!!	'Mira <a href="exec:gt ''gad_prostitutes'', ''start''">prostitutes</a> herself around here.'
+		!! elseif GadBoy['river_gang'] = 2:
+		!!	'You can <a href="exec:gt ''gad_prostitutes'', ''start''">prostitute</a> yourself around here.'
+		!! end
+	elseif nroad = 11:
+		''
+	elseif nroad = 12:
+		'你看到一个<a href="exec:minut += 15 & gt ''motel''">卡车司机旅馆</a>在路边。你和那里毫无瓜葛。你又不是卡车司机！'
+	elseif nroad = 13:
+		''
+	elseif nroad = 14:
+		''
+	elseif nroad = 15:
+		''
+	elseif nroad = 16:
+		'你只看到一座废弃的建筑，离公路不远。从外表来看，建筑周围厚重的围栏会让你很难靠近它。'
+		act '步行前往公交车站 (0:05)': minut += 5 & gt 'bus', 'construction'
+	elseif nroad = 17:
+		''
+	elseif nroad = 18:
+		''
+	elseif nroad = 19:
+		'你身处巴甫洛夫斯克的<a href="exec:minut += 5 & gt ''pushkin''">老城区</a>。沿着鹅卵石路走大约五分钟就是老城中心。这里相当受游客欢迎，大部分古老建筑都保存完好。'
+	elseif nroad = 20:
+		'主路在巴甫洛夫斯克这个外省小镇结束。你可以看到远处的城堡。'
+		'一辆<a href="exec:minut += 5 & gt ''furi''">卡车</a>停在路边。司机正在休息抽烟。他或许能带你去加杜基诺或圣彼得堡，不过要收费…'
+		'一条小路通往一家几乎隐蔽的古老<a href="exec:gt ''brothel'', ''lobby''">旅馆</a>。游客路过或游览巴甫洛夫斯克老城区时通常会使用它。'
+		if hour >= 7 and hour <= 17:
+			'你可以看到<a href="exec:gt ''NikoSlut'', ''Diner Exterior''">鲍里斯餐厅</a>周围停着一大堆卡车，一家卡车司机和摩托车手都常去的餐厅。'
+		else
+			'你可以看到<a href="exec:gt ''NikoSlut'', ''Diner Exterior''">鲍里斯餐厅</a>周围停着一大堆摩托车，一家卡车司机和摩托车手都常去的餐厅。'
+		end
+		if hour = 22 and NikoEv < 21:
+			'你可以看到<a href="exec:gt ''NikoSlut'', ''Yurik Out''">' + iif($YurikEv['Name'] = '尤里克', '尤里克', '一个高大魁梧的男人') + '</a>, 显然喝醉了，手里拿着啤酒瓶，在公路上踉跄而行。'
+		end
+	end
+	if prostitute['road'] = 1 and nroad ! 10 and nroad ! 20 and ((prostitute['wl_block'] = 0 and prostitute['full_block'] = 0) or (prostitute['wl_block'] = 1 and prostitute['payment_method'] = 1)):
+		gs 'prostitution_functions', 'work_clothes'
+		if prostitute['work_clothes'] = 0 and prostitute['outfit_is_set']:
+			if func('car_funcs', 'is_here'):
+				$loc_desc = '你在车里换上了更合适的衣服，然后沿着公路走一段路以引起路过车辆的注意。'
+				act '改行做妓女': gt 'prostitution_functions', 'change_to_work', 'car'
+			else
+				$loc_desc = '你在灌木丛后面换上了更合适的衣服，然后沿着公路走一段路以引起路过车辆的注意。'
+				act '改行做妓女': gt 'prostitution_functions', 'change_to_work', 'road_side'
+			end
+		elseif prostitute['work_clothes']:
+			act '当妓女': gt 'road_prostitution', 'work'
+			if prostitute['changed_for_work']:
+				if func('car_funcs', 'is_here'):
+					act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'car'
+				else
+					act '换上你的日常衣服': gt 'prostitution_functions', 'change_back', 'road_side'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'drive_sex1':
+	*clr & cla
+	menu_off = 1
+	$location_type = 'event_outdoors'
+	gs 'npcgeneratec', 0, '货车司机', rand(14, 22)
+	gs 'npcStat', $npclastgenerated
+	gs 'stat'
+
+	autostop_price = 0
+	'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+	'<center><video autoplay loop width="1000" height="562" src="images/locations/highway/sex/bj (1).mp4"></video></center>'
+	'你一上车，就立刻伸手去摸他的裤子，掏出他半勃起的阴茎。毕竟这就是你答应他的。当男人开车离开时，你感觉到它在你的手指间慢慢变硬。'
+	if pcs_throat < dick: gs 'arousal_funcs', 'stretch', 'oral', 1
+	if dick >= 14 and dick < 16: $road_text_sex = '普通大小'
+	if dick >= 16 and dick < 18: $road_text_sex = '比平均水平稍大'
+	if dick >= 18 and dick < 20: $road_text_sex = '相当大'
+	if dick >= 20: $road_text_sex = '巨大'
+	'你用手指轻轻按摩他的阴茎，而男人则舒服地坐好。这是<<$road_text_sex>>, 大约<<dick>>厘米长，而且相当粗壮。你很快按摩他完全勃起，然后低下头把它含在唇间。'
+	'当你用舌头舔舐他龟头的顶端并开始为他口交时，你不得不承认：这还挺刺激的！这个男人打理得很干净，身上散发着宜人的男性气息。'
+	'他开车时，你急切地上下起伏着头，完全忘记了先前的疑虑，竭尽全力让他射出来。'
+	'你成功了：没过多久，男人呻吟起来，他的阴茎在你嘴里爆发，灼热的精液一股股射到你的舌头上，你紧闭双唇以免弄得到处都是。'
+	'意识到自己无处可吐，你只能在他继续开车时把他的精液吞下去。'
+
+	gs 'arousal', 'hj', 15, 'prostitution'
+	gs 'arousal', 'bj', 15, 'prostitution'
+	gs 'cum_call', 'mouth_swallow', $npcID, 0
+	gs 'arousal', 'end'
+
+	act '继续': gt 'road', 'autostop_drive'
+end
+
+
+if $ARGS[0] = 'drive_sex2':
+	*clr & cla
+	menu_off = 1
+	minut += 15
+	$location_type = 'event_outdoors'
+	gs 'npcgeneratec', 0, '货车司机', rand(14, 22)
+	gs 'npcStat', $npclastgenerated
+	gs 'stat'
+
+	autostop_price = 0
+	'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/highway/sex/hj (1).mp4"></video></center>'
+	'你一上车，就立刻伸手去摸他的裤子，掏出他半勃起的阴茎。毕竟这就是你答应他的。当男人开车离开时，你感觉到它在你的手指间慢慢变硬。'
+	if dick >= 14 and dick < 16: $road_text_sex = '普通大小'
+	if dick >= 16 and dick < 18: $road_text_sex = '比平均水平稍大'
+	if dick >= 18 and dick < 20: $road_text_sex = '相当大'
+	if dick >= 20: $road_text_sex = '巨大'
+	'你用手指轻轻按摩他的阴茎，而男人则舒服地坐好。这是<<$road_text_sex>>, 大约<<dick>>厘米长，而且相当粗壮。你很快按摩他完全勃起，然后在他开车时开始给他手淫，指尖摩擦他的龟头。'
+	'尽管为了到达目的地而不得不伺候这个男人让你有点尴尬，但你对自己答应他的事很认真，卖力地给他手淫。没过多久，你轻柔的抚摸就让他达到了高潮。不幸的是，高潮时他的阴茎正对着你，大部分精液都射在了你的衣服上。'
+
+	gs 'arousal', 'hj', 15, 'prostitution'
+	gs 'cum_call', 'clothes', $npcID, 0
+	gs 'arousal', 'end'
+
+	act '继续': gt 'road', 'autostop_drive'
+end
+
+
+if $ARGS[0] = 'autostop_drive':
+	*clr & cla
+	menu_off = 1
+	$location_type = 'event_outdoors'
+	gs 'stat'
+
+	gs 'money', 'pay', autostop_price * 100, 'cash'
+	if $road_textrand0 = '加杜基诺':
+		minut += 15
+		nroad = 10
+	elseif $road_textrand0 = '巴甫洛夫斯克':
+		minut += 15
+		nroad = 20
+	elseif $road_textrand0 = '圣彼得堡':
+		minut += 15
+		nroad = 0
+	end
+
+	picrand = rand(1, 2)
+	'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+	if truck_drive = 1:
+		'<center><img <<$set_imgh>> src="images/locations/highway/truck_drive (<<picrand>>).jpg" ></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/highway/drive (<<picrand>>).jpg" ></center>'
+	end
+	'你试着开口搭话一两次，但男人开车时似乎真的对聊天不感兴趣。你放弃了，只是看着窗外，任由他把你载往目的地。'
+	'十五分钟后，你们到了，男人把车停在路边。"好了，我们到了。保重，姑娘！"'
+	if prostitute['highway_idea'] = 1:
+		'你下了车，望着车开走了一两分钟。刚才竟有人招揽你，仿佛你是妓女一般。'
+		if prostitute['active'] = 1:
+			'说实话，你确实就是，但这仍然让你吃了一惊。不过，这意味着也许你可以在公路沿线工作。你确实见过一些女孩在接客，但大多是在巴甫洛夫斯克或圣彼得堡的入口附近。'
+			'你暂时把这个想法放在一边，但也许以后你该去了解一下。'
+			prostitute['highway_idea'] = 2
+			gs 'prostitution_functions', 'set_highway_prostitute'
+		else
+			if PCloStyle = 4 or PCloProstitute = 1:
+				'你也许穿得像妓女，但这并不意味着你就是。尽管如此，现在你知道要留个心眼了，显然公路沿线有妓女在接活，不只是巴甫洛夫斯克或圣彼得堡附近。'
+			else
+				'你还有点惊魂未定，纳闷自己当初为什么要请他载你一程，但随即耸耸肩不去想它。他以为你是妓女。开什么玩笑…'
+			end
+			prostitute['highway_idea'] = 2
+			gs 'prostitution_functions', 'set_highway_prostitute'
+		end
+	end
+	act '下车': gt 'road', '<<nroad>>'
+end
+
+
+if $ARGS[0] = 'autostop_money':
+	$location_type = 'event_outdoors'
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	autostop_price = rand(1, 3)
+	textrand = rand(1, 3)
+	if textrand = 1: $road_textrand4 = '我带你去要<<$func(''money'', ''string_price'', autostop_price*100)>>。'
+	if textrand = 2: $road_textrand4 = '<<$func(''money'', ''string_price'', autostop_price*100)>>。爱坐不坐。'
+	if textrand = 3: $road_textrand4 = '<<$func(''money'', ''string_price'', autostop_price*100)>>。'
+	'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+	if ARGS[1] = 0:
+		if truck_drive = 1:
+			'<center><img <<$set_imgh>> src="images/locations/highway/truck_guy (<<ARGS[2]>>).jpg" ></center>'
+		elseif bandit_drive = 1:
+			'<center><img <<$set_imgh>> src="images/locations/highway/guy (1).jpg" ></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/highway/guy (<<ARGS[2]>>).jpg" ></center>'
+		end
+		'你走近司机说："您好，先生！我需要搭车去<<$road_textrand0>>, 您能帮帮我吗？"'
+		'司机又用打量的目光看了你一眼。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/highway/guy (<<ARGS[2]>>).jpg" ></center>'
+		'你后退一小步，"我想您弄错了，先生，我只是想去<<$road_textrand0>>, 你能帮帮我吗？'
+		'司机又用打量的目光看了你一眼。'
+	end
+	if rand(0, 1200) <= pcs_apprnc:
+		cla
+		'"我可以免费载你去，但前提是你要为我做点什么作为回报，" 男人微笑着说。'
+		'"呃…比如做什么？" 你问他，尽管你非常确定自己知道接下来会发生什么。'
+		'男人笑了笑，在座位上动了动身子。他说："你是个身材不错的成年姑娘！肯定能想出点什么吧？"'
+		gs 'willpower', 'bj', 'self'
+		if pcs_willpwr < will_cost:
+			act '给他口交' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '给他口交' + $func('willpower', 'get_willcost_string'):
+				cla
+				gs 'willpower', 'bj', 'self'
+				gs 'willpower', 'pay', 'self'
+				drive_sex[1] = 1
+				'你咬了咬嘴唇，快速权衡了一下选择。然后你说：“我真的需要搭这趟车，先生！我给你口交行吗？”'
+				'那家伙贪婪地咧嘴一笑，说：“太好了，我就知道我们能找到互相帮忙的办法！上车吧。”'
+				act '上车': gt 'road', 'drive_sex1'
+			end
+		end
+		gs 'willpower', 'hj', 'self'
+		if pcs_willpwr < will_cost:
+			act '给他手交' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '给他手交' + $func('willpower', 'get_willcost_string'):
+				cla
+				gs 'willpower', 'hj', 'self'
+				gs 'willpower', 'pay', 'self'
+				drive_sex[2] = 1
+				'你咬着嘴唇犹豫了一下，飞快地权衡着各种选择。然后你说，"我真的需要搭这趟车，先生！我给你手交行吗？"'
+				'那家伙露出略显失望的表情，皱起眉头：“什么？只是手交？”'
+				'你实在不想做得更过分了！你的脸颊涨得通红，结结巴巴地说：“对不起，我平时不干这种事的……”'
+				'他犹豫了一下，回答说：“哦，那好吧。能让你这么可爱的姑娘给我手交，这买卖也算公道。上车吧。”'
+				act '上车': gt 'road', 'drive_sex2'
+			end
+		end
+		act '拒绝他的提议':
+			cla
+			'你咬了一下嘴唇，片刻间想过也许可以改付他钱，但觉得放他走更安全，谁知道如果你拒绝后还单独上他的车，他会做出什么事来。'
+			'"谢谢您，先生，但我还是等别人吧，抱歉耽搁您了。" 你说着退离了车边。男人耸耸肩，开车离开了。'
+			act '继续': gt $loc, $loc_arg
+		end
+	else
+		'他思考了一秒钟，然后说："<<$road_textrand4>>"'
+		act '同意付钱给他' + $func('money', 'get_cost_string', autostop_price*100, 'cash'):
+			if func('money', 'can_afford', autostop_price * 100, 'cash') = 0:
+				$noMoney
+			else
+				gt 'road', 'autostop_drive'
+			end
+		end
+		act '拒绝他的提议':
+			cla
+			'"对不起，先生。我付不起那个价钱，" 你道歉并退离车边。男人耸耸肩，开车离开了。'
+			act '继续': gt $loc, $loc_arg
+		end
+		act '问问能不能便宜点':
+			cla
+			textrand = rand(1, 3)
+			if textrand = 1: $road_textrand5 = '求求您，先生！我快身无分文了…您能帮帮一个姑娘吗？我会非常感激的！'
+			if textrand = 2: $road_textrand5 = '也许我们能商量出个办法？'
+			if textrand = 3: $road_textrand5 = '哦不，我没有那么多钱！您能便宜一点吗？哪怕就一点点，就为了我？'
+			'你用手指绕着一缕头发，向男人露出可爱的神情，希望他会可怜你并降价。"<<$road_textrand5>>" 你甜甜地问他。'
+			'男人似乎有点不情愿，又看了你一眼。'
+			if rand(0, 400) <= pcs_apprnc:
+				cla
+				'"我可以免费载你去，但前提是你要为我做点什么作为回报，" 男人微笑着说。'
+				'"呃…比如做什么？" 你问他，尽管你非常确定自己知道接下来会发生什么。'
+				'男人笑了笑，在座位上动了动身子。他说："你是个身材不错的成年姑娘！肯定能想出点什么吧？"'
+				gs 'willpower', 'bj', 'self'
+				if pcs_willpwr < will_cost:
+					act '给他口交' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '给他口交' + $func('willpower', 'get_willcost_string'):
+						cla
+						gs 'willpower', 'bj', 'self'
+						gs 'willpower', 'pay', 'self'
+						drive_sex[1] = 1
+						'你咬了咬嘴唇，快速权衡了一下选择。然后你说：“我真的需要搭这趟车，先生！我给你口交行吗？”'
+						'那家伙贪婪地咧嘴一笑，说：“太好了，我就知道我们能找到互相帮忙的办法！上车吧。”'
+						act '上车': gt 'road', 'drive_sex1'
+					end
+				end
+				gs 'willpower', 'hj', 'self'
+				if pcs_willpwr < will_cost:
+					act '给他手交' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '给他手交' + $func('willpower', 'get_willcost_string'):
+						cla
+						gs 'willpower', 'hj', 'self'
+						gs 'willpower', 'pay', 'self'
+						drive_sex[2] = 1
+						'你咬着嘴唇犹豫了一下，飞快地权衡着各种选择。然后你说，"我真的需要搭这趟车，先生！我给你手交行吗？"'
+						'那家伙露出略显失望的表情，说：“什么？只是手交？”'
+						'你实在不想做得更过分了！你的脸颊涨得通红，结结巴巴地说：“对不起，我平时不干这种事的……”'
+						'他犹豫了一下，回答说：“哦，那好吧。能让你这么可爱的姑娘给我手交，这买卖也算公道。上车吧。”'
+						act '上车': gt 'road', 'drive_sex2'
+					end
+				end
+				act '拒绝他的提议':
+					cla
+					'“对不起，先生。我想我做不了这个。”你说着从车边退开。那男人耸耸肩，开车走了。'
+					act '继续': gt $loc, $loc_arg
+				end
+			else
+				ivrand = min(rand(1, 2), autostop_price - 1)
+				autostop_price -= ivrand
+				'男人恼火地叹了口气，但妥协了："好吧，行。我少收你<<$func(''money'', ''string_price'', ivrand*100, 1)>>, 因为你看起来是个好姑娘，我想帮帮你。我带你去要<<$func(''money'', ''string_price'', autostop_price*100, 1)>>, 但不能再低了！"'
+
+				act '同意付钱给他' + $func('money', 'get_cost_string', autostop_price*100, 'cash'):
+					if func('money', 'can_afford', autostop_price*100, 'cash') = 0:
+						$noMoney
+					else
+						!! trip
+						gt 'road', 'autostop_drive'
+					end
+				end
+				act '拒绝他的提议':
+					cla
+					'"对不起，先生。我还是付不起那个价钱，" 你道歉并退离车边。男人耸耸肩，开车离开了。'
+					act '继续': gt $loc, $loc_arg
+				end
+				gs 'willpower', 'bj', 'self'
+				if pcs_willpwr < will_cost:
+					act '改为给他口交' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '改为给他口交' + $func('willpower', 'get_willcost_string'):
+						cla
+						gs 'willpower', 'bj', 'self'
+						gs 'willpower', 'pay', 'self'
+						drive_sex[1] = 1
+						'你咬着嘴唇，好像对接下来要说的话感到难为情。你声音微弱地提议：“我付不起钱，先生。不过……我可以给你口交？这样可以吗？”'
+						'你挑逗地舔了舔嘴唇，朝他挤出一个虚弱的微笑，希望他也许会觉得你可怜，免费带你一程。'
+						'那男人咧开嘴笑得很开心，说：“你知道吗，姑娘？我还真有点希望你会这么说。上车吧。”'
+						act '上车': gt 'road', 'drive_sex1'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'autostop_d':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	truck_drive = 0
+	bandit_drive = 0
+	drive_sex[1] = 0
+	drive_sex[2] = 0
+	textrand = rand(1, 5)
+	if textrand = 1: $road_textrand1 = '嘿，亲爱的！你要去哪里？'
+	if textrand = 2: $road_textrand1 = '像你这样漂亮的姑娘独自在这种路上做什么？'
+	if textrand = 3: $road_textrand1 = '嘿，姑娘，需要搭车吗？'
+	if textrand = 4: $road_textrand1 = '嘿，美人，要去哪里？'
+	if textrand = 5: $road_textrand1 = '亲爱的，你不该一个人待在这种地方！需要搭车吗？'
+	textrand = rand(1, 5)
+	if textrand = 1: $road_textrand2 = '一尘不染、锃光瓦亮'
+	if textrand = 2: $road_textrand2 = 'dirty'
+	if textrand = 3: $road_textrand2 = '满是灰尘'
+	if textrand = 4: $road_textrand2 = '微微蒙尘'
+	if textrand = 5: $road_textrand2 = '非常脏'
+	textrand = rand(1, 5)
+	if textrand = 1: $road_textrand3 = 'black'
+	if textrand = 2: $road_textrand3 = 'white'
+	if textrand = 3: $road_textrand3 = 'red'
+	if textrand = 4: $road_textrand3 = 'blue'
+	if textrand = 5: $road_textrand3 = 'grey'
+	!! wagon and sedan
+	ivrand = rand(1, 2)
+	'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+	if ivrand = 1:
+		!! gangsters or not
+		ivrand = rand(1, 4)
+		if ivrand > 1:
+			picrand = rand(2, 4)
+			bandit_drive = 1
+			'<center><img <<$set_imgh>> src="images/locations/highway/guy (<<picrand>>).jpg" ></center>'
+			'在你在路边试图拦车几分钟后，一辆<<$road_textrand3>>、<<$road_textrand2>>的汽车停在你附近。司机摇下车窗看了你一会儿，大概是在确认你不会用脏衣服什么的弄脏他的座位。'
+			if pcs_apprnc < 60: '然后他耸耸肩说："你要去哪里，女士？"'
+			if pcs_apprnc >= 60: '然后他友善地笑了笑说："<<$road_textrand1>>"'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/highway/guy (1).jpg" ></center>'
+			'你花了几分钟试图拦下某辆车，一辆黑色车窗贴膜的车停在你附近。两个穿着皮夹克的男人正毫不掩饰地打量你的身体。'
+			'其中一人对另一人说："不错，我们显然来对地方了！"'
+		end
+	elseif ivrand = 2:
+		picrand = rand(1, 3)
+		truck_drive = 1
+		'<center><img <<$set_imgh>> src="images/locations/highway/truck_guy (<<picrand>>).jpg" ></center>'
+		'你努力拦车几分钟后，一辆巨大的<<$road_textrand3>>、<<$road_textrand2>>卡车停在你附近。卡车司机专注地看了你一会儿，大概是在确认你不会用脏衣服什么的弄脏他的座位。'
+		if pcs_apprnc < 60: '然后他耸耸肩说："你要去哪里，女士？"'
+		if pcs_apprnc >= 60: '然后他友善地笑了笑说："<<$road_textrand1>>"'
+	end
+end
+
+
+if $ARGS[0] = 'mistake_check':
+	if func('prostitution_functions', 'random_approach_chance') >= rand(1, 100):
+		result = 1
+	end
+end
+
+
+if $ARGS[0] = 'autostop_mistake':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	truck_drive = 0
+	bandit_drive = 0
+	if rand(1, 4) = 1: bandit_drive = 1
+
+	textrand = rand(1, 5)
+	if textrand = 1: $road_textrand1 = '一尘不染、锃光瓦亮'
+	if textrand = 2: $road_textrand1 = 'dirty'
+	if textrand = 3: $road_textrand1 = '满是灰尘'
+	if textrand = 4: $road_textrand1 = '微微蒙尘'
+	if textrand = 5: $road_textrand1 = '非常脏'
+	textrand = rand(1, 5)
+	if textrand = 1: $road_textrand2 = 'black'
+	if textrand = 2: $road_textrand2 = 'white'
+	if textrand = 3: $road_textrand2 = 'red'
+	if textrand = 4: $road_textrand2 = 'blue'
+	if textrand = 5: $road_textrand2 = 'grey'
+	textrand = rand(1, 5)
+	actrand = rand(1, 6)
+	if actrand = 1: $act_text = '口交要多少钱？"'
+	if actrand = 2: $act_text = '口交你收多少钱？"'
+	if actrand = 3: $act_text = '你给我口交，我给你钱，公平交易。"'
+	if actrand = 4: $act_text = '张开腿要多少钱？"'
+	if actrand = 5: $act_text = '搭车你收多少钱？"'
+	if actrand = 6: $act_text = '肛交要多少钱？"'
+	if textrand = 1: $road_textrand3 = '"嘿，亲爱的！你什么价钱？我真的需要放松一下，<<$act_text>>'
+	if textrand = 2: $road_textrand3 = '"嘿，美人，我正找你呢。我的蛋蛋胀得厉害，<<$act_text>>'
+	if textrand = 3: $road_textrand3 = '"嘿，姑娘，正是我需要的，<<$act_text>>'
+	if textrand = 4: $road_textrand3 = '"嘿，美人，正是我需要的，<<$act_text>>'
+	if textrand = 5: $road_textrand3 = '"亲爱的，你的女伴们都忙着呢？" 他又打量了你一番 "别难过，我也会让你忙起来的，<<$act_text>>'
+
+	if prostitute['road'] = 0: prostitute['highway_idea'] = 1
+
+	'<center><b>圣彼得堡和巴甫洛夫斯克之间的主干道</b></center>'
+	!! TODO: At some point add in a scene where some pimps stop, thinking Sveta is freelancing, to correct the situation.
+	picrand = rand(2, 4)
+	'<center><img <<$set_imgh>> src="images/locations/highway/guy (<<picrand>>).jpg" ></center>'
+	'在你在路边试图拦车几分钟后，一辆<<$road_textrand1>>, <<$road_textrand2>>一辆车停在你附近。司机摇下车窗，身体靠得更近，眼睛在你身上扫视。'
+	'<<$road_textrand3>>" - 他满脸堆笑地搓着手指，等着你的回答。'
+	'你对着这个问题眨了眨眼，然后意识到他把你误认为妓女' + iif(PCloStyle = 4 or PCloProstitute = 1, ', 看看你的穿着，这还真不奇怪', '。')
+	if $ARGS[1] = 'St. Petersburg' or $ARGS[1] = '圣彼得堡':
+		if nroad > 10:
+			act '请司机带你去加杜基诺':
+				$road_textrand0 = '加杜基诺'
+				gt 'road', 'autostop_money', 1, picrand
+			end
+		end
+		act '请司机带你去圣彼得堡':
+			$road_textrand0 = '圣彼得堡'
+			gt 'road', 'autostop_money', 1, picrand
+		end
+	else
+		if nroad < 10:
+			act '请司机带你去加杜基诺':
+				$road_textrand0 = '加杜基诺'
+				gt 'road', 'autostop_money', 1, picrand
+			end
+		end
+		act '请司机带你去巴甫洛夫斯克':
+			$road_textrand0 = '巴甫洛夫斯克'
+			gt 'road', 'autostop_money', 1, picrand
+		end
+	end
+
+	killvar 'road_textrand1'
+	killvar 'road_textrand2'
+	killvar 'road_textrand3'
+end
+
+
+--- road ---------------------------------

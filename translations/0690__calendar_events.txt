@@ -1,0 +1,790 @@
+# calendar_events
+
+!! =======================================
+!! Calendar v2 - Event Storage Module
+!! =======================================
+!!
+!! This module handles event storage and retrieval.
+!! Enhanced to support flexible time windows for events.
+!!
+!! =======================================
+!! ======== Helper Functions =============
+!! =======================================
+
+
+if $ARGS[0] = 'add_to_events_list':
+	if arrpos('$events_list', $ARGS[1]) = -1:
+		$events_list[] = $ARGS[1]
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'remove_from_events_list':
+	temp_index = arrpos('$events_list', $ARGS[1])
+	if temp_index <> -1:
+		killvar 'events_list', temp_index
+	end
+	killvar 'temp_index'
+	exit
+end
+
+if $ARGS[0] = 'change_title':
+	if arrpos('$events_list', $ARGS[1]) >= 0:
+		$event_title[$ARGS[1]] = $ARGS[2]
+	end
+	exit
+end
+
+if $ARGS[0] = 'mark_done':
+	if arrpos('$events_list', $ARGS[1]) >= 0:
+		$event_title[$ARGS[1]] = '<s><<$event_title[$ARGS[1]]>></s>'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_blocking_event':
+	!! Build cached list of blocking events for conflict checks
+	!! gs 'calendar_events', 'get_blocking_event'
+	killvar 'blocking_events_list'
+	temp_block_idx = 0
+	:build_blocking_list
+	if temp_block_idx < arrsize('$events_list'):
+		$temp_block_id = $events_list[temp_block_idx]
+		if $temp_block_id <> '' and event_blocking[$temp_block_id] <> 0:
+			$blocking_events_list[] = $temp_block_id
+		end
+		temp_block_idx += 1
+		jump 'build_blocking_list'
+	end
+	blocking_events_count = arrsize('$blocking_events_list')
+	killvar 'temp_block_idx'
+	killvar 'temp_block_id'
+	exit
+end
+
+
+if $ARGS[0] = 'is_day_holiday':
+	!! Determine whether the given daystart falls on a Russian national holiday
+	gs 'time', 'to_date', ARGS[1]
+	result = 0
+	if dateVars['month'] = 1 and dateVars['day'] >= 1 and dateVars['day'] <= 8: result = 1
+	if dateVars['month'] = 2 and dateVars['day'] = 23: result = 1
+	if dateVars['month'] = 3 and dateVars['day'] = 8: result = 1
+	if dateVars['month'] = 5 and dateVars['day'] = 1: result = 1
+	if dateVars['month'] = 5 and dateVars['day'] = 2: result = 1
+	if dateVars['month'] = 5 and dateVars['day'] = 9: result = 1
+	if dateVars['month'] = 6 and dateVars['day'] = 12: result = 1
+	if dateVars['month'] = 6 and dateVars['day'] = 13: result = 1
+	if dateVars['month'] = 11 and dateVars['day'] = 4: result = 1
+	exit
+end
+
+
+if $ARGS[0] = 'event_occurs_in_day':
+	!! Determine if event with ID $ARGS[1] occurs in the day ARGS[2]
+	!! If event ID is empty, use event_vars as-is (useful for adding new events)
+	if $ARGS[1] <> '':
+		gs 'calendar_events', 'get_event', $ARGS[1]
+	end
+
+	result = 0
+
+	!! Block if event was added after the date being checked
+	if event_vars['daystart'] > ARGS[2]:
+		exit
+	end
+	!! Handle holiday rules
+	if event_vars['holiday'] <> 0:
+		temp_is_holiday = func('calendar_events', 'is_day_holiday', ARGS[2])
+		if (event_vars['holiday'] = 1 and temp_is_holiday = 1) or (event_vars['holiday'] = 2 and temp_is_holiday = 0):
+			killvar 'temp_is_holiday'
+			exit
+		end
+		killvar 'temp_is_holiday'
+	end
+	!! Exact date match (only if no weekday-list recurrence pattern)
+	if event_vars['daystart'] = ARGS[2] and val(mid($event_vars['recur'], 1, 1)) = 0:
+		result = 1
+		exit
+	end
+	!! Handle recurrence patterns
+	if $event_vars['recur'] <> '' and (event_vars['recur_end'] = 0 or event_vars['recur_end'] >= ARGS[2]):
+		if $event_vars['recur'] = 'yearly':
+			gs 'time', 'to_date', ARGS[2]
+			temp_month_1 = dateVars['month']
+			temp_day_1 = dateVars['day']
+			gs 'time', 'to_date', event_vars['daystart']
+			temp_month_2 = dateVars['month']
+			temp_day_2 = dateVars['day']
+			if temp_month_1 = temp_month_2 and temp_day_1 = temp_day_2:
+				result = 1
+			end
+			killvar 'temp_month_1'
+			killvar 'temp_day_1'
+			killvar 'temp_month_2'
+			killvar 'temp_day_2'
+		elseif mid($event_vars['recur'], 1, 7) = 'yearly-':
+			!! Yearly date range: format 'yearly-mmdd-mmdd'
+			!! Example: 'yearly-1231-0114' for Dec 31 to Jan 14 (spans years)
+			!! Example: 'yearly-0319-0325' for March 19 to March 25 (same year)
+			gs 'time', 'to_date', ARGS[2]
+			temp_check_month = dateVars['month']
+			temp_check_day = dateVars['day']
+			temp_check_mmdd = temp_check_month * 100 + temp_check_day
+
+			!! Parse start and end dates from recur string
+			temp_start_mmdd = val(mid($event_vars['recur'], 8, 4))
+			temp_end_mmdd = val(mid($event_vars['recur'], 13, 4))
+
+			!! Check if date falls within range (handles year-spanning ranges)
+			if temp_start_mmdd <= temp_end_mmdd:
+				!! Range within same year (e.g., March 19 - March 25)
+				if temp_check_mmdd >= temp_start_mmdd and temp_check_mmdd <= temp_end_mmdd:
+					result = 1
+				end
+			else
+				!! Range spans year boundary (e.g., Dec 31 - Jan 14)
+				if temp_check_mmdd >= temp_start_mmdd or temp_check_mmdd <= temp_end_mmdd:
+					result = 1
+				end
+			end
+
+			killvar 'temp_check_month'
+			killvar 'temp_check_day'
+			killvar 'temp_check_mmdd'
+			killvar 'temp_start_mmdd'
+			killvar 'temp_end_mmdd'
+		elseif mid($event_vars['recur'], 1, 8) = 'monthly-':
+			!! Nth weekday of every month: format 'monthly-N-W' (N=1..5, W=1..7 Mon=1..Sun=7)
+			!! Example: 'monthly-3-6' = 3rd Saturday of every month
+			!! The Nth occurrence of weekday W falls on days ((N-1)*7+1) .. (N*7)
+			gs 'time', 'to_date', ARGS[2]
+			if dateVars['week'] = val(mid($event_vars['recur'], 11, 1)):
+				if (dateVars['day'] - 1) / 7 + 1 = val(mid($event_vars['recur'], 9, 1)):
+					result = 1
+				end
+			end
+		elseif $event_vars['recur'] = 'monthly':
+			gs 'time', 'to_date', ARGS[2]
+			temp_month_day_1 = dateVars['day']
+			gs 'time', 'to_date', event_vars['daystart']
+			temp_month_day_2 = dateVars['day']
+			if temp_month_day_1 = temp_month_day_2:
+				result = 1
+			end
+			killvar 'temp_month_day_1'
+			killvar 'temp_month_day_2'
+		elseif $event_vars['recur'] = 'biweekly':
+			day_diff = event_vars['daystart'] - ARGS[2]
+			day_diff = iif(day_diff < 0, 0 - day_diff, day_diff)
+			if day_diff mod 14 = 0:
+				result = 1
+			end
+		elseif $event_vars['recur'] = 'weekly':
+			day_diff = event_vars['daystart'] - ARGS[2]
+			day_diff = iif(day_diff < 0, 0 - day_diff, day_diff)
+			if day_diff mod 7 = 0:
+				result = 1
+			end
+		elseif $event_vars['recur'] = 'daily':
+			result = 1
+		else
+			!! Check if weekday is in the recurrence pattern (space-delimited list)
+			temp_weekday = func('time', 'get_week_from_daystart', ARGS[2])
+			if instr(' ' + $event_vars['recur'] + ' ', ' ' + $str(temp_weekday) + ' ') > 0:
+				result = 1
+			end
+			killvar 'temp_weekday'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'next_occurrence_daystart':
+	!! Return the next occurrence daystart for the event described by the current new_ev, which is a copy of event_vars
+	!! ARGS[1] = last occurrence daystart (-1 for first)
+	if ARGS[1] = -1:
+		!! For most patterns, daystart itself is the first occurrence.
+		!! But for weekday-list patterns (e.g. '6 7'), daystart may not match.
+		!! We must advance to the first matching weekday if needed.
+		!! Weekday-list patterns always start with a digit (1-7); named patterns don''t.
+		if val(mid($new_ev['recur'], 1, 1)) > 0:
+			!! Weekday-list pattern: check if daystart matches
+			temp_weekday = func('time', 'get_week_from_daystart', new_ev['daystart'])
+			if instr(' ' + $new_ev['recur'] + ' ', ' ' + $str(temp_weekday) + ' ') = 0:
+				!! daystart doesn''t match the recurrence pattern, find the first matching day
+				temp_check_day = new_ev['daystart'] + 1
+				temp_days_scanned = 0
+				:find_first_match
+					temp_weekday = func('time', 'get_week_from_daystart', temp_check_day)
+					if instr(' ' + $new_ev['recur'] + ' ', ' ' + $str(temp_weekday) + ' ') > 0:
+						result = temp_check_day
+						killvar 'temp_weekday'
+						killvar 'temp_check_day'
+						killvar 'temp_days_scanned'
+						exit
+					end
+					temp_check_day += 1
+					temp_days_scanned += 1
+				if temp_days_scanned < 7: jump 'find_first_match'
+				!! Should never reach here with a valid pattern
+				killvar 'temp_weekday'
+				killvar 'temp_check_day'
+				killvar 'temp_days_scanned'
+			end
+			killvar 'temp_weekday'
+		end
+		result = new_ev['daystart']
+		exit
+	end
+
+	!! No recurrence means no "next" occurrence after the initial daystart
+	if $new_ev['recur'] = '':
+		result = -1
+		exit
+	end
+
+	!! Calculate next occurrence directly based on recurrence pattern
+	candidate = ARGS[1] + 1
+
+	if $new_ev['recur'] = 'daily':
+		!! Daily: next day is always the next occurrence
+		candidate = ARGS[1] + 1
+	elseif $new_ev['recur'] = 'weekly':
+		!! Weekly: add 7 days
+		candidate = ARGS[1] + 7
+	elseif $new_ev['recur'] = 'biweekly':
+		!! Biweekly: add 14 days
+		candidate = ARGS[1] + 14
+	elseif mid($new_ev['recur'], 1, 8) = 'monthly-':
+		!! Nth weekday of every month: advance to same Nth-weekday in the next month
+		temp_N = val(mid($new_ev['recur'], 9, 1))
+		temp_W = val(mid($new_ev['recur'], 11, 1))
+		gs 'time', 'to_date', ARGS[1]
+		temp_month = dateVars['month'] + 1
+		temp_year = dateVars['year']
+		if temp_month > 12:
+			temp_month = 1
+			temp_year += 1
+		end
+		!! Find weekday of 1st of that month, then compute the Nth occurrence of weekday W
+		gs 'time', 'to_daystart', temp_year, temp_month, 1
+		gs 'time', 'to_date', dateVars['daystart']
+		temp_day = 1 + ((temp_W - dateVars['week'] + 7) mod 7) + (temp_N - 1) * 7
+		gs 'time', 'to_daystart', temp_year, temp_month, temp_day
+		candidate = dateVars['daystart']
+		killvar 'temp_N'
+		killvar 'temp_W'
+		killvar 'temp_month'
+		killvar 'temp_year'
+		killvar 'temp_day'
+	elseif $new_ev['recur'] = 'monthly':
+		!! Monthly: advance to same day next month
+		gs 'time', 'to_date', ARGS[1]
+		temp_day = dateVars['day']
+		temp_month = dateVars['month']
+		temp_year = dateVars['year']
+		temp_month += 1
+		if temp_month > 12:
+			temp_month = 1
+			temp_year += 1
+		end
+		gs 'time', 'to_daystart', temp_year, temp_month, temp_day
+		candidate = dateVars['daystart']
+		killvar 'temp_day'
+		killvar 'temp_month'
+		killvar 'temp_year'
+	elseif $new_ev['recur'] = 'yearly':
+		!! Yearly: advance to same date next year
+		gs 'time', 'to_date', ARGS[1]
+		temp_day = dateVars['day']
+		temp_month = dateVars['month']
+		temp_year = dateVars['year']
+		temp_year += 1
+		gs 'time', 'to_daystart', temp_year, temp_month, temp_day
+		candidate = dateVars['daystart']
+		killvar 'temp_day'
+		killvar 'temp_month'
+		killvar 'temp_year'
+	elseif mid($new_ev['recur'], 1, 7) = 'yearly-':
+		!! Yearly date range: find next occurrence within range
+		gs 'time', 'to_date', ARGS[1]
+		temp_year = dateVars['year']
+		temp_start_mmdd = val(mid($new_ev['recur'], 8, 4))
+		temp_end_mmdd = val(mid($new_ev['recur'], 13, 4))
+		temp_start_month = temp_start_mmdd / 100
+		temp_start_day = temp_start_mmdd mod 100
+		temp_end_month = temp_end_mmdd / 100
+		temp_end_day = temp_end_mmdd mod 100
+
+		!! Find end date of current year''s range
+		gs 'time', 'to_daystart', temp_year, temp_end_month, temp_end_day
+		temp_end_this_year = dateVars['daystart']
+
+		if temp_start_mmdd <= temp_end_mmdd:
+			!! Same-year range (e.g. Oct 27 - Nov 3): start and end fall in the same calendar year.
+			!! Must distinguish: before range / inside range / past range end.
+			gs 'time', 'to_daystart', temp_year, temp_start_month, temp_start_day
+			temp_start_this_year = dateVars['daystart']
+			if ARGS[1] >= temp_start_this_year and ARGS[1] < temp_end_this_year:
+				!! Inside the range: advance one day
+				candidate = ARGS[1] + 1
+			elseif ARGS[1] < temp_start_this_year:
+				!! Before this year''s range: jump to range start
+				candidate = temp_start_this_year
+			else
+				!! Past this year''s range end: jump to next year''s range start
+				temp_year += 1
+				gs 'time', 'to_daystart', temp_year, temp_start_month, temp_start_day
+				candidate = dateVars['daystart']
+			end
+		else
+			!! Year-spanning range (e.g. Dec 31 - Jan 7): end is in the next calendar year.
+			if ARGS[1] < temp_end_this_year:
+				!! In the early-year (January) portion of the range: advance one day
+				candidate = ARGS[1] + 1
+			else
+				!! After the January portion: find the late-year (December) start
+				gs 'time', 'to_daystart', temp_year, temp_start_month, temp_start_day
+				temp_start_this_year = dateVars['daystart']
+				if ARGS[1] < temp_start_this_year:
+					!! Between end and start (e.g. Feb-Nov): jump to December start
+					candidate = temp_start_this_year
+				else
+					!! On or after December start: advance one day (wraps into January)
+					candidate = ARGS[1] + 1
+				end
+			end
+		end
+		killvar 'temp_year'
+		killvar 'temp_start_mmdd'
+		killvar 'temp_end_mmdd'
+		killvar 'temp_start_month'
+		killvar 'temp_start_day'
+		killvar 'temp_end_month'
+		killvar 'temp_end_day'
+		killvar 'temp_end_this_year'
+		killvar 'temp_start_this_year'
+	else
+		!! Weekday list (e.g., '1 3 5' for Mon/Wed/Fri)
+		!! Find next matching weekday within next 7 days
+		temp_found = 0
+		temp_check = ARGS[1] + 1
+		temp_days_checked = 0
+		:loop_weekdays
+			temp_weekday = func('time', 'get_week_from_daystart', temp_check)
+			if instr(' ' + $new_ev['recur'] + ' ', ' ' + $str(temp_weekday) + ' ') > 0:
+				candidate = temp_check
+				temp_found = 1
+				jump 'done_weekdays'
+			end
+			temp_check += 1
+			temp_days_checked += 1
+		if temp_days_checked < 7: jump 'loop_weekdays'
+		:done_weekdays
+		killvar 'temp_weekday'
+		killvar 'temp_days_checked'
+		if temp_found = 0:
+			!! Should never happen if recur pattern is valid
+			result = -1
+			killvar 'temp_found'
+			killvar 'temp_check'
+			exit
+		end
+		killvar 'temp_found'
+		killvar 'temp_check'
+	end
+
+	!! Check against recur_end and blocked months
+	if new_ev['recur_end'] > 0 and candidate > new_ev['recur_end']:
+		result = -1
+		exit
+	end
+
+
+	result = candidate
+	exit
+end
+
+
+!! =======================================
+!! ======== Event Storage ================
+!! =======================================
+
+!{
+	Event Variables (v2):
+		$event_vars['id']         - Unique event identifier
+		$event_vars['title']      - Event title
+		$event_vars['loc']        - Event location
+		$event_vars['desc']       - Event description
+		event_vars['daystart']    - Start day
+		event_vars['all_day']     - 0=timed event, 1=all-day event
+		event_vars['color']       - Event color number (0..20). 0 for random color
+		event_vars['blocking']    - 0=non-blocking, 1=blocking (conflicts prevent other blocking events)
+		event_vars['priority']    - 0=low (hidden by any higher), 1=normal (hidden by 2), 2=high (never hidden)
+		$event_vars['recur']      - Repeat pattern: 'daily', 'weekly', 'biweekly', 'monthly', 'yearly',
+								'monthly-N-W' (Nth weekday W each month, e.g. 'monthly-3-6' = 3rd Saturday),
+								'yearly-mmdd-mmdd' (yearly date range, e.g. 'yearly-1231-0114' for Dec 31-Jan 14),
+								'1 3 5' (space-delimited weekdays), or '' (no recurrence)
+		$event_vars['recur_blocked_months'] - Space-separated months (1..12) where recurrence is blocked
+		event_vars['recur_end']   - daystart when repeating ends (0=never)
+		event_vars['holiday']     - 0=ignore holidays, 1=skip holidays, 2=only on holidays
+
+		Flexible Time Windows:
+		event_vars['flex_type']   - 0=fixed time, 1=flexible start window, 2=flexible both (future)
+		event_vars['duration_ts'] - Event duration in timeslots (1 timeslot = 15 minutes)
+
+		For flex_type = 0 (fixed time):
+		event_vars['start_ts']    - Start timeslot (0..95)
+
+		For flex_type = 1 (flexible start):
+		event_vars['window_start_ts'] - Earliest possible arrival timeslot
+		event_vars['window_end_ts']   - Latest possible arrival timeslot (deadline)
+
+	Internal array variables:
+		$event_title[id]
+		$event_location[id]
+		$event_desc[id]
+		event_daystart[id]
+		event_all_day[id]
+		event_color[id]
+		event_blocking[id]
+		event_priority[id]
+		$event_recur[id]
+		$event_recur_blocked_months[id]
+		event_recur_end[id]
+		event_holiday[id]
+
+		NEW IN V2:
+		event_flex_type[id]
+		event_window_start_ts[id]
+		event_window_end_ts[id]
+		event_duration_ts[id]
+		event_start_ts[id]
+
+	Other:
+		$events_list[]         - List of event IDs
+!}
+
+
+if $ARGS[0] = 'new_event':
+	!! Check if new event conflicts with existing events
+	!! Returns result = 1 if conflict found, else 0
+	!! If there is no conflict, adds the event to the calendar, unless $ARGS[2] = 'dry_run'
+	result = func('calendar_events', 'check_event_conflicts')
+	if result = 0 and $ARGS[2] <> 'dry_run':
+		gs 'calendar_events', 'add_event', $ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'add_event':
+	!! Add a new event to the calendar
+	gs 'calendar_events', 'add_to_events_list', $ARGS[1]
+	gs 'calendar_list', 'assign_color'
+	$event_title[$ARGS[1]] = $event_vars['title']
+	$event_location[$ARGS[1]] = $event_vars['loc']
+	$event_desc[$ARGS[1]] = $event_vars['desc']
+	event_daystart[$ARGS[1]] = event_vars['daystart']
+	event_all_day[$ARGS[1]] = event_vars['all_day']
+	event_blocking[$ARGS[1]] = event_vars['blocking']
+	event_priority[$ARGS[1]] = event_vars['priority']
+	event_holiday[$ARGS[1]] = event_vars['holiday']
+	$event_recur[$ARGS[1]] = $event_vars['recur']
+	event_recur_end[$ARGS[1]] = event_vars['recur_end']
+	event_color[$ARGS[1]] = event_vars['color']
+	event_flex_type[$ARGS[1]] = event_vars['flex_type']
+
+	event_duration_ts[$ARGS[1]] = event_vars['duration_ts']
+	if event_vars['flex_type'] = 1:
+		!! Flexible event
+		event_window_start_ts[$ARGS[1]] = event_vars['window_start_ts']
+		event_window_end_ts[$ARGS[1]] = event_vars['window_end_ts']
+	else
+		!! Fixed event (flex_type = 0 or not set)
+		event_start_ts[$ARGS[1]] = event_vars['start_ts']
+	end
+	cal_upcoming_dirty = 1
+	exit
+end
+
+
+if $ARGS[0] = 'load_new_ev':
+	if ARGS[1] = 1:
+		!! load new event data from event_vars into new_ev[]
+		$new_ev['id'] = $event_vars['id']
+		$new_ev['title'] = $event_vars['title']
+		$new_ev['loc'] = $event_vars['loc']
+		$new_ev['desc'] = $event_vars['desc']
+		new_ev['daystart'] = event_vars['daystart']
+		new_ev['all_day'] = event_vars['all_day']
+		new_ev['color'] = event_vars['color']
+		new_ev['blocking'] = event_vars['blocking']
+		new_ev['priority'] = event_vars['priority']
+		$new_ev['recur'] = $event_vars['recur']
+		new_ev['recur_end'] = event_vars['recur_end']
+		new_ev['holiday'] = event_vars['holiday']
+		new_ev['flex_type'] = event_vars['flex_type']
+		$new_ev['exclude_prefix'] = $event_vars['exclude_prefix']
+
+		new_ev['duration_ts'] = event_vars['duration_ts']
+		if new_ev['flex_type'] = 1:
+			new_ev['window_start_ts'] = event_vars['window_start_ts']
+			new_ev['window_end_ts'] = event_vars['window_end_ts']
+		else
+			new_ev['start_ts'] = event_vars['start_ts']
+		end
+	else
+		!! Load new event data from new_ev[] into event_vars
+		$event_vars['id'] = $new_ev['id']
+		$event_vars['title'] = $new_ev['title']
+		$event_vars['loc'] = $new_ev['loc']
+		$event_vars['desc'] = $new_ev['desc']
+		event_vars['daystart'] = new_ev['daystart']
+		event_vars['all_day'] = new_ev['all_day']
+		event_vars['color'] = new_ev['color']
+		event_vars['blocking'] = new_ev['blocking']
+		event_vars['priority'] = new_ev['priority']
+		$event_vars['recur'] = $new_ev['recur']
+		event_vars['recur_end'] = new_ev['recur_end']
+		event_vars['holiday'] = new_ev['holiday']
+		event_vars['flex_type'] = new_ev['flex_type']
+		$event_vars['exclude_prefix'] = $new_ev['exclude_prefix']
+
+		event_vars['duration_ts'] = new_ev['duration_ts']
+		if new_ev['flex_type'] = 1:
+			event_vars['window_start_ts'] = new_ev['window_start_ts']
+			event_vars['window_end_ts'] = new_ev['window_end_ts']
+		else
+			event_vars['start_ts'] = new_ev['start_ts']
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'check_event_conflicts':
+	!! Check whether the event described by current event_vars would conflict with existing events
+	!! Returns result = 1 if conflict found, else 0
+	!!
+	!! Cross-midnight support:
+	!!   Events whose start_ts + duration_ts > 96 extend past midnight into the next day.
+	!!   This function checks three overlap scenarios per occurrence:
+	!!     1. Same-day overlap (standard timeslot range comparison)
+	!!     2. Existing event from previous day overflows into new event''s day
+	!!     3. New event overflows past midnight, conflicting with next-day existing events
+	result = 0
+
+	!! Non-blocking events never conflict
+	if event_vars['blocking'] = 0: exit
+
+	!! Build cached blocking events list
+	gs 'calendar_events', 'get_blocking_event'
+
+	!! Preserve new event fields
+	gs 'calendar_events', 'load_new_ev', 1
+
+	!! Normalize new event time span based on flex_type
+	if new_ev['all_day'] = 1:
+		new_ev['start_span'] = 0
+		new_ev['len_span'] = 96
+	elseif new_ev['flex_type'] = 1:
+		!! Flexible event: check entire window range
+		new_ev['start_span'] = new_ev['window_start_ts']
+		new_ev['len_span'] = (new_ev['window_end_ts'] - new_ev['window_start_ts']) + new_ev['duration_ts']
+	else
+		!! Fixed event
+		new_ev['start_span'] = new_ev['start_ts']
+		new_ev['len_span'] = max(1, new_ev['duration_ts'])
+	end
+	new_ev['end_span'] = new_ev['start_span'] + new_ev['len_span'] - 1
+
+	!! Iterate occurrences of the new event (up to 100)
+	new_occurrences = 0
+	new_last = -1
+
+	:loop_new_occurrence
+		new_occurrences += 1
+		new_day = func('calendar_events', 'next_occurrence_daystart', new_last)
+		if new_day = -1 or new_occurrences > 100:
+			!! Clean up before exiting
+			killvar 'new_occurrences'
+			killvar 'new_last'
+			killvar 'new_day'
+			killvar 'other_start'
+			killvar 'other_len'
+			killvar 'other_end'
+			killvar 'new_ev'
+			killvar 'cec_overflow_start'
+			killvar 'cec_overflow_end'
+			exit
+		end
+		new_last = new_day
+
+		temp_i = 0
+		:loop_existing_events
+			$temp_event_id = $blocking_events_list[temp_i]
+			if $temp_event_id <> '' and $temp_event_id <> $new_ev['id']:
+				!! Skip events matching the exclude prefix (e.g. same-job bookings)
+				if $new_ev['exclude_prefix'] = '' or instr($temp_event_id, $new_ev['exclude_prefix']) <> 1:
+
+					!! --- Check 1: Same-day overlap ---
+					gs 'calendar_events', 'get_event', $temp_event_id
+					if func('calendar_events', 'event_occurs_in_day', $temp_event_id, new_day) = 1:
+						!! Normalize other event time span
+						if event_vars['all_day'] = 1:
+							other_start = 0
+							other_len = 96
+						elseif event_vars['flex_type'] = 1:
+							!! Flexible event: check entire window range
+							other_start = event_vars['window_start_ts']
+							other_len = (event_vars['window_end_ts'] - event_vars['window_start_ts']) + event_vars['duration_ts']
+						else
+							!! Fixed event
+							other_start = event_vars['start_ts']
+							other_len = max(1, event_vars['duration_ts'])
+						end
+						other_end = other_start + other_len - 1
+
+						!! Standard same-day overlap check (works even if spans exceed 96)
+						if other_start <= new_ev['end_span'] and other_end >= new_ev['start_span']:
+							result = 1
+							jump 'cec_conflict_found'
+						end
+					end
+
+					!! --- Check 2: Existing event from previous day overflows into new event''s day ---
+					!! If an existing event occurs on (new_day - 1) and extends past midnight,
+					!! its overflow portion (timeslots 0..overflow_end) conflicts on new_day.
+					gs 'calendar_events', 'get_event', $temp_event_id
+					if func('calendar_events', 'event_occurs_in_day', $temp_event_id, new_day - 1) = 1:
+						if event_vars['all_day'] = 0:
+							if event_vars['flex_type'] = 1:
+								cec_overflow_end = event_vars['window_start_ts'] + (event_vars['window_end_ts'] - event_vars['window_start_ts']) + event_vars['duration_ts'] - 1
+							else
+								cec_overflow_end = event_vars['start_ts'] + max(1, event_vars['duration_ts']) - 1
+							end
+							!! Only matters if event actually crosses midnight (end > 95)
+							if cec_overflow_end > 95:
+								!! Overflow portion on new_day spans timeslots 0..(overflow_end - 96)
+								cec_overflow_start = 0
+								cec_overflow_end = cec_overflow_end - 96
+								if cec_overflow_start <= new_ev['end_span'] and cec_overflow_end >= new_ev['start_span']:
+									result = 1
+									jump 'cec_conflict_found'
+								end
+							end
+						end
+					end
+
+					!! --- Check 3: New event overflows past midnight into the next day ---
+					!! If the new event crosses midnight, its overflow portion on (new_day + 1)
+					!! spans timeslots 0..(new_end_span - 96). Check existing events on that day.
+					if new_ev['end_span'] > 95:
+						gs 'calendar_events', 'get_event', $temp_event_id
+						if func('calendar_events', 'event_occurs_in_day', $temp_event_id, new_day + 1) = 1:
+							if event_vars['all_day'] = 1:
+								other_start = 0
+								other_len = 96
+							elseif event_vars['flex_type'] = 1:
+								other_start = event_vars['window_start_ts']
+								other_len = (event_vars['window_end_ts'] - event_vars['window_start_ts']) + event_vars['duration_ts']
+							else
+								other_start = event_vars['start_ts']
+								other_len = max(1, event_vars['duration_ts'])
+							end
+							other_end = other_start + other_len - 1
+
+							!! New event''s overflow portion on next day: 0..(end_span - 96)
+							cec_overflow_start = 0
+							cec_overflow_end = new_ev['end_span'] - 96
+							if other_start <= cec_overflow_end and other_end >= cec_overflow_start:
+								result = 1
+								jump 'cec_conflict_found'
+							end
+						end
+					end
+
+				end
+			end
+			gs 'calendar_events', 'load_new_ev', 0
+			temp_i += 1
+		if temp_i < arrsize('$blocking_events_list'): jump 'loop_existing_events'
+		killvar 'temp_i'
+	jump 'loop_new_occurrence'
+
+	:cec_conflict_found
+	killvar 'temp_i'
+	killvar 'new_occurrences'
+	killvar 'new_last'
+	killvar 'new_day'
+	killvar 'other_start'
+	killvar 'other_len'
+	killvar 'other_end'
+	killvar 'new_ev'
+	killvar 'cec_overflow_start'
+	killvar 'cec_overflow_end'
+	exit
+end
+
+
+if $ARGS[0] = 'remove_event':
+	!! Remove an event from the calendar
+	gs 'calendar_events', 'remove_from_events_list', $ARGS[1]
+	$event_title[$ARGS[1]] = ''
+	$event_location[$ARGS[1]] = ''
+	$event_desc[$ARGS[1]] = ''
+	event_daystart[$ARGS[1]] = 0
+	event_all_day[$ARGS[1]] = 0
+	event_color[$ARGS[1]] = 0
+	event_priority[$ARGS[1]] = 0
+	event_blocking[$ARGS[1]] = 0
+	$event_recur[$ARGS[1]] = ''
+	event_recur_end[$ARGS[1]] = 0
+	event_holiday[$ARGS[1]] = 0
+	!! NEW IN V2: Clear flexible time fields
+	event_flex_type[$ARGS[1]] = 0
+	event_window_start_ts[$ARGS[1]] = 0
+	event_window_end_ts[$ARGS[1]] = 0
+	event_duration_ts[$ARGS[1]] = 0
+	event_start_ts[$ARGS[1]] = 0
+	cal_upcoming_dirty = 1
+	exit
+end
+
+
+if $ARGS[0] = 'get_event':
+	!! Retrieve event details into event_vars
+	$event_vars['id'] = $ARGS[1]
+	$event_vars['title'] = $event_title[$ARGS[1]]
+	$event_vars['loc'] = $event_location[$ARGS[1]]
+	$event_vars['desc'] = $event_desc[$ARGS[1]]
+	event_vars['daystart'] = event_daystart[$ARGS[1]]
+	event_vars['all_day'] = event_all_day[$ARGS[1]]
+	event_vars['color'] = event_color[$ARGS[1]]
+	event_vars['blocking'] = event_blocking[$ARGS[1]]
+	event_vars['priority'] = event_priority[$ARGS[1]]
+	$event_vars['recur'] = $event_recur[$ARGS[1]]
+	event_vars['recur_end'] = event_recur_end[$ARGS[1]]
+	event_vars['holiday'] = event_holiday[$ARGS[1]]
+	!! NEW IN V2: Flexible time window support
+	event_vars['flex_type'] = event_flex_type[$ARGS[1]]
+
+	if event_flex_type[$ARGS[1]] = 1:
+		!! Flexible event
+		event_vars['window_start_ts'] = event_window_start_ts[$ARGS[1]]
+		event_vars['window_end_ts'] = event_window_end_ts[$ARGS[1]]
+		event_vars['duration_ts'] = event_duration_ts[$ARGS[1]]
+	else
+		!! Fixed event (flex_type = 0 or not set)
+		event_vars['start_ts'] = event_start_ts[$ARGS[1]]
+		event_vars['duration_ts'] = event_duration_ts[$ARGS[1]]
+	end
+	exit
+end
+
+
+--- calendar_events ---------------------------------

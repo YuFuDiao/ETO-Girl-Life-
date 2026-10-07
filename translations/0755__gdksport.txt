@@ -1,0 +1,698 @@
+# gdksport
+!! 2026/04/05
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	*clr & cla
+	gs 'core_library', 'setloc', 'gdksport', $ARGS[0]
+	menu_off = 0
+	$location_type = 'public_indoors'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	if npc_rel['A5'] >= 80 and fedorKozlovQW = 0 and pcs_hotcat >= 5 and fedorkozbreak < 2 and fame['pav_slut'] <= 75: gt 'gdksport', 'Fedor First Date'
+
+	$func('wrap', 'header center b', '社区中心')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/gym/gdksport.jpg"></center>'
+	'社区中心体育俱乐部提供以下课程<a href="exec: gt ''gdksport'',''racing1''">赛跑</a>, <a href="exec: gt ''gdksport'',''dance1''">跳舞</a>和<a href="exec: gt ''gdksport'',''vball1''">排球</a>.'
+	'排球和赛跑课程开始时间不晚于 '+func('time', 'get_time_string', 18, 0)+', 而舞蹈课程开始时间不晚于 '+func('time', 'get_time_string', 15, 0)+'。'
+
+	if (temper < 15 or sunWeather ! 1) and hour > 8 and hour < 12 and week = 6 and bbpickupDay + 14 <= daystart and fbpickupDay ! daystart:
+		*nl
+		'当你经过运动场时，你注意到大多数体育生聚集在<a href="exec:gt ''bbgamein'', ''start''">篮球场</a>.'
+	end
+
+	!! Persons of interest
+	if kotovLoveQW > 0 and hour = 16:
+		'你看到<a href="exec:minut += 3 & gt ''kotovEv''">维泰克</a>背着一个大运动包走进体育俱乐部。'
+	end
+	if npc_rel['A3'] >= 60 and hour = 17:
+		if ivansportday ! daystart:
+			temp_ivan_seen = 1
+			'你看到<a href="exec:minut += 3 & gt ''IvanEv'', ''ivan_vitek_fight1''">伊万</a>提着一个大运动包走进体育俱乐部。'
+		end
+		if ivanQW['ivan_boxing_invite'] = 1:
+			if temp_ivan_seen = 0:
+				'你看到伊万提着一个大运动包走进体育俱乐部。他朝健身房的拳击区走去。'
+			end
+			act '跟随伊万去训练': gt 'IvanEv', 'training'
+		end
+		killvar 'temp_ivan_seen'
+	end
+	if week <= 5 and hour >= 16 and hour < 18 and fedorKozlovQW >= 20:
+		'你可以看到<a href="exec: gt ''FedorMisc'', ''Fedor Workout''">费奥多尔</a>正在沙袋旁边玩手机。'
+	end
+	if (week < 6 and hour >= 10 and hour < 20) or (week >= 6 and hour >= 12 and hour < 20):
+		if vballVars['coach_leave'] < daystart and (vballVars['lessons_remaining'] > 0 or vballVars['on_team'] > 0):
+			'<a href="exec: gt ''volley_coach'', ''coach_office''">米哈伊尔教练</a>现在可能就在他的办公室里。'
+		end
+	end
+
+	!! Starlets scene setting
+	if starlets_on = 1 and AlbinaQW['StarletsShutDown'] = 0 and hour >= 15 and hour < 18:
+		*nl
+		if AlbinaQW['StarletsJoined'] > 0:
+			if hour < 16:
+				'一些星耀队成员已经在场地上热身了。'
+			elseif AlbinaQW['startletsday'] ! daystart:
+				'阿尔比娜和其他星耀队成员在这里，正跟着流行音乐练习动作。你来晚了，赶不上加入她们。'
+			end
+		else
+			if gsAboDance > 0:
+				'舞蹈课的位置被另一组舞者占用了，她们正跟着流行音乐练习动作。她们看起来相当不错，配合也很默契。'
+			else
+				'一群舞者正在旁边跟着流行音乐练习动作。她们看起来相当不错，配合也很默契。'
+			end
+		end
+	end
+
+	if AlbinaQW['StarletsJoined'] > 0 and AlbinaQW['StarletsShutDown'] = 0 and npc_pregtalk['A23'] = 0 and cheerleaders_on = 1 and kanikuli = 0:
+		*nl
+		'阿尔比娜在参加拉拉队训练，所以今天没有星耀队训练。'
+	end
+
+	!! Locker room stuff
+	*nl
+	if PSport = 0:
+		*nl
+		if PCloSport ! 1: '<font color = "red">🗴</font>你没有穿运动服。</font>'
+		if PShoSport ! 1: '<font color = "red">🗴</font>你没有穿训练鞋。</font>'
+		'所有可选课程和活动都要求穿着运动服。'
+	end
+	*nl
+	'在更衣室里有一个<a href="exec: gt ''mirror'',''start''">镜子</a>, 你可以 ' + iif(pcs_hairbsh = 0, '<a href="exec: gt ''mirror'',''brush''">梳理</a>', '梳理') + ' 你的头发。'
+
+	!! Actions
+	act '出去':
+		if $clothingworntype = 'nude':
+			msg '<b><font color = red>离开前你需要穿好衣服。</font></b>'
+			gt 'gdksport', 'start'
+		else
+			gt 'pav_commcenter'
+		end
+	end
+
+	if PSport = 1 and hour < 18:
+		!! Running lessons
+		if gsAboBeg > 0 and npc_pregtalk['A131'] = 0:
+			if pcs_stam < stammax / 5:
+				act '上一节田径课。你有<<gsAboBeg>>节剩余课程 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_stam>>/<<stammax / 5>>体力）'): $func('wrap', 'v_neg', '<br>你太累了做不了这个。恢复体力后再尝试训练。')
+			elseif pcs_energy < 20:
+				act '上一节田径课。你有<<gsAboBeg>>节剩余课程 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_energy>>/20 饥饿）'): $func('wrap', 'neg', '<br>你觉得太饿做不了这个。')
+			elseif pcs_hydra < 20:
+				act '上一节田径课。你有<<gsAboBeg>>节剩余课程 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_hydra>>/20 口渴）'): $func('wrap', 'neg', '<br>你太渴了无法做这件事。')
+			else
+				act '上一节田径课。你有<<gsAboBeg>>节剩余课程 (2:00)': gt 'gdksport', 'racing2'
+			end
+		end
+
+		gs 'volleyball_ev', 'volleyball_menu'
+
+		!! Dance lessons - lessons arent held by Albina, but probably need the same space
+		if gsAboDance > 0 and (starlets_on = 0 or AlbinaQW['StarletsShutDown'] > 0 or hour < 15):
+			if pcs_stam < stammax / 5:
+				act '上一节舞蹈课。你有<<gsAboDance>>节剩余课程 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_stam>>/<<stammax / 5>>体力）'): $func('wrap', 'v_neg', '<br>你太累了做不了这个。恢复体力后再尝试训练。')
+			elseif pcs_energy < 20:
+				act '上一节舞蹈课。你有<<gsAboDance>>节剩余课程 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_energy>>/20 饥饿）'): $func('wrap', 'neg', '<br>你觉得太饿做不了这个。')
+			elseif pcs_hydra < 20:
+				act '上一节舞蹈课。你有<<gsAboDance>>节剩余课程 (2:00) ' + $func('wrap', 'v_neg', '(<<pcs_hydra>>/20 口渴）'): $func('wrap', 'neg', '<br>你太渴了无法做这件事。')
+			else
+				act '上一节舞蹈课。你有<<gsAboDance>>节剩余课程 (2:00)':
+					if rand(0, 5) = 0:
+						gt 'danceGev'
+					else
+						gt 'gdksport', 'dance2'
+					end
+				end
+			end
+		end
+
+		!! Starlets practice
+		if AlbinaQW['StarletsJoined'] > 0 and AlbinaQW['StarletsShutDown'] = 0 and npc_pregtalk['A23'] = 0 and AlbinaQW['startletsday'] ! daystart:
+			if hour = 15 and starlets_on = 1:
+				if func('body_din', 'pregnancyVisibility') = 1:
+					act '与新星队一起训练': gt 'albina_starlets', 'Starletsreact'
+				elseif grupTipe = 5:
+					act '与新星队一起训练': gt 'albina_starlets', 'StarletsEnd'
+				elseif starlets_missed = 1:
+					starlets_missed = 0
+					starlet_practice_skipped += 1
+					act '与新星队一起训练': gt 'albina_starlets', 'StarletsPracticeMissed'
+				else
+					act '与新星队一起训练': gt 'albina_starlets', 'starlets'
+				end
+				gs 'pushkin_ballet_evt', 'check_starlets_evt'
+				'告诉阿尔比娜你想<a href="exec:gt ''albina_starlets'', ''Quit''">退出</a>星耀队。'
+			end
+		end
+	end
+
+	act '在更衣室换衣服':
+		cla
+		gt 'wardrobe', 'start'
+	end
+	gs 'wardrobe', 'default_clothing_options'
+
+	act '去厕所':
+		if $clothingworntype = 'nude':
+			msg '<b><font color = red>离开前你需要穿好衣服。</font></b>'
+			gt 'gdksport', 'start'
+		else
+			gt 'gdktoilet', 'start'
+		end
+	end
+
+	if mc_inventory['shampoo'] > 0 or ($start_type['loc'] = 'sg' and (gschoolVars['school_diploma'] = 0 or gschoolVars['block'] = 0)):
+		act '淋浴': gt 'gdksport', 'shower'
+	else
+		*nl
+		$func('wrap', 'neg', '你的洗发水用完了，得再买一些才能洗澡。')
+	end
+
+	if mc_inventory['deodorant'] > 0 and deodorant_on = 0:
+		act '使用除臭剂 (<<mc_inventory[''deodorant'']>> <<iif(mc_inventory[''deodorant''] = 1, ''application'', ''applications'')>>剩余）':
+			*clr & cla
+			menu_off = 1
+			minut += 1
+			mc_inventory['deodorant'] -= 1
+			gs 'sweat', 'deo'
+			iif(func('body_din', 'pregnancyVisibility') = 1, '<center><img <<$set_imgh>> src="images/shared/home/bathroom/deodorant_preg.jpg"></center>', '<center><img <<$set_imgh>> src="images/shared/home/bathroom/deodorant.jpg"></center>')
+			'你把除臭剂涂在腋下。这能让你更长时间保持清新干净。'
+			act '继续': menu_off = 0 & gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'racing1':
+	menu_off = 1
+	*clr & cla
+	gs 'stat'
+	'赛跑训练费用为 ' + $func('money', 'string_price', 300) + '，共30节课。'
+	if gsAboBeg > 0: '你还剩<<gsAboBeg>>节课。'
+
+	act '离开': gt 'gdksport', 'start'
+
+	if gsAboBeg <= 0:
+		act '购买30节赛跑课程' + $func('money', 'get_cost_string', 300):
+			if func('money', 'can_afford', 300) = 0:
+				$noMoney
+			else
+				*clr & cla
+				gs 'money', 'pay', 300
+				gsAboBeg = 30
+				gs 'stat'
+				'你支付了30节赛跑课程的费用。'
+				act '离开': gt 'gdksport', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'dance1':
+	menu_off = 1
+	*clr & cla
+	gs 'stat'
+	'舞蹈课费用为 ' + $func('money', 'string_price', 300) + '，共30节课。'
+	if gsAboDance > 0: '你还剩<<gsAboDance>>节课。'
+
+	act '离开': gt 'gdksport', 'start'
+
+	if gsAboDance <= 0:
+		act '购买30节舞蹈课程' + $func('money', 'get_cost_string', 300):
+			if func('money', 'can_afford', 300) = 0:
+				$noMoney
+			else
+				*clr & cla
+				gs 'money', 'pay', 300
+				gsAboDance = 30
+				gs 'stat'
+				'你支付了30节舞蹈课程的费用。'
+				act '离开': gt 'gdksport', 'start'
+			end
+		end
+	end
+
+	if gsAboDance > 0:
+		act '取消课程':
+			cla
+			*nl
+			'真的要取消你剩余的<<gsAboDance>>已付费的课程？'
+			act '取消课程':
+				cla
+				*nl
+				gsAboDance = 0
+				'你取消了舞蹈课。不幸的是，你拿不到任何退款。'
+				act '继续': gt 'gdksport', 'start'
+			end
+			act '否': gt 'gdksport', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'vball1':
+	menu_off = 1
+	*clr & cla
+	gs 'stat'
+	'排球课费用为 ' + $func('money', 'string_price', 300) + '，共30节课。'
+	if vballVars['lessons_remaining'] > 0: '你还剩<<vballVars[''lessons_remaining'']>>节课。'
+
+	act '离开': gt 'gdksport', 'start'
+
+	if vballVars['lessons_remaining'] <= 0:
+		act '购买30节排球课程' + $func('money', 'get_cost_string', 300):
+			if func('money', 'can_afford', 300) = 0:
+				$noMoney
+			else
+				*clr & cla
+				gs 'money', 'pay', 300
+				vballVars['lessons_remaining'] = 30
+				gs 'stat'
+				'你支付了30节排球课程的费用。'
+				act '离开': gt 'gdksport', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'dance2':
+	*clr & cla
+	menu_off = 1
+	gs 'gdksport', 'jocks_acceptance'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/dance_studio/fit1.jpg"></center>'
+	if pcs_danc < 50:
+		gsAboDance -= 1
+		gs 'exercise', 'tier2', 120, 'agil', 'danc'
+		if pcs_inhib < 40: inhib_exp += rand(1, 2)
+
+		'你上了一堂现代舞课，这种舞在你这般年纪的人中很受欢迎。'
+
+		if pcs_danc < pcs_agil:
+			'你的舞蹈技巧还有待提高，但你的敏捷度帮你完成了一些舞蹈动作。'
+		else
+			'你的身体缺乏敏捷度，无法完成所教的舞蹈动作。'
+		end
+		!! Place for use in events
+		gs 'stat'
+		act '离开': gt 'gdksport', 'start'
+	else
+		gsAboDance -= 1
+		gs 'exercise', 'tier2', 120, 'agil'
+		if pcs_inhib < 40: inhib_exp += rand(1, 2)
+		gs 'stat'
+		'你上了一堂现代舞课，这种舞在你这般年纪的人中很受欢迎。'
+		'虽然这仍然是不错的锻炼，但你已经无法从这堂课学到更多了。你无意中听到班上其他女孩在谈论市里健身中心提供的更高级课程。'
+
+		act '离开':
+			if AlbinaQW['StarletsJoined'] = 0 and AlbinaQW['StarletsShutDown'] = 0 and $start_type['loc'] = 'sg' and (month < 10 or (month = 10 and day < 18)) and year = 2016:
+				if $start_type['cat'] = 'dancer':
+					gt 'albina_starlets', 'albina3'
+				elseif (grupTipe = 1 or grupTipe = 2) and npc_rel['A23'] >= 70:
+					gt 'albina_starlets', 'albina2'
+				else
+					gt 'albina_starlets', 'albina1'
+				end
+			else
+				gt 'gdksport', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'racing2':
+	*clr & cla
+	menu_off = 1
+	gsAboBeg -= 1
+	gs 'gdksport', 'jocks_acceptance'
+	gs 'exercise', 'tier2', 120, 'run'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/park/parkbeg.jpg"></center>'
+	'你花20分钟热身，跑了90分钟，最后用10分钟放松身体。'
+
+	act '离开': gt 'gdksport', 'start'
+end
+
+
+if $ARGS[0] = 'shower':
+	menu_off = 1
+	*clr & cla
+	$location_type = 'bathroom'
+	if $start_type['loc'] = 'sg' and (gschoolVars['school_diploma'] = 0 or gschoolVars['block'] = 0): noshampoo = 1
+	gs 'din_van', 'showerdin'
+	minut += 15
+	pcs_horny += 1
+	pcs_makeup = 1
+	if frost > 0: frost = 0
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+	if IvanShowerYes = 1 and rand(0, 3) = 1 and ShowerIvan < 3:
+		if ShowerIvan = 1: ShowerIvan = 2
+		'你走进淋浴间打开水龙头。当你开始用毛巾往身上打泡沫时，突然听到门吱呀一声打开，你想起你答应过伊万不锁门。'
+		'你环顾四周，看到他站在那里微笑着看着你。"嘿<<$pcs_nickname>>。男浴室满了，所以我想不如过来和你一起？"'
+		act '和伊万一起洗': gt 'gdksport', 'ShowerWithIvan'
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '今天不行' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '今天不行' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'bj', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/ivan/sex/community/shower/shower1.jpg"></center>'
+				'你用一只手遮住胸部，侧过身去，双腿交叉，同时向伊万露出最灿烂的笑容。"改天怎么样？我现在没什么兴致。"'
+				'伊万只是笑了笑，走出了房间。你赶紧锁上门，然后安心地洗完了澡。'
+				act '离开淋浴间': gt 'gdksport', 'start'
+			end
+		end
+	!! We only set IvanShowerQW = 1 if the player showers with Ivan because the scene that uses this
+	!! variable where the player talks to Ivan about the shower at school assumes the player did
+	!! not run away or kick out Ivan before anything happened. This scene was initially a one-off,
+	!! but was changed to make it repeatable because showering with Ivan here is non-obviously an
+	!! intermediate step in becoming a starter on the volleyball team. If avoiding needing this
+	!! scene to be repeatable is desired, someone with a better sense of Ivan as a character than
+	!! me could add a version of the followup scene at school for when the player doesn''t shower
+	!! with Ivan using IvanShowerQW = 2 at some point. If this is done, this scene can be made
+	!! non-repeatable by removing the (IvanShowerQW = 2 and rand(0,3) = 1) part
+	elseif (kotovVSprohorov = 1 or (IvanShowerQW = 2 and rand(0, 3) = 1)) and ShowerIvan < 3:
+		'你走进淋浴间打开水龙头。当你用毛巾往身上打泡沫时，突然听到门吱呀一声打开，你想起你忘了锁门。'
+		'你环顾四周，看到伊万站在门口看着你。"嗨<<$pcs_nickname>>。我能加入吗？男浴室' + iif(IvanShowerQW = 2, '又', '') + '满了。"'
+		kotovVSprohorov = 2
+		IvanShowerQW = 2
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '把他赶出去' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '把他赶出去' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'bj', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/ivan/sex/community/shower/shower1.jpg"></center>'
+				'你用一只手遮住胸部，侧过身去，双腿交叉，同时把毛巾朝伊万扔过去。'
+				'他轻松躲开飞来的毛巾，笑着离开了房间。你赶紧锁上门，然后安心地洗完了澡。'
+				act '离开淋浴间': gt 'gdksport', 'start'
+			end
+		end
+
+		act '什么？':
+			*clr & cla
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/ivan/shower2.jpg"></center>'
+			'伊万的突然出现让你完全不知所措，只能站在原地一言不发。他把这当成默许，随手关上了身后的门。'
+
+			gs 'willpower', 'bj', 'resist', 'hard'
+			if pcs_willpwr < will_cost:
+				act '逃离淋浴间' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '逃离淋浴间' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					gs 'willpower', 'bj', 'resist', 'hard'
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/ivan/sex/community/shower/shower1.jpg"></center>'
+					'你用一只手遮住胸部，迅速抓起毛巾逃出淋浴间。当你冲进更衣室时，还能听到伊万在笑。'
+					act '离开淋浴间': gt 'gdksport', 'start'
+				end
+			end
+			act '一起洗':
+				IvanShowerQW = 1
+				IvanShowerYes = 0
+				if ShowerIvan = 0: ShowerIvan = 1
+				gt 'gdksport', 'ShowerWithIvan'
+			end
+		end
+	else
+		'你走进淋浴间打开水龙头，用毛巾往身上打上泡沫，开始清洗自己。'
+		if (vballVars['coach_lust'] >= 40 or vballVars['coachsex'] = 1) and rand(0, 3) = 0 and voltrenerVoyeur = 0:
+			act '继续': gt 'volley_coach_shower', '0'
+		elseif (vballVars['coach_lust'] >= 40 or vballVars['coachsex'] = 1) and rand(0, 3) = 0 and voltrenerVoyeur = 1:
+			act '继续': gt 'volley_coach_shower', '1'
+		elseif (vballVars['coach_lust'] >= 40 or vballVars['coachsex'] = 1) and rand(0, 3) = 0 and voltrenerVoyeur = 2 and IvanShowerYes = 0:
+			act '继续': gt 'volley_coach_shower', '2'
+		else
+			'洗完澡后，你穿好衣服。'
+			act '离开淋浴间': gt 'gdksport', 'start'
+		end
+	end
+	if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂在淋浴时被冲掉了。'
+end
+
+
+if $ARGS[0] = 'ShowerWithIvan':
+	menu_off = 1
+	*clr & cla
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+	'伊万朝你走过来，拉下他的平角内裤，任由它滑落到脚踝，然后跨了出来。他和你一起走进淋浴间，让水打湿全身。'
+	'你尽量不去看他，但你的目光还是不自觉地落到他的胯下。'
+	'"想帮我洗吗？"他注意到你在看，眨了眨眼问道。'
+	gs 'arousal', 'foreplay', 5
+	gs 'stat'
+
+	act '给伊万打泡沫':
+		*clr & cla
+		gs 'boyStat', 'A3'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/ivan/sex/community/shower/shower.jpg"></center>'
+		'你拿起毛巾开始给伊万的身体打泡沫。当你绕到他身边时，你注意到他的<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴开始变硬，而伊万也在抚摸你。'
+		'几分钟后，你感到他的手搭在你的肩膀上，温柔而坚定地把你按到跪姿。'
+		gs 'arousal', 'foreplay', 5
+		gs 'stat'
+
+		act '给他口交':
+			*clr & cla
+			npc_had_sex['A3'] = 1
+			ivanQW['sex'] += 1
+			'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/shover.jpg"></center>'
+			'你慢慢在伊万面前跪下，张开双唇，让他的<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴滑进你的嘴里。'
+			'你的嘴唇紧紧裹住伊万坚挺的肉棒，开始吮吸，随后他突然把鸡巴从你嘴里抽出来，牵起你的手把你拉回站姿。他把嘴唇凑到你的乳房上，吮吸你挺立的乳头，快感席卷全身。'
+			'他"啵"的一声松开你的乳头，把你按回跪姿，然后把鸡巴重新滑进你的嘴里。'
+			gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+			gs 'stat'
+
+			act '让他继续':
+				*clr & cla
+				if pcs_throat < 15:
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/blowjob/shower6.mp4"></video></center>'
+					'感到他的鸡巴顶进你的喉咙，你的呕吐反射汹涌袭来，几乎让你吐出来，你赶紧从他的鸡巴上退开。'
+					'"我的嘴不是让你随便乱捅的无底洞，知道吗！"你一边擦去眼泪和口水一边尖叫道。'
+					'他内疚地看了你一眼，再次把你拉起来，亲吻你，抚摸你的乳房和臀部，直到你开始发出渴望的呻吟。然后他把你转过身，让你弯下腰。'
+				else
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/blowjob/shower7.mp4"></video></center>'
+					'感到他的鸡巴顶进你的喉咙，你毫无困难地把它整根吞到底，伊万舒服地大声呻吟起来。'
+					'感觉他随时都会射出来，你把嘴从他的鸡巴上移开，转过身弯下腰，把屁股呈给他。'
+				end
+
+				if agape > 0:
+					act '继续':
+						*clr & cla
+						if pcs_throat < dick: gs 'arousal_funcs', 'stretch', 'oral', 1
+						'<center><img <<$set_imgh>> src="images/shared/sex/cum/mouth/cum49.jpg"></center>'
+						'你正期待着他的<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴随时插入你的小穴，却惊讶地感到它抵在了你的屁眼上。'
+						'"捅错地方了，伊万！"你说，但他只是哼了一声，然后把他鸡巴的头推进你的肛门，让你又痛又爽地呻吟起来。'
+						'他很慢，给你时间适应，然后才插得更深，慢慢地整根没入你的肛门。'
+						*nl
+						'你用一只手撑着墙壁，另一只手揉搓自己的阴蒂。过了一会儿，你感到肛门开始酸痛，快感的呻吟渐渐变成了痛苦的闷哼。'
+						'他似乎察觉到你越来越不舒服，于是做了最后一次有力的冲刺，然后从你的肛门里拔出，把你按回跪姿，接着把鸡巴塞进你的嘴里。'
+						'你赶紧给他口交，他很快就射进你嘴里。完事之后，他继续洗他的澡。'
+						'"太棒了。我们改天再来一次，"他微笑着穿好衣服离开房间。'
+						gs 'arousal', 'anal', 5, 'sub', 'rough'
+						gs 'arousal', 'clit_finger', -5
+						gs 'arousal', 'end'
+						gs 'cum_call', 'mouth', 'A3', 1
+						cumspclnt = 1
+						gs 'cum_cleanup'
+						gs 'stat'
+						act '离开淋浴间': gt 'gdksport', 'start'
+					end
+				else
+					act '转身弯下腰':
+						*clr & cla
+						lubonus = 2
+						if pcs_ass + lubonus + 2 < dick:
+							if pcs_makeup > makeup['base']: pcs_makeup = 0
+							pcs_horny -= 20
+							gs 'mood', 'lower', 'medium'
+							if agape < 3: agape = 3
+						elseif pcs_ass < dick:
+							pcs_horny += 10
+							if agape < 2 and lubonus = 0: agape = 2
+						end
+						gs 'stat'
+						'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/vag/doggy/shover2.mp4"></video></center>'
+						'你弯下腰时，感到伊万的手在抚摸你的屁股，随后他的手指开始按摩你的肛门。'
+						'"呃……那是我的<i>另一个</i>洞，伊万……"你对他说。'
+						'"是啊，我知道，"他哼了一声，然后把他<<dick>>cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴的头推进你的肛门，让你又痛又爽地呻吟起来。他很慢，给你时间适应，然后才插得更深，慢慢地整根没入你的肛门。'
+						'你用一只手撑着墙壁，另一只手揉搓阴蒂，同时挺起臀部向后迎向他，像他操你一样狠狠地操他。'
+						gs 'arousal', 'anal', 5, 'sub', 'rough'
+						gs 'arousal', 'clit_finger', -5
+						gs 'stat'
+
+						if voltrenerVoyeur = 3:
+							act '继续': gt 'volley_coach_shower', '3'
+						elseif voltrenerVoyeur = 4:
+							act '继续': gt 'volley_coach_shower', '4'
+						elseif voltrenerVoyeur = 5:
+							act '继续': gt 'volley_coach_shower', '5'
+						else
+							if pcs_horny >= 100:
+								if stat['anal'] >= 10 and orgasm > 0:
+									gs 'mood', 'raise', 'small'
+									$orgasm_txt = '你全身紧绷，在高潮中喊叫出声。'
+									$orgasm_or = 'custom'
+									gs 'arousal', 'anal', -5, 'sub', 'rough'
+								end
+							end
+							'几秒钟后，他做了最后一次有力的冲刺，身体贴着你痉挛起来，你感到他射进了你的肛门里。'
+							'完事之后，他从你体内拔出，继续洗他的澡，你感到他的精液从肛门里流出来，顺着大腿滑落。'
+							'"太棒了。我们改天再来一次，"他微笑着穿好衣服离开房间。'
+							gs 'cum_call', 'anus', 'A3', 1
+							cumspclnt = 1
+							gs 'cum_cleanup'
+							gs 'arousal', 'end'
+							act '离开淋浴间': gt 'gdksport', 'start'
+						end
+					end
+				end
+			end
+			gs 'willpower', 'anal', 'resist', 'hard'
+			if pcs_willpwr < will_cost:
+				act '暂时就够了' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '暂时就够了' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'anal', 'resist', 'hard'
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/ivan/sex/community/shower/shower1.jpg"></center>'
+					'伊万停顿了一瞬，你抓住机会迅速站起来，跳出淋浴间。'
+					'"我想你今天已经受够我了，"你对他说。"也许下次你能得到更多。"'
+					act '离开淋浴间': gt 'gdksport', 'start'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Fedor First Date':
+	menu_off = 1
+	*clr & cla
+	numnpc = 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big5.jpg"></center>'
+	if fedorkozbreak = 1:
+		'你走进体育俱乐部，看到费奥多尔站在前门旁。他看起来像是在等人，一看到你，便露出笑容，面带和蔼的微笑向你走来。'
+		'"你好，<<$pcs_firstname>>，"他带着温暖的笑容说。他停顿了一下，然后把手伸进口袋，掏出2张票。"是这样的。我知道我们之前的关系有些波折，但我想再试一次。你觉得怎么样？愿意再和我约会一次吗？"'
+	else
+		'你走进体育俱乐部，看到费奥多尔站在前门旁。他看起来像是在等人，一看到你，他的眼睛就亮了起来，面带和蔼的微笑向你走来。'
+		'"你好，<<$pcs_firstname>>，"他带着温暖的笑容说。他停顿了一下，然后把手伸进口袋，掏出2张票。"是这样的。我多了一张电影票，想问问你愿不愿意一起去看部好看的喜剧？"'
+	end
+
+	act '同意':
+		*clr & cla
+		minut += 15
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/fedor/fedorev/park/walk.jpg"></center>'
+		'"我很乐意，"你笑着说。'
+		'"好极了，"费奥多尔回应道。"我听说这部电影会让我们笑破肚皮。"'
+		'他脸上带着喜悦的神情，挽起你的手臂，带你走向电影院。'
+
+		act '看电影':
+			*clr & cla
+			minut += 90
+			gs 'mood', 'raise', 'huge'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/cinema/kino_1.jpg"></center>'
+			'费奥多尔在入口处出示了票，你们走进影院。你环顾四周，发现座位大多空着，于是费奥多尔带你来到第一排，你们一起坐下。'
+			'灯光暗下来，电影开始了。费奥多尔一动不动地坐着，只是偶尔瞥你一眼。电影相当有趣，看到那些荒诞的情节，你忍不住不时笑出声来。'
+			'电影结束后，灯光亮起，费奥多尔送你出去。"你看起来是个很酷的女孩，<<$pcs_firstname>>。也许我们可以交往？你觉得怎么样？"'
+
+			act '同意':
+				*clr & cla
+				gs 'npc_relationship', 'modify', 'A5', 20
+				fedorKozlovQW = 10
+				minut += 15
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/fedor/fedorev/park/walk.jpg"></center>'
+				'"当然！我很乐意和你交往，"你回答，费奥多尔明显很高兴。'
+				'"好，我期待再次和你一起玩。下次你想约会的时候，放学后到学校操场来找我。"'
+				'回家路上，你们俩愉快地聊着各自最喜欢的电影。'
+
+				act '离开': gt 'pav_residential'
+			end
+
+			act '拒绝':
+				*clr & cla
+				if fedorkozbreak = 0: fedorKozlovQW = 0
+				if fedorkozbreak = 1: fedorKozlovQW = -1
+				if npc_rel['A5'] > 70:
+					gs 'npc_relationship', 'set', 'A5', 70
+				else
+					gs 'npc_relationship', 'modify', 'A5', 'loathe'
+				end
+				minut += 15
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/fedor/fedorev/fedorsad.jpg"></center>'
+				if fedorkozbreak = 1:
+					'你摇了摇头。"抱歉，费奥多尔，但我觉得我们真的不太合适。"'
+					'费奥多尔明显很失落。"看来我们注定无缘。抱歉浪费了你的时间……"'
+					'然后他默默地送你回家。'
+				else
+					'你摇了摇头。"你看起来是个很酷的家伙，但我现在还没准备好谈恋爱。"'
+					'费奥多尔明显很失落。"看来时机不对。如果你改变主意了，就到学校来找我，"他勉强挤出一个微笑说道，然后默默地送你回家。'
+				end
+
+				act '离开': gt 'pav_residential'
+			end
+		end
+	end
+
+	act '拒绝':
+		*clr & cla
+		if npc_rel['A5'] > 70:
+			gs 'npc_relationship', 'set', 'A5', 70
+		else
+			gs 'npc_relationship', 'modify', 'A5', 'loathe'
+		end
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/fedor/fedorev/fedorsad.jpg"></center>'
+		'你摇了摇头。"我现在有太多事要做。也许改天吧。"'
+		'费奥多尔皱着眉头低下头。"好吧。那就改天吧。"'
+
+		act '离开': gt 'gdksport', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'jocks_acceptance':
+	if jock_check ! daystart:
+		jock_check = daystart
+		!! Jocks kids approve of high quality sports outfit
+		if PCloQuality >= 4:
+			grupvalue[2] += 1
+		end
+
+		!! Jocks approve of somewhat revealing clothes and disapprove of conservative clothes and very revealing clothes
+		if PCloInhibit >= 35:
+			grupvalue[2] -= 1
+		elseif PCloInhibit >= 20:
+			grupvalue[2] += 1
+		elseif PCloInhibit <= 10:
+			grupvalue[2] -= 1
+		end
+
+		!! Jocks disapprove of not using sports shoes and approve of using high quality sport shoes
+		if PShoStyle2 ! 2:
+			grupvalue[2] -= 1
+		else
+			if PShoQuality > 5: grupvalue[2] += 1
+		end
+	end
+end
+
+--- gdksport ---------------------------------

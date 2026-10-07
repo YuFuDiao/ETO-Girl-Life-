@@ -1,0 +1,1075 @@
+# pod_whore
+
+menu_off = 1
+
+!! chatter with the client
+if $ARGS[0] = 'client_talk':
+	CLOSE ALL
+	menu_off = 1
+	gs 'pod_whore', 'setup'
+	gs 'stat'
+	if whore_money_bjsex < 50:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/event/whore/fear.jpg"></center>'
+		'你打开门，门外站着个陌生男人，一脸吃惊。他没忍住嘟囔了一句："我操，她看着真够呛！"，声音刚好让你听见。'
+		'他赶紧稳住神，赔礼道："呃……抱歉小姐，我准是走错门了。祝你今天愉快。"'
+		'你张嘴想说他没走错地方，可还没等你出声，人就走了。要是想在自家接客，开门前还是打扮得好看点吧。'
+
+		act '关门': gt 'korrPar'
+	else
+		if $clothingworntype = 'nude':
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/event/whore/door_nude' + rand(1, 3) + '.jpg"></center>'
+		elseif $clothingworntype = 'moncheri_dress' or $clothingworntype = 'moncheri_gown' or $clothingworntype = 'fashionista_dress':
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/event/whore/door_glamur.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/event/whore/door.jpg"></center>'
+		end
+		'当你打开门时，你看到一个陌生人迅速上下打量着你。他微笑着问道："打扰一下，你是<<$pcs_nickname>>吗？"'
+		act '"是的，就是我！"':
+			cla
+			gs 'stat'
+			'你给了他一个甜甜的微笑，说道："是的，就是我。你为什么这么问？"'
+			'这个男人提起这件事似乎有点尴尬，但他现在太饥渴了，不会退缩："我听说你是个妓女，在这楼梯间里服务男人。是这样吗？"'
+			if pcs_sleep < 10 or pod_whore_client_count = 0:
+				act '拒绝，你太累了': gt 'pod_whore', 'hide', 'pod_client_talk_noson'
+			else
+				act '把你的价目表给他': gt 'pod_whore', 'hide', 'pod_whore_price'
+				gs 'willpower', 'prostitution', 'resist', 'medium'
+				if pcs_willpwr < will_cost:
+					act '拒绝，你不想和他上床' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '拒绝，你不想和他上床' + $func('willpower', 'get_willcost_string'):
+						*clr & cla
+						gs 'willpower', 'pay', 'resist'
+						gs 'stat'
+						gt 'pod_whore', 'hide', 'pod_whore_no'
+					end
+				end
+			end
+		end
+		gs 'willpower', 'misc', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '"不，从没听说过她！"' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '"不，从没听说过她！"' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'pod_whore', 'hide', 'pod_client_talk_no'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'setup':
+	!! game events with a part-time job at the entrance if gg rap: prostitute
+	!! settings:
+	!! count-can cater to clients` day:
+	if pod_whore_countQW <= 15:
+		if pod_whore_client_day ! daystart: pod_whore_client_count = rand(4, 8)
+	elseif pod_whore_countQW > 15:
+		if pod_whore_client_day ! daystart: pod_whore_client_count = rand(8, 16)
+	end
+	!! ==========================================
+	!! the price tag for services by region and country
+	!! appearance , etc..Parameters affecting the price
+	!! ------------------
+	!! parameters plus:
+	!! silicone
+	if bodyVars['bust_silicone'] < 20:
+		money_silicone = 0
+	elseif bodyVars['bust_silicone'] < 30:
+		money_silicone = 50
+	elseif bodyVars['bust_silicone'] < 40:
+		money_silicone = 100
+	else
+		money_silicone = 150
+	end
+	!! cosmetics
+	money_mop = 0
+	if pcs_makeup >= 2: money_mop = 50
+	!! hairdo
+	money_hapri = 0
+	if pcs_hairbsh = 1: money_hapri = 50
+	!! glamorous clothes
+	money_glamur = 0
+	if $clothingworntype = 'moncheri_dress' or $clothingworntype = 'moncheri_gown' or $clothingworntype = 'fashionista_dress': money_glamur = 150
+	!! hooker clothing
+	money_odethooker = 0
+	if PCloStyle = 4 or PCloProstitute = 1: money_odethooker = 50
+	!! smooth and clean skin
+	money_skin = 0
+	if pcs_skin >= 600: money_skin = 50
+	!! pcs_tan
+	money_skin_tan = 0
+	if pcs_tan > 0: money_skin_tan = 50
+	!! smooth legs, shaven or not
+	money_leghair = 0
+	if pcs_leghair <= 0: money_leghair = 50
+	!! grooming eyelashes
+	money_resnic = 0
+	if pcs_lashes = 2: money_resnic = 50
+	if pcs_lashes > 2: money_resnic = 100
+	!! lip balm
+	money_pcs_lipbalm = 0
+	if pcs_lipbalm >= 1: money_pcs_lipbalm = 50
+	!! deep Throat
+	money_throat = 0
+	if pcs_throat >= 20: money_throat = 50
+	!! ------------------------------------------
+	!! Options in the negative
+	!! looseness of the vagina
+	money_vagina = 0
+	if pcs_vag >= 20: money_vagina = 50
+	!! shakiness anus
+	money_anus = 0
+	if pcs_ass >= 20: money_anus = 50
+	!! excitement
+	money_horny = 0
+	if pcs_horny > 70: money_horny = 50
+	!! appearance -10, venereal diseases
+	money_vnesh = 0
+	if pcs_apprnc = -10: money_vnesh = 150
+	!! semen stains on clothing:
+	money_cumfrot = 0
+	if (cumloc[6] = 1 or cumloc[7] = 1): money_cumfrot = 50
+	!! purity of body (lean or not)
+	money_sweat = 0
+	if pcs_sweat >= 20 and pcs_sweat <= 39: money_sweat = 50
+	if pcs_sweat > 39: money_sweat = 100
+	!! mouth smells
+	money_cumlip = 0
+	if cumloc[12] = 1: money_cumlip = 50
+	!! face smeared with semen
+	money_cumface = 0
+	if cumloc[11] = 1: money_cumface = 50
+	!! bandaged body in the semen
+	money_cumbelly = 0
+	if cumloc[14] = 1: money_cumbelly = 50
+	money_cumass = 0
+	if cumloc[4] = 1: money_cumass = 50
+	!! It derives from the sperm pussy
+	money_cumpussy = 0
+	if cumloc[0] > 0: money_cumpussy = 20
+	if cumsumvag > 20: money_cumpussy += 30
+	!! It follows the sperm of priests
+	money_cumanus = 0
+	if cumloc[3] > 0: money_cumanus = 20
+	if cumsumass > 20: money_cumanus += 30
+	!! ass smeared in sperm
+	!! your energy:
+	money_son = 0
+	if pcs_sleep < 25: money_son = 50
+
+	!! additional random loot
+	whore_money_rnd = rand(50, 100)
+	whore_dopmoney = whore_money_rnd
+
+	!! price, if the customer only wants a blowjob
+	whore_money_bjsex = money_silicone + money_mop + money_hapri + money_glamur + money_odethooker + money_skin + money_skin_tan + money_leghair + money_resnic + money_pcs_lipbalm + whore_dopmoney + 50 + money_throat - money_vnesh - money_horny - money_cumfrot - money_sweat - money_cumlip - money_cumface - money_cumbelly - money_cumpussy - money_cumanus - money_cumass - money_son
+	!! whore_money_bjsex = $whore_money_bjsex
+	!! price, if the customer wants the classics
+	whore_money_clsex = money_silicone + money_mop + money_hapri + money_glamur + money_odethooker + money_skin + money_skin_tan + money_leghair + money_resnic + money_pcs_lipbalm + whore_dopmoney + 150 - money_vagina - money_vnesh - money_horny - money_cumfrot - money_sweat - money_cumlip - money_cumface - money_cumbelly - money_cumpussy - money_cumanus - money_cumass - money_son
+	!! whore_money_clsex = $whore_money_clsex
+	!! price, if the customer wants in the ass
+	whore_money_analsex = money_silicone + money_mop + money_hapri + money_glamur + money_odethooker + money_skin + money_skin_tan + money_leghair + money_resnic + money_pcs_lipbalm + whore_dopmoney + 200 - money_anus - money_vnesh - money_horny - money_cumfrot - money_sweat - money_cumlip - money_cumface - money_cumbelly - money_cumpussy - money_cumanus - money_cumass - money_son
+	!! whore_money_analsex = $whore_money_analsex
+	!! price, if the client wants it all
+	whore_money_allsex = whore_money_bjsex + whore_money_analsex + 50
+	!! whore_money_allsex = $whore_money_allsex
+	!! price for gangbang
+	whore_money_groupsex = whore_money_bjsex + whore_money_analsex + whore_money_clsex + whore_dopmoney
+	!! whore_money_groupsex = $whore_money_groupsex
+	!! the price for a blowjob and classic
+	whore_money_bjvagsex = whore_money_bjsex + whore_money_clsex
+	!! the price for a blowjob and anal
+	whore_money_bjanalsex = whore_money_bjsex + whore_money_analsex
+end
+
+
+if $ARGS[0] = 'hide':
+!! anal tube and lubrication:
+	if $ARGS[1] = 'pod_whore_analPlugIn':
+		if analPlugIn = 1:
+			analPlugIn = 0 & analPlugOut = 1
+			'那个男人惊讶地问道："你屁股里有个肛塞？"'
+			'你红着脸坦白："我喜欢提前做好准备……"'
+			'他带着下流的笑容慢慢把它从你屁股里拔出来："这样的话，你没白做准备。我很快就会再来填满那个洞。"'
+		end
+	end & !! --- pod_whore_analPlugIn ---
+
+	if $ARGS[1] = 'pod_whore_lubri':
+		if mc_inventory['lubricant'] > 0:
+			mc_inventory['lubricant'] -= 1
+			agape = 1
+			gs 'arousal', 'anal_finger', 1
+			$pod_whore_lubri_text = '<br>你迅速打断那个男人，把润滑剂递给他："等等，你应该先用这个！这样对我们俩都更舒服！"那个男人把一些润滑剂抹在手指上，涂满他的鸡巴，又抹了一些在你紧致的小穴口上。'
+		elseif mc_inventory['lubricant'] = 0:
+			$pod_whore_lubri_text = ''
+			agape = 2
+			pcs_horny = 0
+		end
+	end & !! --- pod_whore_lubri ---
+
+!! --------------------------------------------------------------
+!! text `s Event:
+!! sucking
+	if $ARGS[1] = 'text_pod_whore_bj':
+		temp_rand = rand(1, 5)
+		if temp_rand = 1: $txt_pod_whore_bj = '不知为何，一想到你要为了钱在这楼梯间里含住某个陌生老男人的鸡巴，你就忍不住兴奋起来。那个男人一定注意到了你身体的颤抖，于是更用力地掌控局面："跪下，把我的鸡巴含进嘴里，妓女。我不是花钱请你来看它的。"说着，他解开了裤子。你跪下来，手指握住他坚硬的勃起，慢慢把它引向你的嘴边。你合上<<$pc_desc[''lips'']>>嘴唇含住它，开始轻轻地为他口交。他在呻吟之间鼓励你："感觉太棒了，姑娘……继续吸，别停……"'
+		if temp_rand = 2: $txt_pod_whore_bj = '你太害怕看他的眼睛了，和他一起走的时候一直避开他的目光。那个男人对你说："跪下，蠢婊子！你有两分钟时间把它弄湿弄滑，之后我要你的屁股！"一想到这个，你不由得退缩了一下……他要操你的屁股！？然后你提醒自己：你需要这笔钱。你跪下来，把他的鸡巴含进嘴里，告诉自己应该尽可能多地流口水，好让后面的肛交更容易些。'
+		if temp_rand = 3: $txt_pod_whore_bj = '他把阴茎从裤子里掏出来，对你说："开始吸吧，宝贝。"你一句话也没说，跪下来开始吸他那根巨大的鸡巴。你能感觉到它在你的嘴里变得更大。然后他把鸡巴从你嘴里抽出来，命令你："我的蛋蛋，妓女。舔它们，好好舔。"好吧……他付了钱。你默默照做，把他的蛋蛋含进嘴里吸吮，也舔着他的鸡巴杆。你能看出他对你的表现很满意，但你希望这不会鼓励他提出更粗暴的要求。'
+		if temp_rand = 4: $txt_pod_whore_bj = '你跪在他面前，张大嘴巴。他立刻接受了你的邀请，想把鸡巴塞进来，但它太大了。他粗鲁地叫你再努力点："吸它，妓女。如果你不能把它吞进喉咙里，至少试试别的办法。"你尽全力取悦他，用嘴唇夹住他龟头的边缘，用舌头舔遍整个龟头。你能看出你做得很好，很快那个男人就再也压不住他的呻吟了。'
+		if temp_rand = 5: $txt_pod_whore_bj = '你跟着那个男人走进楼梯间，蹲下来，拉下他的裤子。哇……他的鸡巴好大。你欣赏了一秒他的鸡巴，然后深吸一口气，开始舔龟头。你试着合拢嘴唇含住龟头为他口交，但你已经知道自己没法深喉这个男人。他把手放在你的后脑勺上，但并没有强迫你含得更深，他对你付出的努力感到满意。你偶尔抬头看着他的眼睛，你能看出这让他很兴奋。'
+
+		*pl $txt_pod_whore_bj
+		killvar 'txt_pod_whore_bj'
+		killvar 'temp_rand'
+	end
+
+!! vaginas sex
+	if $ARGS[1] = 'text_pod_whore_vag':
+		temp_rand = rand(1, 3)
+		if temp_rand = 1: $txt_pod_whore_vag = '你把衣服拨到一边，弯腰时向他展示你光裸的屁股。他立刻走到你身后，用他坚硬的鸡巴摩擦你的小穴唇，然后滑了进去。他粗暴地操你，轮流用手掌拍打你的臀瓣。你尽力压抑自己的呻吟，但对他来说你还是太吵了。你感觉到他动了一下，很快他用一只手捂住你的嘴，另一只手继续拍打你的屁股。当他把节奏加快，操你操得更快时，你在他手里闷哼。他脸上带着邪恶的笑容，笑着对你说："小声点，妓女。这里住着人呢，你想让他们都过来看看你在干什么吗？"你拼命摇头表示不要，努力忍住呻吟，但他拍打你屁股的力道更重了，想逼你叫出声来，这真的让你很难忍。'
+		if temp_rand = 2: $txt_pod_whore_vag = '你背对着他站着，双手搭在窗台上。当他把你的衣服拨开时，你看到上面有一块明显的水渍。该死……你不想向他承认，但你现在真的很需要好好操一场！能拿钱只是额外的奖励。他已经站在你身后，一个坚定的冲刺就把那根坚硬的家伙捅进了你的小穴。他很轻松就整根插了进去，他的蛋蛋很快贴在你的臀瓣上，他歇了一秒，伸手去摸你的胸。你倒吸一口气，他轻轻捏住你的乳头，在指间揉搓，就在这时他开始用又长又慢的抽插操你。'
+		if temp_rand = 3: $txt_pod_whore_vag = '那个男人把手放在你的肩膀上，把你转过来，手顺着你的背往下移，在屁股上停留了一会儿，然后响亮地拍了一下。拍击声和你随之而来的尖叫在楼梯间回荡，你拼命希望没人听见。他用手在你的小穴上摸索了一会儿，当你看到他欣赏的目光，听到他的手指一次次插进你湿透的小穴发出的响亮水声时，你羞愧地低下了头。然后，他决定要操你，把鸡巴猛地捅了进来。从那些短促匆忙的冲刺来看，他不想在这里待太久。你一定是呻吟得太大声了，因为他用刚才摸过你小穴的那只手捂住了你的嘴，你能闻到自己在他手指上的味道。那气味让你更加兴奋。'
+
+		*pl $txt_pod_whore_vag
+		killvar 'txt_pod_whore_vag'
+		killvar 'temp_rand'
+	end
+
+!! anal sex
+	if $ARGS[1] = 'text_pod_whore_anal':
+		gs 'pod_whore', 'hide', 'pod_whore_lubri'
+		temp_rand = rand(1, 2)
+		if temp_rand = 1: $txt_pod_whore_anal = '那个男人搂住你的腰，把你拉近贴着他。他扯了扯你的衣服，想把它们弄开。很快，你感觉到他的鸡巴贴在你的臀瓣上，他把你的头向后仰，吻了你。然后他把鸡巴握在手里，引导它对准你紧缩的屁眼。<<$pod_whore_lubri_text>>他觉得你准备好了，慢慢把龟头顶进你的肛门。他抱了你一会儿，一边玩你的胸，一边让你适应他的尺寸，然后慢慢越插越深。这感觉其实相当不错！一想到一个老男人愿意付你不少钱，就为了操你可爱的小屁股，你忍不住兴奋起来。他慢慢加快节奏，但始终尊重你的身体，努力让你也享受到。'
+		if temp_rand = 2: $txt_pod_whore_anal = '你把衣服拨到一边，弯腰时向他展示你光裸的屁股，把你的屁眼献给他。他急切地接受了你的邀请，走上前来，立刻用龟头摩擦你紧闭的肛门。<<$pod_whore_lubri_text>>他觉得自己的耐心已经用够了，一个冲刺就把鸡巴粗鲁地捅进你肛门一半。然后他开始粗暴地操你的屁股，同时用力拍打你的臀瓣。你尽力压抑自己的呻吟，但对他来说你还是太吵了。你感觉到他动了一下，很快他用一只手捂住你的嘴，另一只手继续拍打你的屁股。当他加快节奏，操你的屁股操得更快时，你在他手里闷哼。他脸上带着邪恶的笑容，笑着对你说："小声点，妓女。这里住着人呢。你想让他们都过来看看你在楼梯间里卖屁股赚钱吗？"你拼命摇头表示不要，努力忍住呻吟，但他拍打你屁股的力道更重了，想逼你叫出声来，这真的让你很难忍。 '
+
+		gs 'pod_whore', 'hide', 'pod_whore_analPlugIn'
+		*pl $txt_pod_whore_anal
+		killvar 'txt_pod_whore_anal'
+		killvar 'temp_rand'
+	end
+
+!! ending
+	if $ARGS[1] = 'text_pod_whore_cum':
+		temp_rand = rand(1, 4)
+		if temp_rand = 1: $txt_pod_whore_cum = '那个男人开始呻吟，几分钟内他说他想射在你嘴里。你让他射了，很快你感觉到他把好几股精液射进你的嘴里。你顺从地全部吞了下去，之后舔干净自己的嘴唇和他的鸡巴。当你站起来时，他迅速把鸡巴塞回裤子里。然后他掏出钱包，数出欠你的钱。他似乎非常满意："干得好，妓女。我一定会再来享受你的服务的！"你忍不住想："钱是不错……但如果他把这件事告诉他所有的朋友怎么办？他们会不会也都过来搞我……如果他们同时一起来怎么办！？"'
+		if temp_rand = 2: $txt_pod_whore_cum = '那个男人很快就射了，像他想要的那样把精液射进你的嘴里。他迅速拉上裤子，从口袋里掏出几张皱巴巴的钞票。他把钱递给你说："给你，荡妇，你挣来的。回头见，我相信会的。"'
+		if temp_rand = 3: $txt_pod_whore_cum = '那个男人轻轻呻吟，你很快感觉到他的精液灌满你的嘴。呃，味道糟透了！你想找个办法偷偷吐掉，但他注意到了，用手捂住你的嘴不让它张开。"不不，荡妇，别没礼貌！你不能吐出来。在你拿到钱之前，我要看到一张干净的嘴。"好吧，如果他坚持的话……你不太高兴，但还是顺从地点了点头，尽力吞下他那苦涩的精液。这费了你一番功夫，但最终你还是做到了，你张开嘴给他看，在嘴里转动着舌头。这让他脸上露出了笑容，他把钱递给你时眉开眼笑："看到了吧？也没那么糟，对吧？下次别让我开口要求……给你，你挣来的。"'
+		if temp_rand = 4: $txt_pod_whore_cum = '那个男人没有任何预兆，当你正按他说的为他口交时，他热乎乎的精液突然喷到你的喉咙深处，让你有点吃惊。意识到他为了你的服务付了不少钱，你决定不闹脾气，只是继续吸，把他射进嘴里的精液吞下去。等你确定他射完了，你慢慢把头缩回来，舔掉他鸡巴上残留的精液。你能看到他的脸涨红了，他花了一秒钟才缓过劲来。他温柔地抚过你的头发，对你微笑："哇……你是我操过最好的妓女，太棒了！"然后他迅速整理好衣服。你看着他数出你辛苦挣来的钱，忍不住感到一丝骄傲……又一个满意的顾客！'
+
+		*pl $txt_pod_whore_cum
+		killvar 'txt_pod_whore_cum'
+		killvar 'temp_rand'
+	end
+
+!! =============================
+!! text conversations with the client:
+	if $ARGS[1] = 'rnd_client_text_bj':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_bj = '我想要一次口交。'
+		if temp_rand = 2: $rnd_client_text_bj = '你会口交，对吧？'
+		if temp_rand = 3: $rnd_client_text_bj = '我想让那漂亮的嘴唇含住我的鸡巴。'
+		if temp_rand = 4: $rnd_client_text_bj = '我想看着你可爱的脸蛋在我的鸡巴上一上一下。'
+		if temp_rand = 5: $rnd_client_text_bj = '我好久没弄过了……让我含进你嘴里，我就满足了。'
+		if temp_rand = 6: $rnd_client_text_bj = '我现在没多少时间，来一次快速口交怎么样？'
+		if temp_rand = 7: $rnd_client_text_bj = '我听说你是镇上口交最好的……我想亲自验证一下是不是真的。'
+		if temp_rand = 8: $rnd_client_text_bj = '你吸鸡巴的技术好吗？我现在就想要一次好的口交。'
+		if temp_rand = 9: $rnd_client_text_bj = '你给过我一个朋友口交，他告诉我你很棒。我也想要一样的。'
+		if temp_rand = 10: $rnd_client_text_bj = '我要你把我的鸡巴尽可能深地吞进喉咙里！'
+		$result = $rnd_client_text_bj
+		killvar 'rnd_client_text_bj'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_text_vag':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_vag = '你的小穴还紧吗？如果紧，我就要它。'
+		if temp_rand = 2: $rnd_client_text_vag = '我今天想操你的小穴。'
+		if temp_rand = 3: $rnd_client_text_vag = '我今天只要你的小穴，我赶时间。'
+		if temp_rand = 4: $rnd_client_text_vag = '我最近有点欲求不满……我现在真的很需要小穴！'
+		if temp_rand = 5: $rnd_client_text_vag = '我朋友告诉我，他操你小穴的时候，你会发出最可爱的小尖叫。我想亲自验证一下是不是真的。'
+		if temp_rand = 6: $rnd_client_text_vag = '我想操你的小穴，但我没多少时间。我们得快一点！'
+		if temp_rand = 7: $rnd_client_text_vag = '我听说你的小穴总是湿漉漉的。我想看着你在我操它的时候扭动。'
+		if temp_rand = 8: $rnd_client_text_vag = '我一个哥们告诉我，你有全镇最好的小穴。我也必须要！'
+		if temp_rand = 9: $rnd_client_text_vag = '我一个最好的朋友很快要结婚了，我们得找个愿意上床的姑娘给他办单身派对。我得先操操你的小穴，看看你够不够格给他。'
+		if temp_rand = 10: $rnd_client_text_vag = '我操你小穴的时候可以拍几张照片吗？不行？好吧……我还是想要你。'
+		$result = $rnd_client_text_vag
+		killvar 'rnd_client_text_vag'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_text_anal':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_anal = '我想操你那个紧致的小屁眼。'
+		if temp_rand = 2: $rnd_client_text_anal = '我想找个可爱的屁股来操，但我有点赶时间。'
+		if temp_rand = 3: $rnd_client_text_anal = '我听说肛交很棒，但在操我女朋友那里之前我想先试试……你介意给我一些指点吗？'
+		if temp_rand = 4: $rnd_client_text_anal = '我听说你是镇上最放荡的屁股婊子。我要你的屁股。'
+		if temp_rand = 5: $rnd_client_text_anal = '我朋友说你被他操屁股的时候高潮了……我跟他打赌我也能做到。'
+		if temp_rand = 6: $rnd_client_text_anal = '我有点赶时间，来一次快速的肛交怎么样？'
+		if temp_rand = 7: $rnd_client_text_anal = '我今天想找点不太寻常的……你的屁股怎么样？'
+		if temp_rand = 8: $rnd_client_text_anal = '你也做肛交吗？'
+		if temp_rand = 9: $rnd_client_text_anal = '你的屁股看起来很棒，姑娘。让我操那里怎么样？'
+		if temp_rand = 10: $rnd_client_text_anal = '我想看你一边让我操你的屁股，一边用屁股在我的鸡巴上弹跳。'
+		$result = $rnd_client_text_anal
+		killvar 'rnd_client_text_anal'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_text_all':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_all = '我决定不了我想要什么……不如我直接付全款，边做边决定？'
+		if temp_rand = 2: $rnd_client_text_all = '我想要你的所有洞。'
+		if temp_rand = 3: $rnd_client_text_all = '我要操遍你的所有洞，别问问题。明白了吗？'
+		if temp_rand = 4: $rnd_client_text_all = '你太辣了，我没办法只选一样！你知道吗，我要全套。'
+		if temp_rand = 5: $rnd_client_text_all = '我对性还比较生疏。不如我直接付全款，看看能走到哪一步？'
+		if temp_rand = 6: $rnd_client_text_all = '我决定不了我想要什么……不如我直接付全款，边做边决定？'
+		if temp_rand = 7: $rnd_client_text_all = '我想要你的所有洞。'
+		if temp_rand = 8: $rnd_client_text_all = '我要操遍你的所有洞，别问问题。明白了吗？'
+		if temp_rand = 9: $rnd_client_text_all = '你太辣了，我没办法只选一样！你知道吗，我要全套。'
+		if temp_rand = 10: $rnd_client_text_all = '我对性还比较生疏。不如我直接付全款，看看能走到哪一步？'
+		$result = $rnd_client_text_all
+		killvar 'rnd_client_text_all'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_text_group':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_group = '我不是一个人来的，我朋友在外面等着。你能同时应付两个男人吗？'
+		if temp_rand = 2: $rnd_client_text_group = '我哥们就在拐角等着，我们想一起操你。'
+		if temp_rand = 3: $rnd_client_text_group = '我朋友马上要离开这座城市了，但我答应过他走之前给他找个可爱的姑娘操。我们一起操你怎么样？'
+		if temp_rand = 4: $rnd_client_text_group = '我和我哥们想找个快速的操。你有空吗？'
+		if temp_rand = 5: $rnd_client_text_group = '我所有的朋友都说，你伺候一群男人特别厉害。愿意照顾照顾我们吗？'
+		if temp_rand = 6: $rnd_client_text_group = '我们没多少时间，只是想快速操一场。我们要你的所有洞。'
+		if temp_rand = 7: $rnd_client_text_group = '我和我朋友在找一个可爱的小操偶来填满。你正合适。'
+		if temp_rand = 8: $rnd_client_text_group = '今天是我生日，我这个朋友说他会把你当礼物和我分享。'
+		if temp_rand = 9: $rnd_client_text_group = '这是我朋友的第一次，但我也想参与。你能同时伺候两个男人吗？'
+		if temp_rand = 10: $rnd_client_text_group = '我们在找一个不那么矫情的姑娘。你想让我和我哥们一起操你吗？'
+		$result = $rnd_client_text_group
+		killvar 'rnd_client_text_group'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_text_bj_vag':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_bj_vag = '我想操你的喉咙和小穴两个地方。'
+		if temp_rand = 2: $rnd_client_text_bj_vag = '我想来一次快速的口交加操穴。'
+		if temp_rand = 3: $rnd_client_text_bj_vag = '你先给我吸一会儿，之后我操你的小穴，怎么样？'
+		if temp_rand = 4: $rnd_client_text_bj_vag = '我朋友说你的嘴和小穴都很棒……你知道吗？我两个都要。'
+		if temp_rand = 5: $rnd_client_text_bj_vag = '你先用嘴给我热热身，然后我再操你的小穴，怎么样？'
+		if temp_rand = 6: $rnd_client_text_bj_vag = '我想操你的小穴，然后看着你把我的鸡巴上的汁水舔干净。'
+		if temp_rand = 7: $rnd_client_text_bj_vag = '我听说你是镇上最棒的床伴。我要你的嘴和小穴，而且得快……我赶时间。'
+		if temp_rand = 8: $rnd_client_text_bj_vag = '我想我今天会要你的嘴和小穴两个。'
+		if temp_rand = 9: $rnd_client_text_bj_vag = '我本来只打算操你的小穴，但我怎么忍心拒绝你可爱的脸蛋呢？我再加上一次口交吧。'
+		if temp_rand = 10: $rnd_client_text_bj_vag = '我打赌你的嘴唇含住我的鸡巴会很好看。两对嘴唇都是，如果你懂我的意思。'
+		$result = $rnd_client_text_bj_vag
+		killvar 'rnd_client_text_bj_vag'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_text_bj_anal':
+		temp_rand = rand(1, 10)
+		if temp_rand = 1: $rnd_client_text_bj_anal = '我想操你的屁股。你可以先用嘴给我热热身。'
+		if temp_rand = 2: $rnd_client_text_bj_anal = '我老婆不肯给我口交，也不让我操她的屁股……所以我想要你两个都来。'
+		if temp_rand = 3: $rnd_client_text_bj_anal = '我喜欢女孩先吸我的鸡巴，然后我马上操她的屁股。'
+		if temp_rand = 4: $rnd_client_text_bj_anal = '我今天对你的小穴没兴趣，我要你给我口交，然后我们直接进入正题，操你的屁股。'
+		if temp_rand = 5: $rnd_client_text_bj_anal = '我今天想做点下流的事……你先给我吹，然后我操你的屁股，怎么样？'
+		if temp_rand = 6: $rnd_client_text_bj_anal = '我今天要你的嘴和屁股。'
+		if temp_rand = 7: $rnd_client_text_bj_anal = '我听说你的屁股是全镇最好的，所以我一定要操那里。你先给我吹怎么样？'
+		if temp_rand = 8: $rnd_client_text_bj_anal = '<<$pcs_nickname>>，屁股婊子……我想要你什么？当然是你的嘴和屁股！'
+		if temp_rand = 9: $rnd_client_text_bj_anal = '我要操你的喉咙，然后操你的屁股。'
+		if temp_rand = 10: $rnd_client_text_bj_anal = '你的小穴今天可以休息了，我要操你的屁股。你可以先给我口交，润滑一下我的鸡巴。'
+		$result = $rnd_client_text_bj_anal
+		killvar 'rnd_client_text_bj_anal'
+		killvar 'temp_rand'
+	end
+
+!! ------------------------------
+	if $ARGS[1] = 'rnd_client_torgtext1':
+		temp_rand = rand(1, 5)
+		if temp_rand = 1: $rnd_client_torgtext = '但那些价格似乎有点高。去掉<<$func(''money'', ''string_profit'', 100)>>我们就成交。'
+		if temp_rand = 2: $rnd_client_torgtext = '但你有点贵。便宜<<$func(''money'', ''string_profit'', 100)>>怎么样？'
+		if temp_rand = 3: $rnd_client_torgtext = '但我朋友说你会更便宜。从价格里去掉<<$func(''money'', ''string_profit'', 100)>>怎么样？'
+		if temp_rand = 4: $rnd_client_torgtext = '但是……你长得没那么好看。去掉<<$func(''money'', ''string_profit'', 100)>>我会考虑一下。'
+		if temp_rand = 5: $rnd_client_torgtext = '不过我觉得你可不值这个价。便宜<<$func(''money'', ''string_profit'', 100)>>，咱们就成交。'
+		$result = $rnd_client_torgtext
+		killvar 'rnd_client_torgtext'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_torgtext2':
+		temp_rand = rand(1, 5)
+		if temp_rand = 1: $rnd_client_torgtext2 = '但你要价太高了。也许便宜<<$func(''money'', ''string_profit'', 50)>>……'
+		if temp_rand = 2: $rnd_client_torgtext2 = '但你太贵了。给我个更好的价格，至少再低<<$func(''money'', ''string_profit'', 50)>>。'
+		if temp_rand = 3: $rnd_client_torgtext2 = '但你的服务没有我想的那么便宜。把你的价格压低一点怎么样？<<$func(''money'', ''string_profit'', 50)>>怎么样？'
+		if temp_rand = 4: $rnd_client_torgtext2 = '但我朋友说你更便宜。便宜<<$func(''money'', ''string_profit'', 50)>>怎么样？这对我来说是个公道的价格。'
+		if temp_rand = 5: $rnd_client_torgtext2 = '但我手头有点紧。你能便宜<<$func(''money'', ''string_profit'', 50)>>吗？'
+		$result = $rnd_client_torgtext2
+		killvar 'rnd_client_torgtext2'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_torgtext3':
+		temp_rand = rand(1, 5)
+		if temp_rand = 1: $rnd_client_torgtext3 = '搞什么鬼！？我听说你没这么贵！'
+		if temp_rand = 2: $rnd_client_torgtext3 = '但那是好多钱！我听说你是个更便宜的妓女！'
+		if temp_rand = 3: $rnd_client_torgtext3 = '但全镇的人都说你是个便宜的妓女。你的价格怎么了？'
+		if temp_rand = 4: $rnd_client_torgtext3 = '但是……什么？那些家伙告诉我你是个便宜的操！那些价格一点都不便宜！'
+		if temp_rand = 5: $rnd_client_torgtext3 = '但哇……你太贪了，这些钱我能在城里操三个妓女——同时！'
+		$result = $rnd_client_torgtext3
+		killvar 'rnd_client_torgtext3'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_torgtext4':
+		temp_rand = rand(1, 7)
+		if temp_rand = 1: $rnd_client_torgtext4 = '听起来不错？'
+		if temp_rand = 2: $rnd_client_torgtext4 = '你同意吗？'
+		if temp_rand = 3: $rnd_client_torgtext4 = '成交？'
+		if temp_rand = 4: $rnd_client_torgtext4 = '你觉得怎么样？'
+		if temp_rand = 5: $rnd_client_torgtext4 = '行吗？'
+		if temp_rand = 6: $rnd_client_torgtext4 = '听起来公道吗？'
+		if temp_rand = 7: $rnd_client_torgtext4 = '怎么样？'
+		$result = $rnd_client_torgtext4
+		killvar 'rnd_client_torgtext4'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'rnd_client_torgtext5':
+		temp_rand = rand(1, 5)
+		if temp_rand = 1: $rnd_client_torgtext5 = '我可以给你'
+		if temp_rand = 2: $rnd_client_torgtext5 = '我赶紧数了数身上带了多少钱，一共是'
+		if temp_rand = 3: $rnd_client_torgtext5 = '我身上带的钱绰绰有余。就给你'
+		if temp_rand = 4: $rnd_client_torgtext5 = '我手头现金有点紧，只能给你'
+		if temp_rand = 5: $rnd_client_torgtext5 = '我觉得你值'
+		$result = $rnd_client_torgtext5
+		killvar 'rnd_client_torgtext5'
+		killvar 'temp_rand'
+	end
+
+!! failure
+	if $ARGS[1] = 'pod_whore_no':
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/event/whore/no2.jpg"></center>'
+		'"抱歉，我这会儿有点忙。要不你晚点再来？"'
+		act '关门': gt 'korrPar'
+	end
+!! We do not agree on the price:
+	if $ARGS[1] = 'pod_whore_noprice':
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/home/event/whore/no1.jpg"></center>'
+		'"很抱歉，但我觉得我的价格非常合理。不成交。"'
+		act '把门关上': gt 'korrPar'
+	end
+!! Voice actor pricelist
+	if $ARGS[1] = 'pod_whore_price':
+		cla
+		'你微笑着递给他一份服务清单：'
+		if whore_money_rnd <= 0:
+			'你给了他一个诱惑的微笑："你知道吗，你很可爱。我会给你一个特别优惠的价格。"'
+		end
+		'"口交要价<<$func(''money'', ''string_profit'', whore_money_bjsex)>><br>操我的小穴要<<$func(''money'', ''string_profit'', whore_money_clsex)>><br>或者你也可以操我的屁眼，价格是<<$func(''money'', ''string_profit'', whore_money_analsex)>>。<br>你也可以直接给我<<$func(''money'', ''string_profit'', whore_money_allsex)>>, 之后你想怎么操我就怎么操，想操多久就操多久…所有洞都不设限。<br>如果你和朋友一起来，我很乐意同时伺候你们所有人，只要<<$func(''money'', ''string_profit'', whore_money_groupsex)>>。'
+
+		!! '<<money_silicone>> + <<money_mop>> + <<money_hapri>> + <<money_glamur>> + <<money_odethooker>> + <<money_skin>> + <<money_skin_tan>> + <<money_leghair>> + <<money_resnic>> + <<money_pcs_lipbalm>> + <<whore_dopmoney>> + <<money_throat>> | - <<money_vagina>> - <<money_anus>> - <<money_vnesh>> - <<money_horny>> - <<money_cumfrot>> - <<money_sweat>> - <<money_cumlip>> - <<money_cumface>> - <<money_cumbelly>> - <<money_cumpussy>> - <<money_cumanus>> - <<money_cumass>> - <<money_son>>'
+
+		rnd_client_event = rand(1, 7)
+		if rnd_client_event = 1:
+			$rnd_client_text = func('pod_whore', 'hide', 'rnd_client_text_bj')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev1'"
+			total_money = whore_money_bjsex
+		end
+		if rnd_client_event = 2:
+			$rnd_client_text = func( 'pod_whore', 'hide', 'rnd_client_text_vag')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev2'"
+			total_money = whore_money_clsex
+		end
+		if rnd_client_event = 3:
+			$rnd_client_text = func( 'pod_whore', 'hide', 'rnd_client_text_anal')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev3'"
+			total_money = whore_money_analsex
+		end
+		if rnd_client_event = 4:
+			$rnd_client_text = func( 'pod_whore', 'hide', 'rnd_client_text_all')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev4'"
+			total_money = whore_money_allsex
+		end
+		if rnd_client_event = 5:
+			$rnd_client_text = func( 'pod_whore', 'hide', 'rnd_client_text_group')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev5'"
+			total_money = whore_money_groupsex
+		end
+		if rnd_client_event = 6:
+			$rnd_client_text = func( 'pod_whore', 'hide', 'rnd_client_text_bj_vag')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev6'"
+			total_money = whore_money_bjvagsex
+		end
+		if rnd_client_event = 7:
+			$rnd_client_text = func( 'pod_whore', 'hide', 'rnd_client_text_bj_anal')
+			$goto_rnd_client_event = "gt 'pod_whore','hide', 'pod_whore_ev7'"
+			total_money = whore_money_bjanalsex
+		end
+
+		!! how much money for sex if the client offers: blow job, pussy or anal
+		rnd_client_money = rand(150, 245)
+		!! how much money for sex if the client offers: all at once or gangbang
+		rnd_client_money2 = rand(450, 595)
+		!! how much money for sex if the client offers: blow job + pussy and blowjob + anal
+		rnd_client_money3 = rand(300, 445)
+
+		$rnd_client_torgtext1 = func('pod_whore', 'hide', 'rnd_client_torgtext1')
+		$rnd_client_torgtext2 = func('pod_whore', 'hide', 'rnd_client_torgtext2')
+		$rnd_client_torgtext3 = func('pod_whore', 'hide', 'rnd_client_torgtext3')
+		$rnd_client_torgtext4 = func('pod_whore', 'hide', 'rnd_client_torgtext4')
+		$rnd_client_torgtext5 = func('pod_whore', 'hide', 'rnd_client_torgtext5')
+
+		temp_rand = rand(1, 5)
+		if temp_rand = 1:
+			$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+		elseif temp_rand = 2:
+			if total_money >= 250:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>> <<$rnd_client_torgtext1>>"' & total_money -= 100
+			elseif total_money < 250:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+			end
+		elseif temp_rand = 3:
+			if total_money >= 150:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>> <<$rnd_client_torgtext2>>"' & total_money -= 50
+			elseif total_money < 150:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+			end
+		elseif temp_rand = 4:
+			if rnd_client_event < 4 and total_money >= 250:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>> <<$rnd_client_torgtext3>> <<$rnd_client_torgtext5>> <<$func(''money'', ''string_profit'', rnd_client_money)>>。 <<$rnd_client_torgtext4>>"'
+				total_money = rnd_client_money
+			elseif rnd_client_event < 4 and total_money < 250:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+			end
+			if rnd_client_event >= 4 and rnd_client_event <= 5 and total_money >= 600:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>> <<$rnd_client_torgtext3>> <<$rnd_client_torgtext5>> <<$func(''money'', ''string_profit'', rnd_client_money2)>>。 <<$rnd_client_torgtext4>>"'
+				total_money = rnd_client_money2
+			elseif rnd_client_event >= 4 and total_money < 600:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+			end
+			if rnd_client_event >= 6 and total_money >= 450:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>> <<$rnd_client_torgtext3>> <<$rnd_client_torgtext5>> <<$func(''money'', ''string_profit'', rnd_client_money3)>>。 <<$rnd_client_torgtext4>>"'
+				total_money = rnd_client_money3
+			elseif rnd_client_event >= 6 and total_money < 450:
+				$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+			end
+		elseif temp_rand = 5:
+			$rnd_clint_torg = '那男人想了想，开口道："<<$rnd_client_text>>"'
+		end
+		*pl $rnd_clint_torg
+		act '接受并和他一起去': dynamic $goto_rnd_client_event
+		if temp_rand >= 2 and temp_rand <= 4:
+			act '拒绝并关上门': gt 'pod_whore', 'hide', 'pod_whore_noprice'
+		end
+	end
+
+!! long talk nothing)
+	if $ARGS[1] = 'pod_client_talk_bazar1':
+		cla
+		'你只是给了那个男人一个疑惑的眼神，他继续说道："我的一些朋友给了我这个地址。他们说这里住着一个漂亮的姑娘，把他们的身心都照顾得很好。你看起来确实漂亮……我还以为你就是他们说的那个人呢。"'
+		act '它': gt 'pod_whore', 'hide', 'pod_client_talk_bazar2'
+	end
+
+	if $ARGS[1] = 'pod_client_talk_bazar2':
+		cla
+		'你假装被冒犯了："所以你的意思是我看起来像个妓女！？"'
+		if pod_whore_countQW <= 15:
+			'那个男人再次道歉："非常抱歉，我一定是弄错地址了。"'
+			'他转过身离开了，你还没来得及告诉他真相。'
+			act '关门': gt 'korrPar'
+		else
+			'他挑衅地看着你说："听着，姑娘。你不能怪我搞混了……墙上都写着呢！这里住着一个妓女！"'
+			act '责骂他': gt 'pod_whore', 'hide', 'pod_client_talk_bazar3'
+			act '稍微退让': gt 'pod_whore', 'hide', 'pod_client_talk_bazar5'
+		end
+	end
+
+	if $ARGS[1] = 'pod_client_talk_bazar3':
+		cla
+		gs 'stat'
+		'你装出一副被侮辱的样子，对他大喊："谁都能在别人家墙上写下那种鬼话，那不代表是真的！"'
+		'那个男人举起双手为自己辩护，嘟囔着："好好好，我明白了……她不在。抱歉，我该走了。"'
+		act '"你确定吗？"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar9'
+		gs 'willpower', 'prostitution', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '关门' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '关门' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'korrPar'
+			end
+		end
+	end
+
+	if $ARGS[1] = 'pod_client_talk_bazar4':
+		cla
+		'你不确定该不该生气。你只是告诉他："抱歉先生，我不认识什么妓女。你该走了。"'
+		act '关门': gt 'korrPar'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar5':
+		cla
+		'你对他坏笑："就因为有人在那里写了字，那也不代表是真的……说不定就是你写的呢！"'
+		'他现在完全进入防御模式："等等，什么？我什么都没干！"'
+		act '继续逗他': gt 'pod_whore', 'hide', 'pod_client_talk_bazar6'
+		gs 'willpower', 'prostitution', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '结束对话' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '结束对话' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'pod_whore', 'hide', 'pod_client_talk_bazar7'
+			end
+		end
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar6':
+		cla
+		gs 'stat'
+		'你接着逗他："行啊，你大可以挨家挨户去敲门，找一个叫<<$pcs_nickname>>的姑娘……"，同时拼命憋着不笑。'
+		'这家伙明显愣住了，脸臊得通红。'
+		act '承认你就是<<$pcs_nickname>>': gt 'pod_whore', 'hide', 'pod_client_talk_bazar8'
+		gs 'willpower', 'prostitution', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '结束对话' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '结束对话' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'pod_whore', 'hide', 'pod_client_talk_bazar7'
+			end
+		end
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar7':
+		cla
+		gs 'stat'
+		'你叹了口气说："到此为止吧。再见，先生"，随后当着他的面把门关上了。几秒钟后，你开始后悔自己那样对他。'
+		act '关门': gt 'korrPar'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar8':
+		cla
+		'你觉得对不住这家伙，就坦白了："对不起宝贝，我只是逗你玩的。我就是<<$pcs_nickname>>。想让我怎么补偿你？我身上哪儿都随你用，还能给你打个折……"'
+		'他看上去松了口气，愣了一秒才想起自己是来干什么的。接着他回过神，说："哦对……你收多少钱？"'
+		act '把你的价目表给他': gt 'pod_whore', 'hide', 'pod_whore_price'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar9':
+		cla
+		'你几乎藏不住笑，说："你要对自己说的就这些？告诉你吧，我的名字恰好也叫<<$pcs_nickname>>……"'
+		'那男人一脸困惑地看着你："等等……你不是墙上广告里那个<<$pcs_nickname>>？那你到底干不干这行？"'
+		act '"也许吧…"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar10'
+		act '"开玩笑的！"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar11'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar10':
+		cla
+		'你装模作样地把他从头到脚飞快扫了一遍，然后神秘一笑："为了你吗，甜心？也许吧……你喜欢我？"'
+		'那男人彻底搞不清状况了："呃，喜欢你吗？当然啦，你挺可爱的……怎么，你想约我出去？"'
+		act '"你确实挺可爱的…"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar12'
+		act '"不，我在开玩笑！"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar13'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar11':
+		cla
+		'你决定放他一马，老实承认："宝贝，我刚才是逗你的。我就是<<$pcs_nickname>>。"'
+		'这家伙看着你，一脸不知道该信什么："等等……所以你一直在耍我？"'
+		'你冲他友善地笑了笑："对不起宝贝。也许我能补偿你？我敢说我能让你舒服……"'
+		'你看见他眼里那股贪劲，就知道他想要你。过了片刻，他说："好吧，你赢了。你收多少钱？"'
+		act '把你的价目表给他': gt 'pod_whore', 'hide', 'pod_whore_price'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar12':
+		cla
+		'你继续对他神秘地微笑，心里暗笑。你就是喜欢捉弄男人！你告诉他："嗯，你确实挺可爱的……你想干什么呢？"'
+		'他现在说话都结结巴巴了，看得出他拼命想找个借口结束这场对话："呃……我不知道，也许我可以带你去个不错的地方？"'
+		'你只是微笑着说："哦？你要带我去哪里？"'
+		'见你没有立刻打发他走，这个男人受到了鼓励，提议道："也许我们可以去散散步？或者去咖啡馆喝一杯，或者去看场电影？"'
+		act '"抱歉，甜心…"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar14'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar13':
+		cla
+		gs 'stat'
+		'你笑着摇了摇头："当然不是！你觉得我是那种姑娘吗？"'
+		'那个男人显然被冒犯了，冷笑道："说实话，一个婊子。"'
+		'你觉得自己可能越界了，试着回应："如果有人在你家门口，指望找到一个妓女，你会作何感想？"'
+		'他不买账，生气地说："我会觉得这他妈是在浪费时间。谢谢你，什么都没有，婊子。"'
+		'他转过身离开了，你还没来得及多说一个字，你为那样伤害他的感情感到一丝懊悔。'
+		act '关门': gt 'korrPar'
+	end
+	if $ARGS[1] = 'pod_client_talk_bazar14':
+		cla
+		'你不能再捉弄这个可怜的男人了！你笑着说："对不起甜心，我不觉得我能带我的客人去那种地方！"'
+		'那个男人沉默了一会儿，在脑子里把线索串了起来，然后嘟囔道："等等……所以你就是<b>那个</b><<$pcs_nickname>>，你从头到尾都在耍我！？"'
+		'你大声笑了出来，告诉他："抱歉宝贝，我是在试探你。不过我喜欢你，你很可爱。我给你打个折怎么样，也许我可以补偿你？"'
+		'那个男人看起来有点尴尬，但更多的是松了一口气，因为你确实是他以为的那个人："该死，你骗到我了！那好吧……你收费多少？"'
+		act '把你的价目表给他': gt 'pod_whore', 'hide', 'pod_whore_price'
+	end
+!! gg he said, that it does not <<$pcs_nickname>>
+	if $ARGS[1] = 'pod_client_talk_no':
+		cla
+		gs 'stat'
+		'你摇了摇头："对不起，我不知道你说的这个<<$pcs_nickname>>是谁。你一定找错人了。"'
+		'那个男人微笑着道歉："对不起，小姐。你能告诉我哪里能找到愿意的姑娘吗？我身上带的钱绰绰有余。"'
+		act '"我不认识什么妓女！"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar4'
+		act '"你说钱？"': gt 'pod_whore', 'hide', 'pod_client_talk_bazar1'
+	end
+!! gg tired and can not accept a client
+	if $ARGS[1] = 'pod_client_talk_noson':
+		cla
+		gs 'stat'
+		'你同情地看着这家伙说："对不起宝贝。你很可爱，但我今天实在是累坏了。我没法给你应得的服务。也许你明天再来，到时候我一定让你玩得开心？"'
+		'这个男人因为白跑一趟有点沮丧，但你能看出你拍马屁的尝试多少挽回了局面："真的吗，你觉得？好吧……也许我明天再来。"'
+		act '关门': gt 'korrPar'
+	end
+
+!! ==========================================================
+!! end `s Event:
+	if $ARGS[1] = 'pod_whore_ev_end':
+		*clr & cla
+		gs 'cum_call', 'face', $boy, 0, '', '', 10
+		gs 'cum_call', 'mouth', $boy, 0, '', '', 30
+		if pcs_energy >= 15: pcs_energy -= 4
+		if pcs_hydra >= 20: pcs_hydra -= 6
+		pcs_hairbsh = 0
+		minut += rand(2, 5)
+		gs 'money', 'earn', total_money, 'cash'
+		pod_whore_countQW += 1
+		pod_whore_client_day = daystart
+		pod_whore_client_count -= 1
+		gs 'fame', 'pav', 'prostitute', rand(6, 12)
+		gs 'arousal', 'end'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/cum' + rand(1, 7) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_cum'
+		'那男人如约给了你<<$func(''money'', ''string_profit'', total_money)>>，正如承诺的那样。'
+		if $clothingworntype = 'nude':
+			act '离开': gs 'pod_whore', 'hide', 'clean' & gt 'korrPar'
+		else
+			act '离开': gs 'pod_whore', 'hide', 'clean' & gt 'pod_ezd', 'etaj_2'
+		end
+	end
+!! ==============
+!! start `s Event:
+!! --------------
+!! sucking
+	if $ARGS[1] = 'pod_whore_ev1':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'bj', rand(5, 15), 'prostitution'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/bj' + rand(1, 17) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_bj'
+		gs 'gopsex', 'hide', 'accview_ggsex'
+		act '继续': gt 'pod_whore', 'hide', 'pod_whore_ev_end'
+	end
+!! classic sex
+	if $ARGS[1] = 'pod_whore_ev2':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'vaginal', rand(7, 15), 'prostitution'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/sex' + rand(1, 7) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_vag'
+		gs 'gopsex', 'gg_sex_orgasm'
+		gs 'gopsex', 'hide', 'accview_ggsex'
+		act '继续': gt 'pod_whore', 'hide', 'pod_whore_ev_end'
+	end
+!! anal sex
+	if $ARGS[1] = 'pod_whore_ev3':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'anal', rand(7, 15), 'prostitution'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/sex' + rand(8, 14) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_anal'
+		gs 'gopsex', 'hide', 'accview_ggsex'
+		act '继续': gt 'pod_whore', 'hide', 'pod_whore_ev_end'
+	end
+!! all inclusive
+	if $ARGS[1] = 'pod_whore_ev4':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'bj', rand(3, 12), 'prostitution'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/bj' + rand(1, 17) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_bj'
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'vaginal', rand(5, 13), 'prostitution'
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/sex' + rand(1, 7) + '.mp4"></video></center>'
+			gs 'pod_whore', 'hide', 'text_pod_whore_vag'
+			gs 'gopsex', 'gg_sex_orgasm'
+			gs 'gopsex', 'hide', 'accview_ggsex'
+			act '继续':
+				*clr & cla
+				gs 'arousal', 'anal', rand(7, 15), 'prostitution'
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/sex' + rand(8, 14) + '.mp4"></video></center>'
+				gs 'pod_whore', 'hide', 'text_pod_whore_anal'
+				act '继续': gt 'pod_whore', 'hide', 'pod_whore_ev_end'
+			end
+		end
+	end
+
+!! blow job + classic sex
+	if $ARGS[1] = 'pod_whore_ev6':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'bj', rand(5, 15), 'prostitution'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/bj' + rand(1, 17) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_bj'
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'vaginal', rand(7, 15), 'prostitution'
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/sex' + rand(1, 7) + '.mp4"></video></center>'
+			gs 'pod_whore', 'hide', 'text_pod_whore_vag'
+			gs 'gopsex', 'gg_sex_orgasm'
+			gs 'gopsex', 'hide', 'accview_ggsex'
+			act '继续': gt 'pod_whore', 'hide', 'pod_whore_ev_end'
+		end
+	end
+!! blow job + anal sex
+	if $ARGS[1] = 'pod_whore_ev7':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'bj', rand(5, 15), 'prostitution'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/bj' + rand(1, 17) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_bj'
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'anal', rand(7, 15), 'prostitution'
+			gs 'stat'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/sex' + rand(8, 14) + '.mp4"></video></center>'
+			gs 'pod_whore', 'hide', 'text_pod_whore_anal'
+			gs 'gopsex', 'hide', 'accview_ggsex'
+			act '继续': gt 'pod_whore', 'hide', 'pod_whore_ev_end'
+		end
+	end
+
+!! -----------------
+!! Group text:
+!! =================
+!! blow job
+	if $ARGS[1] = 'text_pod_whore_groupbj':
+		temp_rand = rand(1, 4)
+		if temp_rand = 1: $txt_pod_whore_groupbj = '你跪下来，急切地开始吸其中一个男人的鸡巴。几分钟后，他的朋友不耐烦了，说："让开点，哥们，轮到我了。"他的朋友回答："别贪心，她可以同时服务两根鸡巴。<<$pcs_nickname>>，同时吸我们两个。"他把鸡巴贴在你的脸颊上摩擦，把前液蹭得到处都是。你也尽全力取悦他，试着同时取悦他们俩。几分钟后，其中一个男人告诉你他现在要操你了。他说："露出你的屁股，去靠在栏杆上。"'
+		if temp_rand = 2: $txt_pod_whore_groupbj = '你跟着他们走到楼梯间。你的膝盖在发抖，你感觉到小穴在两腿间慢慢湿透……你真的要为了钱同时伺候两个男人吗？一个男人立刻解开裤子，勃起的鸡巴急切地跳了出来。另一个男人还穿着裤子，你隔着布料揉搓他胯下的鼓包。你默默地跪在他们面前，轻轻握住那根露出来的鸡巴。他粗鲁地打断你说："想得美，妓女。把嘴张大，我要操你的喉咙。"他猛地把鸡巴捅进你的喉咙，你拼命压住干呕的冲动，而他的朋友则脱下你的上衣，粗暴地用手揉捏你的乳房。他用力捏你的乳头，想让你为他的朋友把嘴张得更大，好让他的鸡巴捅得更深。过了一会儿，他们交换了位置。他们重复同样的事情，从他们熟练的配合来看，你怀疑他们是不是经常一起用女孩。男人们想要的不仅仅是一次口交，其中一个命令你："到那边去，靠在栏杆上，把屁股翘起来。我们现在要操你了。"'
+		if temp_rand = 3: $txt_pod_whore_groupbj = '你完全不认识这两个家伙。你怯生生地跟着他们，希望他们会先采取行动。矮个子的男人拉下裤子，命令你："来吧妓女，吸它。"他的鸡巴不是特别大。尽管如此，你还是照做了，尽力吸得像这是你见过最棒的鸡巴一样。另一个男人脱下裤子，也把他的鸡巴递给你。它大得多，你尽力用嘴取悦两个男人。然而，他们能看出你并不投入。他们对视一眼说："看来得靠我们了……她根本没在努力。"你不想知道他们这话是什么意思，于是加倍努力，一边热情地吸其中一个，一边用手撸另一个的鸡巴。你看到他们对视一眼，然后一个男人开口说："我先来。上次我们操的那个妓女是你先上的。"你能看出另一个男人有点失望，但还是点头同意："公平。"然后他对你坏笑："给我留点，妓女。"'
+		if temp_rand = 4: $txt_pod_whore_groupbj = '你走到两个男人中间，搂住他们的腰，说："来吧伙计们，我们进楼梯间。你们想让我怎么做？"你能看出这两个男孩很不自在，你引导他们走向一个安静的角落。你试着安抚他们："放松点伙计们……我们在这里没事的，一天中的这个时候从来没人走这里。不如让我看看你们带了什么给我？"他们还是相当腼腆。你蹲下身，解开其中一个男人的裤子，把他软趴趴的鸡巴掏出来。你用嘴含住它开始吸，慢慢地、确定地，你能感觉到它在你的嘴里硬起来。另一个男人手忙脚乱地摆弄着你的衣服。等他终于把你的乳房从上衣里弄出来，他也把他的鸡巴递给你。它已经硬了，你能看出男人们的饥渴正在慢慢压倒他们之前的尴尬。你猜这是他们第一次找妓女，你想尽最大努力让他们记住这次经历。你热情地为他们口交和手淫，给他们甜甜的微笑，鼓励他们更大胆一点。几分钟后，你把正在吸的那根鸡巴从嘴里拿出来问他们："那么，伙计们，你们怎么说……现在想操我吗？"'
+
+		*pl $txt_pod_whore_groupbj
+		killvar 'txt_pod_whore_groupbj'
+		killvar 'temp_rand'
+	end
+!! sex
+	if $ARGS[1] = 'text_pod_whore_groupsex':
+		temp_rand = rand(1, 3)
+		if temp_rand = 1: $txt_pod_whore_groupsex = '你顺从地把衣服拨到一边，张开双腿，那个男人走到你身后，抚摸着你光裸的屁股，手指在你的小穴唇上滑过几次。他注意到你有多湿，咧嘴一笑："不错……"说着把鸡巴对准你的洞口，一个流畅的动作捅了进去。他一言不发地开始操你。这感觉其实很棒，他确实很懂行！你不由自主地愉悦地呻吟起来，意识到自己很享受被一个肮脏的中年男人花钱操。不过，这感觉真好！他的朋友只是看着你们俩做爱，满足地等着轮到自己单独享用你。他看着你的时候随意地撸着自己，好让鸡巴保持兴奋。'
+		if temp_rand = 2: $txt_pod_whore_groupsex = '你向其中一个男人露出你的屁股，然后给他一个无辜的微笑，挑逗他，问道："你喜欢我这样吗，先生？"	他重重地拍了一下你的屁股，听到你的尖叫咧嘴笑了："就是这样，姑娘"。他走到你身后，你感觉到他的龟头顶在你紧致的小穴上。幸运的是他家伙不大，很容易就滑了进去。这感觉其实不错。当这个男人操你的时候，你开始轻声呻吟，声音大到他们能听见。他们笑了，其中一个说："你喜欢这样，对吧姑娘？其实该付钱的是<b>我们</b>才对……"'
+		if temp_rand = 3: $txt_pod_whore_groupsex = '当你靠在栏杆上时，其中一个男人立刻跟了上来，你感觉到他坚硬的勃起顶在你的背上。他呻吟道："多用点力，姑娘，我要感觉到你的胯部撞回来。"你顺从地点点头，等他把鸡巴插进你体内后，你热情地骑他。感觉出奇地好……也许甚至比应该的还要好。你绝对能习惯有男人上门来找你！想要多少鸡巴就有多少，甚至都不用出去找！另一个男人专注地看着你的脸，一边慢慢撸着自己。你能看出你被操时的愉悦极大地刺激了他。'
+
+		*pl $txt_pod_whore_groupsex
+		killvar 'txt_pod_whore_groupsex'
+		killvar 'temp_rand'
+	end
+
+	if $ARGS[1] = 'pod_whore_ev5':
+		temp_rand = rand(1, 2)
+		if temp_rand = 1: gt 'pod_whore', 'hide', 'pod_whore_groupsexev1'
+		if temp_rand = 2: gt 'pod_whore', 'hide', 'pod_whore_groupsexev2'
+		killvar 'temp_rand'
+	end
+!! gangbang event 1
+	if $ARGS[1] = 'pod_whore_groupsexev1':
+		*clr & cla
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated, '1'
+		npc_had_sex[$boy] = 1
+		gs 'npcgeneratec', 0, '客人', rand(18, 40)
+		gs 'npcStat', $npclastgenerated, '2'
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'bj', rand(3, 5), $npcID[1], 'prostitution', 'group'
+		gs 'arousal', 'bj', rand(3, 5), $npcID[2], 'prostitution', 'group'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/1_1_' + rand(1, 2) + '.jpg"></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_groupbj'
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'vaginal', rand(5, 11), $npcID[1], 'prostitution', 'group'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/1_2_' + rand(1, 2) + '.jpg"></center>'
+			gs 'pod_whore', 'hide', 'text_pod_whore_groupsex'
+			gs 'gopsex', 'gg_sex_orgasm'
+			gs 'gopsex', 'hide', 'accview_ggsex'
+			act '继续':
+				*clr & cla
+				gs 'arousal', 'vaginal', rand(7, 12), $npcID[2], 'prostitution', 'group'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/1_3.jpg"></center>'
+				gs 'pod_whore', 'hide', 'text_pod_whore_groupsex'
+				gs 'gopsex', 'gg_sex_orgasm'
+				act '继续':
+					*clr & cla
+					gs 'cum_call', 'face', $boy[1], 0, '', '', 10
+					gs 'cum_call', 'mouth', $boy[1], 0, '', '', 30
+					gs 'cum_call', 'face', $boy[2], 0, '', '', 10
+					gs 'cum_call', 'mouth', $boy[2], 0, '', '', 20
+					gs 'cum_call', 'breasts', $boy[2], 0, '', '', 10
+					if pcs_energy >= 15: pcs_energy -= 8
+					if pcs_hydra >= 20: pcs_hydra -= 10
+					pcs_hairbsh = 0
+					minut += rand(3, 7)
+					gs 'money', 'earn', total_money, 'cash'
+					pod_whore_countQW += 1
+					pod_whore_client_day = daystart
+					pod_whore_client_count -= 1
+					gs 'arousal', 'end'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/1_4_' + rand(1, 2) + '.jpg"></center>'
+					'在他们用几种姿势操了你、两人都轮过之后，他们告诉你他们想射在你脸上。'
+					'你急切地跪下，伸出舌头，邀请他们射进你嘴里，同时你深深地看着他们的眼睛。'
+					'很快，滚烫的精液喷射到你的脸上，大部分落在你伸出的舌头上。几滴顺着下巴流下，滴到你的<<$titsize_zh>>乳房上。你心不在焉地揉搓它们，把精液抹得到处都是。'
+					'你能看出这两个男人是真的精疲力尽了，而且非常享受你的服务。'
+					'一个男人拿出承诺给你的钱，递给你<<$func(''money'', ''string_profit'', total_money)>>. 他开心地笑着说："你太棒了，姑娘。我们肯定会再来的。"'
+					act '感谢他们然后离开': gs 'pod_whore', 'hide', 'clean' & gt 'pod_ezd', 'etaj_2'
+				end
+			end
+		end
+	end
+
+!! gangbang event 2
+	if $ARGS[1] = 'pod_whore_groupsexev2':
+		gs 'npcgeneratec', 0, '顾客', rand(18, 40)
+		gs 'npcStat', $npclastgenerated, '1'
+		npc_had_sex[$boy] = 1
+		gs 'npcgeneratec', 0, '客人', rand(18, 40)
+		gs 'npcStat', $npclastgenerated, '2'
+		npc_had_sex[$boy] = 1
+		gs 'arousal', 'bj', rand(3, 5), $npcID[1], 'prostitution', 'group'
+		gs 'arousal', 'bj', rand(3, 5), $npcID[2], 'prostitution', 'group'
+		gs 'stat'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/2_1_' + rand(1, 2) + '.mp4"></video></center>'
+		gs 'pod_whore', 'hide', 'text_pod_whore_groupbj'
+		act '继续':
+			*clr & cla
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/2_2_1.mp4"></video></center>'
+			'这两个男人表示他们现在想操你了。你一弯腰，身后的男人立刻抓住你的胯部，开始用又长又猛的冲刺操你。'
+			'另一个男人走到你面前说："来吧，妓女。让你那张嘴也忙起来，我不会只是站在这里等的。"'
+			'你顺从地张开嘴，把他的鸡巴含进嘴里。在小穴被猛操的同时给他好好口交有点难，尤其是他那样摆动着胯部，但过了一会儿，他们找到了稳定的节奏，你就任由这两个男人摆布了。'
+			gs 'arousal', 'vaginal', rand(5, 10), $npcID[2], 'prostitution', 'group'
+			gs 'arousal', 'bj', -5, $npcID[1], 'prostitution', 'group'
+			gs 'gopsex', 'gg_sex_orgasm'
+			gs 'gopsex', 'hide', 'accview_ggsex'
+			gs 'stat'
+
+			act '继续':
+				*clr & cla
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/2_3_1.mp4"></video></center>'
+				'然后他们交换位置，现在换另一个男人操你。当他让你吸他的鸡巴时，你能尝到上面你的小穴汁水。你在这个姿势下还是不太舒服，但你扶住男人的腰带稳住自己，过了一会儿又重新进入那种稳定的节奏。'
+				gs 'arousal', 'vaginal', rand(5, 10), $npcID[1], 'prostitution', 'group'
+				gs 'arousal', 'bj', -5, $npcID[2], 'prostitution'
+				gs 'gopsex', 'gg_sex_orgasm'
+				gs 'stat'
+
+				act '继续':
+					*clr & cla
+					minut += rand(5, 10)
+					gs 'stat'
+					'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/2_2_' + rand(2, 3) + '.mp4"></video></center>'
+					'然后操你的那个男人仰面躺下，鸡巴始终没离开你的小穴。他把你一起拉倒，你把手撑在他身后的胸口上。他现在指望你骑他，而另一个男人回到你的面前，叫你继续吸。'
+					'你不再多想，按他说的张开嘴，重新用嘴唇含住它。'
+					'同时被两个男人操，真的让你觉得自己是个下流的荡妇。这两个男人大概觉得你只配被操，把你当成一块肉来对待。'
+					gs 'gopsex', 'gg_sex_orgasm'
+					act '继续':
+						*clr & cla
+						gs 'arousal', 'vaginal', rand(5, 10), $npcID[2], 'prostitution', 'group'
+						gs 'arousal', 'bj', 5, $npcID[1], 'prostitution'
+						gs 'stat'
+						'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/2_3_2.mp4"></video></center>'
+						'过去十分钟你一直在吸的那个男人突然把你拉起来，自己躺到地上，然后叫你骑到他的鸡巴上。当你的小穴唇摩擦到他坚硬的鸡巴时，他把你的胯部拉近他，开始猛烈地操你。'
+						'另一个男人把鸡巴对准你的嘴，对你咧嘴笑："你知道我想要什么，妓女。开始吸吧。"'
+						'你点点头，把他的鸡巴含进嘴里，再次尝到自己的味道。你挺喜欢自己的味道，一想到要舔掉别人鸡巴上你的汁水，你就兴奋不已。'
+						gs 'gopsex', 'gg_sex_orgasm'
+						act '继续':
+							*clr & cla
+							gs 'cum_call', 'stomach', $boy[2], 0, '', '', 10
+							gs 'cum_call', '', $boy[2], 0, '', '', 30
+							gs 'cum_call', 'face', $boy[1], 0, '', '', 10
+							gs 'cum_call', 'mouth', $boy[1], 0, '', '', 30
+							if pcs_energy >= 15: pcs_energy -= 8
+							if pcs_hydra >= 20: pcs_hydra -= 10
+							pcs_hairbsh = 0
+							minut += rand(3, 7)
+							gs 'money', 'earn', total_money, 'cash'
+							pod_whore_countQW += 1
+							pod_whore_client_day = daystart
+							pod_whore_client_count -= 1
+							gs 'arousal', 'end'
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/stairs/sex/2_4.jpg"></center>'
+							'又操了几分钟后，你突然感觉到身下的男人抽搐起来。几秒钟后，你感觉到一股温热的液体射进你体内，当他从你体内抽出鸡巴时，他的精液从你的小穴里缓缓滴出。又有几股精液射出，落在你的肚子上。与此同时，另一个男人毫无预兆地射进你的嘴里。你尽力吞下他的精液，只有几滴漏出来，落在了你的下巴上。'
+							'这两个男人穿回衣服时没怎么在意你。他们主要是在互相谈论你操起来有多棒，假装你不在场。'
+							'然后一个男人转向你，把钱递给你："你操起来真不错，<<$pcs_nickname>>。这里是<<$func(''money'', ''string_profit'', total_money)>>我们约好的钱。回头见。"'
+							act '感谢他们然后离开': gs 'pod_whore', 'hide', 'clean' & gt 'pod_ezd', 'etaj_2'
+						end
+					end
+				end
+			end
+		end
+	end
+	if $ARGS[1] = 'clean':
+		killvar 'temp_rand'
+		killvar 'goto_rnd_client_event'
+		killvar 'rnd_client_money'
+		killvar 'rnd_client_money2'
+		killvar 'rnd_client_money3'
+		killvar 'pod_whore_lubri_text'
+		killvar 'money_silicone'
+		killvar 'money_mop'
+		killvar 'money_hapri'
+		killvar 'money_glamur'
+		killvar 'money_odethooker'
+		killvar 'money_skin'
+		killvar 'money_skin_tan'
+		killvar 'money_leghair'
+		killvar 'money_resnic'
+		killvar 'money_pcs_lipbalm'
+		killvar 'whore_dopmoney'
+		killvar 'money_throat'
+		killvar 'money_vnesh'
+		killvar 'money_horny'
+		killvar 'money_cumfrot'
+		killvar 'money_sweat'
+		killvar 'money_cumlip'
+		killvar 'money_cumface'
+		killvar 'money_cumbelly'
+		killvar 'money_cumpussy'
+		killvar 'money_cumanus'
+		killvar 'money_cumass'
+		killvar 'money_son'
+		killvar 'whore_money_bjsex'
+		killvar 'whore_money_clsex'
+		killvar 'whore_money_analsex'
+		killvar 'whore_money_groupsex'
+		killvar 'whore_money_bjvagsex'
+		killvar 'whore_money_bjanalsex'
+		killvar 'whore_money_rnd'
+	end
+end & !! --- hide ---
+--- pod_whore ---------------------------------

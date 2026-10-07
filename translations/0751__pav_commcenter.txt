@@ -1,0 +1,98 @@
+# pav_commcenter
+
+if $ARGS[0] = '':
+	CLOSE ALL
+	*clr & cla
+	music_loop = 0
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_commcenter', ''
+	$location_type = 'public_outdoors'
+	gs 'family_schedule'
+	gs 'stat'
+	$func('wrap', 'header center b', '社区中心')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/' + iif(DayStage < 4, 'dk.jpg', 'dk_night.jpg') + '"></center>'
+
+	act '离开': minut += 2 & gt 'pav_residential'
+
+	if hour = 19 and minut >= 40 and week >= 5 and week < 7:
+		act '排队等迪斯科开门 (0:<<iif(60-minut < 10, "0<<60-minut>>", 60-minut)>>)' + $func('money', 'get_cost_string', 25):
+			if func('money', 'can_afford', 25) = 0:
+				$noMoney
+			else
+				gs 'money', 'pay', 25 & minut += (60 - minut) & pav_disco_in = daystart & gt 'pav_disco'
+			end
+		end
+	elseif hour >= 20 and hour <= 23 and week >= 5 and week < 7:
+		'社区中心门口挤满了年轻人。男孩子们聚在一起抽烟说笑，女孩子们则三五成群，都打扮得漂漂亮亮地聊着闲话。你看到灌木丛在晃动 - 巴甫洛夫斯克著名的亲热花园。'
+		'你听到俱乐部旁边的小巷里有人。 <a href="exec:minut += 5 & gt ''pav_commcenter'', ''alley''">调查</a>.'
+		if gdkincum = daystart and (cumloc[6] = 0 and cumloc[7] = 0) and cumloc[11] = 0: gdkincum = 0
+		if gdkincum ! daystart:
+			if pav_disco_in = daystart:
+				act '回到舞会': gt 'pav_disco'
+			elseif func('money', 'can_afford', 25) = 1:
+				act '去跳舞 (' + $func('money', 'string_price', 25) + ')': gs 'money', 'pay', 25 & minut += 1 & gt 'pav_disco'
+			else
+				'舞会正在进行，但你身上没有 ' + $func('money', 'string_price', 25) + ' 来支付入场费。'
+			end
+		else
+			*nl
+			if (cumloc[6] = 1 or cumloc[7] = 1) and cumloc[11] = 1:
+				'你应该在回舞会前把脸上和衣服上的精液清理干净。'
+			elseif cumloc[11] = 1:
+				'你应该在回舞会前把脸上的精液清理干净。'
+			elseif cumloc[6] = 1 or cumloc[7] = 1:
+				'你应该在回舞会前把衣服上的精液清理干净。'
+			end
+		end
+	else
+		'社区中心有体育设施，晚上还会开设课程。'
+		'里面有一个小图书馆开放时间为 ' + func('time', 'get_time_string', 8, 0) + ' 至 ' + func('time', 'get_time_string', 18, 0) + '。'
+		'楼上，有一些兴趣俱乐部开放时间为 ' + func('time', 'get_time_string', 12, 0) + ' 至 ' + func('time', 'get_time_string', 20, 0) + '。'
+		'体育区开放时间为 ' + func('time', 'get_time_string', 14, 0) + ' 至 ' + func('time', 'get_time_string', 20, 0) + ' （工作日）， 周末为 ' + func('time', 'get_time_string', 9, 0) + ' 至 ' + func('time', 'get_time_string', 20, 0) + '。'
+		'在周五和周六晚上，从 ' + func('time', 'get_time_string', 20, 0) + ' 到午夜，主厅用作一个有流行音乐和跳舞的俱乐部。入场费为 ' + $func('money', 'string_price', 25) + '。'
+	end
+
+	if (daystart mod 365) ! 1:
+		if month > 8 and ml_guitarlesson['advertisement'] = 0: gt 'music_guitarlesson', 'advertisement'
+		if (week < 6 and hour >= 14 and hour < 20) or (week >= 6 and hour >= 9 and hour < 20): act '去体育区': gt 'gdksport', 'start'
+		if hour >= 8 and hour < 18: act '去图书馆': gt 'pav_library'
+		if hour >= 12 and hour < 20: act '上楼去兴趣俱乐部': gt 'pav_commclubs'
+	else
+		*nl
+		'社区中心因新年前夜而关闭。'
+	end
+
+	act '查看公告板': gs 'adverts_manager', 'start'
+
+	if nerd_game['game_day'] = daystart and hour = 19 and yearstart = 1: act '等待游戏之夜开始': minut += 60 - minut & gt 'nerd_game_night', 'game'
+	if nerd_game['game_day'] = daystart and hour = 20 and yearstart = 1: act '上楼去兴趣俱乐部并<b>加入书呆子们</b>': gt 'nerd_game_night', 'game'
+
+	if hour >= 8: act '去厕所': gt 'gdktoilet', 'start'
+
+	if mc_inventory['joints'] > 0 and drugVars['weed_high'] = 0:
+		act '抽一支大麻烟':
+			minut += 10
+			gs 'drugs', 'joint'
+			gt $loc, $loc_arg
+		end
+	end
+	!! ballet career
+	gs 'pushkin_ballet_res', 'check_start_evt'
+
+	act '步行前往公交车站 (0:01)': minut += 1 & gt 'bus', 'community'
+	if locat['Anya'] = 10: '你的姐姐<a href="exec:gt ''sister'', ''pav_commcenter''">安雅</a>正和一群男男女女坐在一起喝啤酒。'
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'alley':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/piss.jpg"></center>'
+	'这条小巷很安静，年轻人经常在这里解决内急，而不是去厕所。'
+	'此刻有几个女孩正在这里做这种事。'
+
+	act '离开': gt 'pav_commcenter'
+end
+
+--- pav_commcenter ---------------------------------

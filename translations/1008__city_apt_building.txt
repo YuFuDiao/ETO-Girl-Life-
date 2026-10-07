@@ -1,0 +1,1487 @@
+# city_apt_building
+!! 2021/05/08
+!! ============================================================================
+!! CHANGES — city_apt_building
+!! ============================================================================
+!! 1. floor1_event_1 (Gopnik event) — Act labels clarified.
+!!    BEFORE: "Leave" and "Continue" — unclear which direction each goes.
+!!    AFTER:  "Turn back" (go back to where you came from) and
+!!            "Walk past them" (push through the gopniks).
+!!    The "Turn back" act has 3 paths depending on $ARGS[1] (herkunft):
+!!      from_second_floor → floor_2
+!!      from_lift         → elevator buttons
+!!      (default)         → city_residential (leave building)
+!!
+!! 2. floor3_event_5 (Gopnik event) — Same act label fix as floor1_event_1.
+!!    "Leave" → "Turn back", "Continue" → "Walk past them".
+!!
+!! 3. floor3_event_5 (from_lift path) — Broken <center> tag fixed.
+!!    BEFORE: '<center>You get back in the elevator and decide to take it to another floor.'
+!!            The opening <center> was never closed, causing all subsequent act
+!!            buttons to be centered unintentionally.
+!!    AFTER:  'You get back in the elevator and decide to take it to another floor.'
+!!            Removed the stray <center> tag — matches floor1_event_1 which has
+!!            no <center> wrapper on this line.
+!!
+!! 4. pod_objava — Missing description added.
+!!    BEFORE: Only showed an image of advertisements with no narrative text.
+!!    AFTER:  Added a description line, matching pod_ezd.qsrc which has text.
+!!
+!! 5. floor4_event_3 — Wrong return destination fixed.
+!!    BEFORE: Continue went to floor_3, but the player is on floor_4 and the
+!!            event happens on the stairs to floor_5. The player should stay
+!!            on floor_4 after watching, not go back down to floor_3.
+!!    AFTER:  Continue now goes to floor_4.
+!!
+!! 6. roof handler — Redundant killvar 'locclass' removed.
+!!    BEFORE: killvar 'locclass' was called after setloc, but setloc already
+!!            clears $locclass in core_library.qsrc.
+!!    AFTER:  Removed the redundant killvar call.
+!!
+!! No game logic, conditions, variables, images, or arousal calls were changed.
+!! ============================================================================
+
+killvar 'floor2'
+killvar 'floor3'
+killvar 'floor4'
+killvar 'floor5'
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                        Entrance to the town                        !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'housemates':
+	menu_off = 1
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/housemates.jpg"></center>'
+	'一楼——这层楼你谁也不认识。'
+	'二楼——这层楼你谁也不认识。'
+	if porn_studio['know_alli_home'] = 1 and film > 0:
+		'三楼——28 号公寓：阿丽安娜·斯米尔诺娃'
+	else
+		'三楼——这层楼你谁也不认识。'
+	end
+	if tryndinQW['stairwell_chat'] >= 1:
+		'四楼——37 号公寓：特伦金·马克西莫维奇'
+	else
+		'四楼——这层楼你谁也不认识。'
+	end
+	'五楼——49 号公寓：你的公寓'
+
+	act '离开': gt 'city_apt_building', 'floor_1'
+end
+
+
+if $ARGS[0] = 'floor_1':
+	if rand(0, 5) = 0 and (totminut > 60 + floor1_event_time) or (totminut < floor1_event_time - 1440):
+		floor1_event_time = totminut
+		gs 'city_apt_building', 'floor1_events', $ARGS[1]
+	end
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	if sound_settings['environment_off'] = 0: PLAY 'sound/podezd.mp3', 30
+	gs 'core_library', 'setloc', 'city_apt_building', 'floor_1'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>一楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/stairs1.jpg"></center>'
+	'有一道短楼梯通向地下室维护区，还有一道短楼梯通向一楼，那里的墙上挂着一份<a href="exec: gt ''city_apt_building'', ''housemates''">名单</a>，写着住在这层楼的人。每间公寓都有一排信箱，两条走廊通向大楼的两翼，还有更多楼梯向上延伸。这个区域相当干净，维护得很好。'
+
+	'楼梯间空无一人。'
+
+	act '离开大楼': minut += 1 & gt 'city_residential'
+	act '上二楼': minut += 1 & gt 'city_apt_building', 'floor_2'
+	act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_1'
+end
+
+
+if $ARGS[0] = 'floor_2':
+	if rand(0, 3) = 0 and (totminut > 60 + floor2_event_time) or (totminut < floor2_event_time - 1440):
+		floor2_event_time = totminut
+		gs 'city_apt_building', 'floor2_events'
+	end
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_apt_building', 'floor_2'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>二楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/stairs2.jpg"></center>'
+	'二楼的楼梯间还算干净，保养得也相当不错，只是偶尔会有闪烁或者坏掉的灯，而这种情况往往好几个星期都没人来修。'
+
+	'楼梯间空无一人。'
+
+	act '下到一楼': minut += 1 & gt 'city_apt_building', 'floor_1', 'from_second_floor'
+	act '上到三楼': minut += 1 & gt 'city_apt_building', 'floor_3', 'from_second_floor'
+	act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor_3':
+	if rand(0, 3) = 0 and (totminut > 60 + floor3_event_time) or (totminut < floor3_event_time - 1440):
+		floor3_event_time = totminut
+		gs 'city_apt_building', 'floor3_events', '<<$ARGS[1]>>'
+	end
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_apt_building', 'floor_3'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>三楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/stairs3.jpg"></center>'
+	'三楼的楼梯间还算干净，保养得也相当不错，只是偶尔会有闪烁或者坏掉的灯，而这种情况往往好几个星期都没人来修。'
+
+	'楼梯间空无一人。'
+
+	act '下楼到二楼': minut += 1 & gt 'city_apt_building', 'floor_2'
+	act '上楼到四楼': minut += 1 & gt 'city_apt_building', 'floor_4'
+	if porn_studio['know_alli_home'] = 1:
+		if film > 0:
+			'和你同行拍色情片的阿莉住在这层楼，但她好像从来都不在家。以你对阿莉的了解，去色情片摄影棚找到她的可能性还大一点。'
+		else
+			'这层楼住着一个叫阿丽安娜的女孩，但她好像从来都不在家。她倒是提过，自己很多时间都在附近的色情片摄影棚工作。'
+		end
+	end
+	act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor_4':
+	if rand(0, 3) = 0 and (totminut > 60 + floor4_event_time) or (totminut < floor4_event_time - 1440):
+		floor4_event_time = totminut
+		gs 'city_apt_building', 'floor4_events'
+	end
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_apt_building', 'floor_4'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>四楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/stairs3.jpg"></center>'
+	'四楼的楼梯间还算干净，保养得也相当不错，只是偶尔会有闪烁或者坏掉的灯，而这种情况往往好几个星期都没人来修。'
+
+	'楼梯间空无一人。'
+
+	act '下到三楼': minut += 1 & gt 'city_apt_building', 'floor_3'
+	act '上到五楼': minut += 1 & gt 'city_apt_building', 'floor_5'
+	!! if tryndin_invite ! 0:
+	!!	!! not possible to get apartment invite and location does not exist
+	!!     act 'Apartment 37: Tryndin': gt 'trynapt', 'home'
+	!! end
+	act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor_5':
+	if rand(0, 3) = 0 and (totminut > 60 + floor5_event_time) or (totminut < floor5_event_time - 1440):
+		floor5_event_time = totminut
+		gs 'city_apt_building', 'floor5_events'
+	end
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_apt_building', 'floor_5'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center>五楼</center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/stairs3.jpg"></center>'
+	'五楼的楼梯间和其他楼层差不多，但走廊的另一头还有最后一段楼梯，通向楼顶。'
+
+	'楼梯间空无一人。'
+
+	act '下到四楼': minut += 1 & gt 'city_apt_building', 'floor_4'
+	act '上屋顶': minut += 1 & gt 'city_apt_building', 'roof'
+	act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_5'
+	act '49 号公寓：你的家': minut += 1 & gt 'korr'
+end
+
+
+if $ARGS[0] = 'roof':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_apt_building', 'roof'
+	$location_type = 'public_outdoors'
+	!! FIX: Removed redundant killvar 'locclass' — setloc already clears
+	!! $locclass in core_library.qsrc line 25.
+	gs 'stat'
+
+	'<center>屋顶</center>'
+	if month >= 11 or month < 4:
+		if hour >= 8 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/roof/roofw.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/roof/roofwn.jpg"></center>'
+		end
+	else
+		if hour >= 8 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/roof/roof.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/roof/roofn.jpg"></center>'
+		end
+	end
+	'<center>屋顶相当平坦，通往屋顶的门位于屋顶中央一块凸起的部分。其中一面墙上还有一扇门，通向某个储藏或维护区域。屋顶上还散布着几个通风管道。</center>'
+
+	act '下到五楼':
+		if PSwim = 1 or $clothingworntype = 'nude':
+			msg '<center><font color = red>你需要先穿上衣服</font></center>'
+			gt 'city_apt_building', 'roof'
+		else
+			minut += 1
+			gt 'city_apt_building', 'floor_5'
+		end
+	end
+	if PSwim = 1 or $clothingworntype = 'nude':
+		act '换回你的衣服':
+			minut += 5
+			gs 'outfit', 'restore', 'swim'
+			gt 'city_apt_building', 'roof'
+		end
+	end
+	if temper >= 15 and daystage < 4 and sunWeather = 1:
+		if PSwim = 0:
+			if func('changingroom', 'count_swim_item') > 0:
+				act '换上比基尼': gt 'changingroom'
+			end
+		end
+		if pcs_inhib > 30:
+			act '裸体日光浴':
+				*clr & cla
+				minut += 60
+				inhib_exp += rand(3, 5)
+				if pcs_sweat < 35: gs 'sweat', 'add', 5
+				menu_off = 1
+				gs 'mood', 'raise', 'tiny'
+				if PSwim = 0 and $clothingworntype <> 'nude':
+					gs 'outfit', 'backup', 'swim'
+					gs 'outfit', 'strip_all'
+				else
+					gs 'outfit', 'strip_all'
+				end
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/roof/nude.jpg"></center>'
+				if mc_inventory['suncream'] = 0:
+					pcs_tan += 1
+					'你脱掉衣服，躺下来晒太阳。'
+				elseif mc_inventory['suncream'] > 0:
+					mc_inventory['suncream'] -= 1
+					pcs_tan += 3
+					'你脱掉衣服，在身上涂好防晒霜，然后躺在楼顶上晒太阳。'
+				end
+				act '站起来': gt 'city_apt_building', 'roof'
+			end
+		end
+
+		if PSwim = 1:
+			act '晒太阳（1:00）':
+				*clr & cla
+				minut += 60
+				inhib_exp += rand(1, 3)
+				if pcs_sweat < 35: gs 'sweat', 'add', 5
+				menu_off = 1
+				gs 'mood', 'raise', 'tiny'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/roof/bikini.jpg"></center>'
+				if mc_inventory['suncream'] = 0:
+					pcs_tan += 1
+					'你躺下来晒日光浴。'
+				elseif mc_inventory['suncream'] > 0:
+					mc_inventory['suncream'] -= 1
+					pcs_tan += 3
+					'你在身上涂好防晒霜，然后躺在楼顶上晒太阳。'
+				end
+				act '站起来': gt 'city_apt_building', 'roof'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              Elevator                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'lift':
+	gs 'city_apt_building', 'check_lift_events', $ARGS[1]
+
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/lift.jpg"></center>'
+	'公寓楼里的电梯以前翻新过，但还是挺旧的。不过运行状况倒是很好。'
+
+	act '按按钮：1楼': gt 'city_apt_building', 'floor_1', 'from_lift'
+	act '按下按钮：2楼': gt 'city_apt_building', 'floor_2', 'from_lift'
+	act '按按钮：3楼': gt 'city_apt_building', 'floor_3', 'from_lift'
+	act '按下按钮：4楼': gt 'city_apt_building', 'floor_4', 'from_lift'
+	act '按下按钮：5楼': gt 'city_apt_building', 'floor_5', 'from_lift'
+end
+
+
+if $ARGS[0] = 'check_lift_events':
+	if rand(0, 30) >= 7: exit
+
+	gt 'city_apt_building', 'lift_event_<<rand(1, 7)>>', $ARGS[1]
+end
+
+
+if $ARGS[0] = 'lift_event_1':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator1.jpg"></center>'
+	'电梯门打开时，你惊讶地看到一个中年裸体女人被铐在电梯扶手上。她惊慌地看着你，而你也懵得不知所措，直到她开口说：“能麻烦你按一下三楼吗？”'
+	'你点了点头，伸手按下上三楼的按钮。门关上了，电梯从你眼前离开。'
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'lift_event_2':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator2.jpg"></center>'
+	'电梯门打开时，你看到一个穿着内衣的女人站在里面，乳房从胸罩里露了出来，大衣向后敞着，展示着她的身体。她一开始闭着眼睛，但睁开眼看到你时，立刻惊慌失措地猛按电梯上所有的按钮。你懵得不知所措，只能看着门关上。'
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'lift_event_3':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator4_' + rand(1, 2) + '.jpg"></center>'
+	'电梯门打开时，你看到一个裸体女人站在里面。她惊慌地看着你，开始发疯似的猛按电梯上所有的按钮。你懵得不知所措，只能看着门关上。'
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'lift_event_4':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator3_' + rand(1, 2) + '.jpg"></center>'
+	'电梯门打开时，你看到一个年轻男人站在里面，软塌塌的鸡巴耷拉在外面。他脸上挂着大大的笑容。'
+	if pcs_hotcat < 4:
+		'他打量了你一番，笑容消失了，露出一脸嫌恶。“哦，是你啊…我本来还指望来个骚货呢，”他抱怨着，伸手按下其中一个电梯按钮。你既懵又觉得受了侮辱，什么也做不了，只能看着门关上。'
+	elseif pcs_hotcat < 6:
+		'他打量了你一番。“你还凑活。进来吧，陪我下去，这样我就能上去了。”然后他为自己这个笑话笑了起来。'
+		'你懵得什么也做不了，只能站在那里盯着他，直到他开口道：“喂，来吧，它又不会自己吸。”'
+		'见你还是没动，他皱起眉头，按下其中一个按钮。“算了，像你这种丑八怪，我肯开口你就该谢天谢地了！”你就这么站着，看着门关上，电梯从你眼前离开。'
+	else
+		'他打量了你一番，笑容变成了咧嘴大笑，显然对看到的东西很满意。“进来吧，陪我下去，这样我就能上去了。”然后他为自己这个笑话笑了起来。'
+		'你懵得什么也做不了，只能站在那里盯着他，直到他开口道：“来吧，别害羞！把你那紧致的小身子挪过来，用你那漂亮的嘴唇裹住我的鸡巴。”'
+		'见你还是没动，他皱起眉头，按下其中一个按钮。“随便你！”你就这么站着，看着门关上，电梯从你眼前离开。'
+	end
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'lift_event_5':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator5.jpg"></center>'
+	'电梯门打开时，你看到一个女人站在里面。她看着你笑了笑，然后把上衣拉下来露出乳房，接着掀起裙子，展示她修剪得整整齐齐的小穴，最后伸手按下其中一个按钮。你懵得什么也做不了，只能看着门关上。'
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'lift_event_6':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator6.jpg"></center>'
+	'电梯门打开时，你看到和你同楼层的那对情侣在里面。你以前在楼里见过他们。他们衣衫半解，正亲热着，看起来像是马上就要做爱了。'
+	if pcs_hotcat < 6:
+		'她看着你，轻轻笑了一声，然后伸手按下其中一个电梯按钮。你懵得什么也做不了，只能看着门关上。'
+	else
+		'她看着你，露出邀请的微笑，然后用手朝你示意。“你想的话，可以加入我们。”'
+		'她这一开口，他才终于看向你，也笑了起来。“是啊，来一起吧。”'
+		'你懵得什么也做不了，只能站在那里盯着他们，直到他开口道：“抱歉，我们这里满员了。”他按下其中一个按钮，门关上了，这话把她逗笑了。'
+	end
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'lift_event_7':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/elevator7.jpg"></center>'
+	'电梯门打开时，你看到两个裸体女人站在里面。她们看了看你，又互相看了一眼，然后笑了起来，其中一个人迅速伸手按下其中一个按钮。你懵得什么也做不了，只能看着门关上。'
+
+	dynamic "
+		act '离开': gt 'city_apt_building', '<<$ARGS[1]>>'
+	"
+end
+
+
+if $ARGS[0] = 'pod_objava':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/pod_ob' + rand(1, 2) + '.jpg"></center>'
+	!! FIX: Missing description added. The image showed advertisements but
+	!! there was no narrative text, unlike pod_ezd.qsrc which has a description.
+	!! Adapted from pod_ezd.qsrc to match the city apartment context.
+	'你经过墙上的广告时，顺便浏览了一下。大多是些平淡无奇的内容——招聘启事、寻宠启事和各种服务——但没有一样能引起你的兴趣。'
+
+	act '继续': gt 'city_apt_building', 'floor_1'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Floor 1 Events                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor1_events':
+	gt 'city_apt_building', 'floor1_event_1', $ARGS[1]
+end
+
+
+if $ARGS[0] = 'floor1_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor1_gop.jpg"></center>'
+	'一大群戈普尼克堵住了通往一楼的楼梯。你在楼里见过他们中的几个，其余的则大多在附近街区见过。你觉得他们大部分人并不住在这里。你知道戈普尼克很危险，尤其是一大群的时候。你可以试着从他们身边走过去，或者干脆离开。'
+
+	if $ARGS[1] = 'from_second_floor':
+		act '往回走':
+			minut += 1
+			gt 'city_apt_building', 'floor_2'
+		end
+	elseif $ARGS[1] = 'from_lift':
+		act '往回走':
+			*clr & cla
+			menu_off = 1
+			minut += 2
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/lift.jpg"></center>'
+			'你重新走进电梯，决定去另一层楼。'
+
+			act '按下按钮：2楼': gt 'city_apt_building', 'floor_2', 'from_lift'
+			act '按按钮：3楼': gt 'city_apt_building', 'floor_3', 'from_lift'
+			act '按下按钮：4楼': gt 'city_apt_building', 'floor_4', 'from_lift'
+			act '按下按钮：5楼': gt 'city_apt_building', 'floor_5', 'from_lift'
+		end
+	else
+		act '往回走':
+			minut += 1
+			gt 'city_residential'
+		end
+	end
+
+	act '从他们身边走过':
+		*clr & cla
+		menu_off = 1
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor1_gop.jpg"></center>'
+		if pcs_hotcat < 6:
+			minut += 2
+			gs 'mood', 'lower', 'medium'
+			gs 'stat'
+			'你决定继续前进，从他们身边走过。当你小心地绕过他们时，不可避免地会碰到他们。其中几个人用恶狠狠的目光看着你，其他人则说些闲话。'
+			'“走路看着点，你这头肥母牛！”'
+			'“还有谁闻到臭鱼味了吗？”'
+			'有那么一瞬间，你以为他们中的某个人可能会动手，但你总算安然无恙地走了过去。不过，那些针对你的评论还是让你有点难受。'
+		else
+			'你决定继续前进，从他们身边走过。当你小心地绕过他们时，不可避免地会碰到他们。几个人说些下流话，紧接着开始对你动手动脚。'
+			'“嘿，小甜心，坐下来跟我们一起喝一杯。”'
+			'“靠，妹子你身材真不错。坐下来歇歇，顺便帮我们也卸卸货！”'
+			'“别害羞，美女，我们不会咬人的。除非你好好求我们。”'
+			'他们说了几句更加粗鲁的话，接着笑着开始摸你的腿，捏你的屁股。几个人伸手捏你的胸，甚至有人揉你的裆部。你尽力挡开那些乱摸的手，但他们的手太多了。'
+			'你开始感到恐慌，心想他们可能不会只停留在乱摸。谢天谢地，当你终于走过他们身边时，他们仍然坐在那里。'
+			gs 'arousal', 'foreplay', 3, 'humiliation'
+			gs 'arousal', 'end'
+		end
+
+		act '离开大楼': minut += 1 & gt 'city_residential'
+		act '上二楼': minut += 1 & gt 'city_apt_building', 'floor_2'
+		act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_1'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Floor 2 Events                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor2_events':
+	floor2 = rand(1, 15)
+	if floor2 < 3:
+		gt 'city_apt_building', 'floor2_event_1', $ARGS[1]
+	elseif floor2 < 6:
+		gt 'city_apt_building', 'floor2_event_2', $ARGS[1]
+	elseif floor2 = 6:
+		gt 'city_apt_building', 'floor2_event_3', $ARGS[1]
+	elseif floor2 < 10:
+		gt 'city_apt_building', 'floor2_event_4', $ARGS[1]
+	elseif floor2 < 12:
+		gt 'city_apt_building', 'floor2_event_5', $ARGS[1]
+	elseif floor2 = 12:
+		gt 'city_apt_building', 'floor2_event_6', $ARGS[1]
+	elseif floor2 = 13:
+		gt 'city_apt_building', 'floor2_event_7', $ARGS[1]
+	elseif floor2 = 14:
+		gt 'city_apt_building', 'floor2_event_8', $ARGS[1]
+	else
+		gt 'city_apt_building', 'floor2_event_9', $ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'floor2_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_clothed.jpg"></center>'
+	'你看到你的一个邻居，一个中年女人，正要下楼。她友好地朝你笑了笑，你们互相打了个招呼，然后各走各的路。'
+
+	act '继续': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_drunk.jpg"></center>'
+	'台阶上坐着两个年轻女孩，两人看起来都醉得不轻。就在你正要走过她们身边时，其中一个突然吐了出来。她的朋友赶紧挪开，看样子也快要吐了。呕吐物的气味让你自己也有些恶心。你加快脚步从她们身边走过，小心不踩到呕吐物。'
+
+	act '继续': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_3':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_flash.jpg"></center>'
+	'一个年轻女人在三楼楼梯上停在一个年轻男人面前。她拉下瑜伽裤，双腿分开，微微向前弯下腰。她让那个年轻男人好好地看清了她光裸的屁股和小穴，他面对这幅景象当场愣在了原地。女孩随即咯咯一笑，提起裤子跑上楼去。年轻男人拔腿追了上去，很快就拉近了距离。他们很快消失在上一层楼，片刻之后你听见她欢快的尖叫声。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_4':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_girl.jpg"></center>'
+	'你看见一个和你年纪相仿的年轻女人靠在墙上。她穿着一件紧身的、半透明的露脐短上衣，露出平坦的小腹，下身是一条超短裙和一双及小腿肚的高跟靴。你走近时她看向你，友好地朝你微笑。你们互相打了招呼，然后你继续往前走。'
+
+	act '继续': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_5':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_gop.jpg"></center>'
+	'楼梯上坐着两个年轻的戈普尼克男孩，中间夹着一个戈普尼克女孩。他们都对着瓶子喝酒，看起来有点醉了。你侧身从他们中间挤过去时，他们恶狠狠地瞪了你一眼，但什么都没说。'
+
+	act '继续': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_6':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_naked.jpg"></center>'
+	'你看见一个女人一丝不挂地沿着走廊走向楼梯平台。她看见你时笑了笑。“你好！”她说，仿佛一切都再正常不过。你也向她问好，尽量不去盯着她看。她径直从你身边走过，沿着大楼另一侧的走廊走下去，进了那边的一间公寓。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_7':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_nudedoor.jpg"></center>'
+	'你看见一个女人站在一扇公寓门旁，上半身赤裸——她刚才正被一个男人看着，把裙子往下拉。她一看见你就慌了，赶紧把裙子拉回去，然后跑进了公寓。那个年轻男人大笑起来，看了你一眼，朝你眨了眨眼，跟着她进去了。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_8':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor2_up.jpg"></center>'
+	'你走到楼梯平台时，看见一个女人正往三楼走。你注意到她的裙子非常短，而且她没穿内裤。当她快到楼梯顶端时，你清楚地看到了她的小穴。你不确定她是否知道自己走光了。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_2'
+end
+
+
+if $ARGS[0] = 'floor2_event_9':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor2_bj.jpg"></center>'
+	'楼梯上坐着一个赤裸的男人和一个穿着透视内衣的女人。她双腿分开蹲在他面前，一边给他口交一边展示着自己的小穴。你走近时他看向你，冲你露出一个大大的笑容。他尽可能往墙上靠，把她也拉过去，刚好给你让出侧身挤过去的空间。就算你从她身边擦身而过，她也始终没停下给他口交。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_2'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Floor 3 Events                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor3_events':
+	floor3 = rand(1, 19)
+	if floor3 < 3:
+		gt 'city_apt_building', 'floor3_event_1', $ARGS[1]
+	elseif floor3 < 5:
+		gt 'city_apt_building', 'floor3_event_2', $ARGS[1]
+	elseif floor3 = 5:
+		gt 'city_apt_building', 'floor3_event_3', $ARGS[1]
+	elseif floor3 < 9:
+		gt 'city_apt_building', 'floor3_event_4', $ARGS[1]
+	elseif floor3 < 12:
+		gt 'city_apt_building', 'floor3_event_5', $ARGS[1]
+	elseif floor3 = 12:
+		gt 'city_apt_building', 'floor3_event_6', $ARGS[1]
+	elseif floor3 = 13:
+		gt 'city_apt_building', 'floor3_event_7', $ARGS[1]
+	elseif floor3 = 14:
+		gt 'city_apt_building', 'floor3_event_8', $ARGS[1]
+	elseif floor3 < 17:
+		gt 'city_apt_building', 'floor3_event_9', $ARGS[1]
+	elseif floor3 = 17:
+		gt 'city_apt_building', 'floor3_event_10', $ARGS[1]
+	elseif floor3 = 18:
+		gt 'city_apt_building', 'floor3_event_11', $ARGS[1]
+	elseif floor3 = 19 and (hour >= 23 or hour < 2) and porn_studio['know_alli_home'] = 0:
+		gt 'city_apt_building', 'floor3_event_12', $ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'floor3_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_clothed.jpg"></center>'
+	'你看见你的一个邻居，是个和你年纪相仿、打扮另类的年轻女人。她友好地朝你微笑挥手，你们互相打了招呼，然后你继续往前走。'
+
+	act '继续': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_drunk.jpg"></center>'
+	'一个年轻女人似乎昏倒在楼梯平台上，她的东西就放在她旁边的台阶上。你完全不知道她在这儿待了多久。'
+
+	act '无视她并继续': gt 'city_apt_building', 'floor_3'
+	act '帮她':
+		*clr & cla
+		minut += 5
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_drunk.jpg"></center>'
+		'你停下来查看她的情况。她看起来没什么事，但你还没靠近就能闻到她身上的酒味。你摇了摇她，她没醒，于是你蹲到她旁边，抓住她的肩膀用力摇晃。过了几分钟，她终于醒了，呼出的气里带着几乎令人窒息的酒味。她嘟囔着说什么再睡五分钟，但你最终还是把她扶了起来站稳。你得知她住在上面一层，便扶她上楼回她的公寓。她试着用钥匙开门，但没成功，钥匙掉在了地上。'
+		'你还没来得及捡起钥匙，门就开了。一个年长的女人看了一眼那个醉醺醺的女人，就开始冲她数落起来。她从你手里接过年轻女人，感谢你帮了她。她捡起地上的钥匙，把年轻女人扶进屋后，关上了门。隔着门你还能听见她在训斥那个年轻女人。'
+		act '继续': gt 'city_apt_building', 'floor_4'
+	end
+end
+
+
+if $ARGS[0] = 'floor3_event_3':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_flash.jpg"></center>'
+	'一个年长的女人在通往四楼的楼梯上停在一个年长男人面前。她撩起裙子，把小穴短暂地暴露给他看，然后放下裙子，他走上几级台阶来到她面前，吻了她一下。吻完之后，他们手牵手走下楼梯。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_4':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_girls.jpg"></center>'
+	'两个年轻女孩坐在楼梯上，往果汁瓶里兑伏特加。你从她们身边走过时，她们完全没理你，专心干着手里的活儿。'
+
+	act '继续': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_5':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_gop.jpg"></center>'
+	'楼层之间的楼梯间里聚集着一大群戈普尼克。你在这栋楼里见过其中几个，其余大多数在附近一带见过。你觉得他们大多数人并不住在这里。你知道戈普尼克很危险，尤其是成群结队的时候。你可以试着从他们身边走过去，或者干脆离开。'
+
+	if $ARGS[1] = 'from_second_floor':
+		act '往回走':
+			minut += 1
+			gt 'city_apt_building', 'floor_2'
+		end
+	elseif $ARGS[1] = 'from_lift':
+		act '往回走':
+			*clr & cla
+			menu_off = 1
+			minut += 2
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/lift.jpg"></center>'
+			'你重新走进电梯，决定去另一层楼。'
+
+			act '按按钮：1楼': gt 'city_apt_building', 'floor_1', 'from_lift'
+			act '按下按钮：2楼': gt 'city_apt_building', 'floor_2', 'from_lift'
+			act '按下按钮：4楼': gt 'city_apt_building', 'floor_4', 'from_lift'
+			act '按下按钮：5楼': gt 'city_apt_building', 'floor_5', 'from_lift'
+		end
+	else
+		act '往回走':
+			minut += 1
+			gt 'city_apt_building', 'floor_4'
+		end
+	end
+	act '从他们身边走过':
+		*clr & cla
+		menu_off = 1
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_gop.jpg"></center>'
+		if pcs_hotcat < 6:
+			minut += 2
+			gs 'mood', 'lower', 'medium'
+			gs 'stat'
+			'你决定继续前进，从他们身边走过。当你小心地绕过他们时，不可避免地会碰到他们。其中几个人用恶狠狠的目光看着你，其他人则说些闲话。'
+			'“走路看着点，你这头肥母牛！”'
+			'“还有谁闻到臭鱼味了吗？”'
+			'有那么一瞬间，你以为他们中的某个人可能会动手，但你总算安然无恙地走了过去。不过，那些针对你的评论还是让你有点难受。'
+		else
+			'你决定继续前进，从他们身边走过。当你小心地绕过他们时，不可避免地会碰到他们。几个人说些下流话，紧接着开始对你动手动脚。'
+			'“嘿，小甜心，坐下来跟我们一起喝一杯。”'
+			'“靠，妹子你身材真不错。坐下来歇歇，顺便帮我们也卸卸货！”'
+			'“别害羞，美女，我们不会咬人的。除非你好好求我们。”'
+			'他们说了几句更加粗鲁的话，接着笑着开始摸你的腿，捏你的屁股。几个人伸手捏你的胸，甚至有人揉你的裆部。你尽力挡开那些乱摸的手，但他们的手太多了。'
+			'你开始感到恐慌，心想他们可能不会只停留在乱摸。谢天谢地，当你终于走过他们身边时，他们仍然坐在那里。'
+			gs 'arousal', 'foreplay', 3, 'humiliation'
+			gs 'arousal', 'end'
+		end
+		act '下楼到二楼': minut += 1 & gt 'city_apt_building', 'floor_2'
+		act '上楼到四楼': minut += 1 & gt 'city_apt_building', 'floor_4'
+		act '乘坐电梯': gt 'city_apt_building', 'lift', 'floor_3'
+	end
+end
+
+
+if $ARGS[0] = 'floor3_event_6':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_naked.jpg"></center>'
+	'你看见一个女人一丝不挂地走下楼梯。她看见你时笑了笑。“你好！”她说，仿佛一切都再正常不过。你也向她问好，尽量不去盯着她看。她径直从你身边走过，沿着其中一条走廊走下去，进了那边的一间公寓。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_7':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_nudedoor.jpg"></center>'
+	if meet_nudedoor_woman3 = 0:
+		meet_nudedoor_woman3 = 1
+		'你正要走过一间公寓时，门突然开了。一个年轻的裸体女人站在那里，除了一抹微笑什么也没穿。她看见你便笑了起来。“抱歉，我还以为是别人。”'
+		'你忍不住也朝她笑了笑。“没关系，我不介意。”'
+		'她又笑了起来。“好吧，很高兴认识你，”她说完便关上了门。'
+	else
+		'你正要走过一间公寓时，门突然开了。一个年轻的裸体女人站在那里，除了一抹微笑什么也没穿。她再次看见你时笑了起来。“又抱歉了，我还以为是我男朋友回家了。”'
+		'你忍不住也朝她笑了笑。“没问题。有你这样迎接他，他可真是个幸运的男人。”'
+		'她听了笑了起来。“谢谢！那么，很高兴见到你，”她说完便关上了门。'
+	end
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_8':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_up.jpg"></center>'
+	'你走到楼梯平台时，看见一个女人正往四楼走，一个男人跟在她后面。当她快到楼梯顶端时，她撩起裙子，露出光裸的屁股。那男人大笑一声朝她扑过去，但她咯咯笑着冲上楼梯，紧接着传来一扇门开关的声音。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_9':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor3_ir.jpg"></center>'
+	'你看见一个中年女人正和一个较年轻的黑人男子亲热。她的手放在一扇半开的公寓门把手上，你猜那是她的公寓。你从他们身边走过时，他们似乎完全没有注意到你。'
+
+	gs 'arousal', 'erotic', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_10':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor3_bj.jpg"></center>'
+	'沿着一条通往这层更多公寓的走廊望去，你看见一个年长的女人跪在一个男人面前。她穿着一件白色连体内衣，脖子上戴着项圈，上面系着一条牵引绳，男人正牵着绳子，而她则在吸吮他的鸡巴。你继续往前走时，男人朝你这边瞥了一眼，对你笑了笑。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_11':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor3_fuck.jpg"></center>'
+	'你走近楼梯时，听见呻吟和喘息声，显然是有人在性交。从呻吟声判断，是一男一女。你走到楼梯口时，看见楼梯间里一个女人仰面躺着，但你除了她大张着的两条光腿之外，看不太清她本人。一个男人裤子褪了下来，正在她两腿之间抽插。'
+	'另一个男人似乎昏了过去，或者睡着了，就躺在那两个正在做爱的人旁边。你不清楚这里到底发生了什么，但你觉得这故事大概很有意思，而且如果那个睡着的男人哪天知道了，他恐怕不会像别人那样觉得这故事有趣。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_3'
+end
+
+
+if $ARGS[0] = 'floor3_event_12':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	porn_studio['know_alli_home'] = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor3_nudedoor.jpg"></center>'
+	if film > 0:
+		'你走到楼梯平台时，一间公寓的门突然开了，你看见赤裸的阿莉站在那里，挺翘的乳房和修剪整齐的阴毛一览无余。'
+		'“阿莉？！”你困惑地问道，她咯咯笑了起来。'
+		'“哦，你好呀。抱歉，我还以为是别人。我不知道你也住在这儿？”'
+		'“是啊，我住在五楼。49号公寓，”你回答道。'
+		*nl
+		'“要说我住这儿吧，可我大部分时间都在上班或者去别的地方，所以回来也就是睡个觉，”她笑着说。'
+		'这时，一个年长的男人出现在楼梯上，阿莉咧嘴一笑。“抱歉，我得走了，不过我们上班时见？”'
+		'你只是点了点头，那男人在进她公寓时拍了一下她的屁股，随后她关上了门。'
+
+		gs 'arousal', 'voyeur', 3
+		gs 'arousal', 'end'
+	else
+		'你走到楼梯平台时，一间公寓的门突然开了，你看见一个赤裸的女孩站在那里，挺翘的乳房和修剪整齐的阴毛一览无余。'
+		'“哦，你好呀。抱歉，我还以为是别人。我叫阿莉，”她笑着随口伸出手来跟你握手。“你是我的邻居之一吗？”'
+		*nl
+		'“是啊，我是<<$pcs_nickname>>。我住在五楼。”'
+		'“不错，”她回答道。“要说我住这儿吧，可我大部分时间都在成人电影工作室上班，还有别的事要忙，所以回来也就是睡个觉，”她笑着说。'
+		'“你是成人片明星？”你问道，她笑了笑。'
+		'“我刚入行，还称不上明星，不过没错，我确实拍成人片，我不在乎别人怎么想。我 18 岁生日那天就在本地的工作室签了约，从此再没回头。”'
+		if pornstudio = 0:
+			pornstudio = 1
+			'“城里有家色情片工作室？”你问道。'
+			'“是啊，就在红灯区的一间仓库里。你有空该过去一趟，报个名。”'
+			'她给你指了指去工作室的路，然后说了声抱歉，把门关上了，留下你继续赶路。'
+		else
+			'“我听说工业区的某个地方有家色情片工作室，”你回答道。'
+			'“是啊，就在红灯区的一间仓库里。你有空该过去一趟，报个名。”'
+			'你只是点了点头，她笑了笑，然后说了声抱歉关上了门，留下你继续赶路。'
+
+			gs 'arousal', 'voyeur', 3
+			gs 'arousal', 'end'
+		end
+	end
+
+	act '离开': gt 'city_apt_building', 'floor_3'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Floor 4 Events                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor4_events':
+	floor4 = rand(1, 21)
+	if floor4 < 3:
+		gt 'city_apt_building', 'floor4_event_1', $ARGS[1]
+	elseif floor4 < 6:
+		gt 'city_apt_building', 'floor4_event_2', $ARGS[1]
+	elseif floor4 = 6:
+		gt 'city_apt_building', 'floor4_event_3', $ARGS[1]
+	elseif floor4 < 10:
+		gt 'city_apt_building', 'floor4_event_4', $ARGS[1]
+	elseif floor4 < 13:
+		gt 'city_apt_building', 'floor4_event_5', $ARGS[1]
+	elseif floor4 = 13:
+		gt 'city_apt_building', 'floor4_event_6', $ARGS[1]
+	elseif floor4 < 17:
+		gt 'city_apt_building', 'floor4_event_7', $ARGS[1]
+	elseif floor4 = 17:
+		gt 'city_apt_building', 'floor4_event_8', $ARGS[1]
+	elseif floor4 = 18:
+		gt 'city_apt_building', 'floor4_event_9', $ARGS[1]
+	elseif floor4 = 19:
+		gt 'city_apt_building', 'floor4_event_10', $ARGS[1]
+	elseif floor4 = 20:
+		gt 'city_apt_building', 'floor4_event_11', $ARGS[1]
+	elseif floor4 = 21:
+		gt 'city_apt_building', 'floor4_event_12', $ARGS[1]
+	elseif floor4 < 24 and (hour >= 19 or (week >= 6 and hour >= 10)):
+		gt 'city_apt_building', 'floor4_event_13', $ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'floor4_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_clothed.jpg"></center>'
+	'你看见一个邻居，一个和你年纪相仿的年轻女人，正坐在台阶上。你走近时，她往旁边挪了挪，让你过去。她友好地冲你笑了笑，挥了挥手，你们互相打了声招呼，然后你继续赶路。'
+
+	act '继续': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_drunk.jpg"></center>'
+	'一个年轻女人似乎昏倒在楼梯上，她的东西就散落在她旁边的台阶上。你完全不知道她在这儿躺了多久。'
+
+	act '无视她并继续': gt 'city_apt_building', 'floor_4'
+	act '帮她':
+		*clr & cla
+		minut += 5
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_drunk.jpg"></center>'
+		'你停下来查看她的情况。她看起来没事，但你还没靠近就能闻到她身上的酒味。你摇了摇她，但她没醒，于是你蹲到她旁边，抓住她的肩膀，用力摇晃。过了好几分钟，她终于醒了，呼出的气里带着几乎让人窒息的酒味。她嘟囔着什么“再睡五分钟”，但你最终还是把她扶了起来。你得知她就住在这层楼，于是你把她扶回她的公寓。她试着用钥匙开门，却没成功，钥匙掉在了地上。'
+		'你还没来得及捡起钥匙，门就开了。一个年长些的女人看了那醉醺醺的女人一眼，就开始冲她数落起来。她从你手里接过那个年轻女人，并感谢你帮了她。等她从地上捡回钥匙、把年轻女人扶进屋后，便关上了门。隔着门你都能听见她在训斥那个年轻女人。'
+
+		act '继续': gt 'city_apt_building', 'floor_4'
+	end
+end
+
+
+if $ARGS[0] = 'floor4_event_3':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_flash.jpg"></center>'
+	'一个中年女人在通往五楼的楼梯上停在一个和她年纪相仿的男人面前。她把裙子撩起来，把阴部露给那个男人看。然后她把裙子放回原位，男人走上几级台阶，给了她一个吻。吻完之后，他们手牵着手下了楼。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	!! FIX: Continue went to floor_3, but the player is on floor_4 and the
+	!! event happens on the stairs to floor_5. The player stays on floor_4
+	!! after watching — should return to floor_4, not floor_3.
+	act '继续': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_4':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_girls.jpg"></center>'
+	'两个年轻女孩坐在楼梯上聊天。你从她们身边走过时，她们没理你，正专心聊着她们认识的几个帅小伙。'
+
+	act '继续': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_5':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_gop.jpg"></center>'
+	'楼层之间的楼梯间里有三个戈普尼克，中间夹着一个年轻女孩，她看起来烂醉如泥。你走近时，其中一个人已经把她的衬衫撩起了一半。你看向那个女孩时，其中一个人说道。“少管闲事，贱货！”'
+	'她似乎并不想阻止他们摸她或扯她的衣服。你不知道还能做什么，只好继续赶路。'
+
+	act '继续': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_6':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_naked.jpg"></center>'
+	'在楼层之间的楼梯间里，你看见一个和你年纪相仿的女孩靠在墙上，全身赤裸地抽着烟。她看见你时笑了笑。“你好！”她说道，仿佛一切都再正常不过。你也向她问了好，并尽量不去盯着她看，她继续抽着烟，你从她身边走过。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_7':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	meet_nudedoor_woman3 = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_shop' + rand(1, 2) + '.jpg"></center>'
+	'你看见一个衣着讲究的漂亮女人，手里提着一个购物袋。你以前见过她，也知道她就住在这层楼。几乎每次见到她，她都拎着几个购物袋。她要么自己挣得不少，要么就是有人给她买了许多东西。她朝自己的公寓走去时，冲你笑了笑。'
+
+	act '离开': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_8':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor4_up.jpg"></center>'
+	'你走到楼梯间平台时，看见一个男人正抬头望着楼梯上方的一个中年女人，她穿着一件大敞的睡袍，乳房和修剪过的阴部一览无余。他们俩都看了看你，笑了笑，然后那男人掏出手机开始拍照。之后他们就都不再理你，你也继续赶路。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_9':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor4_bdsm.jpg"></center>'
+	'平台上，一个女人弯身伏在栏杆上，穿着黑色娃娃装内衣、长筒袜和黑色高跟鞋，脚踝和手腕上还戴着镣铐。脚踝上的镣铐被固定在栏杆上，迫使她双腿分开。她的双手则被并拢铐在栏杆的另一侧。她看见你时脸红了，但你也注意到，她把目光移开时嘴角带着微笑。你感觉她很享受被人这样发现的羞辱感。'
+	'你从她身边走过时，忍不住注意到她在娃娃装内衣下没有穿内裤。这让你把她的阴部和顺着大腿内侧往下滴的精液看得一清二楚。你环顾四周，没看到还有别人，而她似乎也乐意就这么待着，于是你继续赶路。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_10':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor4_bottle.jpg"></center>'
+	'你朝楼梯走去时，注意到几个戈普尼克，他们似乎正专注于另一个人，还在给对方鼓劲加油。等你走近了，才看见一个下半身赤裸的年轻女人正用瓶子插自己的屁股。她一看见你就脸红了，赶紧跳起来，跑进其中一条走廊。那群小子也很快跟了上去，其中一个还特意停下来，恶狠狠地瞪了你一眼，怪你搅了他们的兴致。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_11':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor4_bj.jpg"></center>'
+	'一个年轻男人站在楼梯间的台阶上，裤子褪得刚好让鸡巴露出来。一个和他年纪相仿的女孩弯着腰，正吸吮着他的鸡巴。你从他们身边走过时，他冲你咧嘴一笑，双手抓住她的后脑勺，开始把鸡巴整根顶进她嘴里、捅进她喉咙，弄得她直干呕。就在他们的声音彻底消失之前，你听见他说：“操，太爽了，咽下去，贱货！”'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_12':
+	*clr & cla
+	menu_off = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor4_fuck.jpg"></center>'
+	'你走近楼梯时，听见呻吟声和闷哼声，明显是有人在性交。从呻吟声听来，是一男一女。你走到平台时，看见一个肤色较浅的黑人女孩，和你年纪相仿，裤子褪到了膝盖，双手撑墙往前倾着，屁股翘起来。一个稍年长些的男人正从后面操她。她朝你的方向看了一眼，但你不确定她有没有注意到你。她看起来、听起来都很享受。你决定继续赶路，不去打扰他们。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_4'
+end
+
+
+if $ARGS[0] = 'floor4_event_13':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/city/tryndin/tryndin_stairs.jpg"></center>'
+	if tryndinQW['stairwell_chat'] = 1:
+		'你的邻居， <a href="exec:gt ''tryndin''">Tryndin</a>，正在走廊里抽着烟，把烟灰弹进一个罐子里。他注意到你时，朝你点了点头。“你好。”'
+
+		act '说声“你好”后离开': gt 'city_apt_building', 'floor_4'
+		act '和特林金聊聊': gt 'tryndin', 'stairwell_chat'
+	else
+		'你在走廊里看见一个年轻男人，年纪和你姐姐差不多。你忍不住注意到他长得挺帅。你走近时，他抬起头看你，友善地笑了笑。“你是搬进69号公寓的那位吧？”'
+
+		act '是':
+			*clr & cla
+			tryndinQW['stairwell_chat'] += 1
+			minut += 5
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big77.jpg"></center>'
+			'你点了点头。“是啊？”'
+			'那家伙看上去明显很高兴。“太好了，认识新朋友总是件好事。对了，我叫特伦金。你呢？”'
+
+			act '<<$pcs_nickname>>':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big77.jpg"></center>'
+				'“<<$pcs_nickname>>，”你回答道。'
+				'他点点头，转身走向旁边的一扇门。门上写着37号。他在口袋里摸索着，掏出一串钥匙把门打开。“这名字真好听。我就住在这间公寓。我得走了，但希望以后还能见到你。”他开门时，一个老太太探出头看着他，又看看你，脸上带着不满的神情。“妈，别老在门口晃悠！”他语气烦躁地说完，关上了门。'
+				act '继续': gt 'city_apt_building', 'floor_4'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Floor 5 Events                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'floor5_events':
+	floor5 = rand(1, 18)
+	if floor5 < 3:
+		gt 'city_apt_building', 'floor5_event_1', $ARGS[1]
+	elseif floor5 < 6:
+		gt 'city_apt_building', 'floor5_event_2', $ARGS[1]
+	elseif floor5 = 6:
+		gt 'city_apt_building', 'floor5_event_3', $ARGS[1]
+	elseif floor5 < 10:
+		gt 'city_apt_building', 'floor5_event_4', $ARGS[1]
+	elseif floor5 < 13:
+		gt 'city_apt_building', 'floor5_event_5', $ARGS[1]
+	elseif floor5 = 13:
+		gt 'city_apt_building', 'floor5_event_6', $ARGS[1]
+	elseif floor5 = 14:
+		gt 'city_apt_building', 'floor5_event_7', $ARGS[1]
+	elseif floor5 = 15 or floor5 = 16:
+		gt 'city_apt_building', 'floor5_event_8', $ARGS[1]
+	elseif floor5 = 17:
+		gt 'city_apt_building', 'floor5_event_9', $ARGS[1]
+	elseif floor5 = 18:
+		gt 'city_apt_building', 'floor5_event_10', $ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'floor5_event_1':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor5_clothed.jpg"></center>'
+	'你看见一个邻居，一个和你年纪相仿的年轻女人，正走下楼梯去四楼。她友好地冲你笑了笑，挥了挥手，你们互相打了声招呼，然后你继续赶路。'
+
+	act '继续': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_2':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor5_drunk.jpg"></center>'
+	'楼梯上有个女孩正对着一只瓶子喝酒，明显喝得很醉。你走近时她冲你咧嘴一笑，你们互相打了声招呼，然后你继续赶路。'
+
+	act '继续': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_3':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor5_flash.jpg"></center>'
+	'楼梯顶端的一个中年女人正俯视着下方楼梯平台附近的一个男人。她把上衣撩起来，把乳房露给他看。两人都笑了，然后她快步下楼追上他。他们飞快地亲了一下，随后手牵着手下了楼。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_4':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor5_girls.jpg"></center>'
+	'通往天台的入口附近的走廊里有两个女孩和一个男生。其中一个女孩坐着，朝你的方向看，另一个则四肢着地，男生在她身后。他们都穿着衣服，但男生装出在操那个女孩的样子，他们似乎都觉得很好笑。你继续赶路时，他们还在那儿说说笑笑地闹着。'
+
+	act '继续': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_5':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor5_gop.jpg"></center>'
+	'走廊里有几个戈普尼克蹲在一张小桌子旁边，桌上摆着几杯酒和一些食物。他们一边吃喝，一边聊天、大笑、抽烟。你从旁边走过时，他们递给你一些食物，但你看那东西不太好吃，就礼貌地谢绝了，继续赶路。'
+
+	act '继续': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_6':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/event/floor5_naked.jpg"></center>'
+	'你看见一个女人正走下楼梯去四楼，全身赤裸。她似乎一点也不着急，也没有转头朝你的方向看。你轻轻摇了摇头，继续赶路。'
+
+	gs 'arousal', 'erotic_nudity', 3
+	gs 'arousal', 'end'
+
+	act '继续': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_7':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor5_bdsm.jpg"></center>'
+	'走廊里有两个年轻女人。一个是金发，穿着靴子和裙子，上半身赤裸；另一个是深色头发，全身赤裸，双手被绑在背后。你看着金发女郎把一个大项圈套在另一个女人的脖子上，又系上一条牵绳。牵绳系好后，她后退一步，解开褐发女人的双手，在她的屁股上拍了一下。褐发女人趴到地上四肢着地，金发女郎便开始走，手里牵着绳子，褐发女人像狗一样跟在后面。金发女郎冲你微笑挥手，而褐发女人一言不发，两人从你身边走过。'
+	'你花了一秒钟回味刚才看到的一切，然后继续赶路。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_8':
+	*clr & cla
+	menu_off = 1
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor5_couple.jpg"></center>'
+	'你在五楼，正沿着昏暗的楼梯往上走，这时你发现一对男女靠在斑驳的绿白墙边。他紧张地咧嘴笑着，而她摆出一个大胆的姿势，对你突然出现毫不在意。'
+
+	act '离开': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_9':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor5_bj.jpg"></center>'
+	'一个年轻男人站在楼梯间的台阶上，裤子褪得刚好让鸡巴露出来。一个和他年纪相仿的女孩弯着腰，正吸吮着他的鸡巴。你从他们身边走过时，他冲你咧嘴一笑，双手抓住她的后脑勺，开始把鸡巴整根顶进她嘴里、捅进她喉咙，弄得她直干呕。就在他们的声音彻底消失之前，你听见他喊道：“天哪，太爽了！”'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_5'
+end
+
+
+if $ARGS[0] = 'floor5_event_10':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/stairs/sex/floor5_fuck.jpg"></center>'
+	'你走近楼梯时，听见呻吟声和闷哼声，明显是有人在性交。听声音是一男一女。你走近楼梯，看见一个女人仰面躺在楼梯间里，但除了她大张着的赤裸双腿，你实在看不清她的样子。一个上身赤裸、裤子褪下的男人在她双腿之间，正挺动着。你再走近些，那男人看见了你，咧开嘴大笑，还朝你竖了个大拇指。他这么做的时候也没停下对身下女人的抽插。你觉得有些尴尬，便继续赶路。'
+
+	gs 'arousal', 'erotic_sex', 3
+	gs 'arousal', 'end'
+
+	act '离开': gt 'city_apt_building', 'floor_5'
+end
+
+
+--- city_apt_building ---------------------------------

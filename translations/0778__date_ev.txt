@@ -1,0 +1,526 @@
+# date_ev
+
+if $ARGS[0] = 'initiate_pre':
+	killvar 'date_ev'
+	killvar 'sex_ev'
+	if $ARGS[1] = '': $ARGS[1] = $npcID
+	if $ARGS[2] = '': $ARGS[2] = $npc_date_type[$ARGS[1]]
+	$temp_npcID = $ARGS[1]
+	
+	if $ARGS[2] = 'movie_date':
+		gt 'date_movie', 'start'
+	elseif $ARGS[2] = 'casual_meal':
+		gt 'date_casual_meal', 'start', 'separate'
+	elseif $ARGS[2] = 'netflix_chill':
+		gt 'date_chill', 'knock_start', $ARGS[1]
+	end
+end
+
+
+!! func('date_ev', 'venue_open', $npcID, $date_type, hour_to_check)
+!! checks whether the location a date would be held at is actually open at the given hour
+if $ARGS[0] = 'venue_open':
+	if $ARGS[2] = 'casual_meal' and $npc_residence[$ARGS[1]] = 'pav_residential':
+		!! Del Parco: open 14:00-21:00 (cafe_parco.qsrc)
+		result = iif(ARGS[3] >= 14 and ARGS[3] < 21, 1, 0)
+	elseif $ARGS[2] = 'movie_date' and $npc_residence[$ARGS[1]] = 'pav_residential':
+		!! Pavlovsk park cinema: open 9:00-18:00 (pav_park.qsrc)
+		result = iif(ARGS[3] > 8 and ARGS[3] < 19, 1, 0)
+	elseif $ARGS[2] = 'movie_date':
+		!! City mall cinema: open 8:00-20:00 (city_cinema.qsrc)
+		result = iif(ARGS[3] >= 8 and ARGS[3] <= 20, 1, 0)
+	else
+		!! netflix_chill (at the NPC''s own place) and city_residential casual_meal have no fixed hours
+		result = 1
+	end
+	exit
+end
+
+
+!! gs 'date_ev', 'invite_code', $npcID, $date_name, hour_to_meet
+if $ARGS[0] = 'invite_code':
+	if $ARGS[1] = '': $ARGS[1] = $npcID
+	if $ARGS[2] = '': $ARGS[2] = 'movie_date'
+	if ARGS[3] = 0: ARGS[3] = hour + 1
+
+	npc_date_invite[$ARGS[1]] = daystart
+	npc_date_meethour[$ARGS[1]] = ARGS[3]
+	$npc_date_type[$ARGS[1]] = $ARGS[2]
+	if $npc_residence[$ARGS[1]] = 'pav_residential':
+		if $ARGS[2] = 'netflix_chill':
+			$npc_date_loc[$ARGS[1]] = $npc_residence[$ARGS[1]]
+			$temp_date_loc = '圣彼得堡商场'
+		elseif $ARGS[2] = 'movie_date':
+			$npc_date_loc[$ARGS[1]] = 'pav_park'
+			$temp_date_loc = '巴甫洛夫斯克公园'
+		elseif $ARGS[2] = 'casual_meal':
+			$npc_date_loc[$ARGS[1]] = 'pav_park'
+			$temp_date_loc = '巴甫洛夫斯克公园'
+		end
+	else
+		if $ARGS[2] = 'netflix_chill':
+			$npc_date_loc[$ARGS[1]] = $npc_residence[$ARGS[1]]
+			$temp_date_loc = $npc_usedname[$ARGS[1]] + '的家'
+		elseif $ARGS[2] = 'movie_date':
+			$npc_date_loc[$ARGS[1]] = 'city_mall'
+			$temp_date_loc = '圣彼得堡住宅区'
+		elseif $ARGS[2] = 'casual_meal':
+			$npc_date_loc[$ARGS[1]] = 'city_residential'
+			$temp_date_loc = '约会： '
+		end
+	end
+
+	!! Generate calendar event
+	gs 'calendar_list', 'init_event_vars'
+	$event_vars['id'] = 'date_' + $ARGS[1] + '_' + daystart
+	$event_vars['title'] = '你有一个约会：' + $npc_usedname[$ARGS[1]]
+	$event_vars['loc'] = $temp_date_loc
+	killvar 'temp_date_loc'
+	$event_vars['desc'] = '你已经约好了和  ' + $npc_usedname[$ARGS[1]] + ' at ' + func('time', 'get_time_string', $ARGS[3], 0) + '.'
+	event_vars['daystart'] = npc_date_invite[$ARGS[1]]
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = npc_date_meethour[$ARGS[1]] * 4
+	event_vars['window_end_ts'] = event_vars['window_start_ts'] + 4
+	event_vars['duration_ts'] = 8
+	event_vars['color'] = 13 & !! Rose
+	gs 'calendar_events', 'new_event', $event_vars['id']
+end
+
+
+if $ARGS[0] = 'phone_invite_start':
+	act '想去约会吗？':
+		cla & *nl
+		!! Please help program the npc''s schedule stats here
+		if npc_is_busy[$call4Date["NPC"]] = 1:
+			'"嘿，你待会儿有空吗？我想见你。"'
+			'"我真希望能去，但今天不行。"'
+			act '表示遗憾':
+				cla & *nl
+				'"真的一点时间都挤不出来吗？哪怕就一小会儿？"'
+				'"如果可以我肯定答应，但我得忙到明天。"'
+				'"那……好吧。那就改天吧……"'
+				act '挂断': gt $loc, $loc_arg
+			end
+
+			act '事实就是如此':
+				cla & *nl
+				'"没关系。改天我们再一起做点什么吧。"'
+				'"谢谢，<<$pcs_nickname>>。"'
+				act '挂断': gt $loc, $loc_arg
+			end
+		else
+			if npc_assertive[$call4Date["NPC"]] > 0:
+				gs 'date_ev', 'npc_pick_date'
+			else
+				'"好啊，你想去哪儿？"'
+				gs 'date_ev', 'date_invite_menu'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'date_invite_menu':
+	act '一起吃点什么？':
+		$temp['date_type'] = 'casual_meal'
+		cla & *nl
+		'"一起去吃点东西怎么样？"'
+		gs 'date_ev', 'date_time_picker'
+	end
+
+	act '去看场电影？':
+		$temp['date_type'] = 'movie_date'
+		cla & *nl
+		'"去看场电影怎么样？"'
+		gs 'date_ev', 'date_time_picker'
+	end
+
+	act '去他家坐坐？':
+		$temp['date_type'] = 'netflix_chill'
+		cla & *nl
+		'"我能直接过去坐坐、放松一下吗？"'
+		gs 'date_ev', 'date_time_picker'
+	end
+end
+
+
+if $ARGS[0] = 'npc_pick_date':
+	act '没关系':
+		cla & *nl
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+		'"算了，当我没说。"'
+		'你为浪费了他的时间而道歉，然后挂断了电话。'
+		act '挂断': gt 'lover_call', 'fin'
+	end
+
+	if $npc_fav_date[$npcID] = 'casual_meal' and rand(0, 1) = 0:
+		gs 'date_ev', 'npc_meal_invite'
+	elseif $npc_fav_date[$npcID] = 'movie_date' and rand(0, 1) = 0:
+		gs 'date_ev', 'npc_cinema_invite'
+	elseif $npc_fav_date[$npcID] = 'netflix_chill' and rand(0, 1) = 0:
+		gs 'date_ev', 'npc_chill_invite'
+	else
+		temp_rand = rand(0, 2)
+		if temp_rand = 0:
+			gs 'date_ev', 'npc_meal_invite'
+		elseif temp_rand = 1:
+			gs 'date_ev', 'npc_cinema_invite'
+		else
+			gs 'date_ev', 'npc_chill_invite'
+		end
+		killvar 'temp_rand'
+	end
+end
+
+
+if $ARGS[0] = 'date_time_picker':
+	'"看情况。什么时候？"'
+	act '选个时间':
+		cla
+		:date_time_loop
+		temp['meet_time'] = input ("你想什么时候去约会？现在是<<func('time', 'get_time_string', hour, minut)>>。[只输入小时 0 - 20]")
+		if temp['meet_time'] < hour:
+			msg '无效输入。请选择一个晚于当前时间的整点，而不是之前的。'
+			jump 'date_time_loop'
+		else
+			'"<<temp[''meet_time'']>>怎么样？"你问道。'
+
+			!! anjuna please add the function here
+			!! if lover is free:
+			!! elseif lover is not free:
+			!! until then here is an auto accept function
+
+			!! I dislike this construction a lot tbh.
+			!! Might be better to have the npc offer the free time period, and then let the player decide.
+			!! Especially since they will have to guess when the npc is free...
+			if func('date_ev', 'venue_open', $npcID, $temp['date_type'], temp['meet_time']) = 0:
+				'"那不行，到那时候那地方就关门了。换个时间怎么样？"'
+				jump 'date_time_loop'
+			elseif func('lover_schedule', 'is_free', $npcID):
+				gs 'date_ev', 'invite_code', $npcID, $temp['date_type'], temp['meet_time']
+				'"好啊，听起来不错。到时候见。"'
+			else
+				if npc_rough[$npcID] > 0:
+					'"操，那会儿我没空。那就改天吧？"'
+				else
+					'"哦，抱歉。那会儿我没空。那就改天吧？"'
+				end
+				'"哦。那好吧。再见……"'
+				'"再见，"他飞快地说完就挂断了电话。'
+			end
+			act '挂断': gt 'lover_call', 'fin'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'date_decline':
+	cla & *nl
+	'"一个小时后不行。我很忙。"'
+	'"哦，抱歉。好吧，也许我们改天再出去。"'
+	act '挂断': gt 'lover_call', 'fin'
+end
+
+if $ARGS[0] = 'npc_meal_invite':
+	$temp['date_type'] = 'casual_meal'
+	'"想一起去吃点东西吗？大约一个小时后？"'
+	act '你不能': xgt 'date_ev', 'date_decline'
+	act '听起来不错':
+		cla & *nl
+		if func('date_ev', 'venue_open', $npcID, 'casual_meal', hour + 1) = 0:
+			'"其实到那时候咖啡店还没开门，" <<$npc_usedname[$npcID]>>说。"要不要换个时间？"'
+			act '选个时间': xgt 'date_ev', 'date_time_picker'
+			act '挂断': gt 'lover_call', 'fin'
+		else
+			gs 'date_ev', 'invite_code', $npcID, 'casual_meal', hour + 1
+			'"听起来不错。"'
+			if $npc_residence[$npcID] = 'pav_residential':
+				'"我在德尔帕尔科旁边的公园等你。"'
+			else
+				'"一个小时后我在住宅区那个地方等你！"'
+			end
+			act '挂断': gt 'lover_call', 'fin'
+		end
+	end
+	act '选个时间': xgt 'date_ev', 'date_time_picker'
+end
+
+
+if $ARGS[0] = 'npc_cinema_invite':
+	$temp['date_type'] = 'movie_date'
+	'"想去看电影吗？大约一个小时后？"'
+	act '你不能': xgt 'date_ev', 'date_decline'
+	act '听起来不错':
+		cla & *nl
+		if func('date_ev', 'venue_open', $npcID, 'movie_date', hour + 1) = 0:
+			'"其实到那时候剧院还没开门，" <<$npc_usedname[$npcID]>>说。"要不要换个时间？"'
+			act '选个时间': xgt 'date_ev', 'date_time_picker'
+			act '挂断': gt 'lover_call', 'fin'
+		else
+			gs 'date_ev', 'invite_code', $npcID, 'movie_date', hour + 1
+			'"听起来不错。"'
+			if $npc_residence[$npcID] = 'pav_residential':
+				'"一个小时后我在公园里的剧院等你！"'
+			else
+				'"一个小时后我在商场里的影院等你！"'
+			end
+			act '挂断': gt 'lover_call', 'fin'
+		end
+	end
+	act '选个时间': xgt 'date_ev', 'date_time_picker'
+end
+
+
+if $ARGS[0] = 'npc_chill_invite':
+	$temp['date_type'] = 'netflix_chill'
+	'"想过来我家放松一下吗？大约一个小时后？"'
+	act '你不能': xgt 'date_ev', 'date_decline'
+	act '听起来不错':
+		gs 'date_ev', 'invite_code', $npcID, 'netflix_chill', hour + 1
+		cla & *nl
+		'"听起来不错。"'
+		'"一个小时后见！"'
+		act '挂断': gt 'lover_call', 'fin'
+	end
+	act '选个时间': xgt 'date_ev', 'date_time_picker'
+end
+
+
+if $ARGS[0] = 'exit':
+	minut += 2
+	!! exit should be based on type of apartment and location
+	if date_ev['unique_npc'] = 1:
+		gs 'date_ev', 'ending'
+		gt $date_ev_exit['exit_file'], $date_ev_exit['exit_arg']
+	else
+		if $date_ev['locat'] = 'npc_home':
+			gs 'date_ev', 'ending'
+			if $npc_residence[$npcID] = 'pav_residential':
+				!! Pav residential exit
+				gt 'pav_residential'
+			elseif $npc_residence[$npcID] = 'uni_grounds':
+				!! Student dorms exit
+				gt 'uni_grounds'
+			elseif $npc_residence[$npcID] = 'city_residential':
+				!! St. Petersburg Residential exit
+				gt 'city_residential'
+			elseif $npc_residence[$npcID] = 'city_center':
+				!! St. Petersburg City Center exit
+				gt 'city_center'
+			elseif $npc_residence[$npcID] = '':
+				!! failsafe for an npc with no residence set
+				!! $region is 'pav', 'city', 'gad', 'pushkin'
+				if $region = 'pav':
+					gt 'pav_residential'
+				elseif $region = 'city':
+					gt 'city_residential'
+				else
+					msg '上报安全退出！'
+					gt 'pav_residential'
+				end
+			end
+		elseif $date_ev['locat'] = 'hotel_room':
+			if date_ev['hotel_days'] > 0:
+				if $region = 'pav':
+					$hotel = 'pav_hotel'
+					gs 'date_ev', 'ending'
+					gt 'HotelRoom', 'better'
+				elseif $region = 'city':
+					$hotel = 'city_hotel'
+					gs 'date_ev', 'ending'
+					gt 'HotelRoom', 'best'
+				end
+			else
+				if $region = 'pav':
+					gs 'date_ev', 'ending'
+					gt 'pav_hotel'
+				elseif $region = 'city':
+					gs 'date_ev', 'ending'
+					gt 'city_hotel'
+				end
+			end
+	!!		gt $date_ev_exit['exit_file'], $date_ev_exit['exit_arg']
+		elseif $date_ev['locat'] = 'pc_home':
+			gs 'date_ev', 'ending'
+			if $home['current'] = 'parents_home':
+				if $date_ev_exit['loc'] = 'bedroom':
+					gt 'bedrPar'
+				elseif $date_ev_exit['loc'] = 'hallway':
+					gt 'korrPar'
+				end
+			else
+				if $date_ev_exit['loc'] = 'bedroom':
+					gt 'bedr'
+				elseif $date_ev_exit['loc'] = 'hallway':
+					gt 'korr'
+				end
+			end
+		else
+			gs 'date_ev', 'ending'
+			!! $region is 'pav', 'city', 'gad', 'pushkin'
+			if $region = 'pav':
+				gt 'pav_residential'
+			elseif $region = 'city':
+				gt 'city_residential'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'exit_into_loc':
+	!! for when you end the event and continue to hang out at a lover''s apartment or hotel
+	if $date_ev['locat'] = 'npc_home':
+		gs 'date_ev', 'ending'
+		gs 'lover_home', 'bedroom'
+!!	elseif $date_ev['locat'] = 'hotel_room':
+!!		if $region = 'pav':
+!!		gs 'date_ev', 'ending'
+!!		gs 'lover_home', 'hotel_room'
+	elseif $date_ev['locat'] = 'pc_home':
+		if $date_ev_exit['loc'] = 'bedroom':
+			gs 'date_ev', 'ending'
+			pcs_romance['lover_here'] = 1
+			gt 'bedr'
+		elseif $date_ev_exit['loc'] = 'hallway':
+			pcs_romance['lover_here'] = 1
+			gs 'date_ev', 'ending'
+			gt 'korr'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'break_up':
+	if $npc_rel_type[$npcID] = 'fuckbuddy':
+		gs 'lover', 'remove_fuckbuddy', $npcID
+	elseif $npc_rel_type[$npcID] = 'sugar_daddy':
+		gs 'lover', 'remove_sugar_daddy', $npcID
+	elseif $npc_rel_type[$npcID] = 'girlfriend':
+		gs 'lover', 'remove_girlfriend', $npcID
+	else
+		gs 'lover', 'remove_boyfriend', $npcID
+	end
+	act '离开': gt 'date_ev', 'exit'
+end
+
+
+if $ARGS[0] = 'fuckbuddy_add':
+	gs 'lover', 'add_fuckbuddy', $npcID
+
+	!! npc_fuckbuddy[$npcID] = 1
+	npc_no_booty_call[$npcID] = daystart
+end
+
+
+if $ARGS[0] = 'sugar_daddy_add':
+
+	!! if $npc_rel_type[$npcID] <> 'fuckbuddy': gs 'date_ev_leave', 'fuckbuddy_add'
+	gs 'lover', 'add_sugar_daddy', $npcID
+	npc_sugar_daddy_price[$npcID] = date_ev['sugar_daddy_offer'] * 100
+	if $npc_rel_type[$npcID] <> 'sugar_daddy':
+		$npc_rel_type[$npcID] = 'sugar_daddy'
+		date_ev['sugar_daddy_count'] += 1
+	end
+	date_ev['sugar_daddy_paid'] = 1
+	date_ev['prostitution_paid'] = 1
+end
+
+
+if $ARGS[0] = 'lover_add':
+	gs 'lover', 'add_boyfriend', $npcID
+end
+
+
+if $ARGS[0] = 'ending':
+!!	gs 'date_ev', 'save_stats'
+	gs 'date_ev', 'end_code'
+	if arrsize('sex_ev') > 0: gs 'sex_ev_leave', 'end_code'
+end
+
+
+if $ARGS[0] = 'end_code':
+	if $npc_rel_type[$npcID] = '' or $npc_rel_type[$npcID] = 'hookup': $npc_rel_type[$npcID] = 'casual'
+	gs 'arousal', 'end'
+!!	if $clothingworntype = 'nude': gs 'date_ev_leave', 'dress'
+	if $date_ev['prostitution_flag'] = 'prostitution' or date_ev['prostitution'] = 1: npc_prostitution_count[$npcID] += 1
+	if arrpos('$lover', $npcID) < 0: gs 'lover', 'add_dating', $npcID
+	if date_ev['hotel_days'] > 0:
+		if $region = 'pav':
+			HotelRoom['pav_hotel'] = 2
+		elseif $region = 'city':
+			HotelRoom['city_hotel'] = 3
+		end
+		hotelRoomDays['<<$region>>_hotel'] = daystart + date_ev['hotel_days']
+		HotelRoom['<<$region>>_room_service_free'] = 1
+	end
+	if $date_ev['locat'] = 'pc_home' and $home['current'] = 'parents_home':
+		sisterQW['sex_room'] = 1
+		stat['parents_home_sex'] += 1
+	end
+	if date_ev['break_up'] > 0:
+		if $npc_rel_type[$npcID] = 'fuckbuddy':
+			gs 'lover', 'remove_fuckbuddy', $npcID
+		elseif $npc_rel_type[$npcID] = 'sugar_daddy':
+			gs 'lover', 'remove_sugar_daddy', $npcID
+		else
+			gs 'lover', 'remove_boyfriend', $npcID
+		end
+	end
+	if date_ev['not_a_date'] = 0:
+		npc_last_date[$npcID] = daystart
+		npc_date_count[$npcID] += 1
+	end
+	!! Invalidate the consumed invite so generate_date_link won''t keep matching it - otherwise a same-day re-invite (npc_date_invite reset to today) would still get blocked
+	npc_date_invite[$npcID] = 0
+	killvar 'date_ev'
+	killvar 'npc_pref_traits'
+	killvar 'npc_pref_values'
+end
+
+
+if $ARGS[0] = 'bed_room_img':
+	*clr & cla
+	if $date_ev['locat'] = 'player_home':
+		!! IMAGE HERE
+	else
+		'<center><<$npc_apt_bed[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	end
+end
+
+
+if $ARGS[0] = 'living_room_img':
+	*clr & cla
+	if $date_ev['locat'] = 'player_home':
+		!! IMAGE HERE
+	else
+		'<center><<$npc_apt_livingroom[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	end
+end
+
+
+if $ARGS[0] = 'kitchen_img':
+	*clr & cla
+	if $date_ev['locat'] = 'player_home':
+		!! IMAGE HERE
+	else
+		'<center><<$npc_apt_kitchen[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	end
+end
+
+if $ARGS[0] = 'hall_img':
+	*clr & cla
+	if $date_ev['locat'] = 'player_home':
+		!! IMAGE HERE
+	else
+		'<center><<$npc_apt_hall[$npcID]>><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	end
+end
+
+
+if $ARGS[0] = 'date_menu':
+	gs 'date_ev', 'chill_start'
+	gs 'date_ev', 'movie_start'
+end
+
+--- date_ev ---------------------------------

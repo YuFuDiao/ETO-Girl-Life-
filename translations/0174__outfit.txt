@@ -1,0 +1,1959 @@
+# outfit
+
+
+!{
+Every outfit type should have the following functions:
+
+!! $ARGS[1] = $...worntype
+if $ARGS[0] = 'totals': -> result
+	Function that returns the number of elements per type
+	i.e.: if $ARGS[1] = 'gm': result = 100
+
+
+!! $ARGS[1] = $...worntype
+!!  ARGS[2] =  ...wornnumber
+!! [ARGS[3] = optional flag whether to skip the `gs '..._attributes'` call]
+if $ARGS[0] = 'not_wear_reason': -> $result
+	Function that returns an empty string if Sveta can wear the item
+	Returns a value when she cannot
+	i.e. $result = 'low_strength', 'not_owned', etc.
+
+
+!! $ARGS[1] = $...worntype
+!!  ARGS[2] =  ...wornnumber
+if $ARGS[0] = 'is_owned': -> result
+	Function that returns whether Sveta owns the item
+	Should return the internal representation of "truth" or "false"
+		QSP 5.7.0- (truth = -1); QSP 5.8.0+ (truth = +1)
+
+
+!! $ARGS[1] = $...worntype
+!!  ARGS[2] =  ...wornnumber
+!!  [ARGS[3] = item strength]
+if $ARGS[0] = 'add_item':
+	Adds the item to your wardrobe
+	If ARGS[3] is passed, overrides the items strength (if applicable)
+
+
+!! [$ARGS[1] = $...worntype]
+!! [ ARGS[2] =  ...wornnumber]
+if $ARGS[0] = 'remove_item':
+	Removes the given item.
+	Missing values are filled with currentworn values
+
+
+if $ARGS[0] = 'dispose':
+	Removes the currently worn item.
+
+
+!! $ARGS[1] = $...worntype
+!!  ARGS[2] =  ...wornnumber
+OR
+!! $ARGS[1] = 'last_worn'
+if $ARGS[0] = 'wear':
+	Wears the given item
+
+
+if $ARGS[0] = 'strip':
+	Removes the worn item
+
+!}
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               STATS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'clear_all':
+	$clothingworntype = 'nude'
+	clothingwornnumber = 0
+	underwear['type'] = 0
+	$bodysuitworntype = 'none'
+	bodysuitwornnumber = 0
+	$braworntype = 'none'
+	brawornnumber = 0
+	$pantyworntype = 'none'
+	pantywornnumber = 0
+	$currentpursetype = 'none'
+	currentpursenumber = 0
+	$shoeworntype = 'none'
+	shoewornnumber = 0
+	$coatworntype = 'none'
+	coatwornnumber = 0
+
+	gs 'clothing', 'reset_CloVars'
+	gs 'clothing', 'reset_PCloVars'
+	gs 'bras', 'reset_BraVars'
+	gs 'bras', 'reset_PBraVars'
+	gs 'panties', 'reset_PanVars'
+	gs 'panties', 'reset_PPanVars'
+	gs 'shoes', 'reset_ShoVars'
+	gs 'shoes', 'reset_PShoVars'
+	gs 'purses', 'reset_PurseVars'
+	gs 'purses', 'reset_PPurseVars'
+	gs 'coats', 'reset_CoatVars'
+	gs 'coats', 'reset_PCoatVars'
+
+	gs 'outfit', 'set_derived_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'reset_derived_vars':
+	PBimbo = 0
+	PGoth = 0
+	PPunk = 0
+	PPrep = 0
+	PPrude = 0
+	PProstitute = 0
+	PMaid = 0
+	PServer = 0
+	PStrip = 0
+	PSchool = 0
+	POffice = 0
+	PSport = 0
+	PSwim = 0
+	PCoverTop = 0
+	PCoverFront = 0
+	PCoverBack = 0
+	exit
+end
+
+
+if $ARGS[0] = 'set_derived_vars':
+	gs 'outfit', 'reset_derived_vars'
+
+	if PCloBra = 1:
+		if $braworntype <> 'none':
+			gs 'bras', 'strip'
+			!! "strip" will call "set_derived_vars" again
+			exit
+		end
+		PXCloTopCut = 400
+	elseif PCloBra = 2:
+		PXCloTopCut = 500
+	end
+
+	if PCloBimbo = 1 and PShoBimbo = 1: PBimbo = 1
+	if PCloGoth = 1 and PShoGoth = 1: PGoth = 1
+	if PCloPunk = 1 and PShoPunk = 1: PPunk = 1
+	if PCloPrep = 1: PPrep = 1
+	if PCloPrude = 1: PPrude = 1
+
+	!! Sets PProstitute
+	gs 'prostitution_functions', 'work_clothes'
+
+	if PCloStyle2 = 1 or PCloMaid = 1: PMaid = 1
+	if PCloStyle2 = 2 or PCloServer = 1: PServer = 1
+	if (PCloStyle2 = 3 or PCloStrip = 1) and (PShoStyle2 = 1 or PShoStrip = 1): PStrip = 1
+	if PCloStyle2 = 4 or PCloSchool = 1: PSchool = 1
+	if PCloStyle2 = 5 or PCloOffice = 1: POffice = 1
+	if (PCloStyle2 = 6 or PCloSport = 1) and (PShoStyle2 = 2 or PShoSport = 1): PSport = 1
+
+	PSwim = PCloSwim
+	!!{
+	if $clothingworntype <> 'nude':
+	elseif PPanSwim = 0 and $pantyWorntype <> 'none':
+	elseif PBraSwim = 0 and $braworntype <> 'none':
+	else
+		PSwim = 1
+	end
+	!!}
+
+	PCoverTop = max(0, PCloCoverTop + PBraCover - 4)
+	PCoverFront = max(0, PCloCoverFront + PPanCoverFront - 4)
+	PCoverBack = max(0, PCloCoverBack + PPanCoverBack - 4)
+
+
+			!! --------------------DEPRECATED-------------------- !!
+
+	!! Non-P variables are depracated and will be removed from 0.10 onwards
+	CoverTop = PCoverTop
+	CoverBack = PCoverBack
+	CoverFront = PCoverFront
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              ACTIONS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'undress':
+	if $ARGS[1] = '': $ARGS[1] = 'backup'
+	gs 'outfit', 'backup', $ARGS[1]
+	gs 'outfit', 'strip_all'
+	exit
+end
+
+
+if $ARGS[0] = 'dress':
+	if $ARGS[1] = '': $ARGS[1] = 'backup'
+	if $lastwornclothingtype[$ARGS[1]] <> '' and $lastwornclothingtype[$ARGS[1]] <> 'nude':
+		gs 'outfit', 'restore', $ARGS[1]
+	else
+		gs 'outfit', 'restore'
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              BACKUPS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '_nude_backup':
+	if $ARGS[1] = '':
+		$lastwornclothingtype	= 'nude'
+		lastwornclothingnumber	= 0
+		lastwornunderwear		= 0
+		$lastwornbodysuittype	= 'none'
+		lastwornbodysuitnumber	= 0
+		$lastwornpantytype		= 'none'
+		lastwornpantynumber		= 0
+		$lastwornbratype		= 'none'
+		lastwornbranumber		= 0
+		$lastwornshoetype		= 'none'
+		lastwornshoenumber		= 0
+		$lastwornpursetype		= 'none'
+		lastwornpursenumber		= 0
+		$lastworncoattype		= 'none'
+		lastworncoatnumber		= 0
+	else
+		$lastwornclothingtype[$ARGS[1]]		= 'nude'
+		lastwornclothingnumber[$ARGS[1]]	= 0
+		lastwornunderwear[$ARGS[1]]			= 0
+		$lastwornbodysuittype[$ARGS[1]]		= 'none'
+		lastwornbodysuitnumber[$ARGS[1]]	= 0
+		$lastwornpantytype[$ARGS[1]]		= 'none'
+		lastwornpantynumber[$ARGS[1]]		= 0
+		$lastwornbratype[$ARGS[1]]			= 'none'
+		lastwornbranumber[$ARGS[1]]			= 0
+		$lastwornshoetype[$ARGS[1]]			= 'none'
+		lastwornshoenumber[$ARGS[1]]		= 0
+		$lastwornpursetype[$ARGS[1]]		= 'none'
+		lastwornpursenumber[$ARGS[1]]		= 0
+		$lastworncoattype[$ARGS[1]]			= 'none'
+		lastworncoatnumber[$ARGS[1]]		= 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'backup':
+	if $ARGS[1] = '':
+		$lastwornclothingtype	= $clothingworntype
+		lastwornclothingnumber	= clothingwornnumber
+		lastwornunderwear		= underwear['type']
+		$lastwornbodysuittype	= $bodysuitworntype
+		lastwornbodysuitnumber	= bodysuitwornnumber
+		$lastwornpantytype		= $pantyworntype
+		lastwornpantynumber		= pantywornnumber
+		$lastwornbratype		= $braworntype
+		lastwornbranumber		= brawornnumber
+		$lastwornshoetype		= $shoeworntype
+		lastwornshoenumber		= shoewornnumber
+		$lastwornpursetype		= $currentpursetype
+		lastwornpursenumber		= currentpursenumber
+		$lastworncoattype		= $coatworntype
+		lastworncoatnumber		= coatwornnumber
+	else
+		$lastwornclothingtype[$ARGS[1]]		= $clothingworntype
+		lastwornclothingnumber[$ARGS[1]]	= clothingwornnumber
+		lastwornunderwear[$ARGS[1]]			= underwear['type']
+		$lastwornbodysuittype[$ARGS[1]]		= $bodysuitworntype
+		lastwornbodysuitnumber[$ARGS[1]]	= bodysuitwornnumber
+		$lastwornpantytype[$ARGS[1]]		= $pantyworntype
+		lastwornpantynumber[$ARGS[1]]		= pantywornnumber
+		$lastwornbratype[$ARGS[1]]			= $braworntype
+		lastwornbranumber[$ARGS[1]]			= brawornnumber
+		$lastwornshoetype[$ARGS[1]]			= $shoeworntype
+		lastwornshoenumber[$ARGS[1]]		= shoewornnumber
+		$lastwornpursetype[$ARGS[1]]		= $currentpursetype
+		lastwornpursenumber[$ARGS[1]]		= currentpursenumber
+		$lastworncoattype[$ARGS[1]]			= $coatworntype
+		lastworncoatnumber[$ARGS[1]]		= coatwornnumber
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'safe_backup':
+	!! Only backup filled entries
+
+	if $ARGS[1] = '':
+		if func('clothing', 'is_wearing_any'):
+			$lastwornclothingtype	= $clothingworntype
+			lastwornclothingnumber	= clothingwornnumber
+		end
+		if func('underwear_bodysuits', 'is_wearing_any'):
+			lastwornunderwear		= underwear['type']
+			$lastwornbodysuittype	= $bodysuitworntype
+			lastwornbodysuitnumber	= bodysuitwornnumber
+		end
+		if func('panties', 'is_wearing_any'):
+			lastwornunderwear		= underwear['type']
+			$lastwornpantytype		= $pantyworntype
+			lastwornpantynumber		= pantywornnumber
+		end
+		if func('bras', 'is_wearing_any'):
+			lastwornunderwear		= underwear['type']
+			$lastwornbratype		= $braworntype
+			lastwornbranumber		= brawornnumber
+		end
+		if func('shoes', 'is_wearing_any'):
+			$lastwornshoetype		= $shoeworntype
+			lastwornshoenumber		= shoewornnumber
+		end
+		if func('purses', 'is_wearing_any'):
+			$lastwornpursetype		= $currentpursetype
+			lastwornpursenumber		= currentpursenumber
+		end
+		if func('coats', 'is_wearing_any'):
+			$lastworncoattype		= $coatworntype
+			lastworncoatnumber		= coatwornnumber
+		end
+	else
+		if func('clothing', 'is_wearing_any'):
+			$lastwornclothingtype[$ARGS[1]]		= $clothingworntype
+			lastwornclothingnumber[$ARGS[1]]	= clothingwornnumber
+		end
+		if func('underwear_bodysuits', 'is_wearing_any'):
+			lastwornunderwear[$ARGS[1]]			= underwear['type']
+			$lastwornbodysuittype[$ARGS[1]]		= $bodysuitworntype
+			lastwornbodysuitnumber[$ARGS[1]]	= bodysuitwornnumber
+		end
+		if func('panties', 'is_wearing_any'):
+			lastwornunderwear[$ARGS[1]]			= underwear['type']
+			$lastwornpantytype[$ARGS[1]]		= $pantyworntype
+			lastwornpantynumber[$ARGS[1]]		= pantywornnumber
+		end
+		if func('bras', 'is_wearing_any'):
+			lastwornunderwear[$ARGS[1]]			= underwear['type']
+			$lastwornbratype[$ARGS[1]]			= $braworntype
+			lastwornbranumber[$ARGS[1]]			= brawornnumber
+		end
+		if func('shoes', 'is_wearing_any'):
+			$lastwornshoetype[$ARGS[1]]			= $shoeworntype
+			lastwornshoenumber[$ARGS[1]]		= shoewornnumber
+		end
+		if func('purses', 'is_wearing_any'):
+			$lastwornpursetype[$ARGS[1]]		= $currentpursetype
+			lastwornpursenumber[$ARGS[1]]		= currentpursenumber
+		end
+		if func('coats', 'is_wearing_any'):
+			$lastworncoattype[$ARGS[1]]			= $coatworntype
+			lastworncoatnumber[$ARGS[1]]		= coatwornnumber
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'transfer_backup':
+	!! Transfor from $ARGS[1] to $ARGS[2]
+
+	$lastwornclothingtype[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= $lastwornclothingtype[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])]
+	lastwornclothingnumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornclothingnumber[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])]
+	lastwornunderwear[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornunderwear[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	$lastwornbodysuittype[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= $lastwornbodysuittype[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])]
+	lastwornbodysuitnumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornbodysuitnumber[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])]
+	$lastwornpantytype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornpantytype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	lastwornpantynumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornpantynumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	$lastwornbratype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornbratype[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+	lastwornbranumber[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornbranumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	$lastwornshoetype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornshoetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	lastwornshoenumber[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornshoenumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	$lastwornpursetype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornpursetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	lastwornpursenumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornpursenumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	$lastworncoattype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastworncoattype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	lastworncoatnumber[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastworncoatnumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	exit
+end
+
+
+if $ARGS[0] = 'safe_transfer_backup':
+	!! Transfor from $ARGS[1] to $ARGS[2]
+	!! Only transfer filled elements
+
+	if $lastwornclothingtype[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])] <> '' and $lastwornclothingtype[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])] <> 'nude':
+		$lastwornclothingtype[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= $lastwornclothingtype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+		lastwornclothingnumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornclothingnumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	end
+	if $lastwornbodysuittype[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])] <> '' and $lastwornbodysuittype[iif($ARGS[1]	= '', ARGS[1], $ARGS[1])] <> 'none':
+		lastwornunderwear[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornunderwear[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+		$lastwornbodysuittype[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= $lastwornbodysuittype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+		lastwornbodysuitnumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornbodysuitnumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	end
+	if $lastwornpantytype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> '' and $lastwornpantytype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> 'none':
+		lastwornunderwear[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornunderwear[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+		$lastwornpantytype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornpantytype[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+		lastwornpantynumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornpantynumber[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+	end
+	if $lastwornbratype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> '' and $lastwornbratype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> 'none':
+		lastwornunderwear[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornunderwear[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+		$lastwornbratype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornbratype[iif($ARGS[1]				= '', ARGS[1], $ARGS[1])]
+		lastwornbranumber[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornbranumber[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+	end
+	if $lastwornshoetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> '' and $lastwornshoetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> 'none':
+		$lastwornshoetype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornshoetype[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+		lastwornshoenumber[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastwornshoenumber[iif($ARGS[1]			= '', ARGS[1], $ARGS[1])]
+	end
+	if $lastwornpursetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> '' and $lastwornpursetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> 'none':
+		$lastwornpursetype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastwornpursetype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+		lastwornpursenumber[iif($ARGS[2]	= '', ARGS[2], $ARGS[2])]	= lastwornpursenumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	end
+	if $lastworncoattype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> '' and $lastworncoattype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])] <> 'none':
+		$lastworncoattype[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= $lastworncoattype[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+		lastworncoatnumber[iif($ARGS[2]		= '', ARGS[2], $ARGS[2])]	= lastworncoatnumber[iif($ARGS[1]		= '', ARGS[1], $ARGS[1])]
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'remove_backup':
+	if $ARGS[1] = '':
+		gs 'outfit', '_nude_backup'
+	else
+		gs 'array', 'remove_element', '$lastwornclothingtype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornclothingnumber', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornunderwear', $ARGS[1]
+		gs 'array', 'remove_element', '$lastwornbodysuittype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornbodysuitnumber', $ARGS[1]
+		gs 'array', 'remove_element', '$lastwornpantytype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornpantynumber', $ARGS[1]
+		gs 'array', 'remove_element', '$lastwornbratype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornbranumber', $ARGS[1]
+		gs 'array', 'remove_element', '$lastwornshoetype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornshoenumber', $ARGS[1]
+		gs 'array', 'remove_element', '$lastwornpursetype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastwornpursenumber', $ARGS[1]
+		gs 'array', 'remove_element', '$lastworncoattype', $ARGS[1]
+		gs 'array', 'remove_element', 'lastworncoatnumber', $ARGS[1]
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'restore':
+	if $ARGS[1] = '':
+		gs 'clothing', 'wear', $lastwornclothingtype, lastwornclothingnumber, 'force'
+		if lastwornunderwear = 2:
+			gs 'underwear_bodysuits', 'wear', $lastwornbodysuittype, lastwornbodysuitnumber
+		else
+			gs 'panties',	'wear', $lastwornpantytype,	lastwornpantynumber
+			gs 'bras',		'wear', $lastwornbratype,	lastwornbranumber
+		end
+		gs 'shoes',		'wear', $lastwornshoetype,	lastwornshoenumber
+		gs 'purses',	'wear', $lastwornpursetype,	lastwornpursenumber
+		gs 'coats',		'wear', $lastworncoattype,	lastworncoatnumber
+	else
+		gs 'clothing', 'wear', $lastwornclothingtype[$ARGS[1]], lastwornclothingnumber[$ARGS[1]], 'force'
+		if lastwornunderwear[$ARGS[1]] = 2:
+			gs 'underwear_bodysuits', 'wear', $lastwornbodysuittype[$ARGS[1]], lastwornbodysuitnumber[$ARGS[1]]
+		else
+			gs 'panties',	'wear', $lastwornpantytype[$ARGS[1]],	lastwornpantynumber[$ARGS[1]]
+			gs 'bras',		'wear', $lastwornbratype[$ARGS[1]],		lastwornbranumber[$ARGS[1]]
+		end
+		gs 'shoes',		'wear', $lastwornshoetype[$ARGS[1]],	lastwornshoenumber[$ARGS[1]]
+		gs 'purses',	'wear', $lastwornpursetype[$ARGS[1]],	lastwornpursenumber[$ARGS[1]]
+		gs 'coats',		'wear', $lastworncoattype[$ARGS[1]],	lastworncoatnumber[$ARGS[1]]
+	end
+	exit
+end
+
+
+!! $ARGS[1] = strip location
+if $ARGS[0] = 'strip_all':
+	gs 'outfit', 'backup', $ARGS[1]
+	gs 'clothing', 'strip', $ARGS[1]
+	gs 'underwear', 'strip'
+	gs 'shoes', 'strip'
+	gs 'coats', 'strip'
+	gs 'purses', 'strip'
+	exit
+end
+
+
+if $ARGS[0] = 'wear_last_worn':
+	gs 'clothing', 'wear', 'last_worn'
+	gs 'underwear', 'wear', 'last_worn'
+	gs 'shoes', 'wear', 'last_worn'
+	gs 'coats', 'wear', 'last_worn'
+	gs 'purses', 'wear', 'last_worn'
+	exit
+end
+
+
+if $ARGS[0] = 'recover_lost_outfit':
+	gs 'clothing', 'recover_lost_clothes', $ARGS[1], ARGS[2]
+	if ARGS[2] = 1:
+		gs 'outfit', 'restore', $ARGS[1]
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                     STAT, HOURLY EVENTS, CIKL                      !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_hourly_mood_bonus':
+	!! Dirtyness bonus / penalty
+	result = 0
+	if cheatVars['clothes_dirt']:
+		result += 0
+	else
+		tempDirt = (PCloDirt + PBraDirt + PPanDirt) / 3
+		result += min(max(-5, 5 * (1440 - tempDirt) / 960), 5)
+		killvar 'tempDirt'
+	end
+
+	!! Panty happiness gain
+	if pcs_mood < 60 and $pantyworntype = 'cats': result += 2
+	if pcs_mood < 60 and $braworntype = 'cats': result += 2
+	exit
+end
+
+
+if $ARGS[0] = 'CalcClothingBonus':
+	if $clothingworntype = 'nude':
+		if func('pcs_has_attr', 'OR', 'body_bmi_normal', 'body_bmi_overweight'):
+			!! Healthy and overweight
+			result = 15
+		else
+			result = 0
+		end
+		exit
+	end
+
+	if func('pcs_has_attr', 'OR', 'body_bmi_starving', 'body_bmi_underweight'):
+		!! Skinny and severely skinny
+		tempRevealing = ((400 - PXCloThinness) + (500 - PXCloTopCut) + (400 - PXCloBottomShortness)) / 2
+	elseif func('pcs_has_attr', 'OR', 'body_bmi_normal', 'body_bmi_overweight'):
+		!! Healthy and overweight
+		tempRevealing = (PXCloThinness + PXCloTopCut + PXCloBottomShortness)/2
+	else
+		!! Moderately overweight and above
+		tempRevealing = ((400 - PXCloThinness) + (500 - PXCloTopCut) + (400 - PXCloBottomShortness)) * 3 / 4
+	end
+	if cheatVars['clothes_dirt']:
+		tempDirt = 0
+	else
+		CleanBonus = 9 + PCloQuality * 3
+		tempDirt = min(max(-CleanBonus, CleanBonus * (1440 - PCloDirt) / 960), CleanBonus)
+	end
+
+	result = PCloQuality * tempRevealing / 76 + tempDirt
+	killvar 'tempRevealing'
+	killvar 'tempDirt'
+	killvar 'CleanBonus'
+	exit
+end
+
+
+if $ARGS[0] = 'CalcAccessoriesBonus':
+	!! bonuses for certain underwear
+	if $pantyworntype <> 'none':
+		if PPanQuality >= 4:
+			pantyBonus = PPanQuality - 2
+		else
+			pantyBonus = PPanQuality - 1
+		end
+	end
+
+	if $braworntype <> 'none':
+		if PBraQuality >= 4:
+			braBonus = PBraQuality - 2
+		else
+			braBonus = PBraQuality - 1
+		end
+	end
+
+	if $location_type = 'event_outdoors' or $location_type = 'public_outdoors' or $location_type = 'secluded':
+		!! is outside
+		if temper <= 0:
+			if $coatworntype = 'none':
+				coatQualityBonus = 0
+			else
+				coatQualityBonus = PCoatQuality - 2
+			end
+		end
+	elseif instr(';bathroom;event_indoors;kitchen;private;private_shared;public_indoors;restroom;', $location_type) > 0:
+		!! is inside
+		coatQualityBonus = 0
+	end
+
+	result = coatQualityBonus + PShoQuality + pantyBonus + braBonus
+
+	killvar 'pantyBonus'
+	killvar 'braBonus'
+	exit
+end
+
+
+if $ARGS[0] = 'stat':
+	!! ARGS[1]: elapsed time
+	gs 'outfit', 'reset_immutables'
+	gs 'outfit', 'increase_outfit_dirt', ARGS[1]
+	gs 'outfit', 'increase_outfit_wear', ARGS[1]
+	gs 'outfit', 'heel_stat_skill_pain', ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'reset_immutables':
+	gs 'clothing', 'reset_immutables'
+	gs 'bras', 'reset_immutables'
+	gs 'panties', 'reset_immutables'
+	gs 'underwear_bodysuits', 'reset_immutables'
+	gs 'shoes', 'reset_immutables'
+	gs 'purses', 'reset_immutables'
+	gs 'coats', 'reset_immutables'
+	exit
+end
+
+
+if $ARGS[0] = 'increase_outfit_dirt':
+	if cheatVars['clothes_dirt']: exit
+
+	!! time_elapsed
+	temp_outfitVars['time_diff'] = ARGS[1]
+	if $clothingworntype = 'nude' or $clothingworntype = '':
+		PCloDirt = 0
+	elseif func('clothing', 'is_immutable'):
+		PCloDirt = 1440
+	elseif $clothingworntype = 'misc_outfits' and clothingwornnumber = 1:
+		PCloDirt = 2400
+	elseif PCloBorrowed = 0 and func('clothing', 'is_owned') = 0:
+		PCloDirt = 0
+	else
+		if temp_outfitVars['time_diff'] > 0:
+			temp_outfitVars['sweat_penal'] = 100
+			!! Gymclothing are more resistant to sweat
+			if PCloStyle2 <> 6 and PSwim = 0: temp_outfitVars['sweat_penal'] += pcs_sweat
+
+			!! cum works the same as sweat
+			temp_outfitVars['cum_penal'] = 2 * sparrvol[6] + 2 * sparrvol[7]
+			!! Cum on butt, labia, breasts, stomach, back count if you are not wearing underwear covering that
+			if $pantyworntype = 'none' and $bodysuitworntype = 'none':
+				temp_outfitVars['sweat_penal'] += max(0, pcs_horny - 100) / 2
+				temp_outfitVars['cum_penal'] += sparrvol[1] + sparrvol[4]
+			end
+			if $braworntype = 'none' and $bodysuitworntype = 'none':
+				temp_outfitVars['cum_penal'] += sparrvol[15]
+			end
+			if $bodysuitworntype = 'none' and instr($clothingworntype, 'bikinis') <= 0:
+				temp_outfitVars['cum_penal'] += sparrvol[8] + sparrvol[14]
+			end
+			!! skirt and pants 6 and 7 are too short to actually get dirty from cum on legs.
+			temp_outfitVars['cum_penal'] += max(0, 6 - max(PCloSkirt, PCloPants)) * sparrvol[9] / 6
+			temp_outfitVars['cum_penal'] /= 2
+			!! dirtyness scales with elapsed type and sweat can at most double that
+			temp_outfitVars['dirty'] = temp_outfitVars['time_diff'] * min(temp_outfitVars['sweat_penal'] + temp_outfitVars['cum_penal'], 200) / 100
+			temp_outfitVars['dirty2'] = rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty'])
+			if PCloBorrowed = 0:
+				gs 'clothing', 'increase_cur_dirt', temp_outfitVars['dirty2'] / 2
+			else
+				PCloDirt += temp_outfitVars['dirty2'] / 2
+			end
+		end
+
+		if PCloBorrowed = 0: PCloDirt = dyneval("result = <<$clothingworntype>>_dirt[<<clothingwornnumber>>]")
+	end
+
+	!! Temporary patch due to sleeping not stripping underwear, and no sleep wear existing yet.
+	if inSleep = 0:
+		if underwear['type'] = 2:
+			if $bodysuitworntype = 'none' or $bodysuitworntype = '':
+				PBraDirt = 0
+				PPanDirt = 0
+			elseif PPanBorrowed = 0 and func('underwear_bodysuits', 'is_owned', $bodysuitworntype, bodysuitwornnumber) = 0:
+				PBraDirt = 0
+				PPanDirt = 0
+			else
+				if temp_outfitVars['time_diff'] > 0:
+					temp_outfitVars['sweat_penal'] = 100
+					if PBraFun = 1 and PPanFun = 1: temp_outfitVars['sweat_penal'] += pcs_sweat
+
+					!! Arousal adds extra "sweat"
+					temp_outfitVars['sweat_penal'] += max(0, pcs_horny - 100) / 2
+
+					!! cum works the same as sweat
+					temp_outfitVars['cum_penal'] = sparrvol[2] + sparrvol[5] + (sparrvol[1] + sparrvol[4] + sparrvol[8] + sparrvol[14] + sparrvol[15]) / 2
+
+					!! dirtyness scales with elapsed type and sweat can at most double that
+					temp_outfitVars['dirty'] = temp_outfitVars['time_diff'] * min(temp_outfitVars['sweat_penal'] + temp_outfitVars['cum_penal'], 200) / 100
+					temp_outfitVars['dirty2'] = rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty'])
+					if PPanBorrowed = 0:
+						gs 'underwear_bodysuits', 'increase_cur_dirt', temp_outfitVars['dirty2'] / 2
+					else
+						PPanDirt += temp_outfitVars['dirty2'] / 2
+					end
+				end
+
+				if PPanBorrowed = 0: PPanDirt = dyneval("result = <<$bodysuitworntype>>_bodysuits_dirt[<<bodysuitwornnumber>>]")
+				PBraDirt = PPanDirt
+			end
+		else
+			if $braworntype = 'none' or $braworntype = '':
+				PBraDirt = 0
+			elseif func('bras', 'is_immutable'):
+				PBraDirt = 1440
+			elseif PBraBorrowed = 0 and func('bras', 'is_owned', $braworntype, brawornnumber) = 0:
+				PBraDirt = 0
+			else
+				if temp_outfitVars['time_diff'] > 0:
+					temp_outfitVars['sweat_penal'] = 100
+					!! Gymclothing are more resistant to sweat
+					if PBraFun = 1: temp_outfitVars['sweat_penal'] += pcs_sweat
+
+					!! cum works the same as sweat
+					temp_outfitVars['cum_penal'] = sparrvol[14]
+					!! dirtyness scales with elapsed type and sweat can at most double that
+					temp_outfitVars['dirty'] = temp_outfitVars['time_diff'] * min(temp_outfitVars['sweat_penal'] + temp_outfitVars['cum_penal'], 200) / 100
+					temp_outfitVars['dirty2'] = rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty'])
+					if PBraBorrowed = 0:
+						gs 'bras', 'increase_cur_dirt', temp_outfitVars['dirty2'] / 2
+					else
+						PBraDirt += temp_outfitVars['dirty2'] / 2
+					end
+				end
+
+				if PBraBorrowed = 0: PBraDirt = dyneval("result = <<$braworntype>>_bras_dirt[<<brawornnumber>>]")
+			end
+
+			if $pantyworntype = 'none' or $pantyworntype = '':
+				PPanDirt = 0
+			elseif func('panties', 'is_immutable'):
+				PPanDirt = 1440
+			elseif PPanBorrowed = 0 and func('panties', 'is_owned', $pantyworntype, pantywornnumber) = 0:
+				PPanDirt = 0
+			else
+				if temp_outfitVars['time_diff'] > 0:
+					temp_outfitVars['sweat_penal'] = 100
+					!! Gymclothing are more resistant to sweat
+					if PPanFun = 1: temp_outfitVars['sweat_penal'] += pcs_sweat
+					!! Arousal adds extra "sweat"
+					temp_outfitVars['sweat_penal'] += max(0, pcs_horny - 100) / 2
+
+					!! cum works the same as sweat
+					temp_outfitVars['cum_penal'] = sparrvol[2] + sparrvol[5] + (sparrvol[1] + sparrvol[4]) / 2
+					!! dirtyness scales with elapsed type and sweat can at most double that
+					temp_outfitVars['dirty'] = temp_outfitVars['time_diff'] * min(temp_outfitVars['sweat_penal'] + temp_outfitVars['cum_penal'], 200) / 100
+					temp_outfitVars['dirty2'] = rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty']) + rand(0, temp_outfitVars['dirty'])
+					if PPanBorrowed = 0:
+						gs 'panties', 'increase_cur_dirt', temp_outfitVars['dirty2'] / 2
+					else
+						PPanDirt += temp_outfitVars['dirty2'] / 2
+					end
+				end
+
+				if PPanBorrowed = 0: PPanDirt = dyneval("result = <<$pantyworntype>>_panties_dirt[<<pantywornnumber>>]")
+			end
+		end
+	end
+
+	killvar 'temp_outfitVars'
+	exit
+end
+
+
+if $ARGS[0] = 'increase_outfit_wear':
+	if cheatVars['clothes_strength']: exit
+	if inSleep: exit
+
+	temp_outfitVars['time_diff'] = ARGS[1]
+
+	if $shoeworntype = 'none' or $shoeworntype = '':
+		PShoStrength = 0
+	elseif func('shoes', 'is_immutable'):
+		PShoStrength = 10000
+	elseif PShoBorrowed = 0 and func('shoes', 'is_owned') = 0:
+		PShoStrength = 100000
+	else
+		if temp_outfitVars['time_diff'] > 0:
+			temp_outfitVars['strength_cost'] = temp_outfitVars['time_diff']
+			if instr($location_type, 'outdoors') and SunWearther = 0:
+				temp_outfitVars['strength_cost'] *= 2
+			end
+			if PShoBorrowed = 0:
+				gs 'shoes', 'decrease_cur_strength', temp_outfitVars['strength_cost']
+			else
+				PShoStrength -= temp_outfitVars['strength_cost']
+			end
+		end
+		if PShoBorrowed = 0: PShoStrength = dyneval("result = <<$shoeworntype>>_shoe_h[<<shoewornnumber>>]")
+	end
+
+	temp_outfitVars['outer_layer_done'] = 0
+
+	if $coatworntype = 'none' or $coatworntype = '':
+		PCoatStrength = 0
+	elseif func('coats', 'is_immutable'):
+		PCoatStrength = 10000
+	elseif PCoatBorrowed = 0 and func('coats', 'is_owned') = 0:
+		PCoatStrength = 100000
+	else
+		if temp_outfitVars['time_diff'] > 0:
+			temp_outfitVars['strength_cost'] = temp_outfitVars['time_diff']
+			if temp_outfitVars['outer_layer_done'] = 0:
+				temp_outfitVars['outer_layer_done'] = 1
+				if instr($location_type, 'outdoors') and SunWearther = 0:
+					temp_outfitVars['strength_cost'] = 3 * temp_outfitVars['strength_cost'] / 2
+				end
+			end
+			if PCoatBorrowed = 0:
+				gs 'coats', 'decrease_cur_strength', temp_outfitVars['strength_cost']
+			else
+				PCoatStrength -= temp_outfitVars['strength_cost']
+			end
+		end
+		if PCoatBorrowed = 0: PCoatStrength = dyneval("result = <<$coatworntype>>_coats_h[<<coatwornnumber>>]")
+	end
+
+	if $clothingworntype = 'nude' or $clothingworntype = '':
+		PCloStrength = 0
+	elseif $clothingworntype = 'misc_outfits' and clothingwornnumber = 1:
+		PCloStrength = 5000
+	elseif func('clothing', 'is_immutable'):
+		PCloStrength = 10000
+	elseif PCloBorrowed = 0 and func('clothing', 'is_owned') = 0:
+		PCloStrength = 100000
+	else
+		if temp_outfitVars['time_diff'] > 0:
+			temp_outfitVars['strength_cost'] = temp_outfitVars['time_diff']
+			if temp_outfitVars['outer_layer_done'] = 0:
+				temp_outfitVars['outer_layer_done'] = 1
+				temp_outfitVars['strength_cost'] *= 2
+				if instr($location_type, 'outdoors') and SunWearther = 0:
+					temp_outfitVars['strength_cost'] *= 3
+				end
+			end
+			if PCloBorrowed = 0:
+				gs 'clothing', 'decrease_cur_strength', temp_outfitVars['strength_cost']
+			else
+				PCloStrength -= temp_outfitVars['strength_cost']
+			end
+		end
+		if PCloBorrowed = 0: PCloStrength = dyneval("result = <<$clothingworntype>>_h[<<clothingwornnumber>>]")
+	end
+
+	if underwear['type'] = 2:
+		if $bodysuitworntype = 'none' or $bodysuitworntype = '':
+			PBraStrength = 0
+			PPanStrength = 0
+		elseif func('underwear_bodysuits', 'is_immutable'):
+			PBraStrength = 10000
+			PPanStrength = 10000
+		elseif PBraBorrowed = 0 and PPanBorrowed = 0 and func('underwear_bodysuits', 'is_owned') = 0:
+			PBraStrength = 100000
+			PPanStrength = 100000
+		else
+			if temp_outfitVars['time_diff'] > 0:
+				temp_outfitVars['strength_cost'] = temp_outfitVars['time_diff']
+				if temp_outfitVars['outer_layer_done'] = 0:
+					temp_outfitVars['strength_cost'] *= 3
+					if instr($location_type, 'outdoors') and SunWearther = 0:
+						temp_outfitVars['strength_cost'] *= 4
+					end
+				end
+				if PBraBorrowed = 0:
+					gs 'underwear_bodysuits', 'decrease_cur_strength', temp_outfitVars['strength_cost']
+				else
+					PBraStrength -= temp_outfitVars['strength_cost']
+					PPanStrength = PBraStrength
+				end
+			end
+			if PBraBorrowed = 0:
+				PBraStrength = dyneval("result = <<$bodysuitworntype>>_bodysuits_h[<<bodysuitwornnumber>>]")
+				PPanStrength = PBraStrength
+			end
+		end
+	else
+		if $braworntype = 'none' or $braworntype = '':
+			PBraStrength = 0
+		elseif func('bras', 'is_immutable'):
+			PBraStrength = 10000
+		elseif PBraBorrowed = 0 and func('bras', 'is_owned') = 0:
+			PBraStrength = 100000
+		else
+			if temp_outfitVars['time_diff'] > 0:
+				temp_outfitVars['strength_cost'] = temp_outfitVars['time_diff']
+				if temp_outfitVars['outer_layer_done'] = 0:
+					temp_outfitVars['strength_cost'] *= 3
+					if instr($location_type, 'outdoors') and SunWearther = 0:
+						temp_outfitVars['strength_cost'] *= 4
+					end
+				end
+				if PBraBorrowed = 0:
+					gs 'bras', 'decrease_cur_strength', temp_outfitVars['strength_cost']
+				else
+					PBraStrength -= temp_outfitVars['strength_cost']
+				end
+			end
+			if PBraBorrowed = 0: PBraStrength = dyneval("result = <<$braworntype>>_bras_h[<<brawornnumber>>]")
+		end
+
+		if $pantyworntype = 'none' or $pantyworntype = '':
+			PPanStrength = 0
+		elseif func('panties', 'is_immutable'):
+			PPanStrength = 10000
+		elseif PPanBorrowed = 0 and func('panties', 'is_owned') = 0:
+			PPanStrength = 100000
+		else
+			if temp_outfitVars['time_diff'] > 0:
+				temp_outfitVars['strength_cost'] = temp_outfitVars['time_diff']
+				if temp_outfitVars['outer_layer_done'] = 0:
+					temp_outfitVars['strength_cost'] *= 3
+					if instr($location_type, 'outdoors') and SunWearther = 0:
+						temp_outfitVars['strength_cost'] *= 4
+					end
+				end
+				if PPanBorrowed = 0:
+					gs 'panties', 'decrease_cur_strength', temp_outfitVars['strength_cost']
+				else
+					PPanStrength -= temp_outfitVars['strength_cost']
+				end
+			end
+			if PPanBorrowed = 0: PPanStrength = dyneval("result = <<$pantyworntype>>_panties_h[<<pantywornnumber>>]")
+		end
+	end
+	exit
+end
+
+
+
+!{
+	This compares the player heels skill to the skill required to wear any heels the player
+	currently wears. If the skill needed is greater than the player currently possesses,
+	the pain in the feet increases and the player earns heels skill. If the skill required
+	is lower, the player might still get experience, depending on how much greater the
+	player skill is.
+
+	Variables
+	pcs_heels is the main heels skill
+	PShoHeels tracks the height of the heels currently worn
+	PShoPain tracks the various brackets where Sveta feels pain from the heels
+	heelstime tracks the elapsed time since last check
+	heelsminut tracks when the heels skill was last changed
+
+	Only run if at least X minutes have passed since last time
+
+
+!}
+if $ARGS[0] = 'heel_stat_skill_pain':
+	!! fix for time cheat
+	if totminut < heelsminut or heelsminut = 0: heelsminut = totminut
+
+	if totminut < heelsminut + 30: exit
+
+	temp_outfitVars['heels_time'] = totminut - heelsminut
+	heelsminut = totminut
+	if inSleep <> 0: exit
+
+	!! Degrade heels skill when wearing flats/barefoot
+	if PShoHeels <= 1:
+		gs 'exp_deg', 'heels', rand(temp_outfitVars['heels_time'] / 30, temp_outfitVars['heels_time'] / 15)
+	end
+
+	!! ── Dependency pain (heel_preference > 0) ────────────────────────
+	!! Dependent players feel pain wearing shoes below their dependency.
+	!! Pain scales with how far below: flats hurt most, low heels less, mid least.
+	!! Tier 3: pain from mid heels (mild), low heels (moderate), flats / barefoot (severe)
+	!! Tier 2: pain from low heels (mild), flats / barefoot (moderate)
+	!! Tier 1: pain from flats / barefoot (mild)
+	temp_dep_pain = 0
+	if trait_vars['heel_preference'] >= 3:
+		if PShoHeels <= 1:
+			if pain['feet'] < 80: gs 'pain', rand(heelstime / 7, heelstime / 2), 'feet', 'ache'
+			temp_dep_pain = 1
+		elseif PShoHeels = 2:
+			if pain['feet'] < 60: gs 'pain', rand(heelstime / 15, heelstime / 5), 'feet', 'ache'
+			temp_dep_pain = 1
+		elseif PShoHeels = 3:
+			if pain['feet'] < 40: gs 'pain', rand(heelstime / 30, heelstime / 10), 'feet', 'ache'
+			temp_dep_pain = 1
+		end
+	elseif trait_vars['heel_preference'] >= 2:
+		if PShoHeels <= 1:
+			if pain['feet'] < 60: gs 'pain', rand(heelstime / 15, heelstime / 5), 'feet', 'ache'
+			temp_dep_pain = 1
+		elseif PShoHeels = 2:
+			if pain['feet'] < 40: gs 'pain', rand(heelstime / 30, heelstime / 10), 'feet', 'ache'
+			temp_dep_pain = 1
+		end
+	elseif trait_vars['heel_preference'] = 1:
+		if PShoHeels <= 1:
+			if pain['feet'] < 40: gs 'pain', rand(heelstime / 30, heelstime / 10), 'feet', 'ache'
+			temp_dep_pain = 1
+		end
+	end
+
+	!! Flats: no further processing needed (skill already degraded above)
+	!! Dependency pain already handled this tick — skip normal pain
+	if PShoHeels <= 1 or temp_dep_pain = 1:
+		killvar 'temp_dep_pain'
+		killvar 'temp_outfitVars'
+		exit
+	end
+	killvar 'temp_dep_pain'
+
+	if trait_vars['heel_preference'] < 0 and trait_vars['heel_preference_daily_limit'] > 0:
+		temp_time = min(temp_outfitVars['heels_time'], trait_vars['heel_preference_daily_limit'])
+		!! Gains are scaled x10 and banked in heel_preference_exp_rem
+		if pcs_heels < PShoPain['severe']:
+			trait_vars['heel_preference_exp_rem'] += 10 * temp_time
+		elseif pcs_heels < PShoPain['medium']:
+			trait_vars['heel_preference_exp_rem'] += 15 * temp_time
+		elseif pcs_heels < PShoPain['mild']:
+			trait_vars['heel_preference_exp_rem'] += 5 * temp_time
+		elseif PShoHeels >= 6:
+			trait_vars['heel_preference_exp_rem'] += 2 * temp_time
+		end
+		trait_vars['heel_preference_exp'] += trait_vars['heel_preference_exp_rem'] / 10
+		trait_vars['heel_preference_exp_rem'] = trait_vars['heel_preference_exp_rem'] mod 10
+		trait_vars['heel_preference_daily_limit'] = max(0, trait_vars['heel_preference_daily_limit'] - temp_time)
+		killvar 'temp_time'
+	end
+
+	if pcs_heels < PShoPain['severe']:
+		temp_outfitVars['heels_time'] = min(max(5, rand(temp_outfitVars['heels_time'] / 20, temp_outfitVars['heels_time'] / 10)), 10)
+		if pain['feet'] < 80: gs 'pain', rand(temp_outfitVars['heels_time'] / 5, temp_outfitVars['heels_time'] / 2), 'feet', 'ache'
+	elseif pcs_heels < PShoPain['medium']:
+		temp_outfitVars['heels_time'] = min(max(7, rand(temp_outfitVars['heels_time'] / 15, temp_outfitVars['heels_time'] / 8)), 12)
+		if pain['feet'] < 60: gs 'pain', rand(temp_outfitVars['heels_time'] / 10, temp_outfitVars['heels_time'] / 5), 'feet', 'ache'
+	elseif pcs_heels < PShoPain['mild']:
+		temp_outfitVars['heels_time'] = min(max(3, rand(temp_outfitVars['heels_time'] / 30, temp_outfitVars['heels_time'] / 15)), 6)
+		if pain['feet'] < 40: gs 'pain', rand(temp_outfitVars['heels_time'] / 20, temp_outfitVars['heels_time'] / 10), 'feet', 'ache'
+	elseif pcs_heels < PShoPain['mild'] + 10:
+		temp_outfitVars['heels_time'] = rand(-3, 0) + min(max(6, rand(temp_outfitVars['heels_time'] / 10, temp_outfitVars['heels_time'] / 5)), 9)
+	elseif pcs_heels < PShoPain['mild'] + 20:
+		temp_outfitVars['heels_time'] = rand(-5, 0) + min(max(4, rand(temp_outfitVars['heels_time'] / 20, temp_outfitVars['heels_time'] / 15)), 6)
+	else
+		temp_outfitVars['heels_time'] = rand(-7, 0) + min(max(3, rand(temp_outfitVars['heels_time'] / 30, temp_outfitVars['heels_time'] / 20)), 4)
+	end
+
+	if temp_outfitVars['heels_time'] < 0:
+		gs 'exp_deg', 'heels', -temp_outfitVars['heels_time']
+	elseif temp_outfitVars['heels_time'] > 0:
+		gs 'exp_gain', 'heels', temp_outfitVars['heels_time']
+	end
+
+	killvar 'tmp'
+	killvar 'heelstime'
+	exit
+end
+
+
+!! Computes messages and icons for stat_display, called from stat_display_compute
+if $ARGS[0] = 'compute_stat_display':
+	$stat_texts['clothes_tooltip'] = ''
+	$stat_texts['clothes'] = ''
+	$stat_texts['clothes_color'] = 'none'
+
+	!! Nude
+	if $clothingworntype = 'nude':
+		if $pantyworntype <> 'none':
+			if $braworntype = 'none':
+				$temp_outfitVars['clothes_style'] = 'underwear1'
+				$stat_texts['clothes'] = '你只穿着你的<<iif(PPanThinness >= 5, ''透视 '', '''')>>内裤，你走路时乳房诱人地晃动。'
+			elseif PBraThinness >= 5:
+				$temp_outfitVars['clothes_style'] = 'underwear0'
+				$stat_texts['clothes'] = '你只穿着你的透视<<iif(PPanThinness >= 5, ''内裤。'', ''胸罩和内裤。'')>>'
+			else
+				$temp_outfitVars['clothes_style'] = 'underwear0'
+				$stat_texts['clothes'] = '你只穿着你的<<iif(PPanThinness >= 5, ''透视内裤和普通胸罩。'', ''内裤。'')>>'
+			end
+			$stat_texts['clothes_color'] = 'v_neg'
+		elseif $braworntype <> 'none':
+			$temp_outfitVars['clothes_style'] = 'underwear2'
+			$stat_texts['clothes'] = '你只穿着你的透明 '
+			$stat_texts['clothes_color'] = 'v_neg'
+		else
+			$temp_outfitVars['clothes_style'] = 'nude'
+			if pcs_inhib < 5:
+				$stat_texts['clothes'] = '你只穿着胸罩，阴部和屁股完全裸露。'
+				$stat_texts['clothes_color'] = 'v_neg'
+			elseif pcs_inhib < 20:
+				$stat_texts['clothes'] = '你全身赤裸。你对裸体还不太适应，但这也有一点刺激。'
+				$stat_texts['clothes_color'] = 'neutral'
+			elseif pcs_inhib >= 90:
+				$stat_texts['clothes'] = '不太习惯裸体，但这有点刺激。'
+				$stat_texts['clothes_color'] = 'accent'
+			else
+				$stat_texts['clothes'] = '你全身赤裸。这很刺激，你内心感到酥麻。'
+				$stat_texts['clothes_color'] = 'bimbo'
+			end
+		end
+	elseif $clothingworntype = 'misc_outfits' and clothingwornnumber = 1:
+		$temp_outfitVars['clothes_style'] = 'clothes'
+		$stat_texts['clothes'] = '你穿着一件猎人给你的旧麻袋。'
+		$stat_texts['clothes_color'] = 'neutral'
+	else
+		!! Map style2 flags to readable type
+		if PCloSport:
+			$temp_outfitVars['clothes_type'] = '运动服'
+			$temp_outfitVars['clothes_style'] = 'exercise'
+		elseif PCloSwim:
+			$temp_outfitVars['clothes_type'] = '泳装'
+			$temp_outfitVars['clothes_style'] = 'swimsuit'
+		elseif PCloOffice:
+			$temp_outfitVars['clothes_type'] = '职业装'
+			$temp_outfitVars['clothes_style'] = 'office'
+		elseif PCloSchool:
+			$temp_outfitVars['clothes_type'] = '校服'
+			$temp_outfitVars['clothes_style'] = 'school'
+		elseif PCloStrip:
+			$temp_outfitVars['clothes_type'] = '脱衣舞服'
+			$temp_outfitVars['clothes_style'] = 'stripper'
+		elseif PCloServer:
+			$temp_outfitVars['clothes_type'] = '服务员制服'
+			$temp_outfitVars['clothes_style'] = 'server'
+		elseif PCloMaid:
+			$temp_outfitVars['clothes_type'] = '女仆装'
+			$temp_outfitVars['clothes_style'] = 'maid'
+		else
+			$temp_outfitVars['clothes_type'] = '套装'
+			$temp_outfitVars['clothes_style'] = 'clothes'
+		end
+
+		!! Build tooltip, icon style suffix, and display text directly from flags
+		$temp_outfitVars['tt'] = ''
+		$temp_outfitVars['sd_list'] = ''
+		$temp_outfitVars['style_code'] = ''
+
+		!! Exhibitionist / Prostitute (mutually exclusive)
+		if PCloStyle = 4 or PCloProstitute = 1:
+			$temp_outfitVars['tt'] += '/妓女'
+			$temp_outfitVars['sd_list'] += ', 妓女'
+			$temp_outfitVars['style_code'] = 'p'
+		elseif PCloInhibit >= 40 or PCloThinness = 6:
+			$temp_outfitVars['tt'] += '/暴露癖'
+			$temp_outfitVars['sd_list'] += ', 暴露癖'
+			$temp_outfitVars['style_code'] = 'e'
+		end
+
+		!! Bimbo / Goth / Punk (can stack) — each style word colored individually
+		if PCloBimbo = 1:
+			$temp_outfitVars['tt'] += '/花瓶'
+			$temp_outfitVars['sd_list'] += '，' + $func('wrap', 'bimbo', '花瓶')
+			$temp_outfitVars['style_code'] += 'b'
+		end
+		if PCloGoth = 1:
+			$temp_outfitVars['tt'] += '/哥特'
+			$temp_outfitVars['sd_list'] += '，' + $func('wrap', 'goth', '哥特')
+		end
+		if PCloPunk = 1:
+			$temp_outfitVars['tt'] += '/朋克'
+			$temp_outfitVars['sd_list'] += '，' + $func('wrap', 'punk', '朋克')
+		end
+
+		!! Tooltip: modifiers override revealingness label
+		if $temp_outfitVars['tt'] <> '':
+			$stat_texts['clothes_tooltip'] = mid($temp_outfitVars['tt'], 2) + ' ' + $temp_outfitVars['clothes_type'] + '.'
+		elseif PCloInhibit < 20:
+			$stat_texts['clothes_tooltip'] = '普通' + $temp_outfitVars['clothes_type'] + '。'
+		elseif PCloInhibit < 25:
+			$stat_texts['clothes_tooltip'] = '略微暴露' + $temp_outfitVars['clothes_type'] + '。'
+		elseif PCloInhibit < 30:
+			$stat_texts['clothes_tooltip'] = '暴露' + $temp_outfitVars['clothes_type'] + '。'
+		else
+			$stat_texts['clothes_tooltip'] = '非常暴露' + $temp_outfitVars['clothes_type'] + '。'
+		end
+
+		!! Icon style suffix: e/p/b codes take priority, else 's' for revealing
+		if $temp_outfitVars['style_code'] <> '':
+			$temp_outfitVars['clothes_style'] += '_' + $temp_outfitVars['style_code']
+		elseif PCloInhibit >= 20:
+			$temp_outfitVars['clothes_style'] += '_s'
+		end
+
+		!! Display text: "You are wearing a bimbo, goth outfit."
+		if $temp_outfitVars['sd_list'] <> '':
+			$temp_outfitVars['sd_list'] = mid($temp_outfitVars['sd_list'], 3)
+			$temp_outfitVars['sd_list_pre'] = ''
+			$stat_texts['clothes'] = '你穿着' + $temp_outfitVars['sd_list'] + '风格的' + $temp_outfitVars['clothes_type'] + '。'
+		end
+	end
+
+	!! ── Bra visibility ───────────────────────────────────────────────
+
+	if pcs_horny >= 50:
+		$temp_outfitVars['nipple_text'] = '兴奋的乳头'
+	elseif temper < 14:
+		$temp_outfitVars['nipple_text'] = '冰凉的乳头'
+	elseif trait_vars['pokies'] = 1:
+		$temp_outfitVars['nipple_text'] = '硬挺的乳头'
+	else
+		$temp_outfitVars['nipple_text'] = ''
+	end
+
+	if $clothingworntype <> 'nude':
+		if PCloBra = 1:
+			$stat_texts['bra'] = '非常暴露 '
+			$temp_outfitVars['bra_color'] = 'neutral'
+			$temp_outfitVars['bra_icon'] = ''
+		elseif PCloThinness = 6 and $braworntype = 'none':
+			if func('pcs_has_attr', 'body_tits_aa_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 是透明的并且你的整个胸部，从你的<<$pcdesc_breasts>>乳房的完整轮廓到你<<$temp_outfitVars[''nipple_text'']>>的颜色，完全可见。'
+			elseif func('pcs_has_attr', 'body_tits_a_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 是透明的，你的整个胸部，从你乳房的<<$pcdesc_breasts>>轮廓到你<<$temp_outfitVars[''nipple_text'']>>的颜色，完全可见。'
+			elseif func('pcs_has_attr', 'body_tits_b_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 是透明的并且你的整个胸部，从你的<<$pcdesc_breasts>>乳房的完整轮廓到你<<$temp_outfitVars[''nipple_text'']>>的颜色，完全可见。任何看着的人都能看到它们随着你走路而轻轻晃动。'
+			elseif func('pcs_has_attr', 'body_tits_c_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 是透明的并且你的整个胸部，从你的<<$pcdesc_breasts>>乳房的完整轮廓到你<<$temp_outfitVars[''nipple_text'']>>的颜色，完全可见。任何看着的人都能看到它们随着你走路而晃动。'
+			elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 是透明的并且你的整个胸部，从你的<<$pcdesc_breasts>>乳房的完整轮廓到你<<$temp_outfitVars[''nipple_text'']>>的颜色，完全可见。任何看着的人都能看到它们每走一步都跳动。'
+			else
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 是透明的并且你的整个胸部，从你的<<$pcdesc_breasts>>乳房的完整轮廓到你<<$temp_outfitVars[''nipple_text'']>>的颜色，完全可见。任何看着的人都能看到它们每走一步都剧烈跳动。'
+			end
+			$temp_outfitVars['bra_color'] = 'bimbo'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+		elseif PCloThinness = 6:
+			if func('pcs_has_attr', 'body_tits_aa_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的<<$temp_outfitVars[''nipple_text'']>>顶穿了胸罩和透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '。'
+				else
+					$stat_texts['bra'] = '你的胸罩透过你透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '。'
+				end
+			elseif func('pcs_has_attr', 'body_tits_a_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的<<$temp_outfitVars[''nipple_text'']>>顶穿了胸罩和透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，轻轻晃动，给任何想看的人看。'
+				else
+					$stat_texts['bra'] = '你的胸罩透过你透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 清晰可见，任何人只要看上一眼，都能看到你走路时<<$pcdesc_breasts>>的乳房在罩杯里轻微晃动。'
+				end
+			elseif func('pcs_has_attr', 'body_tits_b_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的<<$temp_outfitVars[''nipple_text'']>>顶穿了胸罩和透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，轻轻晃动，给任何想看的人看。'
+				else
+					$stat_texts['bra'] = '你的胸罩透过你透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 清晰可见，任何人只要看上一眼，都能看到你走路时<<$pcdesc_breasts>>的乳房在罩杯里轻轻晃动。'
+				end
+			elseif func('pcs_has_attr', 'body_tits_c_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的<<$temp_outfitVars[''nipple_text'']>>顶穿了胸罩和透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ', 在里面轻轻晃动供任何想看的人看。'
+				else
+					$stat_texts['bra'] = '你的胸罩透过你透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 清晰可见，任何人只要看上一眼，都能看到你走路时<<$pcdesc_breasts>>的乳房在罩杯里柔和地晃动。'
+				end
+			elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的<<$temp_outfitVars[''nipple_text'']>>顶穿了胸罩和透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ', 在里面晃动供任何想看的人看。'
+				else
+					$stat_texts['bra'] = '你的胸罩透过你透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 清晰可见，任何人只要看上一眼，都能看到你走路时<<$pcdesc_breasts>>的乳房在罩杯里晃动。'
+				end
+			else
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的<<$temp_outfitVars[''nipple_text'']>>顶穿了胸罩和透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ', 在里面剧烈晃动供任何想看的人看。'
+				else
+					$stat_texts['bra'] = '你的胸罩透过你透明的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 清晰可见，任何人只要看上一眼，都能看到你每走一步，<<$pcdesc_breasts>>的乳房都在罩杯里剧烈晃动。'
+				end
+			end
+			$temp_outfitVars['bra_color'] = 'bimbo'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+		elseif PCloCoverTop = 4:
+			if $braworntype <> 'none':
+				$stat_texts['bra'] = '你的胸罩完全展示出来，几乎没有遮住你的<<$pcdesc_breasts>>乳房。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+			else
+				$stat_texts['bra'] = '你的<<$pcdesc_breasts>>乳房完全裸露。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+			end
+			$temp_outfitVars['bra_color'] = 'v_neg'
+		elseif PCloThinness = 5 and $braworntype = 'none':
+			if func('pcs_has_attr', 'body_tits_aa_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你平坦的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你的<<$temp_outfitVars[''nipple_text'']>>清晰可见，在薄薄的布料上摩擦，令人分心。', '，你乳头的轮廓透过薄薄的布料清晰可见。')
+			elseif func('pcs_has_attr', 'body_tits_a_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你娇小的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你的<<$temp_outfitVars[''nipple_text'']>>清晰可见，在薄薄的布料上摩擦，令人分心。', '，你乳头的轮廓透过薄薄的布料清晰可见。')
+			elseif func('pcs_has_attr', 'body_tits_b_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你挺立的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你的<<$temp_outfitVars[''nipple_text'']>>清晰可见，在薄薄的布料上摩擦，令人分心。', '，你乳头的轮廓透过薄薄的布料清晰可见。')
+			elseif func('pcs_has_attr', 'body_tits_c_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你曲线优美的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你的<<$temp_outfitVars[''nipple_text'']>>清晰可见，在薄薄的布料上摩擦，令人分心。', '，你乳头的轮廓透过薄薄的布料清晰可见。')
+			elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你丰满的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你的<<$temp_outfitVars[''nipple_text'']>>清晰可见，在薄薄的布料上摩擦，令人分心。', '，你乳头的轮廓透过薄薄的布料清晰可见。')
+			else
+				$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你巨大的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你的<<$temp_outfitVars[''nipple_text'']>>清晰可见，在薄薄的布料上摩擦，令人分心。', '，你乳头的轮廓透过薄薄的布料清晰可见。')
+			end
+			$temp_outfitVars['bra_color'] = 'bimbo'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+		elseif PCloThinness = 5:
+			if func('pcs_has_attr', 'body_tits_aa_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你平坦的胸前' + iif($temp_outfitVars['nipple_text'] <> '', ' 而你<<$temp_outfitVars[''nipple_text'']>>的轮廓清晰可见，从胸罩罩杯中探出', ' 而且你乳头的轮廓清晰可见，从胸罩罩杯中透出。')
+				else
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你平坦的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你胸罩的颜色透过薄薄的布料清晰可见，而且你的<<$temp_outfitVars[''nipple_text'']>>在里面令人分心地摩擦着。', '，你胸罩的颜色透过薄薄的布料清晰可见。')
+				end
+			elseif func('pcs_has_attr', 'body_tits_a_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你娇小的胸前' + iif($temp_outfitVars['nipple_text'] <> '', ' 而你<<$temp_outfitVars[''nipple_text'']>>的轮廓清晰可见，从胸罩罩杯中探出', ' 而且你乳头的轮廓清晰可见，从胸罩罩杯中透出。')
+				else
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你娇小的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你胸罩的颜色透过薄薄的布料清晰可见，而且你的<<$temp_outfitVars[''nipple_text'']>>在里面令人分心地摩擦着。', '，你胸罩的颜色透过薄薄的布料清晰可见。')
+				end
+			elseif func('pcs_has_attr', 'body_tits_b_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你挺立的胸前' + iif($temp_outfitVars['nipple_text'] <> '', ' 而你<<$temp_outfitVars[''nipple_text'']>>的轮廓清晰可见，从胸罩罩杯中探出', ' 而且你乳头的轮廓清晰可见，从胸罩罩杯中透出。')
+				else
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你挺立的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你胸罩的颜色透过薄薄的布料清晰可见，而且你的<<$temp_outfitVars[''nipple_text'']>>在里面令人分心地摩擦着。', '，你胸罩的颜色透过薄薄的布料清晰可见。')
+				end
+			elseif func('pcs_has_attr', 'body_tits_c_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你曲线优美的胸前' + iif($temp_outfitVars['nipple_text'] <> '', ' 而你<<$temp_outfitVars[''nipple_text'']>>的轮廓清晰可见，从胸罩罩杯中探出', ' 而且你乳头的轮廓清晰可见，从胸罩罩杯中透出。')
+				else
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你曲线优美的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你胸罩的颜色透过薄薄的布料清晰可见，而且你的<<$temp_outfitVars[''nipple_text'']>>在里面令人分心地摩擦着。', '，你胸罩的颜色透过薄薄的布料清晰可见。')
+				end
+			elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你丰满的胸前' + iif($temp_outfitVars['nipple_text'] <> '', ' 而你<<$temp_outfitVars[''nipple_text'']>>的轮廓清晰可见，从胸罩罩杯中探出', ' 而且你乳头的轮廓清晰可见，从胸罩罩杯中透出。')
+				else
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你丰满的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你胸罩的颜色透过薄薄的布料清晰可见，而且你的<<$temp_outfitVars[''nipple_text'']>>在里面令人分心地摩擦着。', '，你胸罩的颜色透过薄薄的布料清晰可见。')
+				end
+			else
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你巨大的胸前' + iif($temp_outfitVars['nipple_text'] <> '', ' 而你<<$temp_outfitVars[''nipple_text'']>>的轮廓清晰可见，从胸罩罩杯中探出', ' 而且你乳头的轮廓清晰可见，从胸罩罩杯中透出。')
+				else
+					$stat_texts['bra'] = '你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ' 若隐若现地垂在你巨大的胸前' + iif($temp_outfitVars['nipple_text'] <> '', '，你胸罩的颜色透过薄薄的布料清晰可见，而且你的<<$temp_outfitVars[''nipple_text'']>>在里面令人分心地摩擦着。', '，你胸罩的颜色透过薄薄的布料清晰可见。')
+				end
+			end
+			$temp_outfitVars['bra_color'] = 'bimbo'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+		elseif PCloCoverTop = 3:
+			if $braworntype <> 'none':
+				$stat_texts['bra'] = '你的胸罩透过你的衣服清晰可见。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+			else
+				$stat_texts['bra'] = '你的<<$pcdesc_breasts>>乳房透过你的衣服清晰可见。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+			end
+			$temp_outfitVars['bra_color'] = 'v_neg'
+		elseif PCloTopCut = 4 and $braworntype <> 'none':
+			$stat_texts['bra'] = '你的胸罩部分可见，因为你 ' + iif(PCloDress = 1, '连衣裙的', '上衣的') + ' 领口。'
+			$temp_outfitVars['bra_color'] = 'neutral'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+		elseif PCloTopCut = 4:
+			$stat_texts['bra'] = '你上衣的低领几乎包裹不住你的<<$pcdesc_breasts>>乳房，几乎没有留下想象空间。'
+			$temp_outfitVars['bra_color'] = 'neutral'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+		elseif PCloThinness = 4 and $braworntype = 'none':
+			if func('pcs_has_attr', 'body_tits_aa_cup'):
+				$stat_texts['bra'] = '你平坦的胸部隐约勾勒出你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>在裸露的布料上令人分心地摩擦。', '，而你的乳头在布料上顶出小小的凸起。')
+			elseif func('pcs_has_attr', 'body_tits_a_cup'):
+				$stat_texts['bra'] = '你娇小的乳房隐约勾勒出你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>正透过布料显现出来，在里面令人分心地摩擦。', '，而你的乳头正透过布料显现出来。')
+			elseif func('pcs_has_attr', 'body_tits_b_cup'):
+				$stat_texts['bra'] = '你挺立的乳房勾勒出你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ', 随着每一步轻轻跳动 ' + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>在裸露的布料上令人分心地摩擦。', '，你的乳头在布料上顶出小小的凸起。')
+			elseif func('pcs_has_attr', 'body_tits_c_cup'):
+				$stat_texts['bra'] = '你丰满的乳房 ' + iif($temp_outfitVars['nipple_text'] <> '', '，而<<$temp_outfitVars[''nipple_text'']>>正在你的', '，你的乳头正在你的') + iif(PCloDress = 1, '连衣裙', '上衣') + ' 上顶出小小的凸起，随着每一步轻轻弹跳，在裸露的布料上令人分心地摩擦。'
+			elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+				$stat_texts['bra'] = '你相当大的乳房 ' + iif($temp_outfitVars['nipple_text'] <> '', '，而<<$temp_outfitVars[''nipple_text'']>>顶在裸露的布料上，撑起你的', '，而你裸露的乳头撑起你的') + iif(PCloDress = 1, '连衣裙', '上衣') + ', 在表面形成可见的突起，并随着每一步自由弹跳。'
+			else
+				$stat_texts['bra'] = '你巨大的乳房紧绷着你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + ', 随着每一步跳动' + iif($temp_outfitVars['nipple_text'] <> '', ', 以及你的<<$temp_outfitVars[''nipple_text'']>>把布料顶起来，在里面令人分心地摩擦着。', ', 而且你裸露的乳头正把布料顶起来。')
+			end
+			$temp_outfitVars['bra_color'] = 'bimbo'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+		elseif PCloThinness = 4:
+			if func('pcs_has_attr', 'body_tits_aa_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的胸罩轮廓正透过你的薄薄的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，而你的<<$temp_outfitVars[''nipple_text'']>>把两者都顶了起来' + iif(pcs_horny >= 50, '，在布料内侧令人分心地摩擦。', '。')
+				else
+					!! aroused nipples rubbing distractingly on the inside of your bra
+					$stat_texts['bra'] = '你的胸罩轮廓正透过你的薄薄的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>在罩杯内侧令人分心地摩擦着布料。', '。')
+				end
+			elseif func('pcs_has_attr', 'body_tits_a_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，而你的<<$temp_outfitVars[''nipple_text'']>>把两者都顶了起来' + iif(pcs_horny >= 50, '，你娇小的乳房每次轻颤，它们都在布料内侧令人分心地摩擦。', '。')
+				else
+					!! aroused nipples rubbing distractingly on the inside of your bra
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>随着你娇小的乳房每次轻颤，在罩杯内侧令人分心地摩擦着布料。', '。')
+				end
+			elseif func('pcs_has_attr', 'body_tits_b_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，而你的<<$temp_outfitVars[''nipple_text'']>>把两者都顶了起来' + iif(pcs_horny >= 50, '，你挺立的乳房每次轻颤，它们都在布料内侧令人分心地摩擦。', '。')
+				else
+					!! aroused nipples rubbing distractingly on the inside of your bra
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>随着你挺立的乳房每次轻颤，在罩杯内侧令人分心地摩擦着布料。', '。')
+				end
+			elseif func('pcs_has_attr', 'body_tits_c_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，而你的<<$temp_outfitVars[''nipple_text'']>>在两者上都顶出了清晰的凸起' + iif(pcs_horny >= 50, '，随着你丰满的乳房每次晃动，它们在布料内侧令人分心地摩擦。', '。')
+				else
+					!! aroused nipples rubbing distractingly on the inside of your bra
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>随着你丰满的乳房每次晃动，在罩杯内侧令人分心地摩擦着布料。', '。')
+				end
+			elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的胸罩轮廓正透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，而你的<<$temp_outfitVars[''nipple_text'']>>把两者都顶了起来' + iif(pcs_horny >= 50, '，随着你硕大的乳房每次晃动，它们在布料内侧令人分心地摩擦。', '。')
+				else
+					!! aroused nipples rubbing distractingly on the inside of your bra
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>随着你硕大的乳房每次晃动，在罩杯内侧令人分心地摩擦着布料。', '。')
+				end
+			else
+				if trait_vars['pokies'] = 1:
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + '，而你的<<$temp_outfitVars[''nipple_text'']>>把两者都顶了起来' + iif(pcs_horny >= 50, '，随着你巨大的乳房每次晃动，它们在布料内侧令人分心地摩擦。', '。')
+				else
+					!! aroused nipples rubbing distractingly on the inside of your bra
+					$stat_texts['bra'] = '你的胸罩轮廓透过你的 ' + iif(PCloDress = 1, '连衣裙', '上衣') + iif($temp_outfitVars['nipple_text'] <> '', '，而你的<<$temp_outfitVars[''nipple_text'']>>随着你巨大的乳房每次晃动，在罩杯内侧令人分心地摩擦着布料。', '。')
+				end
+			end
+			$temp_outfitVars['bra_color'] = 'bimbo'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+		elseif PCloCoverTop = 2:
+			if $braworntype <> 'none':
+				$stat_texts['bra'] = '你的胸罩透过你的衣服清晰可见。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+			else
+				$stat_texts['bra'] = '你的<<$pcdesc_breasts>>乳房透过你的衣服清晰可见。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+			end
+			$temp_outfitVars['bra_color'] = 'neg'
+		elseif PCloTopCut = 3 and $braworntype <> 'none':
+			$stat_texts['bra'] = '你的胸罩因你的低胸领口而若隐若现。'
+			$temp_outfitVars['bra_color'] = 'neutral'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+		elseif PCloTopCut = 3:
+			$stat_texts['bra'] = '你的低胸领口让人瞥见你裸露的胸部。'
+			$temp_outfitVars['bra_color'] = 'neutral'
+			$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+		elseif PCloCoverTop = 1:
+			if $braworntype <> 'none':
+				$stat_texts['bra'] = '你的胸罩透过你的衣服几乎看不见。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/bra'
+			else
+				$stat_texts['bra'] = '你的<<$pcdesc_breasts>>乳房透过你的衣服几乎看不见。'
+				$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+			end
+			$temp_outfitVars['bra_color'] = 'accent'
+		elseif $braworntype = 'none':
+			if pcs_horny >= 50:
+				$stat_texts['bra'] = '你没有穿胸罩而且你兴奋的乳头硬如岩石。'
+				$temp_outfitVars['bra_color'] = 'bimbo'
+			elseif temper < 14:
+				$stat_texts['bra'] = '你没有穿胸罩而且你的乳头冰冷。'
+				$temp_outfitVars['bra_color'] = 'neg'
+			else
+				if func('pcs_has_attr', 'body_tits_aa_cup'):
+					$stat_texts['bra'] = '你没穿胸罩，而且你的<<$pcdesc_breasts>>乳房贴着衣服内侧感觉很舒服。'
+				elseif func('pcs_has_attr', 'body_tits_a_cup'):
+					$stat_texts['bra'] = '你没穿胸罩，而且你的<<$pcdesc_breasts>>乳房走路时只是极轻微地弹动。'
+				elseif func('pcs_has_attr', 'body_tits_b_cup'):
+					$stat_texts['bra'] = '你没穿胸罩，而且你的<<$pcdesc_breasts>>乳房走路时轻轻晃动。'
+				elseif func('pcs_has_attr', 'body_tits_c_cup'):
+					$stat_texts['bra'] = '你没穿胸罩，而且你的<<$pcdesc_breasts>>乳房随着每一步弹动。'
+					temp_outfitVars['bra_imp'] = 1
+				elseif func('pcs_has_attr', 'OR', 'body_tits_d_cup', 'body_tits_e_cup'):
+					$stat_texts['bra'] = '你没穿胸罩，而且你的<<$pcdesc_breasts>>乳房随着每一步弹动。'
+					temp_outfitVars['bra_imp'] = 1
+				else
+					$stat_texts['bra'] = '你没穿胸罩，而且你的<<$pcdesc_breasts>>乳房随着每一步剧烈弹动。'
+					temp_outfitVars['bra_imp'] = 1
+				end
+				$temp_outfitVars['bra_color'] = 'neutral'
+			end
+			$temp_outfitVars['bra_icon'] = 'status/clothing/boobs_black|status/clothing/boobs_white'
+		end
+		if $stat_texts['bra'] <> '':
+			gs 'stat_display_compute', 'queue_msg', 'bra', $temp_outfitVars['bra_color'], $temp_outfitVars['bra_icon'], 4
+		end
+	end
+
+	!! ── Panties visibility ───────────────────────────────────────────
+	$stat_texts['panties'] = ''
+	$stat_texts['panties_color'] = 'none'
+	temp_outfitvars['panties_imp'] = 0
+	if $clothingworntype <> 'nude':
+		if $pantyworntype <> 'none':
+			$temp_outfitVars['panty_garment'] = iif(PCloDress = 1, '连衣裙', iif(PCloSkirt > 0, '短裙', '长裤'))
+			if PCloThinness = 6:
+				if PCloSkirt = 6:
+					$stat_texts['panties'] = '你的裙子太短了，内裤清晰可见。'
+				elseif PCloSkirt = 5:
+					$stat_texts['panties'] = '你的<<$temp_outfitVars[''panty_garment'']>>又短又透明，所以任何人都能看到你的内裤。'
+				else
+					$stat_texts['panties'] = '你的内裤正清晰地透过你透明的<<$temp_outfitVars[''panty_garment'']>>.'
+				end
+				$stat_texts['panties_color'] = 'v_neg'
+			elseif PCloThinness = 5:
+				if PCloSkirt = 6:
+					$stat_texts['panties'] = '你的<<$temp_outfitVars[''panty_garment'']>>太短了，你的内裤清晰可见。'
+					$stat_texts['panties_color'] = 'v_neg'
+				elseif PCloSkirt = 5:
+					$stat_texts['panties'] = '你的内裤轮廓可以被看到，而且经常从你短小的<<$temp_outfitVars[''panty_garment'']>>下露出来。'
+					$stat_texts['panties_color'] = 'v_neg'
+				elseif PCloPants = 6:
+					$stat_texts['panties'] = '你的短裤露出内裤，而且薄得可以看到内裤其余部分的轮廓。'
+					$stat_texts['panties_color'] = 'v_neg'
+				else
+					$stat_texts['panties'] = '你的内裤轮廓透过你的<<$temp_outfitVars[''panty_garment'']>>清晰可见。'
+					$stat_texts['panties_color'] = 'accent'
+				end
+			elseif PCloSkirt = 6:
+				$stat_texts['panties'] = '你的裙子太短了，内裤清晰可见。'
+				$stat_texts['panties_color'] = 'v_neg'
+			elseif PCloPants = 6:
+				$stat_texts['panties'] = '你的短裤露出你的内裤。'
+				$stat_texts['panties_color'] = 'v_neg'
+			elseif PCloSkirt = 5:
+				$stat_texts['panties'] = '你的连衣裙很短而且你的内裤经常可以看到。'
+				$stat_texts['panties_color'] = 'v_neg'
+			elseif PCloSkirt = 4:
+				$stat_texts['panties'] = '你的连衣裙短到你弯腰时内裤可以被看到。'
+				$stat_texts['panties_color'] = 'accent'
+			end
+		end
+
+		if PCloPanties = 1:
+			$stat_texts['panties'] = '你的装束代替了你的内裤。'
+			$stat_texts['panties_color'] = 'neg'
+		elseif $pantyworntype = 'none':
+			$stat_texts['panties'] = '你没有穿任何内裤。'
+			if pcs_inhib < 30:
+				$stat_texts['panties_color'] = 'v_neg'
+				temp_outfitvars['panties_imp'] = 1
+			elseif pcs_inhib < 70:
+				$stat_texts['panties_color'] = 'accent'
+			else
+				$stat_texts['panties_color'] = 'neg'
+			end
+		end
+
+		if PCloCoverFront > 0 and PCloCoverBack > 0:
+			if PCloCoverFront <= 1:
+				$temp_outfitVars['sdp_f'] = '几乎看不见'
+			elseif PCloCoverFront = 2:
+				$temp_outfitVars['sdp_f'] = '可见'
+			elseif PCloCoverFront = 3:
+				$temp_outfitVars['sdp_f'] = '清晰可见'
+			else
+				$temp_outfitVars['sdp_f'] = '完全裸露'
+			end
+
+			if PCloCoverBack <= 1:
+				$temp_outfitVars['sdp_b'] = '几乎看不见'
+			elseif PCloCoverBack = 2:
+				$temp_outfitVars['sdp_b'] = '可见'
+			elseif PCloCoverBack = 3:
+				$temp_outfitVars['sdp_b'] = '清晰可见'
+			else
+				$temp_outfitVars['sdp_b'] = '完全裸露'
+			end
+
+			if PCloCoverFront = PCloCoverBack:
+				$stat_texts['panties'] = '你的阴部和屁股透过你的衣服<<$temp_outfitVars[''sdp_f'']>>。'
+			else
+				$stat_texts['panties'] = '透过你的衣服，你的阴部<<$temp_outfitVars[''sdp_f'']>>，你的屁股<<$temp_outfitVars[''sdp_b'']>>。'
+			end
+
+			if PCloCoverFront = 1 or PCloCoverBack = 1:
+				$stat_texts['panties_color'] = 'accent'
+			end
+			if PCloCoverFront = 2 or PCloCoverBack = 2:
+				$stat_texts['panties_color'] = 'neg'
+			elseif PCloCoverFront >= 3 or PCloCoverBack >= 3:
+				$stat_texts['panties_color'] = 'v_neg'
+				temp_outfitvars['panties_imp'] = 1
+			end
+		end
+		if $pantyworntype <> 'none' and (isprok = 0 and isprokp = 0 and mesec > 0 and preg = 0 and $loc <> 'gad_gpyard' and (isprok_lastday = 0 or (hour > 4 and isprok_lastday = 1))):
+			$stat_texts['panties'] = '你来月经时没有使用任何卫生用品，血正在浸透你的内裤！'
+			temp_outfitvars['panties_imp'] = 1
+		end
+	end
+
+
+	!!┌──────────────────────────────────────────────────────────────────┐
+	!!│                        Dirt and Strength                         │
+	!!└──────────────────────────────────────────────────────────────────┘
+
+	$stat_texts['outfit_clean'] = ''
+	$stat_texts['outfit_strength'] = ''
+
+	temp_outfitVars['wash_sum'] = 0
+	temp_outfitVars['wash_max'] = 0
+	temp_outfitVars['repair_sum'] = 0
+	temp_outfitVars['repair_max'] = 0
+
+	!! ── Clothing ─────────────────────────────────────────────────────
+	$stat_texts['clothes_clean'] = ''
+	$stat_texts['clothes_repair'] = ''
+
+	if $clothingworntype <> 'nude':
+		$stat_texts['clothes_clean'] = '你的衣服 '
+		if cheatVars['clothes_dirt'] = 1:
+			$stat_texts['clothes_clean'] += '很干净。'
+			gs 'stat_display_compute', 'queue_msg', 'clothes_clean', 'neutral', 'pos'
+		elseif func('clothing', 'is_immutable'):
+			$stat_texts['clothes_clean'] += '尽可能干净。'
+			gs 'stat_display_compute', 'queue_msg', 'clothes_clean', 'neutral', 'const'
+		else
+			temp_outfitVars['wash_sum'] += min(PCloDirt, 2640)
+			temp_outfitVars['wash_max'] += 2640
+			if PCloDirt <= 480:
+				$stat_texts['clothes_clean'] += '很干净。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_clean', 'v_pos', 'pos'
+			elseif PCloDirt <= 1440:
+				$stat_texts['clothes_clean'] += '有点脏。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_clean', 'v_neg'
+			elseif PCloDirt <= 2400:
+				$stat_texts['clothes_clean'] += '脏了。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_clean', 'v_neg'
+			else
+				$stat_texts['clothes_clean'] += '很脏。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_clean', 'v_neg'
+				gs 'stat_display_compute', 'queue_alert', $stat_texts['clothes_clean'], 'v_neg'
+			end
+		end
+
+		$stat_texts['clothes_repair'] = '你的衣服 '
+		if cheatVars['clothes_strength'] = 1:
+			$stat_texts['clothes_repair'] += '状况完好。'
+			gs 'stat_display_compute', 'queue_msg', 'clothes_repair', 'neutral', 'pos'
+		elseif func('clothing', 'is_immutable'):
+			$stat_texts['clothes_repair'] += '状况尽可能好。'
+			gs 'stat_display_compute', 'queue_msg', 'clothes_repair', 'neutral', 'const'
+		else
+			temp_outfitVars['repair_sum'] += min(PCloStrength, PCloMaxStrength)
+			temp_outfitVars['repair_max'] += PCloMaxStrength
+			if PCloStrength < PCloMaxStrength / 10:
+				$stat_texts['clothes_repair'] += '状况很差。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_repair', 'v_neg'
+				gs 'stat_display_compute', 'queue_alert', $stat_texts['clothes_repair'], 'v_neg'
+			elseif PCloStrength < PCloMaxStrength / 2:
+				$stat_texts['clothes_repair'] += '开始出现磨损的迹象。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_repair', 'v_neg'
+			elseif PCloStrength < 3 * PCloMaxStrength / 4:
+				$stat_texts['clothes_repair'] += '状况良好。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_repair', 'neutral', 'pos'
+			else
+				$stat_texts['clothes_repair'] += '状况完好。'
+				gs 'stat_display_compute', 'queue_msg', 'clothes_repair', 'v_pos', 'pos'
+			end
+		end
+
+		$stat_texts['outfit_clean'] += $stat_texts['clothes_clean'] + ' '
+		$stat_texts['outfit_repair'] += $stat_texts['clothes_repair'] + ' '
+	end
+
+	!! ── Underwear ────────────────────────────────────────────────────
+	$stat_texts['bra_clean'] = ''
+	$stat_texts['panties_clean'] = ''
+	$stat_texts['bra_repair'] = ''
+	$stat_texts['panties_repair'] = ''
+
+	if underwear['type'] = 2:
+		!! ── Bodysuit ──────────────────────────────────────────────────
+		if $bodysuitworntype <> 'none' and $bodysuitworntype <> '':
+			$stat_texts['panties_clean'] = '你的连体衣 '
+			if cheatVars['clothes_dirt'] = 1:
+				$stat_texts['panties_clean'] += '很干净。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'neutral', 'pos'
+			elseif func('underwear_bodysuits', 'is_immutable'):
+				$stat_texts['panties_clean'] += '尽可能干净。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'neutral', 'const'
+			else
+				temp_outfitVars['wash_sum'] += min(PPanDirt, 2640)
+				temp_outfitVars['wash_max'] += 2640
+				if PPanDirt <= 480:
+					$stat_texts['panties_clean'] += '很干净。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_pos', 'pos'
+				elseif PPanDirt <= 1440:
+					$stat_texts['panties_clean'] += '有点脏。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_neg'
+				elseif PPanDirt <= 2400:
+					$stat_texts['panties_clean'] += '脏了。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_neg'
+					temp_outfitvars['panties_imp'] = 1
+				else
+					$stat_texts['panties_clean'] += '很脏。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_neg'
+					gs 'stat_display_compute', 'queue_alert', $stat_texts['panties_clean'], 'v_neg'
+					temp_outfitvars['panties_imp'] = 1
+				end
+			end
+
+			$stat_texts['panties_repair'] = '你的连体衣 '
+			if cheatVars['clothes_strength'] = 1:
+				$stat_texts['panties_repair'] += '状况完好。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'neutral', 'pos'
+			elseif func('underwear_bodysuits', 'is_immutable'):
+				$stat_texts['panties_repair'] += '状况尽可能好。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'neutral', 'const'
+			else
+				temp_outfitVars['repair_sum'] += min(PBraStrength, PBraMaxStrength)
+				temp_outfitVars['repair_max'] += PBraMaxStrength
+				if PBraStrength < PBraMaxStrength / 10:
+					$stat_texts['panties_repair'] += '状况很差。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'v_neg'
+					gs 'stat_display_compute', 'queue_alert', $stat_texts['panties_repair'], 'v_neg'
+				elseif PBraStrength < PBraMaxStrength / 2:
+					$stat_texts['panties_repair'] += '开始出现磨损的迹象。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'v_neg'
+				elseif PBraStrength < 3 * PBraMaxStrength / 4:
+					$stat_texts['panties_repair'] += '状况良好。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'neutral', 'pos'
+				else
+					$stat_texts['panties_repair'] += '状况完好。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'v_pos', 'pos'
+				end
+			end
+			$stat_texts['outfit_clean'] += $stat_texts['panties_clean'] + ' '
+			$stat_texts['outfit_repair'] += $stat_texts['panties_repair'] + ' '
+		end
+	else
+		!! ── Bra ──────────────────────────────────────────────────────
+		if $braworntype <> 'none' and $braworntype <> '':
+			$stat_texts['bra_clean'] = '你的胸罩 '
+			if cheatVars['clothes_dirt'] = 1:
+				$stat_texts['bra_clean'] += '很干净。'
+				gs 'stat_display_compute', 'queue_msg', 'bra_clean', 'neutral', 'pos'
+			elseif func('bras', 'is_immutable'):
+				$stat_texts['bra_clean'] += '尽可能干净。'
+				gs 'stat_display_compute', 'queue_msg', 'bra_clean', 'neutral', 'const'
+			else
+				temp_outfitVars['wash_sum'] += min(PBraDirt, 2640)
+				temp_outfitVars['wash_max'] += 2640
+				if PBraDirt <= 480:
+					$stat_texts['bra_clean'] += '很干净。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_clean', 'v_pos', 'pos'
+				elseif PBraDirt <= 1440:
+					$stat_texts['bra_clean'] += '有点脏。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_clean', 'v_neg'
+				elseif PBraDirt <= 2400:
+					$stat_texts['bra_clean'] += '脏了。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_clean', 'v_neg'
+					temp_outfitvars['bra_imp'] = 1
+				else
+					$stat_texts['bra_clean'] += '很脏。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_clean', 'v_neg'
+					gs 'stat_display_compute', 'queue_alert', $stat_texts['bra_clean'], 'v_neg'
+					temp_outfitvars['bra_imp'] = 1
+				end
+			end
+
+			$stat_texts['bra_repair'] = '你的胸罩 '
+			if cheatVars['clothes_strength'] = 1:
+				$stat_texts['bra_repair'] += '状况完好。'
+				gs 'stat_display_compute', 'queue_msg', 'bra_repair', 'neutral', 'pos'
+			elseif func('bras', 'is_immutable'):
+				$stat_texts['bra_repair'] += '状况尽可能好。'
+				gs 'stat_display_compute', 'queue_msg', 'bra_repair', 'neutral', 'const'
+			else
+				temp_outfitVars['repair_sum'] += min(PBraStrength, PBraMaxStrength)
+				temp_outfitVars['repair_max'] += PBraMaxStrength
+				if PBraStrength < PBraMaxStrength / 10:
+					$stat_texts['bra_repair'] += '状况很差。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_repair', 'v_neg'
+					gs 'stat_display_compute', 'queue_alert', $stat_texts['bra_repair'], 'v_neg'
+				elseif PBraStrength < PBraMaxStrength / 2:
+					$stat_texts['bra_repair'] += '开始出现磨损的迹象。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_repair', 'v_neg'
+				elseif PBraStrength < 3 * PBraMaxStrength / 4:
+					$stat_texts['bra_repair'] += '状况良好。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_repair', 'neutral', 'pos'
+				else
+					$stat_texts['bra_repair'] += '状况完好。'
+					gs 'stat_display_compute', 'queue_msg', 'bra_repair', 'v_pos', 'pos'
+				end
+			end
+
+			$stat_texts['outfit_clean'] += $stat_texts['bra_clean'] + ' '
+			$stat_texts['outfit_repair'] += $stat_texts['bra_repair'] + ' '
+		end
+
+		!! ── Panties ──────────────────────────────────────────────────────────
+		if $pantyworntype <> 'none' and $pantyworntype <> '':
+			$stat_texts['panties_clean'] = '你的内裤 '
+			if cheatVars['clothes_dirt'] = 1:
+				$stat_texts['panties_clean'] += '很干净。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'neutral', 'pos'
+			elseif func('panties', 'is_immutable'):
+				$stat_texts['panties_clean'] += '尽可能干净。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'neutral', 'const'
+			else
+				temp_outfitVars['wash_sum'] += min(PPanDirt, 2640)
+				temp_outfitVars['wash_max'] += 2640
+				if PPanDirt <= 480:
+					$stat_texts['panties_clean'] += '很干净。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_pos', 'pos'
+				elseif PPanDirt <= 1440:
+					$stat_texts['panties_clean'] += '有点脏。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_neg'
+				elseif PPanDirt <= 2400:
+					$stat_texts['panties_clean'] += '脏了。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_neg'
+					temp_outfitvars['panties_imp'] = 1
+				else
+					$stat_texts['panties_clean'] += '很脏。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_clean', 'v_neg'
+					gs 'stat_display_compute', 'queue_alert', $stat_texts['panties_clean'], 'v_neg'
+					temp_outfitvars['panties_imp'] = 1
+				end
+			end
+
+			$stat_texts['panties_repair'] = '你的内裤 '
+			if cheatVars['clothes_strength'] = 1:
+				$stat_texts['panties_repair'] += '状况完好。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'neutral', 'pos'
+			elseif func('panties', 'is_immutable'):
+				$stat_texts['panties_repair'] += '状况尽可能好。'
+				gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'neutral', 'const'
+			else
+				temp_outfitVars['repair_sum'] += min(PPanStrength, PPanMaxStrength)
+				temp_outfitVars['repair_max'] += PPanMaxStrength
+				if PPanStrength < PPanMaxStrength / 10:
+					$stat_texts['panties_repair'] += '状况很差。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'v_neg'
+					gs 'stat_display_compute', 'queue_alert', $stat_texts['panties_repair'], 'v_neg'
+				elseif PPanStrength < PPanMaxStrength / 2:
+					$stat_texts['panties_repair'] += '开始出现磨损的迹象。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'v_neg'
+				elseif PPanStrength < 3 * PPanMaxStrength / 4:
+					$stat_texts['panties_repair'] += '状况良好。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'neutral', 'pos'
+				else
+					$stat_texts['panties_repair'] += '状况完好。'
+					gs 'stat_display_compute', 'queue_msg', 'panties_repair', 'v_pos', 'pos'
+				end
+			end
+
+			$stat_texts['outfit_clean'] += $stat_texts['panties_clean'] + ' '
+			$stat_texts['outfit_repair'] += $stat_texts['panties_repair'] + ' '
+		end
+	end
+
+	!! ── Shoes condition ───────────────────────────────────────────────
+	$stat_texts['shoes_repair'] = ''
+	if $shoeworntype <> 'none' and $shoeworntype <> '':
+		$stat_texts['shoes_repair'] = '你的鞋子 '
+		if cheatVars['clothes_strength'] = 1:
+			$stat_texts['shoes_repair'] += '状况良好。'
+			gs 'stat_display_compute', 'queue_msg', 'shoes_repair', 'neutral', 'pos'
+		elseif func('shoes', 'is_immutable'):
+			$stat_texts['shoes_repair'] += '状况尽可能好。'
+			gs 'stat_display_compute', 'queue_msg', 'shoes_repair', 'neutral', 'const'
+		else
+			temp_outfitVars['repair_sum'] += min(PShoStrength, PShoMaxStrength)
+			temp_outfitVars['repair_max'] += PShoMaxStrength
+			if PShoStrength < PShoMaxStrength / 10:
+				$stat_texts['shoes_repair'] += '状况很差。'
+				gs 'stat_display_compute', 'queue_msg', 'shoes_repair', 'v_neg'
+				gs 'stat_display_compute', 'queue_alert', $stat_texts['shoes_repair'], 'v_neg'
+			elseif PShoStrength < PShoMaxStrength / 2:
+				$stat_texts['shoes_repair'] += '开始出现磨损的迹象。'
+				gs 'stat_display_compute', 'queue_msg', 'shoes_repair', 'v_neg'
+			elseif PShoStrength < 3 * PShoMaxStrength / 4:
+				$stat_texts['shoes_repair'] += '状况良好。'
+				gs 'stat_display_compute', 'queue_msg', 'shoes_repair', 'neutral', 'pos'
+			else
+				$stat_texts['shoes_repair'] += '状况完好。'
+				gs 'stat_display_compute', 'queue_msg', 'shoes_repair', 'v_pos', 'pos'
+			end
+		end
+
+		$stat_texts['outfit_repair'] += $stat_texts['shoes_repair'] + ' '
+	end
+
+	!! ── Coat condition ─────────────────────────────────────────────────
+	$stat_texts['coat_repair'] = ''
+	if $coatworntype <> 'none' and $coatworntype <> '':
+		$stat_texts['coat_repair'] = '你的外套 '
+		if cheatVars['clothes_strength'] = 1:
+			$stat_texts['coat_repair'] += '状况良好。'
+			gs 'stat_display_compute', 'queue_msg', 'coat_repair', 'neutral', 'pos'
+		elseif func('coats', 'is_immutable'):
+			$stat_texts['coat_repair'] += '状况尽可能好。'
+			gs 'stat_display_compute', 'queue_msg', 'coat_repair', 'neutral', 'const'
+		else
+			temp_outfitVars['repair_sum'] += min(PCoatStrength, PCoatMaxStrength)
+			temp_outfitVars['repair_max'] += PCoatMaxStrength
+			if PCoatStrength < PCoatMaxStrength / 10:
+				$stat_texts['coat_repair'] += '状况很差。'
+				gs 'stat_display_compute', 'queue_msg', 'coat_repair', 'v_neg'
+				gs 'stat_display_compute', 'queue_alert', $stat_texts['coat_repair'], 'v_neg'
+			elseif PCoatStrength < PCoatMaxStrength / 2:
+				$stat_texts['coat_repair'] += '开始出现磨损的迹象。'
+				gs 'stat_display_compute', 'queue_msg', 'coat_repair', 'v_neg'
+			elseif PCoatStrength < 3 * PCoatMaxStrength / 4:
+				$stat_texts['coat_repair'] += '状况良好。'
+				gs 'stat_display_compute', 'queue_msg', 'coat_repair', 'neutral', 'pos'
+			else
+				$stat_texts['coat_repair'] += '状况完好。'
+				gs 'stat_display_compute', 'queue_msg', 'coat_repair', 'v_pos', 'pos'
+			end
+		end
+
+		$stat_texts['outfit_repair'] += $stat_texts['coat_repair'] + ' '
+	end
+
+	if $stat_texts['outfit_repair'] <> '':
+		if temp_outfitVars['repair_max'] = 0:
+			$temp_outfitVars['repair_icon'] = 'repair11'
+		else
+			temp_outfitVars['repair_index'] = (11 * temp_outfitVars['repair_sum'] + temp_outfitVars['repair_max'] / 2) / temp_outfitVars['repair_max']
+			temp_outfitVars['repair_index'] = min(max(0, temp_outfitVars['repair_index']), 11)
+			$temp_outfitVars['repair_icon'] = 'repair' + $str(temp_outfitVars['repair_index'])
+		end
+	end
+
+	!! Average dirt across worn non-immutable items; immutables have constant dirt (1440) so
+	!! they are excluded. If every worn item is immutable, the icon shows fully clean (wash11).
+	!! wash11 = spotless, wash0 = filthy. Each dirt point / 240 moves one step down the scale.
+	if $stat_texts['outfit_clean'] <> '':
+		if temp_outfitVars['wash_max'] = 0:
+			$temp_outfitVars['clean_icon'] = 'wash11'
+		else
+			temp_outfitVars['wash_index'] = 11 - (11 * temp_outfitVars['wash_sum'] + temp_outfitVars['wash_max'] / 2) / temp_outfitVars['wash_max']
+			temp_outfitVars['wash_index'] = min(max(0, temp_outfitVars['wash_index']), 11)
+			$temp_outfitVars['clean_icon'] = 'wash' + $str(temp_outfitVars['wash_index'])
+		end
+	end
+
+	if $stat_texts['clothes'] <> '' or $temp_outfitVars['clothes_style'] <> '':
+		gs 'stat_display_compute', 'queue_msg', 'clothes', $stat_texts['clothes_color'], 'status/clothing/' + $temp_outfitVars['clothes_style'], 4
+	end
+
+	if $stat_texts['panties'] <> '':
+		if $pantyworntype = 'none':
+			gs 'stat_display_compute', 'queue_msg', 'panties', $stat_texts['panties_color'], 'status/clothing/commando_black|status/clothing/commando_white', 4
+		elseif isprok = 0 and isprokp = 0 and mesec > 0 and preg = 0:
+			gs 'stat_display_compute', 'queue_msg', 'panties', $stat_texts['panties_color'], 'status/clothing/panties_red', 4
+		else
+			gs 'stat_display_compute', 'queue_msg', 'panties', $stat_texts['panties_color'], 'status/clothing/panties', 4
+		end
+	end
+
+	!! Pair clean+repair icons side-by-side in one cell (modes 0=both, 1=icon-only)
+	!! Icons are narrow (~31px), so wrap in a min-width div to keep the table column aligned.
+	if stat_cfg['msg_display_mode'] <> 2:
+		$temp_outfitVars['clo_paired'] = ''
+		if $temp_outfitVars['clean_icon'] <> '':
+			$temp_outfitVars['clo_paired'] += '<a href="exec: msg $stat_texts[''outfit_clean'']"><img src="images/system/icons/status/clothing/' + $temp_outfitVars['clean_icon'] + '.png" title="<<$stat_texts[''outfit_clean'']>>" height="<<stat_cfg[''menu_icon_height'']>>"></a>'
+		end
+		if $temp_outfitVars['repair_icon'] <> '':
+			$temp_outfitVars['clo_paired'] += '<a href="exec: msg $stat_texts[''outfit_repair'']"><img src="images/system/icons/status/clothing/' + $temp_outfitVars['repair_icon'] + '.png" title="<<$stat_texts[''outfit_repair'']>>" height="<<stat_cfg[''menu_icon_height'']>>"></a>'
+		end
+		if $temp_outfitVars['clo_paired'] <> '': $sd_icons_4[] = '<div style="min-width:<<stat_cfg[''menu_icon_height'']>>px;text-align:center;">' + $temp_outfitVars['clo_paired'] + '</div>'
+	end
+
+	killvar 'temp_outfitVars'
+	exit
+end
+
+
+--- outfit ---------------------------------

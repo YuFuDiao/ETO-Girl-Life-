@@ -1,0 +1,341 @@
+# KGOLfight
+
+minut += 1
+gs 'stat'
+
+if KGHP < KGHPMAX and KGOLhirka > 0:
+	kghneed = KGHPMAX - KGHP
+
+	if KGOLhirka >= kghneed:
+		KGOLhirka -= kghneed
+		KGHP = KGHPMAX
+	else
+		KGHP = KGOLhirka
+		KGOLhirka = 0
+	end
+end
+
+if KGOLdist < 0: KGOLdist = 0
+
+if KGOLtimer > 0:
+	KGOLtimer -= 1
+
+	if KGOLtimer <= 0:
+		KGOLbrona -= KGOLbronaMod
+		KGOLbronaMod = 0
+		KGOLstren -= KGOLstrenMod
+		KGOLstrenMod = 0
+		KGOLspeed -= KGOLspeedMod
+		KGOLspeedMod = 0
+		KGOLvital -= KGOLvitalMod
+		KGOLvitalMod = 0
+		KGOLintel -= KGOLintelMod
+		KGOLintelMod = 0
+		KGOLwpower -= KGOLwpowerMod
+		KGOLwpowerMod = 0
+	end
+end
+
+if unvis > 0: '你现在处于隐身状态。'
+if poison > 0:
+	poison -= 1
+	KGHPV -= KGOLspell4 * 10
+	'你的毒刃对敌人造成<<KGOLspell4 * 10>>点伤害。'
+end
+if firecircle > 0:
+	firecircle -= 1
+	KGHPV -= KGOLspell9 * 50
+	'火环对敌人造成<<KGOLspell9 * 50>>点伤害。'
+end
+
+'<<$KGOLname>>'
+'生命：<<KGHP>>'
+'法力：<<KGMana>>'
+
+'<<$KGname>>'
+'生命：<<KGHPV>>'
+'法力：<<KGManaV>>'
+
+if KGOLhirka > 0: '你的活力药剂会自动为你恢复最多<<KGOLhirka>>点生命值。'
+
+'距离：<<KGOLdist>>米'
+
+if KGOLtimer > 0: '神圣庇护还会持续<<KGOLtimer>>个回合。'
+if KGOLcooldown > 0: '你的技能将在<<KGOLcooldown>>个回合后结束冷却。'
+!! end of fight
+
+if KGHP <= 0:
+	KGOLloss += 1
+	poison = 0
+	firecircle = 0
+	pcs_mana -= 100
+	'你输掉了这场战斗。'
+
+	act '继续': gt 'KGOLgame'
+
+	exit
+end
+
+if KGHPV <= 0:
+	poison = 0
+	firecircle = 0
+	KGOLWin += 1
+	KGOLmoney += KGOLPrizeM
+	KGOLexp += KGOLPrizeExp
+	pcs_mana += 100
+	'<<$KGname>>倒下了。'
+	'你赢得了战斗，获得<<KGOLPrizeM>>枚金币和<<KGOLPrizeExp>>点经验值。'
+
+	if KGOLennumBoss = 1 and boss5lvl = 0:
+		boss5lvl = 1
+		KGOLhirka += 5000
+		'首领掉落了一个活力药剂。'
+	end
+	if KGOLennum = 0 and KGOLmqw = 1: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+	if KGOLennum = 1 and KGOLmqw = 3: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+	if KGOLennum = 2 and KGOLmqw = 5: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+	if KGOLennum = 3 and KGOLmqw = 7: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+	if KGOLennum = 4 and KGOLmqw = 9: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+	if KGOLennum = 5 and KGOLmqw = 11: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+	if KGOLennum = 6 and KGOLmqw = 13: KGOLqwvip += 1 & '你杀死了一个当前任务所需的小怪。'
+
+	act '脱离战斗': gt 'KGOLgame'
+
+	exit
+end
+
+!! initiative
+KGOLiniV = rand(KGOLspeedV / 2, KGOLspeedV * 2)
+KGOLini = rand(KGOLspeed / 2, KGOLspeed * 2)
+
+	if KGOLini = KGOLiniV:
+		hodrand = rand(0, 1)
+
+		if hodrand = 0: KGOLini = 1 & KGOLiniV = 0
+		if hodrand = 1: KGOLini = 0 & KGOLiniV = 1
+	end
+
+	if KGOLini > KGOLiniV: KGOLiniSUM += 1
+	if KGOLini < KGOLiniV: KGOLiniSUM -= 1
+	if KGOLiniSUM > 3:
+		KGOLini = 0
+		KGOLiniV = 1
+		KGOLiniSUM = 0
+	end
+	if KGOLiniSUM < -3:
+		KGOLini = 1
+		KGOLiniV = 0
+		KGOLiniSUM = 0
+	end
+
+	!! moves
+	if KGOLini > KGOLiniV or unvis > 0:
+		'现在轮到你行动'
+
+		if $KGOLklass = 'Warrior':
+			!! warrior
+			if KGOLdist < 3:
+				act '攻击':
+					cla
+					KGOLpower = KGOLstren + KGOLwpower
+					gs 'KGOLexpa', 'KGOLatk'
+
+					act '继续': gt $curloc
+				end
+
+				if KGOLspell > 0 and KGMana >= KGOLspell * 10:
+					act '强力打击 (<<KGOLspell * 10>>法力）':
+						cla
+						KGMana -= KGOLspell
+						KGOLpower = KGOLstren + KGOLwpower+(KGOLspell * 100)
+						gs 'KGOLexpa', 'KGOLatk'
+
+						act '继续': gt $curloc
+					end
+				end
+
+				if KGOLspell2 > 0 and KGMana >= KGOLspell2 * 10:
+					act '多重打击 (<<KGOLspell2 * 10>>法力）':
+						cla
+						KGMana -= KGOLspell2
+						KGOLpower = KGOLstren + KGOLwpower
+						KGLOloop = KGOLspell2 + 1
+						gs 'KGOLexpa', 'KGOLatkKGOLspell2'
+
+						act '继续': gt $curloc
+					end
+				end
+
+				if KGOLspell3 > 0 and KGMana >= KGOLspell3 * 10 and KGOLcooldown <= 0:
+					act '增强护甲 (<<KGOLspell3 * 10>>法力）':
+						cla
+						KGMana -= KGOLspell3
+						KGOLbronaMod += KGOLspell3 * 5
+						KGOLtimer += KGOLspell3 + 1
+						KGOLcooldown += KGOLspell3 + 3
+
+						act '继续': gt $curloc
+					end
+				end
+			end
+
+		elseif $KGOLklass = 'Rogue':
+			!! thief
+			if KGOLdist < 5:
+				act '攻击':
+					cla
+					KGOLpower = KGOLstren + KGOLwpower
+					gs 'KGOLexpa', 'KGOLatk'
+
+					act '继续': gt $curloc
+				end
+
+				if KGOLspell4 > 0 and KGMana >= KGOLspell4 * 10:
+					act '潜行打击 (<<KGOLspell4 * 10>>法力）':
+						cla
+						KGMana -= KGOLspell4
+						KGOLpower = KGOLstren + KGOLwpower+(KGOLspell5 * 100)
+						gs 'KGOLexpa', 'KGOLatk'
+
+						act '继续': gt $curloc
+					end
+				end
+
+				if KGOLspell5 > 0 and KGMana >= KGOLspell5 * 10:
+					act '毒刃 (<<KGOLspell5 * 10>>法力）':
+						cla
+						KGMana -= KGOLspell5
+						KGOLpower = KGOLstren + KGOLwpower
+						gs 'KGOLexpa', 'KGOLatkPoison'
+
+						act '继续': gt $curloc
+					end
+				end
+
+				if KGOLspell6 > 0 and KGMana >= KGOLspell6 * 10 and KGOLcooldown <= 0:
+					act '隐身术 (<<KGOLspell6 * 10>>法力）':
+						cla
+						KGMana -= KGOLspell6
+						unvis += KGOLspell6 + 1
+						KGOLcooldown += KGOLspell6 + 3
+
+						act '继续': gt $curloc
+					end
+				end
+			end
+		elseif $KGOLklass = 'Mage':
+			!! mage
+			act '攻击':
+				cla
+				KGOLpower = KGOLintel + KGOLwpower
+				gs 'KGOLexpa', 'KGOLatk'
+
+				act '继续': gt $curloc
+			end
+
+			if KGOLspell7 > 0 and KGMana >= KGOLspell7 * 10:
+				act '火球术 (<<KGOLspell7 * 10>>法力）':
+					cla
+					KGMana -= KGOLspell7
+					KGOLpower = rand(KGOLspell7 * 100, KGOLspell7 * 200)
+					gs 'KGOLexpa', 'KGOLatkFB'
+
+					act '继续': gt $curloc
+				end
+			end
+
+			if KGOLspell8 > 0 and KGMana >= KGOLspell8 * 10:
+				act '动能脉冲 (<<KGOLspell5 * 10>>法力）':
+					cla
+					KGMana -= KGOLspell5
+					KGOLdist += rand(KGOLspell5 * 10, KGOLspell5 * 50)
+					'一股能量波从你体内迸发而出，将敌人击退。你们之间的距离现在是<<KGOLdist>>米。'
+
+					act '继续': gt $curloc
+				end
+			end
+
+			if KGOLspell9 > 0 and KGMana >= KGOLspell9 * 10 and KGOLcooldown <= 0:
+				act '烈焰之环 (<<KGOLspell9 * 10>>法力）':
+					cla
+					KGMana -= KGOLspell9
+					firecircle += KGOLspell9 + 1
+					KGOLcooldown += KGOLspell9 + 3
+					'一圈燃烧的地狱烈焰将你环绕。'
+
+					act '继续': gt $curloc
+				end
+			end
+		elseif $KGOLklass = 'Priest':
+			!! priest
+			act '攻击':
+				cla
+				KGOLpower = KGOLintel + KGOLwpower
+				gs 'KGOLexpa', 'KGOLatk'
+
+				act '继续': gt $curloc
+			end
+		elseif $KGOLklass = 'Archer':
+			!! archer
+			act '攻击':
+				cla
+				KGOLpower = KGOLspeed + KGOLwpower
+				gs 'KGOLexpa', 'KGOLatk'
+
+				act '继续': gt $curloc
+			end
+		elseif $KGOLklass = 'Barbarian':
+			!! barbarian
+			if KGOLdist < 2:
+				act '攻击':
+					cla
+					KGOLpower = KGOLstren + KGOLwpower
+					gs 'KGOLexpa', 'KGOLatk'
+
+					act '继续': gt $curloc
+				end
+			end
+		end
+
+		if KGOLdist > 0:
+			act '冲向敌人':
+				KGOLdist -= rand(KGOLspeed/20, KGOLspeed/10)
+				gt $curloc
+			end
+		end
+
+		act '逃离敌人':
+			KGOLdist += rand(KGOLspeed/20, KGOLspeed/10)
+			gt $curloc
+		end
+
+		if KGOLpotionH > 0:
+			act '喝一瓶生命药水':
+				KGOLpotionH -= 1
+			KGHP += 100
+			gt $curloc
+		end
+	end
+
+	if KGOLpotionM > 0:
+		act '喝一瓶法力药水':
+			KGOLpotionM -= 1
+			KGMana += 100
+			gt $curloc
+		end
+	end
+else
+	'现在轮到对手行动'
+
+	if KGOLdist <= KGOLneedDist:
+		'<<$KGname>>攻击了你。'
+		gs 'KGOLexpa', 'KGOLatkV'
+	else
+		KGOLdist -= rand(KGOLspeedV/20, KGOLspeedV/10)
+		'<<$KGname>>朝你逼近。'
+	end
+
+	act '继续': gt $curloc
+end
+
+--- KGOLfight ---------------------------------

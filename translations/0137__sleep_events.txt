@@ -1,0 +1,409 @@
+# sleep_events
+menu_off = 1
+
+!! Sleep events trigger during the sleep cycle and can either wake you up or you can continue to sleep
+!!
+!! Moved here from sleep
+!! When done: Move to dream_events, sleep or wakeup
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           EVENT HANDLERS                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	menu_off = 1
+	sleepVars['stat_display'] = 1
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+
+	if sleepVars['events_active'] = 1:
+		sleepVars['events_done'] = 0
+
+		if vibratorIN = 1:
+			if pcs_horny >= 100:
+				$sleep_events[] = 'gs ''sleep_events'', ''vibr_orgasm'' '
+			end
+		elseif pcs_horny > 80 and pcs_sleep >= 30 and rand(0, 59) = 0 and succubusQW ! 1 and succubusQW ! 2:
+			$sleep_events[] = 'gs ''sleep_events'', ''wake_horny'' '
+		end
+
+		if strip_club['ivanna_dream'] = 1 and rand(0, 59) = 0:
+			$sleep_events_priority[] = 'gs ''sleep_events'', ''ivanna_dream'' '
+		end
+
+		if ($start_type = 'sg_tg' and (year = 2016 and (month > 8 and month < 11)) or ($start_type = 'city_tg' or $start_type = 'uni_tg') and (year = 2017 and month < 11)) and rand(0, 8) = 0:
+			killvar 'tgQWtemp'
+			!! Fills a temporary array with the available dreams about the girls the player has met
+			if tgQW['dream_sex_anya'] = 0 and $start_type = 'sg_tg':
+				$tgQWtemp[] = 'dream_sex_anya'
+			elseif tgQW['dream_sex_vika'] = 0 and $start_type = 'uni_tg':
+				$tgQWtemp[] = 'dream_sex_vika'
+			elseif tgQW['dream_sex_albina'] = 0 and ($start_type = 'sg_tg' or AlbinaQW['know_albina_uni'] = 1):
+				$tgQWtemp[] = 'dream_sex_albina'
+			elseif tgQW['dream_sex_bella'] = 0 and $start_type = 'sg_tg':
+				$tgQWtemp[] = 'dream_sex_bella'
+			elseif tgQW['dream_sex_nush'] = 0 and ($start_type = 'sg_tg' or anushkaQW['coffee_hole'] = 1):
+				$tgQWtemp[] = 'dream_sex_nush'
+			elseif tgQW['dream_sex_julia'] = 0 and ($start_type = 'sg_tg' or nerd_game['stage'] >= 1):
+				$tgQWtemp[] = 'dream_sex_julia'
+			elseif tgQW['dream_sex_katja_vicky'] = 0 and ($start_type = 'sg_tg' or katjaQW['QWstage'] >= 1):
+				$tgQWtemp[] = 'dream_sex_katja_vicky'
+			end
+			if arrsize('$tgQWtemp') > 0:
+				!! If there are dreams available they are set to priority
+				$sleep_events_priority[] = 'gs ''sleep_events'', ''male_dream'' '
+			end
+		end
+
+		gs 'blackmailer', 'blackmail_sleep_events'
+
+		gs 'sleep_events', 'mod_sleepevents'
+	end
+end
+
+
+if $ARGS[0] = 'mod_sleepevents':
+	!! This location is here to allow mods to hook into the system.
+	!! Either check for: if $ARGS[0] = 'sleep_events' and $ARGS[1] = 'mod_sleepevents'
+	!!
+	!! You can add events as: $sleep_events[] = 'gs ''mod_loc'' ''mod_args0'' '
+	!! A random event will be chosen from amongst the added ones.
+	!! If an event MUST trigger (due to quest timing), add it tp $sleep_events_priority[] = 'gs ''mod_loc'' ''mod_args0'' '
+	!!
+	!! If the event does not break the sleep cycle (merely interrupts it) it needs to end with gs 'sleep_events', 'event_end'
+	!! If the event removed Sveta from her location (aka her sleep is cut short and/or she leaves her bed), you must call gs 'sleep_events', 'exit'
+	!!
+	!! This is to cleanup all necessary variables.
+	!!
+	!! DO NOT DIRECTLY GOTO/GOSUB OUTOF THIS LOCATION. ALWAYS ADD IT TO THE QUEUEs!!!!
+	!! IT WILL ALMOST CERTIANLY END BADLY WHEN MORE THAN 1 MOD IS INVOLVED.
+
+	gs 'mod_system', 'sleep', 'sleep_events', 'mod_sleepevents'
+	gs 'sleep_events', 'event_handler'
+end
+
+
+if $ARGS[0] = 'event_handler':
+	if sleepVars['events_done'] < 1:
+		if arrsize('$sleep_events_priority') > 0:
+			xgt 'sleep_events', 'event_handler2', 'priority'
+		elseif arrsize('$sleep_events') > 0:
+			xgt 'sleep_events', 'event_handler2'
+		end
+	end
+
+	gs 'sleep_events', 'continue', 'no_interrupt'
+end
+
+
+if $ARGS[0] = 'event_handler2':
+	sleepVars['events_done'] += 1
+
+	if $ARGS[1] = 'priority':
+		temp_slev_id = rand(0, arrsize('$sleep_events_priority')-1)
+		$temp_sleep_event_chosen = $sleep_events_priority[temp_slev_id]
+		killvar 'sleep_events_priority', temp_slev_id
+	else
+		temp_slev_id = rand(0, arrsize('$sleep_events')-1)
+		$temp_sleep_event_chosen = $sleep_events[temp_slev_id]
+		killvar 'sleep_events', temp_slev_id
+	end
+
+	killvar 'temp_slev_id'
+	dynamic $temp_sleep_event_chosen
+
+	xgt 'sleep_events', 'event_end', 'sleep'
+end
+
+
+if $ARGS[0] = 'event_end':
+	killvar 'temp_sleep_event_chosen'
+
+!!	if arrsize('$sleep_events_priority') > 0:
+!!		gt 'bed_events', 'event_handler2', 'priority'
+!!	end
+
+	if $ARGS[1] = 'dream':
+		xgt 'sleep_events', 'continue', 'dream'
+
+	elseif $ARGS[1] = 'wake':
+		gs 'sleep_events', 'exit', ARGS[2]
+		xgt 'wakeup', 'start'
+
+	elseif $ARGS[1] = 'no_interrupt':
+		gs 'sleep_events', 'continue', 'no_interrupt'
+
+	elseif $ARGS[1] = 'sleep':
+		xgt 'sleep_events', 'continue', 'sleep'
+	else
+		xgt 'sleep_events', 'continue', 'sleep'
+	end
+end
+
+
+if $ARGS[0] = 'exit':
+	sleepVars['events_done'] = 0
+	sleepVars['stat_display'] = 0
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+	killvar 'temp_slev_id'
+	killvar 'temp_sleep_event_chosen'
+	inSleep = 0
+	gs 'wakeup', 'wear_bed_clothes'
+	if ARGS[1] ! 0: gs 'clothing', 'strip'
+end
+
+
+if $ARGS[0] = 'continue':
+	sleepVars['events_done'] = 0
+	sleepVars['stat_display'] = 0
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+	killvar 'temp_slev_id'
+	killvar 'temp_sleep_event_chosen'
+
+	if $ARGS[1] = 'sleep':
+		xgt 'sleep', 'sleep_handler'
+	elseif $ARGS[1] = 'dream':
+		gt 'sleep', 'start'
+	else
+		!! Empty on purpose
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'vibr_orgasm':
+	gt 'sleep_events', 'vibr_orgasm2'
+end
+
+
+if $ARGS[0] = 'wake_horny':
+	gt 'sleep_events', 'wake_horny2'
+end
+
+
+if $ARGS[0] = 'vibr_orgasm2':
+	menu_off = 1
+	$orgasm_or = 'yes'
+	gs 'arousal', 'vaginal_vibe', 5, 'no_orgasm_msg'
+	gs 'arousal', 'end'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/shared/sex/oface/o_face.jpg"></center>'
+	'你在高潮的痉挛中猛地醒来。等缓过来后，你看了看闹钟。上面显示着<<func(''time'', ''get_time_string'', hour, minut, cheatVars[''time_format''])>>.'
+
+	act '回去睡觉':
+		gt 'sleep_events', 'event_end', 'dream'
+	end
+
+	act '放弃睡觉':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/shared/sex/oface/kotovfirst1.jpg"></center>'
+		'也许把小穴里塞着跳蛋去睡觉并不是什么好主意…'
+		gs 'sleep_events', 'event_end', 'wake'
+	end
+end
+
+
+if $ARGS[0] = 'male_dream':
+	gt 'sleep_events', 'male_dream1'
+end
+
+
+if $ARGS[0] = 'male_dream1':
+	!! selects a random sex dream amongst the ones available
+	tgQWtemp['chosen_dream'] = rand(0, arrsize('$tgQWtemp')-1)
+	gt 'sleep_events_magic', $tgQWtemp[tgQWtemp['chosen_dream']]
+end
+
+
+if $ARGS[0] = 'male_dream_end':
+	*clr & cla
+	if $pantyworntype = 'none':
+		'<center><img <<$set_imgh>> src="images/shared/sex/mast/klit.jpg"></center>'
+		'你猛地惊醒，发现自己正在揉着自己湿透的小穴。<i>你的</i>小穴。'
+		'你沮丧地叹了口气，你的潜意识似乎刻意选择提醒你失去了什么，以及你本可能拥有什么……你不禁怀疑这是否也与你的魔法能力有关。'
+		'不过，那确实是个<i>非常</i>令人<i>愉悦</i>的梦，即使你在梦里没能高潮，而且你以男孩身份再次操女孩的机会几乎已经不存在了。'
+		*nl
+	else
+		'<center><img <<$set_imgh>> src="images/shared/sex/mast/start.jpg"></center>'
+		'你猛地惊醒，发现你的内裤已经被你的爱液浸透。<i>你的</i>小穴的爱液。'
+		'你沮丧地叹了口气，你的潜意识似乎刻意选择提醒你失去了什么，以及你本可能拥有什么……你不禁怀疑这是否也与你的魔法有关。'
+		'不过，那确实是个<i>非常</i>令人<i>愉悦</i>的梦，即使你在梦里没能高潮，而且你以男孩身份再像那样操女孩的机会几乎已经不存在了。'
+		*nl
+	end
+	'那个梦仍清晰地在你脑中回放，你感到自己因它而兴奋起来，你瞥了一眼闹钟。上面显示着<<func(''time'', ''get_time_string'', hour, minut, cheatVars[''time_format''])>>.'
+
+	act '回去睡觉':
+		gt 'sleep_events', 'event_end', 'dream'
+	end
+
+	act '站起来':
+		gs 'sleep_events', 'event_end', 'wake'
+	end
+end
+
+
+if $ARGS[0] = 'ivanna_dream':
+	gt 'sleep_events', 'ivanna_dream1'
+end
+
+
+if $ARGS[0] = 'ivanna_dream1':
+	menu_off = 1
+	pcs_horny = max(100, pcs_horny)
+	strip_club['ivanna_dream'] = 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/stripclub/ivanna3.jpg"></center>'
+	'你梦见自己在脱衣舞俱乐部的吧台值夜班，这时一丝不挂的伊万娜突然出现在你面前。'
+	'"我们找点乐子吧，<<$pcs_nickname>>，"她得意地笑着。'
+	'你突然发现自己身处脱衣舞俱乐部的一间私人包间里，正急切地骑着一根巨大的鸡巴，粗壮温热的肉棒撑开你的内壁。'
+	*nl
+	if stat['think_virgin'] = 1:
+		'即使你从未做过爱，小穴里有根鸡巴的感觉也<i>非常</i>真实。你甚至能感觉到它在你的体内抽动。'
+	elseif func('pcs_has_attr', 'sex_virgin') = 0 and stat['vaginal'] = 0:
+		'你的小穴以前从未有过鸡巴，但这种感觉却<i>非常</i>真实。你甚至能感觉到它在你的体内抽动。'
+	else
+		'在这个梦里被操小穴的感觉和现实中一样真实，甚至可以说比现实更<i>美妙</i>。当你感到鸡巴在你体内抽搐时，一波快感涌遍全身。'
+	end
+	*nl
+	'"你的小穴又美又紧！操，我觉得我现在就要射了！"一个熟悉的声音说道，你回头看去。'
+	'令你惊讶的是，你看到操你的人是一脸坏笑的伊万娜，她不知怎么地现在有了一根鸡巴。一根在你小穴里感觉妙极了的鸡巴。你觉得你快要……'
+	act '射精': gt 'sleep_events', 'ivanna_dream_orgasm'
+end
+
+
+if $ARGS[0] = 'ivanna_dream_orgasm':
+	$orgasm_or = 'yes'
+	gs 'arousal', 'erotic', 5, 'no_orgasm_msg'
+	gs 'arousal', 'end'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/shared/sex/oface/kotovfirst.jpg"></center>'
+	'你在几乎要将你淹没的猛烈高潮中猛地醒来， ' + iif($pantyworntype ! 'none', '你的双腿和内裤', '你的双腿和床单') + ' 被从你湿透的小穴流出的爱液浸透了。'
+	'你不确定为什么偏偏会做关于伊万娜的春梦，也不知道她为什么会有根鸡巴，但不知为何它感觉非常真实，仿佛你真的<i>正在</i>做爱。'
+	'你瞥了一眼闹钟，这个梦仍清晰地在你脑海中回放。上面显示着<<func(''time'', ''get_time_string'', hour, minut, cheatVars[''time_format''])>>。'
+
+	act '回去睡觉':
+		gt 'sleep_events', 'event_end', 'dream'
+	end
+
+	act '站起来':
+		gs 'sleep_events', 'event_end', 'wake'
+	end
+end
+
+
+!! Exclusions for succubus dreams as they set horny to 100 and will always get overridden otherwise
+if $ARGS[0] = 'wake_horny2':
+	menu_off = 1
+	inSleep = 1
+	SleepHorny += 1
+	gs 'stat'
+
+	if $pantyworntype = 'none':
+		if SleepHorny = 1:
+			'<center><img <<$set_imgh>> src="images/shared/home/sleep_horny.jpg"></center>'
+		elseif SleepHorny = 2:
+			'<center><img <<$set_imgh>> src="images/shared/sex/mast/klit.jpg"></center>'
+		elseif SleepHorny >= 3:
+			'<center><img <<$set_imgh>> src="images/shared/sex/oface/kotovfirst1.jpg"></center>'
+		end
+	else
+		if SleepHorny = 1:
+			'<center><img <<$set_imgh>> src="images/shared/sex/mast/start.jpg"></center>'
+		elseif SleepHorny = 2:
+			'<center><img <<$set_imgh>> src="images/shared/sex/undress/kiska.jpg"></center>'
+		elseif SleepHorny >= 3:
+			'<center><img <<$set_imgh>> src="images/shared/sex/oface/kotovfirst1.jpg"></center>'
+		end
+	end
+
+	'你瞥了一眼闹钟。上面显示着<b><<func(''time'', ''get_time_string'', hour, minut, cheatVars[''time_format''])>></b>.'
+
+	if SleepHorny = 1:
+		'你的春梦和整体上的饥渴把你从睡梦中唤醒。转眼之间，你完全清醒了，非常清楚地意识到自己的小穴又热又湿。'
+		'你可以试着回去睡觉，但恐怕这种睡眠不会太安稳，更别提无视自己需求所带来的挫败感。自慰是一个选择，而且在这种处境下并不是最差的选择。虽然可能要花些时间，但之后你就能睡得像个婴儿一样香。'
+		'当然，你也可以放弃睡觉，直接起床。'
+	elseif SleepHorny = 2:
+		'你太饥渴了，以至于第二次醒来。你的小穴依然湿润，渴望着关注。'
+		'你可以再次尝试回去睡觉，但恐怕你睡不了多久，而且一直无视自己的需求也无济于事。也许你应该自慰，好好利用剩下的时间？'
+		'你迟早都得起床。'
+	elseif SleepHorny >= 3:
+		'你的饥渴又一次把你从睡梦中唤醒。到了这个地步，回去睡觉几乎像是在浪费时间，因为在解决这个问题之前，你得不到多少休息。'
+		if $pantyworntype ! 'none':
+			gs 'underwear', 'remove'
+			'因为你的内裤已经湿透了，你把内衣脱了下来。'
+			*nl
+		end
+		'也许你应该直接起床？'
+	end
+
+	if $loc = 'bedrPar' and sisterLesb = 6 and hour < 6:
+		'你可以叫醒安雅，看看她是否愿意帮你……'
+	elseif $loc = 'FedorEv4':
+		'你可以叫醒费奥多尔，看看他能不能帮你……'
+	elseif ($loc = 'bedr' or $loc = 'bedr2x') and $husID ! '':
+		'你可以叫醒<<$npc_usedname[$husID]>>起来看看他能不能帮你…'
+	end
+
+	act '试着回去睡觉':
+		gs 'mood', 'lower', 'small'
+		pcs_sleep -= 5
+		gt 'sleep_events', 'event_end', 'dream'
+	end
+
+	if $loc = 'bedrPar' and hour < 6:
+		act '自慰':
+			gs 'sleep_events', 'exit', 1
+			gt 'selfplay', 'start'
+		end
+	else
+		act '自慰':
+			gs 'sleep_events', 'exit', 1
+			gt 'selfplay', 'start'
+		end
+	end
+
+	if strip_here = 1:
+		act '起床': xgt 'sleep_events', 'event_end', 'wake'
+	else
+		act '起床': xgt 'sleep_events', 'event_end', 'wake', 1
+	end
+
+	if $loc = 'bedrPar' and sisterLesb = 6 and hour < 6:
+		act '叫醒安雅':
+			strip_here = 0
+			gs 'sleep_events', 'exit', 1
+			gt 'sistersleep', 'sister_sleep'
+		end
+	elseif $loc = 'FedorEv4':
+		act '叫醒费奥多尔':
+			strip_here = 0
+			gs 'sleep_events', 'exit', 1
+			gt 'FedorEv4_sex', 'Bedroom 2'
+		end
+		!! Intro text doesn''t quite fit event (but doesn''t quite fit - try for baby - scenario either) - custom scene from VK?
+	elseif ($loc = 'bedr' or $loc = 'bedr2x') and $husID ! '':
+		act '叫醒<<$npc_usedname[$husID]>>':
+			strip_here = 0
+			gs 'sleep_events', 'exit', 1
+			gt 'husbSex', 'variant'
+			!! Should be custom scene - maybe boyfriend/husband overhaul can cover this?
+		end
+	end
+end
+
+
+--- sleep_events ---------------------------------

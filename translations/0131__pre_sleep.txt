@@ -1,0 +1,171 @@
+# pre_sleep
+
+!! Deals with all the triggers that happen to prepare to for the sleep cycle, before the dream events start.
+!!
+!! Moved here from pre_sleep_events
+!! When done: Move to dream_events
+
+
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	menu_off = 1
+	sleepVars['slept_in'] = 0
+	gt 'pre_sleep_events', 'start'
+end
+
+
+if $ARGS[0] = 'pre_sleep2':
+	menu_off = 1
+	sleepVars['stat_display'] = 0
+	if clo_flag['bed'] = 0:
+		clo_flag['bed'] = 1
+		gs 'outfit', 'backup', 'bed'
+		if $clothingworntype <> 'nude': strip_here = 1
+
+		gs 'clothing', 'strip'
+		if sleepVars['bedPanty'] = 2: gs 'underwear', 'strip'
+	end
+
+	gt 'pre_sleep', 'prepare_sleep'
+end
+
+
+if $ARGS[0] = 'prepare_sleep':
+	menu_off = 1
+	if $clothingworntype <> 'nude':
+		'<center><img <<$set_imgh>> src="images/shared/home/bed.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/son.jpg"></center>'
+	end
+	gs 'stat'
+	*nl
+	if alarmVars['alarmOn'] = 1:
+		if alarmVars['alarm_holiday'] = 1 and kanikuli <> 0 or ((hour >= alarmVars['timerEndH'] and (week = 5 or week = 6)) or (hour < alarmVars['timerEndH'] and (week = 6 or week = 7))):
+			'你按平时的夜间流程完成例行事务，把闹钟设到<<func(''alarmclock'', ''get_weekend_display'')>>, 你脱掉衣服，并准备睡觉：'
+		else
+			'你按平时的夜间流程完成例行事务，把闹钟设到<<func(''alarmclock'', ''get_week_display'')>>, 你脱掉衣服，并准备睡觉：'
+		end
+	else
+		'你按平时的夜间流程完成例行事务，懒得去设闹钟，你脱掉衣服，并准备睡觉：'
+	end
+
+	pcs_hairbsh = 0
+
+	if $start_type['loc'] = 'sg' and $loc <> 'bedrPar' and gschoolVars['school_diploma'] = 0:
+		sleepVars['notathomesleep'] += 1
+	else
+		sleepVars['notathomesleep'] = 0
+	end
+
+	if succubusflag = 1 and sucwalkday <= daystart and ((succhungry > succublvl/2 + rand(1, 3)) or pcs_willpwr < ((succublvl * willpowermax) / 13) or sucpowzeroed >= 3): gs 'succubus', 'sucwalkinginit'
+
+	if analPlugIn = 1 and vibratorIN = 1:
+		*nl
+		if sleepVars['bedAnal'] = 1 and sleepVars['bedVibrator'] = 1:
+			analPlugIn = 0 & analPlugOut = 0
+			vibratorIN = 0
+			gs 'stat'
+			'睡觉前，你取出你的肛塞和振动棒并快速清洗了一下。'
+		elseif sleepVars['bedAnal'] = 0 and sleepVars['bedVibrator'] = 1:
+			vibratorIN = 0
+			gs 'stat'
+			'睡觉前，你取出你的振动棒并快速清洗了一下。'
+			'你决定把肛塞留在体内。'
+		elseif sleepVars['bedAnal'] = 1 and sleepVars['bedVibrator'] = 0:
+			analPlugIn = 0 & analPlugOut = 0
+			gs 'stat'
+			'睡觉前，你取出肛塞并快速清洗一下。'
+			'你决定把振动棒留在体内。'
+		else
+			'你决定把肛塞和振动棒留在体内。'
+		end
+	elseif analPlugIn = 1 and vibratorIN = 0:
+		*nl
+		if sleepVars['bedAnal'] = 1:
+			analPlugIn = 0 & analPlugOut = 0
+			gs 'stat'
+			'睡觉前，你取出肛塞并快速清洗一下。'
+		else
+			*nl
+			'你决定把肛塞留在体内。'
+		end
+	elseif analPlugIn = 0 and vibratorIN = 1:
+		*nl
+		if sleepVars['bedVibrator'] = 1:
+			vibratorIN = 0
+			'睡觉前，你取出你的振动棒并快速清洗了一下。'
+		else
+			'你决定把振动棒留在体内。'
+		end
+	end
+
+	*nl
+	if sleepVars['bedPanty'] = 1:
+		if $pantyworntype = 'none' and $braworntype = 'none':
+			'你穿上胸罩和内裤。'
+		elseif $pantyworntype <> 'none' and $braworntype = 'none':
+			'你戴上胸罩。'
+		elseif $pantyworntype <> 'none' and $braworntype <> 'none':
+			'你穿上内裤。'
+		else
+			'你更换了你的胸罩和内裤。'
+		end
+	elseif sleepVars['bedPanty'] = 2:
+		if $pantyworntype <> 'none' or $braworntype <> 'none':
+			'你脱下胸罩和内裤。'
+		elseif $pantyworntype <> 'none' and $braworntype = 'none':
+			'你脱下你的内裤。'
+		elseif $braworntype <> 'none':
+			'你脱下你的胸罩。'
+		end
+	else
+		'你太累了，顾不上担心内衣的事，所以今天晚上你就把内衣留着了。'
+	end
+
+	*nl
+	if $hairstyle <> '':
+		$hairstyle
+	else
+		'你的头发松散而自然地披散着。'
+	end
+
+	if pcs_makeup > cosmetic_tattoo + 1:
+		pcs_makeup = 0
+		vidageday -= 1
+		gs 'body', 'SkinLoss', 'MakeUpSleep'
+		*nl
+		'你上床睡觉的时候化了妆，这会在你睡觉的时候弄脏你的脸，你的皮肤会因此衰老得更快！'
+	end
+
+	if fat > 5 and stringimplant = 1: bodyVars['bust_silicone'] += 1 & fat -= 5
+
+	xgt 'pre_sleep', 'mod_sleeptriggers'
+
+end
+
+
+if $ARGS[0] = 'mod_sleeptriggers':
+	!! This location is here to allow mods to hook into the system.
+	!! Either check for: if $ARGS[0] = 'pre_sleep' and $ARGS[1] = 'mod_triggers'
+	!!
+	!! This is NOT for events!!
+
+	gs 'mod_system', 'sleep', 'pre_sleep', 'mod_sleeptriggers'
+	xgt 'pre_sleep', 'end'
+end
+
+
+if $ARGS[0] = 'end':
+	act '入睡…':
+	!! flag to stop autosave breaking my awesome clothing thingy
+		clo_flag['bed'] = 0
+		inSleep = 1
+		gs 'stat'
+		gs 'mood', 'reset'
+		gt 'sleep', 'start'
+	end
+end
+
+
+
+
+--- pre_sleep ---------------------------------

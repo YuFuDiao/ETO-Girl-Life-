@@ -1,0 +1,891 @@
+# calendar_render
+
+!! Module 4: Renderer
+!! Pure presentation layer - turns week_schedule data structure into HTML
+
+!! ============================================================================
+!! get_event_color
+!! Returns RGB color string based on color index and theme
+!! Input: ARGS[1] = color index (1-20, colors are indexed from 1)
+!! Output: $result = RGB color string like "120, 180, 240"
+!! ============================================================================
+if $ARGS[0] = 'get_event_color':
+	!! Convert 1-20 index to 0-19 for array lookup, wrap if out of range
+	temp_color_idx = (ARGS[1] - 1) mod 20
+
+	if theme['is_dark'] = 1:
+		!! Dark mode palette - muted, desaturated colors
+		if temp_color_idx = 0:
+			$result = '100, 120, 150'	& !! Color 1: Muted blue-grey
+		elseif temp_color_idx = 1:
+			$result = '120, 100, 140'	& !! Color 2: Muted purple
+		elseif temp_color_idx = 2:
+			$result = '100, 140, 120'	& !! Color 3: Muted teal
+		elseif temp_color_idx = 3:
+			$result = '140, 120, 100'	& !! Color 4: Muted brown
+		elseif temp_color_idx = 4:
+			$result = '140, 100, 100'	& !! Color 5: Muted red
+		elseif temp_color_idx = 5:
+			$result = '100, 140, 140'	& !! Color 6: Muted cyan
+		elseif temp_color_idx = 6:
+			$result = '140, 140, 100'	& !! Color 7: Muted yellow
+		elseif temp_color_idx = 7:
+			$result = '140, 100, 140'	& !! Color 8: Muted magenta
+		elseif temp_color_idx = 8:
+			$result = '100, 130, 110'	& !! Color 9: Muted green
+		elseif temp_color_idx = 9:
+			$result = '130, 110, 100'	& !! Color 10: Muted orange
+		elseif temp_color_idx = 10:
+			$result = '110, 100, 130'	& !! Color 11: Muted lavender
+		elseif temp_color_idx = 11:
+			$result = '100, 130, 130'	& !! Color 12: Muted aqua
+		elseif temp_color_idx = 12:
+			$result = '130, 100, 110'	& !! Color 13: Muted rose
+		elseif temp_color_idx = 13:
+			$result = '110, 130, 100'	& !! Color 14: Muted lime
+		elseif temp_color_idx = 14:
+			$result = '130, 130, 100'	& !! Color 15: Muted gold
+		elseif temp_color_idx = 15:
+			$result = '100, 110, 130'	& !! Color 16: Muted steel
+		elseif temp_color_idx = 16:
+			$result = '130, 110, 130'	& !! Color 17: Muted orchid
+		elseif temp_color_idx = 17:
+			$result = '110, 130, 130'	& !! Color 18: Muted turquoise
+		elseif temp_color_idx = 18:
+			$result = '130, 100, 120'	& !! Color 19: Muted coral
+		elseif temp_color_idx = 19:
+			$result = '110, 120, 100'	& !! Color 20: Muted sage
+		end
+	else
+		!! Light mode palette - bright, saturated colors
+		if temp_color_idx = 0:
+			$result = '100, 150, 220'	& !! Color 1: Bright blue
+		elseif temp_color_idx = 1:
+			$result = '180, 100, 220'	& !! Color 2: Bright purple
+		elseif temp_color_idx = 2:
+			$result = '100, 200, 180' 	& !! Color 3: Bright teal
+		elseif temp_color_idx = 3:
+			$result = '220, 170, 100' 	& !! Color 4: Bright orange
+		elseif temp_color_idx = 4:
+			$result = '220, 100, 100' 	& !! Color 5: Bright red
+		elseif temp_color_idx = 5:
+			$result = '100, 220, 220' 	& !! Color 6: Bright cyan
+		elseif temp_color_idx = 6:
+			$result = '230, 220, 100' 	& !! Color 7: Bright yellow
+		elseif temp_color_idx = 7:
+			$result = '220, 100, 180' 	& !! Color 8: Bright magenta
+		elseif temp_color_idx = 8:
+			$result = '120, 200, 120' 	& !! Color 9: Bright green
+		elseif temp_color_idx = 9:
+			$result = '240, 150, 100' 	& !! Color 10: Bright coral
+		elseif temp_color_idx = 10:
+			$result = '180, 140, 220'	& !! Color 11: Bright lavender
+		elseif temp_color_idx = 11:
+			$result = '100, 200, 200'	& !! Color 12: Bright aqua
+		elseif temp_color_idx = 12:
+			$result = '220, 120, 160'	& !! Color 13: Bright rose
+		elseif temp_color_idx = 13:
+			$result = '160, 220, 100'	& !! Color 14: Bright lime
+		elseif temp_color_idx = 14:
+			$result = '220, 200, 100'	& !! Color 15: Bright gold
+		elseif temp_color_idx = 15:
+			$result = '120, 160, 200'	& !! Color 16: Bright steel
+		elseif temp_color_idx = 16:
+			$result = '200, 140, 220'	& !! Color 17: Bright orchid
+		elseif temp_color_idx = 17:
+			$result = '100, 210, 210'	& !! Color 18: Bright turquoise
+		elseif temp_color_idx = 18:
+			$result = '240, 130, 140'	& !! Color 19: Bright salmon
+		elseif temp_color_idx = 19:
+			$result = '140, 190, 120'	& !! Color 20: Bright sage
+		end
+	end
+
+	killvar 'temp_color_idx'
+	exit
+end
+
+
+!! ============================================================================
+!! get_timeslot_bg_color
+!! Returns background color for a given timeslot (alternating by hour)
+!! Input: ARGS[1] = timeslot index (0-95)
+!! Output: $result = hex color string from theme
+!! ============================================================================
+if $ARGS[0] = 'get_timeslot_bg_color':
+	temp_hour = ARGS[1] / 4
+	if temp_hour mod 2 = 0:
+		$result = $theme_hex['table_bg']
+	else
+		$result = $theme_hex['table_bg_alt']
+	end
+	killvar 'temp_hour'
+	exit
+end
+
+
+!! ============================================================================
+!! is_today_busy_at_timeslot
+!! Checks if the current day (today) has any visible events at a given timeslot
+!! Input: ARGS[1] = timeslot index (0-95)
+!! Output: result = 1 if busy, 0 if not busy
+!! ============================================================================
+if $ARGS[0] = 'is_today_busy_at_timeslot':
+	temp_check_ts = ARGS[1]
+	result = 0
+
+	!! Calculate which day index today is (if it''s in this week)
+	!! week_schedule['start_daystart'] is Monday (day 1)
+	temp_week_start = week_schedule['start_daystart']
+	temp_days_from_monday = daystart - temp_week_start
+
+	!! Check if today is in this week (0-6 days from Monday)
+	if temp_days_from_monday >= 0 and temp_days_from_monday <= 6:
+		!! Today is in this week - check if this timeslot is busy
+		result = iif(week_schedule['days=<<temp_days_from_monday + 1>>, timeslots=<<temp_check_ts>>, busy_count'] > 0, 1, 0)
+	end
+
+	killvar 'temp_check_ts'
+	killvar 'temp_week_start'
+	killvar 'temp_days_from_monday'
+	exit
+end
+
+
+!! ============================================================================
+!! render_calendar
+!! Main entry point for rendering the complete calendar
+!! Input: None (uses week_schedule global)
+!! Output: $result = complete HTML for calendar
+!! ============================================================================
+if $ARGS[0] = 'render_calendar':
+	$result = '<div style="text-align: center;"><table class="calendar-table" border="1" cellspacing="0" cellpadding="2" style="width: 98%; table-layout: fixed; margin: 0 auto;">'
+
+	!! Add header row
+	$result += $func('calendar_render', 'render_header')
+
+	!! Add all-day event rows (if any)
+	$result += $func('calendar_render', 'render_allday_section')
+
+	!! Determine the first timeslot to display (08:00 or earlier if events exist)
+	temp_cal_first_slot = func('calendar_render', 'get_first_timeslot')
+	temp_cal_ts = temp_cal_first_slot
+	:loop_timeslots_cal
+		$result += $func('calendar_render', 'render_timeslot_row', temp_cal_ts)
+		temp_cal_ts += 1
+		if temp_cal_ts < 96: jump 'loop_timeslots_cal'
+
+	!! Close table
+	$result += '</table></div>'
+
+	$result += '<center><small>❀ = 当前时段，⚘ = 今日繁忙时段，每个时段 = 15 分钟。<br>斜纹区域 = 可灵活到达的时间。日历可能会移动灵活事件，以便尽可能多地排入日程。</small></center>'
+
+	!! Cleanup - kill all temp variables from this function and nested functions
+	!! This prevents variable pollution while avoiding excessive killvar calls in loops
+	killvar 'temp_cal_ts'
+	killvar 'temp_cal_first_slot'
+
+	!! Variables from render_timeslot_row (called 96 times)
+	killvar 'temp_rtr_ts'
+	killvar 'temp_rtr_hours'
+	killvar 'temp_rtr_minutes'
+	killvar 'temp_rtr_d'
+	killvar 'temp_current_ts'
+
+	!! Variables from render_day_cell (called 672 times)
+	killvar 'temp_d'
+	killvar 'temp_t'
+	killvar 'temp_max_cols'
+	killvar 'temp_event_count'
+	killvar 'temp_column_filled'
+	killvar 'temp_e'
+	killvar 'temp_col'
+	killvar 'temp_colspan'
+	killvar 'temp_rowspan'
+	killvar 'temp_c'
+	killvar 'temp_scan_ts'
+	killvar 'temp_scan_count'
+	killvar 'temp_scan_e'
+	killvar 'temp_scan_span'
+	killvar 'temp_scan_end'
+	killvar 'temp_scan_col'
+	killvar 'temp_scan_colspan'
+
+	!! Variables from render_event_cell (called many times)
+	killvar 'temp_event_id'
+	killvar 'temp_title'
+	killvar 'temp_location'
+	killvar 'temp_desc'
+	killvar 'temp_color'
+	killvar 'temp_is_flex'
+	killvar 'temp_window_slots'
+	killvar 'temp_event_slots'
+	killvar 'temp_window_height'
+	killvar 'temp_event_height'
+	killvar 'temp_window_start'
+	killvar 'temp_window_end'
+	killvar 'temp_window_start_hours'
+	killvar 'temp_window_start_minutes'
+	killvar 'temp_window_end_hours'
+	killvar 'temp_window_end_minutes'
+	killvar 'temp_window_time'
+
+	exit
+end
+
+
+!! ============================================================================
+!! render_header
+!! Renders the header row with day names and dates
+!! Input: None (uses week_schedule global)
+!! Output: $result = HTML for header row
+!! ============================================================================
+if $ARGS[0] = 'render_header':
+	!! Get the background color for the header
+	!! Use the opposite of the first visible timeslot''s color by adding 4 (1 hour offset)
+	temp_hdr_first_slot = func('calendar_render', 'get_first_timeslot')
+	$temp_hdr_bg = $func('calendar_render', 'get_timeslot_bg_color', temp_hdr_first_slot + 4)
+
+	$result = '<tr style="background-color: ' + $temp_hdr_bg + ';">'
+
+	!! Time column header
+	$result += '<th style="width: 80px;">时间</th>'
+
+	!! Add header for current time indicator column
+	$result += '<th style="width: 20px; text-align: center;">❀</th>'
+
+	!! Day headers (each gets colspan equal to max_columns for that day)
+	temp_hdr_d = 1
+	:loop_days_hdr
+		!! Get day date
+		temp_hdr_day_date = week_schedule['days=<<temp_hdr_d>>, date']
+
+		!! Get max columns for this day (minimum 1 for layout)
+		temp_hdr_max_cols = week_schedule['days=<<temp_hdr_d>>, max_columns']
+		if temp_hdr_max_cols < 1: temp_hdr_max_cols = 1
+
+		!! Get day name based on index (1=Monday, 7=Sunday)
+		if temp_hdr_d = 1: $temp_hdr_day_name = '星期一'
+		if temp_hdr_d = 2: $temp_hdr_day_name = '星期二'
+		if temp_hdr_d = 3: $temp_hdr_day_name = '星期三'
+		if temp_hdr_d = 4: $temp_hdr_day_name = '星期四'
+		if temp_hdr_d = 5: $temp_hdr_day_name = '星期五'
+		if temp_hdr_d = 6: $temp_hdr_day_name = '星期六'
+		if temp_hdr_d = 7: $temp_hdr_day_name = '星期日'
+
+		!! Convert daystart to month/day using time.qsrc
+		gs 'time', 'to_date', temp_hdr_day_date
+		temp_hdr_month = dateVars['month']
+		temp_hdr_day = dateVars['day']
+
+		!! Get month name from number
+		if temp_hdr_month = 1: $temp_hdr_month_name = '一月'
+		if temp_hdr_month = 2: $temp_hdr_month_name = '二月'
+		if temp_hdr_month = 3: $temp_hdr_month_name = '三月'
+		if temp_hdr_month = 4: $temp_hdr_month_name = '四月'
+		if temp_hdr_month = 5: $temp_hdr_month_name = '五月'
+		if temp_hdr_month = 6: $temp_hdr_month_name = '六月'
+		if temp_hdr_month = 7: $temp_hdr_month_name = '七月'
+		if temp_hdr_month = 8: $temp_hdr_month_name = '八月'
+		if temp_hdr_month = 9: $temp_hdr_month_name = '九月'
+		if temp_hdr_month = 10: $temp_hdr_month_name = '十月'
+		if temp_hdr_month = 11: $temp_hdr_month_name = '十一月'
+		if temp_hdr_month = 12: $temp_hdr_month_name = '十二月'
+
+		!! Get day suffix
+		if (temp_hdr_day >= 4 and temp_hdr_day <= 20):
+			$temp_hdr_suffix = '日'
+		elseif temp_hdr_day mod 10 = 1:
+			$temp_hdr_suffix = '日'
+		elseif temp_hdr_day mod 10 = 2:
+			$temp_hdr_suffix = '日'
+		elseif temp_hdr_day mod 10 = 3:
+			$temp_hdr_suffix = '日'
+		else
+			$temp_hdr_suffix = '日'
+		end
+
+		!! Format: "Monday<br>January 24th"
+		$temp_hdr_date_str = $temp_hdr_month_name + ' ' + $str(temp_hdr_day) + $temp_hdr_suffix
+
+		!! Check if this is the current day and add underline
+		$temp_hdr_style = ''
+		if temp_hdr_day_date = daystart:
+			$temp_hdr_style = ' color: <<$theme_hex[''accent'']>>;'
+		end
+
+		!! Add header cell with colspan if needed for multi-column days
+		!! Width is still 13% regardless of colspan (table-layout: fixed handles distribution)
+		$result += '<th style="width: 13%;' + $temp_hdr_style + '" colspan="' + $str(temp_hdr_max_cols) + '">'
+		$result += $temp_hdr_day_name + '<br>' + $temp_hdr_date_str + '</th>'
+
+		temp_hdr_d += 1
+	if temp_hdr_d <= 7: jump 'loop_days_hdr'
+
+	$result += '</tr>'
+
+	!! Cleanup
+	killvar 'temp_hdr_first_slot'
+	killvar 'temp_hdr_bg'
+	killvar 'temp_hdr_d'
+	killvar 'temp_hdr_day_date'
+	killvar 'temp_hdr_day_name'
+	killvar 'temp_hdr_month'
+	killvar 'temp_hdr_day'
+	killvar 'temp_hdr_month_name'
+	killvar 'temp_hdr_suffix'
+	killvar 'temp_hdr_date_str'
+	killvar 'temp_hdr_max_cols'
+	killvar 'temp_hdr_style'
+	exit
+end
+
+
+!! ============================================================================
+!! render_allday_section
+!! Renders all-day events in separate rows between header and timeslot grid
+!! Input: None (uses week_schedule global)
+!! Output: $result = HTML for all-day event rows
+!! ============================================================================
+if $ARGS[0] = 'render_allday_section':
+	$result = ''
+
+	!! Get max all-day rows needed (should be same for all days)
+	temp_ad_max_rows = week_schedule['days=1, max_allday_rows']
+
+	if temp_ad_max_rows = 0:
+		!! No all-day events
+		killvar 'temp_ad_max_rows'
+		exit
+	end
+
+	!! Get the background color for empty all-day cells
+	!! Use the opposite of the first visible timeslot''s color (same as header)
+	temp_ad_first_slot = func('calendar_render', 'get_first_timeslot')
+	$temp_ad_empty_bg = $func('calendar_render', 'get_timeslot_bg_color', temp_ad_first_slot + 4)
+
+	!! Render each all-day row
+	temp_ad_row = 0
+	:loop_allday_rows_ad
+		$result += '<tr class="allday-row">'
+
+		!! Add "All Day" label only on first row, with rowspan for all rows
+		if temp_ad_row = 0:
+			$result += '<td class="time-cell allday-label" rowspan="<<$str(temp_ad_max_rows)>>" style="vertical-align: middle; text-align: center; background-color: ' + $temp_ad_empty_bg + ';">全天</td>'
+			!! Add current time indicator cell - use same color as header/empty cells
+			$result += '<td rowspan="<<$str(temp_ad_max_rows)>>" style="width: 20px; border: 1; background-color: ' + $temp_ad_empty_bg + ';"></td>'
+		end
+
+		!! Render cells for each day
+		temp_ad_d = 1
+		:loop_days_ad
+			!! Get max_columns for this day to determine how many cells to render
+			temp_ad_max_cols = week_schedule['days=<<temp_ad_d>>, max_columns']
+			if temp_ad_max_cols < 1: temp_ad_max_cols = 1
+
+			!! Check if this day has an event in this row
+			$temp_ad_event_id = $week_schedule['days=<<temp_ad_d>>, allday=<<temp_ad_row>>, id']
+
+			if $temp_ad_event_id <> '':
+				!! This cell starts an event
+				temp_ad_event_colspan = week_schedule['days=<<temp_ad_d>>, allday=<<temp_ad_row>>, colspan']
+				$temp_ad_title = $week_schedule['days=<<temp_ad_d>>, allday=<<temp_ad_row>>, title']
+				temp_ad_color = week_schedule['days=<<temp_ad_d>>, allday=<<temp_ad_row>>, color']
+
+				!! Get RGB color for this event
+				$temp_ad_color_rgb = $func('calendar_render', 'get_event_color', temp_ad_color)
+
+				!! Calculate total colspan accounting for multi-column days
+				!! Event spans temp_ad_event_colspan days, each day may have multiple columns
+				temp_ad_html_colspan = 0
+				temp_ad_span_day = temp_ad_d
+				:calc_html_colspan
+					temp_ad_span_max_cols = week_schedule['days=<<temp_ad_span_day>>, max_columns']
+					if temp_ad_span_max_cols < 1: temp_ad_span_max_cols = 1
+					temp_ad_html_colspan += temp_ad_span_max_cols
+					temp_ad_span_day += 1
+				if temp_ad_span_day < temp_ad_d + temp_ad_event_colspan: jump 'calc_html_colspan'
+
+				!! Render event cell with calculated colspan and centered text
+				$result += '<td class="allday-event" colspan="' + $str(temp_ad_html_colspan) + '" '
+				$result += 'style="background-color: rgb(' + $temp_ad_color_rgb + '); text-align: center; vertical-align: middle;">'
+				$result += '<div class="event-title" style="word-wrap: break-word; overflow-wrap: break-word;">' + $temp_ad_title + '</div>'
+				$result += '</td>'
+
+				!! Skip next (event_colspan-1) days since they''re covered by this cell
+				temp_ad_d += (temp_ad_event_colspan - 1)
+
+			elseif week_schedule['days=<<temp_ad_d>>, allday=<<temp_ad_row>>, continued'] = 1:
+				!! This day is covered by a previous cell''s colspan, skip
+				!! (Shouldn''t reach here due to loop skip above, but safety check)
+
+			else
+				!! No event in this row for this day
+				!! Count consecutive empty days in same row and merge them
+				temp_ad_empty_colspan = 0
+				temp_ad_check_day = temp_ad_d
+				:count_empty_days
+					if temp_ad_check_day <= 7:
+						$temp_ad_check_id = $week_schedule['days=<<temp_ad_check_day>>, allday=<<temp_ad_row>>, id']
+						temp_ad_check_continued = week_schedule['days=<<temp_ad_check_day>>, allday=<<temp_ad_row>>, continued']
+
+						if $temp_ad_check_id = '' and temp_ad_check_continued = 0:
+							!! This day is empty too - add its columns
+							temp_ad_check_cols = week_schedule['days=<<temp_ad_check_day>>, max_columns']
+							if temp_ad_check_cols < 1: temp_ad_check_cols = 1
+							temp_ad_empty_colspan += temp_ad_check_cols
+							temp_ad_check_day += 1
+							jump 'count_empty_days'
+						end
+					end
+
+				!! Render single merged empty cell for all consecutive empty days
+				if temp_ad_empty_colspan > 0:
+					$result += '<td class="allday-empty" colspan="' + $str(temp_ad_empty_colspan) + '" style="background-color: ' + $temp_ad_empty_bg + ';"></td>'
+					!! Skip the days we just merged (check_day is already incremented past the last empty)
+					temp_ad_d = temp_ad_check_day - 1
+				end
+			end
+
+			temp_ad_d += 1
+		if temp_ad_d <= 7: jump 'loop_days_ad'
+
+		$result += '</tr>'
+		temp_ad_row += 1
+	if temp_ad_row < temp_ad_max_rows: jump 'loop_allday_rows_ad'
+
+	!! Cleanup
+	killvar 'temp_ad_first_slot'
+	killvar 'temp_ad_empty_bg'
+	killvar 'temp_ad_max_rows'
+	killvar 'temp_ad_row'
+	killvar 'temp_ad_d'
+	killvar 'temp_ad_event_id'
+	killvar 'temp_ad_event_colspan'
+	killvar 'temp_ad_html_colspan'
+	killvar 'temp_ad_title'
+	killvar 'temp_ad_color'
+	killvar 'temp_ad_max_cols'
+	killvar 'temp_ad_col'
+	killvar 'temp_ad_span_day'
+	killvar 'temp_ad_span_max_cols'
+	killvar 'temp_ad_empty_colspan'
+	killvar 'temp_ad_check_day'
+	killvar 'temp_ad_check_id'
+	killvar 'temp_ad_check_continued'
+	killvar 'temp_ad_check_cols'
+	killvar 'temp_ad_color_rgb'
+	exit
+end
+
+
+!! ============================================================================
+!! get_first_timeslot
+!! Determines the first timeslot to display in the calendar
+!! Returns min(28, first_event_hour_start) where 28 = 07:00
+!! Input: None (uses week_schedule global)
+!! Output: result = first timeslot to display (0-95)
+!! ============================================================================
+if $ARGS[0] = 'get_first_timeslot':
+	!! Default to 07:00 (timeslot 28)
+	temp_gfs_first = 28
+
+	!! Scan all days and timeslots to find earliest event
+	temp_gfs_d = 1
+	:loop_check_days_gfs
+		temp_gfs_t = 0
+		:loop_check_timeslots_gfs
+			temp_gfs_count = week_schedule['days=<<temp_gfs_d>>, timeslots=<<temp_gfs_t>>, event_count']
+			if temp_gfs_count > 0:
+				!! Found event - check if it''s earlier than current first
+				!! Round down to start of hour (timeslot / 4 * 4)
+				temp_gfs_event_hour = temp_gfs_t / 4 * 4
+				if temp_gfs_event_hour < temp_gfs_first:
+					temp_gfs_first = temp_gfs_event_hour
+				end
+			end
+			temp_gfs_t += 1
+		if temp_gfs_t < 96: jump 'loop_check_timeslots_gfs'
+		temp_gfs_d += 1
+	if temp_gfs_d <= 7: jump 'loop_check_days_gfs'
+
+	result = temp_gfs_first
+
+	!! Cleanup
+	killvar 'temp_gfs_first'
+	killvar 'temp_gfs_d'
+	killvar 'temp_gfs_t'
+	killvar 'temp_gfs_count'
+	killvar 'temp_gfs_event_hour'
+	exit
+end
+
+
+!! ============================================================================
+!! render_timeslot_row
+!! Renders a single timeslot row across all days
+!! Input: ARGS[1] = timeslot_index (0-95)
+!! Output: $result = HTML for one row
+!! ============================================================================
+if $ARGS[0] = 'render_timeslot_row':
+	temp_rtr_ts = ARGS[1]
+
+	$result = '<tr>'
+
+	!! Add time cell - only on first timeslot of each hour (every 4 timeslots)
+	if temp_rtr_ts mod 4 = 0:
+		temp_rtr_hours = temp_rtr_ts / 4
+
+		!! Use unified background color function
+		$temp_rtr_bg = $func('calendar_render', 'get_timeslot_bg_color', temp_rtr_ts)
+
+		$temp_rtr_time_style = 'vertical-align: middle; text-align: center; background-color: ' + $temp_rtr_bg + ';'
+
+		$result += '<td class="time-cell" rowspan="4" style="' + $temp_rtr_time_style + '">'
+		$result += $func('time', 'get_time_string', temp_rtr_hours, 0, 0)
+		$result += '</td>'
+	end
+
+	!! Current time indicator column - highlight current 15-minute timeslot
+	!! Calculate current timeslot: (hour * 4) + (minute / 15)
+	temp_current_ts = (hour * 4) + (minut / 15)
+
+	!! Check once if this timeslot is current time and/or busy
+	temp_is_current = iif(temp_rtr_ts = temp_current_ts, 1, 0)
+	temp_is_busy = func('calendar_render', 'is_today_busy_at_timeslot', temp_rtr_ts)
+
+	!! Build indicator cell based on state
+	if temp_is_current = 1:
+		!! Current timeslot - red background, choose character based on busy state
+		if temp_is_busy = 1:
+			$temp_indicator_char = '✿'
+		else
+			$temp_indicator_char = '❀'
+		end
+		$result += '<td style="width: 20px; padding: 2px; border: 1; text-align: center; background-color: ' + $theme_hex['neg'] + '; color: white; min-height: 1.2em; line-height: 1.2;">' + $temp_indicator_char + '</td>'
+	else
+		!! Not current timeslot - use alternating background, choose character based on busy state
+		$temp_indicator_bg = $func('calendar_render', 'get_timeslot_bg_color', temp_rtr_ts)
+		if temp_is_busy = 1:
+			$temp_indicator_char = '⚘'
+		else
+			$temp_indicator_char = '&nbsp;'
+		end
+		$result += '<td style="width: 20px; padding: 2px; border: 1; text-align: center; background-color: ' + $temp_indicator_bg + '; min-height: 1.2em; line-height: 1.2;">' + $temp_indicator_char + '</td>'
+	end
+
+	!! Add day cells
+	temp_rtr_d = 1
+	:loop_days_rtr
+		$result += $func('calendar_render', 'render_day_cell', temp_rtr_d, temp_rtr_ts)
+		temp_rtr_d += 1
+	if temp_rtr_d <= 7: jump 'loop_days_rtr'
+
+	$result += '</tr>'
+
+	exit
+end
+
+
+!! ============================================================================
+!! render_day_cell
+!! Renders cells for a specific day at a specific timeslot
+!! Input: ARGS[1] = day_index (1-7), ARGS[2] = timeslot_index (0-95)
+!! Output: $result = HTML for cells in this day at this timeslot
+!! ============================================================================
+if $ARGS[0] = 'render_day_cell':
+	temp_d = ARGS[1]
+	temp_t = ARGS[2]
+
+	$result = ''
+
+	!! Get max columns for this day (minimum 1 for single-column rendering)
+	temp_max_cols = week_schedule['days=<<temp_d>>, max_columns']
+	if temp_max_cols < 1: temp_max_cols = 1
+
+	!! Get event count at this timeslot
+	temp_event_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count']
+
+	!! Initialize column tracking arrays
+	killvar 'temp_column_filled'
+	killvar 'temp_column_event_index'
+
+	!! First, mark columns occupied by events that started earlier and are still spanning
+	!! Scan backwards through previous timeslots to find events that span into current timeslot
+	temp_scan_ts = 0
+	:scan_earlier_events
+		if temp_scan_ts >= temp_t: jump 'done_scanning'
+
+		temp_scan_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_ts>>, event_count']
+		if temp_scan_count > 0:
+			temp_scan_e = 0
+			:loop_scan_events
+				!! Skip hidden events - they don''t occupy visual space
+				temp_scan_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_ts>>, events=<<temp_scan_e>>, is_hidden']
+				if temp_scan_hidden = 0:
+					!! Check if this event spans into current timeslot
+					temp_scan_span = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_ts>>, events=<<temp_scan_e>>, span']
+					temp_scan_end = temp_scan_ts + temp_scan_span - 1
+
+					if temp_scan_end >= temp_t:
+						!! This event occupies columns at current timeslot (rowspan covers it)
+						temp_scan_col = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_ts>>, events=<<temp_scan_e>>, column']
+						temp_scan_colspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_ts>>, events=<<temp_scan_e>>, colspan']
+
+						!! Mark columns as occupied (no cell needed - rowspan covers them)
+						temp_c = temp_scan_col
+						:mark_continuing
+							temp_column_filled[temp_c] = 1
+							temp_c += 1
+						if temp_c < temp_scan_col + temp_scan_colspan: jump 'mark_continuing'
+					end
+				end
+
+				temp_scan_e += 1
+			if temp_scan_e < temp_scan_count: jump 'loop_scan_events'
+		end
+
+		temp_scan_ts += 1
+		jump 'scan_earlier_events'
+
+	:done_scanning
+
+	!! Build a map of which event is at which column for events STARTING at this timeslot
+	!! Initialize event index array to -1 (no event)
+	temp_init_col = 0
+	:init_event_index
+		temp_column_event_index[temp_init_col] = -1
+		temp_init_col += 1
+	if temp_init_col < temp_max_cols: jump 'init_event_index'
+
+	if temp_event_count > 0:
+		temp_e = 0
+		:loop_map_events
+			!! Skip hidden events - they don''t render at all
+			temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_hidden']
+			if temp_is_hidden = 0:
+				temp_col = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, column']
+				temp_colspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, colspan']
+
+				!! Store which event index is at this column
+				temp_column_event_index[temp_col] = temp_e
+
+				!! Mark columns as filled
+				temp_c = temp_col
+				:mark_columns
+					temp_column_filled[temp_c] = 1
+					temp_c += 1
+				if temp_c < temp_col + temp_colspan: jump 'mark_columns'
+			end
+
+			temp_e += 1
+		if temp_e < temp_event_count: jump 'loop_map_events'
+	end
+
+	!! Now render cells in COLUMN ORDER (left to right)
+	if temp_max_cols > 1:
+		!! Multi-column day - render each column in order
+		!! Merge consecutive empty columns into single cell with colspan
+		temp_col = 0
+		:render_columns
+			if temp_column_filled[temp_col] = 1:
+				!! Column is filled - check if it has an event STARTING here
+				if temp_column_event_index[temp_col] >= 0:
+					!! Event starts at this column - render it
+					temp_e = temp_column_event_index[temp_col]
+					temp_colspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, colspan']
+					temp_rowspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, span']
+
+					$result += $func('calendar_render', 'render_event_cell', temp_d, temp_t, temp_e, temp_rowspan, temp_colspan)
+
+					!! Skip additional columns if colspan > 1
+					temp_col += temp_colspan - 1
+				end
+				!! else Column filled by rowspan continuation - no cell output
+			else
+				!! Column not filled - count consecutive empty columns for merging
+				temp_empty_colspan = 0
+				temp_check_col = temp_col
+				:count_empty
+					temp_empty_colspan += 1
+					temp_check_col += 1
+				if temp_check_col < temp_max_cols and temp_column_filled[temp_check_col] = 0: jump 'count_empty'
+
+				!! Render merged empty cell
+				$result += $func('calendar_render', 'render_empty_cell', 1, temp_empty_colspan, temp_t, temp_d)
+
+				!! Skip the columns we just rendered
+				temp_col += temp_empty_colspan - 1
+			end
+			temp_col += 1
+		if temp_col < temp_max_cols: jump 'render_columns'
+	else
+		!! Single column day - render one cell only
+		if temp_event_count > 0:
+			!! Check if the event is hidden
+			temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=0, is_hidden']
+			if temp_is_hidden = 0:
+				!! Visible event - render it
+				temp_rowspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=0, span']
+				$result += $func('calendar_render', 'render_event_cell', temp_d, temp_t, 0, temp_rowspan, 1)
+			elseif temp_column_filled[0] = 0:
+				!! Hidden event and column not filled by rowspan - add empty cell
+				$result += $func('calendar_render', 'render_empty_cell', 1, 1, temp_t, temp_d)
+			end
+		elseif temp_column_filled[0] = 0:
+			!! No event and not filled by rowspan - add empty cell
+			$result += $func('calendar_render', 'render_empty_cell', 1, 1, temp_t, temp_d)
+		end
+		!! else filled by rowspan continuation - no cell output
+	end
+
+	exit
+end
+
+
+!! ============================================================================
+!! render_event_cell
+!! Renders a single event cell with proper styling
+!! Input: ARGS[1] = day_index, ARGS[2] = timeslot_index, ARGS[3] = event_index
+!!        ARGS[4] = rowspan, ARGS[5] = colspan
+!! Output: $result = HTML for one event <td>
+!! ============================================================================
+if $ARGS[0] = 'render_event_cell':
+	temp_d = ARGS[1]
+	temp_t = ARGS[2]
+	temp_e = ARGS[3]
+	temp_rowspan = ARGS[4]
+	temp_colspan = ARGS[5]
+
+	!! Check if event is hidden (by priority conflicts)
+	temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_hidden']
+	if temp_is_hidden = 1:
+		!! Event is hidden - render as empty cell
+		$result = $func('calendar_render', 'render_empty_cell', temp_rowspan, temp_colspan, temp_t, temp_d)
+		exit
+	end
+
+	!! Get event properties
+	$temp_event_id = $week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, id']
+	$temp_title = $week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, title']
+	$temp_location = $week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, location']
+	$temp_desc = $week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, description']
+	temp_color = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, color']
+	temp_is_flex = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_flex']
+
+	!! Get RGB color for this event
+	$temp_color_rgb = $func('calendar_render', 'get_event_color', temp_color)
+
+	!! Determine cell content and styling based on event type
+	if temp_is_flex = 1:
+		!! Flexible event - single cell with split background
+		temp_window_slots = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, window_slots']
+		temp_event_slots = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, event_slots']
+
+		!! Calculate percentage heights for flexible arrival events
+		!! Use high precision to avoid rounding errors (multiply by 10000 to get 2 decimal places)
+		temp_total_slots = temp_window_slots + temp_event_slots
+		temp_window_percent_int = (temp_window_slots * 1000000) / temp_total_slots
+		temp_event_percent_int = (temp_event_slots * 1000000) / temp_total_slots
+
+		!! Convert to decimal string: divide by 10000 to get percentage with decimals
+		!! e.g., 666666 becomes "66.6666"
+		$temp_window_percent = $str(temp_window_percent_int / 10000) + '.' + $str(temp_window_percent_int mod 10000)
+		$temp_event_percent = $str(temp_event_percent_int / 10000) + '.' + $str(temp_event_percent_int mod 10000)
+
+		!! Build cell with absolute positioning for percentage-based heights
+		$result = '<td rowspan="' + $str(temp_rowspan) + '" colspan="' + $str(temp_colspan) + '" '
+		$result += 'class="event-cell" style="padding: 0 !important; position: relative;">'
+
+		!! Window div (hatched background with lower opacity)
+		$result += '<div class="event-window" style="position: absolute; top: 0; left: 0; right: 0; height: ' + $temp_window_percent + '%; '
+		$result += 'margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; '
+		$result += 'display: flex; flex-direction: column; justify-content: center; '
+		$result += 'background: repeating-linear-gradient(45deg, rgba(' + $temp_color_rgb + ', 0.9), rgba(' + $temp_color_rgb + ', 0.9) 10px, '
+		$result += 'rgba(' + $temp_color_rgb + ', 0.7) 10px, rgba(' + $temp_color_rgb + ', 0.7) 20px);">'
+
+		!! Only show arrival time if window is longer than 1 hour (>4 slots)
+		if temp_window_slots >= 6:
+			!! Format window time range using time.qsrc function
+			temp_window_start = temp_t
+			temp_window_end = temp_t + temp_window_slots - 1
+			$temp_window_time = $func('calendar_query', 'ts_to_str', temp_window_start) + '-' + $func('calendar_query', 'ts_to_str', temp_window_end)
+			$result += '<div class="event-time" style="font-size: 0.9em; opacity: 0.8; word-wrap: break-word; overflow-wrap: break-word;">' + $temp_window_time + '</div>'
+		end
+		$result += '</div>'
+
+		!! Event div (solid background) - positioned after window div
+		!! Calculate available space based on ACTUAL EVENT portion only (not window)
+		!! Use event_slots instead of total rowspan to determine detail level
+		temp_event_space = temp_colspan * temp_event_slots
+
+		$result += '<div class="event-main" style="position: absolute; top: ' + $temp_window_percent + '%; left: 0; right: 0; bottom: 0; '
+		$result += 'margin: 0; padding: 0; box-sizing: border-box; overflow: hidden; '
+		$result += 'display: flex; flex-direction: column; justify-content: center; '
+		$result += 'background-color: rgb(' + $temp_color_rgb + ');">'
+		$result += '<div class="event-title" style="word-wrap: break-word; overflow-wrap: break-word;">' + $temp_title + '</div>'
+
+		!! Only show location and description if we have enough space (space >= 5)
+		if temp_event_space >= 5:
+			if $temp_location <> '':
+				$result += '<div class="event-location" style="font-size: 0.85em; opacity: 0.7; word-wrap: break-word; overflow-wrap: break-word;">' + $temp_location + '</div>'
+			end
+			if $temp_desc <> '':
+				$result += '<div class="event-desc" style="font-size: 0.8em; opacity: 0.6; word-wrap: break-word; overflow-wrap: break-word;">' + $temp_desc + '</div>'
+			end
+		end
+		$result += '</div>'
+
+		$result += '</td>'
+	else
+		!! Fixed event - simple solid background
+		!! Calculate available space: colspan * rowspan to determine detail level
+		temp_event_space = temp_colspan * temp_rowspan
+
+		$result = '<td rowspan="' + $str(temp_rowspan) + '" colspan="' + $str(temp_colspan) + '" '
+		$result += 'class="event-cell" style="background-color: rgb(' + $temp_color_rgb + '); padding: 2px;">'
+		$result += '<div class="event-title" style="word-wrap: break-word; overflow-wrap: break-word;">' + $temp_title + '</div>'
+
+		!! Only show location and description if we have enough space (space >= 5)
+		if temp_event_space >= 5:
+			if $temp_location <> '':
+				$result += '<div class="event-location" style="font-size: 0.85em; opacity: 0.7; word-wrap: break-word; overflow-wrap: break-word;">' + $temp_location + '</div>'
+			end
+			if $temp_desc <> '':
+				$result += '<div class="event-desc" style="font-size: 0.8em; opacity: 0.6; word-wrap: break-word; overflow-wrap: break-word;">' + $temp_desc + '</div>'
+			end
+		end
+		$result += '</td>'
+	end
+
+	exit
+end
+
+
+!! ============================================================================
+!! render_empty_cell
+!! Renders an empty cell with alternating background
+!! Input: ARGS[1] = rowspan, ARGS[2] = colspan, ARGS[3] = timeslot, ARGS[4] = day_index
+!! Output: $result = HTML for empty <td>
+!! ============================================================================
+if $ARGS[0] = 'render_empty_cell':
+	temp_ec_rowspan = ARGS[1]
+	temp_ec_colspan = ARGS[2]
+	temp_ec_timeslot = ARGS[3]
+	temp_ec_day = ARGS[4]
+
+	!! Use unified background color function
+	$temp_ec_bg = $func('calendar_render', 'get_timeslot_bg_color', temp_ec_timeslot)
+
+	$result = '<td rowspan="' + $str(temp_ec_rowspan) + '" colspan="' + $str(temp_ec_colspan) + '" '
+	$result += 'class="empty-cell" style="background-color: ' + $temp_ec_bg + ';">&nbsp;</td>'
+
+	killvar 'temp_ec_rowspan'
+	killvar 'temp_ec_colspan'
+	killvar 'temp_ec_timeslot'
+	killvar 'temp_ec_day'
+	killvar 'temp_ec_bg'
+	exit
+end
+
+--- calendar_render ---------------------------------

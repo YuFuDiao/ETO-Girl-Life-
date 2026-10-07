@@ -1,0 +1,232 @@
+# adverts_manager
+
+!! ---------------------------------------------------------------
+!! Only use this function externally to open this noticeboards
+!! ---------------------------------------------------------------
+
+$location_type = 'public_indoors'
+if $ARGS[0] = 'start':
+	menu_off = 1
+	gs 'saveposition'
+	gt 'adverts_manager', 'show'
+end
+
+!! ---------------------------------------------------------------
+!! Add/Change code to make advertisements appear or disappear via adv_chance['ad'] variable
+!! ---------------------------------------------------------------
+
+
+if $ARGS[0] = 'cikl':
+	if month > 8: adv_chance['guitar'] = 50
+end
+
+!! ---------------------------------------------------------------
+!! Add new locations for noticeboards here
+!! ---------------------------------------------------------------
+
+
+if $ARGS[0] = 'check_location':
+	if $loc = 'pav_commercial':
+		$adv_locationImg = 'images/locations/shared/noticeboards/pav_commercial.jpg'
+		if adv_pav_commercial['<<$adv_list[i]>>'] = 1:
+			adv_location_result = 1
+		else
+			adv_location_result = 0
+		end
+	elseif $loc = 'pav_commcenter':
+		$adv_locationImg = 'images/locations/shared/noticeboards/pav_commcenter.jpg'
+		if adv_pav_commcenter['<<$adv_list[i]>>'] = 1:
+			adv_location_result = 1
+		else
+			adv_location_result = 0
+		end
+	elseif $loc = 'city_industrial':
+		$adv_locationImg = 'images/locations/shared/noticeboards/city_industrial.jpg'
+		if adv_city_industrial['<<$adv_list[i]>>'] = 1:
+			adv_location_result = 1
+		else
+			adv_location_result = 0
+		end
+	elseif $loc = 'city_residential':
+		$adv_locationImg = 'images/locations/shared/noticeboards/city_residential.jpg'
+		if adv_city_residential['<<$adv_list[i]>>'] = 1:
+			adv_location_result = 1
+		else
+			adv_location_result = 0
+		end
+	elseif $loc = 'city_center':
+		$adv_locationImg = 'images/locations/shared/noticeboards/city_citycenter.jpg'
+		if adv_city_center['<<$adv_list[i]>>'] = 1:
+			adv_location_result = 1
+		else
+			adv_location_result = 0
+		end
+	else
+		$adv_locationImg = 'images/locations/shared/noticeboards/pav_residential.jpg'
+		!! Gives back 2 if there is code missing for location, therefore will show the ad
+		adv_location_result = 2
+	end
+end
+
+!! ---------------------------------------------------------------
+!! Do no change anything below and never call these functions externally
+!! ---------------------------------------------------------------
+
+
+if $ARGS[0] = 'show':
+	menu_off = 1
+	*clr & cla
+
+	if adv_init = 0:
+		gs 'adverts_definition', 'init'
+
+		adv_lastAppearanceChance = -1
+		gs 'adverts_manager', 'appearance_chance'
+	end
+
+	if week = 1: gs 'adverts_manager', 'appearance_chance'
+	gs 'adverts_manager', 'sum_adverts'
+
+	minut += 2
+	gs 'stat'
+
+	$func('wrap', 'header center b', '公告板')
+	$adv_Text = '<center>你看着公告板，想看看有没有广告能引起你的兴趣。<br>'
+	if adv_unknownCount = 0 and adv_knownCount = 0:
+		$adv_Text += '今天没有广告。也许我应该下周再来看看？<br>'
+	else
+		if adv_unknownCount > 0 and adv_knownCount > 0:
+			$adv_Text += '你看到<<adv_unknownCount>>条新广告和<<adv_knownCount>>条已知广告' + iif((adv_knownCount + adv_unknownCount) = 1, '', '') + '。<br>'
+		elseif adv_unknownCount > 0:
+			$adv_Text += '你看到<<adv_unknownCount>>条新广告' + iif(adv_unknownCount = 1, '', '') + '。<br>'
+		elseif adv_knownCount > 0:
+			$adv_Text += '你看到<<adv_knownCount>> known ' + iif(adv_knownCount = 1, 'advert', 'adverts') + '.<br>'
+		end
+		if adv_unknownCount > 0: $adv_Text += '也许该看看新的' + iif(adv_unknownCount = 1, '广告', '广告') + '。也许有什么机会我会错过？<br>'
+	end
+	$adv_Text += '</center>'
+	$adv_Text
+
+	if adv_unknownCount > 0:
+		$func('wrap', 'header center b', '新广告')
+		gs 'adverts_manager', 'show_adverts', 0
+	end
+
+	if adv_knownCount > 0:
+		$func('wrap', 'header center b', '已知广告')
+		gs 'adverts_manager', 'show_adverts', 1
+	end
+
+	act '离开公告板': gt 'restoreposition'
+
+	killvar 'adv_location_result'
+	killvar 'adv_locationImg'
+	killvar 'adv_knownCount'
+	killvar 'adv_unknownCount'
+	killvar 'adv_Text'
+end
+
+
+if $ARGS[0] = 'sum_adverts':
+	adv_knownCount = 0
+	adv_unknownCount = 0
+
+	i = 1
+	:sum_visible_loop
+
+	gs 'adverts_manager', 'check_location'
+	if adv_location_result > 0 and adv_appearance[i] = 1:
+		if adv_known[i] = 1:
+			adv_knownCount += 1
+		else
+			adv_unknownCount += 1
+		end
+	end
+
+	i += 1
+	if i <= adv_listSize: jump 'sum_visible_loop'
+end
+
+
+if $ARGS[0] = 'appearance_chance':
+	if adv_lastAppearanceChance ! daystart:
+		adv_lastAppearanceChance = daystart
+
+		i = 1
+		:appearance_loop
+
+		if adv_chance['<<$adv_list[i]>>'] > rand(0, 99):
+			adv_appearance[i] = 1
+		else
+			adv_appearance[i] = 0
+		end
+
+		i += 1
+		if i <= adv_listSize: jump 'appearance_loop'
+	end
+end
+
+
+if $ARGS[0] = 'show_adverts':
+	$adv_table_adverts = '<center><table>'
+
+	i = 1
+	:show_adverts_loop
+
+	gs 'adverts_manager', 'check_location'
+	if adv_location_result > 0 and adv_known[i] = args[1] and adv_appearance[i] = 1:
+		if i2 = 0: $adv_table_adverts += '<tr>'
+		i2 += 1
+		if theme['is_dark'] = 1:
+			$adv_table_adverts += '<td><table bgcolor=#404040>'
+		else
+			$adv_table_adverts += '<td><table bgcolor=#FFF8DC>'
+		end
+		if adv_known[i] = 1:
+			$adv_table_adverts += '<tr><td align=center><a href="exec: gt ''adverts_manager'', ''view_advert'', ''<<$adv_list[i]>>'', <<i>>"><img height="150" src="<<$adv_imgPath[''<<$adv_list[i]>>'']>>"></a></td></tr><tr><td align=center><<$adv_name[''<<$adv_list[i]>>'']>></td></tr></table></td>'
+		else
+			$adv_table_adverts += '<tr><td align=center><a href="exec: gt ''adverts_manager'', ''view_advert'', ''<<$adv_list[i]>>'', <<i>>"><img height="150" src="<<$adv_locationImg>>"></a></td></tr><tr><td align=center><<$adv_nameHidden[''<<$adv_list[i]>>'']>></td></tr></table></td>'
+		end
+
+		if i2 mod 6 = 0: i2 = 0 & $adv_table_adverts += '</tr>'
+	end
+	i += 1
+	if i <= adv_listSize: jump 'show_adverts_loop'
+
+	if i2 mod 6 <> 0:
+		:show_advert_loop_close
+		i2 += 1
+		$adv_table_adverts += '<td></td>'
+		if i2 mod 6 = 0:
+			i2 = 0
+			$adv_table_adverts += '</tr>'
+		else
+			jump 'show_advert_loop_close'
+		end
+	end
+
+	$adv_table_adverts += '</table></center>'
+	$adv_table_adverts
+
+	killvar 'adv_table_adverts'
+end
+
+
+if $ARGS[0] = 'view_advert':
+	$func('wrap', 'header center b', '广告')
+	'<center><table><tr><td><img height="500" src="<<$adv_imgPath[''<<$args[1]>>'']>>"></td></tr></table></center>'
+
+	adv_known[args[2]] = 1
+	gs 'adverts_view', $args[1]
+
+	minut += 1
+	gs 'stat'
+	act '回去': gt 'adverts_manager', 'show'
+end
+
+
+
+
+
+
+--- adverts_manager ---------------------------------

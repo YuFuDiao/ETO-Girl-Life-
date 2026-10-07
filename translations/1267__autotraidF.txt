@@ -1,0 +1,236 @@
+# autotraidF
+!! 2021/04/26
+if $ARGS[0] = 'start':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'autotraidF', 'start'
+	$location_type = 'event'
+	gs 'stat'
+
+	'<center><b>汽车经销店</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/UsedCar/autotraid.jpg"></center>'
+	'你一踏进院子，就看到一份塑封文件被钉在入口附近的墙上：'
+
+	'- 我们只卖给持有有效驾照的人。'
+	'- 州新法律：已经拥有汽车的人不得购买。'
+	*nl
+	if func('car_funcs', 'is_here'): '你的<a href="exec:gs ''carF'', ''start''"><<$car[''name'']>></a>就停在院子里。'
+
+	act '离开': minut += 5 & gt 'city_industrial'
+
+	if func('autotraidF', 'is_open'):
+		if func('car_funcs', 'has_car'): act '询问关于你卖车的事': gt 'autotraidF', 'manager1'
+
+		act '看看待售的新车': gt 'autosalonF', 'start'
+		act '看看待售的二手车': gt 'autotraidF', 'car'
+	end
+end
+
+
+if $ARGS[0] = 'is_open':
+	result = (hour >= 9 and hour < 18 and week > 1)
+end
+
+
+if $ARGS[0] = 'manager1':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'autotraidF', 'manager1'
+	gs 'stat'
+
+	'<center><b>二手车经销店</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/UsedCar/autotraid.jpg"></center>'
+	gs 'car_funcs', 'avb'
+
+	act '返回': killvar 'bupay' & minut += 5 & gt 'autotraidF', 'start'
+
+	if func('car_funcs', 'has_car'):
+		if func('car_funcs', 'is_here_area'):
+			'那个眼神狡诈的销售员绕着你的车转了几圈，一边发出夸张的不满声，一边几乎把每粒灰尘都指出来，好像那是什么重大损伤。当他转向你时，他说他最多只能出价 ' + $func('money', 'string_profit', bupay) + ' - 虽然他声称这个价格他已经冒了风险，但你很确定他在坑你。'
+
+			act '把你的车卖了 (' + $func('money', 'string_profit', bupay) + ') (1:00)':
+				cla
+				menu_off = 1
+				minut += 60
+				gs 'money', 'earn', bupay
+				killvar 'car'
+				killvar 'bupay'
+				'虽然你很肯定他的出价低于这辆车的实际价值，但你怀疑自己是否还能找到出价更高的人，而且你和这家伙讨价还价的尝试都失败了——他在这方面太有经验了。'
+				'所以，尽管你很讨厌这样，你还是看了你的车最后一眼，然后和他握手，跟着他走进他称之为"办公室"的小棚子里签署文件。他把现金递给你，带着一脸坏笑建议你到院子里四处看看。'
+				'"也许你能找到什么你喜欢的东西？"'
+
+				act '返回': minut += 5 & gt 'autotraidF', 'start'
+			end
+		else
+			'销售员告诉你，他脸上带着讥讽而非友善的笑容，说他必须先看看你的车，然后才能告诉你它值多少钱。"如果你愿意，我可以叫人把它拖到这里来。只需 ' + $func('money', 'string_price', 3000) + '。非常便宜！"'
+
+			if func('money', 'can_afford', 3000) = 1:
+				act '支付拖车费用 (' + $func('money', 'string_price', 3000) + ') (1:00)':
+					cla
+					menu_off = 1
+					minut += 60
+					gs 'money', 'pay', 3000
+					gs 'car_funcs', 'setloc', 'autotraidF', 'start', 'city'
+
+					'你把钱给了他——确信他在坑你——然后等了一个小时，直到拖车终于开进院子，你的车被挂在拖车后面。'
+
+					act '再次和汽车销售员谈谈': killvar 'bupay' & gt 'autotraidF', 'manager1'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'car':
+	*clr & cla
+	menu_off = 0
+	minut += 5
+	gs 'core_library', 'setloc', 'autotraidF', 'car'
+	carT = 0
+	gs 'stat'
+	'<center><b>二手车经销店</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/UsedCar/autotraid.jpg"></center>'
+	'停车场上的车太多了，你花上一辈子也看不完。据销售员说，目前有几辆车正在试驾或维修中。不过你怀疑这里其实并没有进行什么维修：有几辆车有明显的损坏，或者启动时发出可怕的声音。'
+	*nl
+	'很明显，这里大部分车，即使不是全部，都遭受过某种看得见或看不见的损伤。在这里买车可能会捡到大便宜……也可能完全是浪费钱。如果你想买其中任何一辆，你知道应该先去找一家维修中心。'
+
+	act '返回': killvar 'carT' & killvar 'bupay' & gt 'autotraidF', 'start'
+
+	if hour <= 17:
+		if car = 0 or car > 199:
+			!! this is a VERY crude fix for when car[] was created before car
+			!! if we ever add cars with indices past 199 its gonna break
+			killvar 'car'
+			car = 0
+		end
+		if used_car['1_condition'] ! -1 and used_car['1_price'] ! -1: act '查看一辆 2107': gt 'autotraidF', 'inspect', 1, 1, 3
+
+		if used_car['wrek_condition'] ! -1 and used_car['wrek_price'] ! -1:
+			act '查看另一辆 2107 （引擎故障）':
+				gt 'autotraidF', 'inspect_wreck'
+			end
+		end
+
+		if used_car['2_condition'] ! -1 and used_car['2_price'] ! -1:	act '查看一辆拉达 2115': gt 'autotraidF', 'inspect', 2, 1, 3
+		if used_car['3_condition'] ! -1 and used_car['3_price'] ! -1:	act '查看一辆拉达 2113': gt 'autotraidF', 'inspect', 3, 1, 3
+		if used_car['4_condition'] ! -1 and used_car['4_price'] ! -1:	act '查看一辆拉达 2114': gt 'autotraidF', 'inspect', 4, 1, 3
+		if used_car['5_condition'] ! -1 and used_car['5_price'] ! -1:	act '查看一辆拉达 2110': gt 'autotraidF', 'inspect', 5, 1, 3
+		if used_car['11_condition'] ! -1 and used_car['11_price'] ! -1:	act '查看一辆 GAZ 3102': gt 'autotraidF', 'inspect', 11, 2, 5
+		if used_car['12_condition'] ! -1 and used_car['12_price'] ! -1:	act '查看一辆 GAZ 3110': gt 'autotraidF', 'inspect', 12, 2, 5
+	end
+end
+
+
+if $ARGS[0] = 'inspect':
+	*clr & cla
+	menu_off = 1
+	autotraidF_carnum = ARGS[1]
+	!! max potential condition, used in 'avt' to generate actual condition and price
+	autotraidF_benz = ARGS[3]
+
+	'<center><b><<$autotraidF_carname>></b></center>'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/car/car<<autotraidF_carnum>>.jpg"></center>'
+
+	!! caching offers, resets on monday (via cikl)
+	if used_car['<<autotraidF_carnum>>_condition'] = 0 and used_car['<<autotraidF_carnum>>_price'] = 0:
+		!! used in 'avt' as branching selector, affects price
+		carT = ARGS[2]
+		!! generates condition and price for the car
+		gs 'car_funcs', 'avt'
+	end
+	'<<$used_car[''<<autotraidF_carnum>>_condition_desc'']>>汽车销售员要价 ' + $func('money', 'string_price', used_car['<<autotraidF_carnum>>_price']) + '。'
+
+	act '再四处看看':
+		killvar 'autotraidF_carname'
+		killvar 'autotraidF_carnum'
+		killvar 'autotraidF_benz'
+		gt 'autotraidF', 'car'
+	end
+
+	if car = 0 and license['drive'] = 1:
+		act '买车' + $func('money', 'get_cost_string', used_car['<<autotraidF_carnum>>_price']):
+			if func('money', 'can_afford', used_car['<<autotraidF_carnum>>_price']) = 0:
+				$noMoney
+			else
+				gs 'money', 'pay', used_car['<<autotraidF_carnum>>_price']
+				xgt 'autotraidF', 'buy_car'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_car':
+	cla
+	gs 'car_funcs', 'add_car', autotraidF_carnum
+	!! benz means fuel
+	car['fuel'] = autotraidF_benz
+	gs 'car_funcs', 'setloc', 'autotraidF', 'start', 'city'
+	car['current_condition'] = used_car['<<autotraidF_carnum>>_condition']
+
+	!! sets condition when new (ie max possible condition)
+	'这辆车基本上是个废铁。它' + $func('money', 'string_price', used_car['<<autotraidF_carnum>>_price']) + ', 这辆车就是你的了。'
+	'由于这辆车挤在大概一百万辆车中间，汽车销售员把它挪到院子入口附近，并提醒你油箱里的汽油所剩无几。'
+
+	used_car['<<autotraidF_carnum>>_condition'] = -1
+	used_car['<<autotraidF_carnum>>_price'] = -1
+	gs 'array', 'remove_element', 'car', 'potential_new_condition'
+	gs 'array', 'remove_element', '$used_car', '<<autotraidF_carnum>>_condition'
+	killvar 'autotraidF_carname'
+	killvar 'autotraidF_carnum'
+	killvar 'autotraidF_benz'
+
+	act '返回': gt 'autotraidF', 'start'
+end
+
+
+if $ARGS[0] = 'inspect_wreck':
+	*clr & cla
+	menu_off = 1
+	gs 'car_attributes', 1
+
+	'<center><b>2107 （引擎故障）</b></center>'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/car/car1.jpg"></center>'
+	!! caching offers, resets on monday (via cikl)
+	if used_car['wrek_condition'] = 0 and used_car['wrek_price'] = 0:
+		used_car['wrek_condition'] = rand(CarCondition / 20, CarCondition)
+		used_car['wrek_price'] = rand(CarPrice / 1000, CarPrice / 200) * 100
+	end
+	'这辆车基本上是个废铁。它甚至都发动不起来。当你问销售员要多少钱时，他毫不犹豫地告诉你 "' + $func('money', 'string_price', used_car['wrek_price']) + '"。'
+
+	act '再四处看看': gt 'autotraidf', 'car'
+
+	if car['ID'] = 0 and license['drive'] = 1:
+		act '买车' + $func('money', 'get_cost_string', used_car['wrek_price']):
+			if func('money', 'can_afford', used_car['wrek_price']) = 0:
+				$noMoney
+			else
+				gs 'money', 'pay', used_car['wrek_price']
+				xgt 'autotraidF', 'buy_wreck'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'buy_wreck':
+	cla
+	gs 'car_funcs', 'add_car', 1
+	gs 'car_funcs', 'setloc', 'autotraidF', 'start', 'city'
+	car['fuel'] = 3
+	car['wreck'] = 1
+	car['current_condition'] = used_car['wrek_condition']
+
+	'你同意了，转眼间，你和汽车销售员已经签署了所有必要文件。你支付了 ' + $func('money', 'string_price', used_car['wrek_price']) + ', 这辆车就是你的了。'
+	'由于这辆车挤在大概一百万辆车中间，汽车销售员把它挪到院子入口附近……也就仅此而已。'
+	'如果你想把这辆车弄到修理厂，你得先过去，然后找人把它拖走。'
+
+	used_car['wrek_condition'] = -1
+	used_car['wrek_price'] = -1
+
+	act '返回': minut += 5 & gt 'autotraidF', 'start'
+end
+
+
+--- autotraidF ---------------------------------

@@ -1,0 +1,583 @@
+# mey_home
+
+CLOSE ALL
+$location_type = 'public_indoors'
+
+!! corporate only at the end of the month on weekends, check
+if day <= 25 and mey_vika['mey_vika_qw'] > 40: mey_vika['mey_vika_qw'] = 40
+
+if $args[0] = 'door':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'door'
+	gs 'schedule', 'A14', 'A15'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center h4', '梅诺德的房子')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/mey_home.jpg"></center>'
+	*nl
+
+	if mey_vika['key'] = 1:
+		'你用钥匙打开门，走进房子。'
+
+		if frost > 0: frost = 0
+		act '进入': gt 'mey_home', 'start'
+	elseif hour < 20 and ((week < 6 and hour >= 15) or (week >= 6 and hour > 10)) and mey_vika['mey_vika_qw'] >= 27:
+		if mey_vika['mey_vika_qw'] = 27:
+			gt 'mey_tamara_events', 'next_meet'
+		else
+			*clr
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/tamara_tea1.jpg"></center>'
+			*nl
+			'你走到 梅诺尔德 家门前按响了门铃…'
+			'等了一会儿，你听到门锁咔哒一声响，看到卡佳的母亲塔玛拉和妹妹维姬站在门口'
+			'"哦，嗨，<<$pcs_nickname>>，欢迎！快进来，把这当成自己家吧。"'
+
+			if frost > 0: frost = 0
+			act '进入': minut += 1 & gt 'mey_home', 'start'
+		end
+	elseif locat['katja'] = 7 and katjaQW['QWstage'] > 1:
+		cla
+		'你走到 梅诺尔德 宅邸前，按响了门铃…'
+		'卡佳打开门，迅速把你拖进她的房间。'
+
+		act '去卡佳的房间':
+			if frost > 0: frost = 0
+			gt 'KatjaHomeTalk'
+		end
+	else
+		*clr
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/tamara_tea0.jpg"></center>'
+		'你走到 梅诺尔德 家门前按响了门铃…'
+		'没有人开门。看起来家里没人，或者他们都睡着了。'
+		'也许你应该换个更合适的时间再来试试？'
+
+		act '离开': minut += 5 & gt 'pav_residential'
+	end
+end
+
+
+!! hall
+if $ARGS[0] = 'start':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'start'
+	$location_type = 'private'
+	killvar '$locclass'
+	gs 'schedule', 'A14', 'A15'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center h4', '大厅')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/corridor.jpg"></center>'
+	*nl
+	'这个"门厅"又大又亮，延伸得很长。你以前从没见过这样的地方！其中一面墙的一半被一面镜子覆盖。从门厅就能看到厨房。还有一张很大的椭圆形餐桌。'
+	'有楼梯通向二楼。你还能看到两扇门，门上的牌子写着"厕所"和"浴室"。'
+
+	act '离开房子':
+		if PSwim ! 1 or $clothingworntype ! 'nude':
+			minut += 5
+			gt 'pav_residential'
+		else
+			msg '<b><font color = red>你需要穿好衣服。</font></b>'
+			gt 'mey_home', 'start'
+		end
+	end
+
+	if mey_vika['mey_vika_qw'] = 30 and mey_vika['qw_day'] ! daystart and locat['Vicky'] = 15: gs 'mey_vika_events', 'case_gift'
+	if mey_vika['mey_vika_qw'] >= 32 and mey_vika['gym_day'] ! daystart and locat['Vicky'] = 12: gs 'mey_vika_events', 'gym0'
+	if mey_vika['mey_vika_qw'] >= 32 and mey_vika['gym_day'] ! daystart and locat['Vicky'] = 13: gs 'mey_vika_events', 'gym1'
+	if mey_vika['mey_vika_qw'] >= 32 and mey_vika['mey_vika_qw'] < 35 and mey_vika['qw_day'] ! daystart and locat['Vicky'] = 15: gs 'mey_vika_events', 'learning0'
+
+	if mey_vika['mey_vika_qw'] >= 32:
+		!! welcome to the corporate
+		if week = 7 and hour >= 12 and hour <= 16 and day > 25 and mey_vika['mey_vika_qw'] = 40 and mey_tamara['qw_end'] = 0 and fame['pav_slut'] < 150:
+			gt 'mey_tamara_events', 'party0'
+		end
+		!! check appearance before going to corporate
+		if week = 7 and (hour = 17 or hour = 18) and mey_vika['mey_vika_qw'] = 41:
+			'<br><a href="exec: gt''mey_tamara_events'',''check_look''">塔玛拉·梅诺德</a>正在大厅等你。'
+
+			exit
+		end
+
+		!! Vic calls in the shower
+		if mesec = 0 and stat['think_virgin'] = 0 and mey_vika['bath_qw'] = 1 and mey_vika['bath_qw_day'] ! daystart and rand(0, 3) = 0 and locat['Vicky'] = 9:
+			xgt 'mey_vika_events', 'bath_qw1'
+		end
+
+		if ((week < 6 and hour >= 14 and hour < 20) or (week = 6 and hour >= 10 and hour < 20)) and mey_tamara['help_day'] ! daystart:
+			act '打扫房子':
+				menu_off = 1
+				cla
+				mey_tamara['help_day'] = daystart
+				mey_tamara['help_count'] += 1
+				minut += rand(50, 70)
+				gs 'sweat', 'add', 3
+				gs 'mood', 'lower', 'small'
+				gs 'stat'
+				if mey_vika['bath_qw'] = 0 and mey_vika['bath_qw_day'] ! daystart:
+					gs 'mey_vika_events', 'bath_qw0'
+				else
+					'<br>你从柜子里拿出一个笨重的吸尘器，花了大约一小时把房子吸了一遍。'
+
+					act '完成': gt 'mey_home', 'start'
+				end
+			end
+		end
+	end
+	act '厨房': minut += 1 & gt 'mey_home', 'kitchen'
+	act '浴室': minut += 1 & gt 'mey_home', 'bathroom'
+	if mey_vika['mey_vika_qw'] >= 30: act '客房': minut += 1 & gt 'mey_home', 'guest_bedroom'
+	act '休息室': minut += 1 & gt 'mey_home', 'lounge'
+	act '卡佳的房间':
+		if PSwim ! 1 or $clothingworntype ! 'nude':
+			minut += 1
+			gt 'mey_home', 'katja_bedroom'
+		else
+			msg '<b><font color = red>进入卡佳的房间前，你需要先穿好衣服。</font></b>'
+			gt 'mey_home', 'start'
+		end
+	end
+	act '维基的房间': minut += 1 & gt 'mey_home', 'vicky_bedroom'
+	act '塔玛拉·梅诺尔德的房间': minut += 1 & gt 'mey_home', 'tamara_bedroom'
+	act '花园': minut += 1 & gt 'mey_home', 'garden'
+	if func('homes_properties', 'is_current_home') = 0 and func('homes_properties', 'can_live_here') and mey_vika['mey_vika_qw'] >= 30:
+		act '把这栋房子设为自己的家': gs 'homes_properties', 'set_home' & gt 'mey_home', 'start'
+	end
+
+	!! if rand (0,2) ! 0: gs 'din_bad', 'mobile_check'
+end
+
+
+!! kitchen
+if $ARGS[0] = 'kitchen':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'kitchen'
+	$location_type = 'kitchen'
+	$locclass = 'kitchen'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center h4', '厨房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/kitchen.jpg"></center>'
+	*nl
+	'厨房宽敞而奢华，采用极简高科技风格装饰。房间中央摆着一张椭圆形餐桌。所有电器都隐藏了起来。因此，厨房一尘不染，闪闪发亮。'
+	if mey_vika['mey_vika_qw'] = 31:
+		'柜台上放着一张纸条和一个<a href="exec:gs ''mey_home'', ''key''">钥匙</a>'
+	end
+	act '回到走廊': minut += 1 & gt 'mey_home', 'start'
+
+	if mey_vika['mey_vika_qw'] >= 32 and ((week < 6 and hour >= 14 and hour < 20) or (week = 6 and hour >= 10 and hour < 20)) and mey_tamara['help_day'] ! daystart:
+		act '为全家人做饭':
+			menu_off = 1
+			cla
+			mey_tamara['help_day'] = daystart
+			mey_tamara['help_count'] += 1
+			minut += rand(50, 70)
+			gs 'stat'
+			'<br>你从冰箱里拿出食物，开始为全家人做饭。大约一小时后做好了。'
+
+			act '完成': gt 'mey_home', 'kitchen'
+		end
+	end
+
+	act '吃一顿丰盛的饭 (0:20)': gs 'food', 'large_meal'
+	act '吃一顿普通的饭 (0:15)': gs 'food', 'medium_meal'
+	act '吃一顿简单的饭 (0:10)': gs 'food', 'small_meal'
+
+	gs 'core_library', 'kitchen', 'full'
+
+	gs 'library_functions', 'set_home_read_acts'
+end
+
+
+if $ARGS[0] = 'key':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/key.jpg"></center>'
+	mey_vika['key'] = 1
+	mey_vika['mey_vika_qw'] = 32
+	'<<$pcs_nickname>>：'
+	'	这里是房子的钥匙，我们的家就是你的家。你也可以把客房里剩下的东西清理干净，让它完全属于你。只要把罗曼的东西都装进箱子里，我就把它们存到储藏室去。'
+	'~塔玛拉·梅诺尔德'
+	act '拿走钥匙': gt 'mey_home', 'kitchen'
+end
+
+
+if $ARGS[0] = 'bathroom':
+	*clr & cla
+	!! bathroom
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'bathroom'
+	$location_type = 'bathroom'
+	$locclass = 'bathroom'
+	$bathtype = '玻璃淋浴间和浴缸'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center b', '浴室')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+	*nl
+	'这间奢华的浴室看起来就像你在杂志上读到的五星级酒店浴室。'
+	'在漂亮的梳妆台和水槽上方有一个巨大的<a href="exec:gt ''mirror'',''start''">镜子</a>。'
+	!! acts copy from [shulgabath]
+	act '返回走廊': minut += 1 & gt 'mey_home', 'start'
+
+	gs 'selfplay', 'suction_dildo'
+	*nl
+	gs 'din_van', 'private'
+	gs 'home_events', 'bathroom'
+end
+
+
+!! guestroom
+if $ARGS[0] = 'guest_bedroom':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'guest_bedroom'
+	$location_type = 'private'
+	$locclass = 'bedroom'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'music_actions', 'clear_restrictions'
+
+	$func('wrap', 'header center h4', '客房')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/guestroom.jpg"></center>'
+	*nl
+	'它给人的感觉和外观都像酒店里的标准客房。'
+	'有一张<a href="exec:gt ''bed'', ''start''">床</a>，一个小<a href="exec:gt ''wardrobe'', ''start''">衣柜</a>（你可以在那里挑选服装、整理衣物），还有一张<a href="exec:gt ''stol'' ,''start''">书桌</a>。'
+	*nl
+	*pl $func('alarmclock', 'base_alarmclock_text')
+	*nl
+	'前门附近的墙上挂着一面<a href="exec:gt ''mirror'', ''start''">镜子</a>。'
+	if $ml_guitar['location'] = $loc: '你的吉他放在床边的吉他架上。'
+	!! Computer and internet use.
+	if mc_inventory['tech_computer'] = 1:
+		gs 'internet_mobile', 'get_access', 'free'
+		'你的<a href="exec:gt ''komp'',''start''">电脑</a>在书桌上。'
+	end
+
+	act '返回走廊':
+		minut += 1
+		gt 'mey_home', 'start'
+	end
+
+	gs 'exercise', 'start'
+	gs 'music_actions', 'start'
+	if pcs_horny >= 50:	act '自慰': gt 'selfplay', 'start'
+	if mc_inventory['mag_porn'] > 0:
+		'你把色情杂志藏在床垫底下。'
+		gs 'library_functions', 'set_read_porn_act'
+	end
+
+	gs 'library_functions', 'set_home_read_acts'
+
+	if mc_inventory['cocaine'] > 0 and drugVars['cocaine_day'] ! daystart:
+		act '吸点白粉 (0:05)':
+			*clr & cla
+			menu_off = 1
+			minut += 5
+			gs 'drugs', 'cocaine'
+
+			'<center><img <<$set_imgh>> src="images/shared/drugs/dur.jpg"></center>'
+			*nl
+			'你吸了点白粉，眩晕了片刻。之后，你感觉妙不可言，欲火焚身。'
+
+			act '继续': gt 'mey_home', 'guest_bedroom'
+		end
+	end
+	act '在床上放松': gt 'bed', 'start'
+	gs 'prostitution_functions', 'prostitute_outfit_at_home'
+	gs 'wardrobe', 'default_clothing_options'
+	!! if rand (0,2) ! 0: gs 'din_bad', 'mobile_check'
+end
+
+
+if $ARGS[0] = 'lounge':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'lounge'
+	$location_type = 'private'
+	$locclass = 'livingroom'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center h4', '休息室')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/hall.jpg"></center>'
+	*nl
+	'宽敞的房间里摆着沙发和扶手椅，墙上挂着一台大<a href="exec:gt ''TV'',''meyhome''">等离子电视</a>，旁边是书柜，对面是壁炉。从客厅可以走进一个洒满阳光、爬满葡萄藤的花园。'
+
+	act '回到走廊': minut += 1 & gt 'mey_home', 'start'
+	act '花园': minut += 1 & gt 'mey_home', 'garden'
+end
+
+
+if $ARGS[0] = 'katja_bedroom':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'katja_bedroom'
+	$location_type = 'bedroom'
+	$locclass = 'bedroom'
+	gs 'schedule', 'A14'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center h4', '卡佳的房间')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/katya_room.jpg"></center>'
+	*nl
+	'卡佳的房间给人的感觉像是有人暂住在这里，很快就会搬走。不过，房间里的东西摆放得井井有条，透出一种"非居住场所"的感觉。'
+	'窗台上摆着许多盆栽花卉，墙上也挂着花盆，地板上甚至还有盆栽植物，让房间有种温室的感觉。'
+	'一个角落里摆着一张电脑桌，正对着床。另一个角落里有一个隐藏式衣柜。最后，房间里还能看到一个藏得很好的书架，但由于植物长得过于茂盛，它有点难被发现。'
+	if locat['katja'] = 7:
+		if katjaQW['QWstage'] > 1:
+			act '和卡佳聊天': gt 'KatjaHomeTalk'
+		else
+			'<font color=red>你和卡佳的关系还不够好，不能贸然闯进她的房间，最好尽快离开。</font>'
+		end
+	else
+		'卡佳不在她的房间里'
+	end
+	act '返回走廊': minut += 1 & gt 'mey_home', 'start'
+end
+
+
+if $ARGS[0] = 'vicky_bedroom':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'vicky_bedroom'
+	$location_type = 'bedroom'
+	$locclass = 'bedroom'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center h4', '维姬的房间')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/vika_room.jpg"></center>'
+	*nl
+	'维姬的房间总是一团糟。房间是干净的，但东西扔得到处都是。毛绒玩具堆得到处都是，墙上贴满了流行歌手和电影演员的海报。'
+	'窗边的桌子上放着一台笔记本电脑。它意外地带来了一点秩序感。成摞的杂志堆得像是音响。房间的焦点是那张巨大的床和旁边的衣柜。还有一把孤零零的椅子，藏在所有杂物底下。'
+
+	act '回到走廊': minut += 1 & gt 'mey_home', 'start'
+end
+
+
+if $ARGS[0] = 'tamara_bedroom':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'tamara_bedroom'
+	$location_type = 'bedroom'
+	$locclass = 'bedroom'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center h4', '塔玛拉的房间')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/tamara_room.jpg"></center>'
+	*nl
+	'要不是角落里那张床，你会以为塔玛拉·梅诺尔德的房间像一间办公室。书桌上放着一台电脑，还有衣柜和一张很大却相当朴素的床。房间相对较小，有些局促。除了墙上挂着的一把剑，没有任何装饰。没人知道那把剑为什么会挂在那里。'
+
+	act '回到走廊': minut += 1 & gt 'mey_home', 'start'
+end
+
+
+!! courtyard
+if $ARGS[0] = 'garden':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'mey_home', 'garden'
+	$location_type = 'secluded'
+	killvar '$locclass'
+	gs 'stat'
+	gs 'themes', 'outdoors'
+
+	$func('wrap', 'header center h4', '花园')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/courtyard.jpg"></center>'
+	*nl
+	'花园对这样一栋房子来说相对较小，而且杂草丛生。大部分空间被一个小泳池占据。'
+	'花园旁的车道上停着一辆属于塔玛拉·梅诺尔德的车。'
+	if hour = 7 and minut >= 30 and week < 6:
+		'<a href="exec:gs''mey_tamara_events'',''tamara''">塔玛拉小姐</a>正在这里打电话。'
+	end
+	act '回到走廊':
+		minut += 1
+		gt 'mey_home', 'start'
+	end
+	act '返回客厅':
+		minut += 1
+		gt 'mey_home', 'lounge'
+	end
+	if PSwim = 1 or $clothingworntype = 'nude':
+		act '换回你的衣服': gt 'changingroom'
+	end
+	if temper >= 15 and daystage < 5 and sunWeather = 1:
+		if func('changingroom', 'count_swim_item') > 0 and PSwim = 0:
+			act '换上比基尼': gt 'changingroom'
+			act '脱光衣服':
+				*clr & cla
+				minut += 1
+				gs 'outfit', 'strip_all'
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/strippy.mp4"></video></center>'
+				'你脱掉衣服，感受阳光照在裸露皮肤上的温暖。'
+				act '继续': gt 'mey_home', 'garden'
+			end
+		end
+		if pcs_inhib > 30:
+			act '裸体日光浴':
+				*clr & cla
+				minut += 60
+				inhib_exp += rand(3, 5)
+				if pcs_sweat < 35: gs 'sweat', 'add', 5
+				menu_off = 1
+				gs 'mood', 'raise', 'tiny'
+				if PSwim = 0 and $clothingworntype ! 'nude':
+					gs 'outfit', 'backup', 'swim'
+					gs 'outfit', 'strip_all'
+				else
+					gs 'outfit', 'strip_all'
+				end
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/sunbathe_naked<<rand(0,1)>>.jpg"></center>'
+				if mc_inventory['suncream'] = 0:
+					pcs_tan += 1
+					'你脱光衣服，然后躺在泳池边晒日光浴。'
+				elseif mc_inventory['suncream'] > 0:
+					mc_inventory['suncream'] -= 1
+					pcs_tan += 3
+					'你脱光衣服，在身上涂好防晒霜，然后躺在泳池边晒日光浴。'
+				end
+				act '起来': gt 'mey_home', 'garden'
+			end
+		end
+
+		if PSwim = 1:
+			act '晒日光浴 (1:00)':
+				*clr & cla
+				minut += 60
+				inhib_exp += rand(1, 3)
+				if pcs_sweat < 35: gs 'sweat', 'add', 5
+				menu_off = 1
+				gs 'mood', 'raise', 'tiny'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/meynolds/sunbathe<<rand(0,1)>>.jpg"></center>'
+				if mc_inventory['suncream'] = 0:
+					pcs_tan += 1
+					'你躺下来晒日光浴。'
+				elseif mc_inventory['suncream'] > 0:
+					mc_inventory['suncream'] -= 1
+					pcs_tan += 3
+					'你在身上涂好防晒霜，然后躺在泳池边晒日光浴。'
+				end
+				act '起来': gt 'mey_home', 'garden'
+			end
+		end
+	end
+	if PSwim = 1 or $clothingworntype = 'nude':
+		act '游泳 (1:00)':
+			menu_off = 1
+			pcs_makeup = 1
+			cumspclnt = 10
+			gs 'cum_cleanup'
+			minut += 60
+			gs 'mood', 'raise', 'large'
+			if pcs_sweat > 10: pcs_sweat = 10 + rand(0, 4)
+			if pcs_stren < 40: gs 'exp_gain', 'stren', 1
+			if pcs_vital < 40: gs 'exp_gain', 'vital', 1
+			fat -= 1
+			gs 'stat'
+
+			*clr & cla
+			if func('body_din', 'pregnancyVisibility') = 0:
+				if $clothingworntype = 'nude':
+					'<center><img <<$set_imgh>> src="images/pc/activities/swim/pool/swim_nude_<<rand(1,10)>>.jpg"></center>'
+					inhib_exp += rand(2, 4)
+				else
+					'<center><img <<$set_imgh>> src="images/pc/activities/swim/pool/swim_bikini_<<rand(1,6)>>.jpg"></center>'
+					if pcs_inhib < 50: inhib_exp += rand(2, 4)
+				end
+			else
+				if $clothingworntype = 'nude':
+					'<center><img <<$set_imgh>> src="images/pc/activities/swim/pool/swim_nude_preg_<<rand(1,2)>>.jpg"></center>'
+					inhib_exp += rand(2, 4)
+				else
+					'<center><img <<$set_imgh>> src="images/pc/activities/swim/pool/swim_bikini_preg_<<rand(1,4)>>.jpg"></center>'
+					if pcs_inhib < 50: inhib_exp += rand(2, 4)
+				end
+			end
+			'你在泳池里游泳。清凉的水让你精神焕发。'
+			if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被水冲掉了。'
+
+			act '从水里出来': gt 'mey_home', 'garden'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mey_morning_vomit':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+	'就在这时，门上传来急促的敲门声，塔玛拉的声音隔着精致的木门传来，有些模糊。'
+	'"<<$pcs_nickname>>？你没事吧？我好像听到你在吐。一切都还好吗？"'
+
+	act '一切正常':
+		cla & *nl
+		'"一切都好！"你匆忙撒了个谎，赶紧冲掉马桶，不想让塔玛拉为你担心。"只是，呃，肚子有点抽筋。"'
+		'"哦，天哪！希望现在没事了。早餐一会儿就好！"'
+		'"好的！"你大声回应。'
+		act '继续': gt 'home_activity', 'vomiting_exit'
+	end
+
+	if vomit['hangover'] = 1:
+		act '宿醉难受':
+			cla & *nl
+			'"我有点宿醉，"你呻吟着，抓紧马桶，又一阵恶心袭来。'
+			'"哦，天哪！柜子里有些止痛药，如果对你有用的话。"'
+			'"谢谢你，塔玛拉……"你回答道。'
+			act '继续': gt 'home_activity', 'vomiting_exit'
+		end
+	else
+		act '有点不舒服':
+			cla & *nl
+			'"我想我可能染上什么病了，"你呻吟着，站起来冲马桶。'
+			'"哦，天哪！要不要我带你去看看医生？"'
+			'"不用了，谢谢，"你回答道。"我想只是肠胃有点不舒服之类的。我会没事的。"'
+			act '继续': gt 'home_activity', 'vomiting_exit'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mey_preg_scare':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+	'就在这时，门上传来急促的敲门声，你被这突如其来的打扰吓了一跳。塔玛拉的声音隔着精致的木门传来，有些模糊。'
+	'"<<$pcs_nickname>>？你没事吧？我好像听到你在吐。一切都还好吗？"'
+	act '一切正常！':
+		cla & *nl
+		'"一切都好！"你匆忙说道，赶紧冲掉马桶，又打开水龙头漱口。"我没事！别担心，塔玛拉。一切都好！"'
+		act '你希望如此':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+			'<i>我希望，</i>你咽了口唾沫，拼命祈祷这只是虚惊一场，你没有怀孕。'
+			act '继续': gt 'home_activity', 'vomiting_exit'
+		end
+
+		act '这真的很糟糕':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+			'<i>这真的非常、非常糟糕！</i>你想着，冷汗直冒。'
+			*nl
+			'你怀孕了！怎么可能还好！'
+			act '继续': gt 'home_activity', 'vomiting_exit'
+		end
+
+		act '这真是太好了':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/hotel.room.best1.jpg"></center>'
+			'<i>我何止是很好，</i>你暗自微笑。'
+			*nl
+			'毕竟你怀孕了！所以你要当妈妈了！这真是天大的好消息！'
+			act '继续': gt 'home_activity', 'vomiting_exit'
+		end
+	end
+end
+
+
+--- mey_home ---------------------------------

@@ -1,0 +1,996 @@
+# stat_display_menu
+
+!! Using both html5 inline styles and html4 attributes to maintain compatibility, for now.
+
+if $ARGS[0] = 'start':
+	*p '<center>'
+	*p $func('stat_display_menu', 'general_options')
+	*nl
+	temp_ls_i = 0
+	:loop_sections
+	if temp_ls_i < arrsize('stat_order'):
+		*p $func('stat_display_menu', 'section_table', temp_ls_i)
+		temp_ls_i += 1
+		jump 'loop_sections'
+	end
+	*p '</center>'
+	exit
+end
+
+
+if $ARGS[0] = 'render_cell_opt':
+	!! ARGS[1] = header label
+	!! ARGS[2] = variable expression whose current value is matched (e.g. "stat_cfg['font_size']")
+	!! Caller must populate before calling:
+	!!   $temp_values[]        — 'value|Label' pairs. Use 'custom|<any>' for a free-input slot.
+	!!                           value is compared as integer if numeric, otherwise as string.
+	!!   $temp_actions_left[]  — exec string for left arrow at matching index (falls back to [0],
+	!!                           then auto-cycle to previous value with wrapping if still empty)
+	!!   $temp_actions_right[] — exec string for right arrow at matching index (falls back to [0],
+	!!                           then auto-cycle to next value with wrapping if still empty)
+	!! All three arrays are killvared after rendering.
+
+	!! Read current variable value (numeric and string)
+	!! rco[]  = numeric workspace  |  $rco[] = string workspace
+	dynamic 'rco[''cur_num''] = ' + $ARGS[2]
+	dynamic '$rco[''cur_str''] = $str(' + $ARGS[2] + ')'
+
+	!! Scan entries, splitting each 'value|Label' pair
+	rco['size'] = arrsize('$temp_values')
+	rco['idx'] = -1
+	rco['custom_idx'] = -1
+	rco['i'] = 0
+	:rco_search
+	if rco['i'] < rco['size']:
+		rco['pipe'] = instr($temp_values[rco['i']], '|')
+		if rco['pipe'] > 0:
+			$rco['entry_val'] = mid($temp_values[rco['i']], 1, rco['pipe'] - 1)
+			$rco['entry_lbl'] = mid($temp_values[rco['i']], rco['pipe'] + 1)
+		else
+			$rco['entry_val'] = $temp_values[rco['i']]
+			$rco['entry_lbl'] = $temp_values[rco['i']]
+		end
+		if $rco['entry_val'] = 'custom':
+			rco['custom_idx'] = rco['i']
+		elseif $rco['entry_val'] = $rco['cur_str'] or val($rco['entry_val']) = rco['cur_num']:
+			rco['idx'] = rco['i']
+		end
+		rco['i'] += 1
+		jump 'rco_search'
+	end
+
+	!! If no direct match: fall back to 'custom' slot if present, otherwise first entry
+	if rco['idx'] = -1:
+		if rco['custom_idx'] >= 0:
+			rco['idx'] = rco['custom_idx']
+		else
+			rco['idx'] = 0
+		end
+	end
+
+	!! Re-parse the matched entry to get its label
+	rco['pipe'] = instr($temp_values[rco['idx']], '|')
+	if rco['pipe'] > 0:
+		$rco['entry_val'] = mid($temp_values[rco['idx']], 1, rco['pipe'] - 1)
+		$rco['entry_lbl'] = mid($temp_values[rco['idx']], rco['pipe'] + 1)
+	else
+		$rco['entry_val'] = $temp_values[rco['idx']]
+		$rco['entry_lbl'] = $temp_values[rco['idx']]
+	end
+
+	!! Build display label
+	if $rco['entry_val'] = 'custom':
+		$rco['label'] = '自定义：' + $rco['cur_str']
+	else
+		$rco['label'] = $rco['entry_lbl']
+	end
+
+	!! Resolve actions — fall back to index 0, then auto-cycle if still empty
+	$rco['action_left'] = iif($temp_actions_left[rco['idx']]  <> '', $temp_actions_left[rco['idx']],  $temp_actions_left[0])
+	$rco['action_right'] = iif($temp_actions_right[rco['idx']] <> '', $temp_actions_right[rco['idx']], $temp_actions_right[0])
+
+	if $rco['action_left'] = '' or $rco['action_right'] = '':
+		!! Auto-cycle: compute neighbour indices with wrapping
+		rco['idx_prev'] = (rco['idx'] - 1 + rco['size']) mod rco['size']
+		rco['idx_next'] = (rco['idx'] + 1) mod rco['size']
+		!! Parse the value portion of each neighbour entry
+		rco['pipe'] = instr($temp_values[rco['idx_prev']], '|')
+		$rco['prev_val'] = iif(rco['pipe'] > 0, mid($temp_values[rco['idx_prev']], 1, rco['pipe'] - 1), $temp_values[rco['idx_prev']])
+		rco['pipe'] = instr($temp_values[rco['idx_next']], '|')
+		$rco['next_val'] = iif(rco['pipe'] > 0, mid($temp_values[rco['idx_next']], 1, rco['pipe'] - 1), $temp_values[rco['idx_next']])
+		!! Assign: use numeric assignment if value looks like a number, else string
+		if $rco['action_left'] = '':
+			$rco['action_left'] = iif(val($rco['prev_val']) <> 0 or $rco['prev_val'] = '0', $ARGS[2] + ' = ' + $rco['prev_val'], $ARGS[2] + ' = ''' + $rco['prev_val'] + '''')
+		end
+		if $rco['action_right'] = '':
+			$rco['action_right'] = iif(val($rco['next_val']) <> 0 or $rco['next_val'] = '0', $ARGS[2] + ' = ' + $rco['next_val'], $ARGS[2] + ' = ''' + $rco['next_val'] + '''')
+		end
+	end
+
+	!! Render the cell
+	$result =	'<table width="100%" cellpadding="0" cellspacing="0" border="0">'
+	$result +=		'<tr>'
+	$result +=			'<td align="center" valign="middle" width="1%" nowrap rowspan="3" style="text-align: center; vertical-align:middle">'
+	$result +=				'<a style="text-decoration: none" href="exec:<<$rco[''action_left'']>> & gt ''$menu_settings'', ''status''">'
+	$result +=					'<big>◀</big>'
+	$result +=				'</a>'
+	$result +=			'</td>'
+	$result +=			'<td align="center" valign="middle" width="98%" style="text-align: center; vertical-align:middle">'
+	$result +=				'<b><<$ARGS[1]>></b>'
+	$result +=			'</td>'
+	$result +=			'<td align="center" valign="middle" width="1%" nowrap rowspan="3" style="text-align: center; vertical-align:middle">'
+	$result +=				'<a style="text-decoration: none" href="exec:<<$rco[''action_right'']>> & gt ''$menu_settings'', ''status''">'
+	$result +=					'<big>▶</big>'
+	$result +=				'</a>'
+	$result +=			'</td>'
+	$result +=		'</tr>'
+	$result +=		'<tr>'
+	$result +=			'<td align="center" valign="middle" rowspan="2" style="text-align: center; vertical-align:middle">'
+	$result +=				$rco['label']
+	$result +=			'</td>'
+	$result +=		'</tr>'
+	$result +=	'</table>'
+
+	killvar 'rco'
+	killvar 'temp_values'
+	killvar 'temp_actions_left'
+	killvar 'temp_actions_right'
+	exit
+end
+
+
+if $ARGS[0] = 'render_cell_num':
+	!! Renders a numeric stepper cell.
+	!! ARGS[1] = header label
+	!! ARGS[2] = variable expression (e.g. "stat_cfg['icon_height']")
+	!! ARGS[3] = default value (integer)
+	!! ARGS[4] = min value (integer)
+	!! ARGS[5] = max value (integer)
+	!! $ARGS[6] = unit label (e.g. "px" or "%"), can be empty
+	!! Left/right arrows step by 1 (clamped). Value is a link that opens input().
+	dynamic 'rcn[''cur''] = ' + $ARGS[2]
+	rcn['def'] = ARGS[3]
+	rcn['min'] = ARGS[4]
+	rcn['max'] = ARGS[5]
+
+	$rcn['act_left'] = $ARGS[2] + ' = max(' + $str(rcn['min']) + ', ' + $ARGS[2] + ' - 1)'
+	$rcn['act_right'] = $ARGS[2] + ' = min(' + $str(rcn['max']) + ', ' + $ARGS[2] + ' + 1)'
+	!! On input: clamp result; if player cancelled (0 or ''), restore default
+	$rcn['act_input'] = '$rcn_inp = input(''' + $ARGS[1] + ' [默认值：' + $str(rcn['def']) + ', 最小值：' + $str(rcn['min']) + ', 最大值：' + $str(rcn['max']) + ']'')'
+	$rcn['act_input'] += ' & ' + $ARGS[2] + ' = iif($rcn_inp = '''' or val($rcn_inp) = 0 and $rcn_inp <> ''0'', ' + $str(rcn['def']) + ', min(' + $str(rcn['max']) + ', max(' + $str(rcn['min']) + ', val($rcn_inp))))'
+	$rcn['act_input'] += ' & killvar ''rcn_inp'''
+
+	$result =	'<table width="100%" cellpadding="0" cellspacing="0" border="0">'
+	$result +=		'<tr>'
+	$result +=			'<td align="center" valign="middle" width="1%" nowrap rowspan="3" style="text-align:center; vertical-align:middle">'
+	$result +=				'<a style="text-decoration:none" href="exec:<<$rcn[''act_left'']>> & gt ''$menu_settings'', ''status''">'
+	$result +=					'<big>◀</big>'
+	$result +=				'</a>'
+	$result +=			'</td>'
+	$result +=			'<td align="center" valign="middle" width="98%" style="text-align:center; vertical-align:middle">'
+	$result +=				'<b><<$ARGS[1]>></b>'
+	$result +=			'</td>'
+	$result +=			'<td align="center" valign="middle" width="1%" nowrap rowspan="3" style="text-align:center; vertical-align:middle">'
+	$result +=				'<a style="text-decoration:none" href="exec:<<$rcn[''act_right'']>> & gt ''$menu_settings'', ''status''">'
+	$result +=					'<big>▶</big>'
+	$result +=				'</a>'
+	$result +=			'</td>'
+	$result +=		'</tr>'
+	$result +=		'<tr>'
+	$result +=			'<td align="center" valign="middle" rowspan="2" style="text-align:center; vertical-align:middle">'
+	$result +=				'<a href="exec:<<$rcn[''act_input'']>> & gt ''$menu_settings'', ''status''">'
+	$result +=					'<<rcn[''cur'']>><<$ARGS[6]>>'
+	$result +=				'</a>'
+	$result +=			'</td>'
+	$result +=		'</tr>'
+	$result +=	'</table>'
+
+	killvar 'rcn'
+	exit
+end
+
+
+if $ARGS[0] = 'section_table':
+	!! ARGS[1] = section index
+	$temp_st_key = $stat_order[ARGS[1]]
+	$temp_st_icon_color = iif(theme['is_dark'] = 1, 'w', 'b')
+	$temp_st_icon_border = 'display:inline-block; padding:3px; line-height:0; border:1px solid ' + $func('shortgs', 'rgb_to_hex', theme['fcolor']) + '; border-radius:6px;'
+
+	$temp_st_icon['raise'] = 'images/system/ui/angle_up_' + $temp_st_icon_color + '.png'
+	$temp_st_icon['lower'] = 'images/system/ui/angle_down_' + $temp_st_icon_color + '.png'
+	$temp_st_icon['hide'] = 'images/system/ui/' + iif(stat_hide[$temp_st_key] = 1, 'hide_', 'show_') + $temp_st_icon_color + '.png'
+	$temp_st_icon['expand'] = 'images/system/ui/' + iif(stat_collapse[$temp_st_key] = 0, 'expand_', 'collapse_') + $temp_st_icon_color + '.png'
+
+	!! Alignment icon — shows effective alignment; 60% opacity when inheriting from global
+	temp_st_align_val = stat_cfg['align_' + $temp_st_key]
+	if temp_st_align_val = 0:
+		!! Global: map stat_cfg['global_align'] (0=left,1=center,2=right) to icon name
+		temp_st_align_eff = stat_cfg['global_align']
+	else
+		!! Explicit: 1=left, 2=center, 3=right → offset by 1
+		temp_st_align_eff = temp_st_align_val - 1
+	end
+	$temp_st_align_icon_name[0] = 'left'
+	$temp_st_align_icon_name[1] = 'center'
+	$temp_st_align_icon_name[2] = 'right'
+	$temp_st_icon['align'] = 'images/system/ui/align_' + $temp_st_align_icon_name[temp_st_align_eff] + '_' + $temp_st_icon_color + '.png'
+	$temp_st_align_opacity = iif(temp_st_align_val = 0, ' style="opacity:0.6"', '')
+
+	!! Dynamic titles
+	$temp_st_align_label[0] = '左'
+	$temp_st_align_label[1] = '中心'
+	$temp_st_align_label[2] = '右'
+	if temp_st_align_val = 0:
+		$temp_st_title['align'] = '全局对齐 (' + $temp_st_align_label[temp_st_align_eff] + ') —点击可显式设置'
+	else
+		$temp_st_title['align'] = '已对齐' + $temp_st_align_label[temp_st_align_eff] + ' —点击循环'
+	end
+	$temp_st_title['hide'] = iif(stat_hide[$temp_st_key] = 1, '显示区块', '隐藏区块')
+	$temp_st_title['expand'] = iif(stat_collapse[$temp_st_key] = 0, '折叠选项', '展开选项')
+
+	$temp_st_td['icon'] = '<td align="center" width="1%" style="text-align:center; padding:3px;">'
+	$temp_st_td['spacer'] = '<td align="center" width="1%" style="text-align:center; padding:3px;"><span style="display:inline-block; padding:2px; line-height:0; border:1px solid transparent; border-radius:6px;"><img height="32" src="<<$temp_st_icon[''raise'']>>" style="visibility:hidden"></span></td>'
+	$temp_st_td['cell'] = '<td align="center" valign="middle" bgcolor="<<$theme_hex[''table_bg_alt'']>>" style="border:1px solid <<$theme_hex[''goth'']>>; background-color: <<$theme_hex[''table_bg_alt'']>>; padding:3px; text-align:center; vertical-align:middle;">'
+
+	$result +=	'<table width="80%" cellspacing="6" bgcolor="<<$theme_hex[''table_bg'']>>" style="border:2px solid <<$theme_hex[''goth'']>>; margin:10px; padding:4px; border-spacing:6px; background-color: <<$theme_hex[''table_bg'']>>;">'
+
+	$result +=	'<colgroup>'
+	$result +=		'<col width="32%">'
+	$result +=		'<col width="32%">'
+	$result +=		'<col width="32%">'
+	$result +=	'</colgroup>'
+
+	$result +=	'<tr valign="middle" style="vertical-align:middle;">'
+	$result +=		'<td colspan="3">'
+	$result +=			'<table width="100%" cellpadding="0" cellspacing="0" border="0">'
+	$result +=				'<tr valign="middle" style="vertical-align:middle;">'
+	$result +=					$temp_st_td['icon']
+	$result +=						'<a style="<<$temp_st_icon_border>>" href="exec:gs ''$menu_settings'', ''swap'', ''stat_order'', <<ARGS[1]>>, ''up'' & gt ''$menu_settings'', ''status''">'
+	$result +=							'<img height="32" title="上移" src="<<$temp_st_icon[''raise'']>>">'
+	$result +=						'</a>'
+	$result +=					'</td>'
+	$result +=					$temp_st_td['icon']
+	$result +=						'<a style="<<$temp_st_icon_border>>" href="exec:gs ''$menu_settings'', ''swap'', ''stat_order'', <<ARGS[1]>>, ''down'' & gt ''$menu_settings'', ''status''">'
+	$result +=							'<img height="32" title="下移" src="<<$temp_st_icon[''lower'']>>">'
+	$result +=						'</a>'
+	$result +=					'</td>'
+	$result +=					$temp_st_td['spacer']
+	$result +=					'<td align="center" colspan="2" width="96%" style="text-align:center; padding:0;">'
+	$result +=						'<a style="display:block; text-decoration:none; color:inherit; padding:3px 5px;" href="exec:stat_collapse[''<<$temp_st_key>>''] = 1 - stat_collapse[''<<$temp_st_key>>''] & gt ''$menu_settings'', ''status''"><big><b>' + $sd_dn[$temp_st_key] + '</b></big></a>'
+	$result +=					'</td>'
+	$result +=					$temp_st_td['icon']
+	$result +=						'<a style="<<$temp_st_icon_border>>" href="exec:stat_cfg[''align_<<$temp_st_key>>''] = (stat_cfg[''align_<<$temp_st_key>>''] + 1) mod 4 & gt ''$menu_settings'', ''status''">'
+	$result +=							'<img height="32" title="<<$temp_st_title[''align'']>>"' + $temp_st_align_opacity + ' src="<<$temp_st_icon[''align'']>>">'
+	$result +=						'</a>'
+	$result +=					'</td>'
+	$result +=					$temp_st_td['icon']
+	$result +=						'<a style="<<$temp_st_icon_border>>" href="exec:stat_hide[''<<$temp_st_key>>''] = 1 - stat_hide[''<<$temp_st_key>>''] & gt ''$menu_settings'', ''status''">'
+	$result +=							'<img height="32" title="<<$temp_st_title[''hide'']>>" src="<<$temp_st_icon[''hide'']>>">'
+	$result +=						'</a>'
+	$result +=					'</td>'
+	$result +=					$temp_st_td['icon']
+	$result +=						'<a style="<<$temp_st_icon_border>>" href="exec:stat_collapse[''<<$temp_st_key>>''] = 1 - stat_collapse[''<<$temp_st_key>>''] & gt ''$menu_settings'', ''status''">'
+	$result +=							'<img height="32" title="<<$temp_st_title[''expand'']>>" src="<<$temp_st_icon[''expand'']>>">'
+	$result +=						'</a>'
+	$result +=					'</td>'
+	$result +=				'</tr>'
+	$result +=			'</table>'
+	$result +=		'</td>'
+	$result +=	'</tr>'
+	
+	if stat_collapse[$temp_st_key] = 0:
+		$result += $func('stat_display_menu', $temp_st_key + '_options')
+	end
+
+	$result +=	'</table>'
+	exit
+end
+
+
+!! ── Row layout helpers ──────────────────────────────────────────────
+!! _row_cell ARGS[1]: returns HTML for one cell (with surrounding <tr> as needed).
+!!   Caller must do: $result += $func('stat_display_menu', '_row_cell', content)
+if $ARGS[0] = '_row_cell':
+	if temp_rc_count mod 3 = 0: $result = '<tr>'
+	$result += $temp_st_td['cell'] + $ARGS[1] + '</td>'
+	temp_rc_count += 1
+	if temp_rc_count mod 3 = 0: $result += '</tr>'
+	exit
+end
+
+!! _row_flush: returns HTML padding the last incomplete row and closes it.
+!!   Caller must do: $result += $func('stat_display_menu', '_row_flush')
+if $ARGS[0] = '_row_flush':
+	if temp_rc_count mod 3 <> 0:
+		:_row_flush_pad
+		$result += '<td></td>'
+		temp_rc_count += 1
+		if temp_rc_count mod 3 <> 0: jump '_row_flush_pad'
+		$result += '</tr>'
+	end
+	killvar 'temp_rc_count'
+	exit
+end
+
+
+if $ARGS[0] = 'weather_options':
+	$temp_values[0] = '0|摄氏度'
+	$temp_values[1] = '1|华氏度'
+	$temp_values[2] = '2|开尔文'
+	$temp_values[3] = '3|德利尔'
+	$temp_values[4] = '4|😡'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '温标', 'stat_cfg[''temp_scale'']'))
+
+	$temp_values[0] = '0|温度右侧'
+	$temp_values[1] = '1|温度下方'
+	$temp_values[2] = '2|温度上方'
+	$temp_values[3] = '3|温度左侧'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '布局', 'stat_cfg[''temp_pos'']'))
+
+	$temp_values[0] = '0|横幅'
+	$temp_values[1] = '1|文本'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '样式', 'stat_cfg[''weather_visual'']'))
+
+	if stat_cfg['weather_visual'] = 0:
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '横幅大小', 'stat_cfg[''weather_height'']', 72, 50, 100, ' px'))
+	end
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'money_options':
+	$temp_values[0] = '0|逗号'
+	$temp_values[1] = '1|句点'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分隔符', 'cheatVars[''money_format'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'time_options':
+	$temp_values[0] = '0|24小时制'
+	$temp_values[1] = '1|12小时制'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '时间格式', 'stat_cfg[''time_format'']'))
+
+	$temp_values[0] = '0|DDth MMM'
+	$temp_values[1] = '1|ISO 8601'
+	$temp_values[2] = '2|DD/MM'
+	$temp_values[3] = '3|MMM DDth'
+	$temp_values[4] = '4|MM/DD'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '日期格式', 'stat_cfg[''date_format'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'icons_options':
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '尺寸', 'stat_cfg[''icon_height'']', 54, 10, 75, ' px'))
+
+	$temp_values[0] = '0|隐藏'
+	$temp_values[1] = '1|显示'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '正面图标', 'stat_cfg[''show_positive_icons'']'))
+
+	!{$temp_values[0] = '0|经典'
+	$temp_values[1] = '1|主题'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '职业图标', 'stat_cfg[''job_icon_themed'']'))
+	!}
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'alerts_options':
+	$temp_values[0] = '0|每行一个'
+	$temp_values[1] = '2|同行'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '换行', 'stat_cfg[''newline_alerts'']'))
+
+	$temp_values[0] = '0|显示'
+	$temp_values[1] = '1|隐藏'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '经验通知', 'stat_cfg[''notify_exp'']'))
+
+	$temp_values[0] = '0|显示'
+	$temp_values[1] = '1|隐藏'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '原型通知', 'stat_cfg[''notify_archetypes'']'))
+
+	$temp_values[0] = '0|显示'
+	$temp_values[1] = '1|隐藏'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '原型对立面', 'stat_cfg[''notify_archetypes_opposite'']'))
+
+	$temp_values[0] = '0|隐藏'
+	$temp_values[1] = '1|显示'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '次要原型点数变化', 'stat_cfg[''notify_archetypes_state'']'))
+
+	$temp_values[0] = '0|禁用'
+	$temp_values[1] = '1|启用'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '原型历史记录', 'stat_cfg[''arch_log_enabled'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'calendar_options':
+	$temp_values[0] = '1|1'
+	$temp_values[1] = '2|2'
+	$temp_values[2] = '3|3'
+	$temp_values[3] = '4|4'
+	$temp_values[4] = '5|5'
+	$temp_values[5] = '6|全部（今天）'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '显示事件', 'stat_cfg[''cal_count'']'))
+
+	$temp_values[0] = '0|开'
+	$temp_values[1] = '1|关'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '仅今天', 'stat_cfg[''cal_today_only'']'))
+
+	$temp_values[0] = '0|显示'
+	$temp_values[1] = '1|隐藏'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '全天活动', 'stat_cfg[''cal_show_all_day'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'texts_options':
+	$temp_values[0] = '0|每行一个'
+	$temp_values[1] = '2|同行'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '换行', 'stat_cfg[''newline_texts'']'))
+
+	$temp_values[0] = '0|隐藏'
+	$temp_values[1] = '1|显示'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '正面文本', 'stat_cfg[''show_positive_texts'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'loadsave_options':
+	$temp_values[0] = '0|图标'
+	$temp_values[1] = '1|文本链接'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '按钮样式', 'stat_cfg[''loadsave_mode'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	exit
+end
+
+
+if $ARGS[0] = 'menu_bar_options':
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '尺寸', 'stat_cfg[''menu_icon_height'']', 54, 10, 75, ' px'))
+
+	if $start_type['magic'] <> 'nomagic':
+		$temp_values[0] = '0|禁用'
+		$temp_values[1] = '1|启用'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分离魔法', 'stat_cfg[''magic_separate'']'))
+	end
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += $func('stat_display_menu', '_reorder_menu_bar')
+	exit
+end
+
+
+if $ARGS[0] = 'status_options':
+	$temp_values[0] = '0|表格条'
+	$temp_values[1] = '1|字符条'
+	$temp_values[2] = '2|仅文本'
+	$temp_values[3] = '3|文字摘要'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '模式', 'stat_cfg[''render_mode_status'']'))
+
+	if stat_cfg['render_mode_status'] = 0:
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '条宽', 'stat_cfg[''bar_width'']', 200, 50, 500, ' px'))
+	end
+
+	if stat_cfg['render_mode_status'] <= 1:
+		$temp_values[0] = '0|条在前'
+		$temp_values[1] = '1|标签在前'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签位置', 'stat_cfg[''name_side_status'']'))
+	end
+
+	if stat_cfg['render_mode_status'] = 1:
+		$temp_values[0] = '0|大'
+		$temp_values[1] = '1|小'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '字符大小', 'stat_cfg[''bar_size'']'))
+	end
+
+	if stat_cfg['render_mode_status'] = 0:
+		$temp_values[0] = '0|叠加在心情上'
+		$temp_values[1] = '1|单独进度条'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '态度', 'stat_cfg[''overlay'']'))
+	end
+
+	if stat_cfg['render_mode_status'] = 2:
+		$temp_values[0] = '0|换行'
+		$temp_values[1] = '1|空格'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分隔符', 'stat_cfg[''newline_status'']'))
+	end
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += $func('stat_display_menu', '_reorder_flat', 'status_bar_order', 'stat_hide_bar', 'status', 'mana', '')
+	exit
+end
+
+
+if $ARGS[0] = 'attributes_options':
+	$temp_values[0] = '0|表格条'
+	$temp_values[1] = '1|字符条'
+	$temp_values[2] = '2|仅文本'
+	$temp_values[3] = '3|文字摘要'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '显示模式', 'stat_cfg[''render_mode_attrs'']'))
+
+	if stat_cfg['render_mode_attrs'] = 0:
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '条宽', 'stat_cfg[''bar_width'']', 200, 50, 500, ' px'))
+	end
+
+	if stat_cfg['render_mode_attrs'] <= 1:
+		$temp_values[0] = '0|条在前'
+		$temp_values[1] = '1|标签在前'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签位置', 'stat_cfg[''name_side_attrs'']'))
+	end
+
+	if stat_cfg['render_mode_attrs'] = 0:
+		$temp_values[0] = '0|隐藏'
+		$temp_values[1] = '1|显示'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '显示XP进度', 'stat_cfg[''show_attr_xp'']'))
+
+		$temp_values[0] = '0|隐藏'
+		$temp_values[1] = '1|显示'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '基础外观', 'stat_cfg[''show_apprnc_base'']'))
+	end
+
+	if stat_cfg['render_mode_attrs'] = 2:
+		$temp_values[0] = '0|换行'
+		$temp_values[1] = '1|空格'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分隔符', 'stat_cfg[''newline_attributes'']'))
+	end
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += $func('stat_display_menu', '_reorder_flat', 'attr_bar_order', 'stat_hide_bar', 'status', 'magik', 'sucexcess')
+	exit
+end
+
+
+if $ARGS[0] = 'images_options':
+	$temp_values[0] = '0|1列'
+	$temp_values[1] = '1|2列'
+	$temp_values[2] = '2|3列'
+	$temp_values[3] = '3|换行'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '列', 'stat_cfg[''image_columns'']'))
+
+	$temp_values[0] = '0|紧凑'
+	$temp_values[1] = '1|宽松'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '间距', 'stat_cfg[''image_spacing'']'))
+
+	$temp_values[0] = '0|适应宽度'
+	$temp_values[1] = '1|完整大小'
+	$temp_values[2] = '2|强制高度'
+	$temp_values[3] = '3|强制宽度'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '大小调整', 'stat_cfg[''image_size'']'))
+
+	if stat_cfg['image_size'] = 2:
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '身高', 'stat_cfg[''image_size_px'']', 0, 1, 9999, ' px'))
+	elseif stat_cfg['image_size'] = 3:
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_num', '宽度', 'stat_cfg[''image_size_px'']', 0, 1, 9999, ' px'))
+	end
+
+	$temp_values[0] = '0|关闭'
+	$temp_values[1] = '1|类型标签'
+	$temp_values[2] = '2|物品名称'
+	$temp_values[3] = '3|名称与信息'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签', 'stat_cfg[''image_headers'']'))
+
+	if stat_cfg['image_headers'] > 0:
+		$temp_values[0] = '0|上方'
+		$temp_values[1] = '1|下方'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签位置', 'stat_cfg[''image_header_pos'']'))
+
+		$temp_values[0] = '0|小'
+		$temp_values[1] = '1|正常'
+		$temp_values[2] = '2|粗体'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签字体', 'stat_cfg[''image_header_font'']'))
+	end
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += $func('stat_display_menu', '_reorder_flat', 'image_order', 'stat_hide', 'status', '', '')
+	exit
+end
+
+
+if $ARGS[0] = 'skills_options':
+	$temp_values[0] = '0|文本表格'
+	$temp_values[1] = '1|表格条'
+	$temp_values[2] = '2|字符条'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '显示模式', 'stat_cfg[''skills_mode'']'))
+
+	if stat_cfg['skills_mode'] > 0:
+		$temp_values[0] = '0|条在前'
+		$temp_values[1] = '1|标签在前'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签位置', 'stat_cfg[''name_side_skills'']'))
+	end
+
+	$temp_values[0] = '0|1列'
+	$temp_values[1] = '1|2列'
+	$temp_values[2] = '2|3列'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '列', 'stat_cfg[''skills_columns'']'))
+
+	$temp_values[0] = '0|合并'
+	$temp_values[1] = '1|分离'
+	$temp_values[2] = '2|标题与分隔'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分组显示', 'stat_cfg[''skills_group_mode'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += $func('stat_display_menu', '_reorder_nested_skills')
+	exit
+end
+
+
+if $ARGS[0] = 'relations_options':
+	$temp_values[0] = '0|文本表格'
+	$temp_values[1] = '1|表格条'
+	$temp_values[2] = '2|字符条'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '显示模式', 'stat_cfg[''relations_mode'']'))
+
+	if stat_cfg['relations_mode'] > 0:
+		$temp_values[0] = '0|条在前'
+		$temp_values[1] = '1|标签在前'
+		$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标签位置', 'stat_cfg[''name_side_relations'']'))
+	end
+
+	$temp_values[0] = '0|1列'
+	$temp_values[1] = '1|2列'
+	$temp_values[2] = '2|3列'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '列', 'stat_cfg[''relations_columns'']'))
+
+	$temp_values[0] = '0|合并'
+	$temp_values[1] = '1|分离'
+	$temp_values[2] = '2|标题与分隔'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分组显示', 'stat_cfg[''relations_group_mode'']'))
+
+	$temp_values[0] = '0|根据上下文'
+	$temp_values[1] = '1|名字'
+	$temp_values[2] = '2|姓氏'
+	$temp_values[3] = '3|昵称'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '姓名格式', 'stat_cfg[''rel_name_mode'']'))
+
+	$temp_values[0] = '0|关闭'
+	$temp_values[1] = '1|开'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '颜色编码数值', 'stat_cfg[''rel_color_mode'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += $func('stat_display_menu', '_reorder_nested_relations')
+	exit
+end
+
+
+!! ── Flat reorder list ────────────────────────────────────────────────
+!! ARGS[1] = order array name without $ (e.g. 'status_bar_order')
+!! ARGS[2] = hide array name (e.g. 'stat_hide_bar')
+!! ARGS[3] = gt target after actions (e.g. 'status')
+!! ARGS[4] = magic-gated skip key 1 (skipped when nomagic; '' = none)
+!! ARGS[5] = magic-gated skip key 2 ('' = none)
+!! Uses $rfl_html accumulator to avoid $dyneval clobbering $result.
+if $ARGS[0] = '_reorder_flat':
+	$ro['c']	= iif(theme['is_dark'] = 1, 'w', 'b')
+	$ro['up']	= 'images/system/ui/angle_up_'   + $ro['c'] + '.png'
+	$ro['down'] = 'images/system/ui/angle_down_' + $ro['c'] + '.png'
+	$ro['bdr']	= '1px solid <<$theme_hex[''goth'']>>'
+	$ro['ibdr'] = 'display:inline-block; padding:4px; line-height:0; border:1px solid ' + $func('shortgs', 'rgb_to_hex', theme['fcolor']) + '; border-radius:4px;'
+	$ro['html']	= '<tr><td align="center" colspan="3" style="padding:6px 10px 2px 10px; text-align:center;"><b>顺序与可见性</b>&nbsp; <a href="exec: killvar ''$<<$ARGS[1]>>'' & gt ''$menu_settings'', ''<<$ARGS[3]>>''">[重置]</a></td></tr>'
+	$ro['html'] += '<tr><td colspan="3" style="padding:2px 10px 8px 10px;"><center><table width="90%" cellspacing="3" cellpadding="0" border="0" style="width:90%;">'
+	ro['i'] = 0
+	:_rfl_loop
+		$ro['key'] = $dyneval('$result = $' + $ARGS[1] + '[<<ro[''i'']>>]')
+		if $ro['key'] = $ARGS[4] and $ARGS[4] <> '' and $start_type['magic'] = 'nomagic': jump '_rfl_next'
+		if $ro['key'] = $ARGS[5] and $ARGS[5] <> '' and $start_type['magic'] = 'nomagic': jump '_rfl_next'
+		ro['hidden'] = dyneval('result = ' + $ARGS[2] + '[''<<$ro[''key'']>>'']')
+		$ro['hide_icon'] = 'images/system/ui/' + iif(ro['hidden'] = 1, 'hide_', 'show_') + $ro['c'] + '.png'
+		$ro['label'] = iif(ro['hidden'] = 1, '<font color="gray">' + $sd_dn[$ro['key']] + '</font>', $sd_dn[$ro['key']])
+		$ro['html'] += '<tr><td bgcolor="<<$theme_hex[''table_bg_alt'']>>" style="border:<<$ro[''bdr'']>>; background-color:<<$theme_hex[''table_bg_alt'']>>; padding:5px 6px;">'
+		$ro['html'] += '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr style="vertical-align:middle;">'
+		$ro['html'] += '<td width="1%" nowrap style="padding:0 3px 0 0;">'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap'', ''<<$ARGS[1]>>'', <<ro[''i'']>>, ''up'' & gt ''$menu_settings'', ''<<$ARGS[3]>>''"><img height="18" src="<<$ro[''up'']>>"></a>'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap'', ''<<$ARGS[1]>>'', <<ro[''i'']>>, ''down'' & gt ''$menu_settings'', ''<<$ARGS[3]>>''"><img height="18" src="<<$ro[''down'']>>"></a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '<td align="center" style="text-align:center; padding:0 4px;">'
+		$ro['html'] += '<a style="display:block; text-decoration:none; color:inherit;" href="exec: <<$ARGS[2]>>[''<<$ro[''key'']>>''] = 1 - <<$ARGS[2]>>[''<<$ro[''key'']>>''] & gt ''$menu_settings'', ''<<$ARGS[3]>>''">' + $ro['label'] + '</a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '<td width="1%" nowrap style="padding:0 0 0 3px;">'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: <<$ARGS[2]>>[''<<$ro[''key'']>>''] = 1 - <<$ARGS[2]>>[''<<$ro[''key'']>>''] & gt ''$menu_settings'', ''<<$ARGS[3]>>''"><img height="18" src="<<$ro[''hide_icon'']>>"></a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '</tr></table></td></tr>'
+		:_rfl_next
+		ro['i'] += 1
+	if ro['i'] < arrsize('$' + $ARGS[1]): jump '_rfl_loop'
+	$ro['html'] += '</table></center></td></tr>'
+	$result = $ro['html']
+	killvar 'ro'
+	exit
+end
+
+
+!! ── Nested reorder: skills ────────────────────────────────────────────
+!! Group rows: [↑↓] | [bold title, click=expand] | [hide][expand]
+!! Member rows (when expanded): [↑↓] | [name, click=hide] | [hide]
+if $ARGS[0] = '_reorder_nested_skills':
+	$ro['c']	= iif(theme['is_dark'] = 1, 'w', 'b')
+	$ro['up']	= 'images/system/ui/angle_up_'   + $ro['c'] + '.png'
+	$ro['down'] = 'images/system/ui/angle_down_' + $ro['c'] + '.png'
+	$ro['bdr']	= '1px solid <<$theme_hex[''goth'']>>'
+	$ro['ibdr'] = 'display:inline-block; padding:4px; line-height:0; border:1px solid ' + $func('shortgs', 'rgb_to_hex', theme['fcolor']) + '; border-radius:4px;'
+	$ro['html']	= '<tr><td align="center" colspan="3" style="padding:6px 10px 2px 10px; text-align:center;"><b>顺序与可见性</b>&nbsp; <a href="exec: gs ''$menu_settings'', ''reset_skills'' & gt ''$menu_settings'', ''status''">[重置]</a></td></tr>'
+	$ro['html'] += '<tr><td colspan="3" style="padding:2px 10px 8px 10px;"><center><table width="90%" cellspacing="3" cellpadding="0" border="0" style="width:90%;">'
+	ro['gi'] = 0
+	:_rns_gloop
+		$ro['gkey']		= $skill_group_order[ro['gi']]
+		ro['ghid']		= stat_hide[$ro['gkey']]
+		ro['gexp']		= stat_cfg['show_skills_' + $ro['gkey']]
+		$ro['ghi_ic']	= 'images/system/ui/' + iif(ro['ghid'] = 1, 'hide_', 'show_')       + $ro['c'] + '.png'
+		$ro['gex_ic']	= 'images/system/ui/' + iif(ro['gexp'] = 1, 'expand_', 'collapse_') + $ro['c'] + '.png'
+		$ro['glbl']		= iif(ro['ghid'] = 1, '<font color="gray"><b>' + $sd_dn[$ro['gkey']] + '</b></font>', '<b>' + $sd_dn[$ro['gkey']] + '</b>')
+		$ro['html'] += '<tr><td bgcolor="<<$theme_hex[''table_bg'']>>" style="border:<<$ro[''bdr'']>>; background-color:<<$theme_hex[''table_bg'']>>; padding:5px 6px;">'
+		$ro['html'] += '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr style="vertical-align:middle;">'
+		$ro['html'] += '<td width="1%" nowrap style="padding:0 3px 0 0;">'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap'', ''skill_group_order'', <<ro[''gi'']>>, ''up'' & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''up'']>>"></a>'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap'', ''skill_group_order'', <<ro[''gi'']>>, ''down'' & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''down'']>>"></a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '<td align="center" style="text-align:center; padding:0 4px;">'
+		$ro['html'] += '<a style="display:block; text-decoration:none; color:inherit;" href="exec: stat_cfg[''show_skills_<<$ro[''gkey'']>>''] = 1 - stat_cfg[''show_skills_<<$ro[''gkey'']>>''] & gt ''$menu_settings'', ''status''">' + $ro['glbl'] + '</a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '<td width="1%" nowrap style="padding:0 0 0 3px;">'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: stat_hide[''<<$ro[''gkey'']>>''] = 1 - stat_hide[''<<$ro[''gkey'']>>''] & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''ghi_ic'']>>"></a>'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: stat_cfg[''show_skills_<<$ro[''gkey'']>>''] = 1 - stat_cfg[''show_skills_<<$ro[''gkey'']>>''] & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''gex_ic'']>>"></a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '</tr></table>'
+		!! Member rows nested inside the group cell
+		if ro['gexp'] = 1:
+			ro['mi'] = 0
+			$ro['html'] += '<table width="100%" cellspacing="3" cellpadding="0" border="0" style="margin-top:4px; padding-left:18px;">'
+			:_rns_mloop
+				$ro['mkey'] = $skill_grp[$ro['gkey'] + '_' + $str(ro['mi'])]
+				if $ro['mkey'] = '': jump '_rns_mdone'
+				ro['mhid'] = stat_hide_skill[$ro['mkey']]
+				$ro['mhi_ic'] = 'images/system/ui/' + iif(ro['mhid'] = 1, 'hide_', 'show_') + $ro['c'] + '.png'
+				$ro['mlbl'] = iif(ro['mhid'] = 1, '<font color="gray">' + $sd_dn[$ro['mkey']] + '</font>', $sd_dn[$ro['mkey']])
+				$ro['html'] += '<tr><td bgcolor="<<$theme_hex[''table_bg_alt'']>>" style="border:<<$ro[''bdr'']>>; background-color:<<$theme_hex[''table_bg_alt'']>>; padding:4px 6px;">'
+				$ro['html'] += '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr style="vertical-align:middle;">'
+				$ro['html'] += '<td width="1%" nowrap style="padding:0 3px 0 0;">'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap_grp_member'', ''skill_grp'', ''<<$ro[''gkey'']>>'', <<ro[''mi'']>>, ''up'' & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''up'']>>"></a>'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap_grp_member'', ''skill_grp'', ''<<$ro[''gkey'']>>'', <<ro[''mi'']>>, ''down'' & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''down'']>>"></a>'
+				$ro['html'] += '</td>'
+				$ro['html'] += '<td align="center" style="text-align:center; padding:0 4px;">'
+				$ro['html'] += '<a style="display:block; text-decoration:none; color:inherit;" href="exec: stat_hide_skill[''<<$ro[''mkey'']>>''] = 1 - stat_hide_skill[''<<$ro[''mkey'']>>''] & gt ''$menu_settings'', ''status''">' + $ro['mlbl'] + '</a>'
+				$ro['html'] += '</td>'
+				$ro['html'] += '<td width="1%" nowrap style="padding:0 0 0 3px;">'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: stat_hide_skill[''<<$ro[''mkey'']>>''] = 1 - stat_hide_skill[''<<$ro[''mkey'']>>''] & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''mhi_ic'']>>"></a>'
+				$ro['html'] += '</td>'
+				$ro['html'] += '</tr></table></td></tr>'
+				ro['mi'] += 1
+			jump '_rns_mloop'
+			:_rns_mdone
+			$ro['html'] += '</table>'
+		end
+		$ro['html'] += '</td></tr>'
+		ro['gi'] += 1
+	if ro['gi'] < arrsize('$skill_group_order'): jump '_rns_gloop'
+	$ro['html'] += '</table></center></td></tr>'
+	$result = $ro['html']
+	killvar 'ro'
+	exit
+end
+
+
+!! ── Nested reorder: relations ─────────────────────────────────────────
+!! Group rows: [↑↓] [hide] [expand] [bold name]
+!! Member rows (when expanded, non-lovers): [indent+↑↓] [hide] [name] [name-fmt]
+!! NPC name logic inlined to avoid $func/$result conflict.
+if $ARGS[0] = '_reorder_nested_relations':
+	$ro['c']	= iif(theme['is_dark'] = 1, 'w', 'b')
+	$ro['up']	= 'images/system/ui/angle_up_'   + $ro['c'] + '.png'
+	$ro['down'] = 'images/system/ui/angle_down_' + $ro['c'] + '.png'
+	$ro['bdr']	= '1px solid <<$theme_hex[''goth'']>>'
+	$ro['ibdr'] = 'display:inline-block; padding:4px; line-height:0; border:1px solid ' + $func('shortgs', 'rgb_to_hex', theme['fcolor']) + '; border-radius:4px;'
+	$ro['html']	= '<tr><td align="center" colspan="3" style="padding:6px 10px 2px 10px; text-align:center;"><b>顺序与可见性</b>&nbsp; <a href="exec: gs ''$menu_settings'', ''reset_rels'' & gt ''$menu_settings'', ''status''">[重置]</a></td></tr>'
+	$ro['html'] += '<tr><td colspan="3" style="padding:2px 10px 8px 10px;"><center><table width="90%" cellspacing="3" cellpadding="0" border="0" style="width:90%;">'
+	ro['gi'] = 0
+	:_rnr_gloop
+		$ro['gkey']		= $rel_group_order[ro['gi']]
+		ro['ghid']		= stat_hide_rel_grp[$ro['gkey']]
+		ro['gexp']		= stat_cfg['show_rels_' + $ro['gkey']]
+		$ro['ghi_ic']	= 'images/system/ui/' + iif(ro['ghid'] = 1, 'hide_', 'show_')       + $ro['c'] + '.png'
+		$ro['gex_ic']	= 'images/system/ui/' + iif(ro['gexp'] = 1, 'expand_', 'collapse_') + $ro['c'] + '.png'
+		$ro['glbl']		= iif(ro['ghid'] = 1, '<font color="gray"><b>' + $sd_dn[$ro['gkey']] + '</b></font>', '<b>' + $sd_dn[$ro['gkey']] + '</b>')
+		$ro['html'] += '<tr><td bgcolor="<<$theme_hex[''table_bg'']>>" style="border:<<$ro[''bdr'']>>; background-color:<<$theme_hex[''table_bg'']>>; padding:5px 6px;">'
+		$ro['html'] += '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr style="vertical-align:middle;">'
+		$ro['html'] += '<td width="1%" nowrap style="padding:0 3px 0 0;">'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap'', ''rel_group_order'', <<ro[''gi'']>>, ''up'' & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''up'']>>"></a>'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap'', ''rel_group_order'', <<ro[''gi'']>>, ''down'' & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''down'']>>"></a>'
+		$ro['html'] += '</td>'
+		$ro['html'] += '<td align="center" style="text-align:center; padding:0 4px;">'
+		if $ro['gkey'] <> 'lovers':
+			$ro['html'] += '<a style="display:block; text-decoration:none; color:inherit;" href="exec: stat_cfg[''show_rels_<<$ro[''gkey'']>>''] = 1 - stat_cfg[''show_rels_<<$ro[''gkey'']>>''] & gt ''$menu_settings'', ''status''">' + $ro['glbl'] + '</a>'
+		else
+			$ro['html'] += $ro['glbl']
+		end
+		$ro['html'] += '</td>'
+		$ro['html'] += '<td width="1%" nowrap style="padding:0 0 0 3px;">'
+		$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: stat_hide_rel_grp[''<<$ro[''gkey'']>>''] = 1 - stat_hide_rel_grp[''<<$ro[''gkey'']>>''] & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''ghi_ic'']>>"></a>'
+		if $ro['gkey'] <> 'lovers':
+			$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: stat_cfg[''show_rels_<<$ro[''gkey'']>>''] = 1 - stat_cfg[''show_rels_<<$ro[''gkey'']>>''] & gt ''$menu_settings'', ''status''"><img height="18" src="<<$ro[''gex_ic'']>>"></a>'
+		else
+			$ro['html'] += '<span style="<<$ro[''ibdr'']>>; visibility:hidden;"><img height="18" src="<<$ro[''up'']>>"></span>'
+		end
+		$ro['html'] += '</td>'
+		$ro['html'] += '</tr></table>'
+		!! Member rows nested inside the group cell (not for 'lovers'; allowed even when hidden)
+		if $ro['gkey'] <> 'lovers' and ro['gexp'] = 1:
+			ro['mi'] = 0
+			ro['nm'] = stat_cfg['rel_name_mode']
+			$ro['html'] += '<table width="100%" cellspacing="3" cellpadding="0" border="0" style="margin-top:4px; padding-left:18px;">'
+			:_rnr_mloop
+				$ro['mkey'] = $rel_grp[$ro['gkey'] + '_' + $str(ro['mi'])]
+				if $ro['mkey'] = '': jump '_rnr_mdone'
+				ro['mhid'] = stat_hide_rel[$ro['mkey']]
+				$ro['mhi_ic'] = 'images/system/ui/' + iif(ro['mhid'] = 1, 'hide_', 'show_') + $ro['c'] + '.png'
+				!! Inline name resolution (base mode set before loop; per-NPC override applied here)
+				ro['eff_nm'] = iif($ro['mkey'] <> '' and sd_rel_name_override[$ro['mkey']] > 0, sd_rel_name_override[$ro['mkey']], ro['nm'])
+				if ro['eff_nm'] = 1:
+					$ro['mname'] = $npc_firstname[$ro['mkey']]
+				elseif ro['eff_nm'] = 2:
+					$ro['mname'] = $npc_lastname[$ro['mkey']]
+					if $ro['mname'] = '': $ro['mname'] = $npc_firstname[$ro['mkey']]
+				elseif ro['eff_nm'] = 3:
+					$ro['mname'] = $npc_nickname[$ro['mkey']]
+					if $ro['mname'] = '': $ro['mname'] = $npc_firstname[$ro['mkey']]
+				else
+					$ro['mname'] = $npc_usedname[$ro['mkey']]
+				end
+				if $ro['mname'] = '': $ro['mname'] = $npc_usedname[$ro['mkey']]
+				if $ro['mname'] = '': $ro['mname'] = $npc_firstname[$ro['mkey']]
+				if $ro['mname'] = '': $ro['mname'] = $npc_nickname[$ro['mkey']]
+				if $ro['mname'] = '': $ro['mname'] = $npc_lastname[$ro['mkey']]
+				if $ro['mname'] = '': $ro['mname'] = $ro['mkey']
+				$ro['mlbl'] = iif(ro['mhid'] = 1, '<font color="gray">' + $ro['mname'] + '</font>', $ro['mname'])
+				!! Per-NPC name-format override cycling icon
+				ro['nmo'] = sd_rel_name_override[$ro['mkey']]
+				if ro['nmo'] = 1:
+					$ro['nmo_ic'] = 'images/system/ui/name_first_'    + $ro['c'] + '.png'
+				elseif ro['nmo'] = 2:
+					$ro['nmo_ic'] = 'images/system/ui/name_family_'   + $ro['c'] + '.png'
+				elseif ro['nmo'] = 3:
+					$ro['nmo_ic'] = 'images/system/ui/name_nickname_' + $ro['c'] + '.png'
+				else
+					$ro['nmo_ic'] = 'images/system/ui/name_default_'  + $ro['c'] + '.png'
+				end
+				$ro['html'] += '<tr><td bgcolor="<<$theme_hex[''table_bg_alt'']>>" style="border:<<$ro[''bdr'']>>; background-color:<<$theme_hex[''table_bg_alt'']>>; padding:4px 6px;">'
+				$ro['html'] += '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr style="vertical-align:middle;">'
+				$ro['html'] += '<td width="1%" nowrap style="padding:0 3px 0 0;">'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap_grp_member'', ''rel_grp'', ''<<$ro[''gkey'']>>'', <<ro[''mi'']>>, ''up'' & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''up'']>>"></a>'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: gs ''$menu_settings'', ''swap_grp_member'', ''rel_grp'', ''<<$ro[''gkey'']>>'', <<ro[''mi'']>>, ''down'' & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''down'']>>"></a>'
+				$ro['html'] += '</td>'
+				$ro['html'] += '<td align="center" style="text-align:center; padding:0 4px;">'
+				$ro['html'] += '<a style="display:block; text-decoration:none; color:inherit;" href="exec: stat_hide_rel[''<<$ro[''mkey'']>>''] = 1 - stat_hide_rel[''<<$ro[''mkey'']>>''] & gt ''$menu_settings'', ''status''">' + $ro['mlbl'] + '</a>'
+				$ro['html'] += '</td>'
+				$ro['html'] += '<td width="1%" nowrap style="padding:0 0 0 3px;">'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: stat_hide_rel[''<<$ro[''mkey'']>>''] = 1 - stat_hide_rel[''<<$ro[''mkey'']>>''] & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''mhi_ic'']>>"></a>'
+				$ro['html'] += '<a style="<<$ro[''ibdr'']>>" href="exec: sd_rel_name_override[''<<$ro[''mkey'']>>''] = (sd_rel_name_override[''<<$ro[''mkey'']>>''] + 1) mod 4 & gt ''$menu_settings'', ''status''"><img height="14" src="<<$ro[''nmo_ic'']>>"></a>'
+				$ro['html'] += '</td>'
+				$ro['html'] += '</tr></table></td></tr>'
+				ro['mi'] += 1
+			jump '_rnr_mloop'
+			:_rnr_mdone
+			$ro['html'] += '</table>'
+		end
+		$ro['html'] += '</td></tr>'
+		ro['gi'] += 1
+	if ro['gi'] < arrsize('$rel_group_order'): jump '_rnr_gloop'
+	$ro['html'] += '</table></center></td></tr>'
+	$result = $ro['html']
+	killvar 'ro'
+	exit
+end
+
+
+!! ── Menu-bar reorder: compact horizontal icon cards ─────────────────
+!! Each item renders as a mini box-table: icon on top, ◀▶ arrows below.
+if $ARGS[0] = '_reorder_menu_bar':
+	$ro['ri_character']	= 'icon_character.png'
+	$ro['ri_looks']		= 'icon_lookself.png'
+	$ro['ri_purse']		= 'icon_purse.png'
+	$ro['ri_phone']		= 'icon_phone.png'
+	$ro['ri_journal']	= 'journal_norm.png'
+	$ro['ri_magic']		= 'journal_magic.png'
+	$ro['ri_clock']		= 'clock.png'
+	$ro['ri_settings']	= 'icon_menu.png'
+	$ro['ri_help']		= 'icon_help_color.png'
+	$ro['imgbase']		= 'images/system/icons/menu/'
+	$ro['bdr']			= '1px solid <<$theme_hex[''goth'']>>'
+
+	$result = '<tr><td align="center" colspan="3" style="padding:6px 10px 2px 10px; text-align:center;"><b>顺序</b>&nbsp; <a href="exec: killvar ''$menu_bar_order'' & gt ''$menu_settings'', ''status''">[重置]</a></td></tr>'
+	$result += '<tr><td colspan="3" style="padding:2px 10px 8px 10px;"><center><table cellspacing="6" cellpadding="0"><tr>'
+	ro['i'] = 0
+	:_rmb_loop
+		$ro['key'] = $menu_bar_order[ro['i']]
+		if $ro['key'] = 'magic' and ($start_type['magic'] = 'nomagic' or stat_cfg['magic_separate'] = 0): jump '_rmb_next'
+		$ro['imgfile'] = $dyneval('$result = $ro[''ri_<<$ro[''key'']>>'']')
+		$result += '<td valign="top"><table border="0" cellspacing="0" cellpadding="0" bgcolor="<<$theme_hex[''table_bg_alt'']>>" style="border:<<$ro[''bdr'']>>; background-color:<<$theme_hex[''table_bg_alt'']>>;">'
+		$result += '<tr><td colspan="2" align="center" style="padding:4px;"><img height="<<stat_cfg[''menu_icon_height'']>>" src="<<$ro[''imgbase'']>><<$ro[''imgfile'']>>"></td></tr>'
+		$result += '<tr>'
+		$result += '<td align="center" width="50%" style="border-top:<<$ro[''bdr'']>>; padding:3px 6px;"><a style="text-decoration:none;" href="exec: gs ''$menu_settings'', ''swap'', ''menu_bar_order'', <<ro[''i'']>>, ''up'' & gt ''$menu_settings'', ''status''">◀</a></td>'
+		$result += '<td align="center" width="50%" style="border-top:<<$ro[''bdr'']>>; border-left:<<$ro[''bdr'']>>; padding:3px 6px;"><a style="text-decoration:none;" href="exec: gs ''$menu_settings'', ''swap'', ''menu_bar_order'', <<ro[''i'']>>, ''down'' & gt ''$menu_settings'', ''status''">▶</a></td>'
+		$result += '</tr></table></td>'
+		:_rmb_next
+		ro['i'] += 1
+	if ro['i'] < arrsize('$menu_bar_order'): jump '_rmb_loop'
+	$result += '</tr></table></center></td></tr>'
+	killvar 'ro'
+	exit
+end
+
+
+if $ARGS[0] = 'general_options':
+	$temp_st_td['cell'] = '<td align="center" valign="middle" bgcolor="<<$theme_hex[''table_bg_alt'']>>" style="border:1px solid <<$theme_hex[''goth'']>>; background-color: <<$theme_hex[''table_bg_alt'']>>; padding:5px; text-align:center; vertical-align:middle;">'
+	$result =	'<table width="80%" cellspacing="10" bgcolor="<<$theme_hex[''table_bg'']>>" style="border:2px solid <<$theme_hex[''goth'']>>; margin:10px; padding:7px; border-spacing:10px; background-color: <<$theme_hex[''table_bg'']>>;">'
+	$result +=	'<colgroup>'
+	$result +=		'<col width="32%">'
+	$result +=		'<col width="32%">'
+	$result +=		'<col width="32%">'
+	$result +=	'</colgroup>'
+
+	!! Row 1: global_align, sec_headers, separator_style
+	$temp_values[0] = '0|左'
+	$temp_values[1] = '1|居中'
+	$temp_values[2] = '2|右'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '全局对齐', 'stat_cfg[''global_align'']'))
+
+	$temp_values[0] = '0|隐藏'
+	$temp_values[1] = '1|标签'
+	$temp_values[2] = '2|可折叠'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '标题', 'stat_cfg[''sec_headers'']'))
+
+	$temp_values[0] = '0|自动'
+	$temp_values[1] = '1|换行'
+	$temp_values[2] = '2|水平线'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '分隔线', 'stat_cfg[''separator_style'']'))
+
+	!! Row 2: font_size, msg_display_mode
+	$temp_values[0] = '-2|小 (70%)'
+	$temp_values[1] = '-1|较小 (85%)'
+	$temp_values[2] = '0|正常'
+	$temp_values[3] = '1|较大 (115%)'
+	$temp_values[4] = '2|大 (130%)'
+	$temp_values[5] = 'custom|自定义'
+	!! Arriving at Custom (right from Large, left-wrap from Small) opens input().
+	!! When already on Custom, arrows exit to the adjacent preset.
+	$temp_fs_act = '$sd_fs_inp = input(''字体大小 % （例如 110 表示 110%。留空取消）：'') & stat_cfg[''font_size''] = iif($sd_fs_inp = '''', stat_cfg[''font_size''], val($sd_fs_inp)) & killvar ''sd_fs_inp'''
+	$temp_actions_right[0] = 'stat_cfg[''font_size''] = -1'
+	$temp_actions_right[1] = 'stat_cfg[''font_size''] = 0'
+	$temp_actions_right[2] = 'stat_cfg[''font_size''] = 1'
+	$temp_actions_right[3] = 'stat_cfg[''font_size''] = 2'
+	$temp_actions_right[4] = $temp_fs_act
+	$temp_actions_right[5] = 'stat_cfg[''font_size''] = -2'
+	$temp_actions_left[0] = $temp_fs_act
+	$temp_actions_left[1] = 'stat_cfg[''font_size''] = -2'
+	$temp_actions_left[2] = 'stat_cfg[''font_size''] = -1'
+	$temp_actions_left[3] = 'stat_cfg[''font_size''] = 0'
+	$temp_actions_left[4] = 'stat_cfg[''font_size''] = 1'
+	$temp_actions_left[5] = 'stat_cfg[''font_size''] = 2'
+	killvar 'temp_fs_act'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '字体大小', 'stat_cfg[''font_size'']'))
+
+	$temp_values[0] = '0|图标与文本'
+	$temp_values[1] = '1|优先使用图标'
+	$temp_values[2] = '2|仅文本'
+	$result += $func('stat_display_menu', '_row_cell', $func('stat_display_menu', 'render_cell_opt', '状态通知', 'stat_cfg[''msg_display_mode'']'))
+
+	$result += $func('stat_display_menu', '_row_flush')
+	$result += '</table>'
+	exit
+end
+
+
+--- stat_display_menu ---------------------------------

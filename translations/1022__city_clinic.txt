@@ -1,0 +1,1435 @@
+# city_clinic
+$location_type = 'public_indoors'
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_clinic', 'start'
+	$location_type = 'public_indoors'
+	$sexloc = 'city_clinic'
+
+	killvar 'temp_small_mbottle_ids'
+	killvar 'temp_medium_mbottle_ids'
+	hosprand = rand(0, 10)
+	minut += 5
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center b', '诊所')
+	'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+	'诊所内的一块告示牌列出了诊所提供的一些服务：'
+	'<i>全科医生：目前可以就诊'
+	'心理医生：目前可以就诊'
+	'性病检测 - ' + $func('money', 'string_price', 1000) + '。'
+	*nl
+	'如需住院，请在每月10日之前的周一前来就诊。'
+	*nl
+	'应女性要求进行的堕胎，可在怀孕第84天之前实施 - ' + $func('money', 'string_price', 15000) + '。'
+	'请注意，操作不当的堕胎会对你的健康造成危险。存在出现并发症的风险，也可能损伤你的子宫。</i>'
+	*nl
+	'起初，你以为那警告只是卫生部门的官样文章。可你刚这么想，就注意到一名护士推着一车刚消过毒的衣架走过走廊，于是你开始怀疑这家机构在女性健康方面到底有多专业……'
+	*nl
+	'诊所的一处区域专门用于整形手术。墙上的指示牌指引你前往整形医生的办公室。'
+	*nl
+	if pcs_gpolimilkdonation >= 2 and lactation['active'] > 0 and lact_ev['pcs_knows_milkbank'] < 1 and lactation['pc_aware'] > 0:
+		*nl
+		'<a href="exec: minut += 5 & gt ''city_clinic'', ''milk_reception''">询问</a>前台是否可以捐赠母乳'
+	elseif pcs_gpolimilkdonation < 2 and lactation['active'] > 0 and lact_ev['pcs_knows_milkbank'] < 1 and lactation['pc_aware'] > 0:
+		*nl
+		'前台的<a href="exec: minut += 5 & gt ''city_clinic'', ''milk_advertisement''">小广告</a>吸引了你的注意。'
+	end
+
+	if $job_status['city_hospital_nurse'] = 'employed' and func('jobs', 'is_arrival_time', 'city_hospital_nurse') = 1:
+		act '开始你的工作日': gt 'city_clinic', 'beginwork'
+	end
+
+	act '离开诊所': minut += 5 & gt 'city_residential'
+	act '看整形医生': gt 'city_clinic', 'cosmetic1'
+	if lact_ev['pcs_knows_milkbank'] >= 1:
+		act '前往母乳捐赠办公室': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+	end
+
+	!! Genuinely bad health/pain gets seen without an appointment, same as the acute care
+	!! bypass at pav_clinic. A cold does not qualify - see the 'City General practitioner' booking below.
+	if (pcs_health < healthmax / 2 or pain['total'] >= 70) and clinic['docheal'] ! daystart:
+		act '立即看医生（急诊）':
+			cla
+			menu_off = 1
+			minut += 60
+			clinic['docheal'] = daystart
+			gs 'medical_din', 'healthTreatment'
+			gs 'stat'
+			'医生把你领到一张床边，让你躺下，然后给你打了一针止痛药、类固醇和维生素的混合针剂。'
+			'你有一阵子感到昏昏欲睡，但之后就舒服多了。这一针大大加快了你酸痛身体的恢复，意味着药效过去后疼痛大概不会那么强烈地复发，接下来几天也有助于你恢复健康。'
+
+			act '返回入口': gt 'city_clinic', 'start'
+		end
+	end
+
+	!! General Practitioner - a separate, City-scoped booking category from the Pavlovsk clinic
+	!! 'General practitioner', so an appointment made at one clinic cannot be attended at the other.
+	act $func('clinic_functions', 'reception_option_label', 'City General practitioner', '医生'):
+		*clr & cla
+		gs 'clinic_functions', 'reception_book_or_check', 'City General practitioner', '医生'
+	end
+
+	if pcs_mood < 10:
+		act '看心理医生 (1:00)':
+			*clr & cla
+			menu_off = 1
+			minut += 60
+			gs 'mood', 'raise', 'medium'
+
+			if hosprand = 0: gt 'city_clinic', '0'
+			if hosprand = 1: gt 'city_clinic', '1'
+			if hosprand = 2: gt 'city_clinic', '2'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/therapy1.jpg"></center>'
+			'你在心理医生的沙发上躺下，向他倾诉你的烦恼。你立刻感觉好多了，但心理医生看起来却一脸震惊。'
+
+			act '返回入口': gt 'city_clinic', 'start'
+		end
+	end
+
+	gs 'medical_din', 'birth_control'
+
+	act '前往性病诊所': gt 'city_clinic', 'stdclinic'
+
+	gs 'clinic_functions', 'set_abortion_act'
+
+	if experimentQW['discovered'] = 1:
+		*nl
+		'在远处的角落里你看到一处报名区的入口，这是为<a href="exec: experimentQW[''discovered''] = 2 & gt ''city_experimental_trials'', ''front_desk''">实验性试验</a>。'
+		*nl
+	elseif experimentQW['discovered'] = 10:
+		*nl
+		'在远处的角落里你看到一处报名区的入口，这是为<a href="exec: experimentQW[''discovered''] = 2 & gt ''city_experimental_trials'', ''front_desk''">实验性试验</a>。那一定是你的<i>丈夫</i>告诉你的。'
+		*nl
+	elseif experimentQW['discovered'] = 2:
+		act '前往医学试验接待台': gt 'city_experimental_trials', 'front_desk'
+	end
+
+	if preg = 2:
+		act '分娩':
+			gs 'medical_din', 'give_birth'
+			act '返回入口': gt 'city_clinic', 'start'
+		end
+	end
+
+
+	if sick <= 0 and pcs_horny >= 90 and ninelsex >= 1 and ninelday ! daystart:
+		act '寻找尼内尔医生':
+			*clr & cla
+			ninelday = daystart
+			ninelrand = rand(0, 2)
+
+			if ninelrand = 0:
+				'前台通知你，尼内尔医生在她的办公室里。'
+				act '去见尼内尔医生': gt 'city_clinic', 'ninel3'
+			elseif ninelrand = 1:
+				'前台通知你，尼内尔医生今天不能见你。'
+				act '离开诊所': minut += 5 & gt 'city_residential'
+			elseif ninelrand = 2:
+				'前台通知你，尼内尔医生今天出诊。'
+				act '离开诊所': minut += 5 & gt 'city_residential'
+			end
+		end
+	end
+
+	if cumcondslip > 0 and cumcondslip_aware > 0:
+		act '立即看医生（急诊）':
+			*clr & cla
+			gt 'city_clinic', 'drPP'
+		end
+	end
+
+	if katjob > 0: act '拜访院长': gt 'city_clinic', 'glavdoc'
+
+	!! Dentist and Optometrist - City-scoped booking categories, same reasoning as above.
+	act $func('clinic_functions', 'reception_option_label', 'City Dentist', '牙医'):
+		*clr & cla
+		gs 'clinic_functions', 'reception_book_or_check', 'City Dentist', '牙医'
+	end
+
+	act $func('clinic_functions', 'reception_option_label', 'City Optometrist', '验光师'):
+		*clr & cla
+		gs 'clinic_functions', 'reception_book_or_check', 'City Optometrist', '验光师'
+	end
+end
+
+
+if $ARGS[0] = 'stdclinic':
+	$menu_arg = $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	'<center>性病诊所</center>'
+	*nl
+	'你注意到候诊室里有一则广告。'
+	*nl
+	'	私人性病诊所提供以下检测与治疗。'
+	'		性病检测 - ' + $func('money', 'string_price', 1000)
+	'		疱疹完全治愈 - ' + $func('money', 'string_price', 45000) + '。'
+	'		梅毒完全治愈 - ' + $func('money', 'string_price', 1000) + '。'
+	'		念珠菌感染完全治愈 - ' + $func('money', 'string_price', 15000) + '。'
+	'	治疗需要在每个月的第一个周一住院进行。'
+
+	act '离开': gt 'city_clinic', 'start'
+
+	act '做性病检查' + $func('money', 'get_cost_string', 1000):
+		if func('money', 'can_afford', 1000) = 0:
+			$noMoney
+		else
+			gs 'money', 'pay', 1000
+			gs 'city_clinic', 'stdcheck'
+		end
+	end
+
+	gs 'clinic_functions', 'set_std_herpes_shot_act'
+	gs 'clinic_functions', 'set_std_gonorrhea_shot_act'
+	gs 'clinic_functions', 'set_std_syphilis_shot_act'
+	if week = 1 and day <= 10:
+		gs 'clinic_functions', 'set_std_herpes_cure_act'
+		gs 'clinic_functions', 'set_std_yeast_cure_act'
+	end
+end
+
+
+if $ARGS[0] = 'stdcheck':
+	*clr & cla
+	menu_off = 1
+	minut += 60
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/bg28qy97.jpg"></center>'
+	'等了一段时间后，你见到了医生，他让你把衣服脱掉。'
+	act '脱衣服':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cj53ti24.jpg"></center>'
+		'你脱掉衣服，医生让你躺在检查台上。'
+		act '躺下':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/gy93cr29.jpg"></center>'
+			'你躺在台上，等待医生为检查做准备。'
+			act '等待':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/zw61kh75.jpg"></center>'
+				'医生先监测你的心率，然后检查你的乳房有没有肿块。'
+				act '进一步':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/bn72qy99.jpg"></center>'
+					'医生从外部和内部检查你的生殖器，做了好几项检测。'
+					if func('money', 'can_afford', 10000) = 1 and rand(1, 100) >= 97:
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/gy93cr29.jpg"></center>'
+						'你躺在检查台上盯着天花板时，注意到角落里有一个隐藏的摄像头。'
+						act '质问他为什么要拍摄你的检查过程':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/bg28qy97.jpg"></center>'
+							'医生面不改色，用平静的语气说道：“哦，你注意到那个了，是吧？摄像头在那儿是为了你的安全，也是为了我的安全，小姐。我以前被人指控过猥亵。后来我灵机一动：网上有人愿意花大价钱看我的检查！一举两得，对吧？”'
+							'沉默片刻后，他咧嘴一笑。“好吧……既然你发现了摄像头，我就给你一个选择。如果你给我 ' + $func('money', 'string_price', 10000) + '，我就把录像删掉，就当从没来过你这个人。我会损失很大一笔收入，所以这样才算公平。”'
+							'你还没来得及回答，他就继续说道。“或者，如果你不介意被几千个你大概一辈子都不会遇上的人观看，我可以给你…… ' + $func('money', 'string_price', 3000) + ' 作为封口费。你自己决定。”'
+							act '付钱让他删除录像': gt 'city_clinic', 'ven1'
+							act '接受贿赂': gt 'city_clinic', 'ven2'
+							act '威胁要举报他':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/bg28qy97.jpg"></center>'
+								'医生把脸凑得离你非常近。“看看你现在在什么地方，婊子！”他嘶声说道。“你最好马上给我闭上你那该死的嘴！我能让你就那么消失，而且谁都不会起疑！”他打了个响指以示强调。“我已经给了你非常慷慨的条件，所以别让我后悔。安排一场不幸的‘并发症’是很容易的……”'
+								'他随后叹了口气。“算了，我们就当你刚才什么都没说，重新开始吧。你打算为让我删除录像作出补偿吗？”'
+								act '付钱让他删除录像': gt 'city_clinic', 'ven1'
+								act '接受贿赂': gt 'city_clinic', 'ven2'
+								act '试图逃跑': gt 'city_clinic', 'ven3'
+							end
+						end
+					else
+						if Venera > 0 or Kandidoz > 10:
+							'医生皱起眉头，告诉你检测结果不太理想。'
+
+							if GerpesOnce = 1:
+								'“你得了生殖器疱疹。这种病的治疗费用非常昂贵，但它只在某些时候才会发作。”'
+								if Gerpes >= 3:
+									if GerpesNapr = 0:
+										GerpesNapr = 3 & '"我要给你安排一个疗程的疱疹针剂。这几天里你需要一共打 3 针。每针费用为 ' + $func('money', 'string_price', 450) + '。"'
+									elseif GerpesNapr > 0:
+										'“你需要去找护士给你打疱疹针。”'
+									end
+								else
+									'“你的疱疹处于非活动期。吃点维生素，它就不会显现出来。”'
+								end
+							end
+
+							if SifacOnce = 1:
+								sifNapr = 1
+								'“你得了梅毒。这种病的治疗过去很昂贵。不过，这种致命的疾病现在打一针就能治好。注射费用为 ' + $func('money', 'string_price', 1000) + '。”'
+							end
+
+							if TriperOnce = 1:
+								'“我们发现了淋病。原则上，这种病是可以治愈的。”'
+								if TriperNapr = 0:
+									TriperNapr = 5 & '"我要给你安排一个疗程的淋病针剂。这几天里你需要一共打 5 针。每针费用为 ' + $func('money', 'string_price', 750) + '。"'
+								elseif TriperNapr > 0:
+									'“你需要去找护士给你打淋病针。”'
+								end
+							end
+
+							if KandidozOnce = 1:
+								'“你得了念珠菌感染。这种病的治疗费用非常昂贵，但它危害不大，而且很容易抑制。”'
+
+								if KandidNapr = 0: KandidNapr = 1 & '“你可以在药房买药片。”'
+								if Kandidoz < 30: '“你的念珠菌感染目前处于缓解期，所以吃点维生素，它就会保持这样。”'
+							end
+						else
+							'医生很高兴地告诉你，你没有感染性病。'
+						end
+
+						act '离开': gt 'city_clinic', 'stdclinic'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'yeast_cure':
+	*clr & cla
+	menu_off = 1
+	day += 3
+	week += 3
+	KandidozOnce = 0
+	Kandidoz = 0
+	gs 'stat'
+	'外面有一辆救护车在等待着。它会把你送到一家先进的医疗机构，在那里你度过了3天接受治疗和呵护的日子。'
+	'经过漫长的恢复，你已被完全治愈了你的念珠菌感染。'
+
+	act '离开': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'herpes_cure':
+	*clr & cla
+	menu_off = 1
+	day += 3
+	week += 3
+	GerpesOnce = 0
+	Gerpes = 0
+	OrHerpes = 0
+	GenHerpes = 0
+	Venera -= 1
+	gs 'stat'
+	'外面有一辆救护车在等待着。它会把你送到一家先进的医疗机构，在那里你度过了3天接受治疗和呵护的日子。'
+	'经过漫长的恢复，你已被完全治愈了你的疱疹。'
+
+	act '离开': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'ven1':
+	*clr & cla
+	menu_off = 1
+	gs 'money', 'pay', 10000
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/gy93cr29.jpg"></center>'
+	'你躺了下来，几乎要哭出来，脑子里一遍又一遍地回想医生的话。你知道这不公平，但你不能让这些影像被公开，于是决定付钱让他删除录像。'
+	'你从钱包里掏出钱递给他，希望他能信守承诺……'
+	act '返回大厅': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'ven2':
+	*clr & cla
+	menu_off = 1
+	gs 'money', 'earn', 3000, 'cash'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/gy93cr29.jpg"></center>'
+	'你躺了下来，几乎要哭出来，脑子里一遍又一遍地回想医生的话。过了一会儿，你决定还是想要这笔钱。你大概不会被认出来，就算被认出来，你也可以一直假装自己不知道正在被拍摄。'
+	'医生听到你的回答似乎有些意外，但还是按承诺把钱给了你。“别担心，”他咧嘴一笑。“我的大多数订阅者都不住在这座城市。最多也就一百个。接下来几周你遇上他们中任何一个的几率能有多大？”'
+	act '离开他的办公室': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'ven3':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/clinic/poli.jpg"></center>'
+	'你现在唯一想做的就是离开这里！投诉可以以后再提……'
+	'“拦住她！马上拦住她，她很危险！”当你朝门口跑去试图逃跑时，医生大喊道。不幸的是，你试图逃跑时，走廊里正好有几名工作人员，他们立刻冲过去帮自己的同事。'
+	'医生就在你身后几步远的地方，在你还没来得及告诉其他人发生了什么之前，就把针筒扎进你的脖子给你注射。当你的视线变得模糊、身体变得瘫软时，你能听到医生说。“好险……脑子不太正常……有暴力狂躁发作……吸毒成瘾！接下来交给我就行。”'
+	'他把你抱起来，将你瘫软的身体扛回他的办公室。“又一个吸毒过量的受害者，太可怜了……”门关上后，他自言自语地嘟囔道。'
+	act '继续': gt 'gameover', 'force', 9
+end
+
+
+if $ARGS[0] = 'drPP':
+	*clr & cla
+	menu_off = 1
+	minut += rand(3, 10)
+	gs 'stat'
+	'你坐在走廊里，身边都是咳嗽生病的老年妇女，等着轮到你就诊。'
+	'终于轮到你了。'
+
+	act '看医生':
+		*clr & cla
+		$ImageNeededPlacholder
+		!! WD: IMAGE NEEDED ~ '<center><img <<$set_imgh>> src="images/system/image_needed.png"></center>'
+
+		if drPP = 0: '一个准时赴诊的秃顶老头坐在桌边。“亲爱的，哪里不舒服？”他一边扶了扶眼镜一边问道。'
+		if drPP = 1: '医生坐在桌边，冲你微笑着。“你好，你哪里不舒服吗？”'
+
+		drPP = 1
+		'“你好，医生，”你回答道。'
+		'“有什么症状？”他问道。'
+
+		if cumcondslip > 0 and cumcondslip_aware > 0:
+			act '解释':
+				*clr & cla
+				minut += 5
+				'“嗯，医生，我白天会觉得恶心。”'
+				'“你身体深处有没有一种异样的感觉？”'
+				'“是的，有一点。”'
+				'“好吧，让我给你检查一下。”'
+
+				act '接受检查':
+					cla
+					minut += 15
+					gs 'cum_cleanup', 'cleanloc', 17
+					cumcondslip = 0
+					gs 'stat'
+					'医生迅速为你做了检查，确定你是因为体内残留的用过的安全套而中毒性休克。'
+					'“我一发现就把安全套取出来了。你可能还会难受一阵子，但症状应该会慢慢消退，”他解释道。'
+					'离开前你向医生道谢。'
+
+					act '离开诊所': minut += 5 & gt 'city_residential'
+				end
+			end
+		else
+			act '解释':
+				*clr & cla
+				minut += 5
+				'“我觉得是感冒，因为我鼻子堵了，喉咙痛，还咳嗽。”'
+				'“你有发烧吗？”'
+				'“是的，我有点发热。”'
+				'“好吧，让我给你检查一下。”'
+
+				act '接受检查':
+					cla
+					minut += 20
+					'<center><img <<$set_imgh>> src="images/locations/shared/apartment/event/sick/ninel03.jpg"></center>'
+					'医生听了听你的肺部，看了看你的喉咙，然后把体温计塞进你嘴里。'
+					'“别担心，只是普通感冒。去药店买点维生素，卧床休息几天就好了。注意保暖！”'
+					'离开前你向医生道谢。'
+
+					act '离开诊所': minut += 5 & gt 'city_residential'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'ninel':
+	!! TODO check arousal usage
+	*clr & cla
+	menu_off = 1
+	minut += rand(3, 15)
+	gs 'stat'
+	'你坐在走廊里，身边都是咳嗽生病的老年妇女，等着轮到你就诊。'
+	'终于轮到你了。'
+
+	act '看医生':
+		*clr & cla
+
+		if ninelmet = 0: '一位穿着浅色长袍的年轻漂亮女孩坐在桌边。长袍没有扣上，遮不住她的乳房。“你好，我叫尼内尔·帕夫洛夫娜。我是来接替你本地医生的，”她一边打量着你说。'
+		if ninelmet = 1: '尼内尔坐在她的桌边。她冲你微笑着。“你好，亲爱的。”'
+
+		if pcs_horny < 30:
+			act '问候医生':
+				*clr & cla
+				ninelmet = 1
+				minut += 5
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam00.jpg"></center>'
+				'“下午好。有什么症状？”'
+				'“我觉得是感冒，因为我鼻子堵了，喉咙痛，还咳嗽。”'
+				'“你有发烧吗？”'
+				'“是的，我有点发热。”'
+				'“我需要给你检查一下。把衣服脱了。”'
+
+				act '接受检查':
+					*clr & cla
+					minut += 20
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam01.jpg"></center>'
+					'医生听了听你的肺部，看了看你的喉咙，然后把体温计塞进你嘴里。'
+					'“别担心，只是普通感冒。去药店买点维生素，卧床休息几天就好了。注意保暖。”'
+					'离开前你向医生道谢。'
+
+					act '回家': minut += 5 & gt 'city_residential'
+				end
+			end
+		else
+			act '你好，医生':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam10.jpg"></center>'
+				'“下午好。有什么症状？”'
+				'“我觉得是感冒，因为我鼻子堵了，喉咙痛，还咳嗽。”'
+				'“你有发烧吗？”'
+				'“是的，我很热。”'
+				'“脱衣服。全脱光。”'
+
+				act '脱衣服':
+					*clr & cla
+					pcs_horny += 10
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam12.jpg"></center>'
+					'你一丝不挂地站在医生面前，试图用手遮住自己。'
+					'医生看着你，轻轻地把双手搭在你的肩上。'
+					'“不用害羞。我是医生。你叫什么名字？”'
+					'"<<$pcs_nickname>>…"'
+					'“相信我，<<$pcs_nickname>>。我会治好你的。首先，你需要深呼吸……”'
+
+					act '呼吸':
+						*clr & cla
+						gs 'npcgeneratec', 1, '尼涅尔医生', 32
+						gs 'boyStat', $npclastgenerated
+						gs 'arousal', 'foreplay', 5
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam13.jpg"></center>'
+						'尼内尔医生听了听你的肺部。她的双手轻柔温和，把听诊器贴在你的胸口上。'
+						'让你意外的是，这感觉相当色情。'
+						'“好了。现在张开嘴，说啊……”'
+
+						act '啊':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam14.jpg"></center>'
+							'你张开嘴，医生检查你的喉咙。她刚才是不是朝你吐了吐舌头？'
+							'“好的。现在量一下体温。坐到沙发上，把腿分开。”'
+							'“为什么？”'
+							'“你的喉咙发炎了，我需要从直肠测量。”'
+							'你脸上的恐惧显而易见。'
+							'“别担心，不会疼的。”'
+
+							act '坐到沙发上':
+								*clr & cla
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam15.jpg"></center>'
+								'医生让你在沙发上摆好姿势，令你十分难堪。她把润滑剂抹在你双腿之间，轻轻把体温计插进你的屁股。并不疼：事实上，感觉还挺舒服。'
+								'医生在你的屁股里缓缓地抽动体温计，另一只手似乎在抚摸你的小穴。多亏了她灵巧的手指，她的触碰轻柔得让你不确定她到底有没有在做。'
+								'不管怎样，你越来越兴奋了。你的乳头变硬，小穴也开始湿润……'
+								gs 'arousal', 'vaginal_finger', 10, 'sub'
+								gs 'arousal', 'anal_dildo', -10, 'sub'
+								gs 'stat'
+
+								act '这似乎不太正常':
+									*clr & cla
+									gs 'stat'
+									'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam16.jpg"></center>'
+									'医生把体温计从你屁股里抽出来，开始毫不掩饰地抚摸你的小穴。'
+									'你对她的行为既困惑又惊恐，但她如此温柔，你又如此兴奋，根本无法抗拒。'
+									'“医生，你在干什么？这是怎么回事？”你勉强结结巴巴地说。'
+									'“找到了！我一眼就看出你是我们中的一员，所以我可以对你使用我的治愈之力。”'
+									'“所以你也是魅魔？！”'
+									'“是的，我的特殊魔法是坦特罗。听说过吗？”'
+									'“没有，我从没听说过……”'
+									'“这是基于感官和性爱的魔法。大致来说，只有在极度兴奋时我才能施法。”'
+									'“所以……？”'
+									'“简单说，如果我们做爱，我就能治好你。那么，我能治你吗？”'
+									'“取决于你想要什么回报。”'
+									'“什么都不要。嗯，也不完全是什么都不要。我的天赋有个很大的缺陷：我只有在施法时才能高潮。”'
+									'“那我当然同意。”'
+									'“很好。跪到沙发上。”'
+									gs 'arousal', 'vaginal_finger', 10, 'sub', 'lesbian'
+									gs 'stat'
+
+									act '跪在沙发上':
+										*clr & cla
+										'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam17.jpg"></center>'
+										'你跪下，背对着尼内尔，她脱下长袍，露出吊带袜和穿戴式假阳具。'
+										'尼内尔医生给假阳具涂上润滑剂，然后咧嘴一笑。“治疗时间到了！”'
+
+										act '做好准备':
+											*clr & cla
+											minut += 10
+											pcs_horny = max(100, pcs_horny)
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam18.jpg"></center>'
+											'她以不自然的力气把假阳具捅进你的小穴，让你惊讶地倒吸一口气。'
+											'尼内尔自信地开始操你，每一下都发出呻吟。这不同寻常的情形和尼内尔的技巧很快把你推向顶峰。'
+											gs 'arousal', 'vaginal_strap', 10, 'sub', 'lesbian'
+											gs 'stat'
+
+											act '乘风破浪！':
+												*clr & cla
+												'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam19.jpg"></center>'
+												'“我要高潮了！”你喊道。“别停！”'
+												'尼内尔翻身躺到沙发上，把你也拉了过去。你发现自己骑在上面，开始疯狂地在她假鸡巴上起伏，尖叫着、磨蹭着，快感几乎难以承受。'
+												'你很快就高潮了，尖叫着、抽搐着，高潮持续得极其漫长。'
+												'“现在轮到我了，”身下的尼内尔说。'
+
+												$orgasm_or = 'yes'
+												gs 'arousal', 'vaginal_strap', 10, 'sub', 'lesbian'
+												gs 'stat'
+
+												act '回报好意':
+													*clr & cla
+													ninelsex += 1
+													if ninelsex = 1: girl += 1
+													gs 'arousal_funcs', 'stretch', 'vaginal'
+													sick = 0
+													pcs_health = pcs_vital * 10 + pcs_stren * 5 + 1000
+													gs 'stat'
+													'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam19a.jpg"></center>'
+													'尼内尔取下穿戴式假阳具，你把脸埋进她湿透的小穴。没过多久，你的努力就让尼内尔达到了高潮。她尖叫着，指甲掐进自己的膝盖，喷出的汁液溅了你一脸。'
+													gs 'arousal', 'cuni_give', 10, 'sub', 'lesbian'
+													gs 'stat'
+
+													act '穿衣服':
+														*clr & cla
+														'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam11.jpg"></center>'
+														'你双手颤抖着开始穿上内裤。尼内尔已经重新披上了长袍，只有她泛红的脸颊暴露出她那副清纯模样下的真相。'
+														'“怎么样？感觉如何？”'
+														'“哦……简直太棒了，”你回答道，这才意识到自己说得多么正确。病痛消失了，你完全健康，精神焕发。就连心情也变好了。'
+														'“看吧。这就是魔法，宝贝。嗯……你身上特别充沛，我平时可没这么舒服过。要是再生病，请一定再来找我。”'
+														'你清理干净后离开，尼内尔在你离去时微笑着看你。'
+														gs 'arousal', 'end'
+
+														act '离开诊所': minut += 5 & gt 'city_residential'
+													end
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'ninel2':
+	!! TODO check arousal usage
+	*clr & cla
+	menu_off = 1
+	'你走到候诊室，尼内尔轻蔑地无视坐在走廊里的老太太们，“不用排队，到办公室来。”'
+
+	act '看尼内尔医生':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam00.jpg"></center>'
+		'尼内尔从病历上抬起头，笑了笑，'
+		'“你好，<<$pcs_nickname>>。你又生病了吗？”'
+		'你咳了一声。“是啊。我们开始吧？”'
+		'“当然。把衣服脱了，我得先给你检查一下。”'
+		'“为什么？你可是会魔法的。”'
+		'“傻孩子。你怎么对魔法了解这么少？我得知道自己在治什么，否则很可能害处大于益处。魔法的效果是非常精准的。”'
+		'“好吧，既然这样……”你回答道。'
+
+		act '脱衣服':
+			*clr & cla
+			pcs_horny += 10
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam02.jpg"></center>'
+			'你脱下衣服，尼内尔听了听你的肺。和往常一样，她的手臂轻柔温和，听诊器贴在胸口让你感到一阵燥热。'
+			'“是啊，你确实在喘。说‘啊——’。”'
+
+			act '啊':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam03.jpg"></center>'
+				'你张开嘴，尼内尔检查你发痛的喉咙。'
+				'“这看起来很熟悉。是感冒，毫无疑问。你发烧吗？”'
+				'你笑了笑。“很热。”'
+				'“你会喜欢这个的。”尼内尔把你翻成侧躺，让你把膝盖抱到胸前。'
+
+				act '抱住膝盖':
+					*clr & cla
+					gs 'npcgeneratec', 1, '尼涅尔医生', 32
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam04.jpg"></center>'
+					'你摆好姿势，尼内尔开始用体温计操你的后穴。你兴奋起来，随着小穴变湿轻声呻吟。'
+					'“哦，宝贝喜欢这样吗？来吧，看看你有多喜欢。”'
+					gs 'arousal', 'foreplay', 10, 'sub', 'lesbian'
+					gs 'arousal', 'anal_dildo', -10, 'sub', 'lesbian'
+					gs 'stat'
+
+					act '翻身':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam06.jpg"></center>'
+						'你翻身仰躺，抱住自己的双腿。尼内尔拿来窥器，轻轻滑进你的阴道。你被刺激得低声呻吟，尼内尔也随着你的激情重重叹了口气。'
+						'你大张的外阴似乎让她非常兴奋。'
+						gs 'arousal', 'vaginal_dildo', 5, 'sub', 'lesbian'
+						gs 'stat'
+
+						act '啊——…！':
+							*clr & cla
+							pcs_horny = max(100, pcs_horny)
+							minut += 15
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam05.jpg"></center>'
+							'尼内尔被情欲冲昏了头，迅速脱下袍子，从桌子里取出她的假阳具，凑到你唇边。'
+							'你急切地含住它吮吸，尼内尔熟练的手指拨弄着你的阴蒂，温暖的快感一波波传遍全身。'
+							'“操我！就现在！”你喊了出来，尼内尔咧嘴一笑，手继续挑逗你的阴蒂。'
+							'“好好求我。”'
+							'“操我。我是说，求你了，操我。”'
+							'“我可没被说服。礼貌地求我。”'
+							gs 'arousal', 'cuni_give', 15, 'sub', 'lesbian'
+							gs 'arousal', 'vaginal_finger', -15, 'sub', 'lesbian'
+							gs 'stat'
+
+							act '求我':
+								*clr & cla
+								'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam07.jpg"></center>'
+								'“求你了，求你了！操我！尼内尔医生，你想对我做什么都行！我全是你的！求你就操我吧！”'
+								'尼内尔戴上假阳具，猛烈地一插到底，你喊叫着抬起双脚，尽可能多地吞下那根假阳具，胸中欲火熊熊燃烧。'
+								'尼内尔越操越快，每一下都伴随着呻吟和低吼，你也呻吟着，明显有些招架不住。'
+								'“跪下！转过身去！”她命令道。'
+								gs 'arousal', 'vaginal_strap', 20, 'sub', 'lesbian', 'rough'
+								gs 'stat'
+
+								act '服从':
+									*clr & cla
+									gs 'arousal_funcs', 'stretch', 'vaginal'
+									sick = 0
+									pcs_health = pcs_vital * 10 + pcs_stren * 5 + 1000
+									gs 'stat'
+									'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam08.jpg"></center>'
+									'你兴奋地呻吟着跪起身，把屁股抬向尼内尔，但她并不着急。'
+									'“来吧，上我！求你了，我快要到了！”'
+									'“求我！”她命令道。“你得说服我才行！”'
+									'“求你了，操我。”你喊道。“操我！我想高潮！对，我是个婊子，是你的小丫头，但求求你，让我爽完吧！”'
+									'假阳具捅进你的小穴，尼内尔像风镐一样狂插。你很快就爆发出狂野的高潮，狂喜地尖叫起来。'
+									'你双膝一软倒在地板上，在感官释放的颤抖中痉挛。尼内尔只是看着，你的高潮仿佛永远不会结束……'
+									'“现在该你来满足我了，我的小骚货。来吧，你知道该怎么做！”尼内尔命令道。'
+
+									$orgasm_or = 'yes'
+									gs 'arousal', 'vaginal_strap', 10, 'sub', 'lesbian', 'rough'
+									gs 'stat'
+
+									act '满足她':
+										*clr & cla
+										'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam09.jpg"></center>'
+										'她把你扶起来，然后把你向后推倒在沙发上。尼内尔取下假阳具，爬到你身上，一屁股坐在你脸上。'
+										'你卖力地用舌头和嘴唇服侍她大张的小穴和肿胀的阴蒂。她尖叫着、抽泣着，把下体在你脸上来回磨蹭，直到终于高潮。'
+										'她在一阵漫长、叫喊、颤抖的狂热中高潮，大量的汁液洒满你的脸。'
+										gs 'arousal', 'cuni_give', 10, 'sub', 'lesbian'
+										gs 'stat'
+
+										act '哇哦':
+											*clr & cla
+											'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam09a.jpg"></center>'
+											'结束后，尼内尔慢慢穿上衣服，向你展示她挺拔的身体。你能感觉到自己的兴奋又回来了……'
+											'尼内尔看到了，笑着说：“哦，不行。今天就到此为止，不过你下次来找我做别的事，我们再好好玩玩……”'
+											'多亏了尼内尔，你既健康又满足。'
+											gs 'arousal', 'end'
+
+											act '向她道谢并离开': minut += 5 & gt 'city_residential'
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'ninel3':
+	!! TODO check arousal usage
+	*clr & cla
+	menu_off = 1
+	'你走到候诊室，尼内尔轻蔑地无视坐在走廊里的老太太们，“不用排队，到办公室来。”'
+
+	act '看尼内尔医生':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/exam10.jpg"></center>'
+		'尼内尔从病历上抬起头，笑了笑。'
+		'“你好，<<$pcs_nickname>>。又生病了？”'
+		'“哦医生，我的小穴又烫又流汁！也许我病得很重……”'
+		'“我可怜的孩子。我们该怎么办呢？”'
+
+		act '扯掉衣服':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/polsex01.jpg"></center>'
+			'你急不可耐地呻吟着扯掉衣服，尼内尔也脱下袍子。她的假阳具垂在你脸前。'
+			'“含住它。把它弄得又热又湿，就像你一样。”'
+			'你用嘴唇包住假阳具开始吮吸，让尼内尔兴奋起来。'
+			gs 'arousal', 'foreplay', 10, 'sub', 'lesbian'
+			gs 'stat'
+
+			act '操我！':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/polsex02.jpg"></center>'
+				'想起尼内尔喜欢听你求她操你，你甚至不用假装那份渴望已经烧进骨子里。你苦苦哀求，尼内尔终于答应了你的请求。'
+				'她把你按到跪下，开始用力把假阳具顶进你饥渴的小穴。你发出快感的尖叫，感觉双腿越来越软。'
+				gs 'arousal', 'vaginal_strap', 10, 'sub', 'lesbian'
+				gs 'stat'
+
+				act '倒在沙发上':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/polsex03.jpg"></center>'
+					'你倒在沙发上，但尼内尔把你拉成侧躺继续。你大声呻吟，她喉咙里也传出深沉而野蛮的低吼。'
+					'“天哪，你也是。”'
+					'“我不行了……太过了……”'
+					gs 'arousal', 'vaginal_strap', 20, 'sub', 'lesbian'
+					gs 'stat'
+
+					act '骑在她身上':
+						*clr & cla
+						gs 'mood', 'raise', 'small'
+						girl += 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/polsex04.jpg"></center>'
+						'你顺从地换了姿势，尼内尔靠躺在沙发上，你跨坐在她身上，又缓缓坐回她的假阳具上。'
+						'你在假阳具上上下起伏，尖叫着拨弄自己的阴蒂，尼内尔也开始颤抖呻吟。'
+						'有那么几秒，你和尼内尔的激情尖叫不分上下，随后你筋疲力尽地倒回沙发上。'
+						'“谢谢你，医生。刚才太棒了……”'
+						'“要再来哦，<<$pcs_nickname>>。”'
+
+						$orgasm_or = 'yes'
+						gs 'arousal', 'vaginal_strap', 10, 'sub', 'lesbian'
+						gs 'arousal', 'end'
+
+						act '梳洗后离开': minut += 5 & gt 'city_residential'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'glavdoc':
+	menu_off = 1
+	minut += 5
+	if $job_status['city_hospital_nurse'] = '':
+		'你走进院长的办公室，向他询问这份工作。'
+		'院长看着你。“哦，你一定就是凯特说的那个女孩。我时间不多，所以就长话短说，相信她的话，你有必要的经验。”'
+		'他继续说道：“你每周工作五天，周一到周五。你的班次在 '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 9, 0)+'，结束时间大约在 '+func('time', 'get_time_string', 16, 0)+'。缺勤一天就没有工资。每班你能拿到 ' + $func('money', 'string_profit', 1500) + '，薪水会在每月25日打入你的银行账户。”'
+		'他又看了看手表，耸耸肩。“剩下的细节你可以之后和人事部谈。你想要这份工作吗？”'
+	else
+		'你走进院长的办公室。'
+		'他从文件中抬起头看向你，微笑着说：“啊，<<$pcs_lastname>>女士，很高兴见到你！是什么风把你吹来了？”'
+	end
+
+	if $job_status['city_hospital_nurse'] = '':
+		if func('jobs', 'check_employment_possible', 'city_hospital_nurse') = 1:
+			act '接受这份工作':
+				cla
+				gs 'jobs', 'set_employed', 'city_hospital_nurse'
+				'你和他握了手，之后又和人事部办好了手续。不管凯特跟他们说了什么，反正他们都没问你的资历问题。'
+				'离开办公室时，你手里拿着一张崭新的员工通行证和一本写有相关信息的小册子。'
+
+				act '返回大厅': gt 'city_clinic', 'start'
+			end
+		else
+			*nl
+			$func('wrap', 'neg', '不幸的是，轮班时间与你现有的日程冲突。')
+		end
+	end
+
+	if $job_status['city_hospital_nurse'] = 'employed': act '辞职': gt 'city_clinic', 'discharge'
+
+	act '返回大厅': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'beginwork':
+	*clr & cla
+	menu_off = 1
+	$func('wrap', 'header center b', '诊所')
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/hospital.jpg"></center>'
+	'你走进诊所，准备开始新一天的工作。'
+
+	act '开始工作':
+		if job_last_work_day['city_hospital_nurse'] = daystart:
+			*nl
+			'你今天已经上过班了。'
+			act '返回大厅': gt 'city_clinic', 'start'
+		else
+			gs 'jobs', 'clock', 'city_hospital_nurse'
+			gt 'WorkHosp', 'start'
+		end
+	end
+
+	act '辞职': gt 'city_clinic', 'discharge'
+
+end
+
+
+if $ARGS[0] = 'discharge':
+	cla
+	menu_off = 1
+	minut += 10
+	pay = func('jobs', 'paycheck', 'city_hospital_nurse', 'bank')
+	gs 'jobs', 'set_terminated', 'city_hospital_nurse'
+	'院长看起来很失望。“所以你要离开我们了，是吧？真可惜。这是你未结的薪水和你的工作履历。多保重。”'
+
+	act '离开诊所': minut += 5 & gt 'city_residential'
+end
+
+
+if $ARGS[0] = '0':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/hospsex1.jpg"></center>'
+	'检查过程中，医生开始跟你调情，抚摸你的时间长得毫无必要，显然想跟你做点亲密的事。'
+
+	gs 'willpower', 'sex', 'resist'
+	if pcs_willpwr < will_cost:
+		act '阻止他' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '阻止他' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'sex', 'resist'
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			gt 'city_clinic', 'start'
+		end
+	end
+
+	act '找点乐子':
+		picrand = 11
+		guy += 1
+		gs 'npcgeneratec', 0, '医生', rand(28, 48)
+		gs 'boyStat', $npclastgenerated
+		xgt 'sex', 'var'
+	end
+end
+
+
+if $ARGS[0] = '1':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/hospsex2.jpg"></center>'
+	'给你检查的是两名医生，他们摸遍了你全身，显然已经越过了允许的范围。'
+
+	gs 'willpower', 'sex', 'resist', 'hard'
+	if pcs_willpwr < will_cost:
+		act '愤然离去' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '愤然离去' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'sex', 'resist', 'hard'
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			gt 'city_clinic', 'start'
+		end
+	end
+
+	act '和他们玩玩':
+		gs 'npcgeneratec', 0, '医生', rand(28, 48)
+		$boy[0] = $npclastgenerated
+		gs 'npcgeneratec', 0, '医生', rand(28, 48)
+		$boy[1] = $npclastgenerated
+		picrand = 11
+		guy += 2
+		xgt 'sexdvoe', 'var'
+	end
+end
+
+
+if $ARGS[0] = '2':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/hospsex3.jpg"></center>'
+	'走进办公室时，你撞见一名护士跪在医生面前，嘴里含着他的鸡巴。'
+
+	act '离开': gt 'city_clinic', 'start'
+
+	act '走进去':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/hospsex4.jpg"></center>'
+		'你走进去时，医生跑了出去，受惊的护士怒视着你。过了一会儿，她眼睛一亮，脱下身上的袍子，走到你面前，抓住你的屁股和乳房。'
+
+		gs 'willpower', 'cuni', 'resist'
+		if pcs_willpwr < will_cost:
+			act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '离开' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'cuni', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'city_clinic', 'start'
+			end
+		end
+
+		act '让她':
+			*clr & cla
+			gs 'npcgeneratec', 0, '医生', rand(28, 48)
+			gs 'npcStat', $npclastgenerated
+			gs 'npcgeneratec', 1, '护士', rand(28, 48)
+			gs 'npcStat', $npclastgenerated, 'a'
+			guy += 1
+			girl += 1
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/hospsex5.jpg"></center>'
+			'她扯下你的衣服，让你趴在沙发上，然后用舌头开始取悦你的小穴。'
+			gs 'arousal', 'cuni', 10, $npcID1, 'lesbian', 'group'
+			gs 'stat'
+
+			act '舔她':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/sex/hospsex6.jpg"></center>'
+				'你把她放在沙发上，把嘴唇埋进她的小穴，那股气味让你发狂。回来的医生就这样撞见了你。'
+				gs 'arousal', 'cuni_give', 10, $npcID1, 'lesbian', 'group'
+				gs 'stat'
+
+				act '三人行': picrand = 11 & gt 'podrsex', 'suck'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'cosmetic1':
+	gs 'core_library', 'setloc', 'city_clinic', 'cosmetic1'
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/cosmetic1.jpg"></center>'
+	'一名护士接待了你，向你介绍这里可以做哪些项目。'
+	*nl
+	'“电解脱毛能去除你的体毛，并阻止它再长出来。”'
+	'“可填充式隆胸假体可以在手术后自行填充。我们备有用来填充的硅胶。”'
+	'“线型假体会慢慢吸收你的体液，随着时间变大。如果变得太大，我们也可以帮你抽出来。”'
+	*nl
+	gs 'clinic_functions', 'set_electrolysis_act'
+	gs 'clinic_functions', 'set_lip_enlargement_act'
+	gs 'clinic_functions', 'set_lip_reduction_act'
+	gs 'clinic_functions', 'set_eye_enlargement_act'
+	gs 'clinic_functions', 'set_eye_reduction_act'
+	gs 'clinic_functions', 'set_liposuction_act'
+
+	*nl
+
+	gs 'clinic_functions', 'set_remove_breast_implant_act'
+	gs 'clinic_functions', 'set_get_small_breast_implant_act'
+	gs 'clinic_functions', 'set_get_medium_breast_implant_act'
+	gs 'clinic_functions', 'set_get_large_breast_implant_act'
+	gs 'clinic_functions', 'set_get_XXL_breast_implant_act'
+	gs 'clinic_functions', 'set_get_fillable_breast_implant_act'
+	gs 'clinic_functions', 'set_get_string_breast_implant_act'
+
+	*nl
+
+	gs 'clinic_functions', 'set_drain_string_breast_implant_act'
+	gs 'clinic_functions', 'set_buy_silicone_bag_act'
+
+	act '回去': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'milk_advertisement':
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/milk_advertisement.jpg"></center>'
+	'广告上说，一家母乳库开业了。'
+	'你翻看了一会儿宣传册，发现他们会出钱收购母乳。看来这家诊所在接受捐赠。'
+	if lactation['pc_aware'] > 0:
+		'也许你该考虑捐赠自己的母乳？'
+	else
+		'你不太明白自己为什么会注意到这个。'
+	end
+	if lact_ev['pcs_knows_milkbank'] < 1: lact_ev['pcs_knows_milkbank'] = 1
+	act '回去': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'milk_reception':
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/milk_reception.jpg"></center>'
+	'前台的女士恼怒地瞪了你一眼，站起身来。“好，好……往这边走。”'
+	'她朝走廊的某个方向挥了挥手。“门上应该挂着牌子。房间不大。”'
+	if lact_ev['pcs_knows_milkbank'] < 1: lact_ev['pcs_knows_milkbank'] = 1
+	act '回去': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'milk_donation_room':
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/milkbank_door.jpg"></center>'
+	'有一扇门上挂着牌子，说明这里是母乳捐赠室。'
+	act '回去': gt 'city_clinic', 'start'
+	if lactation['pc_aware'] > 0 and hour < 10 or hour > 19:
+		'门似乎锁着，里面没有人。'
+		'牌子上写着：“开放时间 '+func('time', 'get_time_string', 10, 0)+' 至 '+func('time', 'get_time_string', 19, 0)+'，每天营业。”'
+	elseif lactation['pc_aware'] > 0 and hour >= 10 and hour <= 19:
+		'门开着，里面有人在说话。'
+		act '走进去':
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			if lact_ev['pcs_milkbank_firsttime'] < 1:
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/milk_nurse.jpg"></center>'
+				'你进去时，看到一个女人正把一些小瓶子和袋子整理进冰箱。'
+				'“你好？”你出声引起她的注意。'
+				'女人转过身来。“哦，你好！我没注意到你在那儿！”'
+				'她开心地冲你笑了笑，走到椅子旁坐下，并示意你也坐下。'
+				if lactation['breastmv'] > lactation['breastmm']*6/10:
+					'她上下打量着你。“看来你是来捐赠的，对吧？”'
+					'你脸红了，知道自己的乳房今天有点胀，于是轻轻点了点头。'
+				else
+					'“你是来捐赠的吗？”她问道。'
+					'“嗯……是的，”你回答。'
+				end
+				'女人高兴地点点头，从桌子里拿出一些文件和一支笔。“首先，你得签这个。然后我们要从你身上取一份样本。”'
+				if pcs_gpolimilkdonation >= 2:
+					'“啊，好的。我在巴甫洛夫斯克诊所已经捐赠过了。他们也是这么做的。”'
+					'“好，那你已经知道接下来会发生什么了，”女人回答。'
+				else
+					'“样本？”你问。'
+					'“是的。我们需要从你的乳房里吸出一些奶拿去化验。量不多，大概50毫升。”'
+					'你听着她的解释点了点头。'
+				end
+				'她起身，带你去了另一个房间。'
+				act '继续':
+					*clr & cla
+					menu_off = 1
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/pumping_room.jpg"></center>'
+					'“坐这儿吧。我来准备吸奶器，你也准备一下。”'
+					'你露出乳房，女人把吸奶罩扣在你的乳头上。'
+					'她启动吸奶器，它开始从你的乳房里吸出奶水。'
+					lact_ev['poli_pumptime'] = func('lact_lib', '$get_breastmilk_time', 4, 50)
+					if lact_ev['poli_pumptime'] > 15:
+						'15分钟后，女人取下吸奶器，失望地歪了歪头。'
+						'“嗯……没有我们预期的那么多，不过应该也够了。”'
+						minut += 15
+						lact_ev['poli_milkedvolume'] = func('lact_lib', '$get_breastmilk', 4, 15)
+					else
+						'之后<<lact_ev[''poli_pumptime'']>>分钟，女人微笑着取下了吸奶器。'
+						'“这些应该够了。”'
+						'她点点头，冲你笑了笑。'
+						minut += lact_ev['poli_pumptime']
+						lact_ev['poli_milkedvolume'] = func('lact_lib', '$get_breastmilk', 4, lact_ev['poli_pumptime'])
+					end
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/small_sample.jpg"></center>'
+					'女人拿走你吸出的奶，示意你把衣服整理好。'
+					'“好的，我们会把这份样本送去化验，你晚点再来。”'
+					if pcs_mass['body'] > 40:
+						lact_ev['poli_sample_fat'] = (60 + rand(0, 9))
+					elseif pcs_mass['body'] > 20:
+						lact_ev['poli_sample_fat'] = (45 + rand(0, 9))
+					elseif pcs_mass['body'] > 15:
+						lact_ev['poli_sample_fat'] = (20 + rand(0, 9))
+					else
+						lact_ev['poli_sample_fat'] = (10 + rand(0, 9))
+					end
+					if pcs_energy > 30:
+						lact_ev['poli_sample_sugar'] = rand(69, 80)
+					elseif sick > 1:
+						lact_ev['poli_sample_sugar'] = rand(0, 45)
+					else
+						lact_ev['poli_sample_sugar'] = rand(45, 69)
+					end
+					lact_ev['poli_sample_vol'] = lact_ev['poli_milkedvolume']
+					lact_ev['poli_milkedvolume'] = 0
+					lact_ev['pcs_milkbank_firsttime'] = 1
+					act '离开': gt 'city_clinic', 'start'
+				end
+			else
+				!!	if rand(1,100) > 98:
+				!!		gt 'city_clinic','milk_bank_guy'
+				!!	else
+				!!		gt 'city_clinic','milk_bank'
+				!!	end
+				gt 'city_clinic', 'milk_bank'
+			end
+		end
+	else
+		'你不确定自己来这里想做什么。'
+	end
+end
+
+
+if $ARGS[0] = 'milk_bank_guy':
+	'内容尚未完成'
+	act '离开': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'milk_bank':
+	'你走过去，看到一位母乳捐赠服务的员工坐在桌前。'
+	if lactation['breastmv'] > lactation['breastmm']*6/10:
+		'“哦，你好！你想捐赠母乳吗？”'
+	else
+		'“哦，你好！有什么可以帮你的吗？”'
+	end
+	act '查看你的档案':
+		*clr & cla
+		menu_off = 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/formular.jpg"></center>'
+		'员工递给你一份记录你目前捐赠量的档案。'
+		'<br>----------------------------------------'
+		'母乳样本测量分析'
+		'体积（毫升）：<<lact_ev[''poli_sample_vol'']/1000>>ml'
+		'脂肪（%）：<<lact_ev[''poli_sample_fat'']/10>>.<<lact_ev[''poli_sample_fat''] mod 10>>%'
+		'乳糖（%）：<<lact_ev[''poli_sample_sugar'']/10>>.<<lact_ev[''poli_sample_sugar''] mod 10>>%'
+		'<br>----------------------------------------'
+		if lact_ev['poli_totalmilkdonation_count'] > 0:
+			'母乳捐赠总统计'
+			'捐赠母乳量（升）： <<lact_ev[''poli_totalmilkdonated'']/1000>>.<<$mid(1000 + (lact_ev[''poli_totalmilkdonated''] mod 1000), 2, 3)>>l'
+			'捐赠次数：<<lact_ev[''poli_totalmilkdonation_count'']>>'
+			'每次捐赠的平均母乳量（毫升）： <<lact_ev[''poli_totalmilkdonated'']/lact_ev[''poli_totalmilkdonation_count'']>>.<<$mid(100 + ((100 * lact_ev[''poli_totalmilkdonated''] / lact_ev[''poli_totalmilkdonation_count'']) mod 100), 2, 2)>>'
+			'已付金额：<<$func(''money'', ''string_profit'', lact_ev[''poli_totaldonatemoney''])>>'
+			'<br>----------------------------------------'
+		end
+		act '离开': gt 'city_clinic', 'milk_donation_room'
+	end
+	if lactation['active'] > 0:
+		act '捐赠母乳':
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			'“当然可以。请跟我来。”'
+			act '跟着他们':
+				*clr & cla
+				menu_off = 1
+				gs 'stat'
+				lact_ev['poli_donatemoney'] = 0
+				lact_ev['poli_donationsessioncount'] = 0
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/clinic/milkbank/pumping_room.jpg"></center>'
+				'员工把你领进一间空房间，请你坐下。'
+				'她准备好吸奶器，并示意你也可以开始准备了。'
+				act '继续': gt 'city_clinic', 'milk_donation'
+			end
+			act '不跟她走':
+				*clr & cla
+				menu_off = 1
+				gs 'stat'
+				'“啊，抱歉！我忘了点事，现在没法捐赠了，”你回答。'
+				act '离开': gt 'city_clinic', 'milk_donation_room'
+			end
+		end
+	end
+
+	vmb_i = 0
+	:vmbloop
+	if vmb_i <= temp_var:
+		if mbarrloca[vmb_i] = 2 or mbarrloca[vmb_i] = 1:
+			gs 'lact_bp', 'update_mbottle', vmb_i
+			if $mbarrstat[vmb_i] = 'fresh' or $mbarrstat[vmb_i] = 'normal':
+				if mbarrfill[vmb_i] > 0:
+					if mbarrfill[vmb_i] <= 1500:
+						temp_small_mbottle_ids[] = vmb_i
+					else
+						temp_medium_mbottle_ids[] = vmb_i
+					end
+				end
+			end
+		end
+		vmb_i += 1
+		jump 'vmbloop'
+	end
+	killvar 'vmb_i'
+
+	if arrsize('temp_small_mbottle_ids') > 0:
+		act '捐赠一小瓶母乳':
+			*clr & cla
+			minut += 5
+			temp_total_pay = 0
+			temp_total_milk = 0
+			gs 'city_clinic', 'donate_milk_bottle', 'small'
+			gs 'stat'
+
+			!! IMAGE
+			!! TEXT
+			'你捐赠了<<temp_total_milk>>毫升母乳，得到了<<$func(''money'', ''string_profit'', temp_total_pay)>>的报酬。'
+
+			killvar 'temp_total_pay'
+			killvar 'temp_total_milk'
+			act '离开': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+		end
+	end
+	if arrsize('temp_small_mbottle_ids') > 4:
+		act '捐赠 5 小瓶母乳':
+			*clr & cla
+			minut += 10
+			temp_total_pay = 0
+			temp_total_milk = 0
+			gs 'city_clinic', 'donate_milk_bottle', 'small'
+			gs 'city_clinic', 'donate_milk_bottle', 'small'
+			gs 'city_clinic', 'donate_milk_bottle', 'small'
+			gs 'city_clinic', 'donate_milk_bottle', 'small'
+			gs 'city_clinic', 'donate_milk_bottle', 'small'
+			gs 'stat'
+
+			!! IMAGE
+			!! TEXT
+			'你捐赠了<<temp_total_milk>>毫升母乳，得到了<<$func(''money'', ''string_profit'', temp_total_pay)>>的报酬。'
+
+			killvar 'temp_total_pay'
+			killvar 'temp_total_milk'
+			act '离开': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+		end
+	end
+	if arrsize('temp_medium_mbottle_ids') > 0:
+		act '捐赠一中瓶母乳':
+			*clr & cla
+			minut += 5
+			temp_total_pay = 0
+			temp_total_milk = 0
+			gs 'city_clinic', 'donate_milk_bottle', 'medium'
+			gs 'stat'
+
+			!! IMAGE
+			!! TEXT
+			'你捐赠了<<temp_total_milk>>毫升母乳，得到了<<$func(''money'', ''string_profit'', temp_total_pay)>>的报酬。'
+
+			killvar 'temp_total_pay'
+			killvar 'temp_total_milk'
+			act '离开': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+		end
+	end
+	if arrsize('temp_medium_mbottle_ids') > 4:
+		act '捐赠 5 中瓶母乳':
+			*clr & cla
+			minut += 10
+			temp_total_pay = 0
+			temp_total_milk = 0
+			gs 'city_clinic', 'donate_milk_bottle', 'medium'
+			gs 'city_clinic', 'donate_milk_bottle', 'medium'
+			gs 'city_clinic', 'donate_milk_bottle', 'medium'
+			gs 'city_clinic', 'donate_milk_bottle', 'medium'
+			gs 'city_clinic', 'donate_milk_bottle', 'medium'
+			gs 'stat'
+
+			!! IMAGE
+			!! TEXT
+			'你捐赠了<<temp_total_milk>>毫升母乳，得到了<<$func(''money'', ''string_profit'', temp_total_pay)>>的报酬。'
+
+			killvar 'temp_total_pay'
+			killvar 'temp_total_milk'
+			act '离开': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+		end
+	end
+
+
+	act '离开': gt 'city_clinic', 'start'
+end
+
+
+if $ARGS[0] = 'milk_donation':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	if hour >= 10 and hour <= 19:
+		lactation['nipple_cream_applied'] = 1
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/clinic/mward/pumping.jpg"></center>'
+		'员工把吸奶器接好，然后打开了开关。'
+		if lactation['breastmv'] >= 0:
+			'吸奶器挤压着你的乳头，随着机器将乳汁吸出，你感到乳房里的压力在缓解。'
+		else
+			'吸奶器挤压着你的乳头，随着机器将乳汁吸出，你感到乳房里的压力在缓解。吸奶器要求更多乳汁，乳房因泌乳而微微刺痛。'
+		end
+		act '继续':
+			*clr & cla
+			lact_ev['poli_milkedvolume'] = func('lact_lib', '$get_breastmilk', 4, 15)
+			lactation['breastpumped'] = 1
+			'15 分钟后，员工把吸奶器从你的乳房上取了下来。'
+			if lact_ev['poli_milkedvolume'] >= 50000:
+				lact_ev['poli_donationsessioncount'] += lact_ev['poli_milkedvolume']/10000
+				lact_ev['poli_temp_var'] = (lact_ev['poli_milkedvolume']/50000)
+				lact_ev['poli_totalmilkdonation_count'] += 1
+				lact_ev['poli_totalmilkdonated'] += (lact_ev['poli_temp_var']*50)
+				if lact_ev['poli_temp_var'] >= 12:
+					'她一边把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里，一边惊讶于你产了这么多奶。'
+					'“我真不敢相信你体内有这么多，<<$pcs_lastname>>女士！”她开怀大笑，你感觉自己的脸红了。'
+				elseif lact_ev['poli_temp_var'] >= 10:
+					'她一边把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里，一边惊叹你产了这么多奶。'
+					'“天哪，你是怎么装下这么多的？”'
+				elseif lact_ev['poli_temp_var'] >= 8:
+					'她一边把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里，一边对你这么大的奶量感到吃惊。'
+				elseif lact_ev['poli_temp_var'] >= 6:
+					'她愉快而满足地看着你，一边把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里。'
+					'“非常慷慨的捐赠，<<$pcs_lastname>>女士。”'
+				elseif lact_ev['poli_temp_var'] >= 4:
+					'她满意地看着你，把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里。'
+				elseif lact_ev['poli_temp_var'] >= 2:
+					'她满意地看着你，把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里。'
+				elseif lact_ev['poli_temp_var'] = 1:
+					'她满意地看着你，把一瓶装有 50 毫升母乳的奶瓶收了起来。'
+				else
+					'她满意地看着你，把<<lact_ev[''poli_temp_var'']*50>>毫升母乳收进<<lact_ev[''poli_temp_var'']>>个奶瓶里。'
+				end
+			elseif lact_ev['poli_milkedvolume'] < 50000 and lact_ev['poli_milkedvolume'] > 0:
+				'她失望地看着你。'
+				'“嗯……很抱歉，这些奶量不够一次有效的捐赠。你只提供了<<lact_ev[''poli_milkedvolume'']/1000>>毫升母乳。”'
+			else
+				'她失望地看着你。'
+				'“嗯……很抱歉，这些奶量不够一次有效的捐赠。你完全没有挤出母乳。”'
+			end
+			lact_ev['poli_milkedvolume'] = 0
+			if lact_ev['poli_donationsessioncount'] > 0:
+				lact_ev['poli_donatemoney'] = (lact_ev['poli_donationsessioncount'] / 2) * 10
+			else
+				lact_ev['poli_donatemoney'] = 0
+			end
+			lactation['nipple_cream_applied'] = 0
+			minut += 15
+			if lactation['breastmv'] > lactation['breastmm']/2 and lactation['breastmv'] >= 100000:
+				'员工看了看你的乳房。'
+				'“看来你还有奶剩下。你想再捐赠一些吗？”'
+				act '再次用吸乳器吸奶': gt 'city_clinic', 'milk_donation'
+			else
+				act '要求捐赠更多': gt 'city_clinic', 'milk_donation'
+			end
+			act '今天到此为止':
+				*clr & cla
+				gs 'stat'
+				if lact_ev['poli_donationsessioncount'] > 0:
+					gs 'money', 'earn', lact_ev['poli_donatemoney'], 'cash'
+					lact_ev['poli_totaldonatemoney'] += lact_ev['poli_donatemoney']
+					'你重新穿上上衣，工作人员为你的母乳捐赠付给你<<$func(''money'', ''string_profit'', lact_ev[''poli_donatemoney''])>>。'
+				else
+					'你穿回了上衣。'
+				end
+				act '离开':
+					lact_ev['poli_milkedvolume'] = 0
+					gt 'city_clinic', 'milk_donation_room'
+				end
+			end
+		end
+	elseif lact_ev['poli_donationsessioncount'] > 0:
+		'“抱歉，<<$pcs_lastname>>女士，我们现在要关门了。”'
+		'你重新穿上上衣，工作人员为你的母乳捐赠付给你<<$func(''money'', ''string_profit'', lact_ev[''poli_donatemoney''])>>。'
+		act '离开': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+	else
+		'母乳捐赠服务已经关门了。它每天在 '+func('time', 'get_time_string', 10, 0)+' 到 '+func('time', 'get_time_string', 19, 0)+' 之间开放。'
+		act '离开': minut += 5 & gt 'city_clinic', 'milk_donation_room'
+	end
+end
+
+
+if $ARGS[0] = 'donate_milk_bottle':
+	if $ARGS[1] = 'small':
+		temp_id = temp_small_mbottle_ids[0]
+	else
+		temp_id = temp_medium_mbottle_ids[0]
+	end
+
+	!! CHANGE PAY HERE
+	temp_pay = mbarrfill[temp_id] / 10			& !! Base pay = 1 rbl / ml for fresh milk
+	if $mbarrstat[temp_id] = 'normal': temp_pay = temp_pay / 2		& !! And 0.5 rbl / ml for normal milk
+	!!	if $mbarrtemp[temp_id] = 'hot' / 'warm' / 'lukewarm' / 'cold' / 'frozen':
+
+
+	temp_total_pay += temp_pay
+	gs 'money', 'earn', temp_pay, 'cash'
+	lact_ev['poli_totaldonatemoney'] += temp_pay
+
+	temp_total_milk += mbarrfill[temp_id]
+	lact_ev['poli_totalmilkdonated'] += mbarrfill[temp_id]
+
+	gs 'lact_bp', 'empty_milk_bottle', temp_id
+
+	killvar 'temp_don_pay'
+	killvar 'temp_id'
+
+	if $ARGS[1] = 'small':
+		killvar 'temp_small_mbottle_ids', 0
+	else
+		killvar 'temp_medium_mbottle_ids', 0
+	end
+end
+
+
+
+--- city_clinic ---------------------------------

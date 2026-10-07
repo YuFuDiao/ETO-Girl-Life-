@@ -1,0 +1,1743 @@
+# help_characters
+!! Character help pages.
+!!
+!! Each stub sets $_hc_key, $_hc_npcid, $_hc_portrait, $_hc_bio, $_hc_rel[0..n]
+!! then calls gs 'help_characters', 'build'.
+!! The build helper assembles title + content, calls render, and exits.
+
+!! ── build helper ──────────────────────────────────────────────────────────────
+!! Input vars (set by each stub before calling gs 'help_characters', 'build'):
+!!   $_hc_npcid      – NPC array key, e.g. 'A28'
+!!   $_hc_portrait   – image path
+!!   $_hc_bio        – bio HTML; if empty, npc_notes[$_hc_npcid] is used as fallback
+!!   $_hc_key        – original page key (set automatically by each stub)
+!!   $_hc_rel[0..n]  – relation entries: 'relation type|char_key|npcID'
+!!                     (iteration stops at first empty cell)
+!! Note: $_hc_locvar is derived automatically from $_hc_npcid; stubs need not set it.
+!! Output: $help_page_title, $help_page_content
+!! Cleans up all $_hc_* / _hc_* vars then exits.
+
+if $ARGS[0] = 'build':
+
+	!! ── title (banner): only the used name ──
+	$_hc_fn = $npc_firstname[$_hc_npcid]
+	$_hc_nn = $npc_nickname[$_hc_npcid]
+	$_hc_ln = $npc_lastname[$_hc_npcid]
+	$_hc_un = $npc_usedname[$_hc_npcid]
+	if $_hc_un ! '':
+		$help_page_title = $_hc_un
+	elseif $_hc_fn ! '':
+		$help_page_title = $_hc_fn
+	else
+		$help_page_title = '未知'
+	end
+
+	!! ── full display name for the info panel heading ──
+	$_hc_full = $_hc_fn
+	if $_hc_nn ! '' and $_hc_nn ! $_hc_fn:
+		$_hc_full	+= ' ''' + $_hc_nn + ''''
+	end
+	if $_hc_ln ! '':
+		$_hc_full	+= ' ' + $_hc_ln
+	end
+
+	!! ── birthday ──
+	if npc_dob[$_hc_npcid] > 0:
+		$_hc_birthday = func('shortgs', 'convert_dob', $_hc_npcid)
+	else
+		$_hc_birthday = '未知'
+	end
+
+	!! ── residence: default to Unknown if stub did not set it ──
+	if $_hc_residence = '':
+		$_hc_residence = '未知'
+	end
+
+	!! ── current location: derive locat key from NPC ID ──
+	$_hc_curloc = ''
+	if $_hc_npcid = 'A28':
+		$_hc_locvar = 'Stepdad'
+	elseif $_hc_npcid = 'A29':
+		$_hc_locvar = 'Mother'
+	elseif $_hc_npcid = 'A33':
+		$_hc_locvar = 'Anya'
+	elseif $_hc_npcid = 'A34':
+		$_hc_locvar = 'Kolka'
+	elseif $_hc_npcid = 'A4':
+		$_hc_locvar = 'igor'
+	elseif $_hc_npcid = 'A14':
+		$_hc_locvar = 'katja'
+	elseif $_hc_npcid = 'A15':
+		$_hc_locvar = 'Vicky'
+	elseif $_hc_npcid = 'A13':
+		$_hc_locvar = 'Lariska'
+	elseif $_hc_npcid = 'A18':
+		$_hc_locvar = 'Christina'
+	elseif $_hc_npcid = 'A23':
+		$_hc_locvar = 'A23'
+	elseif $_hc_npcid = 'A248':
+		$_hc_locvar = 'Silvestr'
+	else
+		$_hc_locvar = ''
+	end
+	if $_hc_locvar ! '':
+		gs 'help_characters', 'loc_text'
+		$_hc_curloc = $result
+	end
+
+	!! ── relations ──
+	$_hc_relhtml = ''
+	_hc_i = 0
+	:_hc_relloop
+	if $_hc_rel[_hc_i] ! '':
+		!! parse 'rel_type|char_key|npc_id'
+		_hc_p1 = instr($_hc_rel[_hc_i], '|')
+		$_hc_reltype = $mid($_hc_rel[_hc_i], 1, _hc_p1 - 1)
+		$_hc_rest = $mid($_hc_rel[_hc_i], _hc_p1 + 1)
+		_hc_p2 = instr($_hc_rest, '|')
+		$_hc_relkey = $mid($_hc_rest, 1, _hc_p2 - 1)
+		$_hc_relnpc = $mid($_hc_rest, _hc_p2 + 1)
+		!! resolve display name
+		if $_hc_relnpc = 'PC':
+			$_hc_relname = $pcs_firstname
+		elseif $npc_usedname[$_hc_relnpc] ! '':
+			$_hc_relname = $npc_usedname[$_hc_relnpc]
+		else
+			$_hc_relname = $npc_firstname[$_hc_relnpc]
+		end
+		!! build href: exec: gs 'help_characters', 'char_key'
+		$_hc_href = 'exec: gs ' + '''' + 'help_characters' + '''' + ', ' + '''' + $_hc_relkey + ''''
+		$_hc_relhtml += '<li>' + $_hc_reltype + ': <a href="' + $_hc_href + '">' + $_hc_relname + '</a></li>'
+		_hc_i	+= 1
+		jump '_hc_relloop'
+	end
+
+	!! ── assemble info panel (right of portrait) ──
+	$_hc_info  = '<b style="font-size:1.05em">' + $_hc_full + '</b>'
+	$_hc_info += '<table style="margin:4px 0 6px 0;border-collapse:collapse">'
+	$_hc_info += '<tr><td style="padding:1px 10px 1px 0;opacity:0.65"><b>生日</b></td><td>' + $_hc_birthday + '</td></tr>'
+	$_hc_info += '<tr><td style="padding:1px 10px 1px 0;opacity:0.65"><b>住所</b></td><td>' + $_hc_residence + '</td></tr>'
+	if $_hc_curloc ! '':
+		$_hc_info += '<tr><td style="padding:1px 10px 1px 0;opacity:0.65"><b>位置</b></td><td>' + $_hc_curloc + '</td></tr>'
+	end
+	$_hc_info += '</table>'
+	if $_hc_relhtml ! '':
+		$_hc_info += '<p style="margin:6px 0 2px 0"><b>关系</b></p>'
+		$_hc_info += '<ul style="margin:2px 0 4px 0">' + $_hc_relhtml + '</ul>'
+	end
+
+	!! ── bio: fall back to npc_notes if stub left it empty ──
+	if $_hc_bio = '':
+		if $func('npc_notes', $_hc_npcid) ! '':
+			$_hc_bio = '<p>' + $func('npc_notes', $_hc_npcid) + '</p>'
+		end
+	end
+
+	!! ── two-column layout: portrait left | info panel right; bio row below ──
+	$help_page_content  = '<table cellspacing="0" cellpadding="0" style="margin:4px 0 8px 0;width:100%"><tr>'
+	$help_page_content += '<td style="width:1%;white-space:nowrap;vertical-align:top;padding-right:14px">'
+	$help_page_content += '<img src="' + $_hc_portrait + '" style="height:200px;width:auto;max-width:180px">'
+	$help_page_content += '</td>'
+	$help_page_content += '<td style="vertical-align:top">' + $_hc_info + '</td>'
+	$help_page_content += '</tr><tr>'
+	$help_page_content += '<td colspan="2" style="padding-top:10px;border-top:1px solid rgba(128,128,128,0.25)">'
+	$help_page_content += $_hc_bio
+	$help_page_content += '</td></tr></table>'
+
+	!! ── cleanup ──
+	killvar '_hc_npcid'
+	killvar '_hc_portrait'
+	killvar '_hc_bio'
+	killvar '_hc_rel'
+	killvar '_hc_fn'
+	killvar '_hc_nn'
+	killvar '_hc_ln'
+	killvar '_hc_un'
+	killvar '_hc_full'
+	killvar '_hc_birthday'
+	killvar '_hc_residence'
+	killvar '_hc_locvar'
+	killvar '_hc_curloc'
+	killvar '_hc_info'
+	killvar '_hc_relhtml'
+	killvar '_hc_i'
+	killvar '_hc_p1'
+	killvar '_hc_p2'
+	killvar '_hc_reltype'
+	killvar '_hc_rest'
+	killvar '_hc_relkey'
+	killvar '_hc_relnpc'
+	killvar '_hc_relname'
+	killvar '_hc_href'
+	gs 'help', 'render', $_hc_key
+	killvar '_hc_key'
+	exit
+end
+
+!! ── loc_text helper ───────────────────────────────────────────────────────────
+!! Called from build when $_hc_locvar is set (a locat[] key for this character).
+!! Reads locat[$_hc_locvar] and returns a human-readable location in $result.
+!! -- loc_text helper -------------------------------------------------------
+!! Called from build when $_hc_locvar is set (a locat[] key for this character).
+!! Reads locat[$_hc_locvar] and returns a human-readable location in $result.
+if $ARGS[0] = 'loc_text':
+	!! family chars share the village (Gad) check
+	if $_hc_locvar = 'Stepdad' or $_hc_locvar = 'Mother' or $_hc_locvar = 'Anya' or $_hc_locvar = 'Kolka':
+		if locat['Fam_inGad'] = 1:
+			$result = '在村里 (加德)'
+			exit
+		end
+	end
+	!! Anya may stay home while the rest go to Gad
+	if $_hc_locvar = 'Anya' and locat['Anya_Gad'] = 1:
+		$result = '在村里 (加德)'
+		exit
+	end
+	_hc_lv = locat[$_hc_locvar]
+	if $_hc_locvar = 'Stepdad':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2:
+			$result = '家 - 正在准备'
+		elseif _hc_lv = 3:
+			$result = '家 - 早餐'
+		elseif _hc_lv = 4:
+			$result = '家 - 厨房'
+		elseif _hc_lv = 5:
+			$result = '家 - 穿衣服'
+		elseif _hc_lv = 6:
+			$result = '在工作 （开车）'
+		elseif _hc_lv = 7:
+			$result = '家 - 摆餐具'
+		elseif _hc_lv = 8:
+			$result = '家 - 晚餐'
+		elseif _hc_lv = 9:
+			$result = '在车库里'
+		elseif _hc_lv = 10:
+			$result = '家 - 客厅'
+		elseif _hc_lv = 11:
+			$result = '家 - 淋浴'
+		elseif _hc_lv = 12:
+			$result = '外出'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Mother':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2:
+			$result = '家 - 淋浴'
+		elseif _hc_lv = 3:
+			$result = '家 - 穿衣服'
+		elseif _hc_lv = 4:
+			$result = '家 - 厨房'
+		elseif _hc_lv = 7:
+			$result = '在超市'
+		elseif _hc_lv = 8:
+			$result = '步行回家'
+		elseif _hc_lv = 9:
+			$result = '在工作 （咖啡馆）'
+		elseif _hc_lv = 10:
+			$result = '下班后步行回家'
+		elseif _hc_lv = 11:
+			$result = '家 - 做晚餐'
+		elseif _hc_lv = 12:
+			$result = '家 - 晚餐'
+		elseif _hc_lv = 13:
+			$result = '家 - 打扫'
+		elseif _hc_lv = 14:
+			$result = '旅行中'
+		elseif _hc_lv = 15:
+			$result = '购物'
+		elseif _hc_lv = 16:
+			$result = '在教堂'
+		elseif _hc_lv = 17:
+			$result = '外出 （晚上）'
+		elseif _hc_lv = 18:
+			$result = '在教堂 （晚祷）'
+		elseif _hc_lv = 19:
+			$result = '家 - 看电视'
+		elseif _hc_lv = 20:
+			$result = '拜访卢达'
+		elseif _hc_lv = 21:
+			$result = '在美容院'
+		elseif _hc_lv = 23 or _hc_lv = 24 or _hc_lv = 25 or _hc_lv = 26:
+			$result = '在家 - 打扫'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Anya':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3 or _hc_lv = 4 or _hc_lv = 5:
+			$result = 'Home'
+		elseif _hc_lv = 7:
+			$result = '在工作'
+		elseif _hc_lv = 8 or _hc_lv = 9:
+			$result = '通勤'
+		elseif _hc_lv = 10 or _hc_lv = 21:
+			$result = '在社区中心'
+		elseif _hc_lv = 11:
+			$result = '在家 - 在房间里'
+		elseif _hc_lv = 12:
+			$result = '家 - 晚餐'
+		elseif _hc_lv = 13:
+			$result = '和朋友外出'
+		elseif _hc_lv = 14:
+			$result = '和罗马外出'
+		elseif _hc_lv = 15 or _hc_lv = 16 or _hc_lv = 23:
+			$result = 'Home'
+		elseif _hc_lv = 17:
+			$result = '在海滩'
+		elseif _hc_lv = 24:
+			$result = '在派对上'
+		elseif _hc_lv = 26:
+			$result = '从派对回来'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Kolka':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3 or _hc_lv = 7 or _hc_lv = 8 or _hc_lv = 10 or _hc_lv = 11:
+			$result = 'Home'
+		elseif _hc_lv = 4:
+			$result = '步行去学校'
+		elseif _hc_lv = 5:
+			$result = '在学校'
+		elseif _hc_lv = 6:
+			$result = '田径场'
+		elseif _hc_lv = 9:
+			$result = '和朋友外出'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'igor':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3 or _hc_lv = 7:
+			$result = 'Home'
+		elseif _hc_lv = 4:
+			$result = '步行去学校'
+		elseif _hc_lv = 5:
+			$result = '在学校'
+		elseif _hc_lv = 6:
+			$result = '学校附近'
+		elseif _hc_lv = 8:
+			$result = '在社区中心迪斯科'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'katja':
+		if _hc_lv = 1 or _hc_lv = 20:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3 or _hc_lv = 9:
+			$result = '在家 （梅诺德家）'
+		elseif _hc_lv = 4 or _hc_lv = 7:
+			$result = '步行去学校'
+		elseif _hc_lv = 5:
+			$result = '在学校'
+		elseif _hc_lv = 6:
+			$result = '学校附近'
+		elseif _hc_lv = 8:
+			$result = '在社区中心迪斯科'
+		elseif _hc_lv = 10:
+			$result = '在湖滩'
+		elseif _hc_lv >= 21 and _hc_lv <= 35:
+			$result = '在大学 （宿舍/校园）'
+		elseif _hc_lv = 36:
+			$result = '外出 - 餐厅'
+		elseif _hc_lv = 37:
+			$result = '外出 - 派对 / 酒吧 / 咖啡馆'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Vicky':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3:
+			$result = '在家 （梅诺德家）'
+		elseif _hc_lv = 4:
+			$result = '步行去学校'
+		elseif _hc_lv = 5:
+			$result = '在学校'
+		elseif _hc_lv = 6:
+			$result = '啦啦队训练'
+		elseif _hc_lv = 7:
+			$result = '游戏之夜'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Lariska':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3:
+			$result = 'Home'
+		elseif _hc_lv = 4:
+			$result = '步行去学校'
+		elseif _hc_lv = 5:
+			$result = '在学校'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Christina':
+		if _hc_lv = 1:
+			$result = '睡着了'
+		elseif _hc_lv = 2 or _hc_lv = 3 or _hc_lv = 11 or _hc_lv = 12 or _hc_lv = 13 or _hc_lv = 14 or _hc_lv = 22:
+			$result = '在家 (Zvereva家）'
+		elseif _hc_lv = 4:
+			$result = '步行去学校'
+		elseif _hc_lv = 5:
+			$result = '在学校'
+		elseif _hc_lv = 6:
+			$result = '啦啦队训练'
+		elseif _hc_lv = 7:
+			$result = '游戏之夜'
+		elseif _hc_lv = 9:
+			$result = '慢跑'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'A23':
+		if _hc_lv = 1 or _hc_lv = 9:
+			$result = '睡着了'
+		elseif _hc_lv = 2:
+			$result = '在学校'
+		elseif _hc_lv = 3:
+			$result = '在新星'
+		elseif _hc_lv = 4:
+			$result = '啦啦队训练'
+		elseif _hc_lv = 5:
+			$result = '在社区中心迪斯科'
+		elseif _hc_lv = 6:
+			$result = '在湖边'
+		elseif _hc_lv = 7:
+			$result = '在城里'
+		elseif _hc_lv = 8:
+			$result = '慢跑'
+		elseif _hc_lv >= 10 and _hc_lv <= 19:
+			$result = '在大学 （宿舍/校园）'
+		elseif _hc_lv = 20:
+			$result = '在健身房'
+		elseif _hc_lv = 21 or _hc_lv = 22:
+			$result = '在工作 （脱衣舞俱乐部）'
+		elseif _hc_lv = 35:
+			$result = '在度假'
+		elseif _hc_lv = 36:
+			$result = '在拉扎尔家'
+		elseif _hc_lv = 37:
+			$result = '从拉扎尔家步行回家'
+		else
+			$result = '未知'
+		end
+	elseif $_hc_locvar = 'Silvestr':
+		!! TODO: add Silvestr location mappings
+		$result = '未知'
+	else
+		$result = '未知'
+	end
+	killvar '_hc_lv'
+	exit
+end
+
+!! ====================================================================
+
+if $ARGS[0] = 'chars_pc':
+	$help_page_title = $pcs_firstname + ' ' + $pcs_lastname + ' （你）'
+	$help_page_content = '<p><em>即将推出。</em></p>'
+	gs 'help', 'render', $ARGS[0]
+	exit
+end
+
+
+!! ====================================================================
+!! FAMILY
+!! ====================================================================
+
+if $ARGS[0] = 'char_dad':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A28'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big28.jpg'
+	$_hc_residence = '公寓7号，公寓楼，巴甫洛夫斯克'
+	$_hc_locvar = 'Stepdad'
+	$_hc_rel[0] = '配偶|char_mom|A29'
+	$_hc_rel[1] = '继父|chars_pc|PC'
+	$_hc_rel[2] = '继父|char_anya|A33'
+	$_hc_rel[3] = '继父|char_kolka|A34'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_mom':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A29'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big29.jpg'
+	$_hc_residence = '公寓7号，公寓楼，巴甫洛夫斯克'
+	$_hc_locvar = '母亲'
+	$_hc_rel[0] = '配偶|char_dad|A28'
+	$_hc_rel[1] = '母亲|chars_pc|PC'
+	$_hc_rel[2] = '母亲|char_anya|A33'
+	$_hc_rel[3] = '母亲|char_kolka|A34'
+	$_hc_rel[4] = '姐妹|char_luda|A30'
+	$_hc_rel[5] = '的女儿|char_grandma|A31'
+	$_hc_rel[6] = '的女儿|char_grandpa|A32'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_luda':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A30'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big30.jpg'
+	$_hc_residence = '公寓21号，公寓楼，巴甫洛夫斯克'
+	$_hc_rel[0] = '姐妹|char_mom|A29'
+	$_hc_rel[1] = '的女儿|char_grandma|A31'
+	$_hc_rel[2] = '的女儿|char_grandpa|A32'
+	$_hc_rel[3] = '姨妈|chars_pc|PC'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_grandma':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A31'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big31.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_rel[0] = '配偶|char_grandpa|A32'
+	$_hc_rel[1] = '女儿|char_mom|A29'
+	$_hc_rel[2] = '女儿|char_luda|A30'
+	$_hc_rel[3] = '长期农场工人|char_grigory|A221'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_grandpa':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A32'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big32.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_rel[0] = '配偶|char_grandma|A31'
+	$_hc_rel[1] = '女儿|char_mom|A29'
+	$_hc_rel[2] = '女儿|char_luda|A30'
+	$_hc_rel[3] = '长期农场工人|char_grigory|A221'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_anya':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A33'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big33.jpg'
+	$_hc_residence = '公寓7号，公寓楼，巴甫洛夫斯克'
+	$_hc_locvar = 'Anya'
+	$_hc_rel[0] = '继父|char_dad|A28'
+	$_hc_rel[1] = '母亲|char_mom|A29'
+	$_hc_rel[2] = '妹妹|chars_pc|PC'
+	$_hc_rel[3] = '弟弟|char_kolka|A34'
+	$_hc_rel[4] = '男朋友|char_roma|A56'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_kolka':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A34'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big34.jpg'
+	$_hc_residence = '公寓7号，公寓楼，巴甫洛夫斯克'
+	$_hc_locvar = '科尔卡'
+	$_hc_rel[0] = '继父|char_dad|A28'
+	$_hc_rel[1] = '母亲|char_mom|A29'
+	$_hc_rel[2] = '姐姐|chars_pc|PC'
+	$_hc_rel[3] = '姐姐|char_anya|A33'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_uncle_misha':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A54'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big54.jpg'
+	$_hc_residence = '公寓9号，公寓楼，巴甫洛夫斯克'
+	$_hc_rel[0] = '叔叔|chars_pc|PC'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! SCHOOL: COOL KIDS
+!! ====================================================================
+
+if $ARGS[0] = 'char_dimka':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A1'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big1.jpg'
+	$_hc_residence = '私人住宅，巴甫洛夫斯克'
+	$_hc_rel[0] = '最好的朋友|char_igor|A4'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_igor':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A4'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big4.jpg'
+	$_hc_residence = '私人住宅，巴甫洛夫斯克'
+	$_hc_locvar = 'igor'
+	$_hc_rel[0] = '最好的朋友|char_dimka|A1'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_marcus':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A146'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big146.jpg'
+	$_hc_residence = '与亚历山德罗夫一家同住，巴甫洛夫斯克'
+	$_hc_rel[0] = '最好的朋友兼寄宿家庭|char_andrey|A147'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_andrey':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A147'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big147.jpg'
+	$_hc_rel[0] = '最好的朋友|char_marcus|A146'
+	$_hc_rel[1] = '女朋友|char_stasya|A139'
+	$_hc_rel[2] = '阿姨|char_miss_aleksand|A136'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_mefodiy':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A148'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big148.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_katja':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A14'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big14.jpg'
+	$_hc_residence = '梅诺德家，巴甫洛夫斯克'
+	$_hc_locvar = 'katja'
+	$_hc_rel[0] = '双胞胎姐妹|char_vicky|A15'
+	$_hc_rel[1] = '兄弟|char_roma|A56'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vicky':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A15'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big15.jpg'
+	$_hc_residence = '梅诺德家，巴甫洛夫斯克'
+	$_hc_locvar = '维姬'
+	$_hc_rel[0] = '双胞胎姐妹|char_katja|A14'
+	$_hc_rel[1] = '兄弟|char_roma|A56'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_irina':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A17'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big17.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_bella':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A22'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big22.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_stasya':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A139'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big139.jpg'
+	$_hc_rel[0] = '男朋友|char_andrey|A147'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lizaveta':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A140'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big140.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_sonia':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A25'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big25.jpg'
+	$_hc_rel[0] = '继兄弟|char_shulyov|A127'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! SCHOOL: JOCKS
+!! ====================================================================
+
+if $ARGS[0] = 'char_ivan':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A3'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big3.jpg'
+	$_hc_rel[0] = '训练伙伴|char_fedor|A5'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_fedor':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A5'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big5.jpg'
+	$_hc_rel[0] = '训练伙伴|char_ivan|A3'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_svyatoslav':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A8'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big8.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lazar':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A149'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big149.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_erast':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A150'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big150.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vanya':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A165'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big165.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lariska':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A13'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big13.jpg'
+	$_hc_residence = '私人住宅，巴甫洛夫斯克 （较富裕地区）'
+	$_hc_locvar = '拉里斯卡'
+	$_hc_rel[0] = '最好的朋友|char_christina|A18'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_christina':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A18'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big18.jpg'
+	$_hc_residence = '私人住宅，巴甫洛夫斯克'
+	$_hc_locvar = '克里斯蒂娜'
+	$_hc_rel[0] = '朋友|char_lariska|A13'
+	$_hc_rel[1] = '朋友|char_lina|A19'
+	$_hc_rel[2] = '哥哥|char_silvestr|A248'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lina':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A19'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big19.jpg'
+	$_hc_rel[0] = '朋友|char_christina|A18'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_albina':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A23'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big23.jpg'
+	$_hc_residence = '豪宅，巴甫洛夫斯克'
+	$_hc_locvar = 'A23'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_ronnie':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A141'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big141.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! SCHOOL: NERDS
+!! ====================================================================
+
+if $ARGS[0] = 'char_artem':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A2'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big2.jpg'
+	$_hc_residence = '2号公寓，公寓楼，巴甫洛夫斯克'
+	$_hc_rel[0] = '密友|char_petka|A6'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_petka':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A6'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big6.jpg'
+	$_hc_rel[0] = '密友|char_artem|A2'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_evgeny':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A151'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big151.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_feofan':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A152'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big152.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_gerasim':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A153'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big153.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_julia':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A12'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big12.jpg'
+	$_hc_residence = '15号公寓，公寓楼，巴甫洛夫斯克'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_natasha_s':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A16'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big16.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_zina':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A142'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big142.jpg'
+	$_hc_rel[0] = '兄弟|char_petia|A159'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_natalia':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A240'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big240.jpg'
+	$_hc_residence = '19号公寓，公寓楼，巴甫洛夫斯克'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! SCHOOL: GOPNIKS
+!! ====================================================================
+
+if $ARGS[0] = 'char_vitek':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A9'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big9.jpg'
+	$_hc_rel[0] = '双胞胎姐妹|char_lena|A20'
+	$_hc_rel[1] = '最好的朋友|char_dan|A10'
+	$_hc_rel[2] = '最好的朋友|char_shulga|A11'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_dan':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A10'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big10.jpg'
+	$_hc_rel[0] = '最好的朋友|char_vitek|A9'
+	$_hc_rel[1] = '最好的朋友|char_shulga|A11'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_shulga':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A11'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big11.jpg'
+	$_hc_residence = '巴甫洛夫斯克，公寓楼，13号公寓'
+	$_hc_rel[0] = '最好的朋友|char_vitek|A9'
+	$_hc_rel[1] = '最好的朋友|char_dan|A10'
+	$_hc_rel[2] = '父亲|char_sergey|A112'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_radomir':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A154'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big154.jpg'
+	$_hc_rel[0] = '乐队成员 （吉他手）|char_anushka|A144'
+	$_hc_rel[1] = '乐队成员 （鼓手）|char_arkadi|A156'
+	$_hc_rel[2] = '乐队成员 （贝斯手）|char_valentin|A158'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lavrenti':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A155'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big155.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_arkadi':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A156'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big156.jpg'
+	$_hc_rel[0] = '乐队成员 （主唱）|char_radomir|A154'
+	$_hc_rel[1] = '乐队成员|char_anushka|A144'
+	$_hc_rel[2] = '乐队成员|char_valentin|A158'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_roman_y':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A157'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big157.jpg'
+	$_hc_rel[0] = '伙伴|char_niko|A189'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_valentin':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A158'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big158.jpg'
+	$_hc_rel[0] = '乐队成员 （主唱）|char_radomir|A154'
+	$_hc_rel[1] = '乐队成员|char_anushka|A144'
+	$_hc_rel[2] = '乐队成员|char_arkadi|A156'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_niko':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A189'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big189.jpg'
+	$_hc_rel[0] = '伙伴|char_roman_y|A157'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lena':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A20'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big20.jpg'
+	$_hc_rel[0] = '双胞胎兄弟|char_vitek|A9'
+	$_hc_rel[1] = '最好的朋友|char_lera|A21'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lera':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A21'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big21.jpg'
+	$_hc_rel[0] = '父亲|char_anatoly|A26'
+	$_hc_rel[1] = '母亲|char_vera|A27'
+	$_hc_rel[2] = '表兄弟|char_lesco|A7'
+	$_hc_rel[3] = '最好的朋友|char_lena|A20'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_pauline':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A24'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big24.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_alyona':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A143'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big143.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_anushka':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A144'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big144.jpg'
+	$_hc_rel[0] = '乐队成员 （主唱）|char_radomir|A154'
+	$_hc_rel[1] = '乐队成员|char_arkadi|A156'
+	$_hc_rel[2] = '乐队成员|char_valentin|A158'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_katyusha':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A145'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big145.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! SCHOOL: OUTCASTS
+!! ====================================================================
+
+if $ARGS[0] = 'char_lesco':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A7'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big7.jpg'
+	$_hc_rel[0] = '叔叔|char_anatoly|A26'
+	$_hc_rel[1] = '表姐妹|char_lera|A21'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_petia':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A159'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big159.jpg'
+	$_hc_rel[0] = '侄子|char_andrey|A147'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! SCHOOL: TEACHERS & STAFF
+!! ====================================================================
+
+if $ARGS[0] = 'char_coach':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A69'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big69.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vasilyev':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A128'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big128.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_ivanov':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A129'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big129.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_yenotin':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A130'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big130.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_pavlovich':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A131'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big131.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_kuznetsov_t':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A132'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big132.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_matveev':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A133'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big133.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_miss_volkov':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A134'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big134.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_miss_sokoloff':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A135'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big135.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_miss_aleksand':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A136'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big136.jpg'
+	$_hc_rel[0] = '配偶|char_vera|A27'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_miss_braakman':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A137'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big137.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_miss_orlov':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A138'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big138.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_anatoly':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A26'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big26.jpg'
+	$_hc_rel[0] = '侄子|char_lesco|A7'
+	$_hc_rel[1] = '女儿|char_lera|A21'
+	$_hc_rel[2] = '配偶|char_anatoly|A26'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! PAVLOVSK: RESIDENTS & ADULTS
+!! ====================================================================
+
+if $ARGS[0] = 'char_vera':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A27'
+	$_hc_portrait = 'images/characters/pavlovsk/resident/vera/verasmoke.jpg'
+	$_hc_rel[0] = '侄子|char_djibril|A82'
+	$_hc_rel[1] = '女儿|char_lera|A21'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_olu':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A55'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big55.jpg'
+	$_hc_rel[0] = '姐妹|char_katja|A14'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_roma':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A56'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big56.jpg'
+	$_hc_residence = '梅诺德家，巴甫洛夫斯克'
+	$_hc_rel[0] = '姐妹|char_vicky|A15'
+	$_hc_rel[1] = '女朋友|char_anya|A33'
+	$_hc_rel[2] = '朋友|char_anya|A33'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_rex':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A57'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big57.jpg'
+	$_hc_rel[0] = '儿子|char_shulga|A11'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_arthur':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A73'
+	$_hc_portrait = 'images/characters/pavlovsk/resident/arthur/artur.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_marisha':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A93'
+	$_hc_portrait = 'images/characters/pavlovsk/resident/marisha/marisha.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_sergey':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A112'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big112.jpg'
+	$_hc_residence = '巴甫洛夫斯克，公寓楼，13号公寓'
+	$_hc_rel[0] = '儿子|char_shulga|A11'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vadim':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A113'
+	$_hc_portrait = 'images/characters/pavlovsk/vadim/belyjeep.jpg'
+	$_hc_residence = '巴甫洛夫斯克'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_shulyov':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A127'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big127.jpg'
+	$_hc_rel[0] = '继姐妹|char_sonia|A25'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_pavlin':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A217'
+	$_hc_portrait = 'images/characters/pavlovsk/pavlin/clown1.jpg'
+	$_hc_residence = '巴甫洛夫斯克'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! GADUKINO
+!! ====================================================================
+
+if $ARGS[0] = 'char_mira':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A60'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big60.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_rel[0] = '父亲|char_afanasiy|A64'
+	$_hc_rel[1] = '哥哥|char_vitaliy|A65'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_kolyamba':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A61'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big61.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vasyan':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A62'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big62.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_mitka':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A63'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big63.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_afanasiy':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A64'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big64.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_rel[0] = '女儿|char_mira|A60'
+	$_hc_rel[1] = '儿子|char_vitaliy|A65'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vitaliy':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A65'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big65.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_rel[0] = '姐姐|char_mira|A60'
+	$_hc_rel[1] = '父亲|char_afanasiy|A64'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_andrei_g':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A172'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big172.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_igor_g':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A173'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big173.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_sergei_g':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A174'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big174.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! CITY
+!! ====================================================================
+
+if $ARGS[0] = 'char_jora':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A44'
+	$_hc_portrait = 'images/characters/city/jora/11 1.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_nicholas':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A52'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big52.jpg'
+	$_hc_residence = '巴甫洛夫斯克'
+	$_hc_rel[0] = '姐姐|char_tanya|A218'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_ilyushkin':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A76'
+	$_hc_portrait = 'images/characters/city/ilyushkin/event/kpz.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_tryndin':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A77'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big77.jpg'
+	$_hc_residence = '37号公寓，住宅区，城市'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_eugene':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A89'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big89.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_tatiana':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A176'
+	$_hc_portrait = 'images/characters/city/tatiana/Tatianalesson.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_nastja':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A192'
+	$_hc_portrait = 'images/characters/city/anastasia/1avtostop.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_savva':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A204'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big204.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_tanya':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A218'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big218.jpg'
+	$_hc_residence = '城市'
+	$_hc_rel[0] = '哥哥|char_nicholas|A52'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_kat':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A219'
+	$_hc_portrait = 'images/characters/city/katja/bedroom.jpg'
+	$_hc_rel[0] = '大学室友|char_sofia_u|A260'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_grigory':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A221'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big221.jpg'
+	$_hc_residence = '加杜基诺村'
+	$_hc_rel[0] = '在……的土地上干活的|char_grandma|A31'
+	$_hc_rel[1] = '在……的土地上干活的|char_grandpa|A32'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_alex':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A241'
+	$_hc_portrait = 'images/characters/city/alexandria/alexandria.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_amelia':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A267'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big267.jpg'
+	$_hc_residence = '大学宿舍，702室 （城市）'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! UNIVERSITY (CITY CAMPUS)
+!! ====================================================================
+
+if $ARGS[0] = 'char_djibril':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A82'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big82.jpg'
+	$_hc_residence = '大学宿舍，810室 （城市）'
+	$_hc_rel[0] = '叔叔|char_olu|A55'
+	$_hc_rel[1] = '朋友|char_haruna|A245'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_goshi':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A83'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big83.jpg'
+	$_hc_residence = '大学宿舍，602室 （城市）'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_kendra':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A84'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big84.jpg'
+	$_hc_residence = '大学宿舍，801室 （城市）'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_vika_u':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A220'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big220.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_ermias':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A243'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big243.jpg'
+	$_hc_residence = '大学宿舍 （城市）'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_haruna':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A245'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big245.jpg'
+	$_hc_residence = '大学宿舍，8楼 （城市）'
+	$_hc_rel[0] = '朋友|char_djibril|A82'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_lilly':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A247'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big247.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_silvestr':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A248'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big248.jpg'
+	$_hc_residence = '巴甫洛夫斯克'
+	$_hc_locvar = '西尔维斯特'
+	$_hc_rel[0] = '妹妹|char_christina|A18'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_sofia_u':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A260'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big260.jpg'
+	$_hc_residence = '大学宿舍，204室 （城市）'
+	$_hc_rel[0] = '大学室友|char_kat|A219'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_prof_marinova':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A269'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big269.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_prof_kudelina':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A270'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big270.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_prof_borisov':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A271'
+	$_hc_portrait = 'images/characters/shared/headshots_main/big271.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+!! ====================================================================
+!! PUSHKIN & BALLET
+!! ====================================================================
+
+if $ARGS[0] = 'char_maya':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A274'
+	$_hc_portrait = 'images/characters/pushkin/maya/274_profile.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_tanis':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A276'
+	$_hc_portrait = 'images/characters/ballet/276_profile.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_gasha':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A280'
+	$_hc_portrait = 'images/characters/pushkin/gasha/280_profile.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_rudolf':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A283'
+	$_hc_portrait = 'images/characters/pushkin/rudolph/1292-3.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+if $ARGS[0] = 'char_bronya':
+	$_hc_key = $ARGS[0]
+	$_hc_npcid = 'A286'
+	$_hc_portrait = 'images/characters/ballet/286.jpg'
+	$_hc_bio = ''
+	gs 'help_characters', 'build'
+	exit
+end
+
+
+--- help_characters ---------------------------------

@@ -1,0 +1,1344 @@
+# date_casual_meal
+
+!!{ order of arguments:
+	- sit_down
+	- menu_read
+	- food_menu
+	- casual_conversation
+	- after_meal_start
+
+!!}
+
+if $ARGS[0] = 'start':
+	if $ARGS[1] = '' or $ARGS[1] = 'together':
+		gs 'date_casual_meal', 'init'
+		gt 'date_casual_meal', 'arrive_together'
+	elseif $ARGS[1] = 'separate':
+		gs 'npcStat', $temp_npcID
+		gs 'date_casual_meal', 'init'
+		gt 'date_casual_meal', 'arrive_separate'
+	else
+		msg '请告诉 hornguy6：$ARGS[1] 既不是 ''together'' 也不是 ''separate''。'
+		gs 'date_casual_meal', 'init'
+		gt 'date_casual_meal', 'arrive_together'
+	end
+end
+
+
+if $ARGS[0] = 'init':
+	date_ev['at_home'] = 0
+	$date_ev['loc'] = 'date_casual_meal'
+	$date_ev['loc_img'] = 'restauraunt_int_img'
+	$date_ev['talk_img'] = 'restaurant_talking_img'
+	$date_ev['genre'] = 'meal'
+	date_ev['public'] = 1
+	if $region = 'pav':
+		gs 'date_funcs', 'first_time', 'del_parco'
+	else
+		gs 'date_funcs', 'first_time', 'city_diner'
+	end
+	!! above is to let the game know what the current date activity is
+	!! below is to track what activities have been done
+	if hour <= 14:
+		$date_ev['type'] = 'lunch_date'
+		$date_ev[] = 'lunch_date'
+	elseif hour >= 17 and hour <= 20:
+		$date_ev['type'] = 'dinner_date'
+		$date_ev[] = 'dinner_date'
+	else
+		!! msg 'Please let hornguy6 know that you accessed this outside of the normal lunch and dinner times.'
+		$date_ev['type'] = 'dinner_date'
+		$date_ev[] = 'dinner_date'
+	end
+	date_ev['meal_cost'] = rand(250, 500)
+	date_ev['activity_count'] += 1
+end
+
+
+if $ARGS[0] = 'flash_img':
+	gs 'arousal_oneline', 'flash'
+	cla & *clr
+	if PCloDress = 0:
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/show_tits1.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/show_tits_d2.jpg"></center>'
+	end
+end
+
+
+if $ARGS[0] = 'flash_mov':
+	gs 'arousal_oneline', 'flash'
+	cla & *clr
+	if PCloDress = 0:
+		if $date_ev['dialogue_setting'] = 'between bites of food':
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/dates/casual_dining/show_tits1.mp4"></video></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/show_tits1.jpg"></center>'
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/show_tits_d2.jpg"></center>'
+	end
+end
+
+
+if $ARGS[0] = 'pay_cash':
+	if $ARGS[1] = 'split':
+		money -= date_ev['meal_cost']
+	elseif $ARGS[1] = 'pc':
+		money -= date_ev['meal_cost'] * 2
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'pay_card':
+	if $ARGS[1] = 'split':
+		karta -= date_ev['meal_cost']
+	elseif $ARGS[1] = 'pc':
+		karta -= date_ev['meal_cost'] * 2
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'restauraunt_ext_img':
+	cla & *clr
+	if $region = 'pav':
+		if daystage <= 3:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/park/cafe/caffe_del_parco.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/park/cafe/caffe_del_parco_night.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		end
+	elseif $region = 'city':
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/city_exterior.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/city_exterior.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		if date_ev['rest_int_bug'] = 0: msg '请告诉 hornguy6：$region 既不是 "pav" 也不是 "city"。'
+		date_ev['rest_int_bug'] = 1
+	end
+end
+
+
+if $ARGS[0] = 'restauraunt_int_img':
+	cla & *clr
+	if $region = 'pav':
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/park/cafe/caffe_del_parco_in.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	elseif $region = 'city':
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/city_interior.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/city_interior.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+		if date_ev['rest_int_bug'] = 0: msg '请告知 hornguy6，$region 既不是 "pav" 也不是 "city"。'
+		date_ev['rest_int_bug'] = 1
+	end
+end
+
+
+if $ARGS[0] = 'restaurant_talking_img':
+	cla & *clr
+	if ARGS[1] = 1:
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/talking1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	elseif ARGS[1] = 2:
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/talking2.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/talking1.jpg"><img <<$set_imgh>> src="<<$npc_pic[$npcID]>>"></center>'
+	end
+end
+
+
+if $ARGS[0] = 'arrive_separate':
+	gs 'date_casual_meal', 'restauraunt_ext_img'
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'sit_down'
+	if rand(0, 3) + npc_diligent[$npcID] > 1:
+		'当你走向餐厅时，你发现<<$npcdesc>>已经在那里等你了。'
+		act '打个招呼':
+			cla & *nl
+			'“嗨！”你愉快地说道。“你没等太久吧？”'
+			'“没有，完全没等，”他笑着回。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+
+		act '亲吻他的脸颊':
+			cla & *nl
+			'“嘿，”你愉快地说着，快步走过去在他脸颊上亲了一下。“你没等太久吧？”'
+			'“没有，完全没等，”他笑着回。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+
+		act '拥抱他':
+			cla & *nl
+			'“嘿，”你愉快地说着，张开双臂给了他一个快速的拥抱和紧抱。“你没等太久吧？”'
+			'“没有，完全没等，”他笑着回。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+
+		act '深深地吻他':
+			cla & *nl
+			'“嘿。”你不再多说，深深地吻了他，让舌头探进他口中。过了好一会儿你们才笑着分开。“你没等太久吧？”'
+			'“没有，完全没等，”他笑着回，还擦了擦嘴。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+	elseif rand(1, 3) + npc_risktaker[$npcID] > 1:
+		date_ev['npc_late'] = 1
+		'你走到你们约好见面的地方，但<<$npcdesc>>还没到。'
+		act '刷手机': gt 'date_casual_meal', 'wait_date_phone'
+		if mc_inventory['cigarettes'] > 0:
+			act '抽根烟': gt 'date_casual_meal', 'wait_date_smoke'
+			act '边抽烟边刷手机': gt 'date_casual_meal', 'wait_date_smoke', 'phone'
+		end
+	else
+		!! if the npc arrives at the same time
+		'当你走向餐厅时，你看到<<$npcdesc>>从另一个方向沿街走来，你们俩几乎同时到达。'
+		act '打个招呼':
+			cla & *nl
+			'“嗨！”你愉快地说道。'
+			'“嘿，”他笑着回。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+
+		act '亲吻他的脸颊':
+			cla & *nl
+			'“嘿，”你愉快地说着，快步走过去在他脸颊上亲了一下。'
+			'“嘿，你也好，”他笑着回。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+
+		act '拥抱他':
+			cla & *nl
+			'“嘿，”你愉快地说着，张开双臂给了他一个快速的拥抱和紧抱。'
+			'“嘿，你也好，”他笑着回。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+
+		act '深深地吻他':
+			cla & *nl
+			'“嘿。”你不再多说，深深地吻了他，让舌头探进他口中。过了好一会儿你们才笑着分开。'
+			'“嘿，你也好，”他笑着回，还擦了擦嘴。“我们进去吧。”'
+			'你点点头跟着他走了进去。'
+			act '找张桌子': gt 'date_casual_meal', 'sit_down'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'wait_date_phone':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/misc/wait_phone.jpg"></center>'
+	temp = rand(5, 15)
+	minut += temp
+	gs 'stat'
+	if temp <= 10:
+		'无事可做，你觉得可以靠手机打发时间。于是你照做了，划着动态，翻看你最爱逛的网站，做着典型的无脑刷屏。'
+		'几分钟后，<<$npcdesc>>出现了。'
+		xgt 'date_casual_meal', 'wait_npc_arrive'
+	else
+		minut += rand(5, 10)
+		'无事可做，你觉得可以靠手机打发时间。于是你照做了，划着动态，翻看你最爱逛的网站，做着典型的无脑刷屏。等你把这些都做完之后…… <<$npcdesc>>还没有出现……？'
+		act '继续刷下去':
+			cla & *nl
+			gs 'stat'
+			'<i>算了……</i>'
+			'你继续刷。一直刷。刷了又刷，刷了又刷，然后<<$npcdesc>>终于出现了。'
+			xgt 'date_casual_meal', 'wait_npc_arrive'
+		end
+
+		if mc_inventory['cigarettes'] > 0:
+			act '抽根烟':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/shared/misc/light_ciga.jpg"></center>'
+				gs 'drugs', 'smoke'
+				'你叹了口气，收起手机，掏出一根烟抽了起来。'
+				act '抽烟':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke.jpg"></center>'
+					'你在下一声叹息之前，先深吸了一口刚点上的烟，吐出一口烟雾。一口又一口，直到你的烟快抽完时，<<$npcdesc>>终于出现了。'
+					xgt 'date_casual_meal', 'wait_npc_arrive'
+				end
+			end
+
+			act '边抽烟边继续刷':
+				cla & *clr
+				'<center><img <<$set_imgh>> src="images/shared/misc/light_ciga.jpg"></center>'
+				gs 'drugs', 'smoke'
+				'你叹了口气，在包里翻找，掏出一根烟抽了起来。'
+				act '抽烟':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke_phone.jpg"></center>'
+					'你在下一声叹息之前，先深吸了一口刚点上的烟，吐出一口烟雾。一口又一口，一条又一条地刷着，直到你的烟快抽完时，<<$npcdesc>>终于出现了。'
+					xgt 'date_casual_meal', 'wait_npc_arrive'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'wait_date_smoke':
+	temp = rand(5, 15)
+	minut += temp
+	gs 'drugs', 'smoke'
+	gs 'stat'
+	cla & *clr
+	if $ARGS[1] = 'phone':
+		'<center><img <<$set_imgh>> src="images/shared/misc/light_ciga.jpg"></center>'
+		'你在包里翻找，掏出手机和一根配着抽的烟。'
+		act '抽烟':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke_phone.jpg"></center>'
+			if temp <= 10:
+				'你一边刷着手机上的各种动态，一边一口口地抽着烟，每一下滑动、点击和滚动都喷出烟雾。当你的烟快要抽完时，<<$npcdesc>>出现了。'
+				xgt 'date_casual_meal', 'wait_npc_arrive'
+			else
+				minut += rand(5, 10)
+				'你一边刷着手机上的各种动态，一边一口口地抽着烟，每一下滑动、点击和滚动都喷出烟雾。当你的烟即将燃尽时…… <<$npcdesc>>还没有出现...?'
+				act '玩手机':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/shared/misc/wait_phone.jpg"></center>'
+					'你叹了口气，用脚尖碾灭烟头，继续低头刷着手机。你不停地刷。一直刷。刷了又刷，刷了又刷，然后<<$npcdesc>>终于出现了。'
+					xgt 'date_casual_meal', 'wait_npc_arrive'
+				end
+				if mc_inventory['cigarettes'] > 0:
+					act '再抽一根烟':
+						gs 'drugs', 'smoke'
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke_phone.jpg"></center>'
+						'你叹了口气，用脚尖碾灭最后一根烟头，从烟盒里又抽出一根新烟。你继续刷着。抽着。刷着抽着，刷着抽着，然后<<$npcdesc>>终于出现了。'
+						xgt 'date_casual_meal', 'wait_npc_arrive'
+					end
+
+					act '收起手机再抽一根':
+						gs 'drugs', 'smoke'
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke.jpg"></center>'
+						'你叹了口气，用脚尖碾灭最后一根烟蒂，收起手机，顺便从烟盒里抽出一根新烟。'
+						'你的下一声叹息在深吸一口刚点上的烟后化作一口烟雾。一口又一口，直到你的烟快抽完时，<<$npcdesc>>终于出现了。'
+						xgt 'date_casual_meal', 'wait_npc_arrive'
+					end
+				else
+					act '而且你的烟抽完了！':
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/shared/misc/wait_phone.jpg"></center>'
+						'而且你他妈的香烟都抽完了！'
+						*nl
+						'你低吼一声，把烟蒂在脚趾下碾灭，然后愤怒地开始刷手机，手指因渴望那本该夹在指间的烟雾而烦躁地抽动。你不停地刷。再刷。再刷。刷了又刷又刷又刷，然后<<$npcdesc>>终于出现了。'
+						xgt 'date_casual_meal', 'wait_npc_arrive'
+					end
+				end
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/shared/misc/light_ciga.jpg"></center>'
+		'你在包里翻找，掏出一根烟。'
+		act '抽烟':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke.jpg"></center>'
+			if temp <= 10:
+				'你在一片迷蒙中让时间流逝，就像你吐出的烟雾一样，进入一种近乎冥想的出神状态，只有抽烟时才会有这种感觉。当你的烟快要抽完时，<<$npcdesc>>出现了。'
+				xgt 'date_casual_meal', 'wait_npc_arrive'
+			else
+				minut += rand(5, 10)
+				'你在一片迷蒙中让时间流逝，就像你吐出的烟雾一样，进入一种近乎冥想的出神状态，只有抽烟时才会有这种感觉。不知不觉间，烟已快要燃尽…… <<$npcdesc>>还是没有出现……？'
+				act '玩手机':
+					cla & *clr
+					'<center><img <<$set_imgh>> src="images/shared/misc/wait_phone.jpg"></center>'
+					'你叹了口气，用脚尖碾灭烟头，转而掏出手机开始消极刷屏。你不停地刷。一直刷。刷了又刷，刷了又刷，然后<<$npcdesc>>终于出现了。'
+					xgt 'date_casual_meal', 'wait_npc_arrive'
+				end
+				if mc_inventory['cigarettes'] > 0:
+					act '再抽一根烟':
+						gs 'drugs', 'smoke'
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke.jpg"></center>'
+						'你叹了口气，用脚尖碾灭最后一根烟蒂，从烟盒里抽出一根新的。'
+						'你的下一声叹息在深吸一口刚点上的烟后化作一口烟雾。一口又一口，直到<i>这</i>根烟快抽完时，<<$npcdesc>>终于出现了。'
+						xgt 'date_casual_meal', 'wait_npc_arrive'
+					end
+
+					act '再抽一根并掏出手机':
+						gs 'drugs', 'smoke'
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/shared/misc/wait_smoke.jpg"></center>'
+						'你叹了口气，用脚尖碾灭最后一根烟蒂，从烟盒里抽出一根新烟，顺便掏出手机。你继续刷着。抽着。刷着抽着，刷着抽着，直到<i>这</i>根烟快抽完时，<<$npcdesc>>终于出现了。'
+						xgt 'date_casual_meal', 'wait_npc_arrive'
+					end
+				else
+					act '而且你的烟抽完了！':
+						cla & *clr
+						'<center><img <<$set_imgh>> src="images/shared/misc/wait_phone.jpg"></center>'
+						'而且你他妈的香烟都抽完了！'
+						*nl
+						'你低吼一声，把烟蒂在脚趾下碾灭，然后愤怒地开始刷手机，手指因渴望那本该夹在指间的烟雾而烦躁地抽动。你不停地刷。再刷。再刷。刷了又刷又刷又刷，然后<<$npcdesc>>终于出现了。'
+						xgt 'date_casual_meal', 'wait_npc_arrive'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'wait_npc_arrive':
+	if npc_gentle[$npcID] > 0:
+		'“嘿，抱歉我迟到了。你等很久了吗？”'
+		gs 'date_casual_meal', 'wait_not_long'
+		gs 'date_casual_meal', 'wait_youre_late'
+	else
+		'“嘿，”他说着上下打量你。'
+		gs 'date_casual_meal', 'clothing_react'
+		gs 'date_casual_meal', 'wait_youre_late'
+	end
+end
+
+
+if $ARGS[0] = 'wait_not_long':
+	act '没多久':
+		gs 'date_casual_meal', 'restauraunt_ext_img'
+		'“没有，不算久，”你摇了摇头。“想进去吗？”'
+		'“好啊，走吧。”'
+		act '走进去': gt 'date_casual_meal', 'arrive_together'
+	end
+end
+
+
+if $ARGS[0] = 'wait_youre_late':
+	act '“你迟到了！”':
+		gs 'date_casual_meal', 'restauraunt_ext_img'
+		'“你去哪儿了？”你恼火地朝<<$npcdesc>>皱起眉。'
+		!! if npc_argumentative[$npcID] > 0:
+		'“抱歉，我出门晚了。想进去吗？”'
+		act '随它去':
+			cla & *nl
+			'你深吸一口气，把火气压下去。'
+			'“嗯，好吧。走吧。”'
+			act '走进去': gt 'date_casual_meal', 'arrive_together'
+		end
+
+		act '大发脾气':
+			cla & *nl
+			gs 'date_funcs', 'date_rate', 'dislike'
+			'“废话，你当然迟到了！”你讥讽他，不打算就这么算了。“你他妈到底去哪儿了？！”'
+			'“这重要吗？！行了，我们进去吧。”'
+			'“行！”你几乎是把这个词啐向他，然后跺着脚走进咖啡馆。'
+			act '走进去': gt 'date_casual_meal', 'sit_down'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'clothing_react':
+	gs 'npc_get_preference', $npcID, 'randomPosIndNeg', 'clothes_thin'
+	if PCloStyle2 = 4 or PCloSchool = 1:
+		xgt 'date_casual_meal', 'clothing_react_school'
+	end
+end
+
+
+if $ARGS[0] = 'clothing_react_school':
+	'“你约会穿校服？”'
+	act '男人都喜欢女学生（开玩笑）':
+		cla & *nl
+		'“这个嘛，我听说男人喜欢穿校服的女孩，”你咧嘴一笑，展开裙子。“想着给你来点特别的。”'
+		if $ngpPrefResult['HasPos'] ! '':
+			'“挺适合你的。”他的目光不止是欣赏。“话说回来，想进去吗？”'
+			'“嗯，走吧。”'
+			act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+		else
+			'“穿在你身上不太好看，是吧？”他挑起眉毛说。'
+			act '事实就是如此':
+				cla & *nl
+				'“这本来就是校服嘛，”你耸耸肩。“又不是电视剧或脱衣舞俱乐部的制服。女孩还能怎么办？”'
+				'你朝他闪出一个笑容，他也回以一笑。'
+				'“想进去吗？”'
+				'“嗯，走吧。”'
+				act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+			end
+
+			act '感到冒犯':
+				cla & *nl
+				'“你对我的穿着有意见？”你立刻火了，厉声道。'
+				if $ngpPrefResult['NotPos'] = 'clothes_thin_low':
+					xgt 'date_casual_meal', 'style_slut_reply'
+				elseif $ngpPrefResult['NotPos'] = 'clothes_thin_medium':
+					if PCloThinness < 3:
+						'“我只是说，它有点不成型，你不觉得吗？”'
+						act '这是校服':
+							cla & *nl
+							'短暂的怒火一闪而过，你的怒气渐渐消退。'
+							'“这是校服，<<$npcdesc>>，”你翻了个白眼说。“我想设计师可没打算鼓励青少年的荷尔蒙。”'
+							act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+						end
+
+						act '反驳':
+							cla & *nl
+							'“这是校服，<<$npcdesc>>，”你嘶声道。“是一群老女人设计的，她们的小穴干瘪、鸡巴萎缩。当然不成型。”'
+							if npc_argumentative[$npcID] > 0:
+								'“我不知道，我见过一些挺性感的校服。也许你只是没仔细看。”'
+								'“闭嘴，”你嘟囔着跺脚走进咖啡馆。'
+								act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+							elseif $npc_humor[$npcID] = 'perverted':
+								'“我不知道，我见过一些挺性感的校服。我敢肯定就是那些萎缩的鸡巴把它设计成这样的，”他窃笑。“而且他们的鸡巴可没那么萎缩。”'
+								'“闭嘴，”你嘟囔着跺脚走进咖啡馆。'
+								act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+							else
+								'“好啦好啦。别把内裤拧成一团。行了，你就想不想好好约会？”'
+								'“行吧，”你咕哝着跟他走了进去。'
+								act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+							end
+						end
+					elseif PCloThinness > 4:
+						xgt 'date_casual_meal', 'style_slut_reply'
+					end
+				elseif $ngpPrefResult['NotPos'] = 'clothes_thin_high':
+					'“我只是说，本可以更性感点。”'
+					act '这是校服':
+						cla & *nl
+						'短暂的怒火一闪而过，你的怒气渐渐消退。'
+						'“这是校服，<<$npcdesc>>，”你翻了个白眼说。“我想设计师可没打算鼓励青少年的荷尔蒙。”'
+						act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+					end
+
+					act '这叫端庄':
+						cla & *nl
+						'“这叫端庄，”你嗤笑道。“我可不想在学校里走来走去，让所有人都觉得我是个骚货！”'
+						if $npc_humor[$npcID] = 'perverted':
+							'“这没什么不好，”<<$npcdesc>>咧嘴笑道。“骚货很性感。”'
+							'“猪。”'
+							'你朝他吐了吐舌头，走了进去。'
+							act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+						else
+							'“我没说你应该穿得像个骚货。我只是说你本可以穿得性感点。”'
+							'“随便吧。”'
+							act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+						end
+					end
+
+					act '也许他可以给你买一件':
+						cla & *nl
+						'短暂的怒火一闪而过，你的怒气消退，变成了恶作剧的念头。'
+						'“好吧，要是你这么介意，不如你给我买件更性感的。”你朝他坏笑，走进餐厅时还扭了扭屁股。'
+						'“也许我会的……”你经过时他低声说。'
+						act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+					end
+				else
+					msg '错误：缺少 $ngpPrefResult[NotPos]'
+					act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+				end
+			end
+
+			act '挑逗他':
+				cla & *nl
+				'“也许我就是想让你看起来像个变态，”你咧嘴一笑。“还有什么别的怪人会跟女学生约会？”'
+				if $npc_humor[$npcID] = 'perverted':
+					gs 'date_funcs', 'date_rate', 'like'
+					'“嗯，如果她是个<i>性感</i>的女学生的话……”'
+					'“你是说我性感？”'
+					'“所有少女都很性感。”'
+					'“变态。”你挑逗地朝他吐了吐舌头，他领会了你的玩笑，一笑置之。'
+					'“想进去吗？”'
+					'“嗯，走吧。”'
+					act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+				elseif $npc_humor[$npcID] = 'intellectual':
+					gs 'date_funcs', 'date_rate', 'like'
+					'“这个嘛，从生物学上讲，女孩到你这个年纪就该开始尝试生孩子了。”'
+					'“你是说你想把我搞大肚子？”'
+					'“不。我是说<i>你</i>想让<i>我</i>把你搞大肚子。”'
+					'“变态。”你挑逗地朝他吐了吐舌头，他领会了你的玩笑，一笑置之。'
+					'“想进去吗？”'
+					'“嗯，走吧。”'
+					act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+				elseif npc_insecure[$npcID] > 0:
+					gs 'date_funcs', 'date_rate', 'dislike'
+					'<<$npcdesc>>立刻红了脸。'
+					'“你他妈有什么毛病？你以为我想操小孩还是怎么的？！”'
+					'“哇哦，”你吓得往后一退，惊讶地眨着眼。“只是个玩笑而已。天啊。”'
+					'“这种事一点也不好笑，”他皱着眉，“我可不想进监狱或者上个什么破名单。你到底进不进来？”'
+					'“好，我进来……”你跟着<<$npcdesc>>走了进去，清楚地注意到他并不打算替你扶门。那只是个玩笑……'
+					act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+				else
+					'“那一定是个特别帅的家伙，才能让像你这样的女学生愿意跟我约会，”他也咧嘴笑道。“来吧，我们找张桌子。”'
+					act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+				end
+			end
+		end
+	end
+
+	if kanikuli = 0 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0 and week < 6:
+		act '你是从学校来的':
+			cla & *nl
+			'“今天是上学日，”你耸耸肩。“总不能为了见你专门回家换衣服。”'
+			'“哦。”他似乎觉得有趣。“想进去吗？”'
+			'“嗯，走吧。”'
+			act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+		end
+	end
+end
+
+
+if $ARGS[0] = 'style_slut_reply':
+	'“我只是说，它有点暴露，你不觉得吗？让你看起来像个骚货。”'
+	act '他说得有道理':
+		gs 'date_funcs', 'date_rate', 'like'
+		cla & *nl
+		'短暂的怒火一闪而过，你的怒气渐渐消退。'
+		if PCloThinness >= 3 and PCloThinness <= 4:
+			'“这个嘛……”你低头看了看自己和身上的衣服，它紧贴着你的曲线，几乎没给身材留下什么想象空间……'
+		elseif $braworntype ! 'none':
+			'“这个嘛……”你低头看了看自己和身上的衣服，料子那么薄，让他几乎能看清你胸罩的轮廓……'
+		else
+			'“这个嘛……”你低头看了看自己和身上的衣服，料子薄得连你乳头的轮廓都露了出来……'
+		end
+		'你忍不住朝他羞涩地一笑。“我想你说得有点道理。”'
+		'他也笑了。“想进去吗？”'
+		'“嗯，走吧。”'
+		act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+	end
+
+	act '“你觉得我看起来像个骚货？！”':
+		gs 'date_funcs', 'date_rate', 'dislike'
+		gs 'date_casual_meal', 'restauraunt_ext_img'
+		'你瞪着他愣了一会儿，几乎说不出话。几乎。'
+		'“你觉得我看起来像个骚货？！”'
+		if npc_argumentative[$npcID] > 0:
+			if PCloThinness >= 3 and PCloThinness <= 4 and $ngpPrefResult['NotPos'] ! 'clothes_thin_medium':
+				'“你照过镜子吗？”他嗤笑回去。“我能看清你整个身材。真没留下多少想象空间，是吧？”'
+			elseif $braworntype ! 'none':
+				'“你照过镜子吗？”他嗤笑回去。“我能看清你整个身材。连你的胸罩都看得见。真没留下多少想象空间，是吧？”'
+			else
+				'“你照过镜子吗？”他嗤笑回去。“除了骚货，还有谁会不穿胸罩到处走，还穿一身明摆着让人看的衣服？”'
+			end
+
+			act '这叫时尚！':
+				cla & *nl
+				'“这叫时尚，你这没品位的土包子！”'
+				'“喂，我们非得为这个吵吗？”他叹了口气。“你就不能先跟我进去吗？”'
+				'“行吧！”'
+				'你几乎是咬牙切齿地把这句话甩给他，然后跺着脚走进咖啡馆。'
+				act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+			end
+
+			act '我这是为了你才这么穿的！':
+				cla & *nl
+				'“我这么穿是为了你！我以为你会喜欢！”'
+				'“你以为我想让你穿得像个骚货？”<<$npcdesc>>夸张地翻了个白眼，然后深吸一口气叹气。“喂，我们非得为这个吵吗？你就不能先跟我进去吗？”'
+				'“行吧！”'
+				'你几乎是咬牙切齿地把这句话甩给他，然后跺着脚走进咖啡馆。'
+				act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+			end
+		else
+			'“喂，我们非得为这个吵吗？”他叹了口气。“你就不能先跟我进去吗？”'
+			'“行吧！”'
+			'你几乎是咬牙切齿地把这句话甩给他，然后跺着脚走进咖啡馆。'
+			act '找张桌子': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+		end
+	end
+end
+
+
+if $ARGS[0] = 'arrive_together':
+	minut += 15 & gs 'stat'
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'sit_down'
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	'你和<<$npcdesc>>一起走到餐厅。'
+	act '找张桌子': gt 'date_casual_meal', 'sit_down'
+end
+
+
+if $ARGS[0] = 'sit_down':
+	cla & *clr
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'menu_read'
+	$date_ev['flash_arg'] = 'awkward_flash'
+	!! $date_ev['talk_mood'] = 'awkward'
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	if $region = 'pav':
+		'这是公园里一家小镇咖啡馆，很多青少年常来。'
+	else
+		'这是一家本地人经营的小馆子，在这个国家的几乎任何城市都能找到这种店。'
+	end
+	if npc_gentle[$npcID] > 0 or npc_romantic[$npcID] > 0:
+		'有人过来领你们到一张桌子，说：“这是菜单。我给你们一点时间。”'
+		'当你移步就座时，<<$npcdesc>>为你拉开了椅子。'
+		act '谢谢':
+			cla & *nl
+			'“谢谢！”他推着椅子让你坐下，你朝<<$npcdesc>>露出一个微笑。'
+			'“乐意效劳，”他也笑着回答，然后坐了下来。'
+			act '闲聊': xgt 'date_talk', 'talk_menu'
+		end
+
+		act '真是位绅士！':
+			cla & *nl
+			'“哦！真是位绅士！”你柔声称赞，他推着椅子让你坐下，你朝<<$npcdesc>>露出微笑。“他们还说骑士精神已经死了呢。”'
+			'“它死没死，全看男人怎么做，”他也笑着回答，然后坐了下来。'
+			gs 'date_funcs', 'date_rate', 'like'
+			xgt 'date_talk', 'talk_menu'
+		end
+	else
+		'有人过来领你们到一张桌子，你们俩都坐了下来。'
+		'“这是菜单。我给你们一点时间，”他们说完便离开了。'
+		xgt 'date_talk', 'talk_menu'
+	end
+end
+
+
+if $ARGS[0] = 'menu_read':
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'food_menu'
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	if npc_generous[$npcID] > 0:
+		'你意识到该在服务员过来之前先看看菜单。'
+		'“想点什么就点什么，”<<$npcdesc>>说。“我请客。”'
+		act '谢谢他':
+			cla & *nl
+			date_ev['npc_pay_meal'] = 1
+			'“谢谢！”你甜甜地朝他一笑。'
+			xgt 'date_casual_meal', 'food_menu'
+		end
+
+		!! act 'Insist you split':
+		act '坚持要付钱':
+			cla & *nl
+			if npc_paid_date_last[$npcID] = 1:
+				'“不不！”你说。“上次是你付的！这次让我来付！”'
+			else
+				'“不不，你不用这样，”你说。“让我来付吧。”'
+			end
+			if npc_assertive[$npcID] > 0:
+				date_ev['npc_pay_meal'] = 1
+				'“我坚持，”他咧嘴一笑，不容你反驳。'
+			else
+				date_ev['pc_pay_meal'] = 1
+				'“好吧，”他微笑着同意让你付。'
+			end
+			xgt 'date_casual_meal', 'food_menu'
+		end
+	else
+		'你意识到该在服务员过来之前先看看菜单。不过你想起来，你们其实还没谈过账单怎么处理……'
+		act '不谈付款的事':
+			cla & *nl
+			'算了。你没提钱的事，他也没提。'
+			'以后再想办法吧。'
+			xgt 'date_casual_meal', 'food_menu'
+		end
+
+		act '建议分摊账单':
+			cla & *clr
+			gs 'date_casual_meal', 'restauraunt_int_img'
+			date_ev['split_meal'] = 1
+			'“我们分摊账单，对吧？”你问。'
+			'“嗯，”他点头同意。'
+			xgt 'date_casual_meal', 'food_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'npc_order':
+	if $npc_diet[$npcID] = 'vegetarian':
+		date_ev['npc_order'] = rand(1, 2)
+	elseif $npc_diet[$npcID] = 'protein':
+		date_ev['npc_order'] = 3
+	else
+		date_ev['npc_order'] = rand(2, 7)
+	end
+	!! vegetarian
+	if date_ev['npc_order'] = 1:
+		if $date_ev['food_order'] = 'salad':
+			'“那就要两份沙拉，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要沙拉，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	elseif date_ev['npc_order'] = 2:
+		if $date_ev['food_order'] = 'borscht':
+			'“我也要一份罗宋汤，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要罗宋汤，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	!! high protein
+	elseif date_ev['npc_order'] = 3:
+		if $date_ev['food_order'] = 'stroganoff':
+			'“我也要一份斯特罗加诺夫牛肉，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要斯特罗加诺夫牛肉，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	!! anything else
+	elseif date_ev['npc_order'] = 4:
+		if $date_ev['food_order'] = 'sandwich':
+			'“我也要一个三明治，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要一个三明治，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	elseif date_ev['npc_order'] = 5:
+		if $date_ev['food_order'] = 'burger':
+			'“我也要一个汉堡，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要一个汉堡，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	elseif date_ev['npc_order'] = 6:
+		if $date_ev['food_order'] = 'shchi':
+			'“我也要一份白菜汤，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要白菜汤，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	elseif date_ev['npc_order'] = 7:
+		if $date_ev['food_order'] = 'pelmeni':
+			'“我也要一份俄式饺子，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要俄式饺子，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	else
+		if $date_ev['food_order'] = 'pelmeni':
+			'“我也要一份俄式饺子，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		else
+			'“那我要俄式饺子，”他说着把你们俩的菜单递还给<<$date_ev[''waiter'']>>。'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'food_menu':
+	if rand(1, 2) = 1:
+		date_ev['male_waiter'] = 1
+		'又过了几分钟，一名男服务员走了过来。'
+		$date_ev['waiter'] = 'waiter'
+	else
+		date_ev['female_waiter'] = 1
+		'又过了几分钟，一名女服务员走了过来。'
+		$date_ev['waiter'] = 'waitress'
+	end
+
+	'“您想点些什么？”'
+	act '油醋蔬菜沙拉':
+		cla & *nl
+		$date_ev['food_order'] = 'salad'
+		$date_ev['food_size'] = 'small'
+		!! vinaigrette (salad of boiled vegetables (potatoes, carrots, red beetroot, canned peas and pickled cucumber))
+		'“请给我沙拉。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+
+	act '一个三明治':
+		cla & *nl
+		$date_ev['food_order'] = 'sandwich'
+		$date_ev['food_size'] = 'medium'
+		'“请给我一个三明治。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+
+	act '一个汉堡':
+		cla & *nl
+		$date_ev['food_order'] = 'burger'
+		$date_ev['food_size'] = 'large'
+		'“请给我一个汉堡。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+
+	act '白菜汤':
+		cla & *nl
+		$date_ev['food_order'] = 'shchi'
+		$date_ev['food_size'] = 'medium'
+		'“请给我白菜汤。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+
+	act '罗宋汤':
+		cla & *nl
+		$date_ev['food_order'] = 'borscht'
+		$date_ev['food_size'] = 'medium'
+		'“请给我罗宋汤。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+
+	act '俄式饺子':
+		cla & *nl
+		$date_ev['food_order'] = 'pelmeni'
+		$date_ev['food_size'] = 'medium'
+		'“请给我俄式饺子。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+
+	act '斯特罗加诺夫牛肉':
+		cla & *nl
+		$date_ev['food_order'] = 'stroganoff'
+		$date_ev['food_size'] = 'large'
+		'“请给我斯特罗加诺夫牛肉。”'
+		gs 'date_casual_meal', 'npc_order'
+		'“好的，马上就来。”<<$date_ev[''waiter'']>>转身去厨房下单。'
+		act '继续': gt 'date_casual_meal', 'pre_converse'
+	end
+end
+
+
+if $ARGS[0] = 'pre_converse':
+	!! the section where you talk before the food arrives
+	$date_ev['dialogue_setting'] = '直到你的食物上桌'
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'casual_conversation'
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	if (npc_womanizer[$npcID] + npc_wander_eyes[$npcID]) > 0 and date_ev['female_waiter'] = 1:
+		gt 'date_casual_meal', 'waitress_ogle'
+	else
+		'服务员记下你们的点单，转身去厨房下单。'
+		xgt 'date_casual_meal', 'boy_lead_pre_convo'
+	end
+end
+
+
+if $ARGS[0] = 'boy_lead_pre_convo':
+	if rand(1, 100) < npc_rel[$npcID] and date_ev['date_rating'] < 1:
+		gt 'date_casual_meal', 'awkward_silence'
+	else
+		gt 'date_casual_meal', 'casual_conversation'
+	end
+end
+
+
+if $ARGS[0] = 'waitress_ogle':
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	'女服务员礼貌地朝你一笑，收走菜单，往厨房走去。当她转身离开时，你忍不住注意到<<$npcdesc>>的目光在她的屁股上停留。'
+	act '无视它':
+		cla & *nl
+		'你在心里叹了口气，但没管他乱瞟的眼睛。男人嘛，终究是男人。'
+		'他转回身来，脸上依然带着微笑，要么没意识到，要么根本不在乎自己做了什么错事。'
+		xgt 'date_talk', 'talk_menu'
+	end
+
+	act '皱眉':
+		cla & *nl
+		!! add caught stats
+		'一阵恼怒闪过你心头，你忍不住对他公然盯着别的女人看皱起了眉。'
+		if npc_womanizer[$npcID] = 0:
+			'他转回头看你，脸上仍挂着微笑，但注意到你的表情后愣了一下。'
+			'“呃，有什么不对吗？”'
+			gs 'date_casual_meal', 'waitress_ogle2'
+		else
+			'他转回身来，脸上依然带着微笑，要么没意识到，要么根本不在乎自己做了什么错事。'
+			xgt 'date_talk', 'talk_menu'
+		end
+	end
+
+	act '感到恼火':
+		cla & *nl
+		!! add caught stats
+		'“喂！”你厉声道，把他的注意力拉回你身上。“你以为你在看什么？”'
+		if npc_womanizer[$npcID] = 0:
+			'他吓了一跳，至少还知道被逮住时脸红。'
+			'“呃，呃，抱歉……”'
+		else
+			'“只是在欣赏那边那副好屁股，”他咧嘴笑道，还难以置信地回头又看了一眼。“看看也犯法吗？”'
+			'“跟我约会的时候就是犯法，”你龇牙道。他只是耸了耸肩。'
+		end
+		xgt 'date_talk', 'talk_menu'
+	end
+
+	!!{act 'Tease him':
+		cla & *nl
+		!! add caught stats
+		'“喂！”你厉声道，把他的注意力拉回你身上。“你以为你在看什么？”'
+		if npc_womanizer[$npcID] = 0:
+			'他吓了一跳，至少还知道被逮住时脸红。'
+			'“呃，呃，抱歉……”'
+		else
+			'“只是在欣赏那边那副好屁股，”他咧嘴笑道，还难以置信地回头又看了一眼。“看看也犯法吗？”'
+			'“跟我约会的时候就是犯法，”你龇牙道。他只是耸了耸肩。'
+		end
+		xgt 'date_talk', 'talk_menu'
+	end !}
+end
+
+
+if $ARGS[0] = 'waitress_ogle2':
+	act '咬牙陪笑':
+		cla & *nl
+		'你迅速把皱起的眉头舒展开，在脸上堆出一个笑容。'
+		'“没什么，”你咬着牙说。他也回以一笑，不过比你的真诚得多。'
+		xgt 'date_talk', 'talk_menu'
+	end
+end
+
+
+if $ARGS[0] = 'awkward_silence':
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'eating_menu'
+	$date_ev['flash_arg'] = 'awkward_flash'
+	$date_ev['talk_mood'] = 'awkward'
+	xgt 'date_talk', 'awkward_start'
+end
+
+
+if $ARGS[0] = 'casual_conversation':
+	gs 'date_casual_meal', 'restaurant_talking_img'
+	'你和<<$npcdesc>>等着你们的食物。'
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'eating_menu'
+	$date_ev['talk_mood'] = 'normal'
+	xgt 'date_talk', 'talk_menu'
+end
+
+
+if $ARGS[0] = 'eating_menu':
+	'你的<<$date_ev[''food_order'']>>终于来了，由服务员端上，你们俩都开始大快朵颐。'
+	$date_ev['dialogue_setting'] = 'between bites of food'
+	act '小口挑着吃': gt 'date_casual_meal', 'eating_nibble'
+	act '狼吞虎咽': gt 'date_casual_meal', 'eating_fast'
+	act '先吃最好的部分': gt 'date_casual_meal', 'eating_best_first'
+	act '先吃最差的部分': gt 'date_casual_meal', 'eating_worst'
+end
+
+
+if $ARGS[0] = 'eating_nibble':
+	$date_ev['eat_method'] = 'nibble'
+	gs 'food', 'small_meal_stats'
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/food1.jpg"></center>'
+	'你小口小口地只挑着吃，某种程度上更像是在盘子里拨弄，而不是真的在吃。'
+	xgt 'date_casual_meal', 'mid_meal_convo'
+end
+
+
+if $ARGS[0] = 'eating_fast':
+	$date_ev['eat_method'] = 'fast'
+	gs 'food', 'medium_meal_stats'
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/food1.jpg"></center>'
+	'你吃得很急，清空盘子的速度远比<<$npcdesc>>快。'
+	xgt 'date_casual_meal', 'mid_meal_convo'
+end
+
+
+if $ARGS[0] = 'eating_best_first':
+	$date_ev['eat_method'] = 'best_first'
+	gs 'food', 'medium_meal_stats'
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/food1.jpg"></center>'
+	'你埋头开吃，先吃掉最美味的部分。'
+	xgt 'date_casual_meal', 'mid_meal_convo'
+end
+
+
+if $ARGS[0] = 'eating_worst':
+	$date_ev['eat_method'] = 'best_last'
+	gs 'food', 'medium_meal_stats'
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/food1.jpg"></center>'
+	'你埋头开吃，尽量先把不太感兴趣的部分吃掉，把最好的留到最后。'
+	xgt 'date_casual_meal', 'mid_meal_convo'
+end
+
+
+if $ARGS[0] = 'mid_meal_convo':
+	if npc_foodie[$npcID] = 1:
+		'与此同时，<<$npcdesc>>吃东西的样子让你看出他在细细品味每一口。'
+	elseif npc_messy[$npcID] = 1:
+		'与此同时，<<$npcdesc>>像猪在食槽里一样狼吞虎咽，食物洒得到处都是，声音很大，餐巾也没怎么用。'
+	elseif npc_clean[$npcID] = 1:
+		'与此同时，<<$npcdesc>>吃得非常仔细，每一口送到嘴边都要精确丈量。'
+	else
+		'与此同时，<<$npcdesc>>吃得跟普通人没什么两样。'
+	end
+	cla & *nl
+	if rand(1, 2) = 1:
+		xgt 'date_casual_meal', 'eating_commentary'
+	else
+		xgt 'date_casual_meal', 'food_ask'
+	end
+end
+
+
+if $ARGS[0] = 'eating_commentary':
+	if $date_ev['eat_method'] = 'nibble':
+		if npc_caretaker[$npcID] > 0 or npc_foodie[$npcID] > 0:
+			'“怎么了？”<<$npcdesc>>问。“不喜欢你点的东西？”'
+			act '只是吃得慢':
+				cla & *nl
+				'“我只是吃得慢，”你回答，嘴角微微翘起。'
+				xgt 'date_casual_meal', 'mid_meal_convo_menu'
+			end
+
+			act '生气':
+				cla & *nl
+				'“我吃饭的样子碍着你了？”你不悦地皱眉。'
+				if npc_argumentative[$npcID] > 0:
+					'“靠，我只是随口一说，”他回嘴道。'
+					gs 'date_funcs', 'date_rate', 'dislike'
+				else
+
+				end
+				xgt 'date_casual_meal', 'mid_meal_convo_menu'
+			end
+		else
+			'“你吃得可真慢，”<<$npcdesc>>说着，看着你挑挑拣拣地吃。'
+			act '嗯':
+				cla & *nl
+				'“是啊，”你耸耸肩。“有问题吗？”'
+				'“只是观察而已，”他不置可否地回答。'
+				xgt 'date_casual_meal', 'mid_meal_convo_menu'
+			end
+		end
+
+		act '在节食':
+			cla & *nl
+			'“我在节食，”你回答，嘴角微微翘起。“尽量别吃太多。”'
+			xgt 'date_casual_meal', 'mid_meal_convo_menu'
+		end
+	elseif $date_ev['eat_method'] = 'best_first':
+		'“你先吃最好的部分？”'
+		act '当然':
+			cla & *nl
+			'“当然啦。那是最好的部分！”'
+			xgt 'date_casual_meal', 'mid_meal_convo_menu'
+		end
+	elseif $date_ev['eat_method'] = 'best_last':
+		'“你先吃你不喜欢的部分？”'
+		act '当然':
+			cla & *nl
+			'“当然，”你得意地笑。“把最好的留到最后，大家都这么说，对吧？”'
+			xgt 'date_casual_meal', 'mid_meal_convo_menu'
+		end
+	elseif $date_ev['eat_method'] = 'fast':
+		'“你吃得挺快啊？”'
+		act '趁热吃':
+			cla & *nl
+			'“得趁热吃，对吧？”你笑着说。'
+			xgt 'date_casual_meal', 'mid_meal_convo_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'food_ask':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/eating<<rand(1,2)>>.jpg"></center>'
+	gs 'date_talk', 'talk_img'
+	'“你的菜怎么样？”<<$npcdesc>>边吃边问。'
+	act '没味道':
+		cla & *nl
+		'“没味道，”你面无表情地说，用餐具拨弄着盘里的菜。'
+		if npc_caretaker[$npcID] > 0 or npc_foodie[$npcID] > 0:
+			'“啊，靠。真糟糕。要不要再点别的？”'
+			'“不用了，没事。”'
+		else
+			'<<$npcdesc>>做了个鬼脸，但没再说什么。'
+		end
+		xgt 'date_casual_meal', 'mid_meal_convo_menu'
+	end
+
+	act '好的':
+		cla & *nl
+		'“还行，”你不置可否地耸耸肩。'
+		xgt 'date_casual_meal', 'mid_meal_convo_menu'
+	end
+
+	act '没关系':
+		cla & *nl
+		'“还不错，”你随意地说。'
+		xgt 'date_casual_meal', 'mid_meal_convo_menu'
+	end
+
+	act '良好':
+		'“很好吃，”你笑着说。'
+		xgt 'date_casual_meal', 'mid_meal_convo_menu'
+	end
+
+	act '好吃到高潮':
+		'“好吃得我都要高潮了，”你满嘴食物地咧嘴笑。'
+		xgt 'date_casual_meal', 'mid_meal_convo_menu'
+	end
+end
+
+
+if $ARGS[0] = 'mid_meal_convo_menu':
+	gs 'date_funcs', 'set_continue', 'date_casual_meal', 'after_meal_start'
+	!! if rand(1,2) = 1: gt 'boy_talker'
+	gs 'date_talk', 'talk_menu'
+!!	act 'Talk about the food': gt 'date_casual_meal', 'mid_meal_food_convo'
+	act '聊聊生活': gt 'date_casual_meal', 'mid_meal_life_convo'
+	act '调情': gt 'date_casual_meal', 'mid_meal_firt_convo'
+	!! act 'Flash him': gt 'date_casual_meal', 'mid_meal_flash'
+end
+
+
+if $ARGS[0] = 'mid_meal_food_convo':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/eating1.jpg"></center>'
+	'你们聊着食物。'
+	act '继续': gt 'date_casual_meal', 'after_meal_start'
+end
+
+
+if $ARGS[0] = 'mid_meal_life_convo':
+	cla & *clr
+	'<center><img <<$set_imgh>> src="images/shared/romance/dates/casual_dining/eating1.jpg"></center>'
+	if $npc_rel_type[$npcID] = 'dating' or $npc_rel_type[$npcID] = 'married':
+		'你们聊着彼此生活里的近况。'
+	else
+		'你们聊着生活，互相了解。'
+	end
+	act '继续': gt 'date_casual_meal', 'after_meal_start'
+end
+
+
+if $ARGS[0] = 'mid_meal_firt_convo':
+	gs 'date_casual_meal', 'restaurant_talking_img'
+	gs 'date_talk', 'food_flirt_<<rand(1,3)>>'
+end
+
+
+if $ARGS[0] = 'after_meal_start':
+	cla & *clr
+	gs 'date_casual_meal', 'restauraunt_int_img'
+	'服务员过来收走了你们的盘子。'
+	act '离开餐厅': gt 'date_casual_meal', 'date_end'
+	gs 'date_casual_meal', 'after_meal_pay'
+	!! order dessert?
+end
+
+
+if $ARGS[0] = 'no_money_meal':
+	'你伸手去拿包付钱，却发现钱不够。'
+	if npc_generous[$npcID] > 0 or npc_caretaker[$npcID] > 0:
+		'“别担心，我来付，”<<$npcdesc>>说着，毫不犹豫地付清了剩下的账单。'
+	elseif npc_selfish[$npcID] > 0:
+		'<<$npcdesc>>似乎瞪了你一眼，然后一边嘟囔个不停，一边付清了剩下的账单。'
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+	elseif npc_finance[$npcID] >= 2:
+		'<<$npcdesc>>连眼睛都没眨一下，就付清了剩下的账单。'
+	elseif npc_finance[$npcID] = 1:
+		'<<$npcdesc>>耸耸肩，把剩下的账单结了。'
+	else
+		'“呃……好吧，”<<$npcdesc>>说着，皱着眉数出钱包里剩下的钱来付清账单。'
+		gs 'mood', 'lower', 'small'
+	end
+	date_ev['npc_pay_meal'] = 1
+	act '离开餐厅': gt 'date_casual_meal', 'date_end'
+end
+
+
+if $ARGS[0] = 'after_meal_pay':
+	if date_ev['npc_pay_meal'] = 1:
+		'<<$npcdesc>>付了账单。'
+	elseif date_ev['pc_pay_meal'] = 1:
+		if func('money', 'can_afford', date_ev['meal_cost'] * 2) = 0:
+			gs 'date_casual_meal', 'no_money_meal'
+		else
+			gs 'money', 'pay', date_ev['meal_cost'] * 2
+			'你付了<<$func(''money'', ''string_price'', date_ev[''meal_cost''] * 2)>>的账单'
+		end
+	elseif date_ev['split_meal'] = 1:
+		if func('money', 'can_afford', date_ev['meal_cost']) = 0:
+			gs 'date_casual_meal', 'no_money_meal'
+		else
+			gs 'money', 'pay', date_ev['meal_cost']
+			'你们分摊了账单，你最终付了<<$func(''money'', ''string_price'', date_ev[''meal_cost''])>>'
+		end
+	else
+		cla
+		act '建议分摊账单':
+			cla & *clr
+			gs 'date_casual_meal', 'restauraunt_int_img'
+			'“我们分摊账单，对吧？”'
+			'“嗯。”'
+			if func('money', 'can_afford', date_ev['meal_cost']) = 0:
+				gs 'date_casual_meal', 'no_money_meal'
+			else
+				gs 'money', 'pay', date_ev['meal_cost']
+				date_ev['split_meal'] = 1
+				'你们俩分摊了账单，各付一半。'
+				act '离开餐厅': gt 'date_casual_meal', 'date_end'
+			end
+		end
+
+		act '主动付钱':
+			cla & *clr
+			gs 'date_casual_meal', 'restauraunt_int_img'
+			'“我来付，”你笑着说。'
+			if func('money', 'can_afford', date_ev['meal_cost'] * 2) = 0:
+				gs 'date_casual_meal', 'no_money_meal'
+			else
+				gs 'money', 'pay', date_ev['meal_cost'] * 2
+				'你付了<<$func(''money'', ''string_price'', date_ev[''meal_cost''] * 2)>>的账单。'
+				act '离开餐厅': gt 'date_casual_meal', 'date_end'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'awkward_flash':
+	gs 'date_funcs', 'flash_stats'
+	gs 'date_casual_meal', 'flash_img'
+	if PCloDress = 0:
+		'“呃……”'
+		'你用一个字对上他的目光。不知道还能做什么，你环顾四周，然后掀起上衣，露出胸部。'
+	else
+		'“呃……”'
+		'你用一个字对上他的目光。不知道还能做什么，你环顾四周，然后拉下裙子，露出胸部。'
+	end
+	'他震惊地瞪大了眼睛。然后……'
+	act '还是很尴尬':
+		cla & *nl
+		'还是很尴尬。'
+		'唉。见鬼。'
+		gs 'date_casual_meal', 'eating_menu'
+	end
+
+	act '大笑':
+		gs 'date_funcs', 'date_rate', 'like'
+		cla & *nl
+		'你们俩一起爆发出哈哈大笑。'
+		'“你遇到尴尬的沉默都这么应对吗？”他问。'
+		act '管用就行……':
+			cla & *nl
+			'“管用就行，”你耸耸肩回。'
+			gs 'date_casual_meal', 'eating_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'casual_flash':
+	cla & *clr
+	gs 'date_casual_meal', 'flash_img'
+	if PCloDress = 0:
+		'“嘿。”'
+		'你对上他的目光，环顾四周，然后掀起上衣，露出胸部。'
+	else
+		'你对上他的目光，环顾四周，然后拉下裙子，露出胸部。'
+	end
+	gs 'date_casual_meal', 'eating_menu'
+end
+
+
+if $ARGS[0] = 'date_end':
+	gs 'date_casual_meal', 'date_end_stats'
+	gt 'date_after', 'after_date'
+end
+
+
+if $ARGS[0] = 'date_end_stats':
+	if $region = 'pav':
+		gs 'date_funcs', 'date_tracker', 'del_parco'
+	else
+		gs 'date_funcs', 'date_tracker', 'city_diner'
+	end
+
+	date_count_casual_meal[$npcID] += 1
+	if date_ev['npc_pay_meal'] = 1:
+		npc_date_pay_count[$npcID] += 1
+		npc_last_date_paid[$npcID] = daystart
+	elseif date_ev['pc_pay_meal'] = 1:
+		pc_date_pay_count[$npcID] += 1
+		pc_last_date_paid[$npcID] = daystart
+	end
+end
+
+--- date_casual_meal ---------------------------------

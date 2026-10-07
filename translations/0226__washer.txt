@@ -1,0 +1,223 @@
+# washer
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                ACTS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_washer_acts':
+	!! gs 'tailor', 'set_wash_other_act'
+	gs 'washer', 'set_wash_all_act'
+end
+
+
+if $ARGS[0] = 'set_wash_other_act':
+	act '清洗你的其他衣服':
+		!! gt 'clothing_view', 'view_list', 'wash'
+	end
+end
+
+
+if $ARGS[0] = 'set_wash_all_act':
+	gs 'washer', 'check_total_cost'
+	if washer_total_wash_cost <= 100:
+		'你目前没有任何需要清洗的衣服。'
+	elseif func('money', 'can_afford', washer_total_wash_cost) = 0:
+		'你没有足够的钱来清洗你所有的衣服。总费用为<<$func(''money'', ''string_price'', washer_total_wash_cost)>>.'
+	else
+		temp_washer_cost = func('money', 'price', washer_total_wash_cost)
+		dynamic "
+			act '清洗你所有的衣服 (0:10, <<temp_washer_cost>> <b>₽</b>)':
+				cla
+				minut += 10
+				gs 'money', 'pay', <<washer_total_wash_cost>>
+				'你清洗了所有衣服，费用为<<temp_washer_cost>> <b>₽</b>.'
+				gs 'washer', 'wash_all'
+
+				act '继续': gt $loc, $loc_arg
+			end
+		"
+		killvar 'temp_washer_cost'
+	end
+	killvar 'washer_total_wash_cost'
+end
+
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                           RESIZE                           !!
+		!!------------------------------------------------------------!!
+
+
+$washer_funcs['washing_count'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>] = 1 and (<<$ARGS[0]>>_dirt[<<ARGS[1]>>] >= 480):
+			washer_total_wash_count += 1
+		end
+	"
+}
+
+$washer_funcs['washing_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>] = 1 and (<<$ARGS[0]>>_dirt[<<ARGS[1]>>] >= 480):
+			washer_total_wash_cost += 10
+		end
+	"
+}
+
+$washer_funcs['wash'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>] = 1:
+			<<$ARGS[0]>>_dirt[<<ARGS[1]>>] = 0
+		end
+	"
+}
+
+if $ARGS[0] = 'set_resize_cost':
+	tailor_total_resize_cost = 0
+	$loop_func = $washer_funcs['clothing_resize_cost']
+	gs 'tailor', 'clothing_loop'
+end
+
+
+if $ARGS[0] = 'resize_all':
+	$loop_func = $washer_funcs['clothing_resize']
+	gs 'tailor', 'clothing_loop'
+end
+
+
+if $ARGS[0] = 'check_total_items':
+	washer_total_wash_count = 0
+	$loop_func = $washer_funcs['washing_count']
+	$temp_washerVars['array_postfix'] = ''
+	gs 'washer', 'clothing_loop'
+	$temp_washerVars['array_postfix'] = '_bras'
+	gs 'washer', 'bras_loop'
+	$temp_washerVars['array_postfix'] = '_panties'
+	gs 'washer', 'panties_loop'
+	$temp_washerVars['array_postfix'] = '_bodysuits'
+	gs 'washer', 'bodysuits_loop'
+	killvar '$loop_func'
+end
+
+
+if $ARGS[0] = 'check_total_cost':
+	washer_total_wash_cost = 100
+	$loop_func = $washer_funcs['washing_cost']
+	$temp_washerVars['array_postfix'] = ''
+	gs 'washer', 'clothing_loop'
+	$temp_washerVars['array_postfix'] = '_bras'
+	gs 'washer', 'bras_loop'
+	$temp_washerVars['array_postfix'] = '_panties'
+	gs 'washer', 'panties_loop'
+	$temp_washerVars['array_postfix'] = '_bodysuits'
+	gs 'washer', 'bodysuits_loop'
+	killvar '$loop_func'
+end
+
+
+if $ARGS[0] = 'wash_all':
+	$loop_func = $washer_funcs['wash']
+	$temp_washerVars['array_postfix'] = ''
+	gs 'washer', 'clothing_loop'
+	$temp_washerVars['array_postfix'] = '_bras'
+	gs 'washer', 'bras_loop'
+	$temp_washerVars['array_postfix'] = '_panties'
+	gs 'washer', 'panties_loop'
+	$temp_washerVars['array_postfix'] = '_bodysuits'
+	gs 'washer', 'bodysuits_loop'
+	killvar '$loop_func'
+	gs 'stat'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               LOOPS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'core_loop':
+	temp_washerVars['j_max'] = arrsize('$shop_display_types')
+	if temp_washerVars['j_max'] = 0:
+		killvar 'temp_washerVars'
+		exit
+	end
+
+	temp_washerVars['j'] = 0
+	:core_loop_outer
+		$temp_washerVars['type'] = $shop_display_types[temp_washerVars['j']] + $temp_washerVars['array_postfix']
+
+		if $temp_washerVars['type'] <> $temp_washerVars['array_postfix']:
+			temp_washerVars['total'] = arrsize($temp_washerVars['type'])
+			temp_washerVars['number'] = 1
+			:core_loop_inner
+				dynamic $loop_func, $temp_washerVars['type'], temp_washerVars['number'], ARGS[1]
+				temp_washerVars['number'] += 1
+			if temp_washerVars['number'] < temp_washerVars['total']: jump 'core_loop_inner'
+		end
+
+		temp_washerVars['j'] += 1
+	if temp_washerVars['j'] < temp_washerVars['j_max']: jump 'core_loop_outer'
+
+	killvar 'temp_washerVars'
+	killvar '$shop_display_types'
+	exit
+end
+
+
+if $ARGS[0] = 'clothing_loop':
+	killvar '$shop_display_types'
+	gs 'clothing_view', 'init', 'add_types', 'all'
+
+	gs 'washer', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'bras_loop':
+	killvar '$shop_display_types'
+	gs 'bra_view', 'init', 'add_types', 'all'
+
+	gs 'washer', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'panties_loop':
+	killvar '$shop_display_types'
+	gs 'panty_view', 'init', 'add_types', 'all'
+
+	gs 'washer', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'bodysuits_loop':
+	killvar '$shop_display_types'
+	gs 'underwear_bodysuit_view', 'init', 'add_types', 'all'
+
+	gs 'washer', 'core_loop'
+	exit
+end
+
+
+killvar 'washer_funcs'
+
+
+--- washer ---------------------------------

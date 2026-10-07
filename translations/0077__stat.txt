@@ -1,0 +1,871 @@
+# stat
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                              FUNCTIONS                              ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ compute_stat_display - queue status-panel alerts/messages       │
+!! │ Called by stat_display_compute before the panel renders.        │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'compute_stat_display':
+	!! ── Recipe 2: magic level-up alert ───────────────────────────────────
+	if $magik_alert_loc <> '' and $loc = $magik_alert_loc:
+		gs 'stat_display_compute', 'queue_alert', '你感到体内涌现出一股力量，魔力充盈，达到<<pcs_magik>>级！', 'pos'
+	end
+
+	!! ── Hotel checkout - Pavlosk ─────────────────────────────────────────
+	if HotelRoom['pav'] > 0:
+		if hotelRoomDays['pav'] - 1 = daystart:
+			$stat_texts['hotel_pav'] = '你在巴甫洛夫斯克的酒店预订还剩1晚。'
+			gs 'stat_display_compute', 'queue_msg', 'hotel_pav'
+		elseif hotelRoomDays['pav'] = daystart and hour < 11:
+			$stat_texts['hotel_pav'] = '你在帕夫洛斯克酒店的房间今天退房时间为 ' + $func('time', 'get_time_string', 11, 0) + '。'
+			gs 'stat_display_compute', 'queue_msg', 'hotel_pav', 'neg'
+			gs 'stat_display_compute', 'queue_alert', $stat_texts['hotel_pav'], 'neg'
+		end
+	end
+
+	!! ── Hotel checkout - St Petersburg ───────────────────────────────────
+	if HotelRoom['city'] > 0:
+		if hotelRoomDays['city'] - 1 = daystart:
+			$stat_texts['hotel_city'] = '你的圣彼得堡酒店预订还剩1晚。'
+			gs 'stat_display_compute', 'queue_msg', 'hotel_city'
+		elseif hotelRoomDays['city'] = daystart and hour < 11:
+			$stat_texts['hotel_city'] = '你在圣彼得堡酒店的房间今天退房时间为 ' + $func('time', 'get_time_string', 11, 0) + '。'
+			gs 'stat_display_compute', 'queue_msg', 'hotel_city', 'neg'
+			gs 'stat_display_compute', 'queue_alert', $stat_texts['hotel_city'], 'neg'
+		end
+	end
+
+	!! ── Gameover-cheat notification (captured in stat() main body) ───────
+	!! These fire when the engine would have triggered a gameover but cheat
+	!! mode kept the player alive. Supplementary to the existing hunger /
+	!! health / willpower Text entries.
+	if $cheat_death_alert <> '':
+		gs 'stat_display_compute', 'queue_alert', $cheat_death_alert, 'v_neg'
+	end
+
+	!! ── Succubus absorption event notification ────────────────────────────
+	if $sucabs_queued_alert <> '':
+		gs 'stat_display_compute', 'queue_alert', $sucabs_queued_alert
+	end
+
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ apply_caps - clamp stat/attribute values into valid ranges,     │
+!! │ apply cheat-mode overrides.                                     │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'apply_caps':
+	!! ── Attribute & resource caps ─────────────────────────────────────
+	!! We avoid calling clamp to reduce gs overhead
+	pcs_vag		= max(0, min(36, pcs_vag))
+	pcs_ass		= max(0, min(36, pcs_ass))
+	pcs_throat	= max(0, min(36, pcs_throat))
+	pcs_inhib	= max(0, min(100, pcs_inhib))
+	pcs_sweat	= max(0, min(69, pcs_sweat))
+	pcs_sleep	= min(100, pcs_sleep) & !! No max because it''s handled by the health penalty
+
+	min_arousal	= max(0, min_arousal)
+	willpowermax = max(50, willpowermax)
+	healthmax	= max(1, pcs_vital * 10 + pcs_stren * 5)
+	manamax		= max(1, (pcs_intel + 100) * pcs_magik + pcs_vital * 10 + rikudo)
+	stammax['base'] = (30 * (2 * pcs_vital + pcs_agil + pcs_stren) + 1000) / 13
+	stammax		= max(1, max(stammax['base'] / 10, stammax['base'] - pregChem / 10))
+
+	pcs_horny	= max(max(iif(daystart <= fairycurse and fairyshoo > 0, 90, 0), min_arousal), pcs_horny)
+	pcs_willpwr	= max(0, min(willpowermax, pcs_willpwr))
+	pcs_health	= min(healthmax, pcs_health)
+	pcs_mana	= min(manamax, pcs_mana)
+	pcs_stam	= min(stammax, pcs_stam)
+
+	if $arch_vars['main_active'] = 'prude':
+		pcs_faith = min(100, pcs_faith)
+	else
+		pcs_faith = 100
+	end
+
+	!! ── Dominance / submission overflow ─────────────────────────────────
+	dom_net = pcs_dom - sub
+	if dom_net >= 0:
+		pcs_dom = dom_net
+		sub = 0
+	else
+		pcs_dom = 0
+		sub = -dom_net
+	end
+	pcs_dom		= min(100, pcs_dom)
+	sub			= min(100, sub)
+
+	!! ── Cheat mode overrides ──────────────────────────────────────────
+	if cheatVars['std'] = 1:							gs 'cheatmenu_din', 'std_cure'
+	if cheatVars['no_periods'] = 1 or succubusflag = 1:	gs 'cheatmenu_din', 'set_no_periods'
+	if cheatVars['inf_willpower'] = 1:					pcs_willpwr = willpowermax
+	if cheatVars['always_brushed'] = 1:					pcs_hairbsh = 1
+	if cheatVars['enema'] = 1:							klismaday = daystart & klismaday1 = 1
+	if cheatVars['no_sweat'] = 1:						pcs_sweat = 0
+	if cheatVars['hunger'] = 1:							pcs_energy = max(60, pcs_energy)
+	if cheatVars['no_leghair'] = 1:						pcs_leghair = 0
+	if cheatVars['thirst'] = 1:							pcs_hydra = max(60, pcs_hydra)
+	if cheatVars['sleep'] = 1:							pcs_sleep = max(35, pcs_sleep)
+	if cheatVars['always_horny'] = 1:					pcs_horny = max(50, pcs_horny)
+	if cheatVars['makeup_smear'] = 1:
+		if cosmetic_tattoo = 0 and pcs_makeup = 0:		pcs_makeup = 1
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ succubus_nutrition - feed on absorbed cum/energy, apply         │
+!! │ succubus-specific floors when a stat would otherwise bottom out.│
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'succubus_nutrition':
+	!! ── Absorb cum ───────────────────────────────────────────────────
+	if arrsize('sparrvol') > 0:
+		suctempi = arrsize('sparrvol') - 1
+		:SuccAbsorbLoop
+			if sparrvol[suctempi] > 0:
+				suctemploc = sparrloc[suctempi]
+				if (suctemploc <= 1 or suctemploc = 3 or suctemploc = 4 or suctemploc >= 8):
+					cumsumbod -= sparrvol[suctempi]
+					scfeed = succublvl + rand(1, 4)
+					sexnutrition += 30 * scfeed
+					succubxp += 5
+					sucabscum = 1
+					gs 'cum_cleanup', 'cleandeposit', suctempi
+					cumloc[suctemploc] = 0
+					!! debug code $stat_notifications += '<br>Absorb ext <<sexnutrition>>'
+				end
+			end
+			suctempi -= 1
+		if suctempi >= 0: jump 'SuccAbsorbLoop'
+		cumspclnt = 20
+		gs 'cum_cleanup'
+	end
+
+	!! ── Convert nutrition ────────────────────────────────────────────
+	if sexnutrition > 0:
+		if sucskill >= 3 and succublvl >= 2: sexnutrition += (sexnutrition * 2) / 10
+		if sucabslez = 1 and sucabscum = 1:
+			$sucabsmsg = '吸收了与你发生关系的女人的能量，并吸收了体内的精液'
+		elseif sucabscum = 1:
+			$sucabsmsg = '吸收了体内的精液'
+		elseif sucabslez = 1:
+			$sucabsmsg = '吸收了与你发生关系的女人的能量'
+		else
+			!! Debug code
+			$sucabs_queued_alert = '出事了！（魅魔调试：没有吸收来源）'
+		end
+		if $sucabsmsg <> '': $sucabs_queued_alert = '你' + $sucabsmsg + '，获得了滋养。'
+		sucabslez = 0 & sucabscum = 0
+		killvar 'sucabsmsg'
+		gs 'mood', 'raise', 5 * pcs_mood / 100
+		if pcs_energy > 100: entemp = (pcs_energy - 100)
+		if sucexcess < 0 and sexnutrition > 20 and pcs_energy > 30:
+			if sexnutrition - 20 >= (0 - sucexcess) * 2:
+				sexnutrition += sucexcess * 2
+				sucexcess = 0
+			else
+				sucexcess += (sexnutrition - 20) / 2
+				sexnutrition = 20
+			end
+		end
+		pcs_energy += sexnutrition / 2
+		pcs_hydra += sexnutrition
+		pcs_sleep += sexnutrition / 20
+		if succhungry > 0: succhungry = 0
+		sexnutrition = 0
+		if pcs_energy > 100:
+			sucexcess += (pcs_energy - entemp - 100)
+			pcs_energy = 100 + entemp
+			killvar 'entemp'
+		end
+	end
+
+	!! ── Energy ────────────────────────────────────────────────────────
+	if pcs_energy < 0:
+		if fat >= 1:
+			if cheatVars['fat'] = 0: fat -= 2
+			pcs_energy += 8 + succublvl
+		else
+			pcs_energy += 8 + succublvl
+			sucexcess -= (8 + succublvl) * (6 - succublvl)
+		end
+	end
+
+	!! ── Health ────────────────────────────────────────────────────────
+	if pcs_health < 0:
+		pcs_health = 10
+		sucexcess -= 25 * (9 - succublvl)
+	end
+
+	!! ── Willpower ─────────────────────────────────────────────────────
+	if pcs_willpwr < 0:
+		pcs_willpwr = 10
+		sucexcess -= 20 * (9 - succublvl)
+		sucpowzeroed = 4
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ apply_stretch - anal stretch threshold, succubus accommodation  │
+!! │ stop-gap, and vagina/anus gape recovery. Called from TIME, after│
+!! │ gs 'time' has set totminut for the gape-recovery timer.         │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'apply_stretch':
+	!! ── Anal stretch threshold ───────────────────────────────────────
+	if (analplay >= 2 and pcs_ass <= 10) or (analplay >= 4 and pcs_ass <= 15) or (analplay >= 8 and pcs_ass <= 20):
+		gs 'arousal_funcs', 'stretch', 'anal', 1 & analplay = 0
+	end
+	killvar 'arousal_overcall'
+
+	!! ── Succubus accommodation (temporary stop-gap) ────────────────────
+	!! Will be removed once the pain system supersedes it. Must run
+	!! before the gape-recovery timer below, since it zeroes vgape/agape.
+	if succubusflag = 1 and sucskill >= 4:
+		if pain['throat'] > 0: pain['throat'] = 0 & sucexcess -= 1
+		if pain['asshole'] > 0:
+			pain['asshole'] = 0
+			sucexcess -= 1
+		end
+		if pain['vaginal'] > 0:
+			pain['vaginal'] = 0
+			sucexcess -= 1
+		end
+		if vgape > 0:
+			vgape = 0
+			vgapetime = 0
+			sucexcess -= 1
+		end
+		if agape > 0:
+			agape = 0
+			agapetime = 0
+			sucexcess -= 1
+		end
+	end
+
+	!! ── Gape recovery ───────────────────────────────────────────────────
+	!! [1] stored gape value
+	!! [3] timer
+	!! [4] time between each reduction in gape
+	!! [5] time between reduction after low elasticity trait
+	if agape[4] = 0: agape[4] = 10
+	if vgape[4] = 0: vgape[4] = 10
+	if trait_vars['elasticity'] < 0:
+		agape[5] = agape[4] * 5
+		vgape[5] = vgape[4] * 5
+	else
+		agape[5] = agape[4]
+		vgape[5] = vgape[4]
+	end
+
+	!! Vagina
+	if vgape > vgape[1]:
+		vgape[3] = totminut
+		vgape[1] = vgape
+	elseif vgape > 0:
+		if (totminut - vgape[3])/vgape[5] >= 1: vgape -= 1
+		vgape[1] = vgape
+	else
+		vgape[3] = 0
+	end
+
+	!! Anus
+	if agape > agape[1]:
+		agape[3] = totminut
+		agape[1] = agape
+	elseif agape > 0:
+		if (totminut - agape[3])/agape[5] >= 1: agape -= 1
+		if agape = 0: agape[3] = 0
+		agape[1] = agape
+	else
+		agape[3] = 0
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ 15_minute_loop - catch-up loop covering every 15-minute tick    │
+!! │ since Trig15Minute: horniness drift and succubus hunger drain.  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = '15_minute_loop':
+	:Trig15MinuteLoop
+		flash_heat = max(0, flash_heat - 2)
+
+		gs 'mood', 'update'
+
+		!! ── Horniness - piercings ──────────────────────────────────────
+		hornystat = 0
+		if pcs_piercings['ears']	> 0:	hornystat += 1
+		if pcs_piercings['nose']	> 0:	hornystat += 1
+		if pcs_piercings['brow']	> 0:	hornystat += 1
+		if pcs_piercings['lip']		> 0:	hornystat += 1
+		if pcs_piercings['tongue']	> 0:	hornystat += 1
+		if pcs_piercings['navel']	> 0:	hornystat += 1
+		if pcs_piercings['nipples']	> 0:	hornystat += 4
+		if pcs_piercings['pussy']	> 0:	hornystat += 4
+		pcs_horny += (hornystat + 2) / 4
+
+		!! ── Horniness - vibrator ────────────────────────────────────────
+		if vibratorin = 1:	pcs_horny += rand(1, 5)
+
+		!! ── Horniness - clothing ────────────────────────────────────────
+		if PCloStyle = 4 or PCloProstitute = 1:	pcs_horny += rand(0, 2)
+		if PCloTopCut = 4:	pcs_horny += rand(0, 1)
+		if PCloSkirt > 5:	pcs_horny += rand(0, 1)
+		if PCloPants > 5:	pcs_horny += rand(0, 1)
+
+		!! ── Succubus ────────────────────────────────────────────────────
+		if succubusflag = 1:
+			if trait_vars['cum_addict'] > 0: gs 'therapist', 'restTherapyVariables'
+			if pcs_horny	< 50:	pcs_horny = 50
+			if pcs_horny	< 100:	pcs_horny += succublvl
+			if succhungry 	> 0:
+				pcs_energy	-=	succhungry * succublvl
+				pcs_hydra	-=	succhungry * succublvl
+				pcs_sleep	-=	succhungry * succublvl
+			end
+		end
+
+		!! ── Faith (prude, awake only - drains to 0 over ~5 waking days) ──
+		if $arch_vars['main_active'] = 'prude':
+			if rand(1, 5) <= 2: pcs_faith -= 1
+		end
+
+		!! advence loop
+		Trig15Minute += 15
+	!! do loop
+	if (totminut - Trig15Minute) >= 15: jump 'Trig15MinuteLoop'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                                 MAIN                                ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! This is error catching to prevent stat from running too early
+if opPRE > 0: exit
+
+if daystart_start < 100:
+	pl '<br>你是从<a href="exec:daystart_start = 239 & gs ''time'' & gs''stat''">八月底</a>还是<a href="exec:daystart_start = 153 & gs ''time'' & gs''stat''">六月初</a>开始游戏的？'
+	exit
+end
+
+$BACKIMAGE = ''
+
+view
+killvar 'cheat_death_alert'
+killvar 'sucabs_queued_alert'
+
+if $start_type['magic'] <> 'nomagic': magik_exp = orgasm + magik_adj
+
+gs 'archetypes', 'loop'
+gs 'traits', 'minute'
+
+if inSleep = 0: gs 'stat_sklattrib'
+
+
+!! mouth cleaning for drinks
+if pcs_hydra > hydra_check:
+	cumspclnt = 2
+	gs 'cum_cleanup'
+end
+
+if alko > 0 and frost > 0: frost = 0
+
+if lernSkill >= 8: gs 'exp_gain', 'intel', 1 & lernSkill = 0
+if lern >= 10: gs 'exp_gain', 'intel', 1 & lern = 0
+
+cumSUM = cumsumbod/40
+
+if $husID <> '':
+	if spouseVars['pervert_add'] > 5: npc_pervert[$husID] = 1
+	if spouseVars['gentle_add'] > 10: npc_gentle[$husID] = 1 & npc_rough[$husID] = 0
+end
+
+if $food_loc_last <> $loc:
+	killvar 'food_loc'
+	killvar 'food_loc_last'
+end
+
+if gopota >= 20 and gnewQW = 1: gnewQW = 2
+
+gs 'brother', 'brotherSexCount'
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                                MONEY                                ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+if karta - bankDebtLimit < 10000: bank_last_less_than_10k = daystart
+if karta - bankDebtLimit < 100000: bank_last_less_than_100k = daystart
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                            STAT UPDATES                             ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+!! reset arousal_overcall guard
+killvar 'arousal_overcall'
+
+!! ── Orgasm & rape ─────────────────────────────────────────────────────
+if orgasm > orgasm_count:
+	temp_orgasm += orgasm - orgasm_count
+	gs 'mood', 'raise', 30 / temp_orgasm
+	orgasm_count = orgasm
+end
+if succubusflag = 1 and succublvl > 2 and stat['rape_count'] <> rape_count:
+	stat['rape_count'] = rape_count
+elseif stat['rape_count'] <> rape_count:
+	gs 'mood', 'lower', 'min'
+	gs 'mood', 'raise_trauma', (stat['rape_count'] - rape_count) * 3
+	rape_count = stat['rape_count']
+	rape_day = daystart
+end
+
+!! ── Think virgin ─────────────────────────────────────────────────────
+if stat['vaginal'] = 0 and stat['vaginal_fist'] = 0 and stat['vaginal_dildo'] = 0 and stat['vaginal_strap'] = 0 and tatiana['virginity_restore'] = 0:
+	stat['think_virgin'] = 1
+else
+	stat['think_virgin'] = 0
+end
+
+!! ── Sex stats ────────────────────────────────────────────────────────
+stat['vaginal']			+= sex		& sex = 0
+stat['anal']			+= anal		& anal = 0
+
+!! ── Last sex day trackers + sex-act archetype awards ─────────────────
+!! Diff-based to catch legacy/mod writers that bypass the arousal engine.
+!! Modern arousal scenes are awarded separately in arousal_stats.qsrc.
+temp_rape_count = stat['rape_count']
+temp_rape_this_tick = temp_rape_count > stat_seen_rape
+temp_base_act_fired = 0
+temp_prev_last_sex_day = stat['last_sex_day']
+
+temp_vaginal = stat['vaginal']
+if temp_vaginal > stat_seen_vaginal:
+	stat['last_sex_day'] = daystart
+	stat['last_sex_day_vaginal'] = daystart
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 250, -2000, '阴道性交'
+		temp_base_act_fired = 1
+	end
+end
+stat_seen_vaginal = temp_vaginal
+
+temp_anal = stat['anal']
+if temp_anal > stat_seen_anal:
+	stat['last_sex_day'] = daystart
+	stat['last_sex_day_anal'] = daystart
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 300, -2400, '肛交'
+		temp_base_act_fired = 1
+	end
+end
+stat_seen_anal = temp_anal
+
+temp_oral = stat['bj'] + stat['cuni']
+if temp_oral > stat_seen_oral:
+	stat['last_sex_day'] = daystart
+	stat['last_sex_day_oral'] = daystart
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 150, -1200, '口交'
+		temp_base_act_fired = 1
+	end
+end
+stat_seen_oral = temp_oral
+
+temp_hj = stat['hj']
+if temp_hj > stat_seen_hj:
+	stat['last_sex_day'] = daystart
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 125, -1000, 'Handjob'
+		temp_base_act_fired = 1
+	end
+end
+stat_seen_hj = temp_hj
+
+temp_footjob = stat['footjob']
+if temp_footjob > stat_seen_footjob:
+	stat['last_sex_day'] = daystart
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 125, -1000, 'Footjob'
+		temp_base_act_fired = 1
+	end
+end
+stat_seen_footjob = temp_footjob
+
+temp_titjob = stat['titjob']
+if temp_titjob > stat_seen_titjob:
+	stat['last_sex_day'] = daystart
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 150, -1200, 'Titfuck'
+		temp_base_act_fired = 1
+	end
+end
+stat_seen_titjob = temp_titjob
+
+if temp_base_act_fired = 1:
+	if daystart - temp_prev_last_sex_day >= arch_const['sex_chastity_days']:
+		gs 'archetypes', 'change', 0, 0, -arch_const['sex_chastity_bonus_prude'], 0, 0, 1, 'story', '打破长期空窗'
+	end
+end
+
+temp_mast = stat['mast']
+if temp_mast > stat_seen_mast:
+	stat['last_mast_day'] = daystart
+end
+stat_seen_mast = temp_mast
+
+if temp_rape_count > stat_seen_rape:
+	stat['last_sex_day'] = daystart
+	stat['last_sex_day_rape'] = daystart
+end
+stat_seen_rape = temp_rape_count
+
+!! Gangbang/prostitution are fragmented across legacy files like the base
+!! acts above, unlike group/orgy/public/gloryhole (arousal_stats.qsrc hook).
+temp_gangbang = stat['gangbang_count']
+if temp_gangbang > stat_seen_gangbang:
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 600, -4000, 'Gangbang'
+	end
+end
+stat_seen_gangbang = temp_gangbang
+
+temp_prostitution = stat['prostitution_count']
+if temp_prostitution > stat_seen_prostitution:
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 500, -2400, 'Prostitution'
+	end
+end
+stat_seen_prostitution = temp_prostitution
+
+!! Watching others (voyeurism) has no arousal-engine hook of its own, since Sveta is not
+!! a participant - tracked here purely from the stat counters.
+temp_voyeur = stat['voyeur']
+if temp_voyeur > stat_seen_voyeur:
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 50, -400, 'Voyeurism'
+	end
+end
+stat_seen_voyeur = temp_voyeur
+
+temp_voyeur_sex = stat['voyeur_sex']
+if temp_voyeur_sex > stat_seen_voyeur_sex:
+	if temp_rape_this_tick = 0:
+		gs 'archetypes', 'sex_change', 80, -600, '观看他人性交'
+	end
+end
+stat_seen_voyeur_sex = temp_voyeur_sex
+
+!! ── Unused ───────────────────────────────────────────────────────────
+shameless = stat['men_fucked'] + stat['bj'] + stat['anal'] + stat['hj'] + ((stat['prostitution_count'] + stat['gangbang_count']) * 2)
+!! speed = (2 * (pcs_stren + pcs_agil) + pcs_vital) / 5 - pregChem/100
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                             VALUE CAPS                              ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+gs 'stat', 'apply_caps'
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                                TIME                                 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+gs 'time'
+gs 'outdoors', 'weather'
+
+if daystage = 1:
+	$daystage['desc'] = 'dawn'
+elseif daystage = 2:
+	$daystage['desc'] = 'mid_day'
+elseif daystage = 3:
+	$daystage['desc'] = 'sunset'
+elseif daystage = 4:
+	$daystage['desc'] = 'early_night'
+elseif daystage = 5:
+	$daystage['desc'] = 'mid_night'
+elseif daystage = 6:
+	$daystage['desc'] = 'pre_dawn'
+end
+
+if prevtotmin <> totminut:
+	gs 'spellTimer', prevtotmin, totminut
+
+	!! deodorant
+	if deodorant_on = 1 and totminut > deodorant_time: gs 'sweat', 'remove_deo'
+
+	!! Recovery from spanking - will be superseded by pain system
+	if spanked > 0:
+		if spankedtime = 0: spankedtime = totminut
+		if (spankedtime + 2040) <= totminut: spanked -= 1 & spankedtime = 0
+	elseif spankedtime <> 0:
+		killvar 'spankedtime'
+	end
+
+	!! Orgasmic cooldown
+	if orgasmic <> 0:
+		if orgasmic < totminut - 30: orgasmic = 0 & pcs_horny = 0
+	end
+end
+
+!! exercise tracking
+if stat['last_workout_trig'] = 1:
+	stat['last_workout_trig'] = 0
+	stat['last_workout'] = totminut
+end
+
+!! ── Stretching, arousal & gaping ─────────────────────────────────────
+gs 'stat', 'apply_stretch'
+
+gs 'outfit', 'stat', totminut - prevtotmin
+
+if kid > 0:
+	i = arrsize('yearkid')
+	:LoopKidAgeCounter
+	if i >= 0:
+		if yearkid[i] = year + 1 and monthkid[i] = month and daykid[i] = day: msg '今天是<<$kidname[i]>>的生日。'
+		i -= 1
+		jump 'LoopKidAgeCounter'
+	end
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                          PERIODIC UPDATES                           ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! Do Nothing if sleeping or Trig15Minute is invalid
+if inSleep <> 0 or Trig15Minute > totminut:
+	Trig15Minute = totminut
+else
+	!! Cap the catch-up window at 24 hours
+	if totminut - Trig15Minute > 1440: Trig15Minute = totminut - 1440
+
+	!! More than 15 minutes since last check
+	if totminut - Trig15Minute >= 15: gs 'stat', '15_minute_loop'
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                         SUCCUBUS NUTRITION                          ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+if succubusflag = 1: gs 'stat', 'succubus_nutrition'
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                            STATUS MINIMA                            ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ── Sleep ────────────────────────────────────────────────────────────
+if pcs_sleep < 0:
+	pcs_sleep = 0
+	gs 'mood', 'lower', 'tiny'
+end
+
+!! ── Energy ───────────────────────────────────────────────────────────
+temp_death_cause_energy = 0
+if pcs_energy < 0:
+	temp_death_cause_energy = 1
+	pcs_energy = 0
+	pcs_health -= 5
+
+	if pcs_mass['body'] > 0:
+		if cheatVars['fat'] = 0: fat -= 1
+		pcs_energy += 8
+	elseif pcs_stren + pcs_vital > 0:
+		gs 'exp_deg', 'stren', 1
+		gs 'exp_deg', 'vital', 1
+		pcs_energy += 8
+	else
+		gs 'gameover', 'check', 3
+		$cheat_death_alert = '你饿死了，但作弊模式让你保持存活。'
+		fat = 1
+	end
+end
+
+!! ── Thirst ───────────────────────────────────────────────────────────
+temp_death_cause_hydra = 0
+if pcs_hydra <= 0:
+	temp_death_cause_hydra = 1
+	pcs_health -= rand(0, 1 - pcs_hydra)
+	pcs_hydra = 1
+end
+hydra_check = pcs_hydra
+
+!! ── Faith ────────────────────────────────────────────────────────────
+if $arch_vars['main_active'] = 'prude' and pcs_faith <= 0:
+	gs 'mood', 'lower', 3 * (1 - pcs_faith)
+	gs 'archetypes', 'lose', 'prude', 200, '疏于信仰'
+	pcs_faith = 1
+end
+
+!! ── Willpower ────────────────────────────────────────────────────────
+if pcs_willpwr <= 0 and pcs_mood <= 1:
+	gs 'gameover', 'check', 2
+	$cheat_death_alert = '你疯了，但作弊模式让你保持存活。'
+end
+
+!! ── Health ───────────────────────────────────────────────────────────
+if pcs_health < 0:
+	if temp_death_cause_hydra = 1 and temp_death_cause_energy = 1:
+		gs 'gameover', 'check', 17
+		$cheat_death_alert = '你因脱水和营养不良而死，但作弊模式让你保持存活。'
+	elseif temp_death_cause_hydra = 1:
+		gs 'gameover', 'check', 15
+		$cheat_death_alert = '你因脱水而死，但作弊模式让你保持存活。'
+	elseif temp_death_cause_energy = 1:
+		gs 'gameover', 'check', 16
+		$cheat_death_alert = '你因营养不良而死，但作弊模式让你保持存活。'
+	else
+		gs 'gameover', 'check', 1
+		$cheat_death_alert = '你因伤势过重而死，但作弊模式让你保持存活。'
+	end
+	pcs_health = 0
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                              MEDICINE                               ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ── Contraception ────────────────────────────────────────────────────
+
+!! deactivate reminder and auto, when pregnant or on birth control shot
+if tabletkicheck = 2 or thinkpreg = 1 or knowpreg = 1:
+	if tabletkicheck = 1: tabletkicheck = 0
+	birth_control['remind_hour'] = 0
+	birth_control['auto_hour'] = 0
+end
+
+!! Therapist
+if therapistFuckedPussyStage > 1 and tabletkicheck = 1 and birth_control['auto_hour'] = 0: birth_control['auto_hour'] = 18
+if tabletkicheck = 1 and tabletkichday < daystart and birth_control['auto_hour'] > 0 and hour >= birth_control['auto_hour'] and hour < birth_control['auto_hour'] + 2 and inSleep = 0 and menu_off = 0 and $location_type <> 'event' and $location_type <> 'event_outdoors':
+	gs 'fertility', 'auto_pill'
+end
+
+!! detected change in pillcon
+if pillcon <> birth_control['old_pillcon'] or pillcon2 <> birth_control['old_pillcon2']: gs 'fertility', 'birth_control_status_update'
+
+!! ── Drugs ────────────────────────────────────────────────────────────
+
+gs 'drugs', 'stat'
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                              END MISC                               ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! Set the message displayed each time the magik attribute is increased.
+if $start_type['magic'] <> 'nomagic':
+	if pcs_magik > magikhigh:
+		magikhigh = pcs_magik
+		rikudo += pcs_magik * 100
+		$magik_alert_loc = $loc
+		!! Recipe 2: stamp location for level-up alert
+		!! This will be replaced when a more advanced physical system is made
+		if (pcs_magik mod 2 <> 0) and pcs_eyesize < 2: pcs_eyesize += 1
+		if (pcs_magik mod 2 = 0) and pcs_lashes < 2: pcs_lashes += 1
+	elseif $magik_alert_loc <> '' and $loc <> $magik_alert_loc:
+		!! Player navigated away from the level-up location - clear the stamp
+		$magik_alert_loc = ''
+	end
+else
+	killvar 'pcs_magik'
+	killvar 'rikudo'
+	killvar 'pcs_splcstng'
+end
+
+!! ── Appearance ──────────────────────────────────────────────────────
+if cosmetic_tattoo > 0:
+	makeup['base'] = cosmetic_tattoo + 1
+	if pcs_makeup < makeup['base']: pcs_makeup = makeup['base']
+else
+	makeup['base'] = 1
+end
+
+!! Health, Willpower, Auto Birth Control pregnancy check
+gs 'body', 'RegularUpdate'
+gs 'body', 'Update_Appearance'
+
+gs 'cum_manage', 'cum_decay'
+if cumcondslip <= 0: cumcondslip_deep = 0
+
+!! Pain calculation
+gs 'pain', 'manage'
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                                ICONS                                ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! Birth control reminder icon
+!! Only fire reminder when auto-pill is NOT configured; auto-pill handles silently
+if birth_control['remind_hour'] > 0 and birth_control['auto_hour'] = 0 and hour >= birth_control['remind_hour'] and hour <= birth_control['remind_hour'] + 1 and tabletkiday <> daystart:
+	birth_control['remind_icon'] = 1
+else
+	birth_control['remind_icon'] = 0
+end
+
+!! Acting job icon
+if (acting['shoot_day'] = daystart and actress_cast = 1) or (audition['day'] = daystart):
+	acting['icon'] = 1
+else
+	acting['icon'] = 0
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                              DISPLAYS                               ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! update skills and attributes to pcs_ from there _lvl values plus adjustments based on condition
+gs 'stat_sklattrib_lvlset'
+gs 'stat', 'apply_caps'
+
+if (inSleep = 0 or sleepVars['stat_display'] = 1) and arrpos('$ARGS', 'no_display') < 0:
+	gs 'outdoors', 'main'
+	gs 'stat_display'
+end
+
+gs 'schedule', 'Family'
+
+!! Determine Incoming SMS
+if prevtotmin <> totminut:
+	gs 'telefon', 'IncomingSMSCheck'
+end
+
+if cheatVars['mood'] = 1:
+	gs 'mood', 'raise', 'max'
+	mood_trauma = 0
+end
+
+if stat_cfg['android'] = 0: gs 'obj_din', 'old'
+
+
+--- stat ---------------------------------

@@ -1,0 +1,758 @@
+# brothel
+
+CLOSE ALL
+$loc = 'brothel'
+
+!! brothelCredit - liked or not liked by the brothel management
+
+
+dbg = 0
+if dbg = 1:
+	'位置：' + $loc
+	'参数：' + $ARGS[0]
+	'会话：' + $sessionB
+	'阶段：' + stage
+	'疼痛：' + pain['total']
+	'步骤：' + brothel['step']
+	'藤条抽脚次数：' + caneFeetCount
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         !! Hotel Lobby !!                          !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'lobby':
+	$menu_loc = 'brothel'
+	$menu_arg = 'lobby'
+	$location_type = 'public_indoors'
+	menu_off = 0
+
+	'<h3>酒店大堂</h3>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/hotellobby.jpg"></center>'
+	*nl
+
+	'你身处一家中档酒店的大堂。'
+	'这里有一个宽敞的餐厅大厅，还有一条长长的<a href="exec:gt ''brothel'', ''bar''">木质吧台</a>，旁边摆着许多高脚椅。'
+	'酒吧旁边有几扇门通向一个<a href="exec:gt ''brothel'', ''toilet''">厕所</a>.'
+	*nl
+	'窗边摆着几张桌子，每张大约能坐四到六个人。'
+
+	act '离开酒店': gt 'road', '20'
+	act '去酒店酒吧': gt 'brothel', 'bar'
+	act '去洗手间': gt 'brothel', 'toilet'
+end
+
+
+if $ARGS[0] = 'toilet':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'brothel', 'toilet'
+	$location_type = 'bathroom'
+	minut += 2
+
+	*clr & cla
+	'<h3>大堂洗手间</h3>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/hoteltoilet.jpg"></center>'
+	*nl
+
+	act '返回大厅': gt 'brothel', 'lobby'
+
+	act '照镜子': gt 'mirror', 'start'
+	if pcs_hairbsh < 1: act '梳头发': gt 'mirror', 'brush'
+
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	gs 'stat'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          !! Hotel Bar !!                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'bar':
+	$menu_loc = 'brothel'
+	$menu_arg = 'bar'
+	menu_off = 0
+	*clr & cla
+	'<h3>酒店酒吧</h3>'
+	*nl
+
+	if alko <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/bar.jpg"></center>'
+		*nl
+		'一间用上好硬木打造的舒适酒吧。这里有几个客人，但一个都不认识。可能是路过的旅客。'
+		*nl
+		'酒保正在擦杯子，偶尔朝你这边看一眼，大概是在确认你是不是想点些什么。'
+
+	elseif alko < 6:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/bardrunk.jpg"></center>'
+		*nl
+		'一间用上好硬木打造的舒适酒吧。这里有几个客人，但一个都不认识。可能是路过的旅客。'
+		*nl
+		$func('wrap', 'neg', '你喝醉了，酒保显然很享受看到一个漂亮女孩处于这种状态，经常和你调情，欣赏你的外貌。')
+
+	else
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/barwasted.jpg"></center>'
+		*nl
+		'一间用上好硬木打造的舒适酒吧。这里有几个客人，但一个都不认识。可能是路过的旅客。'
+		*nl
+		$func('wrap', 'neg', '你烂醉如泥，头趴在吧台上，几乎保持不了清醒。酒保开始紧张起来，大概是怕吓跑常客。')
+	end
+
+	act '离开酒吧': gt 'brothel', 'lobby'
+	act '点东西': gt 'brothel', 'order'
+	act '就坐会儿': gt 'brothel', 'sit'
+end
+
+
+if $ARGS[0] = 'sit':
+	$menu_loc = 'brothel'
+	$menu_arg = 'sit'
+	menu_off = 0
+	*clr & cla
+	'<h3>酒店酒吧</h3>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/bar.jpg"></center>'
+	*nl
+	minut += 15
+	gs 'stat'
+
+	if alko >= 6 and rand(1, 100) <= 30 and $job_status['highway_brothel_prostitute'] = '':
+		'你想在吧台前找个位子坐下，但你醉得坐都坐不直。于是你把头靠在吧台上，含糊不清地嘟囔着'
+		gs 'brothel', 'abduction_start'
+	else
+		'你在吧台前坐下，环顾着餐厅里寥寥几位客人。'
+		'就你所见，没什么要紧的事。'
+		act '继续': gt 'brothel', 'bar'
+	end
+end
+
+
+if $ARGS[0] = 'order':
+	menu_off = 1
+	*clr & cla
+	gs 'stat'
+	$loc = 'brothel'
+	$loc_arg = 'bar'
+	'<center><h3>酒店酒吧</h3></center>'
+	'<center><h5>点饮料</h5></center>'
+	*nl
+	if alko <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/barorder.jpg"></center>'
+	elseif alko < 6:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/bardrunk.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/barwasted.jpg"></center>'
+	end
+	*nl
+	'你向酒保示意你想点东西。'
+	'"小姐，您想要点什么？"'
+	gs 'jobs', 'get_job_definition', 'highway_brothel_prostitute'
+	if alko >= 6 and rand(1, 100) <= 30 and $job_status['highway_brothel_prostitute'] = '':
+		*nl
+		'你想再点一杯，但就在你昏过去之前，从你嘴里说出的只有醉醺醺的胡话……'
+		gs 'brothel', 'abduction_start'
+	else
+		act '取消点单': gt 'brothel', 'bar'
+		act '从菜单点餐 (0:05)': gs 'food_menu'
+	end
+	if $job_status['highway_brothel_prostitute'] = 'employed':
+		act '点蓝血俄罗斯 (0:05)': gt 'brothel', 'password'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          !! Abduction !!                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'abduction_start':
+	'酒保显然一直在等这一刻。'
+	'他走出吧台，把你抱起来带走。'
+	'一路上，你时不时短暂地恢复意识，意识到自己被带到了楼上某个地方，似乎是酒店的房间之一。'
+
+	act '继续': gt 'brothel', 'abducted'
+end
+
+
+if $ARGS[0] = 'abducted':
+	menu_off = 1
+	gs 'pain', 3, 'armL', 'bind'
+	gs 'pain', 3, 'armR', 'bind'
+	gs 'pain', 3, 'legL', 'bind'
+	gs 'pain', 3, 'legR', 'bind'
+	gs 'stat'
+	*clr & cla
+
+	'<h3>酒店房间</h3>'
+	'你在酒吧里把自己灌得烂醉，现在要承担后果了。'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/roombedtied.jpg"></center>'
+	*nl
+	'酒保把你脸朝下扔到床上，扒光你的衣服，把你的手脚绑在床的四角。'
+	'你几乎无力反抗，只能对施暴者做出微弱的抵抗。'
+	$func('wrap', 'neg', '"哈，骚货！现在我再给你来一杯，最新鲜的那种！"')
+
+	act '继续': gt 'brothel', 'abducted1'
+end
+
+
+if $ARGS[0] = 'abducted1':
+	gs 'pain', 4, 'asshole', 'pinch'
+	$orgasm_or = 'no'
+	gs 'arousal', 'vaginal_finger', 5, 'bound', 'rape'
+	gs 'arousal', 'anal_finger', 5, 'bound', 'rape'
+	killvar 'orgasm_or'
+
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/pinchandfingertiedtobed.jpg"></center>'
+	*nl
+	'他扑到你身上，抓住你的屁股，捏着你的臀瓣。'
+	$func('wrap', 'bimbo', '"哎哟！好……疼……哎哟！"') + ' 疼痛迫使你短暂地恢复清醒。'
+	'你的反应让他兴奋起来，他把手指插进你的小穴，一根接一根，直到四根手指都塞了进去。'
+	$func('wrap', 'neg', '"真是个婊子！她都已经湿了！"')
+	'他抽出沾满爱液的手指，猛地捅进你的肛门，又一次把你拉回现实世界。'
+	$func('wrap', 'bimbo', '"啊啊啊啊！"') + ' 你因痉挛而扭动，感到肛门剧痛。'
+
+	act '继续': gt 'brothel', 'abducted2'
+end
+
+
+if $ARGS[0] = 'abducted2':
+	gs 'pain', 7, 'asshole', 'stretch'
+	gs 'arousal', 'anal_dildo', 5, 'bound', 'rape'
+
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/openchampagne.mp4"></video> <video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/champagneenema.mp4"></video></center>'
+	*nl
+	$func('wrap', 'neg', '"好了，骚货，来给你上酒！"')
+	'他从迷你吧里拿了一瓶香槟。'
+	'那一刻你只听到"砰"的一声，瓶塞弹射而出……酒保用拇指堵住瓶口，用力摇晃瓶子积攒压力……'
+	'……然后把瓶口狠狠塞进你的肛门，直塞到最深处，起泡酒喷涌而出，灌进你的肠道深处。'
+	$func('wrap', 'bimbo', '"啊啊啊啊啊！"') + ' 你再次大声尖叫，既惊讶又疼痛地颤抖着。'
+
+	act '继续': gt 'brothel', 'abducted3'
+end
+
+
+if $ARGS[0] = 'abducted3':
+	anal_slip += 4
+	gs 'pain', 7, 'asshole', 'stretch'
+	guy += 4
+	temp = 4
+	sexpartkno = 0
+	:abdrapeloop
+	gs 'npcgeneratec', 0, '强奸犯', rand(35, 50)
+	gs 'boyStat', $npclastgenerated
+	gs 'arousal', 'vaginal', 5, 'bound', 'rape'
+	gs 'arousal', 'anal', 10, 'bound', 'rape'
+	cumarrcon = 0
+	gs 'cum_call', 'anus', '强奸犯', 2
+	temp -= 1
+	if temp > 0:
+		jump 'abdrapeloop'
+	end
+	gs 'arousal', 'end'
+	stat['rape_count'] += 1
+	stat['gangbang_count'] += 1
+	killvar 'orgasm_or'
+	gs 'stat'
+
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tiedtobedfuck.mp4"></video> <video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tiedtobedanal.mp4"></video></center>'
+	*nl
+	'香槟瓶还像一根巨大的肛塞一样插在你的肛门里，但酒已经不再往外流了。'
+	'他抓住瓶子把它拔了出来。酒液从你饱受摧残的肛门里缓缓漏出……'
+	$func('wrap', 'neg', '"好啦，酒的事已经办妥了，我们还给你准备了一次昂贵的灌肠，现在终于可以办正事了！"')
+	'他清理干净你肛门里残留的秽物。'
+	'他的鸡巴不是最大的，但相当粗。'
+	'你的小穴首先遭殃，被他的肉棒狠狠操弄，过了一会儿他又转向你的肛门。'
+	'又一阵剧痛贯穿你的下身，但这一次，你彻底昏了过去……'
+
+	act '继续': gt 'brothel', 'abducted4'
+end
+
+
+if $ARGS[0] = 'abducted4':
+	hadOwnanalPlugIn = analPlugIn
+	analPlugIn = 1
+	pcs_hairbsh = -1
+	if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0: sleepVars['notathomesleep'] += 1
+	gs 'sleep_simple', 'sleep_until', 10, 0
+	gs 'pain', 3, 'armL', 'bind'
+	gs 'pain', 3, 'armR', 'bind'
+	gs 'pain', 3, 'legL', 'bind'
+	gs 'pain', 3, 'legR', 'bind'
+	gs 'stat'
+
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/wakeupboundonbedanalplug.jpg"></center>'
+	*nl
+	'你醒了过来，仍然被绑在床上。透过窗帘，你看到已经是临近中午了。'
+	'你的头疼欲裂、天旋地转，全身也跟着酸痛。'
+	'你感到腹部有种奇怪的胀满感，小穴和肛门都在发痒。'
+	'当你挣扎着想挣脱束缚时，你意识到发生了什么……以及留下了什么作为提醒……'
+	'你拼命想把肛塞从屁股里挤出来，但它的边缘太宽，牢牢卡在你体内。'
+
+	act '绝望地等待': gt 'brothel', 'abducted5'
+end
+
+
+if $ARGS[0] = 'abducted5':
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/wakeupboundonbedanalplug2.jpg"></center>'
+	*nl
+	'终于，你听到门开了，有人走了进来。'
+	$func('wrap', 'neg', '"那么，姑娘，昨晚过得怎么样？"')
+	$func('wrap', 'bimbo', '"什么？你是谁？快把我解开！"')
+	$func('wrap', 'neg', '"我会的，不过你得先告诉我昨晚过得怎么样。"')
+	$func('wrap', 'bimbo', '"怎……还能怎么样？大部分我都不记得了，我光着身子被绑在床上，肛门里塞着个我连是什么都不知道的东西！我的小穴和肛门都疼，我大概在昏迷的时候被人强奸了一整晚！"')
+	$func('wrap', 'neg', '"嗯，你基本都说全了。不过你还没告诉我，你喜不喜欢。"')
+	$func('wrap', 'bimbo', '"求你把我解开吧！浑身疼得要命！求你了！"')
+	$func('wrap', 'neg', '"好，但你得回答我。首先我们得把那个塞子弄出来，对吧？"')
+
+	act '继续': gt 'brothel', 'abducted6'
+end
+
+
+if $ARGS[0] = 'abducted6':
+	analPlugIn = 0
+	analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+	gs 'pain', 5, 'asshole', 'stretch'
+	gs 'stat'
+
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pullplugfromass.mp4"></video></center>'
+	*nl
+	'他俯身凑向你的屁股，伸手抓住肛塞的顶端。'
+	*nl
+	$func('wrap', 'neg', '"快点还是慢点，姑娘？"')
+	$func('wrap', 'bimbo', '"什么？！不要，别碰它！"')
+	$func('wrap', 'neg', '"哈哈，人家说动作快，疼得就少！咱们试试！"')
+	'话音未落，他就把肛塞拔了出来，你的肛门留下一个巨大的空洞……'
+
+	act '痛得抽泣': gt 'brothel', 'abducted7'
+end
+
+
+if $ARGS[0] = 'abducted7':
+	gs 'willpower', 'misc', 'self', 'hard'
+
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/abusedface.jpg"></center>'
+	*nl
+	$func('wrap', 'neg', '"现在告诉我，这一切你觉得怎么样。老实回答我，你就可以走了。"')
+	$func('wrap', 'bimbo', '"嗯……"')
+
+	if pcs_willpwr < will_cost:
+		act '承认你有点喜欢这样，因为你喜欢被支配' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '承认你有点喜欢这样，因为你喜欢被支配' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'misc', 'self', 'hard'
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			gt 'brothel', 'abducted_like'
+		end
+	end
+	act '冲他大喊那太可怕了': gt 'brothel', 'abducted_hate'
+end
+
+
+if $ARGS[0] = 'abducted_like':
+	gs 'jobs', 'set_employed', 'highway_brothel_prostitute'
+	!! Even if you liked the experience, being kidnapped and raped is traumatic
+	gs 'mood', 'lower', 'small'
+	gs 'mood', 'lower_disposition', 'tiny'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/abusedface.jpg"></center>'
+	*nl
+	'你刚刚向一个绑架、捆绑并强奸了你一整晚的陌生人承认，你其实很喜欢这段经历……'
+	$func('wrap', 'neg', '"我就知道。你真是个听话的骚货。我有个提议给你……"')
+	$func('wrap', 'bimbo', '"提议？"') + ' 你不知道该期待什么，但这更让人意外。'
+	$func('wrap', 'neg', '"对。你知道，这不只是一家酒店。这里还有别的东西。"')
+	$func('wrap', 'bimbo', '"你什么意思？"')
+	$func('wrap', 'neg', '"我们正好用得上你这样的姑娘。我们的主要生意在楼下，酒店下面的一座旧掩体里。"')
+	$func('wrap', 'neg', '"那是一家妓院。"')
+	$func('wrap', 'bimbo', '"妓院？真的假的？"')
+	$func('wrap', 'neg', '"不是那种随处可见的普通妓院。这一家很特别。"')
+	$func('wrap', 'bimbo', '"怎么个特别法？"')
+	$func('wrap', 'neg', '"这是一家虐恋妓院。妓女被支配型的男人使用，反过来也一样。"')
+	$func('wrap', 'bimbo', '"哦……好吧。那提议是什么？"') + ' 你一头雾水。'
+	$func('wrap', 'neg', '"你已经证明了自己喜欢被捆绑、被虐待、被强奸、被羞辱。你的简历简直完美。我想让你成为我们的姑娘之一。"')
+	$func('wrap', 'bimbo', '"呃……我，我得想想。我不确定自己有那么喜欢。"')
+	$func('wrap', 'neg', '"没关系。我们不会强迫姑娘们在这里干活。至少大多数时候不会……但这报酬比你现在能在任何地方赚到的都高！"')
+	$func('wrap', 'bimbo', '"好，我明白了。我会好好想想的……"')
+	'他看着你，仿佛想把你一眼看穿：'
+	$func('wrap', 'neg', '"哦，我想你很快就会来的。到时候，去找吧台后面的人，告诉他你要一杯特调。蓝色血统俄罗斯人。剩下的都会有人安排。"')
+	'他似乎说完了他想说的话。在走回门口的路上，他把你的衣服朝你扔过来。他一言不发地关上门，离开了。'
+
+	act '继续': gt 'brothel', 'lobby'
+end
+
+
+if $ARGS[0] = 'abducted_hate':
+	gs 'jobs', 'set_fired', 'highway_brothel_prostitute'
+	!! Being violently kidnapped and raped leaves a lasting psychological impact
+	gs 'mood', 'lower', 'large'
+	gs 'mood', 'lower_disposition', 'small'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/abusedface.jpg"></center>'
+	*nl
+	$func('wrap', 'neg', '"那就别在前不着村后不着店、全是陌生人的酒吧里喝到烂醉，婊子！"')
+	$func('wrap', 'bimbo', '"你这个混蛋！强奸犯！白痴！"')
+	$func('wrap', 'neg', '"滚吧，你这骚货。拿上你的衣服滚！"')
+	'你愤怒地抓起衣服穿上，夺门而逃，跑回大堂。'
+
+	act '继续': gt 'brothel', 'lobby'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           !! Brothel !!                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'password':
+	menu_off = 1
+	brothel['step'] = 0
+	*clr & cla
+
+	'<h3>酒店酒吧</h3>'
+	'<h5>点一杯：蓝血俄罗斯</h5>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/whisper.jpg"></center>'
+	*nl
+	'"哦，我明白了。请跟我来。"他领着你来到大堂，寻找跑腿小弟。他发现那男孩正靠在电梯旁的墙上。'
+	'"这位年轻小姐是来点那杯特调酒的——蓝血俄罗斯。"'
+	'男孩只是点了点头，一言不发地领你走向电梯。"请把脸转过去，我现在要输入密码。"'
+
+	act '转过身别看': gt 'brothel', 'elevator'
+end
+
+
+if $ARGS[0] = 'elevator':
+	*clr & cla
+	menu_off = 1
+
+	'<h3>电梯</h3>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/hotelelevator.jpg"></center>'
+	*nl
+	'电梯停在一个楼层，你只能猜测这是酒店的地下。环顾四周，这里在冷战时期很可能是个地下掩体。'
+	'"穿过大厅去前台，他们会给你指示。"男孩说道。'
+	'走出电梯时，你隐约听到他低声嘟囔了一句"玩得开心，骚货"。不过也许只是你的错觉……'
+
+	act '去前台': gt 'brothel', 'reception'
+end
+
+
+if $ARGS[0] = 'reception':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'brothel', 'reception'
+	$sect = 'reception'
+	*clr & cla
+
+	'<h3>妓院前台</h3>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/receptionist.jpg"></center>'
+	*nl
+	'柜台后面坐着一位上了年纪、头发灰白的男人。"啊，来得正好。我们现在正缺几个姑娘。这次你想去哪个区域？选一个然后去大厅吧。"'
+
+	if job_worked_count['highway_brothel_prostitute'] > 0:
+		act '要求结算工资': gt 'brothel', 'get_paid'
+	end
+
+	act '第一区域': gt 'brothel', 'section1_lobby'
+	if section_warn = 0:
+		act '第二部分': gt 'brothel', 'section2_warning'
+	else
+		act '第二部分': gt 'brothel', 'section2_lobby'
+	end
+	if brothelCredit < -4 and pcs_health > 200:
+		act '要求他放你出去': gt 'brothel_section1', 'section1_force_work'
+	else
+		act '要求他放你出去': gt 'brothel', 'leave'
+	end
+end
+
+
+if $ARGS[0] = 'leave':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'brothel', 'leave'
+	$sect = 'reception'
+
+	*clr & cla
+	'<h3>妓院前台</h3>'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/receptionist.jpg"></center>'
+	*nl
+	if $clothingworntype = 'nude':
+		'前台从桌后抬起头，注视着你：' + $func('wrap', 'pos', '"你是不是忘了什么东西，婊子？"')
+		'你花了几秒钟才意识到自己一丝不挂！' + $func('wrap', 'bimbo', '"哎呀……我想我还是先把衣服穿上吧……"')
+		if $pantyworntype ! 'none':
+			'<center><img <<$set_imgh>> src="images/pc/body/nude.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/pc/body/nude1.jpg"></center>'
+		end
+		act '回去穿衣服': gt 'brothel', 'brothel_dressingroom'
+	else
+		'前台按下一个隐蔽的按钮，大概是在给跑腿小弟发信号，因为一分钟后他就乘电梯到了。'
+		$func('wrap', 'pos', '"走吧<<$pcs_firstname>>，你可以离开了。"')
+		brothel_vars['receptionist_annoy'] = 0
+		if job_last_work_day['highway_brothel_prostitute'] < daystart: brothelCredit -= 1
+		act '去电梯': gt 'brothel', 'lobby'
+	end
+end
+
+
+if $ARGS[0] = 'get_paid':
+	menu_off = 1
+	temp_minutes = job_worked_count['highway_brothel_prostitute']
+	temp_pay = func('jobs', 'paycheck', 'highway_brothel_prostitute')
+	gs 'stat'
+	'<h3>妓院前台</h3>'
+	'前台在他的本子上查看着什么，大概是在计算你工作的时间。'
+	'他抬起头，朝你微笑着说 ' + $func('wrap', 'pos', '"那么<<$pcs_firstname>>，你已经卖淫了<<temp_minutes>>分钟，也就是<<$func(''money'', ''string_profit'', temp_pay)>>，外加你可能挣到的任何奖金。"')
+	'他把钱递给你。'
+	killvar 'temp_pay'
+	killvar 'temp_minutes'
+	act '谢谢他并离开': gt 'brothel', 'reception'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          !! Section 1 !!                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_lobby':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'brothel', 'section1_lobby'
+	$location_type = 'public_indoors'
+	$sect = 'section1'
+	'<h3>妓院第一区大厅</h3>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/lobby.jpg"></center>'
+	'第一区的大厅，一个宽敞的厅堂式房间，通向几间小房间。'
+	'大厅中央摆着一张舒适的沙发，旁边是几个刚好能装下一个娇小身材的笼子。'
+	'其中一扇门也通向一个<a href="exec:gt ''brothel'', ''brothel_dressingroom''">房间</a>，那是为姑娘们准备的。 '
+
+	killvar 'temp_text'
+	if pcs_sweat >= 40: $temp_text[] = '- 洗个澡。'
+	if klismaday ! daystart and cheatVars['enema'] = 1: $temp_text[] = '- 灌肠。'
+	if (cumloc[1] > 0 or cumloc[4] > 0 or cumloc[8] > 0 or cumloc[9] > 0 or cumloc[10] > 0 or cumloc[15] > 0 or cumloc[16] > 0 or cumloc[17] > 0): $temp_text[] = '- 清洗身体。'
+	if cumloc[11] > 0: $temp_text[] = '- 洗脸'
+	if (pcs_leghair > 3 or pcs_pubes > 3): $temp_text[] = '- 剃掉阴毛和腿毛。'
+	if pcs_hairbsh ! 1: $temp_text[] = '- 梳头发。'
+	if pcs_makeup < 3: $temp_text[] = '- 化点妆。'
+	if pcs_lipbalm < 1: $temp_text[] = '- 涂点润唇膏。'
+	if $clothingworntype ! 'nude': $temp_text[] = '- 脱光衣服。'
+	if $pantyworntype ! 'none': $temp_text[] = '- 脱掉内裤。'
+
+	if arrsize('$temp_text') = 0:
+		act '进笼子': gt 'brothel_section1', 'section1_cage'
+	else
+		'要能开始工作，你需要：'
+		temp_i = 0
+		:lobby1_loop
+			*pl $temp_text[temp_i]
+			temp_i += 1
+		if temp_i < arrsize('$temp_text'): jump 'lobby1_loop'
+		killvar 'temp_i'
+		killvar 'temp_text'
+	end
+	act '去女孩的房间': gt 'brothel', 'brothel_dressingroom'
+	act '去前台': gt 'brothel', 'reception'
+end
+
+
+if $ARGS[0] = 'brothel_dressingroom':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'brothel', 'brothel_dressingroom'
+	$location_type = 'bathroom'
+	gs 'stat'
+
+	'<h3>女孩房间</h3>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/brothelroom.jpg"></center>'
+	*nl
+	'这是一间为像你这样的工作女孩准备的房间。'
+	'房间里配有淋浴，几乎每面墙上都挂着一面大<a href="exec:gt ''mirror'', ''start''">镜子</a>。门边有一台饮水机，桌上放着一些轻食点心，以防姑娘们在接待间隙饿了或渴了。'
+
+	*p '你可以从桌子下的盒子里拿一些 '
+	*p iif(mc_inventory['cosmetics'] < 2, '<a href="exec: mc_inventory[''cosmetics''] += 5 & gt ''brothel'', $loc_arg">化妆品</a>', '化妆品')
+	*p ' （你有 '+mc_inventory['cosmetics']+'), '
+	*p iif(mc_inventory['shampoo'] < 1, '<a href="exec: mc_inventory[''shampoo''] += 5 & gt ''brothel'', $loc_arg">洗发水</a>', '洗发水')
+	*p ' （你有 '+mc_inventory['shampoo']+'), '
+	*p iif(mc_inventory['lipbalm'] < 1, '<a href="exec: mc_inventory[''lipbalm''] += 5 & gt ''brothel'', $loc_arg">润唇膏</a>', '润唇膏')
+	*p ' （你有 '+mc_inventory['lipbalm'] + '），或 '
+	*p iif(mc_inventory['razor'] < 3, '<a href="exec: mc_inventory[''razor''] += 5 & gt ''brothel'', $loc_arg">剃毛</a>', '剃毛')
+	*pl ' 用具 （你有 '+mc_inventory['razor'] +'），如果你没有的话。 <a href="exec:gs ''din_van'', ''shave_options''">剃毛选项</a>'
+
+	*p '当然，这里还有一个装有 '
+	*p iif(mc_inventory['enema_kit'] < 1, '<a href="exec: mc_inventory[''enema_kit''] += 1 & gt ''brothel'', $loc_arg">灌肠用具</a>', '灌肠用具')
+	*p ' 的盒子。还有一个装有 '
+	*p iif(mc_inventory['painkillers'] < 1 and brothel_vars['painkillers_day'] < daystart, '<a href="exec:mc_inventory[''painkillers''] += 2 & brothel_vars[''painkillers_day''] = daystart & gt ''brothel'', $loc_arg">止痛药</a>', '止痛药')
+	*p ' （你有 '+mc_inventory['painkillers']+') 的盒子，以备有人需要缓解疼痛。'
+	*pl '桌上放着一张写有规矩的清单，以防你还没记住：'
+	*nl
+	'-------------------------------------------------------------------------------------'
+	' 1) 你是奴隶。'
+	' 2) 客户是主人，可以对奴隶进行任何行为，但第3条中明确列出的除外。'
+	' 3) 除非奴隶自愿同意，否则不得对奴隶造成需要住院治疗或留下永久性伤害的损伤。'
+	' 4) 出于安全考虑，每次接待都会被摄像机记录下来。录像归组织所有。'
+	' 5) 主人可以戴上面具隐藏自己的身份。'
+	' 6) 奴隶每接待一小时可获得<<$func(''money'', ''string_profit'', job_pay_rate_def[''highway_brothel_prostitute''])>>的报酬。'
+	*nl
+	'要开始工作，先把自己洗干净，至少化上鲜艳的妆容、涂好润唇膏、梳好头发，然后脱光所有衣服，再去大厅把自己锁进笼子里。'
+	*nl
+	'-------------------------------------------------------------------------------------'
+	*nl
+	act '吃点零食 (0:15)': gs 'food', 'snack'
+	act '喝杯水 (0:05)': gs 'beverage', 'water'
+	act '换衣服': gt 'wardrobe', 'start'
+	act '照镜子': gt 'mirror', 'start'
+	if mc_inventory['shampoo'] > 0:
+		act '洗个澡':
+			*clr & cla
+			gs 'din_van', 'showerdin'
+			gs 'stat'
+			'<h3>女孩房间</h3>'
+			'<h5>淋浴</h5>'
+			'<center><img <<$set_imgh>> src="images/locations/shared/brothel/brothelshower.jpg"></center>'
+			''
+			'脱掉全部衣服后，你拿起毛巾、搓澡巾和香皂，走向淋浴间。你把自己彻底洗干净，尽量以最洁净的状态迎接可能的客人。'
+			if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被淋浴冲掉了。'
+			gs 'din_van', 'dryOff'
+			if mc_inventory['razor'] > 0: gs 'din_van', 'brit'
+		end
+	else
+		!! Changed from buying to taking from the box, since shampoo is handed out for free at this location
+		$func('wrap', 'neg', '你的洗发水用完了，得先从箱子里再拿一些才能洗澡。')
+	end
+	gs 'din_van', 'prvt_pee'
+	gs 'din_van', 'toymanage'
+	gs 'din_van', 'enema'
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	gs 'din_van', 'publicpan'
+	if mc_inventory['razor'] > 0: gs 'din_van', 'brit'
+	if mc_inventory['painkillers'] > 0 and pain['total'] > 0:
+		act $func('drugs', 'painkiller_act_str'):
+			gs 'drugs', 'painkiller'
+			gs 'beverage', 'water_stats'
+			gt 'brothel', 'brothel_dressingroom'
+		end
+	end
+	if $sect = 'section2':
+		act '回到大厅':
+			killvar 'temp_brothelsecion'
+			gt 'brothel', 'section2_lobby'
+		end
+	elseif $sect = 'reception':
+		act '回到前台':
+			killvar 'temp_brothelsecion'
+			gt 'brothel', 'reception'
+		end
+	else
+		act '回到大厅':
+			killvar 'temp_brothelsecion'
+			gt 'brothel', 'section1_lobby'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          !! Section 2 !!                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section2_warning':
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/receptionist.jpg"></center>'
+	section_warn = 1
+	'当你走向第二区域时，前台突然开口说：' + $func('wrap', 'pos', '"<<$pcs_firstname>>，你以前从没进过第二区域，对吧？"')
+	'你停下来，看着他，摇了摇头。' + $func('wrap', 'bimbo', '"没有，目前还没有。有什么我需要知道的吗？"')
+	$func('wrap', 'pos', '"是的，那里的客人通常都非常有钱，而且对玩乐有自己的一套想法。所以，如果你想拿到好报酬，就照他们吩咐的做。这也意味着，万一……出了什么问题，你得自己承担。我们有规矩，但面对那些客人，管理层要通融得多。"')
+	'你缓缓点了点头，向他道了声谢，然后继续走向那个区域。'
+	act '前往第二区域': gt 'brothel', 'section2_lobby'
+end
+
+
+if $ARGS[0] = 'section2_lobby':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'brothel', 'section2_lobby'
+	$location_type = 'public_indoors'
+	$sect = 'section2'
+	'<h3>妓院第二区大厅</h3>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/lobby.jpg"></center>'
+	'第二区的大厅。这个大厅相当小，只够摆下一张沙发和一张小桌子。'
+	'只有一间房间通过一扇宽门与大厅相连。从地板的状态来看，经常有大量重型设备被拖进拖出。'
+	'其中一扇门也通向一个<a href="exec:gt ''brothel'', ''brothel_dressingroom''">房间</a>，那是为姑娘们准备的。 '
+
+	killvar 'temp_text'
+	if pcs_sweat >= 40: $temp_text[] = '- 洗个澡。'
+	if klismaday <> daystart and cheatVars['enema'] = 1: $temp_text[] = '- 灌肠。'
+	if (cumloc[1] > 0 or cumloc[4] > 0 or cumloc[8] > 0 or cumloc[9] > 0 or cumloc[10] > 0 or cumloc[15] > 0 or cumloc[16] > 0 or cumloc[17] > 0): $temp_text[] = '- 清洗身体。'
+	if cumloc[11] > 0: $temp_text[] = '- 洗脸'
+	if (pcs_leghair > 3 or pcs_pubes > 3): $temp_text[] = '- 剃掉阴毛和腿毛。'
+	if pcs_hairbsh <> 1: $temp_text[] = '- 梳头发。'
+	if pcs_makeup < 3: $temp_text[] = '- 化点妆。'
+	if pcs_lipbalm < 1: $temp_text[] = '- 涂点润唇膏。'
+	if $pantyworntype <> 'none': $temp_text[] = '- 脱掉内裤。'
+	if $clothingworntype <> 'nude': $temp_text[] = '- 脱光衣服。'
+	if alko > 3: $temp_text[] = '- 不能喝醉。'
+	if drugVars['heroin_high'] > 0 or drugVars['weed_high'] > 0: $temp_text[] = '- 保持清醒。'
+
+	if arrsize('$temp_text') = 0:
+		!! stage = 1
+		!! act 'Party with a client': gt 'brothel_section2', 'section2_party'
+		!! act 'Have a bender': gt 'brothel_section2', 'section2_bender'
+		'这里似乎没什么可做的（内容尚未完成）'
+	else
+		'要能开始工作，你需要：'
+		temp_i = 0
+		:lobby2_loop
+			*pl $temp_text[temp_i]
+			temp_i += 1
+		if temp_i < arrsize('$temp_text'): jump 'lobby2_loop'
+		killvar 'temp_i'
+		killvar 'temp_text'
+
+	end
+	act '去女孩的房间': gt 'brothel', 'brothel_dressingroom'
+	act '去前台': gt 'brothel', 'reception'
+end
+
+
+--- brothel ---------------------------------

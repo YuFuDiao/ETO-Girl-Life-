@@ -1,0 +1,351 @@
+# city_commcenter
+
+!! ======================================================================
+!! Community center offering certification courses and skill training
+!! Hours: Weekdays 9:00-17:00, Closed weekends
+!! ======================================================================
+
+!! ----------------------------------------------------------------------
+!! Available Courses
+!! ----------------------------------------------------------------------
+!! Driving License    - 30,000₽ | 10 lessons + theory + test | Room 201
+!! Secretary Cert     - 15,000₽ | 10 lessons                 | Room 204
+!! Masseuse Cert      - 10,000₽ | 10 lessons                 | Room 203
+!! Singing Lessons    -    500₽ | Per lesson (no limit)      | Room 213
+!! ----------------------------------------------------------------------
+
+!! ----------------------------------------------------------------------
+!! License Array Structure
+!! ----------------------------------------------------------------------
+!! All courses use consistent variable naming:
+!!   license['type']           - Has certification (0/1)
+!!   license['type_enrolled']  - Enrolled in course (0/1)
+!!   license['type_lessons']   - Lesson progress counter
+!!   license['type_lastday']   - Last lesson date (daystart)
+!!
+!! Course Types:
+!!   'drive'      - Driving license
+!!   'secretary'  - Secretarial certification
+!!   'masseuse'   - Masseuse certification
+!! ----------------------------------------------------------------------
+
+!! ----------------------------------------------------------------------
+!! Acts/Sections
+!! ----------------------------------------------------------------------
+!! 'start'            - Exterior view
+!! 'lessons'          - Main bulletin board
+!! 'drivingschool'    - Driving course (age 18+, government ID check)
+!! 'secretarialschool'- Secretary course
+!! 'masseuse'         - Masseuse course
+!! 'singingtutor'     - Singing lessons with Alexei
+!! 'payments'         - Payment processing handler
+!! ----------------------------------------------------------------------
+
+
+if $ARGS[0] = 'start':
+	$loc = 'city_commcenter'
+	$loc_arg = 'start'
+	$menu_loc = 'city_commcenter'
+	$menu_arg = 'start'
+	$location_type = 'public_indoors'
+	menu_off = 0
+	gs 'stat'
+
+	'<center><b>弗拉基米尔·列宁社区中心</b></center>'
+	if month < 4 or month > 10:
+		'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/community_centerw.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/community_center.jpg"></center>'
+	end
+
+	'弗拉基米尔·列宁中心从' + func('time', 'get_time_string', 9, 0) + ' 到 ' + func('time', 'get_time_string', 17, 0) + ' 周一到周五开放，但周末关闭。它是一个本地社区认证和课程中心。'
+
+	act '离开中心': minut += 5 & gt 'city_industrial'
+	act '进入大楼': gt 'city_commcenter', 'lessons'
+end
+
+
+if $ARGS[0] = 'lessons':
+	'<center><b>弗拉基米尔·列宁社区中心</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/reception.jpg"></center>'
+	'里面是一个接待台。旁边有一块大公告板，上面列出了目前可报名的课程。'
+	'在公告板上，你可以看到他们目前提供的课程：'
+	'驾驶课程 ' + $func('money', 'string_price', 30000) + '  十节课即可获得驾照<a href="exec:gt ''city_commcenter'', ''drivingschool''">在201室上课</a>.'
+	'按摩治疗师课程 - ' + $func('money', 'string_price', 10000) + ' 十节课以获取你的按摩师认证<a href="exec:gt ''city_commcenter'', ''masseuse''">在203室上课</a>.'
+	'秘书认证 - ' + $func('money', 'string_price', 15000) + ' 十节课以获取你的秘书认证，<a href="exec:gt ''city_commcenter'', ''secretarialschool''">在204室上课</a>.'
+	'歌唱课程 - ' + $func('money', 'string_price', 500) + ' 每节课<a href="exec:gt ''city_commcenter'', ''singingtutor''">在213室上课。 </a>'
+	act '离开': minut += 5 & gt 'city_industrial'
+end
+
+
+if $ARGS[0] = 'payments':
+	!! $ARGS[1] = course name (for display)
+	!! ARGS[2] = amount to charge
+
+	menu_off = 1
+
+	gs 'money', 'pay', ARGS[2]
+
+	'你支付 ' + $func('money', 'string_price', ARGS[2]) + ' 报名<<$ARGS[1]>>课程，并且你现在已成功报名。请查看公告栏了解上课时间和教室。'
+	gs 'stat'
+
+	act '返回': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'drivingschool':
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/driving_lessons.jpg"></center>'
+	*nl
+	'你兴奋地走进社区中心的201室，脑海里满是想拿到驾照以及会开车后带来的自由。'
+	'这家驾校是政府办的，会将个人资料与国家登记数据库核对。因此，假身份证是行不通的。你至少要年满18岁。'
+
+	if license['drive'] = 1:
+		'你已经拿到驾照了！'
+		act '返回': gt $loc, $loc_arg
+		exit
+	end
+
+	if license['drive_enrolled'] = 0:
+		if age < 18:
+			'你还不到可以上驾驶课的年龄。'
+		else
+			act '报名驾驶课程' + $func('money', 'get_cost_string', 30000):
+				if func('money', 'can_afford', 30000) = 0:
+					$noMoney
+				else
+					cla
+					menu_off = 1
+					'<center><b>弗拉基米尔·列宁社区中心</b></center>'
+					'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/reception.jpg"></center>'
+					'你四下简单看了看有关驾驶课的信息，然后走向前台。她递给你需要填写的表格，并提醒你这些材料会由机构审核，以防造假。'
+					'你付了钱，她给你一份关于驾驶课的小册子。你快速翻看了一下，得知每个工作日都可以上一节两小时的驾驶课。'
+
+					act '支付课程费用':
+						license['drive_enrolled'] = 1
+						gt 'city_commcenter', 'payments', '驾驶', 30000
+					end
+
+					act '返回': gt $loc, $loc_arg
+				end
+			end
+		end
+	elseif license['drive_lastday'] = daystart:
+		'你今天已经上过驾驶课了。'
+	elseif hour >= 9 and hour < 18 and week < 6:
+		if license['drive_lessons'] < 11:
+			act '驾驶课':
+				*clr & cla
+				license['drive_lastday'] = daystart
+				license['drive_lessons'] += 1
+				minut += 120
+				gs 'stat'
+				'<center><b>弗拉基米尔·列宁社区中心201室</b></center>'
+				'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/driving_lessons.jpg"></center>'
+				'你花了两个小时听从驾驶教练的指示，听他讲解如何操控汽车的建议。'
+				'下课时，你觉得自己的驾驶技术更熟练了一些。'
+				act '返回': gt $loc, $loc_arg
+			end
+		elseif license['drive_lessons'] = 11:
+			act '驾驶理论课':
+				*clr & cla
+				menu_off = 1
+				license['drive_lastday'] = daystart
+				license['drive_lessons'] = 12
+				minut += 120
+				gs 'stat'
+				'<center><b>弗拉基米尔·列宁社区中心201室</b></center>'
+				'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/driving_lessons.jpg"></center>'
+				'你花了两个小时听一堂枯燥但必要的理论课，内容是交通标志、交通规则、各种路况场景，以及一些汽车保养的知识。'
+				act '返回': gt $loc, $loc_arg
+			end
+		elseif license['drive_lessons'] = 12:
+			act '驾照考试':
+				*clr & cla
+				menu_off = 1
+				minut += 120
+				license['drive_lessons'] = 0
+				license['drive_enrolled'] = 0
+				license['drive'] = 1
+				gs 'stat'
+				'<center><b>弗拉基米尔·列宁社区中心驾驶课程</b></center>'
+				'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/dk3.jpg"></center>'
+				'你紧张地坐进车里，希望这是最后一次。教练是个时而和蔼、时而严肃的男人。'
+				*nl
+				'接下来的两个小时里，你按照他的指示在城市里行驶，在他指定的地方停车。每犯一个小错误你都会心跳骤停，但他只是让你继续开，什么也没说。结束时，他似乎很满意，说你以后会随着经验越来越熟练。'
+				'"恭喜，你通过了！这是你的驾照。"他微笑着把崭新的驾照递给你。现在你只差一辆车了……'
+				act '返回': gt $loc, $loc_arg
+			end
+		end
+	end
+
+	act '返回': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'secretarialschool':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+
+	'<center><b>秘书培训</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/secretary_instructor.jpg"></center>'
+
+	if license['secretary'] = 1:
+		'你已经拿到秘书资格证了！'
+		act '返回': gt $loc, $loc_arg
+		exit
+	end
+
+	if license['secretary_lastday'] = daystart:
+		'你今天已经上过课了。改天再来吧。'
+	elseif license['secretary_enrolled'] = 0:
+		if func('money', 'can_afford', 15000) = 1:
+			'你走进一个房间，一名女子面带微笑地迎接你。"你是来上课的吗？"'
+			'你点点头然后她很快给了你课程详情和一本小册子阅读。'
+			'你阅读小册子，上面说秘书资格课程会教你各种基础的秘书技能。从口头和书面沟通技巧，到时间管理和组织能力，再到基本的电脑操作以及微软 Office、Word、PowerPoint 和 Excel 的使用，还有打字、记笔记和使用文件系统。课程结束时，你应该能掌握所有这些技能的基础。'
+			'读完小册子后，她告诉你："基础课程是10节课，全套课程费用为 ' + $func('money', 'string_price', 15000) + '。"'
+
+			act '报名秘书课程 (' + $func('money', 'string_price', 15000) + ')':
+				cla
+				menu_off = 1
+				'你为课程付了钱并填写了申请表。现在你可以每天参加两小时的秘书培训。你需要完成10节培训课才能获得资格证。'
+
+				act '支付课程费用':
+					license['secretary_enrolled'] = 1
+					gt 'city_commcenter', 'payments', '秘书', 15000
+				end
+			end
+		else
+			'如果你身上有足够的资金就可以在这里上课。'
+		end
+	elseif license['secretary_lessons'] >= 0 and license['secretary_lessons'] < 10:
+		act '秘书课':
+			*clr & cla
+			menu_off = 1
+			license['secretary_lastday'] = daystart
+			license['secretary_lessons'] += 1
+			minut += 120
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/secretary_class.jpg"></center>'
+			'你走进一间摆满电脑的教室。不出所料，这门课的大多数学生都是女性。老师是一位穿着干练职业装的女士，她走进教室，开始讲解秘书工作的细节以及当今办公室常用电脑程序的基础知识。'
+
+			if (cumloc[6] = 1 or cumloc[7] = 1):
+				pcs_horny += 10
+				'你紧张地在椅子上挪来挪去，想遮住衣服上的精液痕迹，但你越是想擦掉或遮住，反而越显眼。下课时，教室里几乎所有人都用同情或厌恶的目光看着你，包括老师。'
+			end
+
+			act '返回': gt $loc, $loc_arg
+		end
+	elseif license['secretary_lessons'] = 10:
+		act '秘书认证考试':
+			*clr & cla
+			menu_off = 1
+			license['secretary_lastday'] = daystart
+			license['secretary_lessons'] = 0
+			license['secretary_enrolled'] = 0
+			license['secretary'] = 1
+			minut += 15
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/secretary_class.jpg"></center>'
+			'"恭喜你，<<$pcs_nickname>>。看来你已经拿到了资格证，"你的老师说道。'
+			'她从公文包里拿出一份文件，填上你的名字并签名，然后让你带着它去前台。'
+			'有了接待员的签名和社区中心的盖章，你现在正式有资格从事秘书工作了！'
+			act '返回': gt $loc, $loc_arg
+		end
+	end
+
+	act '返回': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'masseuse':
+	'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/masseuse_training.jpg"></center>'
+	act '返回': gt $loc, $loc_arg
+
+	if license['masseuse'] = 1:
+		'"抱歉，我们暂时没有新课程了。如果你想找工作，可以去加莱里亚的美容吧找希安谈谈，她通常都有新员工的空缺，"你的教练告诉你。'
+		exit
+	end
+
+	if license['masseuse_enrolled'] = 0:
+		if func('money', 'can_afford', 10000) = 1:
+			'你走进一个房间，一名年轻女子面带微笑地迎接你。"你是来上课的吗？"'
+			'你点点头然后她很快给了你课程详情和一本小册子阅读。'
+			'基础课程是10节课，全套课程费用为 ' + $func('money', 'string_price', 10000)
+
+			act '支付课程费用':
+				license['masseuse_enrolled'] = 1
+				gt 'city_commcenter', 'payments', '按摩师', 10000
+			end
+		else
+			'如果你身上有足够的资金就可以在这里上课。'
+		end
+	elseif license['masseuse_lastday'] = daystart:
+		'你环顾空荡荡的房间，意识到你今天已经上过课了，教练也已经离开了。'
+	elseif license['masseuse_lessons'] < 10:
+		act '按摩课':
+			*clr & cla
+			license['masseuse_lastday'] = daystart
+			license['masseuse_lessons'] += 1
+			minut += 120
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/city/industrial/community/masseuse_training.jpg"></center>'
+			'你走进房间，看到上课用的按摩床已经摆好了。教练欢迎你并记下你的名字。接下来的两个小时，你们阅读如何缓解特定肌肉疼痛或紧张的详细指南，并与一起上课的同伴以及一些想免费体验的本地学生进行实操练习。'
+			*nl
+
+			if license['masseuse_lessons'] >= 10:
+				license['masseuse_enrolled'] = 0
+				license['masseuse'] = 1
+				'"恭喜，这是你的最后一节课！你已经完成了基础课程，并获得了证明你是持证按摩师的证书。这是你为顾客提供优质服务的第一步，"你的教练告诉你。'
+			end
+
+			act '返回': gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'singingtutor':
+	if license['singing_lastday'] = daystart:
+		'教室里空无一人，于是你弹了几分钟钢琴，然后回到大厅。也许改天再来看看有没有更多课程。'
+	elseif func('money', 'can_afford', 500, 'cash') = 0:
+		'你看到阿列克谢在教室里，但你身上的现金不够上一节课。'
+	else
+		'中心提供由阿列克谢教授的歌唱课程，他是当地一位成熟的歌手和音乐家，与崭露头角的年轻人才合作。与中心的其他课程不同，他只收现金。'
+
+		act '歌唱课程 (' + $func('money', 'string_price', 500) + ')':
+			*clr & cla
+			menu_off = 1
+			minut += 60
+			alexeyQW += 1
+			gs 'exp_gain', 'vokal', rand(5, 10)
+			license['singing_lastday'] = daystart
+			gs 'money', 'pay', 500, 'cash'
+			gs 'stat'
+
+			if alexeyQW = 1:
+				'你走进办公室，看到一个留着马尾辫的中年男人。他自信地看了你一眼。"你是来学唱歌的吗，小姐？"他用特别悦耳的嗓音问道。'
+				'你点点头，递给他 ' + $func('money', 'string_price', 500) + '。'
+				'他把钱收进口袋，自我介绍道："我是阿列克谢，你叫什么名字？"'
+				'你告诉了他你的名字，他只是点了点头表示知道了，然后立刻开始上课。'
+				'不知不觉，一个小时就过去了。你起身离开，他礼貌地向你道别。'
+			elseif alexeyQW = 2:
+				'你满怀期待地走进小教室。阿列克谢坐在钢琴旁，示意你坐在旁边的椅子上。他让你跟着他弹奏的音符练习音阶。你很快就有了信心，每当你表现得好，他就会碰碰你的膝盖。 '
+				'一个小时后，你感到精疲力竭，但觉得对唱歌有了更多了解。"你的嗓音很好，"阿列克谢说。"但你还需要练习呼吸和控制。"他说每个字时都摸着你的胸部和喉咙。'
+				gs 'arousal', 'foreplay', 15
+				gs 'stat'
+			else
+				'你走进小教室，迫不及待地想开始下一节课。阿列克谢像往常一样坐在钢琴旁，朝你的椅子挥了挥手。'
+				'他让你练习热身音阶，同时弹着钢琴。你现在已经相当熟练，很快就完成了热身。'
+				'课上到一半，阿列克谢又给了你一张乐谱让你唱，然后开始弹钢琴，示意你开始。'
+				'下课后，你感到筋疲力尽，但很期待上下一节课。'
+			end
+			act '返回': gt $loc, $loc_arg
+		end
+	end
+	act '返回': gt $loc, $loc_arg
+end
+
+
+--- city_commcenter ---------------------------------

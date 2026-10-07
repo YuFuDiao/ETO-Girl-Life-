@@ -1,0 +1,137 @@
+# music_delparco
+
+if $ARGS[0] = 'talkwithzariyah':
+!!	TODO: Some small talk and a description here plus some paragraph depending on where the quest stands
+	'你向第一位女服务员打听扎里娅，她指引你去办公室。当你走近时，她隔着敞开的门向你挥手，示意你进去 "是的，是的，鲁斯兰，别担心。不，我得走了，回头再聊。"'
+	if ml_delparcoQW['Stage'] = 1:
+		'她放下电话 "<<$pcs_nickname>>，你来了真是太好了。你还好吗？你考虑过那个提议了吗？" 你坐下时，她对你微笑着说。'
+		act '接受在德尔帕尔科演出的提议': gt 'music_delparco', 'delparco_accept'
+	!!	act 'Decline the offer': gt 'mod_musiclife_delparco', 'delparco_decline'
+	elseif ml_delparcoQW['Stage'] = 2:
+		'她放下电话 "<<$pcs_nickname>>，你来了真是太好了。你还好吗？你是来谈那个提议的吗？" 你坐下时，她对你微笑着说。'
+		act '讨论现场音乐': gt 'music_delparco', 'firstdiscussion'
+	end
+	act '离开': gt 'cafe_parco', 'start'
+end
+
+
+if $ARGS[0] = 'delparco_accept':
+	ml_venues['del_parco'] = 1
+	ml_delparcoQW['Stage'] = 2
+!!	TODO: Better scene.
+	'你接受了。'
+	*nl
+	'（警告 - 该事件尚未完成，所以缺少图片，文本也较为简化）'
+	act '讨论现场音乐': gt 'music_delparco', 'firstdiscussion'
+	act '离开': gt 'cafe_parco', 'start'
+end
+
+
+if $ARGS[0] = 'firstdiscussion':
+	if (week + 2 <= 7):
+		ml_answerdeadline = week + 2
+	else
+		ml_answerdeadline = week - 5
+	end
+
+!!	TODO: Obviously, blahblah is not proper text.
+	*nl
+	'你在扎里娅对面坐下 "我又想了想，是的，我愿意做，只是需要多了解一些。我以前从没做过类似的事。"'
+	'她点点头，拿起一支笔 "我理解，<<$pcs_nickname>>。嗯，这不是在竞技场演出之类的。我们只是需要有人在周五演奏。每次半小时，但这不是背景音乐，你要演奏歌曲。"'
+	'她转着笔，把她说的部分内容记下来 "我们会付你报酬。钱不多，但我们会付你<<$func(''money'', ''string_profit'', 800)>>。我们希望在两周后的晚上 8 点开始。"'
+	'你想了一会儿。 <<$func(''money'', ''string_profit'', 800)>>比你在巴甫洛夫斯克其他地方能得到的要多得多。另一方面，30分钟意味着不少歌曲，你一开始需要大量练习才能完成。'
+	*nl
+	act '接受提议':
+		*clr & cla
+		ml_delparcoQW['Stage'] = 4
+		'"我很乐意去做！" 你几乎咬到舌头才停下来，但有人邀请你演奏，这是你梦想的第一步。你几乎按捺不住自己。'
+		'"太棒了！" 扎里娅对你微笑着，把她正在写的那张纸推到你面前 "一切都写好了。别忘了，两周后的周五晚上 '+func('time', 'get_time_string', 20, 0)+'，所以请最迟七点半到这里。'
+		'相信我，你需要时间来准备。如果顺利的话，以后每个周五都来。"'
+		ml_gigday['delparco'] = daystart + 19 - week
+		ml_gighour['delparco'] = 19
+		ml_gigfee['delparco'] = 800
+
+		killvar 'ml_answerdeadline'
+
+		act '离开': gt 'cafe_parco', 'start'
+	end
+
+	act '再考虑一下':
+		*clr & cla
+		ml_delparcoQW['Stage'] = 3
+		ml_delparcoQW['Next Date'] = daystart + 2
+		ml_delparcooriginaldate = daystart
+		'"我得想一想，我想确定自己能做得到。这是个重大的承诺，我不想，你知道的……搞砸了。"'
+		'扎里娅点点头 "好的，<<$pcs_nickname>>，但请让我知道<<$weekName[ml_answerdeadline]>>。"'
+
+		killvar 'ml_answerdeadline'
+
+		act '离开': gt 'cafe_parco', 'start'
+	end
+
+
+end
+
+
+if $ARGS[0] = 'acceptafterthinking':
+
+	offset = (daystart-ml_delparcooriginaldate)
+	ml_gigday['delparco'] = daystart + 19 - offset - week
+	ml_gighour['delparco'] = 19
+	ml_gigfee['delparco'] = 800
+	ml_delparco['performance'] = 50
+	ml_delparcoQW['Stage'] = 4
+
+	'"我很乐意去做！" 你几乎咬到舌头才停下来，但有人邀请你演奏，这是你梦想的第一步。你几乎按捺不住自己。'
+	'"太棒了！" 扎里娅对你微笑着，把她正在写的那张纸推到你面前 "一切都写好了。别忘了，两周后的周五晚上 '+func('time', 'get_time_string', 20, 0)+'，所以请最迟七点半到这里。'
+	'相信我，你需要时间来准备。如果顺利的话，以后每个周五都来。"'
+
+	killvar 'offset'
+	killvar 'ml_delparcooriginaldate'
+	act '离开': gt 'cafe_parco', 'start'
+end
+
+
+if $ARGS[0] = 'eveningshow':
+	minut += 60
+	ml_correction_chance = ml_performance['set_quality'] + ((pcs_hotcat - 5)*3) + (pcs_perform/10)
+	ml_success = rand(0, 100)
+	gs 'exp_gain', 'instrmusic', rand(1, 2)
+	gs 'exp_gain', 'vokal', rand(1, 2)
+	ml_performance['performed_minutes'] += 30
+	ml_performance['total_time_performed'] += 30
+
+!!	if perform_lvl < 45 = rand(1,3):
+		'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/music/GigPlaceHolder.mp4"></video></center>'
+	!! TODO: More scene, on set up, arriving, etc.
+		if ml_success < ml_performance['set_quality']:
+			ml_delparco['performance'] += 10
+			gs 'fame', 'pav', 'music', rand(1, 5)
+			gs 'mood', 'raise', 'small'
+			'你毫无问题地演奏，一切都如原本该有的样子。'
+		elseif ml_success < ml_correction_chance:
+			ml_delparco['performance'] += 5
+			gs 'fame', 'pav', 'music', rand(1, 3)
+			'你犯了一些错误，有些地方忘了歌词，但你靠你的表演——是的，还有你的外表——弥补了过来。'
+			gs 'mood', 'raise', 'tiny'
+		elseif ml_success < ml_correction_chance + 10:
+			gs 'fame', 'pav', 'music', rand(-2, 0)
+			gs 'mood', 'lower', 'small'
+			'你犯了不少错误，有些地方忘了歌词，尽管你尽力用表演和外表弥补，你还是能看出人们注意到了。 '
+			'在下一场演出之前，你必须多加练习并排练你的歌曲。'
+		else
+			ml_delparco['performance'] -= 20
+			gs 'fame', 'pav', 'music', rand(-10, -5)
+			gs 'mood', 'lower', 'medium'
+			'今天绝对不是你的日子。你演砸了，没有比这更贴切的词了。虽然你撑过了那 30 分钟，但你能从观众脸上看出他们并不真的享受，尽管他们最后礼貌地鼓了掌。'
+			'如果你想再有一次表演的机会，你必须认真练习。'
+		end
+!!	end
+	*nl
+	'（该事件尚未完成 - 不要抱怨质量 - 只报告严重错误）'
+
+
+	act '离开': gt 'cafe_parco', 'start'
+end
+
+--- music_delparco ---------------------------------

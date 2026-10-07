@@ -1,0 +1,174 @@
+# sentence
+
+!! If Sveta has a home, she receives a letter from the court to appear. If possible, make it trigger as Sveta enters the home.
+!! Shows up when policeQW_courtletter_dates[0] = daystart
+!! Added a version if Sveta has gone to court and not paid the fine within 30 days.
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/shared/court/courthouse.jpg"></center>'
+	'你正站在一座受古希腊罗马风格启发的法院大楼中央，这里是圣彼得堡市的正义堡垒。'
+	'这里矗立着许多该地区政治和法律人物的雕像，最早甚至可以追溯到叶卡捷琳娜大帝的半身像。'
+
+	act '离开': gt 'city_center'
+
+	if policeQW_courthearing_dates[0] = daystart and hour >= 7 and hour < 11: act '去参加庭审': gt 'sentence', 'hearing'
+
+	if AlexandriaQW = 13:
+		act '寻找菲利普·库达绍夫的办公室': gt 'alexandriaEv', 'filipp'
+	end
+end
+
+
+if $ARGS[0] = 'hearing':
+	minut += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/shared/court/entrance.jpg"></center>'
+	'你拖着沉重的步伐走进法院大楼，加入排队等待通过安检门的人群。你耐心地等着轮到自己，然后走向接待区。'
+	'"你好，我叫<<$pcs_firstname>> <<$pcs_lastname>>。我收到了传票，"你对坐在桌前的女人说。'
+	'她让你把传票递过去，翻看了一下。"好的，去5号法庭，轮到你的话他们会叫你的。"'
+	'你紧张地点了点头，然后找到了指定的法庭。'
+
+	act '前往法庭':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/shared/court/courtroom.jpg"></center>'
+		'你迷了路，花了不少时间寻找正确的法庭，问了好几个人房间在哪里。幸好他们都很热心，给你指了正确的方向。'
+		'开门之前，你深吸一口气，努力驱散紧张感。你鼓起勇气，握住门把手，推开了门……'
+
+		act '等待':
+			*clr & cla
+			minut += 120
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/shared/court/wait.jpg"></center>'
+			'你走进来时几乎没有人注意到你，因为一场宣判正在进行。你找了个座位坐下，听着一个又一个案子，感觉像是等了整整一个世纪。'
+			'你努力听了一些辩护，希望在见到法官前能学到点有用的东西，但没过多久你就走神了，开始做起白日梦。'
+			'你的白日梦突然被打断，因为你听到有人叫你的名字。你吓了一跳，连忙让整个房间的人知道你已经到了，与此同时你听到有人偷偷地笑了几声。'
+
+			act '站到法官面前':
+				minut += 20
+				gs 'stat'
+
+				gt 'court_sentence_events', 'judge_start', $policeQW_courthearing_subjects[0]
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'punishment':
+	minut += 20
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/shared/court/sentence.jpg"></center>'
+	'法官严厉地看着你。"你闹出了不小的动静，<<$pcs_lastname>>小姐。法律是很严厉的，即使是对轻罪也是如此。"'
+	'他继续说着，你害怕得微微发抖。"话虽如此，我相信更温和的处理方式，相信你能从错误中吸取教训，改过自新。"'
+	'你温顺地点了点头，感到稍微松了一口气。'
+
+	gs 'court_sentence_events', 'punishment_start', $policeQW_courthearing_subjects[0]
+
+	policeQW['fine_deadline'] += 14
+	killvar 'policeQW_courthearing_dates', 0
+	killvar 'policeQW_courthearing_subjects', 0
+
+	act '离开法庭': gt 'city_center', '', 'mom_check'
+end
+
+
+!! this should trigger the next time Sveta is home after having not gone to court
+if $ARGS[0] = 'police_arrest':
+	temp_arrest = ARGS[1]
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/police/police_door.jpg"></center>'
+	'门外传来响亮的敲门声，你打开门，看到两名警察站在走廊里。'
+	'"<<$pcs_firstname>> <<$pcs_lastname>>，你被捕了！"其中一人大声吼道。'
+
+	act '什么？':
+		*clr & cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/police_arrested.jpg"></center>'
+		'"什么？！为什么？！"你难以置信地问道。'
+		'其中一人举起一张纸让你看。"这是逮捕令，因为你没有出庭。"'
+		'你还没来得及看完，他就把纸收了起来。看来那些叫你去法院出庭的信件并不是开玩笑……'
+		'另一名警察把你的双手铐在背后，押着你走向他们的车。他们粗暴地把你推进后座，开车把你带到警察局，在那里解开手铐，把你扔进了拘留室。'
+
+		act '第二天早上':
+			if temp_arrest = 0:
+				killvar 'temp_arrest'
+				gt 'sentence', 'police_arrest1'
+			elseif temp_arrest = 1:
+				killvar 'temp_arrest'
+				gt 'sentence', 'police_arrest2'
+			else
+				killvar 'temp_arrest'
+				gt 'sentence', 'police_arrest3'
+			end
+		end
+	end
+end
+
+
+!! This should trigger the next time Sveta is home after having not gone to court
+if $ARGS[0] = 'police_arrest1':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/shared/court/judge.jpg"></center>'
+	'你被带出拘留室，前往法院等待听证会。'
+	'"看来你错过了你的听证会，<<$pcs_lastname>>小姐。你有什么要为自己辩解的吗？"面容相当严厉的法官问道。'
+	'你环顾四周，想找个借口，但最终你决定最好还是坦白承认。'
+	'"我没有借口，法官大人……"你怯生生地回答。'
+
+	policeQW_courthearing_dates[] = -daystart
+	$policeQW_courthearing_subjects[] = $mid($policeQW_courtletter_subjects[0], 14)
+	if arrsize('policeQW_courthearing_dates') > 1:
+		gs 'array', 'coupled_sort', 'policeQW_courthearing_dates', '$policeQW_courthearing_subjects'
+	end
+
+	killvar 'policeQW_courtletter_dates', 0
+	killvar 'policeQW_courtletter_subjects', 0
+
+
+	act '等待惩罚': gt 'sentence', 'punishment'
+end
+
+
+!! This should trigger the next time Sveta is home after having not paid the fine
+if $ARGS[0] = 'police_arrest2':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/shared/court/judge.jpg"></center>'
+	'你被带出拘留室，前往法院等待听证会。'
+	'"你一直拒绝缴纳罚款，<<$pcs_lastname>>小姐。你有什么要为自己辩解的吗？"面容相当严厉的法官问道。'
+	'你开始环顾四周，想找个借口，但最终你决定最好还是坦白承认。'
+	'"我没有借口，法官大人……"你怯生生地回答。'
+	*nl
+	'法官的目光仿佛能穿透你，他清了清嗓子。"我明白了。你有三十天的时间缴纳罚款。如果做不到，你将被再次逮捕，并被判处监禁。"'
+	'你默默点头，表示明白了。'
+!! Can we add an out of character note that stats that if you fail to pay your fines again and get arrested a second time it will lead to a game over?
+
+	policeQW['fine_deadline'] = max(policeQW['fine_deadline'], daystart + 30)
+
+	killvar 'policeQW_courtletter_dates', 0
+	killvar 'policeQW_courtletter_subjects', 0
+
+	act '离开法庭': gt 'city_center', '', 'mom_check'
+end
+
+
+if $ARGS[0] = 'police_arrest3':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/shared/court/judge.jpg"></center>'
+	'你被带出拘留室，前往法院等待听证会。'
+	'"你以为自己可以凌驾于法律之上吗，<<$pcs_lastname>>小姐？我可以向你保证，你不行。我判处你一年监禁。"'
+	'你只是默默地点了点头，然后被拖走服刑。'
+	act '继续':
+		gs 'gameover', 'check', 14
+		msg '<font color=red><b>你应该被关进监狱，但作弊模式让你自由。</b></font>'
+		!! Can we make this in big red letters that this is a game over? Not sure how to code that.
+		policeQW['arrest_gameover_flag'] = 0
+		gt $loc, $loc_arg
+	end
+end
+
+
+--- sentence ---------------------------------

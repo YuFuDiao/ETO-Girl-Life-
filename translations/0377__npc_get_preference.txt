@@ -1,0 +1,399 @@
+# npc_get_preference
+
+!{
+	Distilling the combination of Svetas attributes and an npcs preferences
+
+	Use case:
+		gs 'npc_get_preference', $npcID, $function, [$attribute_group,] [$attribute_group,] ...
+				$npcID:
+					Technically optional
+					Sets npc_pref_values.
+				$function:
+					Technically optional
+					- 'randomPosIndNeg':
+						Select a random attribute for each combination of:
+							Sveta "Has" the attrbute | Sveta does "Not" have the attribute
+							Npc has a "Pos"itive preference | Npc is "Ind"iferent | Npc has a "Neg"ative preference
+						Allows for systematic handling of multiple postive/negative preferences.
+				$attributes
+					optional
+					Populates the $ngp_pref array with the $attribute_group''s populates
+
+
+	Examples:
+		gs 'npc_get_preference', $npcID, 'randomPosIndNeg' 'body_tits'
+		!! This sets the following variables:
+		!$ngpPrefResult['HasPos']	<- Sveta has the attribute and npc likes that attribute
+		!$ngpPrefResult['NotPos']	<- Sveta does not have the attribute and npc likes that attribute
+		!$ngpPrefResult['HasInd']	<- Sveta has the attribute and npc is indifferent to that attribute
+		!$ngpPrefResult['NotInd']	<- Sveta does not have the attribute and npc is indifferent to that attribute
+		!$ngpPrefResult['HasNeg']	<- Sveta has the attribute and npc does not like that attribute
+		!$ngpPrefResult['NotNeg']	<- Sveta does not have the attribute and npc does not like that attribute
+
+		if $ngpPrefResult['HasPos'] <> '':
+			'我喜欢你的胸部 :)'
+		elseif $ngpPrefResult['HasNeg'] <> '':
+			'我不喜欢你的胸部 :(, 我喜欢 '
+		elseif $ngpPrefResult['NotPos'] <> '':
+			'我喜欢<<iif($ngpPrefResult[''NotPos''] = ''body_skin_bad'', ''粗糙的皮肤'', iif($ngpPrefResult[''NotPos''] = ''body_skin_normal'', ''普通的皮肤'', iif($ngpPrefResult[''NotPos''] = ''body_skin_good'', ''光滑的皮肤'', iif($ngpPrefResult[''NotPos''] = ''clothes_style_fetish'', ''恋物风格的穿着'', iif($ngpPrefResult[''NotPos''] = ''clothes_style_wealthy'', ''奢华风格的穿着'', $ngpPrefResult[''NotPos''])))))>>'
+		elseif $ngpPrefResult['NotNeg'] <> '':
+			'我不喜欢<<iif($ngpPrefResult[''NotPos''] = ''body_skin_bad'', ''粗糙的皮肤'', iif($ngpPrefResult[''NotPos''] = ''body_skin_normal'', ''普通的皮肤'', iif($ngpPrefResult[''NotPos''] = ''body_skin_good'', ''光滑的皮肤'', iif($ngpPrefResult[''NotPos''] = ''clothes_style_fetish'', ''恋物风格的穿着'', iif($ngpPrefResult[''NotPos''] = ''clothes_style_wealthy'', ''奢华风格的穿着'', $ngpPrefResult[''NotPos''])))))>>'
+		end
+
+		gs 'npc_get_preference', $npcID, 'randomPosIndNeg' 'body_skin'
+
+		if $ngpPrefResult['HasPos'] = 'body_skin_bad':
+			'亲爱的，我喜欢你长痘痘的皮肤'
+		elseif $ngpPrefResult['HasPos'] = 'body_skin_normal':
+			'我喜欢你普通的皮肤'
+		elseif $ngpPrefResult['HasPos'] = 'body_skin_good':
+			'我喜欢你光滑的皮肤'
+		elseif $ngpPrefResult['NotPos'] = 'body_skin_bad':
+			'我希望你的皮肤看起来糟糕'
+		elseif $ngpPrefResult['NotPos'] = 'body_skin_normal':
+			if func('pcs_has_attr', 'body_skin_bad'):
+				'我希望你的皮肤看起来更好'
+			else
+				'我希望你的皮肤看起来更差'
+			end
+		elseif $ngpPrefResult['NotPos'] = 'body_skin_good':
+			'我希望你的皮肤看起来很好'
+		end
+
+
+			!! We want to work with some custom preferences. So we use the 'no_clear' tag and setup the preferences manually
+		killvar 'ngp_pref'
+		$ngp_pref[] = 'clothes_style_fetish'
+		$ngp_pref[] = 'clothes_style_wealthy'
+		gs 'npc_get_preference', $npcID, 'randomPosIndNeg' 'no_clear'
+
+		if $ngpPrefResult['HasPos'] = 'clothes_style_fetish':
+			'我喜欢你穿情趣服装的样子'
+		elseif $ngpPrefResult['HasPos'] = 'clothes_style_wealthy':
+			'我喜欢你穿正装的样子'
+		elseif $ngpPrefResult['NotPos'] = 'clothes_style_fetish':
+			'也许下次你可以穿情趣服装'
+		elseif $ngpPrefResult['NotPos'] = 'clothes_style_wealthy':
+			'我们今天去购物怎么样，我看到一件非常适合你的漂亮晚礼服'
+		elseif PCloQuality >= 4:
+			'亲爱的，这些衣服真不错'
+		else
+			'你是怎么把那些衣服穿得这么好看的？你看起来棒极了。'
+		end
+
+
+!}
+
+
+
+
+!! Create the $npc_ngp_pref_traits and npc_ngp_pref_values arrays
+!! Create the $npc_pref_traits and npc_pref_values arrays
+if $npc_preferences[$ARGS[0]] <> '':
+	dynamic $replace($npc_preferences[$ARGS[0]], 'npc_pref', 'npc_ngp_pref')
+end
+
+if arrpos('$ARGS', 'no_clear') < 0:
+	killvar 'ngp_pref'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                BODY                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if arrpos('$ARGS', 'body_ass') >= 0:
+	$ngp_pref[] = 'body_ass_flat'
+	$ngp_pref[] = 'body_ass_average'
+	$ngp_pref[] = 'body_ass_big'
+	$ngp_pref[] = 'body_ass_heart'
+	$ngp_pref[] = 'body_ass_bubble'
+end
+
+if arrpos('$ARGS', 'body_bmi') >= 0:
+	$ngp_pref[] = 'body_bmi_starving'
+	$ngp_pref[] = 'body_bmi_underweight'
+	$ngp_pref[] = 'body_bmi_normal'
+	$ngp_pref[] = 'body_bmi_overweight'
+	$ngp_pref[] = 'body_bmi_obese'
+end
+
+if arrpos('$ARGS', 'body_eyes') >= 0:
+	$ngp_pref[] = 'body_eyes_brown'
+	$ngp_pref[] = 'body_eyes_grey'
+	$ngp_pref[] = 'body_eyes_green'
+	$ngp_pref[] = 'body_eyes_blue'
+end
+
+if arrpos('$ARGS', 'body_lips') >= 0:
+	$ngp_pref[] = 'body_lips_thin'
+	$ngp_pref[] = 'body_lips_normal'
+	$ngp_pref[] = 'body_lips_plump'
+	$ngp_pref[] = 'body_lips_big'
+	$ngp_pref[] = 'body_lips_pillowy'
+end
+
+if arrpos('$ARGS', 'body_skin') >= 0:
+	$ngp_pref[] = 'body_skin_bad'
+	$ngp_pref[] = 'body_skin_normal'
+	$ngp_pref[] = 'body_skin_good'
+end
+
+if arrpos('$ARGS', 'body_sweat') >= 0:
+	$ngp_pref[] = 'body_sweat_none'
+	$ngp_pref[] = 'body_sweat_sweaty'
+	$ngp_pref[] = 'body_sweat_stinky'
+end
+
+if arrpos('$ARGS', 'body_tits') >= 0:
+	$ngp_pref[] = 'body_tits_small'
+	$ngp_pref[] = 'body_tits_average'
+	$ngp_pref[] = 'body_tits_big'
+	$ngp_pref[] = 'body_tits_huge'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              CLOTHES                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if arrpos('$ARGS', 'clothes_cleavage') >= 0:
+	$ngp_pref[] = 'clothes_cleavage_none'
+	$ngp_pref[] = 'clothes_cleavage_small'
+	$ngp_pref[] = 'clothes_cleavage_medium'
+	$ngp_pref[] = 'clothes_cleavage_large'
+end
+
+if arrpos('$ARGS', 'clothes_pants') >= 0:
+	$ngp_pref[] = 'clothes_pants_long'
+	$ngp_pref[] = 'clothes_pants_normal'
+	$ngp_pref[] = 'clothes_pants_short'
+end
+
+if arrpos('$ARGS', 'clothes_quality') >= 0:
+	$ngp_pref[] = 'clothes_quality_low'
+	$ngp_pref[] = 'clothes_quality_medium'
+	$ngp_pref[] = 'clothes_quality_high'
+end
+
+if arrpos('$ARGS', 'clothes_skirt') >= 0:
+	$ngp_pref[] = 'clothes_skirt_long'
+	$ngp_pref[] = 'clothes_skirt_normal'
+	$ngp_pref[] = 'clothes_skirt_short'
+end
+
+if arrpos('$ARGS', 'clothes_thin') >= 0:
+	$ngp_pref[] = 'clothes_thin_low'
+	$ngp_pref[] = 'clothes_thin_medium'
+	$ngp_pref[] = 'clothes_thin_high'
+end
+
+if arrpos('$ARGS', 'shoes_heels') >= 0:
+	$ngp_pref[] = 'shoes_heels_flat'
+	$ngp_pref[] = 'shoes_heels_low'
+	$ngp_pref[] = 'shoes_heels_medium'
+	$ngp_pref[] = 'shoes_heels_high'
+	$ngp_pref[] = 'shoes_heels_ultra'
+	$ngp_pref[] = 'shoes_heels_fetish'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             COSMETICS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if arrpos('$ARGS', 'cosmetics_makeup') >= 0:
+	$ngp_pref[] = 'cosmetics_makeup_running'
+	$ngp_pref[] = 'cosmetics_makeup_none'
+	$ngp_pref[] = 'cosmetics_makeup_light'
+	$ngp_pref[] = 'cosmetics_makeup_moderate'
+	$ngp_pref[] = 'cosmetics_makeup_heavy'
+end
+
+if arrpos('$ARGS', 'cosmetics_piercings') >= 0:
+	$ngp_pref[] = 'cosmetics_piercings_none'
+	$ngp_pref[] = 'cosmetics_piercings_few'
+	$ngp_pref[] = 'cosmetics_piercings_multiple'
+	$ngp_pref[] = 'cosmetics_piercings_lot'
+end
+
+if arrpos('$ARGS', 'cosmetics_tattoos') >= 0:
+	$ngp_pref[] = 'cosmetics_tattoos_none'
+	$ngp_pref[] = 'cosmetics_tattoos_few'
+	$ngp_pref[] = 'cosmetics_tattoos_multiple'
+	$ngp_pref[] = 'cosmetics_tattoos_lot'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                HAIR                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if arrpos('$ARGS', 'hair_color') >= 0:
+	$ngp_pref[] = 'hair_color_black'
+	$ngp_pref[] = 'hair_color_brown'
+	$ngp_pref[] = 'hair_color_red'
+	$ngp_pref[] = 'hair_color_blonde'
+	$ngp_pref[] = 'hair_color_dyed'
+end
+
+if arrpos('$ARGS', 'hair_length') >= 0:
+	$ngp_pref[] = 'hair_length_veryshort'
+	$ngp_pref[] = 'hair_length_short'
+	$ngp_pref[] = 'hair_length_chin'
+	$ngp_pref[] = 'hair_length_shoulder'
+	$ngp_pref[] = 'hair_length_bra'
+	$ngp_pref[] = 'hair_length_long'
+end
+
+if arrpos('$ARGS', 'hair_pube_style') >= 0:
+	$ngp_pref[] = 'hair_pubes_shaven'
+	$ngp_pref[] = 'hair_pubes_stubble'
+	$ngp_pref[] = 'hair_pubes_patch'
+	$ngp_pref[] = 'hair_pubes_trimmed'
+	$ngp_pref[] = 'hair_pubes_bush'
+	$ngp_pref[] = 'hair_pubes_untrimmed'
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               STATS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if arrpos('$ARGS', 'stats_intel') >= 0:
+	$ngp_pref[] = 'stats_intel_dumb'
+	$ngp_pref[] = 'stats_intel_normal'
+	$ngp_pref[] = 'stats_intel_smart'
+end
+
+if arrpos('$ARGS', 'stats_strength') >= 0:
+	$ngp_pref[] = 'stats_strength_weak'
+	$ngp_pref[] = 'stats_strength_normal'
+	$ngp_pref[] = 'stats_strength_athletic'
+	$ngp_pref[] = 'stats_strength_strong'
+	$ngp_pref[] = 'stats_strength_manly'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           MAIN FUNCTION                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! Relies on the array:
+!!	$ngp_pref = the preference in pcs_has_attr.
+!!				Example: hair_color_black
+if arrpos('$ARGS', 'randomPosIndNeg') >= 0:
+	killvar 'ngpVars'
+	killvar 'temp_ngpPrefHasPos'
+	killvar 'temp_ngpPrefNotPos'
+	killvar 'temp_ngpPrefHasNeg'
+	killvar 'temp_ngpPrefNotNeg'
+	killvar 'temp_ngpPrefHasInd'
+	killvar 'temp_ngpPrefNotInd'
+	killvar 'ngpPrefResult'
+
+	ngpVars['max'] = arrsize('$ngp_pref')
+	if ngpVars['max'] = 0:
+		killvar 'ngpVars'
+		exit
+	end
+
+	ngpVars['i'] = 0
+	:choose_pref_loop
+		$ngpVars['trait'] = $ngp_pref[ngpVars['i']]
+		if func('pcs_has_attr', $ngpVars['trait']):
+			if npc_ngp_pref_values[$ngpVars['trait']] > 0:
+				$temp_ngpPrefHasPos[] = $ngpVars['trait']
+			elseif npc_ngp_pref_values[$ngpVars['trait']] = 0:
+				$temp_ngpPrefHasInd[] = $ngpVars['trait']
+			else
+				$temp_ngpPrefHasNeg[] = $ngpVars['trait']
+			end
+		else
+			if npc_ngp_pref_values[$ngpVars['trait']] > 0:
+				$temp_ngpPrefNotPos[] = $ngpVars['trait']
+			elseif npc_ngp_pref_values[$ngpVars['trait']] = 0:
+				$temp_ngpPrefNotInd[] = $ngpVars['trait']
+			else
+				$temp_ngpPrefNotNeg[] = $ngpVars['trait']
+			end
+		end
+		ngpVars['i'] += 1
+	if ngpVars['i'] < ngpVars['max']: jump 'choose_pref_loop'
+
+	if arrsize('temp_ngpPrefHasPos') > 0:
+		npgVars['i'] = rand(0, arrsize('temp_ngpPrefHasPos') - 1)
+		$ngpVars['trait'] = $temp_ngpPrefHasPos[npgVars['i']]
+		$ngpPrefResult['HasPos'] = $ngpVars['trait']
+		killvar 'temp_ngpPrefHasPos'
+	end
+	if arrsize('temp_ngpPrefHasInd') > 0:
+		npgVars['i'] = rand(0, arrsize('temp_ngpPrefHasInd') - 1)
+		$ngpVars['trait'] = $temp_ngpPrefHasInd[npgVars['i']]
+		$ngpPrefResult['HasInd'] = $ngpVars['trait']
+		killvar 'temp_ngpPrefHasInd'
+	end
+	if arrsize('temp_ngpPrefHasNeg') > 0:
+		npgVars['i'] = rand(0, arrsize('temp_ngpPrefHasNeg') - 1)
+		$ngpVars['trait'] = $temp_ngpPrefHasNeg[npgVars['i']]
+		$ngpPrefResult['HasNeg'] = $ngpVars['trait']
+		killvar 'temp_ngpPrefHasNeg'
+	end
+	if arrsize('temp_ngpPrefNotPos') > 0:
+		npgVars['i'] = rand(0, arrsize('temp_ngpPrefNotPos') - 1)
+		$ngpVars['trait'] = $temp_ngpPrefNotPos[npgVars['i']]
+		$ngpPrefResult['NotPos'] = $ngpVars['trait']
+		killvar 'temp_ngpPrefNotPos'
+	end
+	if arrsize('temp_ngpPrefNotInd') > 0:
+		npgVars['i'] = rand(0, arrsize('temp_ngpPrefNotInd') - 1)
+		$ngpVars['trait'] = $temp_ngpPrefNotInd[npgVars['i']]
+		$ngpPrefResult['NotInd'] = $ngpVars['trait']
+		killvar 'temp_ngpPrefNotInd'
+	end
+	if arrsize('temp_ngpPrefNotNeg') > 0:
+		npgVars['i'] = rand(0, arrsize('temp_ngpPrefNotNeg') - 1)
+		$ngpVars['trait'] = $temp_ngpPrefNotNeg[npgVars['i']]
+		$ngpPrefResult['NotNeg'] = $ngpVars['trait']
+		killvar 'temp_ngpPrefNotNeg'
+	end
+
+	killvar 'ngpVars'
+	killvar 'ngp_pref'
+end
+
+
+killvar 'npc_ngp_pref_traits'
+killvar 'npc_ngp_pref_values'
+
+
+--- npc_get_preference ---------------------------------

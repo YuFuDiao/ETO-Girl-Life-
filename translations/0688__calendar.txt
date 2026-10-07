@@ -1,0 +1,241 @@
+# calendar
+
+!! ============================================================================
+!! CALENDAR V2 - MAIN ENTRY POINT
+!! ============================================================================
+!! Coordinates all calendar modules to display the weekly calendar interface.
+!!
+!! To add a new event, define it in calendar_list.qsrc
+!! then call gs 'calendar', 'add', 'event_definition_function_name'
+!! For multiple events, add them to a pack in the 'pack' section below
+!! then call gs 'calendar', 'pack', 'add', 'pack_name'
+!!
+!! To remove an event, call gs 'calendar', 'remove', 'event_id'
+!! For multiple events, call gs 'calendar', 'pack', 'remove', 'pack_name'
+!!
+!! ============================================================================
+
+!! ============================================================================
+!! show
+!! Main entry point - displays the calendar interface
+!! Input: Optional ARGS[1] = start_daystart (defaults to current week''s Monday)
+!! Output: Displays complete calendar with controls
+!! ============================================================================
+if $ARGS[0] = 'show':
+	!! Determine which week to display
+	if ARGS[1] > 0:
+		!! Use provided start date
+		calendar_ui_week_start = ARGS[1]
+	else
+		!! Calculate Monday of current week
+		!! week = 1 (Monday) to 7 (Sunday)
+		!! To get to Monday: subtract (week - 1) days
+		calendar_ui_week_start = daystart - week + 1
+	end
+
+	!! Build the week schedule
+	gs 'calendar_schedule', 'build_week_schedule', calendar_ui_week_start
+
+	!! Render the UI controls
+	$result = '<center><div class="calendar-controls" style="margin: 10px 0;">'
+	$result += '<a href="exec: gs ''calendar'', ''navigate'', ''prev''">« 上一周</a> | '
+	$result += '<a href="exec: gs ''calendar'', ''navigate'', ''today''">今天</a> | '
+	$result += '<a href="exec: gs ''calendar'', ''navigate'', ''next''">下一周 »</a>'
+	$result += '</div></center>'
+
+	!! Render the calendar HTML
+	$result +=  $func('calendar_render', 'render_calendar')
+
+	*clr
+	gs 'journal', 'journalmenu'
+	$result
+
+	!! Cleanup temporary variables
+	killvar 'calendar_html'
+	killvar 'controls_html'
+	killvar 'week_schedule'
+
+	exit
+end
+
+
+!! ============================================================================
+!! navigate
+!! Handles week navigation (prev/next/today)
+!! Input: $ARGS[1] = direction ('prev', 'next', or 'today')
+!! Output: None (updates calendar_ui_week_start, refreshes display)
+!! ============================================================================
+if $ARGS[0] = 'navigate':
+	$temp_nav_direction = $ARGS[1]
+
+	if $temp_nav_direction = 'prev':
+		!! Go to previous week (subtract 7 days)
+		calendar_ui_week_start -= 7
+	elseif $temp_nav_direction = 'next':
+		!! Go to next week (add 7 days)
+		calendar_ui_week_start += 7
+	elseif $temp_nav_direction = 'today':
+		!! Go to current week - calculate Monday of current week
+		!! week = day of week (1=Monday, 7=Sunday)
+		calendar_ui_week_start = daystart - week + 1
+	end
+
+	!! Refresh the calendar display with new week
+	gs 'calendar', 'show', calendar_ui_week_start
+
+	killvar 'temp_nav_direction'
+	exit
+end
+
+
+!! ============================================================================
+!! add
+!! Orchestrates the complete event addition workflow
+!! Input: $ARGS[1] = name of the event definition function to call
+!! Output: result = 0 if event added successfully, 1 if blocked by conflict
+!! ============================================================================
+if $ARGS[0] = 'add':
+	!! Step 1: Initialize event_vars to defaults
+	gs 'calendar_list', 'init_event_vars'
+
+	!! Step 2: Call the event definition function to populate event_vars
+	gs 'calendar_list', $ARGS[1]
+
+	!! Step 3: Assign random color if color=0
+	gs 'calendar_list', 'assign_color'
+
+	!! Step 4: Add the event to the calendar (checks conflicts first)
+	!! result = 1 if conflict found, 0 if successfully added
+	gs 'calendar_events', 'new_event', $event_vars['id']
+	exit
+end
+
+
+!! ============================================================================
+!! remove
+!! Orchestrates the complete event removal workflow
+!! Input: $ARGS[1] = event ID to remove
+!! Output: Event removed from calendar and all associated variables cleaned up
+!! ============================================================================
+if $ARGS[0] = 'remove':
+	!! Step 1: Remove the event from calendar storage
+	gs 'calendar_events', 'remove_event', $ARGS[1]
+
+	!! Step 2: Clean up event_vars if it was populated for this event
+	killvar 'event_vars'
+	exit
+end
+
+
+!! ============================================================================
+!! add/remove packs
+!! These are used to add or remove groups of events (e.g. holidays, school schedule)
+!! ============================================================================
+if $ARGS[0] = 'pack':
+	$temp_function = $ARGS[1] & !! 'add' or 'remove'
+	if $ARGS[2] = 'holidays':
+		gs 'calendar', $temp_function, 'holiday_new_year'
+		gs 'calendar', $temp_function, 'holiday_christmas'
+		gs 'calendar', $temp_function, 'holiday_fatherland'
+		gs 'calendar', $temp_function, 'holiday_womens_day'
+		gs 'calendar', $temp_function, 'holiday_labor_day'
+		gs 'calendar', $temp_function, 'holiday_may_2'
+		gs 'calendar', $temp_function, 'holiday_victory_day'
+		gs 'calendar', $temp_function, 'holiday_russia_day'
+		gs 'calendar', $temp_function, 'holiday_june_13'
+		gs 'calendar', $temp_function, 'holiday_unity_day'
+	elseif $ARGS[2] = 'school':
+		gs 'calendar', $temp_function, 'school_winter_break'
+		gs 'calendar', $temp_function, 'school_spring_break'
+		gs 'calendar', $temp_function, 'school_summer_break'
+		gs 'calendar', $temp_function, 'school_autumn_break'
+		gs 'calendar', $temp_function, 'school_graduation'
+		!! Fall semester 2016 (Sep 1 - Nov 2)
+		gs 'calendar', $temp_function, 'school_monday_fall2016'
+		gs 'calendar', $temp_function, 'school_tuesday_fall2016'
+		gs 'calendar', $temp_function, 'school_wednesday_fall2016'
+		gs 'calendar', $temp_function, 'school_thursday_fall2016'
+		gs 'calendar', $temp_function, 'school_friday_fall2016'
+		!! Winter semester 2016 (Nov 11 - Dec 30)
+		gs 'calendar', $temp_function, 'school_monday_winter2016'
+		gs 'calendar', $temp_function, 'school_tuesday_winter2016'
+		gs 'calendar', $temp_function, 'school_wednesday_winter2016'
+		gs 'calendar', $temp_function, 'school_thursday_winter2016'
+		gs 'calendar', $temp_function, 'school_friday_winter2016'
+		!! Spring semester 2017 (Jan 15 - Mar 18)
+		gs 'calendar', $temp_function, 'school_monday_spring2017'
+		gs 'calendar', $temp_function, 'school_tuesday_spring2017'
+		gs 'calendar', $temp_function, 'school_wednesday_spring2017'
+		gs 'calendar', $temp_function, 'school_thursday_spring2017'
+		gs 'calendar', $temp_function, 'school_friday_spring2017'
+		!! Final semester 2017 (Mar 26 - May 25)
+		gs 'calendar', $temp_function, 'school_monday_final2017'
+		gs 'calendar', $temp_function, 'school_tuesday_final2017'
+		gs 'calendar', $temp_function, 'school_wednesday_final2017'
+		gs 'calendar', $temp_function, 'school_thursday_final2017'
+		gs 'calendar', $temp_function, 'school_friday_final2017'
+	elseif $ARGS[2] = 'church':
+		gs 'calendar', $temp_function, 'church_vigil'
+		gs 'calendar', $temp_function, 'church_liturgy'
+	elseif $ARGS[2] = 'intercity_trains':
+		gs 'calendar', $temp_function, 'train_morning'
+		gs 'calendar', $temp_function, 'train_evening'
+	elseif $ARGS[2] = 'starlets':
+		gs 'calendar', $temp_function, 'starlets_practice_regular'
+		gs 'calendar', $temp_function, 'starlets_practice_friday'
+	elseif $ARGS[2] = 'cheerleading_practice':
+		gs 'calendar', $temp_function, 'cheerleading_practice_1'
+		gs 'calendar', $temp_function, 'cheerleading_practice_2'
+		gs 'calendar', $temp_function, 'cheerleading_practice_3'
+		gs 'calendar', $temp_function, 'cheerleading_practice_4'
+	elseif $ARGS[2] = 'cheerleading_games':
+		gs 'calendar', $temp_function, 'cheerleading_game_1'
+		gs 'calendar', $temp_function, 'cheerleading_game_2'
+		gs 'calendar', $temp_function, 'cheerleading_game_3'
+		gs 'calendar', $temp_function, 'cheerleading_game_4'
+	elseif $ARGS[2] = 'cycle_phases':
+		gs 'calendar', $temp_function, 'cycle_0'
+		gs 'calendar', $temp_function, 'cycle_1'
+		gs 'calendar', $temp_function, 'cycle_2'
+		gs 'calendar', $temp_function, 'cycle_3'
+	end
+end
+
+
+!! ============================================================================
+!! cycle_rebuild
+!! Rebuilds cycle phase all-day events for the next 28 days.
+!! Anchors on calCycleOpts['phase_start_N'] (recorded by cikl on each transition)
+!! and chains all 4 phases using fixed expected durations (period=5d, follicular=9d, fertile=2d, luteal=12d).
+!! Input: ARGS[1] = 1 to force rebuild even if already rebuilt today.
+!! Toggle each phase with calCycleOpts['show_0'/'show_1'/'show_2'/'show_3'] = 1 (period/follicular/fertile/luteal).
+!! ============================================================================
+if $ARGS[0] = 'cycle_rebuild':
+	if calCycleOpts['rebuild_day'] = daystart and ARGS[1] ! 1: exit
+	calCycleOpts['rebuild_day'] = daystart
+
+	gs 'calendar', 'pack', 'remove', 'cycle_phases'
+
+	if succubusflag = 1 or cycle >= 4 or calCycleOpts['phase_start_' + cycle] = 0 or calCycleOpts['show_0'] + calCycleOpts['show_1'] + calCycleOpts['show_2'] + calCycleOpts['show_3'] = 0: exit
+
+	cal_cycle['dur_0'] = 5 & cal_cycle['dur_1'] = 9 & cal_cycle['dur_2'] = 2 & cal_cycle['dur_3'] = 12
+	chain_end = calCycleOpts['phase_start_' + cycle] - 1
+	ph_n = 0
+	:phase_loop
+		ph_idx = (cycle + ph_n) mod 4
+		gs 'calendar_list', 'init_event_vars'
+		gs 'calendar_list', 'cycle_phase_' + ph_idx
+		event_vars['daystart'] = chain_end + 1
+		event_vars['recur_end'] = max(chain_end + cal_cycle['dur_' + ph_idx], daystart)
+		if calCycleOpts['show_' + ph_idx] = 1: gs 'calendar_events', 'new_event', $event_vars['id']
+		chain_end = event_vars['recur_end']
+		ph_n += 1
+	if ph_n < 4: jump 'phase_loop'
+
+	cal_upcoming_dirty = 1
+	killvar 'cal_cycle' & killvar 'chain_end' & killvar 'ph_n' & killvar 'ph_idx'
+	exit
+end
+
+
+--- calendar ---------------------------------

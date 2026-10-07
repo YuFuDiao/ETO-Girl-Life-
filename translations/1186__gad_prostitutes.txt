@@ -1,0 +1,339 @@
+# gad_prostitutes
+!! 2021/05/05
+!! 2024/05/05 - Mira schedule introduced.
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_prostitutes', 'start'
+	$location_type = 'public_outdoors'
+	gs 'schedule', 'A60'
+	gs 'gadukino_event', 'sound'
+	gs 'stat'
+
+	'<center><h4>加杜基诺附近的主路</h4></center>'
+	if month >= 11 or month <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/highway/roadwinter.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/highway/road.jpg"></center>'
+	end
+
+	if (no func('miroslava_schedule', 'is_here')) and MiraVars['QW'] > 15: '你四处寻找米拉，但没有看到她在这里。她现在一定是在忙别的事。'
+	!! if GadBoy['river_gang'] = 2 and (MiraVars['pimp'] = 0 or MiraVars['pimp'] = 2):
+	!!	if PCloStyle <> 4:
+	!!		'You are not wearing the right clothes to prostitute yourself.'
+	!!	elseif pcs_sleep <= 0:
+	!!		'You are too tired to prostitute yourself.'
+	!!	end
+	!! end
+	act '走回公路': gt 'road', '10'
+
+	if hour < 16:
+		'现在不是卖淫的好时机。试着晚上晚些时候再来。'
+	else
+		if func('miroslava_schedule', 'is_here'):
+			!! event to remove Sveta from being miras pimp if she becomes the boys slut, the village whore
+			if MiraVars['pimp'] = 1 and (npc_QW['A63'] >= 11 or GadBoy['river_gang'] = 2):
+				gt 'gad_prostitutes', 'mira_rebels'
+			end
+
+			'你看到米拉站在路那头不远处的路灯下。'
+
+			!! event to become miras pimp if not the boys slut, not the village whore
+			if MiraVars['pimp'] = 0 and npc_QW['A63'] < 11 and GadBoy['river_gang'] = 0: gt 'gad_prostitutes', 'pimp_mira'
+
+			!! events to prostitute just Mira
+			act '看米拉卖淫': gt 'gad_prostitutes', 'just_mira'
+
+			!! can do prostitution with Mira if Sveta is the village whore - this can be achieved by doing Mitka''s questline
+			!! if GadBoy['river_gang'] = 2 and MiraVars['pimp'] ! 0 and (PCloStyle = 4 or PCloProstitute = 1) and pcs_sleep > 0:
+				!! act 'Prostitute yourself with Mira':gt 'gad_prostitutes', 'with_mira'
+			!! end
+		end
+
+	if prostitute['gadukino'] = 1 and (PCloStyle = 4 or PCloProstitute = 1):
+		if prostitute['earnings_day'] > 0: '<br>你今天赚到了<<$func(''money'', ''string_profit'', prostitute[''earnings_day''])>>。'+iif(prostitute['payment_method'] = 0, ' 你的份额是<<$func(''money'', ''string_profit'', prostitute[''earnings_day''] * prostitute[''share_player''] / 100)>>'+iif(prostitute['debt_amount'] > 0, '，但你的皮条客会留下<<$func(''money'', ''string_profit'', prostitute[''earnings_day''] * prostitute[''debt_payment_percent''] / 100)>>来偿还你的债务。', '。'), '')
+		act '寻找客户': gt 'gad_prostitutes', 'work'
+	end
+	end
+end
+
+
+if $ARGS[0] = 'pimp_mira':
+	gs 'willpower', 'misc', 'force', 'hard'
+	act '离开': gt $prevloc, $prevarg
+	if pcs_willpwr < will_cost:
+		act '让米拉成为你的妓女' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '让米拉成为你的妓女' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+
+			MiraVars['pimp'] = 1
+			minut += 5
+			gs 'willpower', 'misc', 'force', 'hard'
+			gs 'willpower', 'pay', 'force'
+			gs 'stat'
+
+			gs 'miroslava', 'miraclothes'
+
+			'你叫她过来。米拉匆匆跑过来，垂着眼睛看着你。“嗨，<<$pcs_nickname>>。今晚过得还好吗？”'
+			'你生气地看着她。“更好的问题是，我可爱的小婊子，是''你今晚过得好吗''？我要你每晚从每个客人那里挣到<<$func(''money'', ''string_profit'', 200)>>。”你认真地告诉她。'
+			'米拉震惊地抬起头，脸上带着受伤的表情。“你在说什么？你以为我是妓女吗？”'
+			'你走到她面前，把手放在她的脸上。米拉闭上眼睛，靠向你的手。等她睁开眼时，你看着她的眼睛，然后狠狠地扇了她一巴掌。米拉倒在地上哭了起来。“你是我的财产，婊子。我让你做什么你就得做什么。你永远不能再对我说谎，否则我发誓我会让你付出代价。明白了吗？！”'
+			'米拉点了点头，擦去眼泪。'
+			'你伸手把她扶起来。你帮她掸去身上的灰，帮她补好妆。“很好，现在带着你那可爱的屁股回到那条路上，给我们赚点钱。”'
+			'你轻轻拍了一下米拉的屁股，微笑着看着米拉开始她作为你的妓女的新生活篇章。'
+
+			act '完成': gt 'gad_prostitutes', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mira_rebels':
+	*clr & cla
+	MiraVars['pimp'] = 2
+	gs 'prostitution_functions', 'set_gadukino_prostitute'
+	minut += 5
+	gs 'stat'
+
+	gs 'miroslava', 'miraclothes'
+
+	'米拉发现了你，自信地朝你走来。你不知道她是怎么了，但从她脸上的表情来看，你大概不会喜欢。'
+	'就在你和米拉面对面时，她抡起胳膊，用尽全力扇了你一巴掌。你有点发懵，踉跄着倒在地上。你感到温热的泪水开始顺着脸颊流下。'
+	'米拉命令你：“站起来，婊子！”'
+	'你站起来迎上她的目光。她看起来非常得意。“记住这个。现在你确切地知道那是什么感觉了。”她说。'
+	if npc_QW['A63'] >= 11:
+		'米拉接着说：“看看你，不过是又一个荡妇。米特卡、科利亚姆巴和瓦西扬都告诉我他们现在有多喜欢干你、分享你。你以为你比我强得多，哼，现在不是了！我不会再为你干活了。你已经证明了自己完全乐于被一群朋友分享。”'
+	elseif GadBoy['river_gang'] = 2:
+		'米拉接着说：“看看你，不过是又一个妓女。全村的男人都在谈论你是怎样为他们每一个人呻吟的。你以为你比我强得多，哼，现在不是了！我不会再为你干活了。你已经证明了自己完全乐于被一群又一群陌生人轮奸。”'
+	end
+	'米拉说教完后，你想说点什么俏皮话，或者抬手回敬她一巴掌，但你实在下不了手。'
+	'米拉看到你眼中的挫败，知道自己赢了。她把你拉进怀里，低声说：“没事的，<<$pcs_nickname>>。我们可以重新做朋友。如果你愿意的话，也许你可以来和我一起干活？”'
+
+	act '继续': gt 'gad_prostitutes', 'start'
+end
+
+
+!! Prostitution events for just Mira - SM
+if $ARGS[0] = 'just_mira':
+	gs 'miroslava', 'miraclothes'
+	menu_off = 1
+
+	if hour >= 16 and hour <= 20:
+		act '让米拉继续工作': gt 'gad_prostitutes', 'start'
+		act '等待米拉吸引客户':
+			*clr & cla
+			minut += 30
+			gs 'stat'
+
+			temp_gadpro = rand(1, 10)
+			if temp_gadpro > 5:
+				MiraVars['prostitute'] += 1
+				if MiraVars['QW'] < 20: MiraVars['QW'] += 1
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/miraprost.jpg"></center>'
+				'没过多久，一位客人开着一辆拉风的汽车停了下来。米拉走近车子，开始和司机交谈。'
+				'你听不清她在说什么，但几分钟后，门开了，米拉上了车。车开走了，但没有走远。你看见它驶离大路，拐上一条土路。你笑着想看看热闹，便跑进树林，试图截住那辆车。'
+
+				act '看看米拉和她的客人': gt 'gad_prostitutes', 'watch_mira'
+			else
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/mirawish2_1.jpg"></center>'
+				'米拉沿着马路走着，向过往的汽车和卡车炫耀自己的身材，但没有人停下来接她。'
+
+				act '继续': gt 'gad_prostitutes', 'just_mira'
+			end
+		end
+	else
+		'现在太晚了，米拉不能再卖淫了。'
+		act '一起走回加杜基诺': gt 'gadukino', ''
+	end
+end
+
+
+if $ARGS[0] = 'watch_mira':
+	gs 'arousal', 'voyeur_sex', 10
+	menu_off = 1
+	gs 'stat'
+
+	temp_gadpro = rand(0, 1)
+	if temp_gadpro = 0:
+		'<center><video autoplay loop <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraprost1.mp4"></video></center>'
+		'你走上前，往车里看。你看到米拉正在给她的客人卖力地口交。她的头在他的鸡巴上上下起伏。'
+
+		act '隐藏':
+			gt 'gad_prostitutes', 'watch_from_hiding'
+		end
+	elseif temp_gadpro = 1:
+		'<center><video autoplay loop <<$set_imgh>> src="images/characters/gadukino/mira/miraprost2.mp4"></video></center>'
+		'你走上前，往货车里看。你看到米拉正给她的客人看自己的胸，揉着自己的阴部，你还看到那家伙眼里闪着饥渴的光芒，而米拉也以同样的眼神回应他。'
+
+		act '继续观看':
+			gt 'gad_prostitutes', 'watch_close'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'watch_from_hiding':
+	gs 'arousal', 'voyeur_sex', 10
+	menu_off = 1
+	gs 'stat'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraprost1_1.mp4"></video></center>'
+	'你连忙躲起来，只见那家伙突然下车，打开副驾驶门，抓住米拉的头，开始把鸡巴深深插进她的喉咙里。'
+
+	act '继续观看':
+		*clr & cla
+		gs 'arousal', 'voyeur_sex', 10
+		gs 'stat'
+
+		'<center><video autoplay loop <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraprost1_2.mp4"></video></center>'
+		'最后，那家伙闷哼一声，把精液射了米拉一脸，还射进她嘴里。随后，这个衣着考究的男人把米拉拉出车外，递给她几张钞票，然后开车离开了。'
+		'米拉走回大路边，一边数着他给的钱，一边心不在焉地舔着滴落下来的精液。最后，当你走近她时，她微笑着向你展示那些钱。'
+		gs 'stat'
+
+		act '完成':
+			*clr & cla
+			if MiraVars['pimp'] = 1: gs 'money', 'earn', 200, 'cash'
+			gs 'arousal', 'end'
+
+			gt 'gad_prostitutes', 'just_mira'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'watch_close':
+	gs 'arousal', 'voyeur_sex', 10
+	menu_off = 1
+	gs 'stat'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraprost2_1.mp4"></video></center>'
+
+	'米拉和那家伙跳进面包车后部，你看着他开始操她湿漉漉的骚穴。他的手捂住她的嘴，她狂喜地尖叫。那家伙用20厘米的鸡巴狠狠捅进她的骚穴。从米拉半欢愉半痛苦的呻吟中，你知道那家伙正顶到或插进她的子宫颈。'
+
+	act '隐藏':
+		*clr & cla
+		gs 'arousal', 'voyeur_sex', 10
+		gs 'stat'
+
+		'<center><video autoplay loop <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraprost2_2.mp4"></video></center>'
+
+		'他们走到货车外面，你不得不躲进灌木丛后面。那家伙继续猛烈地操着米拉的阴部，直到他射了一次……又一次……又一次。'
+		'狂野的性爱结束后，米拉和那家伙坐在货车里交谈。他给了她一沓厚厚的钞票，她开始往回走向大路。当你走近她时，她微笑着向你展示那些钱。'
+
+		act '完成':
+			*clr & cla
+			if MiraVars['pimp'] = 1: gs 'money', 'earn', 200, 'cash'
+			gs 'arousal', 'end'
+
+			gt 'gad_prostitutes', 'just_mira'
+		end
+	end
+end
+
+!! Prostitution events for Sveta and Mira together - SM
+!! if $ARGS[0] = 'with_mira'
+!!	if pcs_sleep <= 0: 'You are too tired to prostitute yourself.'
+!!	if pcs_sleep > 0:
+!!		act 'Try to attract a customer with Mira':
+!!
+!!		end
+!!	end
+!!	act 'Stop looking for customers with Mira': gt 'gad_prostitutes', 'start'
+!! end
+
+
+
+!! Prostitution events for Sveta alone - SM
+!! if $ARGS[0] = 'without_mira'
+!!	if pcs_sleep <= 0: 'You are too tired to prostitute yourself.'
+!!	if pcs_sleep > 0:
+!!		act 'Try to attract a customer':
+!!
+!!		end
+!!	end
+!!
+!!	act 'Stop looking for customers': gt 'gad_prostitutes', 'start'
+!! end
+!! TODO: the above was never implemented, so just going with this.
+
+
+if $ARGS[0] = 'work':
+	gt 'gad_prostitutes', 'work_alone'
+end
+
+
+if $ARGS[0] = 'work_alone':
+	CLOSE ALL
+	if sound_settings['environment_off'] = 0: PLAY 'sound/highway.mp3', 20
+
+	gs 'core_library', 'setloc', 'gad_prostitutes', 'work'
+	menu_off = 0
+	$prostitution_location = 'gadukino'
+	gs 'stat'
+
+	gs 'prostitution_functions', 'parameters'
+
+	if $prostitute_names[$prostitution_location] = '':
+		'如果你愿意，你可以告诉你的客户一个不同的名字。'
+
+		$prostitute_names[$prostitution_location] = input("你想告诉你的客户什么名字？（留空则使用<<$pcs_nickname>>)")
+		if $prostitute_names[$prostitution_location] = '': $prostitute_names[$prostitution_location] = $pcs_nickname
+	end
+
+	!! TODO: Should find some video that is more roadside - evening, morning, different weather, etc.
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/prostitution/car/normal/negotiation/search.mp4"></video></center>'
+
+	!! TODO: Need to rewrite this to reflect the Gadukino location
+	!! 'You are walking near the gas station waiting for a client. On a scale from 1 to 10 you look like a <<pcs_hotcat>>. A good looking girl will always earn more money.'+iif(pcs_makeup < 2, ' You should '+iif(pcs_makeup = 0, 'fix your make-up', 'wear make-up')+' to increase your earnings.', ' Wearing make-up is a good way to increase your earnings.')+iif(pcs_piercings['tongue'] > 0, ' Your tongue piercing will make a blowjob more enjoyable for most men, that could bring in a small bonus.', '')+iif($pantyworntype = 'eroto' and PCloSkirt > 4, ' Wearing such a short skirt reveals your slutty panties to your potential customers.', '')+iif(pcs_apprnc = -10, ' You don''t look healthy and should seek treatment for your STD. There is a high chance that a guy won''t touch you without a condom.', '')
+
+	!! TODO: The enema thing should be aligned with the rest of the game.
+	if klismaday ! daystart: '<br>几乎没有男人会喜欢肮脏的肛交，即使戴着避孕套，而且他们很可能不会为此付很多钱。所以你应该在去上班前先给自己灌肠。'
+	if mesec > 0: '<br>你来月经了；在这个月的这段时间里，大多数男人会为阴道性交付更少的钱。'
+	if prostitute['cum_dressed'] = 1: '<br>你身上有明显的精液污渍。大多数客人不会喜欢这样，会愿意出更少的钱。'
+
+	if prostitute['earnings_day'] > 0: '<br>你今天赚到了<<$func(''money'', ''string_profit'', prostitute[''earnings_day''])>>。'+iif(prostitute['payment_method'] = 0, ' 你的份额是<<$func(''money'', ''string_profit'', prostitute[''earnings_day''] * prostitute[''share_player''] / 100)>>'+iif(prostitute['debt_amount'] > 0, '，但你的皮条客会留下<<$func(''money'', ''string_profit'', prostitute[''earnings_day''] * prostitute[''debt_payment_percent''] / 100)>>来偿还你的债务。', '。'), '')
+
+	if prostitute['payment_method'] = 0: gs 'gad_prostitutes', 'event_check'
+
+	act '暂时停止工作': gt 'gad_prostitutes', 'start'
+
+	gs 'willpower', 'prostitution', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '寻找客户 (0:30)' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '寻找客户 (0:30)' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'self'
+			gt 'prostitution_car_negotiation', 'look_client'
+		end
+	end
+
+	if mc_inventory['makeup_wipes'] > 0 and (prostitute['cum_dressed'] = 1 or prostitute['cum_undressed'] = 1 or prostitute['cum_vaginal_mod'] = 1 or prostitute['cum_anal_mod'] = 1):
+		act '清理身上的精液 (0:02)':
+			minut += 2
+			mc_inventory['makeup_wipes'] -= 1
+			cumspclnt = 20
+			gs 'cum_cleanup'
+			gt 'gad_prostitutes', 'work'
+		end
+	elseif mc_inventory['makeup_wipes'] = 0:
+		'<br>你身上没有任何纸巾来清理身上的精液。'
+	end
+
+	!! NOTE: This is where the working/negotiation part begins in the original file. Moved to a separate file.
+	!! This call just displays the explanation and the "config" of the negotiations on the page.
+	gs 'prostitution_car_negotiation', 'general_description'
+end
+
+
+!! ------ Random events and scenes, from police raids to robbery, etc. ----------------------------------------------------
+!! -- TODO: Any random event should go here.
+if $ARGS[0] = 'event_check':
+
+end
+
+
+--- gad_prostitutes ---------------------------------

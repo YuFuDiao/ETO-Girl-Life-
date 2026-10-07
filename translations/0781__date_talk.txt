@@ -1,0 +1,1690 @@
+# date_talk
+
+if $ARGS[0] = 'continue_rate':
+	minut += 5 & gs 'stat'
+	if $ARGS[1] = 'improve' or $ARGS[1] = 'worsen': gs 'date_funcs', 'date_mood', $ARGS[1]
+	if $ARGS[1] = 'flash':
+		xgt $date_ev['cont_loc'], $date_ev['flash_arg']
+	else
+		xgt $date_ev['cont_loc'], $date_ev['cont_arg']
+	end
+end
+
+
+if $ARGS[0] = 'loc_img':
+	cla & *clr
+	gs $date_ev['loc'], $date_ev['loc_img']
+end
+
+
+if $ARGS[0] = 'talk_img':
+	cla & *clr
+	gs $date_ev['loc'], $date_ev['talk_img']
+end
+
+
+if $ARGS[0] = 'date_continue':
+	act '继续': gt $date_ev['cont_loc'], $date_ev['cont_arg']
+end
+
+
+if $ARGS[0] = 'prev_menu':
+	act '回去': xgt 'date_talk', $date_ev['prev_arg']
+end
+
+
+if $ARGS[0] = 'talk_menu':
+	$date_ev['prev_arg'] = 'talk_menu'
+
+	!! act 'Let <<$npcdesc>> lead': gt 'date_talk', 'boy_talk_lead'
+	if rand(1,2) = 1:
+		act '闲聊': xgt 'date_talk', 'small_talk'
+		act '谈论性': xgt 'date_talk', 'sex_talk_menu1'
+	else
+		act '继续': xgt 'date_talk', 'rand_topic'
+	end
+end
+
+
+if $ARGS[0] = 'rand_topic':
+	killvar 'date_ev_topics'
+
+	gs 'date_boy_talk', 'boy_topics'
+
+	if date_ev['fun_talk'] = 0: $date_ev_topics[] = "gt 'date_talk', 'fun_talk'"
+
+!!	if date_ev['_talk'] = 0: $date_ev_topics[] = "gt 'date_boy_talk', 'washing_hands_talk'"
+
+
+	if arrsize('date_ev_topics') = 0:
+		gs 'date_talk', 'date_continue'
+	else
+		dynamic $date_ev_topics[rand(0, arrsize('date_ev_topics')-1)]
+	end
+end
+
+!! ---------------------------------- small talk topics start ----------------------------------
+
+
+if $ARGS[0] = 'small_talk':
+	gs 'date_talk', 'prev_menu'
+	act '聊聊周末': xgt 'date_talk', 'weekend_talk'
+	!! if pc_know_hobby[$npcID] = 0:
+		act '“你平时有什么爱好？”': xgt 'date_talk', 'fun_talk'
+	!! end
+	if date_ev['first_time'] = 1 and $date_ev['type'] = 'casual_meal' and date_ev['been_before'] = 0:
+		act '以前来过这里吗？': gt 'date_talk', 'been_before'
+	end
+	if npc_home_visited[$npcID] = 1:
+		if npc_neat[$npcID] = 1:
+			act '他家非常整洁': gt 'date_talk', 'tidy_home'
+		end
+	end
+	if $braworntype = 'none' and date_ev['braless_tell'] = 0:
+		act '“我没穿胸罩”': gt 'date_talk', 'braless_tell'
+	end
+end
+
+
+if $ARGS[0] = 'weekend_talk':
+	gs 'date_talk', 'talk_img'
+	if week >= 6:
+		'“那么，你的周末过得怎么样？”你问道。'
+		if rand(1, 100) < npc_chrsm[$npcID]:
+			'“现在好多了，因为我和你在一起，”他凝视着你的眼睛说道。'
+			act '印象深刻':
+				cla & *nl
+				'你眨了眨眼，掩饰不住自己的惊讶。'
+				'<i>哇，这句话说得真漂亮……</i>'
+				'你很受触动，而他也看得出来。'
+				act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+			end
+
+			act '“台词不错”':
+				gs 'date_funcs', 'date_rate', 'like'
+				cla & *nl
+				'“台词不错，”你窃笑着说。'
+				'“有用吗？”他笑着回应。'
+				act '也许':
+					cla & *nl
+					'“也许吧。”'
+					'你决定故作矜持。保留几分女性的神秘感。'
+					act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+				end
+
+				act '嗯':
+					cla & *nl
+					'“是啊，”你承认道。“我觉得挺有用的。”'
+					'他冲你咧嘴笑了笑，然后'
+					act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+				end
+			end
+		else
+			'“还行吧，”他耸耸肩说。“还是那些老一套。”'
+			act '继续': xgt 'date_talk', 'continue_rate'
+		end
+	else
+		'“那么，你的周末过得怎么样？”你问道。'
+		'“还行吧，”他耸耸肩说。“还是那些老一套。”'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+end
+
+
+if $ARGS[0] = 'tidy_home':
+	gs 'date_talk', 'talk_img'
+	if date_ev['home_date'] = 1:
+		'“你这地方收拾得真干净，你知道吗？”'
+		'你环顾四周，一切都非常整洁有序。地板和表面上几乎看不到一点灰尘，而且<<$npcdesc>>的东西都摆放得整整齐齐、一丝不苟。'
+	else
+		'“我不由得注意到，你这地方收拾得真干净，”你评价道。“非常有条理，也很整洁。到处都一尘不染。”'
+	end
+	if npc_insecure[$npcID] > 0 and npc_argumentative[$npcID] > 0:
+		'“你这是在暗示我什么？”<<$npcdesc>>皱起了眉头。'
+	elseif npc_diligent[$npcID] > 0:
+		'“干净的环境有助于培养清晰的头脑，”他耸耸肩说。“看到东西乱放我就难受。”'
+		act '你喜欢这样': gt 'placeholder'
+	else
+		'“我想我只是喜欢用吸尘器打扫，”他轻笑着说。“我喜欢它发出的声音，那些小东西被吸进袋子里时发出的沙沙声。至于其他的，都是顺带的，因为我得把所有东西都收拾整齐，才能把吸尘器的吸头塞进去！”<<$npcdesc>>说完，放声大笑。'
+
+	end
+end
+
+if $ARGS[0] = 'braless_tell':
+	date_ev['braless_tell'] = 1
+	gs 'date_talk', 'talk_img'
+	'“嘿，想听个秘密吗？”你问<<$npcdesc>>。'
+	'“什么？”'
+	'你俯身在他耳边低语。“我现在没穿胸罩。”'
+	if npc_assertive[$npcID] > 0 or npc_dirty_lover[$npcID] > 0:
+		'“是吗？”他又看向你，目光向下落到你的胸部。“证明一下。”'
+		act '才不':
+			cla & *nl
+			if PCloThinness = 6:
+				'“有什么好证明的？”你咧嘴一笑，心里清楚你的上衣已经完全透明，你的<<$pcdesc_breasts>>乳房早就展现在所有人眼前了。'
+				'“也许我只是想看得更清楚一点。”'
+				'“我觉得你看到的已经足够壮观了。”'
+			elseif PCloThinness >= 4:
+				'“我觉得不用再证明了，你也能看得出来，”你得意地笑着，任由乳头的轮廓自己顶出上衣的布料。'
+			else
+				'“抱歉，你只能在梦里想想了，”你得意地笑着说。'
+				'“真会撩人。”'
+				'“我认罪。”'
+			end
+			act '继续': gt 'date_talk', 'continue_rate'
+		end
+
+		act '向他露胸':
+			gs $date_ev['loc'], 'flash_mov'
+			'“好啊。”'
+			if PCloDress = 0:
+				'毫不犹豫地，你撩起上衣，让<<$npcdesc>>毫无遮挡地看到你的<<$pcdesc_breasts>>乳房。你让他的目光停留了几秒钟，同时回给他一个饥渴的眼神，然后把上衣拉了下来。'
+			else
+				'毫不犹豫地，你拉下连衣裙，让<<$npcdesc>>毫无遮挡地看到你的<<$pcdesc_breasts>>乳房。你让他的目光停留了几秒钟，同时回给他一个饥渴的眼神，然后把衣服拉回原位。'
+			end
+			'“看到了吗？没穿胸罩。”'
+			'“是啊……”<<$npcdesc>>现在咧嘴笑着。“我想我看得很清楚。”'
+			act '继续': gt 'date_talk', 'continue_rate', 'improve'
+		end
+	else
+		if $npc_humor[$npcID] = 'perverted':
+			'“你真懂得怎么催男人来劲。”<<$npcdesc>>冲你咧嘴笑着，一想到你们之间少了一层布料，他就忍不住朝你胸口瞟。'
+		elseif $npc_humor[$npcID] = 'childish':
+			'“哇……这也太辣了。”<<$npcdesc>>正盯着你的胸部看，好像他想用X光眼透视你的衣服。'
+		else
+			'<<$npcdesc>>惊讶地眨了眨眼，忍不住迅速向下瞥一眼又抬起来。'
+			'“哦。哇。呃……'
+		end
+
+		act '只是想让你知道':
+			cla & *nl
+			'“只是觉得你应该知道，”你得意地笑着说。'
+			act '继续': gt 'date_talk', 'continue_rate', 'improve'
+		end
+
+		act '证明一下':
+			gs $date_ev['loc'], 'flash_mov'
+			'“来，我给你看看。”'
+			if PCloDress = 0:
+				'趁<<$npcdesc>>还没来得及说出口，你撩起上衣，让他一览无遗地看到你的<<$pcdesc_breasts>>乳房。你让他的目光停留了几秒钟，同时回给他一个饥渴的眼神，然后把上衣拉了下来。'
+			else
+				'趁<<$npcdesc>>还没来得及说出口，你拉下连衣裙，让他一览无遗地看到你的<<$pcdesc_breasts>>乳房。你让他的目光停留了几秒钟，同时回给他一个饥渴的眼神，然后把衣服拉回原位。'
+			end
+			'“看到了吗？没穿胸罩。”'
+			'“是啊……”<<$npcdesc>>现在咧嘴笑着。“我想我看得很清楚。”'
+			act '继续': gt 'date_talk', 'continue_rate', 'improve'
+		end
+	end
+end
+
+!! ---------------------------------- flirting section ----------------------------------
+
+if $ARGS[0] = 'flirt_arg':
+	$date_ev['flirt_type'] = $ARGS[1]
+	killvar 'flirt_rand1' & killvar 'flirt_rand2' & killvar 'flirt_rand3'
+	if $date_ev['flirt_type'] = 'romantically':
+		'你的声音渐渐变成低语，在安静的房间里轻声对<<$npcdesc>>说话，同时凝视着他的眼睛。'
+		*nl
+		$flirt_rand1[] = '“你让我觉得自己很特别……好像从来没有别人让我这样过……”'
+	elseif $date_ev['flirt_type'] = 'sexually':
+		if $pantyworntype = 'none':
+			if rand(1,1) = 1:
+				$flirt_rand1[] = '“我能告诉你一个秘密吗？”'
+				$flirt_rand2[] = '"What''s that?"'
+				$flirt_rand3[] = '“我总是穿和袜子配套的内衣。”他听了挑起一根眉毛。你咧嘴一笑。“顺便说一句，<i>我今天没穿袜子……</i>”'
+			end
+		else
+
+		end
+	elseif $date_ev['flirt_type'] = 'corny':
+
+	else
+
+	end
+	flirt_num = rand(0, arrsize('flirt_rand1')-1)
+	dynamic $flirt_rand1[flirt_num]
+	dynamic $flirt_rand2[flirt_num]
+	dynamic $flirt_rand3[flirt_num]
+end
+
+
+!! ---------------------------------- hobby talk topics start ----------------------------------
+
+
+if $ARGS[0] = 'fun_talk':
+	!! instr($npc_hobbies[$npcID], ';' + $hobby_name + ';') > 0
+
+	!!if pc_know_hobby[$npcID] = 0:
+		date_ev['fun_talk'] = 1
+		gs 'date_talk', 'talk_img'
+		'你最后问<<$npcdesc>>：“那你平时都玩些什么？”'
+		pc_know_hobby[$npcID] = 1
+		if $npc_apt_sparetype[$npcID] = 'gym' or npc_gymrat[$npcID] > 0:
+			xgt 'date_talk', 'workout_fun'
+		elseif $npc_apt_sparetype[$npcID] = 'gaming':
+			xgt 'date_talk', 'gaming_fun'
+		else
+			if $npc_door_pref[$npcID] = 'indoor':
+				if $npc_fav_date[$npcID] = 'netflix_chill':
+					xgt 'date_talk', 'netflix_fun'
+				else
+					xgt 'date_talk', 'reading_fun'
+				end
+			else
+				if $npc_fav_date[$npcID] = 'beach_date':
+					xgt 'date_talk', 'beach_fun'
+				else
+					xgt 'date_talk', 'running_fun'
+				end
+			end
+		end
+	!! end
+end
+
+
+if $ARGS[0] = 'polite_hobby_react':
+	act '礼貌地询问':
+		cla & *nl
+		'“哦，这挺酷的，”你说。“跟我说说呗？”'
+		'你心不在焉地听他讲他的兴趣<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+end
+
+
+if $ARGS[0] = 'beach_fun':
+	cla & *nl
+	'“我喜欢去海滩，”他说。'
+	xgt 'date_talk', 'beach_fun_react'
+end
+
+
+if $ARGS[0] = 'beach_fun_react':
+	gs 'date_talk', 'polite_hobby_react'
+!!	gs 'date_talk', 'workout_ask'
+!!	gs 'date_talk', 'workout_nerdy'
+end
+
+
+if $ARGS[0] = 'netflix_fun':
+	'“哦，你知道的，就是随便看看流媒体上有什么。'
+	act '礼貌地询问':
+		cla & *nl
+		'“哦，这挺酷的，”你说。“跟我说说呗？”'
+		'你心不在焉地听他讲他的兴趣<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	xgt 'date_talk', 'netflix_react_menu'
+end
+
+
+if $ARGS[0] = 'netflix_react_menu1':
+	gs 'date_talk', 'polite_hobby_react'
+	gs 'date_talk', 'netflix_watching'
+	gs 'date_talk', 'netflix_fav_show'
+end
+
+
+if $ARGS[0] = 'netflix_watching':
+	act '你在看什么？（感兴趣）':
+		cla & *nl
+		'“哦？比如什么？”你饶有兴趣地问道。“有我看过的吗？”'
+		if rand(1, 3) = 1:
+			!! game of thrones
+			if npc_womanizer[$npcID] > 0 or $npc_humor[$npcID] = 'perverted':
+				'“有一部奇幻剧还不错，”他说。“有龙什么的。而且女主角超级辣，老是跟别的角色翻滚。看着她的奶子晃来晃去真爽。”'
+				xgt 'date_talk', 'netflix_womanizer'
+			else
+				'“有一部奇幻剧还不错，”他说。“有剑、有魔法什么的，角色也很有意思。动作场面也不差。龙把一切烧成灰的场面真是没得挑。”'
+				xgt 'date_talk', 'netflix_react_menu2'
+			end
+		elseif rand(1, 2) = 1:
+			!! shameless
+			if npc_womanizer[$npcID] > 0 or $npc_humor[$npcID] = 'perverted':
+				'“有一部黑色喜剧还不错，”他说。“讲的是一家穷人，还有他们搞出的各种荒唐事和性事。女主角是个火辣的超级骚货，老是脱光跟男人干。”'
+				xgt 'date_talk', 'netflix_womanizer'
+			else
+				'“有一部黑色喜剧还不错，”他说。“讲的是一家穷人，还有他们搞出的各种荒唐事和性事。而且性爱场面<i>特别多</i>。”'
+				xgt 'date_talk', 'netflix_react_menu2'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'netflix_react_menu2':
+	act '你也喜欢那部剧':
+		cla & *nl
+		gs 'date_funcs', 'date_rate', 'like'
+		'“哦！我超爱那部剧！我最喜欢的那段是……”'
+		if rand(1, 2) = 1:
+			'“等等等等！别剧透！我还没看完呢！”'
+		else
+			'“天哪，那真是最棒的。那……那段呢？”'
+		end
+		'你们两个热烈地讨论着这部剧<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+end
+
+
+if $ARGS[0] = 'netflix_fav_show':
+	act '跟他讲讲你最喜欢的……':
+		cla
+		act '……剧情剧':
+			cla & *nl
+			'你跟他讲了你最喜欢的一部剧情剧。'
+			'他有了反应。'
+			act '继续': xgt 'date_talk', 'continue_rate'
+		end
+
+		act '……奇幻剧':
+			cla & *nl
+			'你跟他讲了你最喜欢的一部奇幻剧。'
+			'他有了反应。'
+			act '继续': xgt 'date_talk', 'continue_rate'
+		end
+
+		act '……科幻剧':
+			cla & *nl
+			'你跟他讲了你最喜欢的一部科幻剧。'
+			'他有了反应。'
+			act '继续': xgt 'date_talk', 'continue_rate'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'netflix_womanizer':
+	gs 'date_talk', 'netflix_react_menu2'
+	act '恶心':
+		cla & *nl
+		'<i>呃。</i>'
+		'你皱起鼻子，对他<<$npcdesc>>这种毫不掩饰的好色感到反感。他似乎没有注意到，继续说着他的剧<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate', 'worsen'
+	end
+
+	act '果然如此':
+		cla & *nl
+		'<i>典型的男生……</i>'
+		'你忍住了翻白眼的冲动。他最喜欢的地方当然是那些性爱场面。不过你也觉得不能真的怪他。男人嘛，当然是用鸡巴思考。你继续听他讲着他的剧<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+
+	act '你很喜欢性爱场面':
+		cla & *nl
+		gs 'date_funcs', 'date_rate', 'like'
+		'“是啊，那挺辣的对吧？我就爱看性爱场面，”你咧嘴一笑。“真的让我很兴奋。”'
+		'<<$npcdesc>>热情地和你聊起更多剧集，你们俩讨论着电影和电视剧里最喜欢的性爱场面<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+end
+
+
+if $ARGS[0] = 'reading_fun':
+	cla & *nl
+	'“我喜欢读书，”他说。'
+	xgt 'date_talk', 'reading_fun_react'
+end
+
+
+if $ARGS[0] = 'reading_fun_react':
+	gs 'date_talk', 'polite_hobby_react'
+!!	gs 'date_talk', 'workout_ask'
+!!	gs 'date_talk', 'workout_nerdy'
+end
+
+
+if $ARGS[0] = 'running_fun':
+	cla & *nl
+	'“我喜欢读书，”他说。'
+	xgt 'date_talk', 'running_fun_react'
+end
+
+
+if $ARGS[0] = 'running_fun_react':
+	gs 'date_talk', 'polite_hobby_react'
+!!	gs 'date_talk', 'workout_ask'
+!!	gs 'date_talk', 'workout_nerdy'
+end
+
+
+if $ARGS[0] = 'workout_fun':
+	'“我喜欢健身，”他' + iif(npc_arrogant[$npcID] > 0, '颇为自得地说。', '随口说道。')
+	xgt 'date_talk', 'workout_fun_react'
+end
+
+
+if $ARGS[0] = 'workout_fun_react':
+	gs 'date_talk', 'polite_hobby_react'
+	gs 'date_talk', 'workout_ask'
+	gs 'date_talk', 'workout_nerdy'
+end
+
+
+if $ARGS[0] = 'workout_ask':
+	act '问他这件事':
+		cla & *nl
+		'“健身到底哪儿让你这么着迷？把沉重的东西举起来再放下去，到底哪里好玩了？”'
+		if $npc_humor[$npcID] = 'intellectual':
+			'“这可不只是举重——这是解决问题。比如说，我要怎么让我的身体做到这个动作？每一次重复都是一次小小的实验。”'
+			'“所以你就是个喝蛋白粉的疯狂科学家。”'
+			'“没错！等你好不容易练成一个动作的时候？脑子里那一下‘咔哒’的感觉，比游戏里升多少级都爽。”'
+			act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+		elseif $npc_build_desc[$npcID] = 'athletic':
+			'“说实话？我就喜欢它让我看起来的样子，”他咧嘴一笑。'
+			act '继续':
+				cla & *nl
+				'“是吗？”你笑着回敬道。'
+				'“我知道这也许有点自大，”他承认道。“但这让我对自己感觉很好。”'
+				if pcs_hotcat >= 8:
+					act '你懂他的意思（因为你很辣）':
+						gs 'date_funcs', 'date_rate', 'like'
+						gs 'date_talk', 'talk_img'
+						'“我懂你的意思，”你嘴唇一扭，露出暗示性的坏笑。你是个10分里能打<<pcs_hotcat>>分的女孩，这点你自己清楚。而看他目光顺着你身体往下滑的样子，你确定他也清楚。'
+						'“看着好看，感觉就好，”你咧嘴笑道。'
+						'“是啊……”他含糊地应道，一边还在<<$date_ev[''dialogue_setting'']>>盯着你看。'
+						act '继续': xgt 'date_talk', 'continue_rate'
+					end
+				else
+					act '继续': xgt 'date_talk', 'continue_rate'
+				end
+			end
+
+			act '你也这么觉得':
+				gs 'date_funcs', 'date_rate', 'like'
+				cla & *nl
+				'“这我可没法反驳，”你答道，嘴角勾着一抹坏笑，欣赏着他结实的体格。他也笑了回来，显然很高兴你和他一样欣赏他的身体。或者说，几乎和他一样。'
+				act '继续': xgt 'date_talk', 'continue_rate'
+			end
+		else
+			'“我只是练的时候和练完之后感觉特别奭。压力一下就……烟消云散。”'
+			'“所以那是你的冥想？”'
+			'“只不过二头肌更发达，还不用念经，”他咧嘴一笑。'
+			act '继续':
+				cla & *nl
+				'你继续聊着<<$date_ev[''dialogue_setting'']>>.'
+				act '继续': xgt 'date_talk', 'continue_rate'
+			end
+
+			act '笑':
+				cla & *nl
+				gs 'date_funcs', 'date_rate', 'like'
+				'你被他的笑话逗笑了。'
+				act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'workout_nerdy':
+	if $npc_style_label[$npcID] = 'nerdy':
+		act '没想到会这样':
+			cla & *nl
+			'“哦。”你惊讶地眨了眨眼。“我没想到会是这样。”'
+			if npc_argumentative[$npcID] > 0 and npc_insecure[$npcID] > 0:
+				'“你为什么会想不到？”<<$npcdesc>>皱起眉头。'
+				act '因为你穿得太书呆子了':
+					cla & *nl
+					gs 'date_funcs', 'date_rate', 'dislike'
+					'“因为你的穿着。”你指了指他的俄罗斯方块T恤。“可没多少运动健将喜欢俄罗斯方块。”'
+					'“什么？难道一个男人就不能既喜欢俄罗斯方块又保持身材？”他没好气地说。'
+					if $date_ev['cont_arg'] = 'eating_menu':
+						'他的抱怨还没说完，服务员就端着你们点的菜回来了。'
+					end
+					act '继续': xgt 'date_talk', 'continue_rate'
+				end
+			else
+				'“因为我看起来像个书呆子？”<<$npcdesc>>得意地笑了笑。'
+				'“嗯……是啊，”你承认道。'
+				'“保持健康是好事，”他解释道。“我只是喜欢它带给我的感觉。”'
+				'“有道理。”'
+				act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'gaming_fun':
+	'“我喜欢打游戏，”他说' + iif(npc_insecure[$npcID] > 0, '，语气里带着几分不好意思。', '。')
+	xgt 'date_talk', 'gaming_fun_react'
+end
+
+
+if $ARGS[0] = 'gaming_fun_react':
+	gs 'date_talk', 'polite_hobby_react'
+	act '“你玩什么游戏？”（不感兴趣地）':
+		cla & *nl
+		'“哦，那挺酷的。你都玩什么？”'
+		xgt 'date_talk', 'gaming_fun_describe'
+	end
+end
+
+
+if $ARGS[0] = 'gaming_fun_describe':
+	cla & *nl
+	'“主要是反恐精英（CS）。我也玩玩别的，但最后总会回到这个。”'
+	act '问他这件事':
+		gs 'date_funcs', 'date_rate', 'like'
+		gs 'date_talk', 'talk_img'
+		'“主要是反恐精英（CS）。我也玩玩别的，但最后总会回到这个。”'
+		'“我从没玩过，”你承认道。“那是什么样的？”'
+		if rand(1, 3) = 1:
+			'“那就像拿着枪下高额赌注的象棋。每一步都很关键。”'
+			'“可那不就是到处跑着开枪打人吗？”'
+			'“才不是！里面有经济管理、地图控制、心理博弈……昨晚我用假脚步把一整队人都骗到了。”'
+			'“听起来压力好大。”'
+			'“那才叫刺激！一个完美的甩枪就能改变一切。”'
+			'“甩枪？”你困惑地歪了歪头。'
+		elseif rand(1, 2) = 1:
+			'“所以你就跟咱们那些爱生气的同胞一起玩那个射击游戏？”你饶有兴致地问。'
+			'“是啊，”他窃笑道。“不过玩的人也不全是俄罗斯人——还有些波兰小屁孩在为皮肤尖叫。”'
+			'“皮肤？就是……角色服装那种？”'
+			'“武器的装饰品。有些比一辆车还贵。不过我的AK上贴的是只小猫贴纸。”'
+			'“你花真钱就为了在假枪上贴只猫？”'
+			'“那是有战术意义的小猫！光是那干扰作用就……'
+		else
+			'“等等，你以前从没玩过CS？”'
+			'“只玩过那个打僵尸的手机版。正式版不一样吗？”'
+			'“这就像拿跳棋跟四维象棋比。来，我给你看场职业比赛，”他说着掏出手机给你看。没过多久你就有了个问题。'
+			'“那个人为什么一边拆弹一边原地转圈？”'
+			'“……好吧，也许我们先从死斗模式开始。”'
+		end
+		'<<$npcdesc>>接着兴致勃勃地给你科普CS:GO的各种细节<<$date_ev[''dialogue_setting'']>>.'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+
+	if pcs_gaming >= 50:
+		act '告诉他你也喜欢':
+			gs 'date_funcs', 'date_rate', 'love'
+			gs 'date_talk', 'talk_img'
+			'“我超爱爆头时那个完美的音效，”你笑道。'
+			'“我也是！”<<$npcdesc>>说道，眼中亮起了光。“那声‘叮’太让人满足了。但我真正追求的是那些残局翻盘的瞬间。”'
+			'“1打5最能让我心跳加速了，”你附和道。“你更喜欢AWP狙击枪还是步枪？”'
+			'“我还是选步枪——用AK把一整队人扫倒，那感觉无可替代。”'
+			'“佩服。不过我可是AWP的忠实信徒。那种一键删除的感觉？”'
+			'你们俩热火朝天地聊着<<$date_ev[''dialogue_setting'']>>.'
+			act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+		end
+	end
+end
+
+!! ---------------------------------- hobby talk topics end ----------------------------------
+
+!! ---------------------------------- awkward talk topics start ----------------------------------
+
+
+if $ARGS[0] = 'been_before':
+	date_ev['been_before'] = 0
+	gs 'date_talk', 'talk_img'
+	'“你来过这里吗？”你问道' + iif(stat['del_parco'] > 0, ', 环视了一下餐厅。', '。')
+	if rand(1, 3) > 1:
+		'“来过，之前来过几次。”'
+		act '你能推荐点什么吗？': xgt 'date_talk', 'food_recommendations'
+	elseif stat[$date_ev[$loc]] > 0:
+		'“我是第一次来，”<<$npcdesc>>摇了摇头。“你呢？”'
+		'“我以前来过几次。”'
+		'“有什么你能推荐的吗？”'
+		act '给他一些推荐':
+			cla & *nl
+			'“当然。”'
+			'你给他指了指几道你最喜欢的菜。'
+			act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+		end
+	else
+		'“我是第一次来，”<<$npcdesc>>摇了摇头。“你呢？”'
+		'“一样，”你带着一丝苦笑答道。'
+		xgt 'date_talk', 'small_talk'
+	end
+end
+
+
+if $ARGS[0] = 'awkward_start':
+	if npc_date_count[$npcID] = 1:
+		if $ARGS[1] = 'casual_meal':
+			$date_ev['talk_desc1'] = '你尴尬地调整了一下面前餐巾上的叉子，沉默蔓延开来。'
+		end
+		'“那么……呃……你今天过得怎么样？”你问道，不知道该说些什么。'
+		'“哦，你知道的……还行吧……老样子。你呢？”'
+		gs 'date_talk', 'awkward_menu'
+		!! '"Yeah, same. Just, uh, worked... and stuff."'
+		!! '"Cool. Cool." [sips drink]'
+		!! '"Uhh, so... um, what do you do for fun?"'
+	else
+		'“那么，嗯……你今天过得怎么样？”'
+		'“哦，呃，挺好的！你知道，就是，呃……工作上的事。老样子。你呢？”'
+		'“是啊，一样。工作。嗯，其实没什么特别有意思的。”'
+		'“对。对。工作就是……工作。”'
+		if $date_ev['type'] = 'casual_meal':
+			'“是啊。（尴尬的停顿）那么……你喜欢这里的饺子吗？”'
+			'“哦，呃……我不知道。我以前没在这儿吃过。不过看起来应该不错。”'
+			'“是啊，我也没吃过。看起来……挺高档的？”'
+			'“是啊，有点。也许太高档了……？”'
+			'“对吧？就是说，饺子应该高档吗？有这种说法吗？”'
+			'“我……我觉得没有吧？不过，呃，我也不知道。也许这就是那种‘高档饺子’。你知道，带点‘高档花样’。”'
+			'“高档花样？哦，是啊，就像……撒点金箔什么的？”'
+			'“是啊，就是这样。金箔饺子。这……这真有的吧？”'
+			'“当然。”'
+		end
+		'“（沉默）”'
+		'“看来我们只是……太擅长闲聊了。”'
+		xgt 'date_talk', 'awkward_silence'
+	end
+end
+
+
+if $ARGS[0] = 'awkward_menu':
+	act '老样子（没什么特别的）':
+		cla & *nl
+		'“呃……你知道，就是老样子，”你回了一句，内心一边暗自抽搐，因为你意识到这跟他刚说的完全一样。<<$date_ev[''talk_desc1'']>>..'
+		xgt 'date_talk', 'awkward_silence'
+	end
+
+	if gschoolVars['last_attendance'] = daystart and date_ev['school_talk'] = 0:
+		act '学校':
+			cla & *nl
+			'“呃……就是，上学啊之类的……”你答道。'
+			if rand(1, 100) + 20 < npc_rel[$npcID] or $npc_humor[$npcID] = 'intellectual':
+				'“哦。怎么样？你的课还顺利吗？”'
+				xgt 'date_talk', 'school_awkward1'
+			else
+				'“那挺好的。”'
+				'...'
+				'沉默在你们之间蔓延……'
+				xgt 'date_talk', 'awkward_silence'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'awkward_silence':
+	act '默默忍受':
+		cla & *nl
+		if $date_ev['cont_loc'] = 'date_casual_meal':
+			'你坐在<<$npcdesc>>的对面，餐具的叮当声和远处低语的嗡嗡声只会加深你们之间的沉默，空气厚重而凝滞，仿佛在等待你说点什么——随便什么——来打破这难以忍受的寂静<<$date_ev[''dialogue_setting'']>>。'
+		else
+			'你坐在不断加深的沉默中，在你和<<$npcdesc>>之间，空气厚重而凝滞，仿佛在等待着你说点什么——随便什么——来打破这难以忍受的寂静。'
+		end
+		xgt $date_ev['cont_loc'], $date_ev['cont_arg']
+	end
+
+	act '一笑而过':
+		gs 'date_ev', 'loc_img'
+		gs 'date_funcs', 'date_mood', 'improve'
+		'沉默进一步蔓延，你迎上<<$npcdesc>>的目光。'
+		'然后你们俩都忍不住笑了出来。'
+		'“嗯，刚才还真是挺尴尬的，对吧？”他说。'
+		'“是啊，”你轻笑道。“奇怪的是，承认了反倒有点松了口气？”'
+		xgt $date_ev['cont_loc'], $date_ev['cont_arg']
+	end
+
+	act '打破僵局——朝他露一下':
+		cla
+		act '笨拙地露': gt 'date_casual_meal', 'awkward_flash'
+
+		act '随意地露': gt 'date_casual_meal', 'casual_flash'
+	end
+end
+
+
+if $ARGS[0] = 'school_awkward1':
+	date_ev['school_talk'] = 1
+	act '嗯':
+		cla & *nl
+		'“嗯，”你点了点头。'
+		'...'
+		'也许你该多说几句的……'
+		xgt 'date_talk', 'date_continue'
+	end
+
+	act '你没在认真听':
+		cla & *nl
+		'“我当时没怎么注意听，”你尴尬地嘟囔道。'
+		'...'
+		'唉，让对话好转的机会就这么没了。'
+		xgt 'date_talk', 'date_continue'
+	end
+
+	act '讲讲你学到的东西':
+		cla & *nl
+		'“嗯，我们讲了……”'
+		'你告诉<<$npcdesc>>你课上讲了什么，老师们都在讲些什么，' + iif($npc_humor[$npcID] = 'intellectual', '而他似乎真的很感兴趣，不停问问题并让你详细说明。', '他好像并没有太听进去，但至少他装出一副在认真听的样子，装得还挺像。')
+		gs 'date_talk', 'awkward_menu2'
+	end
+end
+
+
+if $ARGS[0] = 'awkward_menu2':
+	gs 'date_talk', 'awkward_relax_act'
+end
+
+
+if $ARGS[0] = 'awkward_relax_act':
+	if $date_ev['talk_mood'] = 'awkward': act '开始放松下来': gt 'date_talk', 'awkward_relax'
+end
+
+
+if $ARGS[0] = 'awkward_relax':
+	$date_ev['talk_mood'] = 'relaxed'
+	gs 'date_funcs', 'date_rate', 'like'
+	gs 'date_talk', 'talk_img'
+	'不知道发生了什么，但紧绷感开始消退，那种尴尬的感觉像一副实打实的重担从你肩上卸了下来。'
+	xgt 'date_talk', 'date_continue'
+end
+
+!! ---------------------------------- awkward talk topics end ----------------------------------
+
+
+
+!! ---------------------------------- boy talk topics start -------------------------
+
+
+if $ARGS[0] = 'boy_talk_lead':
+	if date_ev['school_talk'] = 0:
+		if npc_thinkage[$npcID] < 18 and npc_know_school[$npcID] >= 0:
+			xgt 'date_talk', 'school_talk'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'school_talk':
+	gs 'date_ev', 'loc_img'
+	if npc_know_school[$npcID] = 0:
+		'“那么，你还在上学？”<<$npcdesc>>问道。'
+		if gschoolVars['school_diploma'] = 1:
+			act '已经毕业了':
+				cla & *nl
+				'“其实我已经毕业了。”'
+				act '继续': xgt 'date_talk', 'continue_rate'
+			end
+		end
+
+		if gschoolVars['block'] = 0:
+			act '嗯':
+				npc_know_school[$npcID] = 1
+				cla & *nl
+				'“嗯嗯，”你点了点头。'
+				'“最近有什么有趣的事吗？”'
+				xgt 'date_talk', 'school_talk2'
+			end
+		else
+			act '告诉他你被开除了':
+				npc_know_school[$npcID] = -1
+				cla & *nl
+				'“呃，其实……我被学校开除了，”你承认道。'
+				'“你有点不乖啊，是不是？”他坏笑道。'
+				'“缺课太多了，”你苦笑着回了一句。'
+				act '继续': xgt 'date_talk', 'continue_rate'
+			end
+
+			act '撒谎':
+				npc_know_school[$npcID] = 1
+				cla & *nl
+				'“嗯嗯，”你点了点头，刻意避而不谈自己被开除的事。'
+				'“最近有什么有趣的事吗？”'
+				xgt 'date_talk', 'school_talk2'
+			end
+		end
+	elseif npc_know_school[$npcID] = 1:
+		'“那么，学校怎么样？”<<$npcdesc>>问道。“最近有什么有趣的事吗？”'
+		xgt 'date_talk', 'school_talk2'
+	end
+end
+
+
+if $ARGS[0] = 'school_talk2':
+!!	if rand(1,2) = 1:
+
+!!	else
+
+!!	end
+	act '聊聊你的课程':
+		cla & *nl
+		'“嗯，我们最近在学……”你跟<<$npcdesc>>讲了你的课、课程进展如何，还有老师们都在讲些什么。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '聊聊上课有多无聊':
+		cla & *nl
+		'“唉，能有什么有趣的？我上课大部分时间都在涂鸦和自拍。”'
+		'“我倒是想看看，”他咧嘴一笑。'
+		'“看哪个？涂鸦还是自拍？”'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+
+	act '聊点八卦':
+		cla & *nl
+		'“嗯，我有些同学……”你把听来的各种下流八卦都讲给<<$npcdesc>>听——谁跟谁上床，哪个女生给哪个男生口交，哪个男生背着哪个女生偷吃<<$date_ev[''dialogue_setting'']>>。'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+end
+
+
+if $ARGS[0] = 'boob_look':
+	gs 'date_ev', 'cleavage_img'
+	'你发现他在盯着你的胸部看。'
+	act '当面挑衅他':
+		cla & *nl
+		'“有什么心事吗？”你挑起一边眉毛，直截了当地问。'
+		if npc_womanizer[$npcID] > 0 or npc_assertive[$npcID] > 0 or npc_misogynist[$npcID] > 0 or npc_arrogant[$npcID] > 0:
+			'“你的奶子。”他毫不害臊地冲你咧嘴一笑，说道：“它们穿在那件' + iif(PCloDress > 0, '连衣裙里真好看。”', '衬衫里真好看。”')
+			xgt 'date_talk', 'boob_comment'
+		else
+			'<<$npcdesc>>迅速抬头看向别处，意识到自己被发现，脸红了。'
+			'“呃——”'
+			act '没关系':
+				cla & *nl
+				'“没关系的。”他惊讶地眨了眨眼。“我不介意你看。”'
+				'“真的？”'
+				'“真的。”你冲他笑了笑。“我知道它们很难让人不去看。”'
+				act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+			end
+		end
+	end
+
+	act '“你在盯着看”（脸红）':
+		cla & *nl
+		'“你在盯着看，<<$npcdesc>>，”你嘟囔道，感觉脸颊发烫。'
+		if npc_womanizer[$npcID] > 0 or npc_assertive[$npcID] > 0 or npc_misogynist[$npcID] > 0 or npc_arrogant[$npcID] > 0:
+			'“我控制不住自己，”<<$npcdesc>>咧嘴笑道。“你这对儿真棒。”'
+			act '没关系':
+				cla & *nl
+				'你对他羞涩一笑，自己的脸也红得更厉害了。'
+				'“只是……别盯太久……”'
+				act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+			end
+		else
+			'<<$npcdesc>>迅速抬头看向别处，意识到自己被发现，脸红了。'
+			'“呃——”'
+			act '没关系':
+				cla & *nl
+				'“没关系的。”他惊讶地眨了眨眼。“我不介意你看。”'
+				'你对他羞涩一笑，自己的脸也红得更厉害了。'
+				'“只是……别盯太久……”'
+				act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'boob_comment':
+	act '接受赞美':
+		cla & *nl
+		'“那就多谢了，”你微笑着回应。“听到夸奖总是让人开心。”'
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+
+	act '眼睛看上面':
+		cla & *nl
+		'“喂。”你打了个响指。“我的眼睛在这儿呢。”'
+		'“抱歉，”他说，还在咧嘴笑。'
+		'“下次别再这样了。”'
+		'“这我可不敢保证。”'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+end
+
+
+if $ARGS[0] = 'braless_talk':
+	gs 'date_ev', 'loc_img'
+	date_ev['braless_talk'] = 1
+	if npc_know_no_bra[$npcID] = 0:
+		if npc_assertive[$npcID] = 1:
+			'“那么，你是从来不穿胸罩，还是今天只是胆子大？”<<$npcdesc>>问道，对你挑了挑眉。'
+		else
+			'“那个，呃，”<<$npcdesc>>尴尬地开口。“你平时都不穿胸罩吗？”'
+		end
+		'顺着他的目光，你低头一看，发现胸部的轮廓和乳头的凸起此刻有点明显。'
+		gs 'date_talk', 'braless_reply_menu'
+		act '只为他':
+			cla & *nl
+			'“我平时确实不穿，”你坏笑道。“不过我想，今天不穿的话你可能会更享受。”'
+			'“你人真好，”<<$npcdesc>>微笑着回答。'
+			act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+		end
+	elseif $npc_humor[$npcID] = 'intellectual':
+		'“你真的不穿胸罩？”<<$npcdesc>>问道，意味深长地盯着你上衣下那两颗明显的凸起。“这样……不会不舒服吗？”'
+		gs 'date_talk', 'braless_reply_menu'
+		act '乳头而已':
+			cla & *nl
+			'“不会，”你耸耸肩。“为什么会不舒服？不过是乳头而已。我敢肯定你也有两个。”'
+			xgt 'date_talk', 'braless_reply_menu'
+		end
+	else
+		'“你不穿胸罩真是太性感了，”<<$npcdesc>>说着，毫不害臊地盯着你没穿胸罩的胸部。'
+		xgt 'date_talk', 'braless_reply_menu'
+	end
+end
+
+
+if $ARGS[0] = 'braless_reply_menu':
+	act '感到害羞':
+		$date_ev['temp_mood'] = 'embarrassed'
+		cla & *nl
+		'你一下子脸红了。'
+		'“真的那么明显吗？”'
+		if $stat_nipple_text ! '':
+			if npc_assertive[$npcID] > 0:
+				'“我这会儿算是抢到头条了，”他干巴巴地说道，注意到你的<<$stat_nipple_text>>把' + iif(PCloDress = 1, '连衣裙顶了起来。', '上衣顶了起来。')
+			else
+				'“是有点，”他说道，自己也脸红了，把目光从你<<$stat_nipple_text>>顶起的' + iif(PCloDress = 1, '连衣裙上移开。', '上衣上移开。')
+			end
+		else
+			if npc_assertive[$npcID] > 0:
+				'“我这会儿算是抢到头条了，”他干巴巴地说道，注意到你的<<$stat_nipple_text>>把' + iif(PCloDress = 1, '连衣裙顶了起来。', '上衣顶了起来。')
+			else
+				'“是有点，”他说道，自己也脸红了，把目光从你<<$stat_nipple_text>>顶起的' + iif(PCloDress = 1, '连衣裙上移开。', '上衣上移开。')
+			end
+		end
+		xgt 'date_talk', 'braless_reply_menu2'
+	end
+end
+
+
+if $ARGS[0] = 'braless_reply_menu2':
+	!! positive, neutral, and negative in terms of how Sveta feels about going braless
+	gs 'date_talk', 'braless_reply_pos'
+	gs 'date_talk', 'braless_reply_neutral'
+	gs 'date_talk', 'braless_reply_exh'
+end
+
+
+if $ARGS[0] = 'braless_reply_pos':
+	act '喜欢它们的样子':
+		cla & *nl
+		'“我喜欢不穿胸罩的样子，”你更清楚地说道，还带上了一丝坏笑。'
+		if $npc_humor[$npcID] = 'intellectual':
+			'“这我可没法反驳，”他回答，欣赏着眼前的景色。'
+		else
+			'“我也是，”他咧嘴一笑。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+
+	act '感觉好多了':
+		cla & *nl
+		'“不穿胸罩感觉更舒服，”你更清楚地说道，还带上了一丝坏笑。'
+		if $npc_humor[$npcID] = 'intellectual':
+			if pcs_cupsize > 20:
+				'“不会疼吗？”他看起来很惊讶。“我是说，因为……”'
+				'“因为我有对大胸？”你问道，冲他咧嘴一笑，他也笑了回来。'
+				'“对，就是这个。”'
+				'“嗯，跳起来的时候确实有点麻烦。但总体来说，穿胸罩比不穿更难受。又痒又闷又勒。我宁愿让这对大胸彻底解放。”'
+				'“这我可没法反驳，”他回答，欣赏着眼前的景色。'
+			else
+				'“哦。我听过很多女生这么说。说她们一回家第一件事就是脱掉胸罩。”'
+				'“是啊。又痒又闷又勒。不穿胸罩让我有种自由感，心理上和身体上都是。我宁愿省掉那些麻烦，让别人看到一点凸点。”'
+				'“有道理。”<<$npcdesc>>点了点头。'
+			end
+		else
+			'“看起来也更好了，”他咧嘴一笑。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+end
+
+
+if $ARGS[0] = 'braless_reply_neutral':
+	act '它们只是乳房':
+		cla & *nl
+		'“我不觉得这有什么大不了的，”你耸耸肩。“有时候我穿，有时候我不穿。”'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+end
+
+
+if $ARGS[0] = 'braless_reply_neg':
+	act '继续': xgt 'date_talk', 'continue_rate'
+end
+
+
+if $ARGS[0] = 'show_tits_ev':
+	date_ev['show_tits_ev'] = 1
+	gs 'date_talk', 'talk_img'
+	'<<$npcdesc>>凑近你，低声对你耳语。'
+	'“<<$pcs_usedname[$npcID]>>，让我看看你的奶子。”'
+	act '抗议':
+		cla & *nl
+		'“不行！”你脸红了，环顾四周。“我们在大庭广众之下！”'
+		'“别这样嘛，求你了？那会很性感的。”'
+		act '不！':
+			cla & *nl
+			'“不行！”你坚持道。“周围有人！”'
+			'“总有一天我会让你做的。”'
+			'他一脸向往的神情。'
+			act '继续': xgt 'date_talk', 'continue_rate'
+		end
+
+		act '屈服':
+			gs $date_ev['loc'], 'flash_mov'
+			'你又环顾了一圈，忍不住对<<$npcdesc>>要求你做的事感到犹豫。'
+			'<i>算了，管他呢。</i>'
+			if PCloDress = 0:
+				'趁你还没来得及说服自己，你便掀起上衣，把你的<<$pcdesc_breasts>>乳房露给<<$npcdesc>>看。你忍了大约两秒钟，便迅速把衣服拉回原位，环顾四周看有没有人看到。'
+			else
+				'趁你还没来得及说服自己，你便拉下连衣裙，把你的<<$pcdesc_breasts>>乳房露给<<$npcdesc>>看。你忍了大约两秒钟，便迅速把衣服拉回原位，环顾四周看有没有人看到。'
+			end
+			xgt 'date_talk', 'npc_flash_react', 'shy'
+		end
+	end
+
+	act '挑逗他':
+		cla & *clr
+!!		if $date_ev['loc'] = 'date_casual_meal':
+			'<center><video autoplay loop <<$set_imgh>> src="images/shared/romance/dates/casual_dining/bounce_tits.mp4"></video></center>'
+			'“你想看看货色，是吧？”你冲他媚笑，在座位上晃动着身体，让乳房在衣服里跟着一起颤动。'
+			'“是啊……”<<$npcdesc>>简直要流口水了。'
+			'“嗯——不行！恐怕现在你只能看到这些，”你咧嘴一笑，又晃了几下。'
+			if npc_sexdrive[$npcID] < rand(1, 10):
+				'“就会撩人。”'
+				act '继续': xgt 'date_talk', 'continue_rate'
+			else
+				'“别这样嘛，求你了？操，你太性感了。”'
+				act '向他露胸':
+					gs $date_ev['loc'], 'flash_mov'
+					'“嘴甜的人到哪儿都吃得开。”'
+					if PCloDress = 0:
+						'你迅速环顾四周看看有没有人在看，然后掀起上衣，看着<<$npcdesc>>的脸在你把<<$pcdesc_breasts>>乳房露给他看时亮了起来。你让他好好看了两秒钟，才把上衣拉回原位。'
+					else
+						'你迅速环顾四周看看有没有人在看，然后拉下连衣裙，看着<<$npcdesc>>的脸在你把<<$pcdesc_breasts>>乳房露给他看时亮了起来。你让他好好看了两秒钟，才把上衣拉回原位。'
+					end
+					xgt 'date_talk', 'npc_flash_react'
+				end
+			end
+!!		else
+
+!!		end
+	end
+
+	act '向他露胸':
+		gs $date_ev['loc'], 'flash_mov'
+		if PCloDress = 0:
+			'“这是在激我吗？”你冲他咧嘴一笑，除了扫一眼看看有没有人在看之外，再也没有丝毫犹豫，便掀起上衣，把你的<<$pcdesc_breasts>>乳房露给他看。你让他好好看了两秒钟，才把上衣拉回原位。'
+		else
+			'“这是在激我吗？”你冲他咧嘴一笑，除了扫一眼看看有没有人在看之外，再也没有丝毫犹豫，便拉下连衣裙，把你的<<$pcdesc_breasts>>乳房露给他看。你让他好好看了两秒钟，才把上衣拉回原位。'
+		end
+		xgt 'date_talk', 'npc_flash_react'
+	end
+end
+
+
+if $ARGS[0] = 'npc_flash_react':
+	if $ARGS[1] = 'shy':
+		if $npc_humor[$npcID] = 'perverted':
+			'“操，刚才太性感了，”<<$npcdesc>>低声嘟囔道。'
+			'他冲你咧嘴一笑，你感觉脸上腾地烧了起来。“现在满意了？”'
+			'“也可以这么说。”'
+		elseif $npc_humor[$npcID] = 'childish':
+			'“你太棒了，”<<$npcdesc>>对你露出傻气的笑容，目光仍停在你现在已经遮住的胸上。'
+			'他冲你咧嘴一笑，你感觉脸上腾地烧了起来。“现在满意了？”'
+			'“是啊，”他说，还是一副傻乎乎的样子。'
+		else
+			'“哇，我真不敢相信你真的做了。”'
+			'<<$npcdesc>>惊讶地眨着眼，你感觉脸上腾地烧了起来。'
+			'“是你让我做的，不是吗？”你害羞地嘟囔道。'
+			'“我很高兴我这么做了，”他咧嘴一笑。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	else
+		if $npc_humor[$npcID] = 'perverted':
+			'“操，刚才太性感了，”<<$npcdesc>>低声嘟囔道。'
+			'你看着他的表情咧嘴一笑。“现在满意了？”'
+			'“也可以这么说。”'
+		elseif $npc_humor[$npcID] = 'childish':
+			'“你太棒了，”<<$npcdesc>>对你露出傻气的笑容，目光仍停在你现在已经遮住的胸上。'
+			'你看着他的表情咧嘴一笑。“现在满意了？”'
+			'“是啊，”他说，还是一副傻乎乎的样子。'
+		else
+			'“哇，我真不敢相信你真的做了。”'
+			'<<$npcdesc>>惊讶地眨着眼，你感觉脸上腾地烧了起来。'
+			'“是你让我做的，不是吗？”你耸耸肩，嘴角还挂着笑。'
+			'“我很高兴我这么做了，”他也咧嘴一笑。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+	end
+end
+
+!! ---------------------------------- boy talk topics end ---------------------------
+
+
+
+!! ---------------------------------- relationship talk topics start -------------------------
+
+
+
+
+!! ---------------------------------- relationship talk topics end ---------------------------
+
+
+
+!! ---------------------------------- reputation talk topics start ---------------------------
+
+
+
+
+!! ---------------------------------- reputation talk topics end -----------------------------
+
+
+
+!! ---------------------------------- sex talk topics start ----------------------------------
+
+
+if $ARGS[0] = 'sex_talk_menu1':
+	gs 'date_talk', 'prev_menu'
+	!! act 'Talk about porn': xgt 'date_talk', 'porn_talk1'
+	if npc_last_sex[$npcID] = daystart:
+		if $npc_last_sex_enjoyment[$npcID] = 'enjoy':
+			act '聊聊你们刚才的性爱': xgt 'date_talk', 'sex_earlier'
+		end
+	end
+!!	if npc_last_sex[$npcID] > 0:
+!!		act 'Talk about his dick': xgt 'date_talk', 'dick_talk'
+!!	end
+end
+
+if $ARGS[0] = 'porn_talk1':
+	gs 'date_talk', 'talk_img'
+	'“你看色情片吗？”你问<<$npcdesc>>。'
+	if npc_sexdrive[$npcID] >= 3:
+		!! watches porn
+		act '继续': xgt 'date_talk', 'continue_rate'
+		act '问问他喜欢哪种': xgt 'date_talk', 'porn_what_kind1'
+		if npc_shy[$npcID] > 0:
+			'他的脸立刻变红并且他无法直视你的眼睛。'
+			'“呃，是啊……”'
+			act '挑逗他':
+				cla & *nl
+				'你取笑他看色情片。'
+				'“你呢？”他问，脸还是红的。“你看色情片吗？”'
+				xgt 'date_talk', 'porn_what_kind2'
+			end
+		else
+			'“当然看啊，”他毫不羞愧地咧嘴一笑。“谁不看呢？”'
+			act '问问他喜欢什么': gt 'date_talk', 'porn_what_kind1'
+		end
+	else
+		if npc_shy[$npcID] > 0:
+			'他的脸立刻变红并且他无法直视你的眼睛。'
+			'“呃，嗯，不……不太看。”'
+			act '挑逗他':
+				cla & *nl
+				'你取笑他看色情片。'
+				'“你呢？”他问，脸还是红的。“你看色情片吗？”'
+				xgt 'date_talk', 'porn_what_kind2'
+			end
+		else
+			'“不太看，”他耸耸肩。'
+			'“真的吗？”你很惊讶。“我以为所有男生都这样。”'
+			'“也许大多数吧，”他轻声笑着。“但不是全部。”'
+		end
+	end
+end
+
+if $ARGS[0] = 'porn_tease1':
+	gs 'date_talk', 'talk_img'
+end
+
+if $ARGS[0] = 'porn_what_kind1':
+	cla & *nl
+	'“有没有你最喜欢的那一种？”你问他。'
+	if npc_dirty_lover[$npcID] > 0:
+		if npc_sex_speed[$npcID] = 3:
+			if npc_shy[$npcID] > 0:
+				$date_ev['porn_genre'] = 'rough'
+				'<<$npcdesc>>变得更尴尬了，但还是回答了你的问题。'
+				'“我还挺喜欢粗暴的那种，”他承认道。“呃。嗯。你呢？你看色情片吗？”'
+			else
+				'“我喜欢粗暴的色情片，”他承认道。“扇巴掌、扯头发，还有那种女孩被操得死去活来的片子。你呢？你看色情片吗？”'
+			end
+		else
+
+		end
+	elseif placeholder = 1:
+
+	end
+end
+
+if $ARGS[0] = 'porn_what_kind2':
+	act '你不看':
+		cla & *nl
+		'“不，”你觉得好笑地摇摇头。“我只是喜欢问别人而已。”'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '普通色情片':
+		cla & *nl
+		'“我想说我的口味挺普通的，”你诚实地回答。“就是普通的男女那种。”'
+		'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '粗暴色情片':
+		cla & *nl
+		if $date_ev['porn_genre'] = 'rough':
+			'“我也喜欢粗暴的那种，”你咧嘴一笑回答。“我喜欢想象自己是那种被男人完全粗暴摆布的女孩。”'
+			'“也许哪天我可以为你这么做，” ' + iif(npc_shy[$npcID] > 0, '<<$npcdesc>>带着害羞的微笑说。', '<<$npcdesc>>带着与你相配的坏笑说。')
+		else
+			'“我还挺喜欢粗暴的那种，”你带着下流的笑容诚实地回答。“就是那种女孩被一个鸡巴很大的男人完全粗暴摆布的色情片。”'
+			'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '粗暴色情片':
+		cla & *nl
+		if $date_ev['porn_genre'] = 'rough':
+			'“我也喜欢粗暴的那种，”你咧嘴一笑回答。“我喜欢想象自己是那种被男人完全粗暴摆布的女孩。”'
+			'“也许哪天我可以为你这么做，” ' + iif(npc_shy[$npcID] > 0, '<<$npcdesc>>带着害羞的微笑说。', '<<$npcdesc>>带着与你相配的坏笑说。')
+		else
+			'“我还挺喜欢粗暴的那种，”你带着下流的笑容诚实地回答。“就是那种女孩被一个鸡巴很大的男人完全粗暴摆布的色情片。”'
+			'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '中出色情片':
+		cla & *nl
+		'“我更喜欢有内射情节的色情片，”你回答。“看着一个女孩被灌满，再看着精液从她的小穴里滴出来，那种感觉——”你不由自主地打了个寒颤，忍不住咧嘴笑起来。“这简直让我兴奋得不行。”'
+		if $npc_cum_pref[$npcID] = 'creampie' and npc_condom_conscious[$npcID] = 0 or $npc_bareback[$npcID] <> 'never_use' or $npc_bareback[$npcID] <> 'when_safe':
+			'“也许以后我们可以一起试试，” ' + iif(npc_shy[$npcID] > 0, '<<$npcdesc>>带着害羞的微笑说。', '<<$npcdesc>>带着与你相配的微笑说。')
+		else
+			'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '女同色情片':
+		cla & *nl
+		'“我真的很喜欢看女同色情片，”你回答。“和普通的色情片比起来，它温柔又柔和。而且女孩们真的很懂怎么让彼此爽。”'
+		if $npc_humor[$npcID] = 'perverted':
+			'“我也喜欢女同色情片，”<<$npcdesc>>咧嘴一笑。'
+		else
+
+		end
+		'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '强奸扮演色情片':
+		cla & *nl
+		'“我很喜欢那种女孩多少有点被强迫的，”你回答。“比如偷东西被抓的那种，或者坏学生的那种，或者——老实说——一些纯粹就是强奸的片子。光是<i>被占有</i>这个念头，就让我欲火中烧。”'
+		'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '群交色情片':
+		cla & *nl
+		'“我真的很喜欢群交色情片，”你回答。“看着一个女孩的每一个洞都被鸡巴填满，那种感觉——”你不由自主地打了个寒颤，忍不住咧嘴笑起来。'
+		'<<$npcdesc>>点点头，似乎很欣赏你的诚实。'
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+
+	act '男同色情片':
+		cla & *nl
+		'“我喜欢男同色情片，”你咧嘴一笑回答。“我超爱看两个肌肉男互相操屁股！”'
+		if npc_insecure[$npcID] > 0:
+			'<<$npcdesc>>看起来很厌恶。'
+		else
+			'<<$npcdesc>>看起来很不自在。'
+		end
+		act '继续': xgt 'date_talk', 'continue_rate'
+	end
+end
+
+if $ARGS[0] = 'sex_earlier':
+	cla
+	act '含蓄地':
+		cla & *nl
+		'“刚才真的很棒，”你轻声说。“就是我们，你懂的……”'
+		'你微笑着看着<<$npcdesc>>, 你眼里闪着光，同时挑逗地动了动眉毛。'
+		gs 'date_talk', 'sex_talk_npc_react'
+		xgt 'date_talk', 'sex_earlier2'
+	end
+
+	act '露骨地':
+		cla & *nl
+		if npc_last_orgasm_count[$npcID] >= 3:
+			'“你刚才太厉害了，”你冲<<$npcdesc>>咧嘴一笑。“我高潮了好多次！我都以为自己要疯了。”'
+		else
+			'“你刚才太厉害了，”你冲<<$npcdesc>>咧嘴一笑。“你就是知道怎么在床上把我逼疯。”'
+		end
+		'你微笑着看着<<$npcdesc>>, 你眼里闪着光，同时挑逗地动了动眉毛。'
+		gs 'date_talk', 'sex_talk_npc_react'
+		xgt 'date_talk', 'sex_earlier2'
+	end
+end
+
+
+if $ARGS[0] = 'sex_talk_npc_react':
+	if $npc_last_sex_quality[$npcID] = 'unhappy':
+		'“对你来说也许是吧，”<<$npcdesc>>不高兴地说。'
+	elseif $npc_last_sex_quality[$npcID] = 'unsatisfied':
+		'“我经历过更好的，”<<$npcdesc>>生硬地说。'
+	elseif $npc_last_sex_quality[$npcID] = 'okay':
+		'“是啊，还行吧，”他苦笑着点点头。'
+	elseif $npc_last_sex_quality[$npcID] = 'good':
+		'“是啊，确实不错，对吧？”他微笑着说。'
+	elseif $npc_last_sex_quality[$npcID] = 'great':
+		'“很好？简直就是他妈的棒极了！”'
+	elseif $npc_last_sex_quality[$npcID] = 'fucked_dry':
+		'“很好？你几乎把我操干了，”他咧嘴一笑。'
+	end
+end
+
+
+if $ARGS[0] = 'dick_talk':
+	gs 'date_talk', 'prev_menu'
+	if $npc_dick_class[$npcID] = 'short':
+		'“我通常不会跟鸡巴小的男人约会，”你带着讥诮的笑意说。'
+	end
+end
+
+
+if $ARGS[0] = 'sex_earlier2':
+	gs 'date_talk', 'prev_menu'
+	act '我们应该再来一次': xgt 'date_talk', 'sex_again'
+	act '你还可以……': xgt 'date_talk', 'sex_can_still'
+	gs 'date_talk', 'sex_cum_leak'
+end
+
+
+if $ARGS[0] = 'sex_again':
+	cla & *nl
+	'“我们什么时候应该再做一次，”你坏笑着<<$date_ev[''dialogue_setting'']>>。'
+	act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+end
+
+
+if $ARGS[0] = 'sex_cum_leak':
+	if cum_loc['vagina'] > 0:
+		act '告诉他他的精液正从你体内流出':
+			cla & *clr
+			gs 'date_casual_meal', 'restaurant_talking_img'
+			'“我很确定你的精液还在从我身体里流出来，”你神秘兮兮地低声说。'
+			act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'sex_can_still':
+	gs 'date_talk', 'can_still_bj'
+
+	if sex_ev['creampie_count'] > 0:
+		act '……感觉他的精液流出来':
+			cla & *nl
+			if cum_loc['vagina'] > 0:
+				if $pantyworntype ! 'none':
+					'“我还能感觉到你的精液……“你低声说，咧嘴笑着。”浸湿了我的内裤……”'
+				elseif PCloPantsShortness > 0:
+					'“我还能感觉到你的精液……”你低声说，咧嘴笑着。“正滴进我的' + iif(PCloPantsShortness > 2, '短裤里……”', '裤子里……”')
+				else
+					'“我还能感觉到你的精液……”你低声说，咧嘴笑着。' + iif($date_ev['type'] = 'park_walk' or $date_ev['type'] = 'dance_date', '“顺着我的大腿往下流……”', '“顺着我的大腿往下流……”')
+				end
+			else
+				'“我几乎还能感觉到你的精液……“你低声说，咧嘴笑着。”正从我的小穴里流出来……”'
+			end
+			if $npc_cum_pref[$npcID] = 'creampie':
+				'“操。”他的目光忍不住瞟向你的' + iif(PCloPantsShortness > 0, '两腿之间。', '裙子。') + '“真他妈的性感。”'
+				act '你替他做':
+					gs 'npc_relationship', 'modify', $npcID, 'like'
+					cla & *nl
+					'“我就希望你会这么说，”你微笑着说，咬着嘴唇，眼里闪着光。'
+					xgt 'date_talk', 'can_still_end'
+				end
+
+				act '同意':
+					gs 'npc_relationship', 'modify', $npcID, 'like'
+					cla & *nl
+					'“好啊，”你同意道，咬着嘴唇，眼里闪着光。'
+					xgt 'date_talk', 'can_still_end'
+				end
+			else
+				'“感觉怎么样？”他窃笑着说。'
+				act '湿了':
+					cla & *nl
+					'“<i>湿了</i>，”你挑逗地坏笑着说。'
+					xgt 'date_talk', 'can_still_end'
+				end
+
+				act '乱糟糟的':
+					cla & *nl
+					'“乱糟糟的，”你嘴角一歪回答道。“非常乱。”'
+					xgt 'date_talk', 'can_still_end'
+				end
+
+				act '恶心':
+					cla & *nl
+					'“说实话？”你皱起眉头。“有点恶心。我真希望在出门前有时间清理一下。”'
+					'“这才让它更刺激。”'
+					xgt 'date_talk', 'can_still_end'
+				end
+
+				act '黏糊糊的':
+					cla & *nl
+					'“黏糊糊的，”你回答着，扭了扭屁股。“非常黏。”'
+					xgt 'date_talk', 'can_still_end'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'can_still_bj':
+	if npc_last_oral[$npcID] = daystart:
+		act '……还能尝到他的鸡巴的味道':
+			cla & *nl
+			'“我舌头上还能尝到你的鸡巴的味道，”你低声说，咧嘴笑着。'
+			if $npc_fav_pos[$npcID] = 'blowjob':
+				'“你的口交太棒了，”他几乎是在呻吟着回答。“你的嘴感觉太好了，我以为我要爆炸了。”'
+				act '被欣赏的感觉真好':
+					cla & *nl
+					'“被欣赏的感觉总是很好，”你回以微笑。'
+					xgt 'date_talk', 'can_still_end'
+				end
+
+				act '如果你热爱你所做的事……':
+					cla & *nl
+					'“嗯，如果你热爱你所做的事……”你话说到一半停住了，让未尽之言随着你的微笑萦绕不去。'
+					'从他回看你的眼神中，你几乎能感觉到他的阴茎在裤子里变硬。'
+					xgt 'date_talk', 'can_still_end'
+				end
+
+				!! if stat['bj'] >
+					act '熟能生巧':
+						cla & *nl
+						gs 'npc_relationship', 'modify', $npcID, 'love'
+						'“你知道人们怎么说，”你狡黠地回以微笑。“熟能生巧。”'
+						'从他回看你的眼神中，你几乎能感觉到他的阴茎在裤子里变硬。'
+						xgt 'date_talk', 'can_still_end'
+					end
+				!! end
+			else
+				if $npc_humor[$npcID] = 'intellectual':
+					'“你这是在暗示我该多花点时间洗澡吗？”他揶揄地问。'
+					act '你们可以一起洗':
+						gs 'date_talk', 'talk_img'
+						gs 'npc_relationship', 'modify', $npcID, 'love'
+						'“你这是在暗示我该多花点时间洗澡吗？”他揶揄地问。'
+						'“当然。那样我们就能一起在里面多待一会儿了。”'
+						'你对他露出一个明亮而无辜的笑容来配合这个玩笑，他心领神会地回以一笑。你们两人继续着充满性暗示的暧昧调情<<$date_ev[''dialogue_setting'']>>.'
+						act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+					end
+				else
+					'“我尝起来好吃吗？”他咧嘴一笑。'
+					act '咸的':
+						cla & *nl
+						'“这么说吧，尝起来咸咸的，”你坏笑着说。'
+						xgt 'date_talk', 'can_still_end'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'can_still_end':
+	'你们两人继续着充满性暗示的暧昧调情<<$date_ev[''dialogue_setting'']>>.'
+	act '继续': xgt 'date_talk', 'continue_rate', 'improve'
+end
+
+
+!! ---------------------------------- sex talk topics end ----------------------------------
+
+!! ---------------------------------- for dates where food is present ----------------------------------
+
+
+if $ARGS[0] = 'food_recommendations':
+	cla & *nl
+	'“这里你推荐吃什么？”你看着菜单，浏览着菜品。'
+	if npc_foodie[$npcID] = 1:
+		'“在这里点饺子准没错，”<<$npcdesc>>咧嘴一笑。“第一口咬下去，多汁的猪肉和洋葱的香味就迸发出来，手工擀的面皮薄得还没等你咀嚼就化开了。顶端那道完美的捏褶刚好能兜住馅料，蘸上冰凉的酸奶油，酸香浓郁，与冒着热气的馅料相得益彰。就像把冬日的慰藉和童年的回忆一起折进了一个完美的小口袋。”'
+		act '“你真的很喜欢美食，是吧？”':
+			gs 'date_talk', 'loc_img'
+			'“你真的很喜欢美食，是吧？”'
+			if npc_insecure[$npcID] > 0:
+				'<<$npcdesc>>立刻脸红了，移开目光不再看你。'
+				'“呃，嗯……我是说……我想我只是喜欢这里的饺子……”'
+				act '只是随口一说':
+					cla & *nl
+					'“我没有别的意思，”你赶紧说。“我只是注意到了而已。”'
+					'这似乎并没有让他安心。'
+					xgt 'date_talk', 'date_continue'
+				end
+
+				act '挺可爱的':
+					cla & *nl
+					'“不，”你把手伸过桌子安慰他。“我觉得这挺可爱的。”'
+					'他犹豫了一下，但最终还是害羞地回以微笑。'
+					gs 'date_funcs', 'date_rate', 'like'
+					xgt 'date_talk', 'date_continue'
+				end
+
+				act '真是个怪人':
+					cla & *nl
+					'你什么也没说，但一个表情差点浮现在你脸上。'
+					'<i>谁会那么在意食物啊？</i>你想。<i>真是个怪人。</i>'
+					gs 'date_funcs', 'date_rate', 'dislike'
+					xgt 'date_talk', 'date_continue'
+				end
+			else
+				'“是啊，我想是吧，”<<$npcdesc>>微笑着说。'
+				xgt 'date_talk', 'date_continue'
+			end
+		end
+
+		act '听起来不错！':
+			cla & *nl
+			gs 'date_funcs', 'date_rate', 'like'
+			'“哇，听起来不错！也许我该尝尝！”'
+			xgt 'date_talk', 'date_continue'
+		end
+
+		act '不喜欢饺子……':
+			cla & *nl
+			gs 'date_funcs', 'date_rate', 'dislike'
+			'“我不太喜欢饺子，”你平淡地说。'
+			'“……哦。”'
+			xgt 'date_talk', 'date_continue'
+		end
+	else
+		'“这里的东西基本上都还不错，”<<$npcdesc>>耸耸肩。'
+		xgt 'date_talk', 'date_continue'
+	end
+end
+
+
+if $ARGS[0] = 'food_flirt_start':
+	xgt 'date_talk', 'food_flirt_<<rand(1,3)>>'
+end
+
+
+if $ARGS[0] = 'food_flirt_1':
+	'“那么，是食物让你的眼睛闪闪发亮，还是因为我？”你挑逗地对他微笑。'
+	'“这么说吧，食物确实不错，但你才是让这一切更加美味的人。”'
+	if date_ev['alcohol_order'] > 0:
+		'“嗯，我喜欢这样。我想光靠葡萄酒可能应付不了这么多的赞美。”'
+	else
+		'“嗯，我喜欢这样。我想我需要点更烈的来应付这么多的赞美。”'
+	end
+	'“哦，别担心——这样的话我还有的是。不过我觉得不用喝酒，你就已经有点让人沉醉了。”'
+	'“小心点，你这么多花言巧语，我可能会开始觉得你别有用心。”'
+	xgt 'date_talk', 'date_continue'
+end
+
+
+if $ARGS[0] = 'food_flirt_2':
+	'“你知道吗，我本来以为今天会弄脏的是我，但你下巴上沾了酱。”'
+	if sex_ev['bj_count'] > 0 and $npc_humor[$npcID] = 'childish':
+		'“是啊，”他擦着脸坏笑。“但今天早些时候，我的蛋蛋可是搁在你下巴上的。”'
+		act '唉':
+			cla & *nl
+			gs 'date_funcs', 'date_rate', 'dislike'
+			'你叹了口气，翻了个白眼。'
+			'<i>你现在到底在跟什么样的巨婴约会啊？</i>'
+			xgt 'date_talk', 'date_continue'
+		end
+
+		act '笑':
+			cla & *nl
+			gs 'date_funcs', 'date_rate', 'like'
+			'你噗嗤一声笑了出来，他的笑话如此幼稚又蹩脚，可在此刻却莫名地迷人而真实。'
+			xgt 'date_talk', 'date_continue'
+		end
+	elseif sex_ev['cum_face'] + sex_ev['cum_mouth'] > 0:
+		'“今天早些时候你下巴上还沾着别的东西，”他咧嘴笑着，带着暗示地看着你。'
+		act '别在这里！':
+			cla & *nl
+			'“别在这里说那个！”你压低声音说，环顾四周看有没有人听到。'
+			if rand(1, 2) = 1:
+				gs 'fame', 'sex', $region, 'small'
+				'但从那个' + iif(date_ev['male_waiter'] = 1, '男服务员看你的眼神来看，你很确定他听到了。', '女服务员看你的眼神来看，你很确定她听到了。')
+			else
+				'谢天谢地，似乎没人听到。'
+			end
+			xgt 'date_talk', 'date_continue'
+		end
+
+		act '晚点也可以再沾上点':
+			cla & *nl
+			gs 'date_funcs', 'date_rate', 'like'
+			'“晚点再沾上点东西我也不介意，”你坏笑着，带着暗示地大口吃了一口食物，弄得一塌糊涂。'
+			xgt 'date_talk', 'date_continue'
+		end
+	else
+		if $npc_humor[$npcID] = 'intellectual' or $npc_humor[$npcID] = 'perverted':
+			'“哦，谢谢你指出来。我本来还想用我的吃相给你留下好印象呢。”'
+			'“嗯，确实令人印象深刻。你让我怀疑你是不是以前干过这事。对这么邋遢的人来说，那看起来有点太熟练了。”'
+			'“我能说什么呢？我不怕弄得有点脏，尤其是当这意味着我能享受这么美味的东西的时候。”'
+			'他说最后那句话时，给了你一个充满暗示的眼神。'
+		else
+			'“啊，该死，”他说着，迅速擦了擦脸。'
+		end
+		xgt 'date_talk', 'date_continue'
+	end
+end
+
+
+if $ARGS[0] = 'food_flirt_3':
+	'“那么，是食物让你的眼睛闪闪发亮，还是因为我？”你挑逗地对他微笑。'
+	'“这么说吧，食物确实不错，但你才是让这一切更加美味的人。”'
+	if date_ev['alcohol_order'] > 0:
+		'“嗯，我喜欢这样。我想光靠葡萄酒可能应付不了这么多的赞美。”'
+	else
+		'“嗯，我喜欢这样。我想我需要点更烈的来应付这么多的赞美。”'
+	end
+	'“哦，别担心——这样的话我还有的是。不过我觉得不用喝酒，你就已经有点让人沉醉了。”'
+	'“小心点，你这么多花言巧语，我可能会开始觉得你别有用心。”'
+	xgt 'date_talk', 'date_continue'
+end
+
+!! ---------------------------------- food talk end ----------------------------------
+--- date_talk ---------------------------------

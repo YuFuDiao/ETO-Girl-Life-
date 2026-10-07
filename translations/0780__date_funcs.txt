@@ -1,0 +1,159 @@
+# date_funcs
+
+if $ARGS[0] = 'date_rate':
+	if $ARGS[1] = 'love':
+		gs 'date_funcs', 'date_mood', 'improve'
+		date_ev['date_rating'] += 2
+		gs 'npc_relationship', 'modify', $npcID, 'love'
+	elseif $ARGS[1] = 'like':
+		gs 'date_funcs', 'date_mood', 'improve'
+		date_ev['date_rating'] += 1
+		gs 'npc_relationship', 'modify', $npcID, 'like'
+	elseif $ARGS[1] = 'dislike':
+		gs 'date_funcs', 'date_mood', 'worsen'
+		date_ev['date_rating'] -= 1
+		gs 'npc_relationship', 'modify', $npcID, 'dislike'
+	elseif $ARGS[1] = 'hate':
+		gs 'date_funcs', 'date_mood', 'worsen'
+		date_ev['date_rating'] -= 3
+		gs 'npc_relationship', 'modify', $npcID, 'hate'
+	end
+end
+
+
+if $ARGS[0] = 'date_mood':
+	if $ARGS[1] = 'improve':
+		if $date_ev['talk_mood'] = 'awkward':
+			$date_ev['talk_mood'] = 'good'
+		elseif $date_ev['talk_mood'] = 'good':
+			$date_ev['talk_mood'] = 'great'
+		elseif $date_ev['talk_mood'] = 'great':
+			$date_ev['talk_mood'] = 'amazing'
+		else
+			$date_ev['talk_mood'] = 'good'
+		end
+	elseif $ARGS[1] = 'worsen':
+		if $date_ev['talk_mood'] = 'awkward':
+			$date_ev['talk_mood'] = 'bad'
+		elseif $date_ev['talk_mood'] = 'good':
+			$date_ev['talk_mood'] = 'awkward'
+		elseif $date_ev['talk_mood'] = 'great':
+			$date_ev['talk_mood'] = 'good'
+		elseif $date_ev['talk_mood'] = 'amazing':
+			$date_ev['talk_mood'] = 'great'
+		else
+			$date_ev['talk_mood'] = 'bad'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'break_up':
+	if $npc_rel_type[$npcID] = 'fuckbuddy':
+		gs 'lover', 'remove_fuckbuddy', $npcID
+	elseif $npc_rel_type[$npcID] = 'sugar_daddy':
+		gs 'lover', 'remove_sugar_daddy', $npcID
+	else
+		gs 'lover', 'remove', $npcID
+	end
+	act '离开': gt 'date_ev', 'exit'
+end
+
+
+if $ARGS[0] = 'fuckbuddy_add':
+	gs 'lover', 'add_fuckbuddy', $npcID
+
+	!! npc_fuckbuddy[$npcID] = 1
+	npc_no_booty_call[$npcID] = daystart
+end
+
+
+if $ARGS[0] = 'sugar_daddy_add':
+
+	!! if $npc_rel_type[$npcID] ! 'fuckbuddy': gs 'date_ev_leave', 'fuckbuddy_add'
+	gs 'lover', 'add_sugar_daddy', $npcID
+	npc_sugar_daddy_price[$npcID] = date_ev['sugar_daddy_offer'] * 100
+	if $npc_rel_type[$npcID] ! 'sugar_daddy':
+		$npc_rel_type[$npcID] = 'sugar_daddy'
+		date_ev['sugar_daddy_count'] += 1
+	end
+	date_ev['sugar_daddy_paid'] = 1
+	date_ev['prostitution_paid'] = 1
+end
+
+
+if $ARGS[0] = 'lover_add':
+	gs 'lover', 'add_boyfriend', $npcID
+end
+
+
+if $ARGS[0] = 'first_time':
+	!! this function checks to see if this is the first time the player has ever gone on a date with this specific NPC at this specific location
+	if instr($npc_date_locs[$npcID], ";" + $ARGS[1] + ";") <= 0:
+		date_ev['first_time'] = 1
+	end
+end
+
+
+if $ARGS[0] = 'date_tracker':
+	if $date_ev['tracker'] ! $ARGS[1]:
+		$date_ev['loc'] = $ARGS[1]
+		stat[$ARGS[1]] += 1
+		if instr($npc_date_locs[$npcID], ";" + $ARGS[1] + ";") <= 0:
+			$npc_date_locs[$npcID] += $ARGS[1] + ";"
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_continue':
+	$date_ev['cont_loc'] = $ARGS[1]
+	$date_ev['cont_arg'] = $ARGS[2]
+end
+
+
+if $ARGS[0] = 'flash_stats':
+	npc_date_flash[$npcID] += 1
+	gs 'arousal_oneline', 'flash', 1
+end
+
+
+if $ARGS[0] = 'alternate_plans':
+	act '去他家坐坐？':
+		cla & *nl
+		'"要不要直接回你家坐坐？"'
+		'"好啊。"'
+		act '去<<$npcdesc>>家': gt 'sex_ev_start', 'date_npc_home_start'
+	end
+
+	act '想做爱吗？（随便玩玩）':
+		cla & *nl
+		'"就想做爱怎么样？"你问道。'
+		if npc_shy[$npcID] > 0:
+			'"什—什么？"'
+			'"做爱，"你又说了一遍。"与其约会，不如直接去你家做爱。"'
+			'"那—那听起…来不错…"他结结巴巴地说，脸涨得通红。你回以微笑。'
+			'"太棒了！我们走吧。"'
+		else
+			'"我喜欢这个主意，"他咧嘴笑道。'
+			'"太棒了！我们走吧！"'
+		end
+		'你挽起<<$npcdesc>>的胳膊，和他一起回他家，享受激情的时光。'
+		act '去<<$npcdesc>>家': gt 'sex_ev_start', 'date_npc_home_start'
+	end
+
+	act '想来一发吗？（火辣）':
+		cla & *nl
+		'"嗯……"你说道，脸上浮现出狡黠的笑容。"我们<i>可以</i>跳过约会，回你家，好好干个痛快。"'
+		if npc_shy[$npcID] > 0:
+			'"那—那听起…来不错…"他结结巴巴地说，脸涨得通红。你回以微笑。'
+			'"太棒了！我们走吧。"'
+		else
+			'"我喜欢这个主意，"他咧嘴笑道。'
+			'"太棒了！我们走吧！"'
+		end
+		'你挽起<<$npcdesc>>的胳膊，和他一起回他家，享受激情的时光。'
+		act '去<<$npcdesc>>家': gt 'sex_ev_start', 'date_npc_home_start'
+	end
+end
+--- date_funcs ---------------------------------

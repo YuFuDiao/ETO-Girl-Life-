@@ -1,0 +1,158 @@
+# balkon
+!! ============================================================================
+!! PROPOSAL — Balcony fixes
+!! ============================================================================
+!! Changes from the original:
+!!
+!! 1. "Smoke a joint" action simplified.
+!!    BEFORE: The action added minut += 10 inline, called gs 'drugs', 'joint',
+!!            then gt 'balkon', 'start' — which re-entered the balcony scene
+!!            and added another minut += 1 (line 7), resulting in 11 minutes
+!!            instead of 10. The player also got no visual or text feedback
+!!            because the scene was cleared and re-rendered from scratch.
+!!    AFTER:  The action now delegates to gt 'balkon2', 'joint' — a new handler
+!!            that mirrors the existing cigarette handler ('kurit'). This makes
+!!            the joint consistent with every other balcony action (cigarette,
+!!            railing, neighbor, masturbate), gives the player image + text
+!!            feedback, and avoids the double minute calculation.
+!!
+!! 2. Location tracking fixed — follows the city_canals.qsrc pattern.
+!!    BEFORE: balkon set only $menu_loc and $menu_arg manually. $loc was never
+!!            set to 'balkon' — it retained the value from the previous location
+!!            (e.g. 'sitr' or 'sitr2x'). The "Return to the living room" act
+!!            relied on this leaked $loc value to decide which living room to
+!!            return to. This was fragile: any code checking $loc = 'balkon'
+!!            would fail, and the prevloc/locM/loc_arg variables were never set.
+!!    AFTER:  Three-part structure matching city_canals.qsrc:
+!!            - 'init' handler: saves $loc_history / $loc_args_history before
+!!              setloc overwrites $loc. Called only on first entry.
+!!            - 'start' handler: checks if $loc is not yet 'balkon', calls init,
+!!              then calls gs 'core_library', 'setloc', 'balkon', 'start'.
+!!              Sets $location_type = 'private' (matching sitr/sitr2x).
+!!            - 'exit' handler: cleans up $loc_history / $loc_args_history and
+!!              navigates to the origin living room.
+!!            $loc_history survives sub-scene round-trips (balkon → balkon2 →
+!!            balkon) because balkon2 never calls setloc. $prevloc alone would
+!!            be overwritten to 'balkon' on every re-entry.
+!!
+!! No other logic, conditions, or variables were changed.
+!! ============================================================================
+
+!! ----------------------------------------------------------------------------
+!! init — Save origin location before setloc overwrites it.
+!! Called only on first entry (when $loc is not yet 'balkon').
+!! Follows the city_canals.qsrc pattern.
+!! ----------------------------------------------------------------------------
+if $ARGS[0] = 'init':
+	$loc_history = $loc
+	$loc_args_history = $loc_arg
+	exit
+end
+
+
+!! ----------------------------------------------------------------------------
+!! exit — Return to the origin location.
+!! Called via: gt 'balkon', 'exit', $loc_history, $loc_args_history
+!! The origin is passed as ARGS. History vars are intentionally kept —
+!! they are overwritten on next balkon entry by the init handler.
+!! ----------------------------------------------------------------------------
+if $ARGS[0] = 'exit':
+	menu_off = 0
+	gt $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+
+	!! FIX: Save origin only on first entry, before setloc overwrites $loc.
+	!! Follows the city_canals.qsrc pattern. $prevloc alone is insufficient
+	!! because balkon2 sub-scenes return to balkon 'start', which calls
+	!! setloc again and sets $prevloc = 'balkon'.
+	if $loc ! 'balkon': gs 'balkon', 'init'
+
+	!! FIX: Use the standard setloc helper instead of manually setting only
+	!! $menu_loc/$menu_arg. This properly sets $prevloc, $loc, $menu_loc,
+	!! $locM, $loc_arg, $menu_arg, $locM_arg, and clears $locclass.
+	gs 'core_library', 'setloc', 'balkon', 'start'
+	$location_type = 'private'
+	menu_off = 0
+	minut += 1
+	gs 'stat'
+	$func('wrap', 'header center b', '公寓阳台')
+
+	if $clothingworntype = 'nude':
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/balcony_naked1.jpg"></center>'
+	elseif $pantyworntype = 'none':
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/balcony_dressed1.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/balcony_underwear1.jpg"></center>'
+	end
+
+	'你走到阳台上，一阵微风拂过，让你感到有些凉意。'
+
+	if hour >= 0 and hour <= 6:
+		'外面一片漆黑。路灯照亮了下方空荡荡的街道。'
+	elseif hour = 7:
+		'外面新的一天正在破晓，鸟儿们欢快地鸣叫着。'
+	elseif hour >= 8 and hour <= 19:
+		'今天外面的天气相当不错，街道上人来人往。'
+	elseif hour >= 20 and hour <= 23:
+		'正值黄昏，路灯亮着昏暗的光。街道上的行人少了许多。'
+	end
+
+	if $clothingworntype = 'nude':
+		if sosedBalDay ! daystart:
+			if rand(1, 4) = 4:
+				'对面楼里的一位邻居正站在自家阳台上朝你这边看。他注意到你赤身裸体……'
+				!! FUTURE EXPANSION: Neighbor could film the player and post it
+				!! on Assbook. This would require:
+				!!   1. A counter (e.g. balkon_exhib_count) tracking how often the
+				!!      player has been seen naked on the balcony.
+				!!   2. After X times, the neighbor films instead of just watching.
+				!!   3. The video/photo gets posted on Assbook via:
+				!!      gs 'mod_computer_site_assbook_feed', 'create_post',
+				!!        'balkon_neighbor_video_<daystart>', 'video',
+				!!        'Anonymous', '', 'Someone posted a video from their
+				!!        balcony...', 'images/...', 'public', ''
+				!!   4. Fame impact: gs 'fame', 'city', 'flash', 'small'
+				!!      (without 'local' so it can spread if the post goes viral)
+				!!   5. If the post goes viral, also add media fame:
+				!!      gs 'fame', 'city', 'media', 'medium'
+				!!   6. The Assbook post could generate NPC reactions/comments.
+				act '看向邻居': gt 'balkon2', 'sosed'
+			else
+				'对面楼里的一位邻居正站在自家阳台上朝你这边看。他的目光紧紧追随着你，让你觉得有些毛骨悚然。'
+				!! FUTURE EXPANSION: Even without the active event, repeated naked
+				!! balcony visits should accumulate flash fame:
+				!!   gs 'fame', 'city', 'flash', 'tiny', 'local'
+				!! This represents the general risk of being seen from the
+				!! street or neighboring buildings even when no specific
+				!! neighbor event triggers.
+			end
+		else
+			'没有人注意到你正赤身裸体地站在阳台上。没人留意到你，你感到有些失落。'
+		end
+	end
+
+	!! FIX: Delegate to the 'exit' handler, passing $loc_history as ARGS
+	!! so the exit handler can killvar first and still know the destination.
+	!! Follows the city_canals.qsrc pattern: gt $loc, 'exit', $loc_history, $loc_args_history
+	act '返回客厅': gt 'balkon', 'exit', $loc_history, $loc_args_history
+
+	act '走近栏杆': gt 'balkon2', 'niz'
+
+	if mc_inventory['cigarettes'] >= 1: act '点一支烟': gt 'balkon2', 'kurit'
+
+	!! FIX: Delegate to balkon2 'joint' handler instead of doing inline logic.
+	!! This avoids the double minute calculation (balkon start adds +1 on re-entry)
+	!! and gives the player proper visual/text feedback like the cigarette action.
+	if mc_inventory['joints'] > 0 and drugVars['weed_high'] = 0:
+		act '抽一根大麻烟': gt 'balkon2', 'joint'
+	end
+
+	if pcs_horny >= 50 and pcs_inhib > 30: act '自慰': gt 'balkon2', 'masopt'
+end
+
+--- balkon ---------------------------------

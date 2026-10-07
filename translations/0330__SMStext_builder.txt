@@ -1,0 +1,510 @@
+# SMStext_builder
+
+!{
+	How to use SMStext_builder:
+
+	Start with:
+		gs 'SMStext_builder', 'start'
+	Then add your content through "send" and "receive":
+		gs 'SMStext_builder', 'send', [$text]
+		gs 'SMStext_builder', 'receive', [$text]
+		...
+		...
+	You can send/receive an image using "send_img" and "receive_img". Optionally, you can add an alt-name to the image in case it does not load
+		gs 'SMStext_builder', 'send_img', [$img_path], ([$img_name])
+		gs 'SMStext_builder', 'receive_img', [$img_path], ([$img_name])
+
+	If you want Sveta to reply to this (and thus the player potentially having a choice):
+		gs 'SMStext_builder', 'add_reply', [$text], [$file_name], [$file_args0], [$file_args1], ...
+		gs 'SMStext_builder', 'add_reply', [$text], [$file_name], [$file_args0], [$file_args1], ...
+
+	If you want Sveta to choose a selfie to send, use:
+		gs 'SMStext_builder', 'send_selfie', [$text], [$file_name], [$file_args0], [$file_args1]
+		Where the file_name and args are where the text chain continues.
+
+	Finally, if this is a new sms-chain, use:
+		gs 'SMStext_builder', 'add_sms', [$npc_code], [pre-read]
+		Where pre-read=1 sets the sms as read in Svetas log.
+
+	If you are updating an ongoing sms-chain (usually in response to a choice made in the replies), use:
+		gs 'SMStext_builder', 'show_sms', ARGS[{n}]
+				where {n} is one more than the number of args you passed to the choice.
+				So if you are used:
+					gs 'SMStext_builder', 'add_reply', [$text], [$file_name], [$file_args0], [$file_args1].
+				Then you would pass ARGS[2] (since you used $ARGS[0] and $ARGS[1]):
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+	Finally after the player has made a choice, everything but the replies are stored.
+	If you want to reset the text (but not the end images), use gs 'SMStext_builder', 'reset'
+	Starting fresh or having done your final update (even if you never updated it anyway)
+	End it with:
+		gs 'SMStext_builder', 'end'
+
+
+	!!=====================================================!!
+	!!                                                     !!
+	!!                      Examples                       !!
+	!!                                                     !!
+	!!=====================================================!!
+
+
+	This example is in a non-existing file called "lukaqw". Here luka has npc code A6969
+
+	if $ARGS[0] = 'SMS1':
+		if $ARGS[1] = 'start':
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'receive', '"嘿<<$pcs_nickname>>", 我是卢卡！'
+				gs 'SMStext_builder', 'receive', '"你最近怎么样？"'
+				gs 'SMStext_builder', 'add_reply', '我挺好的，你呢？', 'lukaqw', 'SMS1', '1'
+				gs 'SMStext_builder', 'add_sms', 'A6969'
+			gs 'SMStext_builder', 'end'
+		end
+
+		if $ARGS[1] = '1':
+			!! The replies are removed, but the rest is not. We first send the reply text, wait, then
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'send', '我挺好的，你呢？'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+				wait 500
+
+				gs 'SMStext_builder', 'receive', '你能给我发张照片吗？'
+				gs 'SMStext_builder', 'add_reply', 'sure!', 'lukaqw', 'SMS1', 'send_pic'
+				gs 'SMStext_builder', 'add_reply', '你先发', 'lukaqw', 'SMS1', 'receive_pic'
+				gs 'SMStext_builder', 'add_reply', 'no', 'lukaqw', 'SMS1', 'no'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+			gs 'SMStext_builder', 'end'
+		end
+
+		if $ARGS[1] = 'send_pic':
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'send', 'sure!'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+				wait 500
+
+				gs 'SMStext_builder', 'receive', '最好拍性感点 :)）！'
+				gs 'SMStext_builder', 'send_selfie', 'c;u;n;b;sh;ft', 'lukaqw', 'SMS1', 'Selfie_send'
+			gs 'SMStext_builder', 'end'
+		end
+
+		if $ARGS[1] = 'Selfie_send':
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'send_img', $ARGS[3]
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+				wait 500
+
+				!$ARGS[5] is the state of dress:
+				if $ARGS[5] = 'clothed':
+					gs 'SMStext_builder', 'receive', '有点失望，不过我想总比没有强'
+				elseif $ARGS[5] = 'nude' or $ARGS[5] = 'pussyflash':
+					gs 'SMStext_builder', 'receive', 'DAMN!'
+				else
+					gs 'SMStext_builder', 'receive', 'nice'
+				end
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+			gs 'SMStext_builder', 'end'
+		end
+
+		if $ARGS[1] = 'receive_pic':
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'send', '你先发'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+				wait 500
+
+				gs 'SMStext_builder', 'receive_img', 'image/characters/pavlovsk/resident/luka/selfies/sexy3.jpg'
+				gs 'SMStext_builder', 'receive', '现在轮到你了'
+				gs 'SMStext_builder', 'add_reply', 'sure!', 'lukaqw', 'SMS1', 'send_pic'
+				gs 'SMStext_builder', 'add_reply', 'no', 'lukaqw', 'SMS1', 'no2'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+			gs 'SMStext_builder', end
+		end
+
+		if $ARGS[1] = 'no':
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'send', 'no'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+				wait 500
+
+				gs 'SMStext_builder', 'receive', 'sad'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+			gs 'SMStext_builder', end
+		end
+
+		if $ARGS[1] = 'no2':
+			gs 'SMStext_builder', 'start'
+				gs 'SMStext_builder', 'send', 'no'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+				wait 500
+
+				gs 'SMStext_builder', 'receive', '什么？可我已经把我的发给你了？！'
+				gs 'SMStext_builder', 'add_reply', '小心被人拿去要挟你，菜鸟', 'lukaqw', 'SMS1', 'blackmail'
+				gs 'SMStext_builder', 'add_reply', '正好是那几天，抱歉', 'lukaqw', 'SMS1', 'excuses'
+				gs 'SMStext_builder', 'show_sms', ARGS[2]
+			gs 'SMStext_builder', end
+		end
+		...
+		...
+	end
+!}
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUCNTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_sms_id':
+	if arrsize('ARGS') > 1:
+		result = SMSIdentifier[ARGS[1]]
+	elseif arrsize('SMSBuilderVars') > 0:
+		result = SMSBuilderVars['SMSIdentifier']
+	else
+		result = telefon['SMSIdentifier']
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_index_from_id':
+	result = arrpos('SMSIdentifier', ARGS[1])
+	exit
+end
+
+
+if $ARGS[0] = 'check_if_sms_exists_from_id':
+	result = (func('SMStext_builder', 'get_index_from_id', ARGS[1]) >= 0)
+	exit
+end
+
+
+if $ARGS[0] = 'reset':
+	SMSBuilderVars['reset_flag'] = 1
+	exit
+end
+
+
+if $ARGS[0] = 'does_index_exist':
+	result = (ARGS[1] >= 0 and ARGS[1] < telefon['SMSCount'])
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              BUILDER                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'start':
+	killvar 'SMSBuilderVars'
+	killvar 'SMSBuilderReplies'
+	killvar 'SMSBuilderImages'
+
+elseif $ARGS[0] = 'end':
+	killvar 'stb_i'
+	killvar 'stb_maxi'
+
+	killvar 'SMSBuilderVars'
+	killvar 'SMSBuilderReplies'
+	killvar 'SMSBuilderImages'
+end
+
+
+!! $ARGS[1] = displayed text that Sveta sends
+if $ARGS[0] = 'send':
+	temp_text_width = max(10, 90 - 2 * len($ARGS[1]))
+	$SMSBuilderVars['text'] += '<table width=80%><tr><td width=<<temp_text_width>>%></td><td collspan=2 bgcolor=pink style="padding-top:5pt; padding-bottom:5pt; padding-left:10pt; padding-right:3pt"><font color=black>'
+	$SMSBuilderVars['text'] += $ARGS[1]
+	$SMSBuilderVars['text'] += '</font></td></tr></table>'
+	killvar 'temp_text_width'
+
+!! $ARGS[1] = displayed image path that Sveta sends
+!! $ARGS[2] = Image name if the image fails to load
+elseif $ARGS[0] = 'send_img':
+	$SMSBuilderVars['text'] += '<table width=80%><tr><td width=10%></td><td collspan=2 bgcolor=pink align=center style="white-space:pre-wrap">'
+	if $ARGS[2] = '': $ARGS[2] = $ARGS[1]
+	$SMSBuilderVars['text'] += '<br><img src="<<$ARGS[1]>>" alt="<<$ARGS[2]>>" style="horizontal-align:center; max-height:90%; max-width:90%"><br><br>'
+	$SMSBuilderVars['text'] += '</td></tr></table>'
+
+!! $ARGS[1] = displayed video path that Sveta sends
+!! $ARGS[2] = video name if the video fails to load
+elseif $ARGS[0] = 'send_video':
+	$SMSBuilderVars['text'] += '<table width=80%><tr><td width=10%></td><td collspan=2 bgcolor=pink align=center style="white-space:pre-wrap">'
+	if $ARGS[2] = '': $ARGS[2] = $ARGS[1]
+	$SMSBuilderVars['text'] += '<br><video autoplay loop src="<<$ARGS[1]>>" alt="<<$ARGS[2]>>" style="horizontal-align:center; max-height:90%; max-width:90%"></video><br><br>'
+	$SMSBuilderVars['text'] += '</td></tr></table>'
+
+
+!! $ARGS[1] = displayed text that Sveta receives
+elseif $ARGS[0] = 'receive':
+	temp_text_width = max(10, 90 - 2 * len($ARGS[1]))
+	$SMSBuilderVars['text'] += '<table width=80%><tr><td collspan=2 bgcolor="#D4CEF9" style="padding-top:5pt; padding-bottom:5pt; padding-left:10pt; padding-right:3pt"><font color=black>'
+	$SMSBuilderVars['text'] += $ARGS[1]
+	$SMSBuilderVars['text'] += '</font></td><td width=<<temp_text_width>>%></td></tr></table>'
+	killvar 'temp_text_width'
+
+!! $ARGS[1] = displayed image path that Sveta receives
+!! $ARGS[2] = Image name if the image fails to load
+elseif $ARGS[0] = 'receive_img':
+	$SMSBuilderVars['text'] += '<table width=80%><tr><td collspan=2 bgcolor="#D4CEF9" align=center style="white-space:pre-wrap">'
+	if $ARGS[2] = '': $ARGS[2] = $ARGS[1]
+	$SMSBuilderVars['text'] += '<br><img src="<<$ARGS[1]>>" alt="<<$ARGS[2]>>" style="horizontal-align:center; max-height:90%; max-width:90%"><br><br>'
+	$SMSBuilderVars['text'] += '</td><td width=10%></td></tr></table>'
+
+!! $ARGS[1] = displayed viideo path that Sveta receives
+!! $ARGS[2] = Video name if the video fails to load
+elseif $ARGS[0] = 'receive_video':
+	$SMSBuilderVars['text'] += '<table width=80%><tr><td collspan=2 bgcolor="#D4CEF9" align=center style="white-space:pre-wrap">'
+	if $ARGS[2] = '': $ARGS[2] = $ARGS[1]
+	$SMSBuilderVars['text'] += '<br><video autoplay loop src="<<$ARGS[1]>>" alt="<<$ARGS[2]>>" style="horizontal-align:center; max-height:90%; max-width:90%"></video><br><br>'
+	$SMSBuilderVars['text'] += '</td><td width=10%></td></tr></table>'
+end
+
+
+!! $ARGS[1] = displayed text
+!! $ARGS[2] -> onward = the return location.
+!!	How to use 'add_reply':
+!!		gs 'SMStext_builder', 'add_reply', $reply_text, $file_loc, $file_arg1, $file_arg2, $file_args2, ...
+!!		gs 'SMStext_builder', 'add_reply', 'Hello', 'band_tour_anushka_SMS', 'week1', 'choice_a'
+if $ARGS[0] = 'add_reply':
+	$temp_reply_str = '[Reply] <a href="exec: gs '
+
+	stb_n_args = arrsize('$ARGS')
+	stb_i = 2
+	:SMS_build_reply_loop
+	if stb_i < stb_n_args:
+		if $ARGS[stb_i] = '':
+			$temp_reply_str += '<<ARGS[stb_i]>>, '
+		else
+			$temp_reply_str += '''<<$ARGS[stb_i]>>'', '
+		end
+		stb_i += 1
+		jump 'SMS_build_reply_loop'
+	end
+
+	$temp_reply_str += 'telefon[''SMSIndex'']">' + $ARGS[1] + '</a>'
+	$SMSBuilderReplies[] = $temp_reply_str
+
+	killvar 'temp_reply_str'
+	killvar 'stb_i'
+	killvar 'stb_n_args'
+
+elseif $ARGS[0] = 'private_set_replies':
+	$SMSBuilderVars['replies'] += '<table>'
+
+	stb_maxi = arrsize('SMSBuilderReplies')
+	stb_i = 0
+	:SMS_reply_loop
+		$SMSBuilderVars['replies'] += '<tr><td>' + $SMSBuilderReplies[stb_i] + '</td></tr>'
+		stb_i += 1
+	if stb_i < stb_maxi: jump 'SMS_reply_loop'
+	$SMSBuilderVars['replies'] += '</table>'
+
+	killvar 'SMSBuilderReplies'
+	killvar 'stb_i'
+	killvar 'stb_maxi'
+end
+
+
+!! $ARGS[1] = displayed text
+!! $ARGS[2] = control string = 'c;sw;u;n;b;sh;ft;fa;fp'
+!!		c: clothed ; sw: swim ; u: underwear
+!!		n: nude ; b: bath ; sh: shower
+!!		ft: flash tits ; fa: flash ass ; fp: flash pussy
+!! $ARGS[3] -> onward = the return location.
+!! gs 'SMStext_builder', 'send_selfie', 'Send a sexy selfie', 'c;b;ft', 'band_tour_anushka_SMS', 'Week8', 'Choice_a'
+if $ARGS[0] = 'send_selfie':
+	$temp_reply_str = '[Selfie] <a href="exec: gs ''SMS_selfies'', ''send_selfie'', ''<<$lcase($ARGS[2])>>'', telefon[''SMSIndex'']'
+
+	stb_n_args = arrsize('$ARGS')
+	stb_i = 3
+	:SMS_build_send_selfie_loop
+	if stb_i < stb_n_args:
+		if $ARGS[stb_i] = '':
+			$temp_reply_str += ', <<ARGS[stb_i]>>'
+		else
+			$temp_reply_str += ', ''<<$ARGS[stb_i]>>'''
+		end
+		stb_i += 1
+		jump 'SMS_build_send_selfie_loop'
+	end
+
+	$temp_reply_str += '"><<$ARGS[1]>></a>'
+	$SMSBuilderReplies[] = $temp_reply_str
+
+	killvar 'temp_reply_str'
+	killvar 'stb_i'
+	killvar 'stb_n_args'
+end
+
+
+!! $ARGS[1] = the image path of the image
+if $ARGS[0] = 'add_end_img':
+	if $temp_imgs[0] = '':
+		$SMSBuilderImages[0] = $ARGS[1]
+	elseif $temp_imgs[1] = '':
+		$SMSBuilderImages[1] = $ARGS[1]
+	elseif $temp_imgs[2] = '':
+		$SMSBuilderImages[2] = $ARGS[1]
+	elseif $temp_imgs[3] = '':
+		$SMSBuilderImages[3] = $ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'private_set_end_img':
+	stb_i = 0
+	:stb_psei_loop
+	if stb_i < arrsize('SMSBuilderImages'):
+		if $SMSPicture1[ARGS[1]] = '':
+			$SMSPicture1[ARGS[1]] = $SMSBuilderImages[stb_i]
+		elseif $SMSPicture2[ARGS[1]] = '':
+			$SMSPicture2[ARGS[1]] = $SMSBuilderImages[stb_i]
+		elseif $SMSPicture3[ARGS[1]] = '':
+			$SMSPicture3[ARGS[1]] = $SMSBuilderImages[stb_i]
+		elseif $SMSPicture4[ARGS[1]] = '':
+			$SMSPicture4[ARGS[1]] = $SMSBuilderImages[stb_i]
+		end
+		stb_i += 1
+		jump 'stb_psei_loop'
+	end
+	killvar 'stb_i'
+	killvar 'SMSBuilderImages'
+end
+
+
+if $ARGS[0] = 'add_sms':
+	if arrsize('SMSBuilderReplies') > 0:
+		gs 'SMStext_builder', 'private_set_replies'
+	else
+		$SMSBuilderVars['replies'] = ''
+	end
+	gs 'telefon', 'add_sms', $ARGS[1], $SMSBuilderVars['text'], $SMSBuilderVars['replies'], $SMSBuilderImages[0], $SMSBuilderImages[1], $SMSBuilderImages[2], $SMSBuilderImages[3]
+	SMSBuilderVars['reset_flag'] = 0
+	$SMSBuilderVars['text'] = ''
+	$SMSBuilderVars['replies'] = ''
+	SMSBuilderVars['SMSIdentifier'] = telefon['SMSIdentifier']
+	SMSBuilderVars['SMSIndex'] = telefon['SMSIndex']
+
+	if ARGS[2] <> 0 and $ARGS[2] <> '':
+		telefon['UnreadSMS'] -= 1
+		SMSMessageRead[SMSBuilderVars['SMSIndex']] = 1
+	end
+end
+
+
+if $ARGS[0] = 'update_sms_from_id':
+	gs 'SMStext_builder', 'update_sms', func('SMStext_builder', 'get_index_from_id', ARGS[1]), iif($ARGS[2] = '', ARGS[2], $ARGS[2])
+elseif $ARGS[0] = 'update_sms':
+	SMSBuilderVars['SMSIndex'] = ARGS[1]
+	if no func('SMStext_builder', 'does_index_exist', SMSBuilderVars['SMSIndex']):
+		msg 'SMStext_builder, update_sms 错误： SMSIndex 为<<SMSBuilderVars[''SMSIndex'']>>与现有短信不匹配。'
+		exit
+	end
+
+	if arrsize('SMSBuilderReplies') > 0:
+		gs 'SMStext_builder', 'private_set_replies'
+	else
+		$SMSBuilderVars['replies'] = ''
+	end
+
+	if arrsize('SMSBuilderImages') > 0: gs 'SMStext_builder', 'private_set_end_img', SMSBuilderVars['SMSIndex']
+	if SMSBuilderVars['reset_flag'] = 1: $SMSMessage[SMSBuilderVars['SMSIndex']] = ''
+
+	$SMSMessage[SMSBuilderVars['SMSIndex']] += $SMSBuilderVars['text']
+	$SMSReplies[SMSBuilderVars['SMSIndex']] = $SMSBuilderVars['replies']
+	if ARGS[2] <> 0 or $ARGS[2] <> '':
+		gs 'SMStext_builder', 'set_unread', SMSBuilderVars['SMSIndex']
+	end
+
+	SMSBuilderVars['reset_flag'] = 0
+	$SMSBuilderVars['text'] = ''
+	$SMSBuilderVars['replies'] = ''
+	SMSBuilderVars['SMSIdentifier'] = telefon['SMSIdentifier']
+end
+
+
+if $ARGS[0] = 'show_sms_from_id':
+	gs 'SMStext_builder', 'show_sms', func('SMStext_builder', 'get_index_from_id', ARGS[1])
+elseif $ARGS[0] = 'show_sms':
+	SMSBuilderVars['SMSIndex'] = ARGS[1]
+	if no func('SMStext_builder', 'does_index_exist', SMSBuilderVars['SMSIndex']):
+		msg 'SMStext_builder, show_sms 错误： SMSIndex 为<<SMSBuilderVars[''SMSIndex'']>>与现有短信不匹配。'
+		exit
+	end
+
+	gs 'SMStext_builder', 'update_sms', SMSBuilderVars['SMSIndex']
+	gs 'telefon', 'show_sms', SMSBuilderVars['SMSIndex']
+end
+
+
+if $ARGS[0] = 'set_unread_from_id':
+	gs 'SMStext_builder', 'set_unread', func('SMStext_builder', 'get_index_from_id', ARGS[1])
+	exit
+elseif $ARGS[0] = 'set_unread':
+	if no func('SMStext_builder', 'does_index_exist', ARGS[1]):
+		msg 'SMStext_builder，set_unread 错误：<<ARGS[1]>>的 SMSIndex 与现有短信不匹配。'
+		exit
+	end
+
+	if SMSMessageRead[ARGS[1]] = 1:
+		telefon['UnreadSMS'] += 1
+		SMSMessageRead[ARGS[1]] = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'update_time_from_id':
+	gs 'SMStext_builder', 'update_time', func('SMStext_builder', 'get_index_from_id', ARGS[1])
+	exit
+elseif $ARGS[0] = 'update_time':
+	if no func('SMStext_builder', 'does_index_exist', ARGS[1]):
+		msg 'SMStext_builder，update_time 错误：<<ARGS[1]>>的 SMSIndex 与现有短信不匹配。'
+		exit
+	end
+
+	$SMSTime[ARGS[1]] = "<<$func('time', 'get_time_string', hour, minut)>> <<$weekName>> <<day>> <<$monthName>> <<year>>"
+	exit
+end
+
+
+
+
+!!	Might add directly taking a selfie in the future.
+!{
+! $ARGS[1] = displayed text
+! $ARGS[2] = control string = 'c;sw;u;n;b;sh;ft;fa;fp'
+!		c: clothed ; sw: bikini ; u: underwear
+!		n: nude ; b: bath ; sh: shower
+!		ft: titflash ; fa: assflash ; fp: pussyflash
+! $ARGS[3] -> onward = the return location.
+! gs 'SMStext_builder', 'take_selfie', 'Send a sexy selfie', 'c;b;ft', 'band_tour_anushka_SMS', 'Week8', 'Choice_a'
+if $ARGS[0] = 'take_selfie':
+	$temp_reply_str = '[Selfie] <a href="exec: gs ''SMS_selfies'', ''take_selfie_menu'', ''<<$lcase($ARGS[2])>>'', telefon[''SMSIndex'']'
+
+	stb_n_args = arrsize('$ARGS')
+	stb_i = 3
+	:SMS_build_send_selfie_loop
+	if stb_i < stb_n_args:
+		$temp_reply_str += ', ''<<$ARGS[stb_i]>>'''
+		stb_i += 1
+		jump 'SMS_build_send_selfie_loop'
+	end
+
+	$temp_reply_str += '"><<$ARGS[1]>></a>'
+	$SMSBuilderReplies[] = $temp_reply_str
+
+	killvar 'temp_reply_str'
+	killvar 'stb_i'
+	killvar 'stb_n_args'
+end
+!}
+
+
+
+--- SMStext_builder ---------------------------------

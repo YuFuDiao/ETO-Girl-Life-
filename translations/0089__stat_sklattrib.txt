@@ -1,0 +1,425 @@
+# stat_sklattrib
+!! SKIP_QSRC2TW
+
+!{
+	******************** Warning! ********************
+	The code in this location is both complex and very fundamental to most systems!
+	Use EXTREME caution if modifying!
+	Ask if understanding is required
+	****************************************************
+	For Users;
+		For any Attribute or Skill, outside of "stat_sklattrib", the only things that get used are;
+		the variables themselves, pcs_"name", for checks
+		"name"_exp to replace straight adds (but the proper way to add exp is to use the gs 'exp_gain', '"name"' since that will modify the gain for the player charcters conditions, i.e. gs 'exp_gain', 'stren',1 instead of stren_exp += 1.)
+		"name"_deg to replace losses (i.e. stren_deg -= 1 instead of pcs_stren -= 1)
+		"name"_muta if setting higher attribute limits due to "mutations" ("name"_muta replaces the "mutagen" variables)
+		And checking "name"_lvl if and only if it''s being used to check if an NPC/Item can still train the PC. That is also the only time there should be a gate on "name"_exp += x and should be a minimum of += rand(3,5). No other gates should be used.
+		The others are used in the code as controllers and modifying anything except "name"_exp, "name"_deg, and "name"_muta outside of this routine can break things
+
+	Attributes & Skills
+		$att_name[x] and $skl_name[x]; an array that stores the name of each attribute variable
+		$att_desc['name'] and $skl_desc['name']; the name of each attribute and skill for use in UIs
+		For each attribute and skill variable, there are the following sub-variables
+		_lvl, is the base level of an attribute/skill before adjustment
+		_lvlst, level yesterday, used for error checking
+		_deg is the days to attribute/skill loss and is reset on XP gain
+		_exp is the amount of total XP gained so far for each and will replace all the gains in the rest of the code
+		_mem is the amount of XP yesterday
+		_mem2 is the amount of XP at the last stat call
+		_muta replaces the assorted mutagen variables for attributes, this is to replace the 30 lines of code with 1
+		_flr, this is the floor through which an attribute/skill cannot fall
+		_xpnxt is the XP required to reach the next level
+		_xpprv was the XP required to reach this level
+
+	Traits
+		$traitattskl[x], this stores a list of all traits that can affect attribute or skill advancement or degradation, if a trait does not, it does not go in this array
+		For each trait that can affect attribute or skill advancement or degradation;
+		"trait"[$stat_name + '-exp_gain] = percentual increase in exp gain (handled in exp_gain)
+		"trait"[$stat_name + '-deg_loss] = percentual increase in deg loss
+							$stat_name is the name of the attribute or skill that this effects.
+							i.e. 'stren', 'run', 'magik'. all means it effects everything
+		Note, the effects of multiple traits on a single skill or attribute stack
+
+	For Modders
+		If you want to add a new skill to the list, add the following two pieces of code to your mods main location.
+		1. Add the skill to the list:
+			gs 'stat_sklattrib_core', 'add_skl_to_list', 'name', 'Skill Name'
+		2. Set the scaling for the skill (see stat_sklattrib_lvlset)
+			pcs_name = (name_lvl + (pcs_stren + pcs_agil) / 2) / 2
+			$name[0] = 'stren' & $name[1] = 'agil'
+
+		Example:
+		I want to add a horseriding skill named "horseriding". It should depend on agility, reaction, and perception.
+		To do that, I add the following code to my mods main location:
+			gs 'stat_sklattrib_core', 'add_skl_to_list', 'horseriding', 'Horse Riding'
+			pcs_horseriding = (horseriding_lvl + (pcs_react + pcs_prcptn + pcs_agil) / 3) / 2
+			$horseriding[0] = 'react' & $horseriding[1] = 'agil' & $horseriding[2] = 'prcptn'
+
+
+	Temporary skill explenations:
+		temp_sklattrib = array with temporary variables for deg and gain loops
+		temp_sklattrib_main = array with temporary variables for the main loop
+
+			temp_sklattrib['index'] = index used for the loop over the stats (attributes and skills)
+			$temp_sklattrib['name'] = name of the stat. i.e. 'stren' or 'run'
+			$temp_sklattrib['stat_type'] = is the stat an attribute or skill (takes values of 'attribute' or 'skill')
+			temp_sklattrib['trait_index'] = index used for the loop over the traits.
+			$temp_sklattrib['trait'] = name of the trait. i.e. 'nat_dancer' or 'scholarly'
+			temp_sklattrib['deg_adj'] = is the bonus to degradation. With "60" being the unmodified normal (aka 100% of intended starting degradation).
+										Higher means more time until degradation sets in.
+			temp_sklattrib['degradation'] = the maximum time it takes for the stat to degrade
+										Used to reset the degradation time back to full
+			temp_sklattrib['daycall'] = flag for if the advancement loop is called with the 'daycall' flag (from cikl).
+										Forces exp/lvl variables calculations
+			temp_sklattrib['update_stat'] = flag for if the exp has changed.
+										If true (1) recalculates exp/lvl variables
+!}
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              SUPPORT                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! gs' stat_sklattrib', 'set_xpprv_xpnxt', 'stat_name'
+!! Deprecated. Instead use func('stat_funcs', 'get_xpprv', ..._lvl) and func('stat_funcs', get_xpnxt, ..._lvl)
+if $ARGS[0] = 'set_xpprv_xpnxt':
+	dynamic "
+		<<$ARGS[1]>>_xpprv = func('stat_funcs', 'get_xpprv', <<$ARGS[1]>>_lvl)
+		<<$ARGS[1]>>_xpnxt = func('stat_funcs', 'get_xpnxt', <<$ARGS[1]>>_lvl)
+	"
+	exit
+end
+
+
+!! gs 'stat_sklattrib', 'add_attr_to_list', att_name, att_desc
+!! Deprecated. Instead use gs 'stat_funcs', 'add_attr_to_list', att_name, att_desc
+if $ARGS[0] = 'add_att_to_list':
+	gs 'stat_funcs', 'add_att_to_list', $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+!! gs 'stat_sklattrib', 'add_skl_to_list', skl_name, skl_desc
+!! Deprecated. Instead use gs 'stat_funcs', 'add_skl_to_list', att_name, att_desc
+if $ARGS[0] = 'add_skl_to_list':
+	gs 'stat_funcs', 'add_skl_to_list', $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+!! gs 'stat_sklattrib', 'add_trait_to_list', skl_name
+!! Deprecated. Instead use gs 'stat_funcs', 'add_trait_to_list', att_name, att_desc
+if $ARGS[0] = 'add_trait_to_list':
+	gs 'stat_funcs', 'add_trait_to_list', $ARGS[1]
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                MAIN                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '' or $ARGS[0] = 'daycall':
+	gs 'stat_sklattrib', 'init'
+
+	!! This is the section that runs when the call is from cikl
+	if $ARGS[0] = 'daycall':
+		!!	Attribute XP with Skill XP gain
+		temp_sklattrib['index'] = 0
+		:sklxploop
+			$temp_sklattrib['name'] = $att_name[temp_sklattrib['index']]
+			dynamic "
+				<<$temp_sklattrib['name']>>_exp += <<$temp_sklattrib['name']>>_exp_skill_derived / 100
+				<<$temp_sklattrib['name']>>_exp_skill_derived = 0
+				"
+			temp_sklattrib['index'] += 1
+		if temp_sklattrib['index'] < arrsize('$att_name'): jump 'sklxploop'
+		killvar 'temp_sklattrib'
+
+		!!	Degradation Loop
+		gs 'stat_sklattrib', 'degradation_loop'
+	end
+
+	!! Advancement Loop
+	gs 'stat_sklattrib', 'advancement_loop', $ARGS[0]
+
+	gs 'stat_sklattrib_lvlset'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               LOOPS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! gs 'stat_sklattrib', 'degradation'
+if $ARGS[0] = 'degradation_loop':
+	$temp_sklattrib['stat_type'] = 'attribute'
+	:degloop_outer
+		temp_sklattrib['index'] = 0
+		:degloop_inner
+			temp_sklattrib['deg_loss'] = func('_difficulty', 'get_deg_loss')
+			if $temp_sklattrib['stat_type'] = 'attribute':
+				$temp_sklattrib['name'] = $att_name[temp_sklattrib['index']]
+			else
+				$temp_sklattrib['name'] = $skl_name[temp_sklattrib['index']]
+				temp_sklattrib['deg_loss'] = 75 * temp_sklattrib['deg_loss'] / 100
+			end
+
+			temp_sklattrib['trait_index'] = 0
+			:traitdegloop
+				$temp_sklattrib['trait'] = $traitattskl[temp_sklattrib['trait_index']]
+				if $temp_sklattrib['trait'] ! '':
+					temp_sklattrib['deg_loss'] += trait_vars[$temp_sklattrib['trait'] + '-' + $temp_sklattrib['name'] + '-deg_loss']
+					temp_sklattrib['deg_loss'] += trait_vars['all-' + $temp_sklattrib['name'] + '-deg_loss']
+				end
+				temp_sklattrib['trait_index'] += 1
+			if temp_sklattrib['trait_index'] < arrsize('$traitattskl'): jump 'traitdegloop'
+
+			dynamic "
+				<<$temp_sklattrib['name']>>_lvl = <<$temp_sklattrib['name']>>_lvlst
+				temp_sklattrib['max_deg'] = func('stat_funcs', 'get_max_deg', <<$temp_sklattrib['name']>>_lvl, <<$temp_sklattrib['name']>>_muta)
+
+				if <<$temp_sklattrib['name']>>_exp > <<$temp_sklattrib['name']>>_mem:
+					<<$temp_sklattrib['name']>>_deg = temp_sklattrib['max_deg']
+				else
+					<<$temp_sklattrib['name']>>_exp = <<$temp_sklattrib['name']>>_mem
+					<<$temp_sklattrib['name']>>_deg -= temp_sklattrib['deg_loss']
+				end
+
+				if <<$temp_sklattrib['name']>>_deg <= 0:
+					if <<$temp_sklattrib['name']>>_lvl <= <<$temp_sklattrib['name']>>_flr:
+						<<$temp_sklattrib['name']>>_lvl = <<$temp_sklattrib['name']>>_flr
+						<<$temp_sklattrib['name']>>_deg = temp_sklattrib['max_deg']
+					else
+						<<$temp_sklattrib['name']>>_lvl -= 1
+						<<$temp_sklattrib['name']>>_deg = temp_sklattrib['max_deg']
+
+						<<$temp_sklattrib['name']>>_xpprv = func('stat_funcs', 'get_xpprv', <<$temp_sklattrib['name']>>_lvl)
+						<<$temp_sklattrib['name']>>_xpnxt = func('stat_funcs', 'get_xpnxt', <<$temp_sklattrib['name']>>_lvl)
+						<<$temp_sklattrib['name']>>_exp = <<$temp_sklattrib['name']>>_xpprv + min(max(0, <<$temp_sklattrib['name']>>_exp - <<$temp_sklattrib['name']>>_xpnxt), <<$temp_sklattrib['name']>>_xpnxt - <<$temp_sklattrib['name']>>_xpprv)
+					end
+				end
+				<<$temp_sklattrib['name']>>_lvlst = <<$temp_sklattrib['name']>>_lvl
+				<<$temp_sklattrib['name']>>_mem = <<$temp_sklattrib['name']>>_exp
+			"
+			temp_sklattrib['index'] += 1
+		if $temp_sklattrib['stat_type'] = 'attribute':
+			if temp_sklattrib['index'] < arrsize('$att_name'): jump 'degloop_inner'
+			$temp_sklattrib['stat_type'] = 'skill'
+		else
+			!! $temp_sklattrib['stat_type'] = 'skill':
+			if temp_sklattrib['index'] < arrsize('$skl_name'): jump 'degloop_inner'
+			$temp_sklattrib['stat_type'] = '结束'
+		end
+	if $temp_sklattrib['stat_type'] = 'skill': jump 'degloop_outer'
+
+	killvar 'temp_sklattrib'
+	exit
+end
+
+
+!! gs 'stat_sklattrib', 'advancement', 'daycall'/''
+if $ARGS[0] = 'advancement_loop':
+	if $ARGS[1] = 'daycall': temp_sklattrib['daycall'] = 1
+
+	$temp_sklattrib['stat_type'] = 'attribute'
+	:advloop_outer
+		temp_sklattrib['index'] = 0
+		:advloop_inner
+			if $temp_sklattrib['stat_type'] = 'attribute':
+				$temp_sklattrib['name'] = $att_name[temp_sklattrib['index']]
+			else
+				$temp_sklattrib['name'] = $skl_name[temp_sklattrib['index']]
+			end
+
+			if temp_sklattrib['daycall']:
+				temp_sklattrib['update_stat'] = 1
+			else
+				dynamic "
+					if <<$temp_sklattrib['name']>>_exp ! <<$temp_sklattrib['name']>>_mem2:
+						temp_sklattrib['update_stat'] = 1
+					elseif <<$temp_sklattrib['name']>>_exp >= <<$temp_sklattrib['name']>>_xpnxt:
+						temp_sklattrib['update_stat'] = 1
+					elseif <<$temp_sklattrib['name']>>_exp < <<$temp_sklattrib['name']>>_xpprv:
+						temp_sklattrib['update_stat'] = 1
+					else
+						temp_sklattrib['update_stat'] = 0
+					end
+				"
+			end
+
+			if temp_sklattrib['update_stat']:
+				dynamic "
+					<<$temp_sklattrib['name']>>_lvl = <<$temp_sklattrib['name']>>_lvlst
+					<<$temp_sklattrib['name']>>_xpprv = func('stat_funcs', 'get_xpprv', <<$temp_sklattrib['name']>>_lvl)
+					<<$temp_sklattrib['name']>>_xpnxt = func('stat_funcs', 'get_xpnxt', <<$temp_sklattrib['name']>>_lvl)
+					if <<$temp_sklattrib['name']>>_exp >= <<$temp_sklattrib['name']>>_xpnxt:
+						<<$temp_sklattrib['name']>>_lvl += 1
+					elseif <<$temp_sklattrib['name']>>_exp < <<$temp_sklattrib['name']>>_xpprv:
+						<<$temp_sklattrib['name']>>_lvl -= 1
+					end
+					<<$temp_sklattrib['name']>>_lvlst = <<$temp_sklattrib['name']>>_lvl
+
+					if <<$temp_sklattrib['name']>>_lvl / 5 > <<$temp_sklattrib['name']>>_flr: <<$temp_sklattrib['name']>>_flr = <<$temp_sklattrib['name']>>_lvl / 5
+					if <<$temp_sklattrib['name']>>_lvl > (100 + (<<$temp_sklattrib['name']>>_muta * 50)): <<$temp_sklattrib['name']>>_lvl = (100 + (<<$temp_sklattrib['name']>>_muta * 50))
+
+					<<$temp_sklattrib['name']>>_xpprv = func('stat_funcs', 'get_xpprv', <<$temp_sklattrib['name']>>_lvl)
+					<<$temp_sklattrib['name']>>_xpnxt = func('stat_funcs', 'get_xpnxt', <<$temp_sklattrib['name']>>_lvl)
+					<<$temp_sklattrib['name']>>_mem2 = <<$temp_sklattrib['name']>>_exp
+				"
+			end
+			temp_sklattrib['index'] += 1
+		if $temp_sklattrib['stat_type'] = 'attribute':
+			if temp_sklattrib['index'] < arrsize('$att_name'): jump 'advloop_inner'
+			$temp_sklattrib['stat_type'] = 'skill'
+		else
+			if temp_sklattrib['index'] < arrsize('$skl_name'): jump 'advloop_inner'
+			$temp_sklattrib['stat_type'] = '结束'
+		end
+	if $temp_sklattrib['stat_type'] = 'skill': jump 'advloop_outer'
+
+	killvar 'temp_sklattrib'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             INITIALISE                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'init':
+	gs 'stat_sklattrib', 'init_vars'
+
+	if attsklupdate and $ARGS[1] = '': exit
+
+	gs 'stat_sklattrib', 'init_loop'
+
+	attsklupdate = 1
+end
+
+!! This is sets _lvl and _exp based on the value of pcs_"name" the first time so that _lvl and _exp do not need to set on start.
+!! Theoretically this can be eventually deleted.
+
+
+!! gs 'stat_sklattrib', 'init'
+if $ARGS[0] = 'init_loop':
+	$temp_sklattrib['stat_type'] = 'attribute'
+	:initloop_outer
+		temp_sklattrib['index'] = 0
+		:initloop_inner
+			if $temp_sklattrib['stat_type'] = 'attribute':
+				$temp_sklattrib['name'] = $att_name[temp_sklattrib['index']]
+			else
+				$temp_sklattrib['name'] = $skl_name[temp_sklattrib['index']]
+			end
+
+			dynamic "
+				if pcs_<<$temp_sklattrib['name']>> > 0 and <<$temp_sklattrib['name']>>_lvl = 0:
+					<<$temp_sklattrib['name']>>_lvl = pcs_<<$temp_sklattrib['name']>>
+					<<$temp_sklattrib['name']>>_lvlst = <<$temp_sklattrib['name']>>_lvl
+					<<$temp_sklattrib['name']>>_xpprv = func('stat_funcs', 'get_xpprv', <<$temp_sklattrib['name']>>_lvl)
+					<<$temp_sklattrib['name']>>_xpnxt = func('stat_funcs', 'get_xpnxt', <<$temp_sklattrib['name']>>_lvl)
+					<<$temp_sklattrib['name']>>_exp = <<$temp_sklattrib['name']>>_xpprv + 1
+					<<$temp_sklattrib['name']>>_mem = <<$temp_sklattrib['name']>>_xpprv
+
+					temp_sklattrib['max_deg'] = func('stat_funcs', 'get_max_deg', <<$temp_sklattrib['name']>>_lvl, <<$temp_sklattrib['name']>>_muta)
+					<<$temp_sklattrib['name']>>_deg = rand(max(100, temp_sklattrib['max_deg'] / 2), max(150, 3 * temp_sklattrib['max_deg'] / 4))
+				end
+			"
+			temp_sklattrib['index'] += 1
+		if $temp_sklattrib['stat_type'] = 'attribute':
+			if temp_sklattrib['index'] < arrsize('$att_name'): jump 'initloop_inner'
+			$temp_sklattrib['stat_type'] = 'skill'
+		else
+			if temp_sklattrib['index'] < arrsize('$skl_name'): jump 'initloop_inner'
+			$temp_sklattrib['stat_type'] = '结束'
+		end
+	if $temp_sklattrib['stat_type'] = 'skill': jump 'initloop_outer'
+
+	killvar 'temp_sklattrib'
+	exit
+end
+
+
+if $ARGS[0] = 'init_vars':
+	!! Attribute variable list
+	$att_name[0]	= 'stren'			& $att_desc['stren']		= '力量'
+	$att_name[1]	= 'agil'			& $att_desc['agil']			= '敏捷'
+	$att_name[2]	= 'vital'			& $att_desc['vital']		= '耐力'
+	$att_name[3]	= 'intel'			& $att_desc['intel']		= '智力'
+	$att_name[4]	= 'react'			& $att_desc['react']		= '反应'
+	$att_name[5]	= 'sprt'			& $att_desc['sprt']			= '精神'
+	$att_name[6]	= 'chrsm'			& $att_desc['chrsm']		= '魅力'
+	$att_name[7]	= 'prcptn'			& $att_desc['prcptn']		= '感知'
+	$att_name[8]	= 'magik'			& $att_desc['magik']		= '魔法'
+	!! The following two are hidden attributes. The first for exceptional strength that can be trained separately to develop strength above 100 and get the body of a bodybuilder. The second for training to get a big round butt.
+	$att_name[9]	= 'stren_plus'		& $att_desc['stren_plus']	= '肌肉'
+	$att_name[10]	= 'butt_tr'			& $att_desc['butt_tr']		= '臀部训练'
+
+	!! Skill variable list
+	!! Add new skills to the end; if removing a skill, move the rest up and then edit the Traits so that the index numbers are correct
+	$skl_name[0]	= 'jab'				& $skl_desc['jab']			= '刺拳'
+	$skl_name[1]	= 'punch'			& $skl_desc['punch']		= '重击'
+	$skl_name[2]	= 'kick'			& $skl_desc['kick']			= '踢击'
+	$skl_name[3]	= 'def'				& $skl_desc['def']			= '防御'
+	$skl_name[4]	= 'shoot'			& $skl_desc['shoot']		= '射击精准度'
+	$skl_name[5]	= 'vokal'			& $skl_desc['vokal']		= '唱歌'
+	$skl_name[6]	= 'sewng'			& $skl_desc['sewng']		= '裁缝'
+	$skl_name[7]	= 'instrmusic'		& $skl_desc['instrmusic']	= '器乐'
+	$skl_name[8]	= 'photoskl'		& $skl_desc['photoskl']		= '摄影'
+	$skl_name[9]	= 'artskls'			& $skl_desc['artskls']		= '艺术技能'
+	$skl_name[10]	= 'danc'			& $skl_desc['danc']			= '现代舞'
+	$skl_name[11]	= 'dancero'			& $skl_desc['dancero']		= '艳舞'
+	$skl_name[12]	= 'dancpol'			& $skl_desc['dancpol']		= '钢管舞'
+	$skl_name[13]	= 'chess'			& $skl_desc['chess']		= '国际象棋'
+	$skl_name[14]	= 'gaming'			& $skl_desc['gaming']		= '游戏'
+	$skl_name[15]	= 'humint'			& $skl_desc['humint']		= '人际技能'
+	$skl_name[16]	= 'persuas'			& $skl_desc['persuas']		= '说服'
+	$skl_name[17]	= 'run'				& $skl_desc['run']			= '跑步'
+	$skl_name[18]	= 'icesktng'		& $skl_desc['icesktng']		= '滑冰'
+	$skl_name[19]	= 'wrstlng'			& $skl_desc['wrstlng']		= '摔跤'
+	$skl_name[20]	= 'ftbll'			& $skl_desc['ftbll']		= '足球'
+	$skl_name[21]	= 'splcstng'		& $skl_desc['splcstng']		= '施法'
+	$skl_name[22]	= 'observ'			& $skl_desc['observ']		= '观察'
+	$skl_name[23]	= 'makupskl'		& $skl_desc['makupskl']		= '化妆技巧'
+	$skl_name[24]	= 'compskl'			& $skl_desc['compskl']		= '电脑技能'
+	$skl_name[25]	= 'comphckng'		& $skl_desc['comphckng']	= '黑客技术'
+	$skl_name[26]	= 'hndiwrk'			& $skl_desc['hndiwrk']		= '手工'
+	$skl_name[27]	= 'servng'			& $skl_desc['servng']		= '服务'
+	$skl_name[28]	= 'mdlng'			& $skl_desc['mdlng']		= '模特'
+	$skl_name[29]	= 'medcn'			& $skl_desc['medcn']		= '医学'
+	$skl_name[30]	= 'heels'			& $skl_desc['heels']		= '高跟鞋'
+	$skl_name[31]	= 'pool'			& $skl_desc['pool']			= '台球'
+	$skl_name[32]	= 'inhib'			& $skl_desc['inhib']		= '抑制'
+	$skl_name[33]	= 'perform'			& $skl_desc['perform']		= '表演'
+	$skl_name[34]	= 'bushcraft'		& $skl_desc['bushcraft']	= '野外生存'
+	$skl_name[35]	= 'cleaning'		& $skl_desc['cleaning']		= '清洁'
+	$skl_name[36]	= 'bkbll'			& $skl_desc['bkbll']		= '篮球'
+	$skl_name[37]	= 'cheer'			& $skl_desc['cheer']		= '啦啦队'
+	$skl_name[38]	= 'musicprod'		& $skl_desc['musicprod']	= '音乐制作'
+	$skl_name[39]	= 'songwrit'		& $skl_desc['songwrit']		= '歌曲创作'
+	$skl_name[40]	= 'vball'			& $skl_desc['vball']		= '排球'
+	exit
+end
+
+
+--- stat_sklattrib ---------------------------------

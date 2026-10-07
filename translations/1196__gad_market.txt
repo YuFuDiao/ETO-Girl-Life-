@@ -1,0 +1,443 @@
+# gad_market
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_market', 'start'
+	$region = 'gad'
+	$location_type = 'public_outdoors'
+	if sound_settings['environment_off'] = 0:
+		if month >=11 and month <= 12 or month >=1 and month <=3:
+			PLAY 'sound/street2.mp3', 30 & PLAY 'sound/zima.mp3', 30
+		else
+			PLAY 'sound/street2.mp3', 30 & PLAY 'sound/street_leto.mp3', 30
+		end
+	end
+	gs 'stat'
+
+	'<center><h2>农夫市场</h2></center>'
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/main.jpg"></center>'
+	'一个简陋朴实的农夫市场，几间小店铺占满了整个场地。'
+	*nl
+
+	if hour < 8 or hour > 20:
+		gs 'gad_market', 'close'
+		exit
+	end
+
+	'在一侧你看到一个摊位，那里' + iif(hunterVars['were_met'] = 1, ' 猎人们正在 ', ' ') + '卖<a href="exec:minut += 1 & gt ''gad_market'', ''hunter_stand''">干货</a>。'
+	act '浏览<<iif(hunterVars[''were_met''] = 1, ''猎人'', ''干货'')>>摊位': minut += 1 & gt 'gad_market', 'hunter_stand'
+
+	'你看到一个摆满了<a href="exec:minut += 1 & gt ''gad_market'', ''clothing_stand''">廉价衣物</a>的摊位。'
+	act '浏览服装摊位': minut += 1 & gt 'gad_market', 'clothing_stand'
+
+	if gad_stand = 1:
+		if hour <= 20:
+			act '去你自己的摊位 (0:01)': minut += 1 & gt 'gad_market', 'your_stand'
+		end
+
+		act '拆掉你的摊位 (0:30)': gt 'gad_market', 'breakdown_stand'
+		act $func('wrap', 'neg', '返回'): *nl $func('wrap', 'neg', '摊位还开着的时候你不能离开。')
+	else
+		if hour < 18 and (boletus_stored + bilberry_stored + fish_stored) > 0:
+			act '搭起你自己的摊位 (1:00)': gt 'gad_market', 'build_stand'
+		elseif hour >= 18:
+			*nl
+			'现在搭摊位太晚了。'
+		else
+			*nl
+			'你没有什么可以卖的。'
+		end
+		act '返回': gt 'gad_market', 'leave'
+	end
+end
+
+
+!! ----- Shops -----
+
+
+if $ARGS[0] = 'hunter_stand':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_market', 'hunter_stand'
+	$loc_s = 'gad_market'
+	$args_s = 'hunter_stand'
+	gs 'stat'
+
+	if hour < 8 or hour > 20:
+		'商店目前关门了。'
+
+		act '离开': gt 'gad_market', 'clothing_stand'
+		exit
+	end
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/hunter_stand.jpg"></center>'
+	'一个小摊位，卖着干肉。'
+
+	if hunterVars['were_met'] = 1: act '和一个猎人谈谈': gt 'gad_market', 'hunter_talk'
+
+	act '浏览摊位': gt 'gad_market', 'hunter_cart'
+	act '停止浏览': gt 'gad_market', 'start'
+end
+
+
+if $ARGS[0] = 'hunter_cart':
+	menu_off = 1
+	gs 'core_library', 'setloc', 'gad_market', 'hunter_cart'
+	$loc_s = 'gad_market'
+	$args_s = 'hunter_cart'
+	gs 'stat'
+
+
+	if hour < 8 or hour > 20:
+		'商店目前关门了。'
+
+		act '离开': gt 'gad_market', 'hunter_stand'
+		exit
+	end
+
+	gs 'themes', 'outdoors'
+	gs 'item_cart', 'shopping_aisle', 'gad_market_hunter'
+	gs 'stat'
+
+	$backimage = 'images/locations/gadukino/market/hunter_stand.jpg'
+
+	act '退出购物车': $backimage = '' & gt 'gad_market', 'hunter_stand'
+	act '离开摊位': minut += 1 & gt 'gad_market', 'start'
+end
+
+
+if $ARGS[0] = 'clothing_stand':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_market', 'clothing_stand'
+	$loc_s = 'gad_market'
+	$args_s = 'clothing_stand'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/clothing_stand.jpg"></center>'
+	'一个小摊位，卖着廉价衣物。'
+
+	if hour < 8 or hour > 20:
+		'商店目前关门了。'
+
+		act '离开': gt 'gad_market', 'clothing_stand'
+		exit
+	end
+
+	act '浏览衣物': minut += 5 & gt 'gad_market', 'clothing_cart'
+	act '浏览泳衣': gt 'gad_market', 'swimsuit_cart'
+	act '停止浏览': gt 'gad_market', 'start'
+end
+
+
+if $ARGS[0] = 'clothing_cart':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_market', 'clothing_cart'
+	$loc_s = 'gad_market'
+	$args_s = 'clothing_cart'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '服装')
+
+	if hour < 8 or hour > 20:
+		'商店目前关门了。'
+
+		act '离开':
+			gs 'shop_utils', 'cleanup'
+			gt 'gad_market', 'clothing_stand'
+		end
+		exit
+	end
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'gad_market', 'clothing_stand'
+	end
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'clothing', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'market_outfits'
+			gs 'shop_utils', 'init', 'set_steps', 8, Clothingstock mod 4
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+end
+
+
+if $ARGS[0] = 'swimsuit_cart':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_market', 'swimsuit_cart'
+	$loc_s = 'gad_market'
+	$args_s = 'swimsuit_cart'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '泳衣')
+
+	if hour < 8 or hour > 20:
+		'商店目前关门了。'
+
+		act '离开':
+			gs 'shop_utils', 'cleanup'
+			gt 'gad_market', 'clothing_stand'
+		end
+		exit
+	end
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'gad_market', 'clothing_stand'
+	end
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'clothing', 'shop'
+			if (Clothingstock / 4) mod 2 = 0:
+				gs 'shop_utils', 'init', 'add_item', 'scandalicious_swimsuit', 4
+				gs 'shop_utils', 'init', 'add_item', 'scandalicious_bikinis', 6
+				gs 'shop_utils', 'init', 'add_item', 'scandalicious_bikinis', 7
+			else
+				gs 'shop_utils', 'init', 'add_item', 'scandalicious_swimsuit', 15
+				gs 'shop_utils', 'init', 'add_item', 'scandalicious_swimsuit', 22
+				gs 'shop_utils', 'init', 'add_item', 'scandalicious_bikinis', 60
+			end
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+end
+
+
+if $ARGS[0] = 'build_stand':
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/build_stand.jpg"></center>'
+	'你花了大约一个小时才搭好你的摊位。'
+
+	act '继续':
+		minut += rand(40, 60)
+		gad_stand = 1
+		gt 'gad_market', 'your_stand'
+	end
+end
+
+
+if $ARGS[0] = 'breakdown_stand':
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/build_stand.jpg"></center>'
+	'你花了大约半个小时才拆掉你的摊位。'
+
+	act '继续':
+		minut += rand(20, 30)
+		gad_stand = 0
+		gt 'gad_market', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'your_stand':
+	gs 'core_library', 'setloc', 'gad_market', 'your_stand'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '你的摊位')
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/your_stand.jpg"></center>'
+	gs 'gad_market', 'see_stored'
+
+	act '试着卖掉你的商品': gt 'gad_market', 'sell_wares'
+	act '回去': gt 'gad_market', 'start'
+end
+
+
+if $ARGS[0] = 'sell_wares':
+	menu_off = 1
+	gs 'stat'
+
+	if hour < 8 or hour > 20:
+		$func('wrap', 'header center b', '你的摊位')
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/market/your_stand.jpg"></center>'
+		'市场关门了，你应该拆掉你的摊位。'
+		act '收摊': gt 'gad_market', 'breakdown_stand'
+		exit
+	end
+
+
+	temp_rand = rand(0, 249)
+	if temp_rand >= pcs_chrsm + pcs_persuas:
+		if rand(0, 2) > 0:
+			gt 'gad_market', 'sell_talk'
+		else
+			gt 'gad_market', 'sell_nobody'
+		end
+	else
+		temp_rand = rand(0, 6)
+		if temp_rand < 2 and boletus_stored > 0:
+			gt 'gad_market', 'sell_mushrooms'
+		elseif temp_rand >= 2 and temp_rand < 4 and bilberry_stored > 0:
+			gt 'gad_market', 'sell_berries'
+		elseif temp_rand >= 4 and temp_rand < 6 and fish_stored > 0:
+			gt 'gad_market', 'sell_fish'
+		else
+			gt 'gad_market', 'sell_talk'
+		end
+	end
+	killvar 'temp_rand'
+end
+
+
+if $ARGS[0] = 'sell_nobody':
+	minut += 10
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sell_nobody.jpg"></center>'
+	gs 'gad_market', 'see_stored'
+
+
+	'你等了10分钟，但似乎没人对你卖的东西感兴趣。'
+	act '继续尝试兜售你的商品': gt 'gad_market', 'sell_wares'
+	act '停止出售你的商品': gt 'gad_market', 'your_stand'
+
+
+elseif $ARGS[0] = 'sell_mushrooms':
+	minut += 10
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sell_mushrooms1.jpg"></center>'
+	gs 'gad_market', 'see_stored'
+	'有人想买一公斤蘑菇！'
+
+	act '卖给他们1公斤储存的蘑菇':
+		*clr & cla
+		gs 'money', 'earn', 20
+		boletus_stored -= 1
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sale<<rand(1, 4)>>.jpg"></center>'
+		gs 'gad_market', 'see_stored'
+		'你卖出了1公斤储存的蘑菇。'
+
+		act '继续尝试兜售你的商品': gt 'gad_market', 'sell_wares'
+		act '停止出售你的商品': gt 'gad_market', 'your_stand'
+	end
+
+
+elseif $ARGS[0] = 'sell_berries':
+	minut += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sell_berries1.jpg"></center>'
+
+	gs 'gad_market', 'see_stored'
+
+
+	'有人想买一公斤浆果！'
+	act '卖给他们1公斤储存的浆果':
+		*clr & cla
+		gs 'money', 'earn', 20
+		bilberry_stored -= 1
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sale<<rand(1, 4)>>.jpg"></center>'
+		gs 'gad_market', 'see_stored'
+		'你卖出了1公斤储存的浆果。'
+
+		act '继续尝试兜售你的商品': gt 'gad_market', 'sell_wares'
+		act '停止出售你的商品': gt 'gad_market', 'your_stand'
+	end
+
+elseif $ARGS[0] = 'sell_fish':
+	minut += 10
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sell_fish1.jpg"></center>'
+	gs 'gad_market', 'see_stored'
+	'有人想买一公斤腌制鱼！'
+
+	act '卖给他们1公斤腌制鱼':
+		*clr & cla
+		gs 'money', 'earn', 20
+		fish_stored -= 1
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sale<<rand(1, 4)>>.jpg"></center>'
+		gs 'gad_market', 'see_stored'
+		'你卖出了1公斤腌制鱼。'
+
+		act '继续尝试兜售你的商品': gt 'gad_market', 'sell_wares'
+		act '停止出售你的商品': gt 'gad_market', 'your_stand'
+	end
+
+elseif $ARGS[0] = 'sell_talk':
+	minut += 10
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/sell_talk.jpg"></center>'
+	gs 'gad_market', 'see_stored'
+	'几个人走到你的摊位前，你花了十分钟和他们闲聊了几句。'
+
+	act '继续尝试兜售你的商品': gt 'gad_market', 'sell_wares'
+	act '停止出售你的商品': gt 'gad_market', 'your_stand'
+end
+
+
+if $ARGS[0] = 'see_stored':
+	if boletus_stored > 0:	'你目前储存着<b><<boletus_stored>></b>公斤生蘑菇。'
+	if bilberry_stored > 0:	'你目前储存着<b><<bilberry_stored>></b>公斤生浆果。'
+	if fish_stored > 0:		'你目前储存着<b><<fish_stored>></b>公斤腌制鱼。'
+	if boletus_stored + bilberry_stored + fish_stored = 0: '你现在没有什么可以卖的。'
+end
+
+
+if $ARGS[0] = 'hunter_talk':
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/market/hunter_stand.jpg"></center>'
+
+	!!if hunter_market_talk >= daystart:
+		'你和这三个人闲聊了几分钟，但他们似乎正忙着照看他们的市场摊位。'
+		act '返回': gt 'gad_market', 'hunter_stand'
+	!!else
+	!!	hunter_market_talk = daystart
+	!!	hunter_rand = 172 + rand(0, 2)
+	!!	'"Hey <<$npc_usedname[''A<<hunter_rand>>'']>>", how''s the market today?'
+	!!	'"Busy as always, <<$pcs_nickname>>. What brings you here?"'
+
+	!!	act 'Just wanted to talk':
+	!!		*clr & cla
+	!!		minut += 5
+	!!		gs 'stat'
+
+	!!		'PLACEHOLDER'
+	!!		act 'Return': gt 'gad_market', 'hunter_stand'
+	!!	end
+	!!	act 'Could I join you to the cottage?':
+	!!		*clr & cla
+
+	!!	end
+	!!end
+end
+
+
+if $ARGS[0] = 'close':
+	menu_off = 1
+	gs 'stat'
+
+	if gad_stand = 1:
+		'市场要关门了，你应该拆掉你的摊位。'
+		act '收摊': gt 'gad_market', 'breakdown_stand'
+	else
+		'市场要关门了，于是你回到了主街。'
+		act '返回': gt 'gad_market', 'leave'
+	end
+end
+
+
+if $ARGS[0] = 'leave':
+	minut += 5
+	killvar 'temp_rand'
+	gt 'gadukino'
+end
+
+--- gad_market ---------------------------------

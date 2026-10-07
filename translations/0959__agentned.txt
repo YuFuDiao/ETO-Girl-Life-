@@ -1,0 +1,383 @@
+# agentned
+
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'agentned', 'start'
+	$location_type = 'public_indoors'
+
+	gs 'stat'
+	gs 'dina'
+	!!	gs 'housing', 'rent'
+
+	$func('wrap', 'header center b', '基尔萨诺娃房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo.jpg"></center>'
+	*nl
+	'这里是列宁格勒州最大的房地产中介公司的总部。'
+	*nl
+	'在前台，你注意到一张大幅印刷横幅：'
+	'<b>"请注意，所有销售交易都只能通过你的银行账户进行。租金支付不在此政策范围内。"</b>'
+
+	act '查看租房': gt 'agentned', 'rent'
+	act '查看待售房产': gt 'agentned', 'buy'
+
+	!! Get a list of the properties and their attributes that the player rented:
+	!! Returns: $property_name[agentned_i], $property_code[agentned_i], $property_display[agentned_i], property_rent[agentned_i], property_days[agentned_i]
+	gs 'homes_properties', 'get_rented_properties', 'home'
+	agentned_count = arrsize('$property_name')
+	if agentned_count > 0:
+		agentned_i = 0
+		'<h4>租赁信息</h4>'
+		:listing_rented_properties_loop
+			'你的<<$property_display[agentned_i]>>租约还剩<b><<property_days[agentned_i]>>天</b>，你的月租金是<<$func(''money'', ''string_price'', property_rent[agentned_i])>>。 ' + iif(func('money', 'can_afford', property_rent[agentned_i]) = 0, '你现在付不起租金。', '你可以支付一笔租金 <a href="exec: gs ''homes_properties'', ''pay_rent'', ''<<$property_code[agentned_i]>>'' & gt ''agentned'', ''start''">付款</a>来延长租期。')
+			dynamic "
+				act ""取消<<$property_display[agentned_i]>>的租约"":
+					cla & *nl
+					!! TODO: 1 month notice period like in real life?
+					'注意：一旦取消租约，你将无法再回到你的公寓。'
+					act '返回': gt 'agentned', 'start'
+					act '取消租约':
+						gs 'homes_properties', 'cancel_rent', '<<$property_code[agentned_i]>>'
+						gt 'agentned', 'start'
+					end
+				end
+			"
+			agentned_i += 1
+		if agentned_i < agentned_count: jump 'listing_rented_properties_loop'
+	end
+
+	!! Get a list of the properties and their attributes that the player owns:
+	!! $property_code[], $property_name[], $property_display[], $property_status_display[], $property_type[]
+	!! property_construction_status, property_is_renovated[], property_sales_price[], property_renovation_value[]
+	gs 'homes_properties', 'get_owned_properties', 'home'
+	agentned_count = arrsize('$property_name')
+	if agentned_count > 0:
+		'<h4>你拥有以下房产</h4>'
+		agentned_i = 0
+		:listing_owned_properties_loop
+			*pl $property_status_display[agentned_i]
+			agentned_i += 1
+		if agentned_i < agentned_count: jump 'listing_owned_properties_loop'
+		*nl
+		'如果你决定出售，我们随时为你服务<a href="exec:gt ''agentned'',''sell''">出售</a>。'
+		*nl
+	end
+
+	act '离开': minut += 5 & gt 'city_center'
+
+	gs 'homes_properties', 'clean_up_property_data'
+	killvar 'agentned_count'
+	killvar 'agentned_i'
+end
+
+
+if $ARGS[0] = 'buy':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'agentned', 'buy'
+	$location_type = 'public_indoors'
+	gs 'housing', 'sale'
+	gs 'homes_properties', 'clean_up_property_data'
+
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo.jpg"></center>'
+	*nl
+	'<h4>购买任何房产都需要银行账户。根据反洗钱条例，中介公司不接受现金交易</h4>'
+	*nl
+	minut += 5
+	gs 'stat'
+
+	act '返回': gt 'agentned', 'start'
+
+	!! "Returns":
+	!! $property_code[], $property_name[], $property_display[], $property_agency_name[],
+	!! property_construction_status,property_is_renovated[], property_sales_price[],
+	!! property_type[]
+	gs 'homes_properties', 'get_properties_for_sale'
+	agentned_count = arrsize('$property_name')
+	if agentned_count <= 0:
+		'我们目前没有挂牌出售的房产。'
+	else
+		agentned_i = 0
+		'<h4>我们有以下待售房产</h4>'
+		:listing_properties_for_sale_loop
+			if property_is_rented[agentned_i] = 0:
+				'有一处<<$property_display[agentned_i]>>可以出售，价格为<<func(''money'', ''string_price'', property_sales_price[agentned_i])>>。'
+			else
+				'你可以买下你目前租的<<$property_display[agentned_i]>>，价格为<<func(''money'', ''string_price'', property_sales_price[agentned_i])>>。'
+			end
+			if $property_code[agentned_i] = 'city_apartment' or $property_code[agentned_i] = 'village_cottage' or $property_code[agentned_i] = 'city_house' or $property_code[agentned_i] = 'matryona_mansion':
+				dynamic "
+						act ""买下<<$property_display[agentned_i]>>"" + $func('money', 'get_cost_string', <<property_sales_price[agentned_i]>>, 'bank'):
+							if func('money', 'can_afford', <<property_sales_price[agentned_i]>>, 'bank') = 0:
+								$noMoney
+							else
+								gt 'agentned', 'buy_property', '<<$property_code[agentned_i]>>'
+						end
+					end
+				"
+			end
+			agentned_i += 1
+		if agentned_i < agentned_count: jump 'listing_properties_for_sale_loop'
+	end
+	gs 'homes_properties', 'clean_up_property_data'
+	killvar 'agentned_count'
+	killvar 'agentned_i'
+end
+
+
+if $ARGS[0] = 'buy_property':
+	*clr & cla
+	menu_off = 1
+
+	gs 'homes_properties', 'get_property_sales_info', $ARGS[1]
+	minut += 30
+	gs 'money', 'pay', property_sales_price, 'bank'
+
+	gs 'homes_properties', 'buy_property', $ARGS[1], property_sales_price
+	$set_homeyn = $input("要把这里设为你的新家吗？（输入 是/否）")
+	if $set_homeyn = 'yes': gs 'homes_properties', 'set_home', $ARGS[1]
+
+	!! TODO: this exhib['status'] will need some rethinking I get what it means by now, but some better name would help a lot.
+	!! NOTE: It means how "famous" Sveta is for being an exhibitionist.
+	if $ARGS[1] = 'village_cottage': exhib['status'] = 0
+	gs 'stat'
+
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo_paperwork.jpg"></center>'
+	*nl
+	'你花了半小时填写文件以购买这个<<$property_display>>。<<func(''money'', ''string_price'', property_sales_price)>>已从你的银行账户中扣除。'
+
+	act '返回': gt 'agentned', 'buy'
+
+	killvar 'set_homeyn'
+	killvar 'property'
+	killvar 'property_code'
+	killvar 'property_sales_price'
+	killvar 'property_display'
+end
+
+
+!! NOTE: When a property is sold, it can be bought back. To avoid a guaranteed income from the
+!! "I buy property for X, renovate it, sell it for X+Y, then buy it for X, then repeat" loop,
+!! the sales price of the property is updated with the price that it was sold for.
+if $ARGS[0] = 'sell':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'agentned', 'sell'
+	$location_type = 'public_indoors'
+	gs 'homes_properties', 'clean_up_property_data'
+
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo.jpg"></center>'
+	*nl
+	'<h4>任何房产的购买或出售都需要银行账户。根据反洗钱条例，中介公司不接受现金交易</h4>'
+	*nl
+
+	act '返回':
+		gs 'homes_properties', 'clean_up_property_data'
+		gt 'agentned', 'start'
+	end
+
+	if bankAccount = 0:
+		'<b>你需要开设一个银行账户才能出售你的房产</b>'
+	else
+		!! Get a list of the properties and their attributes that the player rented:
+		!! $property_code[], $property_name[], $property_display[], $property_status_display[], $property_type[]
+		!! property_construction_status, property_is_renovated[], property_sales_price[], property_renovation_value[]
+		gs 'homes_properties', 'get_owned_properties', 'home'
+
+		agentned_count = arrsize('$property_name')
+		if agentned_count > 0:
+			'<h4>你的房产的可用报价</h4>'
+			agentned_i = 0
+			:listing_offers_on_owned_properties_loop
+				if $property_code[agentned_i] <> 'matryona_mansion' or ($property_code[agentned_i] = 'matryona_mansion' and property_construction_status[agentned_i] = 0):
+					!! NOTE: Offer: (last sales price + rand(-10%, +10%)) + (renovation value + rand(0%,+10%)
+					!!		No need to check what has been renovated, the only thing that matters is the total value of the renovation
+					!!		If Sveta sells, this will be stored as the new sales price of the property
+
+					offer = property_sales_price + property_renovation_value + (property_sales_price * rand(-10, 10)) / 100 + (property_renovation_value * rand(0, 10)) / 100
+					if $property_code[agentned_i] = 'city_apartment' or $property_code[agentned_i] = 'village_cottage' or $property_code[agentned_i] = 'city_house' or $property_code[agentned_i] = 'matryona_mansion':
+						'我们已经为你的<<$property_display[agentned_i]>>找到了买家。他们将出价<<$func(''money'', ''string_profit'', offer)>>，减去5%的手续费和税费，折合<<$func(''money'', ''string_profit'', offer * 5 / 100)>>，总计为<<$func(''money'', ''string_profit'', offer * 95 / 100)>>'
+						dynamic "
+							act ""以<<$func('money', 'string_profit', offer * 95 / 100)>>出售<<$property_display[agentned_i]>>"":
+								gt 'agentned', 'finalise_sale', '<<$property_code[agentned_i]>>', <<agentned_i>>, <<offer>>
+							end
+						"
+					end
+				end
+				agentned_i += 1
+			if agentned_i < agentned_count: jump 'listing_offers_on_owned_properties_loop'
+
+		end
+		gs 'homes_properties', 'clean_up_property_data'
+		killvar 'agentned_count'
+		killvar 'agentned_i'
+		killvar 'j'
+		act '离开': minut += 5 & gt 'city_center'
+
+	!! NOTE: Keeping this here for future renovation related reference.
+	!!{
+	if bankAccount = 1:
+		if rembedr = 1 and remsitr = 1 and remkorr = 1 and remvanr = 1 and remkuhr = 1:
+			!! Renovated city residential apartment
+			offer1 = ((800000 + 250000) + rand(-100000, 100000))
+		else
+			offer1 = (800000 + rand(-100000, 100000))
+		end
+
+		if func('homes_properties', 'property_renovated', 'village_cottage') = 1:
+			!! Renovated communal cottage
+			offer2 = ((prop_price['village_cottage'] + 200000) + rand(-10000, 10000))
+		else
+			!! Communal cottage
+			offer2 = (prop_price['village_cottage'] + rand(-5000, 5000))
+		end
+	!}
+	end
+end
+
+
+if $ARGS[0] = 'finalise_sale':
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	gs 'stat'
+
+	gs 'homes_properties', 'get_property_sales_info', $ARGS[1]
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo_paperwork.jpg"></center>'
+	'你花了三十分钟填写文件以出售你的<<$property_display[ARGS[2]]>>。<<$func(''money'', ''string_profit'', ARGS[3] * 95 / 100)>>已存入你的银行账户。'
+	gs 'homes_properties', 'sell_property', $ARGS[1], ARGS[3]
+	gs 'money', 'earn', ARGS[3] * 95 / 100, 'bank'
+
+	act '返回': gt 'agentned', 'sell'
+
+	killvar 'property_display'
+	killvar 'property_sales_price'
+end
+
+
+if $ARGS[0] = 'rent':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'agentned', 'rent'
+	$location_type = 'public_indoors'
+	minut += 5
+	gs 'stat'
+
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo.jpg"></center>'
+	*nl
+
+	act '返回': gt 'agentned', 'start'
+
+	gs 'homes_properties', 'get_properties_for_rent', 'home'
+	agentned_count = arrsize('property_name')
+
+	if agentned_count <= 0:
+		'我们目前没有挂牌出租的房产。'
+	else
+		agentned_i = 0
+		'<h4>目前可出租的房产</h4>'
+		:listing_properties_for_rent_loop
+			'我们有一处<<$property_display[agentned_i]>>，月租金为<<func(''money'', ''string_price'', property_rent[agentned_i])>>。'
+			dynamic "
+				act ""查看<<$property_display[agentned_i]>>的详情"":
+					gt 'agentned', 'view_property_details', '<<$property_code[agentned_i]>>', <<property_rent[agentned_i]>>
+				end
+			"
+			agentned_i += 1
+		if agentned_i < agentned_count: jump 'listing_properties_for_rent_loop'
+	end
+
+	gs 'homes_properties', 'clean_up_property_data'
+	killvar 'agentned_count'
+	killvar 'agentned_i'
+end
+
+
+if $ARGS[0] = 'view_property_details':
+	*clr & cla
+	menu_off = 1
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo.jpg"></center>'
+	*nl
+	'<<$func(''agentned'', ''get_rent_detail_dialogue'', $ARGS[1])>>接待员一边开始拿出文件一边说："租金是<<func(''money'', ''string_price'', ARGS[2], 1)>>，租约必须每30天续签一次。付款将自动从你的账户中扣除，或者你可以来办公室支付。最后但同样重要的是，签租约时必须支付第一个月的租金。"'
+	'<br>他拿出一支笔，把文件滑到柜台上。"有兴趣吗？你可以马上搬进去，"他平静地说。'
+
+	if func('money', 'can_afford', ARGS[2]) = 0:
+		'你随身携带的钱或银行账户里的钱都不够支付租金。'
+	else
+		dynamic "
+			act '同意并支付': gt 'agentned', 'finalise_rent', '<<$ARGS[1]>>', <<ARGS[2]>>
+		"
+	end
+
+	act '拒绝':
+		*clr & cla
+		minut += 5
+		$func('wrap', 'header center b', '房地产中介')
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo.jpg"></center>'
+		*nl
+		'你摇了摇头，"其实，我需要更多时间考虑一下。"'
+		'<br>接待员似乎有点不高兴，但什么也没说，把文件收回去塞进了他的办公桌抽屉里。'
+
+		act '返回': gt 'agentned', 'start'
+	end
+end
+
+
+!! $ARGS[1] - the code of the property.
+if $ARGS[0] = 'get_rent_detail_dialogue':
+	if $ARGS[1] = 'old_town_apartment':
+		$result = '"我们现在有一间位于普希金市中心的小公寓。价格有点贵，但它最近经过了翻新，变得更加现代化。它看起来相当不错，在普希金之外你找不到这样的地方。"'
+	elseif $ARGS[1] = 'city_apartment':
+		$result = '"我们现在在圣彼得堡的住宅区有一间公寓可供出租。"'
+	else
+		gs 'agentned', 'get_rent_detail_dialogue_hook', $ARGS[1]
+		$result = $agency_rental_dialogue
+		killvar 'agency_rental_dialogue'
+	end
+end
+
+
+!! $ARGS[1] - the code of the property.
+if $ARGS[0] = 'get_rent_detail_dialogue_hook':
+	!! In a mod just redirect this call and set the value of the variable below to the text
+	!! that should be used for the property by the agency.
+	$agency_rental_dialogue = ''
+end
+
+
+!! $ARGS[1] - property code
+!!  ARGS[2] - price
+if $ARGS[0] = 'finalise_rent':
+	*clr & cla
+	minut += 30
+
+	gs 'money', 'pay', ARGS[2]
+
+	gs 'homes_properties', 'rent_property', $ARGS[1]
+	if func( 'homes_properties', 'get_accessible_property_count', 'home') = 1:
+		gs 'homes_properties', 'set_home', $ARGS[1]
+	else
+		$set_homeyn = $input('要把这里设为你的新家吗？（输入 是/否）')
+		if $set_homeyn = 'yes': gs 'homes_properties', 'set_home', $ARGS[1]
+		killvar 'set_homeyn'
+	end
+
+	gs 'stat'
+	$func('wrap', 'header center b', '房地产中介')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/realestate/agenstvo_paperwork.jpg"></center>'
+	*nl
+	'你拿起笔，开始填写文件。写了半个小时后，你交出钱，拿到了新公寓的钥匙。'
+
+	act '返回': gt 'agentned', 'start'
+end
+
+
+--- agentned ---------------------------------

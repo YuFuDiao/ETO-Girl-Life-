@@ -1,0 +1,656 @@
+# underwear_bodysuits
+!! This is bodysuits file and that means underwear['type'] = 2
+!! bodysuits use the panty term in variables, this is intentional
+!! gs 'underwear_bodysuits', 'dispose'
+!! to remove bodysuits and destroy them
+!! gs 'underwear_bodysuits', 'remove'
+!! To remove bodysuits and store them
+!! gs 'underwear_bodysuits', 'wear'
+!! To wear bodysuits
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_total':
+	if $mid($ARGS[1], 1, 5) = 'lusso':
+		result = 90
+	elseif $mid($ARGS[1], 1, 8) = 'moncheri':
+		result = 50
+	elseif $mid($ARGS[1], 1, 9) = 'salacious':
+		result = 40
+	elseif $mid($ARGS[1], 1, 13) = 'scandalicious':
+		result = 100
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'totals':
+	total = func('underwear_bodysuits', 'get_total', $ARGS[1])
+	exit
+end
+
+
+if $ARGS[0] = 'sum':
+	result = 0
+	result += func('underwear_bodysuits', 'sum_inner', 'lusso')
+	result += func('underwear_bodysuits', 'sum_inner', 'salacious')
+	result += func('underwear_bodysuits', 'sum_inner', 'scandalicious')
+	if $ARGS[1] = 'dresser':
+		if $pantyworntype ! 'none' and result > 0: result -= 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'sum_inner':
+	result = 0
+	bodysuits_i = 1
+	bodysuits_max_i = arrsize('<<$ARGS[1]>>_bodysuits')
+	:loopsumbodysuits
+		if func('underwear_bodysuits', 'in_wardrobe', $ARGS[1], bodysuits_i): result += 1
+		bodysuits_i += 1
+	if bodysuits_i < bodysuits_max_i : jump 'loopsumbodysuits'
+	killvar 'bodysuits_i'
+	killvar 'bodysuits_max_i'
+	exit
+end
+
+
+!! $ARGS[1] set to outfit type
+!! ARGS[2] for outfit number
+!! ARGS[3] to skip attribute set
+if $ARGS[0] = 'not_wear_reason':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+	if arrsize('ARGS') = 3: gs 'underwear_attributes', $ARGS[1] + '_bodysuits', ARGS[2]
+
+	$result = ''
+	if func('underwear_bodysuits', 'is_immutable', $ARGS[1], ARGS[2]): exit
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]) = 0:
+		$result = 'not_owned'
+		exit
+	end
+	if func('underwear_bodysuits', 'in_wardrobe', $ARGS[1], ARGS[2]) = 0:
+		$result = 'not_in_wardrobe'
+		exit
+	end
+	if func('underwear_bodysuits', 'is_strength_low', $ARGS[1], ARGS[2]):
+		$result = 'low_strength'
+		exit
+	end
+	if func('underwear_bodysuits', 'is_hypno_approved', $ARGS[1], ARGS[2]) = 0:
+		$result = 'hypno'
+		exit
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'can_wear':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+	if arrsize('ARGS') = 3: gs 'underwear_attributes', $ARGS[1] + '_bodysuits', ARGS[2]
+
+	result = ($func('underwear_bodysuits', 'not_wear_reason', $ARGS[1], ARGS[2], 'attributes_set') = '')
+	exit
+end
+
+
+if $ARGS[0] = 'is_owned':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+
+	result = dyneval("result = (<<$ARGS[1]>>_bodysuits[<<ARGS[2]>>] > 0)")
+	exit
+end
+
+
+if $ARGS[0] = 'in_wardrobe':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+
+	result = 0
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 0)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'in_storage':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+
+	result = 0
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 1)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'in_unwanted':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+
+	result = 0
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 2)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_strength_low':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+
+	result = 0
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] <= 0)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_hypno_approved':
+	result = (hypnoBra = 0 and hypnoPanty = 0)
+	exit
+end
+
+
+if $ARGS[0] = 'is_wearing_any':
+	result = ($bodysuitworntype <> '' and $bodysuitworntype <> 'none')
+	exit
+end
+
+
+if $ARGS[0] = 'is_wearing':
+	result = ($bodysuitworntype = $ARGS[1] and bodysuitwornnumber = ARGS[2])
+	exit
+end
+
+
+if $ARGS[0] = 'is_immutable':
+	result = 0
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         DEPRECATED                         !!
+		!!------------------------------------------------------------!!
+
+
+!! Deprecated
+if $ARGS[0] = 'bodysuit_owned':
+	if arrsize('ARGS') = 1: $ARGS[1] = $bodysuitworntype
+	if arrsize('ARGS') = 2: ARGS[2] = bodysuitwornnumber
+
+	result = func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2])
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             MANAGEMENT                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'add_item':
+	if $ARGS[1] = '': exit
+	if ARGS[2] = 0: exit
+
+	gs 'underwear_attributes', $ARGS[1] + '_bodysuits', ARGS[2]
+	if BraQuality = 0: exit
+
+	dynamic "
+		<<$ARGS[1]>>_bodysuits[<<ARGS[2]>>] = 1
+		<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] = BraStrength
+	"
+	exit
+end
+
+
+if $ARGS[0] = 'remove_item':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+
+	if $ARGS[1] = '' or $ARGS[1] = 'none': exit
+
+	dynamic "
+		<<$ARGS[1]>>_bodysuits[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] = 0
+	"
+
+	if $ARGS[1] = $bodysuitworntype and ARGS[2] = bodysuitwornnumber:
+		gs 'underwear_bodysuits', 'strip_code'
+		gs 'outfit', 'set_derived_vars'
+		$lastwornbodysuittype = 'none'
+		lastwornbodysuitnumber = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'reset_immutables':
+	exit
+end
+
+
+if $ARGS[0] = 'dispose':
+	if underwear['type'] = 0:
+		gs 'bras', 'dispose'
+		gs 'panties', 'dispose'
+		exit
+	end
+
+	gs 'underwear_bodysuits', 'remove_item', $bodysuitworntype, bodysuitwornnumber
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_wardrobe':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 0"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_storage':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 1"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_unwanted':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_bodysuits_s[<<ARGS[2]>>] = 2"
+	end
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'remove':
+	gs 'underwear_bodysuits', 'strip'
+end
+
+
+if $ARGS[0] = 'strip':
+	if underwear['type'] = 0:
+		gs 'bras', 'strip'
+		gs 'panties', 'strip'
+		exit
+	end
+	if $bodysuitworntype = '':
+		$bodysuitworntype = 'none'
+		bodysuitwornnumber = 0
+	end
+
+	lastwornunderwear = 2
+	$lastwornbodysuittype = $bodysuitworntype
+	lastwornbodysuitnumber = bodysuitwornnumber
+	gs 'underwear_bodysuits', 'strip_code'
+end
+
+
+if $ARGS[0] = 'strip_code':
+	$bodysuitworntype = 'none'
+	$pantyworntype = 'none'
+	$braworntype = 'none'
+	bodysuitwornnumber = 0
+	pantywornnumber = 0
+	brawornnumber = 0
+	underwear['type'] = 0
+
+	!! Remove pad if one was used
+	isprokp = 0
+
+	gs 'underwear_bodysuits', 'reset_UndVars'
+	gs 'underwear_bodysuits', 'reset_PUndVars'
+	gs 'outfit', 'set_derived_vars'
+end
+
+
+if $ARGS[0] = 'reset_UndVars':
+	gs 'bras', 'reset_BraVars'
+	gs 'panties', 'reset_PanVars'
+	exit
+end
+
+
+if $ARGS[0] = 'reset_PUndVars':
+	gs 'bras', 'reset_PBraVars'
+	gs 'panties', 'reset_PPanVars'
+	exit
+end
+
+
+if $ARGS[0] = 'wear':
+	if $ARGS[1] = '' or $ARGS[1] = 'last_worn':
+		if lastwornunderwear < 2:
+			gs 'bras', 'wear', 'last_worn'
+			gs 'panties', 'wear', 'last_worn'
+			exit
+		end
+		$ARGS[1] = $lastwornbodysuittype
+		ARGS[2] = lastwornbodysuitnumber
+	end
+	if $ARGS[1] = '' or $ARGS[1] = 'none': exit
+
+	gs 'underwear_bodysuits', 'strip'
+
+	gs 'underwear_attributes', $ARGS[1] + '_bodysuits', ARGS[2]
+
+	if BraQuality = 0:
+		msg '错误：连体衣 "<<$ARGS[1]>>_bodysuits[<<ARGS[2]>>]" 不存在'
+		exit
+	end
+
+	if arrpos('$ARGS', 'check') > 0:
+		$temp_not_wear_reason = $func('underwear_bodysuits', 'not_wear_reason', $ARGS[1], ARGS[2], 'no_init')
+		if $temp_not_wear_reason <> '' and $temp_not_wear_reason <> 'hypno':
+			if $temp_not_wear_reason = 'not_owned':
+				msg '你没有这条内裤。'
+			elseif $temp_not_wear_reason = 'not_in_wardrobe':
+				msg '这些内裤不在你的衣柜里'
+			elseif $temp_not_wear_reason = 'low_strength':
+				msg '这些内裤已经穿旧了'
+			elseif $temp_not_wear_reason = 'hypno':
+				msg '你不想穿这些内裤。'
+			end
+			killvar '$temp_not_wear_reason'
+			exit
+		end
+		killvar '$temp_not_wear_reason'
+	end
+
+	$bodysuitworntype = $ARGS[1]
+	bodysuitwornnumber = ARGS[2]
+	$pantyworntype = 'bodysuit'
+	$braworntype = 'bodysuit'
+	underwear['type'] = 2
+
+	dynamic "
+		<<$bodysuitworntype>>_bodysuits_w[<<bodysuitwornnumber>>] = 1
+		<<$bodysuitworntype>>_bodysuits_s[<<bodysuitwornnumber>>] = 0
+	"
+
+	!! PPanStyle = PanStyle
+	!! PBraStyle = BraStyle
+	PPanQuality = BraQuality
+	PBraQuality = BraQuality
+	PPanMaterial = BraMaterial
+	PBraMaterial = BraMaterial
+	PPanType = BraType
+	PBraType = BraType
+	PPanFun = BraFun
+	PBraFun = BraFun
+	PPanThinness = BraThinness
+	PBraThinness = BraThinness
+	PPanCoverFront = PanCoverFront
+	PPanCoverBack = PanCoverBack
+	PBraCover = BraCover
+	PPanSport = BraSport
+	PBraSport = BraSport
+	!! PPanSwim = BraSwim
+	!! PBraSwim = BraSwim
+	PPanPrice = BraPrice
+	PBraPrice = BraPrice
+	PPanDirt = PanDirt
+	PBraDirt = BraDirt
+	PPanStrength = PanStrength
+	PBraStrength = BraStrength
+	PPanMaxStrength = PanMaxStrength
+	PBraMaxStrength = BraMaxStrength
+
+	if arrpos('$ARGS', 'borrowed') >= 0:
+		PBraBorrowed = 1
+		PPanBorrowed = 1
+		PBraDirt = 0
+		PPanDirt = 0
+		PPanStrength = 100
+		PBraStrength = 100
+	end
+
+	gs 'outfit', 'set_derived_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'wear_last_worn':
+	!! contingency
+	if $lastwornbodysuittype = '': $lastwornbodysuittype = 'none'
+	gs 'underwear_bodysuits', 'wear', $lastwornbodysuittype, lastwornbodysuitnumber
+end
+
+
+if $ARGS[0] = 'increase_cur_dirt':
+	gs 'underwear_bodysuits', 'increase_dirt', $bodysuitworntype, bodysuitwornnumber, ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'decrease_cur_dirt':
+	gs 'underwear_bodysuits', 'decrease_dirt', $bodysuitworntype, bodysuitwornnumber, ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'increase_dirt':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+	if ARGS[3] <= 0: ARGS[3] = 1
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "
+			<<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>] += <<ARGS[3]>>
+			if '<<$ARGS[1]>>' = $bodysuitworntype and <<ARGS[2]>> = bodysuitwornnumber:
+				PBraDirt = <<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>]
+				PPanDirt = PBraDirt
+			end
+		"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'decrease_dirt':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+	if ARGS[3] <= 0: ARGS[3] = 1
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "
+			<<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>] -= <<ARGS[3]>>
+			if <<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>] < 0: <<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>] = 0
+			if '<<$ARGS[1]>>' = $bodysuitworntype and <<ARGS[2]>> = bodysuitwornnumber:
+				PBraDirt = <<$ARGS[1]>>_bodysuits_dirt[<<ARGS[2]>>]
+				PPanDirt = PBraDirt
+			end
+		"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'decrease_cur_strength':
+	gs 'underwear_bodysuits', 'decrease_strength', $bodysuitworntype, bodysuitwornnumber, ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'increase_cur_strength':
+	gs 'underwear_bodysuits', 'increase_strength', $bodysuitworntype, bodysuitwornnumber, ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'decrease_strength':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+	if ARGS[3] <= 0: ARGS[3] = 1
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "
+			<<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] -= <<ARGS[3]>>
+			if <<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] < 0: <<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] = 0
+			if '<<$ARGS[1]>>' = $bodysuitworntype and <<ARGS[2]>> = bodysuitwornnumber:
+				PBraStrength = <<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>]
+				PPanStrength = PBraStrength
+			end
+		"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'increase_strength':
+	if $ARGS[1] = '': $ARGS[1] = $bodysuitworntype
+	if ARGS[2] = 0: ARGS[2] = bodysuitwornnumber
+	if ARGS[3] <= 0: ARGS[3] = 1
+
+	if func('underwear_bodysuits', 'is_owned', $ARGS[1], ARGS[2]):
+		gs 'underwear_attributes', $ARGS[1] + '_bodysuits', ARGS[2]
+		dynamic "
+			<<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] = min(<<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>] + <<ARGS[3]>>, <<BraMaxStrength>>)
+			if '<<$ARGS[1]>>' = $bodysuitworntype and <<ARGS[2]>> = bodysuitwornnumber:
+				PBraStrength = <<$ARGS[1]>>_bodysuits_h[<<ARGS[2]>>]
+				PPanStrength = PBraStrength
+			end
+		"
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         WARDROBE AND SHOPS                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! DEPRECATED
+if $ARGS[0] = 'set_shop_display_exceptions':
+	gs 'underwear_bodysuit_view', 'set_exceptions'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'view_bodysuit_list':
+	!! $ARGS[1] - action type (clean, dirty, store, bathroom)
+	gt 'underwear_bodysuit_view', 'view_grid', $ARGS[1]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'view_bodysuit_item':
+	!! ARGS 0 - view_bodysuit_item
+	!! ARGS 1 = action type (draw, shop)
+	!! ARGS 2 - bodysuit type
+	!! ARGS 3 - bodysuit index
+	!! ARGS 4 - price modifier (0-100, taken as %) {OPTIONAL}
+	gt 'underwear_bodysuit_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest0':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - bodysuit type
+	!! ARGS[3] - bodysuit index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'underwear_bodysuits', 'move_to_wardrobe', $ARGS[2], ARGS[3]
+	gt 'underwear_bodysuit_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest1':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - bodysuit type
+	!! ARGS[3] - bodysuit index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'underwear_bodysuits', 'move_to_storage', $ARGS[2], ARGS[3]
+	gt 'underwear_bodysuit_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest2':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - bodysuit type
+	!! ARGS[3] - bodysuit index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'underwear_bodysuits', 'move_to_unwanted', $ARGS[2], ARGS[3]
+	gt 'underwear_bodysuit_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'get_filter_header':
+	gs 'underwear_bodysuit_view', 'filter_builder', 'setup_home_filter'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'bodysuit_filter':
+	gs 'underwear_bodysuit_view', 'home_filter'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'get_shop_filter_header':
+	gs 'underwear_bodysuit_view', 'filter_builder', 'setup_shop_filter'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'get_bodysuitsgrid_header':
+	$result = $func('underwear_bodysuit_view', 'get_wardrobe_grid_header')
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'shop_filter':
+	gs 'underwear_bodysuit_view', 'shop_filter'
+	exit
+end
+
+
+--- underwear_bodysuits ---------------------------------

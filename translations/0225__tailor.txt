@@ -1,0 +1,472 @@
+# tailor
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                ACTS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_tailor_acts':
+	gs 'tailor', 'set_resize_current_act'
+	gs 'tailor', 'set_resize_other_act'
+	gs 'tailor', 'set_resize_all_act'
+end
+
+
+if $ARGS[0] = 'set_resize_current_act':
+	act '改身上穿的衣服的尺寸 (0:10)' + $func('money', 'get_cost_string', 500):
+		*clr & cla
+		if PCloStyle = 5 or PCloStyle2 = 6 or PCloSport = 1:
+			'裁缝恼火地看着你，"为什么要用运动服浪费我的时间？那种衣服不需要改尺寸……"'
+		elseif dyneval('result = (<<$clothingworntype>>_b[<<clothingwornnumber>>] = pcs_hips)'):
+			'裁缝恼火地看着你，"这是在开玩笑吗？你的衣服就像为你量身定做的一样合身。我可没时间陪你玩这种愚蠢的把戏。"'
+		elseif dyneval('result = (<<$clothingworntype>>_b[<<clothingwornnumber>>] > pcs_hips + 4 or <<$clothingworntype>>_b[<<clothingwornnumber>>] < pcs_hips - 4)'):
+			'裁缝恼火地看着你，"为什么要浪费我的时间？你的衣服不需要改尺寸。虽然不是完美合身，但也还行。"'
+		elseif func('money', 'can_afford', 500) = 0:
+			$noMoney
+		else
+			minut += 10
+			gs 'money', 'pay', 500
+			gs 'stat'
+			dynamic '<<$clothingworntype>>_b[<<clothingwornnumber>>] = pcs_hips'
+			'你脱下衣服，把衣服交给裁缝修改，同时领到一件T恤和一条短裤。'
+			'他迅速量了量你的腰围和臀围，只花了几分钟就改好了你的衣服。'
+			'他把改好的衣服递还给你，你迅速穿上。你对裁缝的手艺很满意。'
+		end
+
+		gs 'tailor', 'set_leave_act'
+	end
+end
+
+
+if $ARGS[0] = 'set_resize_other_act':
+	act '调整你的其他衣服':
+		gt 'clothing_view', 'view_lists_list', 'resize'
+	end
+end
+
+
+if $ARGS[0] = 'set_resize_all_act':
+	gs 'tailor', 'set_resize_cost'
+	if tailor_total_resize_cost = 0:
+		'你目前没有任何需要修改的衣服，'
+	elseif func('money', 'can_afford', tailor_total_resize_cost) = 0:
+		'你没有足够的钱来调整你所有的衣服。总费用为<<$func(''money'', ''string_price'', tailor_total_resize_cost)>>.'
+	else
+		act '调整你所有的衣服（0:10，<<$func(''money'', ''string_price'', tailor_total_resize_cost)>>）':
+			cla
+			minut += 10
+			gs 'money', 'pay', tailor_total_resize_cost
+			'你调整了所有衣服，费用为<<$func(''money'', ''string_price'', tailor_total_resize_cost)>>.'
+			gs 'tailor', 'resize_all'
+			gs 'tailor', 'set_leave_act'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'set_leave_act':
+	act '继续':
+		killvar 'tailor_total_resize_cost'
+		killvar 'tailor_total_repair_cost'
+		gt $loc, $loc_arg
+	end
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                           RESIZE                           !!
+		!!------------------------------------------------------------!!
+
+
+$tailor_funcs['clothing_resize_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>]:
+			if ((<<$ARGS[0]>>_b[<<ARGS[1]>>] > pcs_hips + 8) or (<<$ARGS[0]>>_b[<<ARGS[1]>>] < pcs_hips - 8)):
+				gs 'clothing_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+				if CloSport = 0 and CloStyle <> 5:
+					tailor_total_resize_cost += 500
+				end
+			end
+		end
+	"
+}
+
+$tailor_funcs['clothing_resize'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>]:
+			if ((<<$ARGS[0]>>_b[<<ARGS[1]>>] > pcs_hips + 8) or (<<$ARGS[0]>>_b[<<ARGS[1]>>] < pcs_hips - 8)):
+				<<$ARGS[0]>>_b[<<ARGS[1]>>] = pcs_hips
+			end
+		end
+	"
+}
+
+if $ARGS[0] = 'set_resize_cost':
+	tailor_total_resize_cost = 0
+	$loop_func = $tailor_funcs['clothing_resize_cost']
+	gs 'tailor', 'clothing_loop'
+end
+
+
+if $ARGS[0] = 'resize_all':
+	$loop_func = $tailor_funcs['clothing_resize']
+	gs 'tailor', 'clothing_loop'
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                           REPAIR                           !!
+		!!------------------------------------------------------------!!
+
+
+$tailor_funcs['clothing_repair_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_h[<<ARGS[1]>>] <= 1000:
+				tailor_total_repair_cost += 500
+			end
+		end
+	"
+}
+$tailor_funcs['clothing_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_h[<<ARGS[1]>>] <= 1000
+			gs 'clothing_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+				<<$ARGS[0]>>_h[<<ARGS[1]>>] = CloMaxStrength / 4
+			end
+		end
+	"
+}
+$tailor_funcs['clothing_cheat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>[<<ARGS[1]>>]:
+			gs 'clothing_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+			<<$ARGS[0]>>_h[<<ARGS[1]>>] = CloMaxStrength
+		end
+	"
+}
+
+$tailor_funcs['bra_repair_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>_bras[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_bras_h[<<ARGS[1]>>] <= 1000:
+				tailor_total_repair_cost += 250
+			end
+		end
+	"
+}
+$tailor_funcs['bra_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_bras[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_bras_h[<<ARGS[1]>>] <= 1000
+				gs 'underwear_attributes', '<<$ARGS[0]>>_bras', <<ARGS[1]>>
+				<<$ARGS[0]>>_bras_h[<<ARGS[1]>>] = BraMaxStrength / 4
+			end
+		end
+	"
+}
+$tailor_funcs['bra_cheat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_bras[<<ARGS[1]>>]:
+			gs 'underwear_attributes', '<<$ARGS[0]>>_bras', <<ARGS[1]>>
+			<<$ARGS[0]>>_bras_h[<<ARGS[1]>>] = BraMaxStrength
+		end
+	"
+}
+
+$tailor_funcs['panty_repair_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>_panties[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_panties_h[<<ARGS[1]>>] <= 1000:
+				tailor_total_repair_cost += 250
+			end
+		end
+	"
+}
+$tailor_funcs['panty_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_panties[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_panties_h[<<ARGS[1]>>] <= 1000:
+				gs 'underwear_attributes', '<<$ARGS[0]>>_panties', <<ARGS[1]>>
+				<<$ARGS[0]>>_panties_h[<<ARGS[1]>>] = PanMaxStrength / 4
+			end
+		end
+	"
+}
+$tailor_funcs['panty_cheat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_panties[<<ARGS[1]>>]:
+			gs 'underwear_attributes', '<<$ARGS[0]>>_panties', <<ARGS[1]>>
+			<<$ARGS[0]>>_panties_h[<<ARGS[1]>>] = PanMaxStrength
+		end
+	"
+}
+
+$tailor_funcs['bodysuit_repair_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>_bodysuits[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_bodysuits_h[<<ARGS[1]>>] <= 1000:
+				tailor_total_repair_cost += 350
+			end
+		end
+	"
+}
+$tailor_funcs['bodysuit_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_bodysuits[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_bodysuits_h[<<ARGS[1]>>] <= 1000:
+				gs 'underwear_attributes', '<<$ARGS[0]>>_bodysuits', <<ARGS[1]>>
+				<<$ARGS[0]>>_bodysuits_h[<<ARGS[1]>>] = BraMaxStrength / 4
+			end
+		end
+	"
+}
+$tailor_funcs['bodysuit_cheat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_bodysuits[<<ARGS[1]>>]:
+			gs 'underwear_attributes', '<<$ARGS[0]>>_bodysuits', <<ARGS[1]>>
+			<<$ARGS[0]>>_bodysuits_h[<<ARGS[1]>>] = BraMaxStrength
+		end
+	"
+}
+
+$tailor_funcs['coat_repair_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>_coats[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_coats_h[<<ARGS[1]>>] <= 1000:
+				tailor_total_repair_cost += 500
+			end
+		end
+	"
+}
+$tailor_funcs['coat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_coats[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_coats_h[<<ARGS[1]>>] <= 1000:
+				gs 'coat_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+				<<$ARGS[0]>>_coats_h[<<ARGS[1]>>] = CoatMaxStrength / 4
+			end
+		end
+	"
+}
+$tailor_funcs['coat_cheat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_coats[<<ARGS[1]>>]:
+			gs 'coat_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+			<<$ARGS[0]>>_coats_h[<<ARGS[1]>>] = CoatMaxStrength
+		end
+	"
+}
+
+$tailor_funcs['shoe_repair_cost'] = {
+	dynamic "
+		if <<$ARGS[0]>>_shoe[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_shoe_h[<<ARGS[1]>>] <= 1000:
+				tailor_total_repair_cost += 500
+			end
+		end
+	"
+}
+$tailor_funcs['shoe_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_shoe[<<ARGS[1]>>]:
+			if <<$ARGS[0]>>_shoe_h[<<ARGS[1]>>] <= 1000:
+				gs 'shoe_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+				<<$ARGS[0]>>_shoe_h[<<ARGS[1]>>] = ShoMaxStrength / 4
+			end
+		end
+	"
+}
+$tailor_funcs['shoe_cheat_repair'] = {
+	dynamic "
+		if <<$ARGS[0]>>_shoe[<<ARGS[1]>>]:
+			gs 'shoe_attributes', '<<$ARGS[0]>>', <<ARGS[1]>>
+			<<$ARGS[0]>>_shoe_h[<<ARGS[1]>>] = ShoMaxStrength
+		end
+	"
+}
+
+
+if $ARGS[0] = 'set_repair_cost':
+	tailor_total_repair_cost = 0
+
+	$loop_func = $tailor_funcs['clothing_repair_cost']
+	$temp_tailorVars['array_postfix'] = ''
+	gs 'tailor', 'clothing_loop'
+	$loop_func = $tailor_funcs['bra_repair_cost']
+	$temp_tailorVars['array_postfix'] = '_bras'
+	gs 'tailor', 'bras_loop'
+	$loop_func = $tailor_funcs['panty_repair_cost']
+	$temp_tailorVars['array_postfix'] = '_panties'
+	gs 'tailor', 'panties_loop'
+	$loop_func = $tailor_funcs['bodysuit_repair_cost']
+	$temp_tailorVars['array_postfix'] = '_bodysuits'
+	gs 'tailor', 'bodysuits_loop'
+	$loop_func = $tailor_funcs['coat_repair_cost']
+	$temp_tailorVars['array_postfix'] = '_coats'
+	gs 'tailor', 'coats_loop'
+	$loop_func = $tailor_funcs['shoe_repair_cost']
+	$temp_tailorVars['array_postfix'] = '_shoe'
+	gs 'tailor', 'shoes_loop'
+	killvar 'loop_func'
+end
+
+
+if $ARGS[0] = 'repair_all':
+	$loop_func = $tailor_funcs['clothing_repair']
+	$temp_tailorVars['array_postfix'] = ''
+	gs 'tailor', 'clothing_loop'
+	$loop_func = $tailor_funcs['bra_repair']
+	$temp_tailorVars['array_postfix'] = '_bras'
+	gs 'tailor', 'bras_loop'
+	$loop_func = $tailor_funcs['panty_repair']
+	$temp_tailorVars['array_postfix'] = '_panties'
+	gs 'tailor', 'panties_loop'
+	$loop_func = $tailor_funcs['bodysuit_repair']
+	$temp_tailorVars['array_postfix'] = '_bodysuits'
+	gs 'tailor', 'bodysuits_loop'
+	$loop_func = $tailor_funcs['coat_repair']
+	$temp_tailorVars['array_postfix'] = '_coats'
+	gs 'tailor', 'coats_loop'
+	$loop_func = $tailor_funcs['shoe_repair']
+	$temp_tailorVars['array_postfix'] = '_shoe'
+	gs 'tailor', 'shoes_loop'
+	killvar 'loop_func'
+	gs 'stat'
+end
+
+
+!! For cheats & saveupdater
+if $ARGS[0] = 'repair_all_cheat':
+	$loop_func = $tailor_funcs['clothing_cheat_repair']
+	$temp_tailorVars['array_postfix'] = ''
+	gs 'tailor', 'clothing_loop'
+	$loop_func = $tailor_funcs['bra_cheat_repair']
+	$temp_tailorVars['array_postfix'] = '_bras'
+	gs 'tailor', 'bras_loop'
+	$loop_func = $tailor_funcs['panty_cheat_repair']
+	$temp_tailorVars['array_postfix'] = '_panties'
+	gs 'tailor', 'panties_loop'
+	$loop_func = $tailor_funcs['bodysuit_cheat_repair']
+	$temp_tailorVars['array_postfix'] = '_bodysuits'
+	gs 'tailor', 'bodysuits_loop'
+	$loop_func = $tailor_funcs['coat_cheat_repair']
+	$temp_tailorVars['array_postfix'] = '_coats'
+	gs 'tailor', 'coats_loop'
+	$loop_func = $tailor_funcs['shoe_cheat_repair']
+	$temp_tailorVars['array_postfix'] = '_shoe'
+	gs 'tailor', 'shoes_loop'
+	killvar 'loop_func'
+	gs 'stat'
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               LOOPS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'core_loop':
+	temp_tailorVars['j_max'] = arrsize('$shop_display_types')
+	if temp_tailorVars['j_max'] = 0:
+		killvar 'temp_tailorVars'
+		exit
+	end
+
+	temp_tailorVars['j'] = 0
+	:core_loop_outer
+		$temp_tailorVars['type'] = $shop_display_types[temp_tailorVars['j']]
+
+		if $temp_tailorVars['type'] <> '':
+			temp_tailorVars['total'] = arrsize($temp_tailorVars['type'] + $temp_tailorVars['array_postfix'])
+			temp_tailorVars['number'] = 1
+			:core_loop_inner
+				dynamic $loop_func, $temp_tailorVars['type'], temp_tailorVars['number'], ARGS[1]
+				temp_tailorVars['number'] += 1
+			if temp_tailorVars['number'] < temp_tailorVars['total']: jump 'core_loop_inner'
+		end
+
+		temp_tailorVars['j'] += 1
+	if temp_tailorVars['j'] < temp_tailorVars['j_max']: jump 'core_loop_outer'
+
+	killvar 'temp_tailorVars'
+	killvar 'shop_display_types'
+	exit
+end
+
+
+if $ARGS[0] = 'clothing_loop':
+	killvar 'shop_display_types'
+	gs 'clothing_view', 'init', 'add_types', 'all'
+
+	gs 'tailor', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'bras_loop':
+	killvar 'shop_display_types'
+	gs 'bra_view', 'init', 'add_types', 'all'
+
+	gs 'tailor', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'panties_loop':
+	killvar 'shop_display_types'
+	gs 'panty_view', 'init', 'add_types', 'all'
+
+	gs 'tailor', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'bodysuits_loop':
+	killvar 'shop_display_types'
+	gs 'underwear_bodysuit_view', 'init', 'add_types', 'all'
+
+	gs 'tailor', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'shoes_loop':
+	killvar 'shop_display_types'
+	gs 'shoe_view', 'init', 'add_types', 'all'
+
+	gs 'tailor', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'coats_loop':
+	killvar 'shop_display_types'
+	gs 'coat_view', 'init', 'add_types', 'all'
+
+	gs 'tailor', 'core_loop'
+	exit
+end
+
+
+
+
+killvar 'tailor_funcs'
+
+
+--- tailor ---------------------------------

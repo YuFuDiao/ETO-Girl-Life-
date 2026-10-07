@@ -1,0 +1,2734 @@
+# jobs
+
+!! Jobs System v4 - Unified Architecture with Separate Single-Level Arrays
+!! Inspired by the original employment system, created by Hooded Silence
+!! Main API for employment management, work tracking, payment, and schedule queries
+!!
+!! ==========================
+!! REFERENCE
+!! ==========================
+!! Usage:
+!!   - Procedures: gs 'jobs', 'function', ...
+!!   - Return values: result = func('jobs', 'function', …)
+!!	 String returns use: $result = $func('jobs', 'function', …)
+!!
+!! Employment state
+!! - set_employed($job_id): Employ player, init job data, create calendar events.
+!!   Output: sets employment_conflict = 1 if schedule conflict detected (warning only).
+!! - set_terminated($job_id): End employment on good terms, remove events/bookings.
+!! - set_fired($job_id): End employment on bad terms, remove events/bookings.
+!! - suspend_job($job_id): Suspend (keep employed) and remove events, clear bookings.
+!! - resume_job($job_id): Resume suspended job and restore events if configured.
+!! - set_rank($job_id, new_rank): Update job_rank.
+!! - terminate_all_jobs(): Force-terminate all employed jobs (cleanup helper).
+!!
+!! Work tracking / penalties
+!! - clock($job_id): Record completed shift; increments worked_count and job_shifts_total.
+!! - clock_in($job_id): Start a dynamic shift (sets job_clocked_in if not already set).
+!! - clock_out($job_id): End a dynamic shift; adds minutes to worked_count.
+!! - missed_shift($job_id): Increment missed count; apply penalties/auto-fire if configured.
+!! - daily_check(): Daily miss detection for all employed jobs; handles booking expiry.
+!!
+!! Payment
+!! - paycheck($job_id[, $dest]): Compute pay, reset counters, pay via money system.
+!!   Returns: result = amount paid. $dest optional ('cash'/'bank') to override income route.
+!! - bonus_pay($job_id, amount): Add bonus to next paycheck.
+!! - dock_pay($job_id, amount): Deduct from next paycheck.
+!!
+!! Schedule & time queries
+!! - resolve_schedule_idx($job_id): Returns active schedule index (int).
+!! - is_work_day($job_id, daystart): Returns 1 if scheduled, 0 otherwise.
+!!     For booking mode: also returns 1 if yesterday''s shift crosses midnight into today.
+!! - is_work_time($job_id): Returns 1 if current time falls in work window, 0 otherwise.
+!!     For booking mode: iterates per-slot results + yesterday''s cross-midnight overflow.
+!! - is_arrival_time($job_id): Returns 1 if player can arrive now, 0 otherwise.
+!!     For booking mode: iterates per-slot arrival windows (no cross-midnight arrival).
+!! - get_shift_for_day($job_id, daystart): Sets result_arrival/result_start/result_duration/result_end.
+!!     For booking mode: scans booked slots, uses per-slot timing (job_slot_arrival/start/shift).
+!!     Also populates per-slot arrays: result_slot_count, result_slot_arrival[i],
+!!     result_slot_start[i], result_slot_end[i]. Envelope values derived from min/max of slots.
+!! - next_work_day($job_id, start_day): Returns next daystart in next 14 days, or 0.
+!! - matches_recurring_schedule($job_id, daystart): Returns 1 if weekday matches.
+!! - get_shift_from_recurrence($job_id, daystart): Sets result_arrival/start/duration from recur.
+!!
+!! Booking mode
+!! - clear_all_bookings($job_id): Cancel all bookings (all slots) and remove their events.
+!! - booking_count($job_id): Returns active booking count.
+!! - has_booking_for_day($job_id, daystart): Returns 1 if any slot has a booking record
+!!   for that day, 0 otherwise. Pure data check — does NOT detect cross-midnight overflow
+!!   from the previous day. Callers needing cross-midnight awareness should additionally
+!!   check has_booking_for_day(daystart-1) and inspect per-slot results.
+!! - get_booking_data_for_day($job_id, daystart): Returns the booking data string from
+!!   the first occupied slot on that day, or '' if no booking exists.
+!! - get_next_booking_day($job_id, start_day, max_days): Returns the daystart of the
+!!   first booked day starting from start_day (inclusive), or -1 if none found.
+!!   max_days defaults to 50. Scans using has_booking_for_day.
+!! - book_slot($job_id, daystart, slot_idx, $data): Returns 1 if booked, 0 if rejected
+!!   (at max, duplicate slot, out of window, gap violation, or calendar conflict).
+!! - get_booking_data($job_id, daystart, slot_idx): Returns booking metadata string or ''.
+!! - check_booking_conflict($job_id, daystart[, slot_idx]): Returns 1 if conflict, 0 if clear.
+!!   Optional slot_idx uses per-slot timing (job_slot_arrival/shift) if defined.
+!! - cancel_booking($job_id, daystart, slot_idx): Cancel a specific booking and remove event.
+!!
+!! Schedule switching
+!! - change_schedule($job_id, schedule_idx): Update active schedule and rebuild calendar event.
+!!
+!! Custom job definitions
+!! - set_job_file($job_id, $file): Register a custom definition file for a job.
+!!   Call once (e.g. at init). The mapping persists across fire/re-hire cycles.
+!!   get_job_definition will use this file instead of 'jobs_list' for that job_id.
+!! - set_job_icon($job_id, $icon_path): Register a custom path for job icons
+!!   Call once (e.g. at init), the mapping is persistent.
+!!
+!! Job data access
+!! - get_job_definition($job_id): Populate job definition arrays.
+!!   Delegates to $job_definition_source[$job_id] if set, otherwise 'jobs_list'.
+!! - get_property($job_id, key): Returns definition property (use result or $result).
+!! - check_employment_possible($job_id[, schedule_idx]): Returns 1 if no conflicts, else 0.
+!!   Output: $employment_conflict_reason for diagnostics.
+!!
+!! Calendar helpers
+!! - build_event_vars_for_job($job_id[, schedule_idx_override]): Populates event_vars{}.
+!! - create_recurring_event($job_id): Create calendar event for fixed/windowed jobs.
+!! - create_availability_events($job_id): Create availability reminders (on_demand only).
+!!
+!! Cleanup
+!! - cleanup_job($job_id): Remove all arrays and state for a job (full data wipe).
+!!
+!! ARCHITECTURE: Uses separate single-level arrays for data storage
+!! (Multi-dimensional arrays can''t be properly cleaned up in QSP - see architecture doc)
+!!
+!! Data structures:
+!!
+!!   All job data uses separate single-level arrays with the job_id as the
+!!   string key.  This is the only approach compatible with QSP''s killvar
+!!   limitations (multi-dimensional string keys cannot be individually deleted).
+!!   Access pattern:  array_name['job_id']
+!!   Schedule arrays: array_name['job_id, schedule_index']
+!!
+!!   -----------------------------------------------------------------------
+!!   EMPLOYMENT STATE  (runtime, per-job, persisted in saves)
+!!   -----------------------------------------------------------------------
+!!   $job_status['id']               - '' (never employed / cleaned up),
+!!                                     'employed', 'terminated', 'fired'
+!!   job_rank['id']                  - Integer rank/position level. 0 = base.
+!!                                     Used by location code for progression.
+!!   job_added['id']                 - daystart value when set_employed was called.
+!!   job_hiring_step['id']           - 0 = unaware of job, 1+ = hiring quest
+!!                                     progress. Managed by location files,
+!!                                     NOT by the jobs engine. Cleared on cleanup.
+!!   job_termination_day['id']       - daystart when terminated/fired (0 if active).
+!!   $job_termination_reason['id']   - Free-text reason set by caller before
+!!                                     set_terminated/set_fired, e.g. 'no_show',
+!!                                     'quit', 'retired', 'blacklisted', ''.
+!!
+!!   --- Payment tracking ---
+!!   job_pay_rate['id']              - Active payment amount per interval. Copied
+!!                                     from job_pay_rate_def on hire; can be
+!!                                     modified at runtime (e.g. promotions).
+!!   $job_pay_interval['id']         - Active payment mode. Copied from
+!!                                     $job_pay_interval_def on hire.
+!!                                     Values: 'event', 'shift', 'hourly',
+!!                                             'weekly', 'monthly', 'none'
+!!   job_worked_count['id']          - Accumulated work units since last payday.
+!!                                     For 'shift': number of shifts (clock increments by 1).
+!!                                     For 'hourly': minutes worked (clock adds shift duration;
+!!                                       clock_in/clock_out adds elapsed minutes).
+!!                                     Reset to 0 by paycheck.
+!!   job_bonus_pay['id']             - Bonus ₽ accumulated via bonus_pay. Added to
+!!                                     next paycheck, then reset to 0.
+!!   job_docked_pay['id']            - Amount ₽ to deduct via dock_pay. Subtracted
+!!                                     from next paycheck, then reset to 0.
+!!   job_shifts_total['id']          - Lifetime total shifts worked. Incremented
+!!                                     by clock/clock_out. Never reset by
+!!                                     set_employed — only by cleanup_job.
+!!
+!!   --- Work tracking ---
+!!   job_last_work_day['id']         - daystart of the last day the player worked.
+!!                                     Set by clock/clock_out.
+!!   job_clocked_in['id']            - totminut when clock_in was called (0 if not
+!!                                     currently clocked in). clock_out computes
+!!                                     elapsed minutes and adds to worked_count.
+!!   job_missed_total['id']          - Lifetime total shifts missed. Incremented
+!!                                     by missed_shift. Never reset by set_employed.
+!!   job_miss_acknowledged['id']     - Last job_missed_total value the player was
+!!                                     warned about. Location code uses this to
+!!                                     avoid repeating scolding dialogue.
+!!   job_paid_total['id']            - Lifetime total paid out via paycheck
+!!                                     (net, after docks and bonuses). Never
+!!                                     reset by set_employed — only by cleanup_job.
+!!   job_shifts_this_period['id']    - Shifts completed since last paycheck.
+!!                                     Incremented by clock and clock_out.
+!!                                     Reset to 0 by paycheck.
+!!
+!!   --- Suspension ---
+!!   job_suspended['id']             - 0 = active, 1 = temporarily suspended.
+!!                                     suspend_job sets to 1 and removes calendar
+!!                                     events. resume_job sets to 0 and restores them.
+!!                                     Player remains 'employed' while suspended.
+!!
+!!   --- Calendar link ---
+!!   $job_event_id['id']             - Primary calendar event ID. Automatically set
+!!                                     to 'job_' + job_id for recurring events.
+!!                                     Used to remove the event on termination.
+!!
+!!   --- Schedule tracking ---
+!!   $job_active_schedule['id']      - '0', '1', etc. Index of the currently active
+!!                                     schedule group for multi-schedule jobs.
+!!                                     Set by change_schedule.
+!!
+!!   --- Booking system (only for schedule_mode = 'booking') ---
+!!   job_bookings_active['id']       - Number of currently active bookings. Incremented
+!!                                     by book_slot, decremented by cancel_booking
+!!                                     and daily_check expiry.
+!!   job_booking_debt['id']          - Accumulated penalty debt in ₽. Increased by
+!!                                     missed_shift (penalty_per_miss) or by custom
+!!                                     miss handlers. Auto-fire if > penalty_max_debt.
+!!   $job_booking['id, daystart, slot'] - Booking data for a specific day and slot.
+!!                                     Contains metadata string (e.g. film type).
+!!                                     Non-empty means a booking exists for that
+!!                                     day+slot combination.
+!!
+!!   --- Job list ---
+!!   $job_list[]                     - Integer-indexed array of active job IDs.
+!!                                     Entries added by set_employed, removed by
+!!                                     cleanup_job. Iterated by daily_check,
+!!                                     terminate_all_jobs.
+!!
+!!   --- Custom definition routing ---
+!!   $job_definition_source['id']    - Location file name registered via set_job_file.
+!!                                     get_job_definition delegates to this file
+!!                                     instead of 'jobs_list'. Persists across
+!!                                     fire/re-hire cycles.
+!!
+!!   -----------------------------------------------------------------------
+!!   JOB DEFINITIONS  (static templates, loaded on demand from jobs_list)
+!!   -----------------------------------------------------------------------
+!!   Populated by  gs 'jobs_list', $job_id  (or a custom definition file).
+!!   Lazy-loaded: only fetched when $job_title[$id] = ''.
+!!
+!!   --- Core info ---
+!!   $job_title['id']                - Display name shown in UI/calendar.
+!!   $job_location['id']             - Location name shown in calendar events.
+!!   $job_desc['id']                 - Optional description text.
+!!   job_refresh_desc['id']         - Set to 1 to re-call the definition source each time
+!!                                     the card is rendered, so jobs_list can recompute
+!!                                     $job_desc from runtime state (e.g. weekly counters).
+!!
+!!   --- Schedule mode ---
+!!   $job_schedule_mode['id']        - Determines how the job''s schedule works.
+!!                                     'fixed'    — set days/times, player must show up.
+!!                                     'windowed' — flexible arrival within a window.
+!!                                     'on_demand'— player chooses when to work.
+!!                                     'booking'  — player books specific days ahead.
+!!
+!!   --- Fixed/Windowed schedule properties (per schedule group) ---
+!!   $job_work_days['id, N']         - Space-separated weekday numbers for group N.
+!!                                     '1'=Mon .. '7'=Sun. E.g. '1 2 3 4 5'.
+!!   job_arrival['id, N']            - Earliest arrival time in minutes from midnight.
+!!                                     For 'fixed': arrival window opens here.
+!!                                     For 'windowed': earliest the player can show up.
+!!   job_start['id, N']              - Shift start / latest arrival deadline, minutes.
+!!                                     For 'fixed': shift begins here (arrival window closes).
+!!                                     For 'windowed': latest time to start work.
+!!   job_shift['id, N']              - Shift duration in minutes.
+!!   $job_recurrence_pattern['id, N']- Complex recurrence string (advanced usage).
+!!                                     If set, overrides work_days/arrival/start/shift.
+!!   $job_work_dates['id']           - Date range 'MMDD-MMDD' when the job is active.
+!!                                     Maps directly to the yearly- recurrence pattern.
+!!                                     E.g. '0601-0831' for summer (Jun–Aug).
+!!
+!!   --- On-demand properties ---
+!!   $job_available_days['id']       - Space-separated weekday numbers when work is
+!!                                     available. E.g. '1 2 3 4 5 6 7'.
+!!   job_available_start['id']       - Earliest availability, minutes from midnight.
+!!   job_available_end['id']         - Latest availability, minutes from midnight.
+!!   job_create_availability_events['id'] - 1 = create calendar reminders for
+!!                                     availability windows, 0 = don''t.
+!!
+!!   --- Booking-mode properties ---
+!!   job_booking_window_days['id']   - How many days ahead the player can book.
+!!   job_booking_slots_per_day['id'] - Maximum bookable slots per day.
+!!   job_booking_max_concurrent['id']- Maximum simultaneously active bookings.
+!!   job_booking_min_gap_days['id']  - Minimum days required between any two
+!!                                     bookings (0 = no gap required).
+!!   job_arrival_start['id']         - Booking arrival window start, minutes.
+!!                                     Overrides job_arrival for booking-mode
+!!                                     get_shift_for_day / is_arrival_time.
+!!   job_arrival_end['id']           - Booking arrival window end, minutes.
+!!                                     Overrides job_start for booking-mode.
+!!   job_slot_arrival['id, slot']    - Per-slot arrival time, minutes from midnight.
+!!                                     When defined, book_slot and check_booking_conflict
+!!                                     use this instead of job_arrival_start for the given slot.
+!!   job_slot_start['id, slot']      - Per-slot shift start (arrival deadline), minutes from
+!!                                     midnight. Marks when work actually begins — the window
+!!                                     from slot_arrival to slot_start is the arrival window.
+!!                                     Falls back to job_arrival_end or slot_arrival + 60.
+!!   job_slot_shift['id, slot']      - Per-slot shift duration, minutes (start to end of work).
+!!                                     End time = slot_start + slot_shift. If end > 1440,
+!!                                     the shift crosses midnight.
+!!                                     Calendar event duration = (slot_start - slot_arrival) + slot_shift.
+!!                                     Cross-midnight conflict detection is handled natively
+!!                                     by the calendar event system (start_ts + duration_ts > 96).
+!!
+!!   --- Flags ---
+!!   job_blocking['id']              - 0 = non-blocking (can coexist with other jobs),
+!!                                     1 = blocks the schedule (check_employment_possible
+!!                                     will reject overlapping blocking jobs).
+!!   job_add_to_calendar['id']       - 1 = create calendar events on hire, 0 = don''t.
+!!   job_show_stat_icon['id']        - 1 = show work reminder icon in stat bar,
+!!                                     0 = don''t. For on_demand jobs, shows a
+!!                                     static white/black icon ("Available today.")
+!!                                     and suppresses it after working that day or
+!!                                     while the job is suspended.
+!!   job_schedule_switchable['id']   - 1 = player can switch between schedule groups
+!!                                     via change_schedule, 0 = cannot.
+!!
+!!   --- Payment defaults (definition) ---
+!!   $job_pay_interval_def['id']     - Default payment interval. Copied to
+!!                                     $job_pay_interval on hire.
+!!                                     Values: 'event', 'shift', 'hourly',
+!!                                             'weekly', 'monthly', 'none'
+!!   job_pay_rate_def['id']          - Default payment amount. Copied to
+!!                                     job_pay_rate on hire.
+!!
+!!   --- Penalty / miss handling ---
+!!   job_penalty_per_miss['id']      - Amount added to job_booking_debt per missed
+!!                                     shift. 0 = no automatic penalty.
+!!   job_penalty_max_debt['id']      - If job_booking_debt exceeds this value,
+!!                                     the player is auto-fired by missed_shift.
+!!                                     0 = no auto-fire threshold.
+!!   $job_on_miss_handler['id']      - Location file for custom miss handler.
+!!                                     If set, daily_check calls this instead of
+!!                                     the default missed_shift logic.
+!!   $job_on_miss_handler_func['id'] - Function name within the handler location.
+!!                                     Called as: gs $handler, $handler_func, $job_id
+!!
+!! Schedule modes: 'fixed', 'windowed', 'on_demand', 'booking'
+
+!! ==========================================
+!! Custom job definitions
+!! ==========================================
+
+!! Job definitions are located in 'jobs_list' by default. To define jobs in a
+!! separate file (e.g. for mods or standalone content), use set_job_file:
+!!
+!!   gs 'jobs', 'set_job_file', 'my_job_id', 'my_jobs_file'
+!!
+!! Call this once (e.g. at init). The mapping persists across fire/re-hire
+!! cycles, so every subsequent jobs call for that job_id will
+!! automatically load the definition from 'my_jobs_file'.
+!!
+!! The custom file should define jobs the same way jobs_list does —
+!! see that file for the format and required arrays.
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                    EMPLOYMENT STATE MANAGEMENT                     !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_employed':
+	!! Fully employ player, create calendar events based on schedule_mode
+	!! gs 'jobs', 'set_employed', $job_id
+	!! Sets employment_conflict = 1 if conflict detected (warning only, doesn''t block)
+	!! check_employment_possible returns 1=possible, 0=blocked; inverted for employment_conflict
+
+
+	!! Guard: If already employed, do nothing (must terminate first)
+	if $job_status[$ARGS[1]] = 'employed':
+		exit
+	end
+
+	!! Check for conflicts before employment
+	!! This is a warning check - we proceed anyway, but set a flag
+	!! check_employment_possible returns 1=possible, 0=blocked
+	!! employment_conflict uses opposite sense: 1=conflict, 0=no conflict
+	employment_conflict = 1 - func('jobs', 'check_employment_possible', $ARGS[1], -1)
+
+	!! Add to active jobs list if not already there
+	if arrpos('$job_list', $ARGS[1]) = -1:
+		$job_list[] = $ARGS[1]
+	end
+
+	!! Load job definition into working memory
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+
+	!! Initialize employment data using separate arrays
+	$job_status[$ARGS[1]] = 'employed'
+	job_added[$ARGS[1]] = daystart
+	job_pay_rate[$ARGS[1]] = job_pay_rate_def[$ARGS[1]]
+	$job_pay_interval[$ARGS[1]] = $job_pay_interval_def[$ARGS[1]]
+	job_worked_count[$ARGS[1]] = 0
+	job_bonus_pay[$ARGS[1]] = 0
+	job_docked_pay[$ARGS[1]] = 0
+	!! job_shifts_total and job_paid_total are NOT reset — lifetime counters
+	job_last_work_day[$ARGS[1]] = 0
+	job_clocked_in[$ARGS[1]] = 0
+	job_missed_total[$ARGS[1]] = 0
+	job_shifts_this_period[$ARGS[1]] = 0
+
+	!! Create calendar events based on schedule mode
+	if $job_schedule_mode[$ARGS[1]] = 'fixed' or $job_schedule_mode[$ARGS[1]] = 'windowed':
+		!! Build recurring event (only if job uses calendar)
+		if job_add_to_calendar[$ARGS[1]] = 1:
+			gs 'jobs', 'create_recurring_event', $ARGS[1]
+		else
+			$job_event_id[$ARGS[1]] = ''
+		end
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'on_demand':
+		!! Optionally create availability reminder events
+		if job_create_availability_events[$ARGS[1]] = 1:
+			gs 'jobs', 'create_availability_events', $ARGS[1]
+		else
+			!! No calendar events
+			$job_event_id[$ARGS[1]] = ''
+		end
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'booking':
+		!! No events yet - created when bookings are made
+		$job_event_id[$ARGS[1]] = ''
+		job_bookings_active[$ARGS[1]] = 0
+		job_booking_debt[$ARGS[1]] = 0
+	end
+
+	!! Initialize active_schedule for switchable multi-schedule jobs
+	!! Check if job is switchable AND has multiple schedules
+	if job_schedule_switchable[$ARGS[1]] = 1 and $job_work_days[$ARGS[1] + ', 1'] <> '':
+		$job_active_schedule[$ARGS[1]] = '0'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_terminated':
+	!! Terminate employment (good terms)
+	!! gs 'jobs', 'set_terminated', $job_id
+	gs 'jobs', '_end_employment', $ARGS[1], 'terminated'
+	exit
+end
+
+
+if $ARGS[0] = 'set_fired':
+	!! Terminate employment (bad terms, blacklisted)
+	!! gs 'jobs', 'set_fired', $job_id
+	gs 'jobs', '_end_employment', $ARGS[1], 'fired'
+	exit
+end
+
+
+if $ARGS[0] = '_end_employment':
+	!! Shared implementation for set_terminated / set_fired
+	!! gs 'jobs', '_end_employment', $job_id, $status ('terminated' or 'fired')
+
+	!! Update status
+	$job_status[$ARGS[1]] = $ARGS[2]
+	job_termination_day[$ARGS[1]] = daystart
+
+	!! Remove calendar events
+	if $job_event_id[$ARGS[1]] <> '':
+		gs 'calendar_events', 'remove_event', $job_event_id[$ARGS[1]]
+		$job_event_id[$ARGS[1]] = ''
+	end
+
+	!! Cancel all active bookings
+	if job_bookings_active[$ARGS[1]] > 0:
+		gs 'jobs', 'clear_all_bookings', $ARGS[1]
+	end
+
+	!! Remove from active job list
+	temp_pos = arrpos('$job_list', $ARGS[1])
+	if temp_pos >= 0:
+		killvar 'job_list', temp_pos
+	end
+
+	killvar 'temp_pos'
+	exit
+end
+
+
+if $ARGS[0] = 'suspend_job':
+	!! Temporarily suspend employment (keeps status as 'employed', stays in job_list)
+	!! Removes calendar events but preserves all work counters and penalty state
+	!! gs 'jobs', 'suspend_job', $job_id
+
+	!! Only suspend if currently employed and not already suspended
+	if $job_status[$ARGS[1]] = 'employed' and job_suspended[$ARGS[1]] = 0:
+		job_suspended[$ARGS[1]] = 1
+		job_clocked_in[$ARGS[1]] = 0
+
+		!! Remove calendar events (will be restored on resume)
+		if $job_event_id[$ARGS[1]] <> '':
+			gs 'calendar_events', 'remove_event', $job_event_id[$ARGS[1]]
+			$job_event_id[$ARGS[1]] = ''
+		end
+
+		!! Cancel all active bookings (player can''t attend while suspended)
+		if $job_schedule_mode[$ARGS[1]] = 'booking' or job_bookings_active[$ARGS[1]] > 0:
+			gs 'jobs', 'clear_all_bookings', $ARGS[1]
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'resume_job':
+	!! Resume a suspended job (restore calendar events)
+	!! Does NOT reset any counters (missed_total, booking_debt, worked_count, etc.)
+	!! gs 'jobs', 'resume_job', $job_id
+
+	!! Only resume if currently employed and suspended
+	if $job_status[$ARGS[1]] = 'employed' and job_suspended[$ARGS[1]] = 1:
+		job_suspended[$ARGS[1]] = 0
+
+		!! Restore calendar events based on schedule mode
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+
+		if $job_schedule_mode[$ARGS[1]] = 'fixed' or $job_schedule_mode[$ARGS[1]] = 'windowed':
+			if job_add_to_calendar[$ARGS[1]] = 1:
+				gs 'jobs', 'create_recurring_event', $ARGS[1]
+			end
+		elseif $job_schedule_mode[$ARGS[1]] = 'on_demand':
+			if job_create_availability_events[$ARGS[1]] = 1:
+				gs 'jobs', 'create_availability_events', $ARGS[1]
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'set_rank':
+	!! Update rank/position
+	!! gs 'jobs', 'set_rank', $job_id, new_rank
+
+	job_rank[$ARGS[1]] = ARGS[2]
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!           HELPER: RESOLVE ACTIVE SCHEDULE INDEX            !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'resolve_schedule_idx':
+	!! Get the active schedule group index for a job
+	!! result = func('jobs', 'resolve_schedule_idx', $job_id)
+	!! Returns: active schedule index (from $job_active_schedule), or 0 if not set
+	!!
+	!! For switchable jobs: returns whichever group is currently active
+	!! For non-switchable jobs: returns 0 (but callers may iterate all groups)
+	!! For single-schedule jobs: returns 0
+
+	if $job_active_schedule[$ARGS[1]] <> '':
+		result = val($job_active_schedule[$ARGS[1]])
+	else
+		result = 0
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           WORK TRACKING                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'clock':
+	!! Record a completed shift/work session
+	!! gs 'jobs', 'clock', $job_id
+	!!
+	!! For 'shift' pay_interval: adds 1 to job_worked_count (one shift)
+	!! For 'hourly' pay_interval: adds shift duration in minutes to job_worked_count
+	!!   (paycheck divides by 60 to convert minutes → hours for hourly pay)
+
+	!! Load job definition
+	if job_shift[$ARGS[1] + ', 0'] = 0 and $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+
+	!! Increment worked count based on pay interval
+	if $job_pay_interval[$ARGS[1]] = 'hourly' or $job_pay_interval_def[$ARGS[1]] = 'hourly':
+		!! Hourly jobs: add shift duration in minutes (paycheck divides by 60)
+		job_worked_count[$ARGS[1]] += job_shift[$ARGS[1] + ', ' + $str(func('jobs', 'resolve_schedule_idx', $ARGS[1]))]
+	else
+		!! Shift/weekly/monthly/etc: add 1 per clock call
+		job_worked_count[$ARGS[1]] += 1
+	end
+
+	!! Update last work day
+	job_last_work_day[$ARGS[1]] = daystart
+
+	!! Record clock-in time (always overwrite — each clock call is a new shift)
+	job_clocked_in[$ARGS[1]] = totminut
+
+	!! Increment lifetime and per-period shift counters
+	job_shifts_total[$ARGS[1]] += 1
+	job_shifts_this_period[$ARGS[1]] += 1
+	exit
+end
+
+
+if $ARGS[0] = 'clock_in':
+	!! Dynamic shifts: clock in (for dynamic_shifts jobs)
+	!! gs 'jobs', 'clock_in', $job_id
+
+	!! Update last work day
+	job_last_work_day[$ARGS[1]] = daystart
+
+	!! Only set clock in if not already clocked in
+	!! This prevents losing time if player accidentally clocks in twice
+	if job_clocked_in[$ARGS[1]] = 0:
+		job_clocked_in[$ARGS[1]] = totminut
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'clock_out':
+	!! Dynamic shifts: clock out and calculate time worked
+	!! gs 'jobs', 'clock_out', $job_id
+
+	!! Calculate worked minutes
+	if job_clocked_in[$ARGS[1]] > 0:
+		!! Add to worked count (in minutes for hourly jobs)
+		job_worked_count[$ARGS[1]] += totminut - job_clocked_in[$ARGS[1]]
+
+		!! Increment lifetime and per-period shift counters
+		job_shifts_total[$ARGS[1]] += 1
+		job_shifts_this_period[$ARGS[1]] += 1
+
+		!! Update last work day in case the job exceeded midnight
+		job_last_work_day[$ARGS[1]] = daystart
+
+		!! Clear clocked in status
+		job_clocked_in[$ARGS[1]] = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'missed_shift':
+	!! Record a missed shift (for penalty tracking)
+	!! gs 'jobs', 'missed_shift', $job_id
+
+	!! Increment missed total
+	job_missed_total[$ARGS[1]] += 1
+
+	!! Apply penalties if job has them (inferred from penalty_per_miss > 0)
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+	if job_penalty_per_miss[$ARGS[1]] > 0:
+		job_booking_debt[$ARGS[1]] += job_penalty_per_miss[$ARGS[1]]
+
+		!! Auto-fire if debt reaches threshold
+		if job_penalty_max_debt[$ARGS[1]] > 0:
+			if job_booking_debt[$ARGS[1]] >= job_penalty_max_debt[$ARGS[1]]:
+				$job_termination_reason[$ARGS[1]] = 'no_show'
+				gs 'jobs', 'set_fired', $ARGS[1]
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'daily_check':
+	!! Check all v4 jobs for missed shifts (called from cikl.qsrc at start of each day)
+	!! Detects: yesterday was a work day AND player didn''t work AND job is employed + not suspended
+	!! Uses masseuse pattern: check yesterday, compare job_last_work_day
+	!! For booking-mode jobs: miss detection checks yesterday (daystart-1), but expiry
+	!!   is delayed to daystart-2. This keeps yesterday''s booking data alive so that
+	!!   cross-midnight query functions (is_work_day, is_work_time) can detect overnight
+	!!   overflow from yesterday''s shift into today.
+	!!   Calls custom miss handler if defined ($job_on_miss_handler).
+
+	temp_dc_idx = 0
+	:daily_check_v4_loop
+	if temp_dc_idx < arrsize('$job_list'):
+		$temp_dc_job = $job_list[temp_dc_idx]
+
+		!! Only check employed, non-suspended jobs
+		if $job_status[$temp_dc_job] = 'employed' and job_suspended[$temp_dc_job] = 0:
+			gs 'jobs', 'get_job_definition', $temp_dc_job
+
+			!! For booking-mode jobs: miss detection (yesterday) + expiry (day before yesterday).
+			!! Expiry is delayed by one day so that yesterday''s booking data remains
+			!! available for cross-midnight query functions (is_work_day, is_work_time).
+			if $job_schedule_mode[$temp_dc_job] = 'booking':
+				temp_dc_max_slot = job_booking_slots_per_day[$temp_dc_job]
+				if temp_dc_max_slot < 1: temp_dc_max_slot = 1
+
+				!! --- Miss detection: yesterday (daystart - 1) ---
+				temp_dc_yesterday = daystart - 1
+				temp_dc_slot = 0
+				:daily_check_booking_slot_loop
+				if temp_dc_slot < temp_dc_max_slot:
+					$temp_dc_booking_data = $job_booking[$temp_dc_job + ', ' + $str(temp_dc_yesterday) + ', ' + $str(temp_dc_slot)]
+
+					if $temp_dc_booking_data <> '':
+						!! Booking existed for yesterday — check if player attended.
+						!! Days up to and including the hire day are not counted.
+						if job_last_work_day[$temp_dc_job] < temp_dc_yesterday and temp_dc_yesterday > job_added[$temp_dc_job]:
+							!! MISSED — call custom handler if defined, else generic missed_shift
+							if $job_on_miss_handler[$temp_dc_job] <> '':
+								job_missed_total[$temp_dc_job] += 1
+								gs $job_on_miss_handler[$temp_dc_job], $job_on_miss_handler_func[$temp_dc_job], $temp_dc_job, $temp_dc_booking_data
+							else
+								gs 'jobs', 'missed_shift', $temp_dc_job
+							end
+						end
+					end
+					killvar 'temp_dc_booking_data'
+					temp_dc_slot += 1
+					jump 'daily_check_booking_slot_loop'
+				end
+
+				!! --- Expiry: day before yesterday (daystart - 2) ---
+				!! Bookings live one extra day so cross-midnight detection works.
+				temp_dc_daybefore = daystart - 2
+				temp_dc_slot = 0
+				:daily_check_expire_loop
+				if temp_dc_slot < temp_dc_max_slot:
+					if $job_booking[$temp_dc_job + ', ' + $str(temp_dc_daybefore) + ', ' + $str(temp_dc_slot)] <> '':
+						$job_booking[$temp_dc_job + ', ' + $str(temp_dc_daybefore) + ', ' + $str(temp_dc_slot)] = ''
+						job_bookings_active[$temp_dc_job] -= 1
+						if job_bookings_active[$temp_dc_job] < 0: job_bookings_active[$temp_dc_job] = 0
+
+						$temp_dc_evt = 'job_booking_' + $temp_dc_job + '_' + $str(temp_dc_daybefore) + '_' + $str(temp_dc_slot)
+						gs 'calendar_events', 'remove_event', $temp_dc_evt
+						killvar 'temp_dc_evt'
+					end
+					temp_dc_slot += 1
+					jump 'daily_check_expire_loop'
+				end
+				killvar 'temp_dc_daybefore'
+				killvar 'temp_dc_max_slot'
+				killvar 'temp_dc_slot'
+			else
+				!! Fixed/windowed/on_demand: standard miss detection
+				temp_dc_yesterday = daystart - 1
+				if func('jobs', 'is_work_day', $temp_dc_job, temp_dc_yesterday) = 1:
+					!! Days up to and including the hire day are never counted.
+					if job_last_work_day[$temp_dc_job] < temp_dc_yesterday and temp_dc_yesterday > job_added[$temp_dc_job]:
+						gs 'jobs', 'missed_shift', $temp_dc_job
+					end
+				end
+			end
+		end
+
+		!! Only advance index if the job wasn''t removed from the list
+		!! (set_fired/set_terminated remove from $job_list, shifting remaining items down)
+		if arrpos('$job_list', $temp_dc_job) >= 0:
+			temp_dc_idx += 1
+		end
+		jump 'daily_check_v4_loop'
+	end
+
+	killvar 'temp_dc_idx'
+	killvar 'temp_dc_job'
+	killvar 'temp_dc_yesterday'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              PAYMENT                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'paycheck':
+	!! Calculate and pay wages using the money system
+	!! result = func('jobs', 'paycheck', $job_id)
+	!! result = func('jobs', 'paycheck', $job_id, 'cash')
+	!! $ARGS[2] = optional payment destination override: 'cash', 'bank'
+	!!			When omitted, the money system routes according to the
+	!!			player''s preferred income method (cfg_vars['income_opt']).
+	!!			Only pass an explicit value when the narrative requires it
+	!!			(e.g. 'cash' for under-the-table work like the porn studio).
+
+	!! Load job data
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+
+	result = 0
+	if $job_pay_interval[$ARGS[1]] = 'shift':
+		!! Pay per shift worked
+		result = job_worked_count[$ARGS[1]] * job_pay_rate[$ARGS[1]]
+
+	elseif $job_pay_interval[$ARGS[1]] = 'hourly':
+		!! Pay per hour worked (worked_count is in minutes)
+		result = job_worked_count[$ARGS[1]] * job_pay_rate[$ARGS[1]] / 60
+
+	elseif $job_pay_interval[$ARGS[1]] = 'weekly':
+		!! Fixed weekly payment
+		result = job_pay_rate[$ARGS[1]]
+
+	elseif $job_pay_interval[$ARGS[1]] = 'monthly':
+		!! Fixed monthly payment
+		result = job_pay_rate[$ARGS[1]]
+
+	elseif $job_pay_interval[$ARGS[1]] = 'event':
+		!! Event-based payment (set externally)
+		result = job_pay_rate[$ARGS[1]]
+
+	elseif $job_pay_interval[$ARGS[1]] = 'none':
+		!! Volunteer - no payment
+		result = 0
+	end
+
+	!! Add bonuses
+	result += job_bonus_pay[$ARGS[1]]
+
+	!! Subtract docked pay
+	result -= job_docked_pay[$ARGS[1]]
+
+	!! Ensure non-negative
+	if result < 0: result = 0
+
+	!! Reset per-period counters
+	job_worked_count[$ARGS[1]] = 0
+	job_bonus_pay[$ARGS[1]] = 0
+	job_docked_pay[$ARGS[1]] = 0
+	job_clocked_in[$ARGS[1]] = 0
+	job_shifts_this_period[$ARGS[1]] = 0
+
+	!! Track lifetime earnings
+	job_paid_total[$ARGS[1]] += result
+
+	!! Pay via money system (earn = income, applies profit modifiers)
+	if result > 0: gs 'money', 'earn', result, $ARGS[2]
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'bonus_pay':
+	!! Add bonus to next paycheck
+	!! gs 'jobs', 'bonus_pay', $job_id, amount
+
+	job_bonus_pay[$ARGS[1]] += ARGS[2]
+	exit
+end
+
+
+if $ARGS[0] = 'dock_pay':
+	!! Deduct from next paycheck
+	!! gs 'jobs', 'dock_pay', $job_id, amount
+
+	job_docked_pay[$ARGS[1]] += ARGS[2]
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          SCHEDULE QUERIES                          !!
+	!!                        WORK WITH ALL MODES                         !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'is_work_day':
+	!! Check if today matches work schedule (any mode)
+	!! result = func('jobs', 'is_work_day', $job_id, check_daystart)
+	!! Returns: 1 if scheduled to work, 0 otherwise
+	!! For booking mode: also returns 1 if yesterday has a cross-midnight shift
+	!!   that is still active (overflow into check_day).
+	!! Note: Works for both employed and non-employed jobs (useful for planning/interviews)
+
+	temp_check_day = ARGS[2]
+	if temp_check_day = 0: temp_check_day = daystart
+
+	!! Load job definition (only if not already loaded)
+	if $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+
+	!! Mode-specific logic
+	if $job_schedule_mode[$ARGS[1]] = 'fixed' or $job_schedule_mode[$ARGS[1]] = 'windowed':
+		!! Check recurring schedule
+		result = func('jobs', 'matches_recurring_schedule', $ARGS[1], temp_check_day)
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'on_demand':
+		!! Check if available today
+		if instr(' ' + $job_available_days[$ARGS[1]] + ' ', ' ' + $str(func('time', 'get_week_from_daystart', temp_check_day)) + ' ') > 0:
+			result = 1
+		else
+			result = 0
+		end
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'booking':
+		!! For non-employed jobs, bookings don''t exist yet, return 0
+		!! For employed jobs, check if booking exists for this day
+		if $job_status[$ARGS[1]] = 'employed':
+			result = func('jobs', 'has_booking_for_day', $ARGS[1], temp_check_day)
+			!! Cross-midnight: if no booking today, check yesterday for overflow
+			if result = 0:
+				if func('jobs', 'has_booking_for_day', $ARGS[1], temp_check_day - 1) = 1:
+					gs 'jobs', 'get_shift_for_day', $ARGS[1], temp_check_day - 1
+					!! Check if any slot from yesterday crosses midnight
+					temp_iwd_si = 0
+					:iwd_crossmid_loop
+					if temp_iwd_si < result_slot_count:
+						if result_slot_end[temp_iwd_si] > 1440:
+							result = 1
+							jump 'iwd_crossmid_done'
+						end
+						temp_iwd_si += 1
+						jump 'iwd_crossmid_loop'
+					end
+					:iwd_crossmid_done
+					killvar 'temp_iwd_si'
+				end
+			end
+		else
+			result = 0
+		end
+	end
+
+	killvar 'temp_check_day'
+	exit
+end
+
+
+if $ARGS[0] = 'is_work_time':
+	!! Check if currently within the job''s overall time span (arrival OR work time)
+	!! result = func('jobs', 'is_work_time', $job_id)
+	!! Returns: 1 if current time falls anywhere within any slot''s time span, 0 otherwise
+	!! For fixed/windowed: arrival <= now < start + shift (full span including arrival window)
+	!! For on_demand: within availability hours
+	!! For booking: iterates per-slot results; also checks yesterday''s cross-midnight overflow
+	!! Use is_arrival_time to check if player can START work now
+
+	gs 'jobs', '_is_time_check', $ARGS[1], 'work'
+	exit
+end
+
+
+if $ARGS[0] = 'is_arrival_time':
+	!! Check if the player can currently arrive/start work
+	!! result = func('jobs', 'is_arrival_time', $job_id)
+	!! Returns: 1 if player can go to work now, 0 otherwise
+	!! For fixed/windowed: arrival <= now < start (within arrival window only)
+	!! For on_demand: same as is_work_time (can start anytime during availability)
+	!! For booking: iterates per-slot arrival windows; no cross-midnight arrival
+	!!   (arrival window is always before midnight; cross-midnight applies to shifts only)
+	!! This is used by work location code to show "go to work" options
+
+	gs 'jobs', '_is_time_check', $ARGS[1], 'arrival'
+	exit
+end
+
+
+if $ARGS[0] = '_is_time_check':
+	!! Shared implementation for is_work_time / is_arrival_time
+	!! gs 'jobs', '_is_time_check', $job_id, $mode
+	!! $mode = 'work'	— full span: arrival → end (including cross-midnight overflow)
+	!! $mode = 'arrival' — arrival window only: arrival → start (no cross-midnight)
+	!! Sets: result = 1 if current time matches, 0 otherwise
+
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+	temp_itc_now = hour * 60 + minut
+
+	if $job_schedule_mode[$ARGS[1]] = 'booking':
+		!! Booking mode: check per-slot time windows for today
+		result = 0
+
+		!! Check today''s slots
+		if func('jobs', 'has_booking_for_day', $ARGS[1], daystart) = 1:
+			gs 'jobs', 'get_shift_for_day', $ARGS[1], daystart
+			temp_itc_i = 0
+			:itc_today_loop
+			if temp_itc_i < result_slot_count:
+				if $ARGS[2] = 'work':
+					!! Work mode: arrival through end of shift
+					if temp_itc_now >= result_slot_arrival[temp_itc_i] and temp_itc_now < result_slot_end[temp_itc_i]:
+						result = 1
+						jump 'itc_done'
+					end
+				else
+					!! Arrival mode: arrival window only (arrival through start)
+					if temp_itc_now >= result_slot_arrival[temp_itc_i] and temp_itc_now < result_slot_start[temp_itc_i]:
+						result = 1
+						jump 'itc_done'
+					end
+				end
+				temp_itc_i += 1
+				jump 'itc_today_loop'
+			end
+		end
+
+		!! Cross-midnight overflow: only for work mode
+		!! Arrival windows are always before midnight, so arrival mode skips this.
+		if $ARGS[2] = 'work' and $job_status[$ARGS[1]] = 'employed' and func('jobs', 'has_booking_for_day', $ARGS[1], daystart - 1) = 1:
+			gs 'jobs', 'get_shift_for_day', $ARGS[1], daystart - 1
+			temp_itc_i = 0
+			:itc_yest_loop
+			if temp_itc_i < result_slot_count:
+				if result_slot_end[temp_itc_i] > 1440:
+					!! This slot crosses midnight — check if now is in the overflow
+					if temp_itc_now < result_slot_end[temp_itc_i] - 1440:
+						result = 1
+						jump 'itc_done'
+					end
+				end
+				temp_itc_i += 1
+				jump 'itc_yest_loop'
+			end
+		end
+
+		:itc_done
+		killvar 'temp_itc_now'
+		killvar 'temp_itc_i'
+		exit
+	end
+
+	!! Non-booking modes: gate on is_work_day first
+	if func('jobs', 'is_work_day', $ARGS[1], daystart) = 0:
+		result = 0
+		killvar 'temp_itc_now'
+		exit
+	end
+
+	!! Get shift details for today
+	gs 'jobs', 'get_shift_for_day', $ARGS[1], daystart
+
+	if $job_schedule_mode[$ARGS[1]] = 'fixed' or $job_schedule_mode[$ARGS[1]] = 'windowed':
+		if $ARGS[2] = 'work':
+			!! Work mode: full span = arrival through start + duration
+			if temp_itc_now >= result_arrival and temp_itc_now < result_start + result_duration:
+				result = 1
+			else
+				result = 0
+			end
+		else
+			!! Arrival mode: arrival window only = arrival through start
+			if temp_itc_now >= result_arrival and temp_itc_now < result_start:
+				result = 1
+			else
+				result = 0
+			end
+		end
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'on_demand':
+		!! On-demand: both modes use same availability window
+		if temp_itc_now >= job_available_start[$ARGS[1]] and temp_itc_now <= job_available_end[$ARGS[1]]:
+			result = 1
+		else
+			result = 0
+		end
+	end
+
+	killvar 'temp_itc_now'
+	exit
+end
+
+
+if $ARGS[0] = 'get_shift_for_day':
+	!! Get shift details for specific day (fixed/windowed/booking)
+	!! gs 'jobs', 'get_shift_for_day', $job_id, check_day
+	!! Sets: result_arrival, result_start, result_duration, result_end (in minutes)
+	!!
+	!! For booking mode: scans booked slots and returns per-slot result arrays.
+	!!   Per-slot outputs (booking mode only):
+	!!     result_slot_count          = number of booked slots found
+	!!     result_slot_arrival[i]     = arrival time for slot i (minutes from midnight)
+	!!     result_slot_start[i]       = shift start / arrival deadline for slot i
+	!!     result_slot_end[i]         = shift end for slot i (may exceed 1440 for cross-midnight)
+	!!   Envelope outputs (all modes, derived from per-slot arrays for booking):
+	!!     result_arrival  = earliest slot arrival (min of result_slot_arrival[])
+	!!     result_start    = earliest slot start (min of result_slot_start[])
+	!!     result_end      = latest slot end (max of result_slot_end[])
+	!!     result_duration = result_end - result_start
+
+	temp_check_day = ARGS[2]
+	if temp_check_day = 0: temp_check_day = daystart
+
+	!! Load job definition (only if not already loaded)
+	if $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+
+	if $job_schedule_mode[$ARGS[1]] = 'booking':
+		!! Booking mode: scan booked slots, build per-slot result arrays and envelope.
+		!! Uses per-slot timing (job_slot_arrival/job_slot_start/job_slot_shift) when
+		!! available, falls back to job-level arrival_start/arrival_end otherwise.
+
+		!! Clear any stale per-slot results from a previous call
+		killvar 'result_slot_arrival'
+		killvar 'result_slot_start'
+		killvar 'result_slot_end'
+		result_slot_count = 0
+
+		temp_gsfd_max_slot = job_booking_slots_per_day[$ARGS[1]]
+		if temp_gsfd_max_slot < 1: temp_gsfd_max_slot = 1
+
+		temp_gsfd_slot = 0
+		:gsfd_booking_slot_loop
+		if temp_gsfd_slot < temp_gsfd_max_slot:
+			!! Check if this slot is booked for the requested day
+			if $job_booking[$ARGS[1] + ', ' + $str(temp_check_day) + ', ' + $str(temp_gsfd_slot)] <> '':
+				!! Resolve timing for this slot (sets temp_resolved_arrival/start/end)
+				gs 'jobs', '_resolve_slot_timing', $ARGS[1], temp_gsfd_slot
+
+				!! Store per-slot results
+				result_slot_arrival[result_slot_count] = temp_resolved_arrival
+				result_slot_start[result_slot_count] = temp_resolved_start
+				result_slot_end[result_slot_count] = temp_resolved_end
+				result_slot_count += 1
+				killvar 'temp_resolved_arrival'
+				killvar 'temp_resolved_start'
+				killvar 'temp_resolved_end'
+			end
+			temp_gsfd_slot += 1
+			jump 'gsfd_booking_slot_loop'
+		end
+
+		if result_slot_count > 0:
+			!! Derive envelope from per-slot arrays
+			result_arrival = result_slot_arrival[0]
+			result_start = result_slot_start[0]
+			result_end = result_slot_end[0]
+
+			temp_gsfd_i = 1
+			:gsfd_envelope_loop
+			if temp_gsfd_i < result_slot_count:
+				if result_slot_arrival[temp_gsfd_i] < result_arrival:
+					result_arrival = result_slot_arrival[temp_gsfd_i]
+				end
+				if result_slot_start[temp_gsfd_i] < result_start:
+					result_start = result_slot_start[temp_gsfd_i]
+				end
+				if result_slot_end[temp_gsfd_i] > result_end:
+					result_end = result_slot_end[temp_gsfd_i]
+				end
+				temp_gsfd_i += 1
+				jump 'gsfd_envelope_loop'
+			end
+
+			result_duration = result_end - result_start
+			if result_duration < 0: result_duration = 0
+		else
+			!! No booked slots found — return zeros
+			result_arrival = 0
+			result_start = 0
+			result_duration = 0
+			result_end = 0
+		end
+
+		killvar 'temp_check_day'
+		killvar 'temp_gsfd_max_slot'
+		killvar 'temp_gsfd_slot'
+		killvar 'temp_gsfd_i'
+		exit
+	end
+
+	!! Get weekday
+	temp_weekday = func('time', 'get_week_from_daystart', temp_check_day)
+
+	!! Resolve schedule: switchable checks only active group; non-switchable iterates all
+	temp_schedule_idx = func('jobs', 'resolve_schedule_idx', $ARGS[1])
+	temp_found = 0
+	temp_idx = temp_schedule_idx
+	:find_schedule_loop
+		$temp_work_days = $job_work_days[$ARGS[1] + ', ' + $str(temp_idx)]
+		if $temp_work_days <> '':
+			if instr(' ' + $temp_work_days + ' ', ' ' + $str(temp_weekday) + ' ') > 0:
+				result_arrival = job_arrival[$ARGS[1] + ', ' + $str(temp_idx)]
+				result_start = job_start[$ARGS[1] + ', ' + $str(temp_idx)]
+				result_duration = job_shift[$ARGS[1] + ', ' + $str(temp_idx)]
+				temp_found = 1
+			end
+		end
+		!! Non-switchable: continue iterating remaining groups for a match
+		!! Switchable (or single-schedule): stop after checking the active group
+		if temp_found = 0 and $temp_work_days <> '' and job_schedule_switchable[$ARGS[1]] = 0:
+			temp_idx += 1
+			jump 'find_schedule_loop'
+		end
+
+	!! If not found, set to 0
+	if temp_found = 0:
+		result_arrival = 0
+		result_start = 0
+		result_duration = 0
+	end
+
+	killvar 'temp_check_day'
+	killvar 'temp_schedule_idx'
+	killvar 'temp_weekday'
+	killvar 'temp_found'
+	killvar 'temp_idx'
+	killvar 'temp_work_days'
+	exit
+end
+
+
+if $ARGS[0] = 'next_work_day':
+	!! Find next work day (fixed/windowed)
+	!! result = func('jobs', 'next_work_day', $job_id, start_day)
+	!! Returns: next daystart, or 0 if none in next 14 days
+
+	temp_nwd_start_day = ARGS[2]
+	if temp_nwd_start_day = 0: temp_nwd_start_day = daystart
+
+	!! Search next 14 days
+	temp_nwd_check = temp_nwd_start_day + 1
+	temp_nwd_max = temp_nwd_start_day + 14
+	result = 0
+
+	:next_day_loop
+		if temp_nwd_check <= temp_nwd_max:
+			if func('jobs', 'is_work_day', $ARGS[1], temp_nwd_check) = 1:
+				result = temp_nwd_check
+				exit
+			end
+			temp_nwd_check += 1
+			jump 'next_day_loop'
+		end
+
+	killvar 'temp_nwd_start_day'
+	killvar 'temp_nwd_check'
+	killvar 'temp_nwd_max'
+	exit
+end
+
+
+
+		!!------------------------------------------------------------!!
+		!!            HELPER: RECURRING SCHEDULE MATCHING             !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'matches_recurring_schedule':
+	!! Check if day matches recurring schedule
+	!! result = func('jobs', 'matches_recurring_schedule', $job_id, check_day)
+
+	temp_check_day = ARGS[2]
+
+	!! Get weekday for check day
+	temp_weekday = func('time', 'get_week_from_daystart', temp_check_day)
+
+	!! Check seasonal restriction
+	if $job_work_dates[$ARGS[1]] <> '':
+		gs 'time', 'to_date', temp_check_day
+		temp_mmdd = dateVars['month'] * 100 + dateVars['day']
+		temp_season_start = val(mid($job_work_dates[$ARGS[1]], 1, 4))
+		temp_season_end = val(mid($job_work_dates[$ARGS[1]], 6, 4))
+		if temp_mmdd < temp_season_start or temp_mmdd > temp_season_end:
+			result = 0
+			killvar 'temp_check_day'
+			killvar 'temp_weekday'
+			killvar 'temp_mmdd'
+			killvar 'temp_season_start'
+			killvar 'temp_season_end'
+			exit
+		end
+		killvar 'temp_mmdd'
+		killvar 'temp_season_start'
+		killvar 'temp_season_end'
+	end
+
+	!! Get active schedule index
+	temp_schedule_idx = func('jobs', 'resolve_schedule_idx', $ARGS[1])
+
+	!! Resolve schedule: switchable checks only active group; non-switchable iterates all
+	result = 0
+	temp_idx = temp_schedule_idx
+	:check_schedule_loop
+		$temp_work_days = $job_work_days[$ARGS[1] + ', ' + $str(temp_idx)]
+		if $temp_work_days <> '':
+			if instr(' ' + $temp_work_days + ' ', ' ' + $str(temp_weekday) + ' ') > 0:
+				result = 1
+				exit
+			end
+			!! Non-switchable: continue iterating for a match
+			!! Switchable (or single-schedule): stop after checking the active group
+			if job_schedule_switchable[$ARGS[1]] = 0:
+				temp_idx += 1
+				jump 'check_schedule_loop'
+			end
+		end
+
+	killvar 'temp_check_day'
+	killvar 'temp_weekday'
+	killvar 'temp_month'
+	killvar 'temp_schedule_idx'
+	killvar 'temp_idx'
+	killvar 'temp_work_days'
+	exit
+end
+
+
+if $ARGS[0] = 'get_shift_from_recurrence':
+	!! Extract shift details for specific day from complex recurrence pattern
+	!! gs 'jobs', 'get_shift_from_recurrence', $recur_pattern, check_day
+	!! Sets: result_arrival, result_start, result_duration (in minutes)
+	!!
+	!! This is jobs-specific because it extracts work shift details (arrival/start/duration).
+	!! Calendar only needs to know IF an event occurs (check_complex_recurrence).
+
+	check_day = ARGS[2]
+	temp_weekday = func('time', 'get_week_from_daystart', check_day)
+	temp_pos = 1
+
+	:loop_find_shift
+		!! Find next semicolon
+		temp_semi = instr($ARGS[1], ';', temp_pos)
+		if temp_semi = 0: temp_semi = len($ARGS[1]) + 1
+
+		!! Extract this shift group
+		$temp_shift = mid($ARGS[1], temp_pos, temp_semi - temp_pos)
+
+		!! Parse: 'weekdays|arrival|start|duration'
+		temp_pipe1 = instr($temp_shift, '|')
+		temp_pipe2 = instr($temp_shift, '|', temp_pipe1 + 1)
+		temp_pipe3 = instr($temp_shift, '|', temp_pipe2 + 1)
+
+		if temp_pipe1 > 0 and temp_pipe2 > 0 and temp_pipe3 > 0:
+			$temp_days = mid($temp_shift, 1, temp_pipe1 - 1)
+			temp_arrival = val(mid($temp_shift, temp_pipe1 + 1, temp_pipe2 - temp_pipe1 - 1))
+			temp_start = val(mid($temp_shift, temp_pipe2 + 1, temp_pipe3 - temp_pipe2 - 1))
+			temp_duration = val(mid($temp_shift, temp_pipe3 + 1))
+
+			!! Check if this shift matches today
+			if instr(' ' + $temp_days + ' ', ' ' + $str(temp_weekday) + ' ') > 0:
+				result_arrival = temp_arrival
+				result_start = temp_start
+				result_duration = temp_duration
+				exit
+			end
+		end
+
+		!! Move to next shift group
+		temp_pos = temp_semi + 1
+		if temp_pos <= len($ARGS[1]): jump 'loop_find_shift'
+
+	!! No matching shift found
+	result_arrival = 0
+	result_start = 0
+	result_duration = 0
+
+	killvar 'check_day'
+	killvar 'temp_weekday'
+	killvar 'temp_pos'
+	killvar 'temp_semi'
+	killvar 'temp_shift'
+	killvar 'temp_pipe1'
+	killvar 'temp_pipe2'
+	killvar 'temp_pipe3'
+	killvar 'temp_days'
+	killvar 'temp_arrival'
+	killvar 'temp_start'
+	killvar 'temp_duration'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           BOOKING SYSTEM                           !!
+	!!                         BOOKING MODE ONLY                          !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'clear_all_bookings':
+	!! Cancel ALL active bookings for a job (used during suspension, firing, termination)
+	!! gs 'jobs', 'clear_all_bookings', $job_id
+	!! Scans the full booking window range and cancels every found booking (all slots)
+
+	!! Load definition for window size and slots
+	if $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+
+	temp_cab_range = job_booking_window_days[$ARGS[1]]
+	if temp_cab_range < 7: temp_cab_range = 7
+	temp_cab_max_slot = job_booking_slots_per_day[$ARGS[1]]
+	if temp_cab_max_slot < 1: temp_cab_max_slot = 1
+
+	!! Scan from today through end of window
+	temp_cab_day = daystart
+	temp_cab_end = daystart + temp_cab_range
+	:clear_all_bookings_loop
+	if temp_cab_day <= temp_cab_end:
+		temp_cab_slot = 0
+		:clear_all_bookings_slot_loop
+		if temp_cab_slot < temp_cab_max_slot:
+			if $job_booking[$ARGS[1] + ', ' + $str(temp_cab_day) + ', ' + $str(temp_cab_slot)] <> '':
+				$job_booking[$ARGS[1] + ', ' + $str(temp_cab_day) + ', ' + $str(temp_cab_slot)] = ''
+				job_bookings_active[$ARGS[1]] -= 1
+
+				!! Remove calendar event
+				gs 'calendar_events', 'remove_event', 'job_booking_' + $ARGS[1] + '_' + $str(temp_cab_day) + '_' + $str(temp_cab_slot)
+			end
+			temp_cab_slot += 1
+			jump 'clear_all_bookings_slot_loop'
+		end
+		temp_cab_day += 1
+		jump 'clear_all_bookings_loop'
+	end
+
+	!! Floor at 0
+	if job_bookings_active[$ARGS[1]] < 0: job_bookings_active[$ARGS[1]] = 0
+	killvar 'temp_cab_range'
+	killvar 'temp_cab_max_slot'
+	killvar 'temp_cab_slot'
+	killvar 'temp_cab_day'
+	killvar 'temp_cab_end'
+	exit
+end
+
+
+if $ARGS[0] = 'booking_count':
+	!! Get number of active bookings
+	!! result = func('jobs', 'booking_count', $job_id)
+
+	result = job_bookings_active[$ARGS[1]]
+end
+
+
+if $ARGS[0] = 'has_booking_for_day':
+	!! Check if any booking record exists for day (any slot).
+	!! Pure data-layer check — does NOT detect cross-midnight overflow from previous day.
+	!! Callers needing cross-midnight awareness should also check daystart-1 and inspect
+	!! per-slot results from get_shift_for_day.
+	!! result = func('jobs', 'has_booking_for_day', $job_id, check_day)
+
+	result = 0
+	!! Load definition for slots_per_day
+	if $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+	temp_hbfd_max = job_booking_slots_per_day[$ARGS[1]]
+	if temp_hbfd_max < 1: temp_hbfd_max = 1
+	temp_hbfd_slot = 0
+	:has_booking_slot_loop
+	if temp_hbfd_slot < temp_hbfd_max:
+		if $job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(temp_hbfd_slot)] <> '':
+			result = 1
+			killvar 'temp_hbfd_max'
+			killvar 'temp_hbfd_slot'
+			exit
+		end
+		temp_hbfd_slot += 1
+		jump 'has_booking_slot_loop'
+	end
+	killvar 'temp_hbfd_max'
+	killvar 'temp_hbfd_slot'
+	exit
+end
+
+
+if $ARGS[0] = 'get_booking_data_for_day':
+	!! Return the booking data string from the first occupied slot on a given day.
+	!! $result = $func('jobs', 'get_booking_data_for_day', $job_id, check_day)
+	!! Returns: booking data string (e.g., film type number), or '' if no booking that day.
+
+	$result = ''
+	if $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+	temp_gbdfd_max = job_booking_slots_per_day[$ARGS[1]]
+	if temp_gbdfd_max < 1: temp_gbdfd_max = 1
+	temp_gbdfd_slot = 0
+	:get_bdata_day_loop
+	if temp_gbdfd_slot < temp_gbdfd_max:
+		if $job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(temp_gbdfd_slot)] <> '':
+			$result = $job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(temp_gbdfd_slot)]
+			killvar 'temp_gbdfd_max'
+			killvar 'temp_gbdfd_slot'
+			exit
+		end
+		temp_gbdfd_slot += 1
+		jump 'get_bdata_day_loop'
+	end
+	killvar 'temp_gbdfd_max'
+	killvar 'temp_gbdfd_slot'
+	exit
+end
+
+
+if $ARGS[0] = 'get_next_booking_day':
+	!! Find the next day (starting from a given day) that has a booking for a booking-mode job.
+	!! result = func('jobs', 'get_next_booking_day', $job_id, start_day, max_days)
+	!! start_day: first day to check (inclusive).  max_days: how many days to scan (default 50).
+	!! Returns: the daystart of the first booked day, or -1 if none found.
+
+	temp_gnbd_day = ARGS[2]
+	if temp_gnbd_day = 0: temp_gnbd_day = daystart
+	temp_gnbd_max = ARGS[3]
+	if temp_gnbd_max = 0: temp_gnbd_max = 50
+	temp_gnbd_end = temp_gnbd_day + temp_gnbd_max
+	result = -1
+
+	:get_next_booking_loop
+	if temp_gnbd_day < temp_gnbd_end:
+		if func('jobs', 'has_booking_for_day', $ARGS[1], temp_gnbd_day) = 1:
+			result = temp_gnbd_day
+			killvar 'temp_gnbd_day'
+			killvar 'temp_gnbd_max'
+			killvar 'temp_gnbd_end'
+			exit
+		end
+		temp_gnbd_day += 1
+		jump 'get_next_booking_loop'
+	end
+	killvar 'temp_gnbd_day'
+	killvar 'temp_gnbd_max'
+	killvar 'temp_gnbd_end'
+	exit
+end
+
+
+if $ARGS[0] = 'book_slot':
+	!! Book a specific slot for a booking-mode job
+	!! result = func('jobs', 'book_slot', $job_id, target_day, slot_index, $booking_data)
+	!! Returns: 1 = booked successfully, 0 = rejected (at max, duplicate, out of window, or conflict)
+	!! $booking_data: Arbitrary string metadata (e.g., film type number for porn studio)
+	!! Key format: $job_booking['job_id, daystart, slot'] — allows multiple slots per day
+
+	!! Load job definition
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+
+	!! Validation: check if already booked for this day+slot
+	if $job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(ARGS[3])] <> '':
+		result = 0
+		exit
+	end
+
+	!! Validation: check max concurrent bookings
+	if job_booking_max_concurrent[$ARGS[1]] > 0:
+		if job_bookings_active[$ARGS[1]] >= job_booking_max_concurrent[$ARGS[1]]:
+			result = 0
+			exit
+		end
+	end
+
+	!! Validation: check booking window (must be in the future and within window)
+	if job_booking_window_days[$ARGS[1]] > 0:
+		if ARGS[2] < daystart or ARGS[2] > daystart + job_booking_window_days[$ARGS[1]]:
+			result = 0
+			exit
+		end
+	end
+
+	!! Validation: minimum gap between bookings (e.g. 6 days between porn shoots)
+	if func('jobs', 'check_booking_gap', $ARGS[1], ARGS[2]) = 1:
+		result = 0
+		exit
+	end
+
+	!! Build calendar event vars for conflict checking and later storage
+	gs 'jobs', '_build_booking_event_vars', $ARGS[1], ARGS[2], ARGS[3]
+	$event_vars['id'] = 'job_booking_' + $ARGS[1] + '_' + $str(ARGS[2]) + '_' + $str(ARGS[3])
+	$event_vars['title'] = $job_title[$ARGS[1]] + ' - 预订'
+	$event_vars['loc'] = $job_location[$ARGS[1]]
+	$event_vars['desc'] = $ARGS[4]
+	event_vars['color'] = 0
+	gs 'calendar_list', 'assign_color'
+
+	!! Validation: check calendar conflicts (blocking events at same time)
+	if job_blocking[$ARGS[1]] = 1:
+		if func('calendar_events', 'check_event_conflicts') = 1:
+			!! Conflict with existing blocking event — reject
+			result = 0
+			exit
+		end
+	end
+
+	!! Store booking
+	$job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(ARGS[3])] = $ARGS[4]
+
+	!! Increment active bookings
+	job_bookings_active[$ARGS[1]] += 1
+
+	!! Add event to calendar (event_vars already built above)
+	gs 'calendar_events', 'add_event', $event_vars['id']
+
+	result = 1
+
+	exit
+end
+
+
+if $ARGS[0] = 'get_booking_data':
+	!! Get the booking metadata string for a specific day and slot
+	!! $result = func('jobs', 'get_booking_data', $job_id, check_day, slot_index)
+	!! Returns: booking data string (e.g., film type), or '' if no booking
+
+	$result = $job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(ARGS[3])]
+	exit
+end
+
+
+if $ARGS[0] = 'check_booking_conflict':
+	!! Dry-run conflict check for a potential booking (used by scheduling UIs)
+	!! result = func('jobs', 'check_booking_conflict', $job_id, target_day[, slot_index])
+	!! Returns: 1 = would conflict, 0 = no conflict
+	!! Does NOT book anything — only checks if a blocking event overlaps
+	!! Optional slot_index (ARGS[3]): use per-slot timing if defined (default: -1 = job-level)
+
+	!! Load job definition
+	if $job_title[$ARGS[1]] = '':
+		gs 'jobs', 'get_job_definition', $ARGS[1]
+	end
+
+	!! Only check conflicts for blocking jobs
+	if job_blocking[$ARGS[1]] = 0:
+		result = 0
+		exit
+	end
+
+	!! Build event_vars for the proposed booking using shared helper
+	!! Slot defaults to 0 when not provided (falls through to job-level timing)
+	if ARGS[3] >= 0:
+		gs 'jobs', '_build_booking_event_vars', $ARGS[1], ARGS[2], ARGS[3]
+	else
+		gs 'jobs', '_build_booking_event_vars', $ARGS[1], ARGS[2], 0
+	end
+	$event_vars['id'] = 'job_booking_conflict_check'
+	$event_vars['title'] = '冲突检查'
+
+	!! Single conflict check — cross-midnight is handled natively by check_event_conflicts
+	result = func('calendar_events', 'check_event_conflicts')
+	exit
+end
+
+
+if $ARGS[0] = 'check_booking_gap':
+	!! Check if the target day is within min_gap_days of an existing booking.
+	!! Used by scheduling UIs to grey out slots that book_slot would reject.
+	!! result = func('jobs', 'check_booking_gap', $job_id, target_day)
+	!! Returns: 1 = within gap (cannot book), 0 = outside gap (can book)
+
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+	result = 0
+
+	if job_booking_min_gap_days[$ARGS[1]] > 0:
+		temp_cbg_gap = job_booking_min_gap_days[$ARGS[1]]
+		temp_cbg_max_slot = job_booking_slots_per_day[$ARGS[1]]
+		if temp_cbg_max_slot < 1: temp_cbg_max_slot = 1
+
+		temp_cbg_check = ARGS[2] - temp_cbg_gap + 1
+		:cbg_day_loop
+		if temp_cbg_check <= ARGS[2] + temp_cbg_gap - 1:
+			temp_cbg_slot = 0
+			:cbg_slot_loop
+			if temp_cbg_slot < temp_cbg_max_slot:
+				if $job_booking[$ARGS[1] + ', ' + $str(temp_cbg_check) + ', ' + $str(temp_cbg_slot)] <> '':
+					result = 1
+					killvar 'temp_cbg_gap'
+					killvar 'temp_cbg_check'
+					killvar 'temp_cbg_slot'
+					killvar 'temp_cbg_max_slot'
+					exit
+				end
+				temp_cbg_slot += 1
+				jump 'cbg_slot_loop'
+			end
+			temp_cbg_check += 1
+			jump 'cbg_day_loop'
+		end
+		killvar 'temp_cbg_gap'
+		killvar 'temp_cbg_check'
+		killvar 'temp_cbg_slot'
+		killvar 'temp_cbg_max_slot'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'cancel_booking':
+	!! Cancel a booking for a specific day and slot
+	!! gs 'jobs', 'cancel_booking', $job_id, target_day, slot_index
+
+	!! Remove booking data
+	if $job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(ARGS[3])] <> '':
+		$job_booking[$ARGS[1] + ', ' + $str(ARGS[2]) + ', ' + $str(ARGS[3])] = ''
+
+		!! Decrement active bookings
+		job_bookings_active[$ARGS[1]] -= 1
+		if job_bookings_active[$ARGS[1]] < 0:
+			job_bookings_active[$ARGS[1]] = 0
+		end
+
+		!! Remove calendar event
+		gs 'calendar_events', 'remove_event', 'job_booking_' + $ARGS[1] + '_' + $str(ARGS[2]) + '_' + $str(ARGS[3])
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         SCHEDULE SWITCHING                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'change_schedule':
+	!! Switch to different shift pattern
+	!! gs 'jobs', 'change_schedule', $job_id, new_schedule_index
+
+	!! Update active schedule
+	$job_active_schedule[$ARGS[1]] = $str(ARGS[2])
+
+	!! Update calendar event with new recurrence pattern
+	!! Remove old event
+	if $job_event_id[$ARGS[1]] <> '':
+		gs 'calendar_events', 'remove_event', $job_event_id[$ARGS[1]]
+	end
+
+	!! Create new event with updated schedule
+	!! (This will use the new active_schedule when building event_vars)
+	gs 'jobs', 'create_recurring_event', $ARGS[1]
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                       CUSTOM JOB DEFINITIONS                       !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_job_file':
+	!! Register a custom definition file for a specific job_id.
+	!! gs 'jobs', 'set_job_file', 'my_job_id', 'my_jobs_file'
+	!! Call once (e.g. at init), the mapping is persistent.
+	!! e.g. gs 'jobs', 'set_job_file', 'mod_custom_cleaner', 'mod_modname_jobs_list'
+
+	$job_definition_source[$ARGS[1]] = $ARGS[2]
+	exit
+end
+
+
+if $ARGS[0] = 'set_job_icon':
+	!! Register a custom path for your job icons.
+	!! gs 'jobs', 'set_job_icon', 'my_job_id', 'my_folder'
+	!! Call once (e.g. at init), the mapping is persistent.
+	!! e.g. gs 'jobs', 'set_job_icon', 'mod_custom_cleaner', 'mods/modname/icons/jobs'
+	!! Do not append a final slash to the path.
+
+	$job_icons_source[$ARGS[1]] = $ARGS[2]
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                       SLOT TIMING RESOLUTION                       !!
+	!!                              INTERNAL                              !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '_resolve_slot_timing':
+	!! Resolve timing for a single booking slot using the 3-tier fallback:
+	!!   1. Per-slot timing (job_slot_arrival/start/shift) if defined for slot
+	!!   2. Job-level arrival window (job_arrival_start/end + job_available_end)
+	!!   3. Last resort: job_available_start/end with 1h defaults
+	!!
+	!! gs 'jobs', '_resolve_slot_timing', $job_id, slot_index
+	!! Sets: temp_resolved_arrival, temp_resolved_start, temp_resolved_end
+	!! Caller must killvar these when done.
+	!! Assumes job definition is already loaded.
+
+	if job_slot_arrival[$ARGS[1] + ', ' + $str(ARGS[2])] > 0:
+		!! Per-slot timing: arrival, start (deadline), shift (start-to-end)
+		temp_resolved_arrival = job_slot_arrival[$ARGS[1] + ', ' + $str(ARGS[2])]
+		if job_slot_start[$ARGS[1] + ', ' + $str(ARGS[2])] > 0:
+			temp_resolved_start = job_slot_start[$ARGS[1] + ', ' + $str(ARGS[2])]
+		else
+			temp_resolved_start = temp_resolved_arrival
+		end
+		temp_resolved_end = temp_resolved_start + job_slot_shift[$ARGS[1] + ', ' + $str(ARGS[2])]
+	elseif job_arrival_start[$ARGS[1]] > 0:
+		!! Fallback: job-level arrival window
+		temp_resolved_arrival = job_arrival_start[$ARGS[1]]
+		if job_arrival_end[$ARGS[1]] > 0:
+			temp_resolved_start = job_arrival_end[$ARGS[1]]
+		else
+			temp_resolved_start = temp_resolved_arrival + 60
+		end
+		if job_available_end[$ARGS[1]] > 0:
+			temp_resolved_end = job_available_end[$ARGS[1]]
+		else
+			temp_resolved_end = temp_resolved_start + 60
+		end
+	else
+		!! Last resort: available_start with 1h defaults
+		temp_resolved_arrival = job_available_start[$ARGS[1]]
+		temp_resolved_start = temp_resolved_arrival + 60
+		temp_resolved_end = iif(job_available_end[$ARGS[1]] > 0, job_available_end[$ARGS[1]], temp_resolved_start + 60)
+	end
+	exit
+end
+
+
+if $ARGS[0] = '_build_booking_event_vars':
+	!! Build base event_vars for a booking event (shared by book_slot and check_booking_conflict)
+	!! gs 'jobs', '_build_booking_event_vars', $job_id, target_day, slot_index
+	!! Sets: event_vars with all common fields populated, including timing from _resolve_slot_timing.
+	!! Caller must set $event_vars['id'], $event_vars['title'], and any other caller-specific fields.
+	!! Assumes job definition is already loaded.
+
+	killvar 'event_vars'
+	event_vars['daystart'] = ARGS[2]
+	event_vars['all_day'] = 0
+	event_vars['blocking'] = 1
+	event_vars['priority'] = 2
+	event_vars['holiday'] = 0
+	$event_vars['recur'] = ''
+	event_vars['recur_end'] = 0
+	$event_vars['recur_blocked_months'] = ''
+	event_vars['flex_type'] = 1
+
+	!! Resolve timing via shared helper
+	gs 'jobs', '_resolve_slot_timing', $ARGS[1], ARGS[3]
+	event_vars['window_start_ts'] = temp_resolved_arrival / 15
+	event_vars['window_end_ts'] = temp_resolved_start / 15
+	event_vars['duration_ts'] = (temp_resolved_end - temp_resolved_start) / 15
+
+	!! Exclude same-job bookings from conflict check
+	$event_vars['exclude_prefix'] = 'job_booking_' + $ARGS[1]
+
+	killvar 'temp_resolved_arrival'
+	killvar 'temp_resolved_start'
+	killvar 'temp_resolved_end'
+	killvar 'temp_bbev_start'
+	killvar 'temp_bbev_shift'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          JOB INFORMATION                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_job_definition':
+	!! Load job definition into working memory
+	!! gs 'jobs', 'get_job_definition', $job_id
+	!! Uses $job_definition_source[$job_id] if registered (via set_job_file),
+	!! otherwise falls back to 'jobs_list'.
+
+	if $job_title[$ARGS[1]] = '':
+		if $job_definition_source[$ARGS[1]] <> '' and loc($job_definition_source[$ARGS[1]]):
+			gs $job_definition_source[$ARGS[1]], $ARGS[1]
+		else
+			gs 'jobs_list', $ARGS[1]
+		end
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                    EMPLOYMENT CONFLICT CHECKING                    !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'check_employment_possible':
+	!! Check if employment would conflict with existing calendar events
+	!! result = func('jobs', 'check_employment_possible', $job_id[, schedule_idx])
+	!! Returns: 1 if employment is possible (no conflicts), 0 if blocked by conflict
+	!! Also sets: $employment_conflict_reason if blocked
+	!!
+	!! Optional schedule_idx (ARGS[2]): specific schedule group to check.
+	!!   -1 = use resolve_schedule_idx (default behavior)
+	!!   0, 1, 2, … = check only that specific schedule
+	!!   NOTE: omitted ARGS[2] = 0 in QSP, so callers wanting resolve_schedule_idx
+	!!   must explicitly pass -1. Omitting the arg checks schedule 0.
+
+	!! Load job definition to get schedule info
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+
+	!! Default: possible (no conflict)
+	result = 1
+	$employment_conflict_reason = ''
+
+	!! if multiple jobs cheat is used, employment will always be possible
+	if cheatVars['work'] <> 0: exit
+
+	!! On-demand jobs that don''t create calendar events can''t conflict
+	if $job_schedule_mode[$ARGS[1]] = 'on_demand' and job_create_availability_events[$ARGS[1]] = 0: exit
+
+	!! For jobs that create calendar events, we need to check conflicts
+	!! Only check if job is blocking - non-blocking jobs can overlap
+	if job_blocking[$ARGS[1]] = 0: exit
+
+	!! Quick check: if no events exist in calendar, no conflicts possible
+	if arrsize('$events_list') = 0: exit
+
+	!! Build event_vars{} to check against calendar
+	gs 'jobs', 'build_event_vars_for_job', $ARGS[1], ARGS[2]
+
+	!! Check for conflicts using calendar API
+	if func('calendar_events', 'check_event_conflicts') = 1:
+		!! Conflict detected — employment blocked
+		result = 0
+		$employment_conflict_reason = '与现有日历事件的时间冲突'
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                  CALENDAR EVENT CREATION HELPERS                   !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'build_event_vars_for_job':
+	!! Build event_vars{} structure for a job to check conflicts or create events
+	!! gs 'jobs', 'build_event_vars_for_job', $job_id[, schedule_idx_override]
+	!! Populates event_vars{} with job schedule data
+	!!
+	!! Optional schedule_idx_override (ARGS[2]):
+	!!   -1 = use resolve_schedule_idx (default behavior)
+	!!   0, 1, 2, … = use that specific schedule group
+	!!   NOTE: omitted ARGS[2] = 0 in QSP, so callers wanting resolve_schedule_idx
+	!!   must explicitly pass -1. Omitting the arg checks schedule 0.
+
+	!! Clear event_vars
+	killvar 'event_vars'
+
+	!! Set event ID (use job_id prefixed with 'job_')
+	$event_vars['id'] = 'job_' + $ARGS[1]
+	$event_vars['title'] = $job_title[$ARGS[1]]
+	$event_vars['loc'] = $job_location[$ARGS[1]]
+	$event_vars['desc'] = '工作班次' + $job_title[$ARGS[1]]
+
+	!! Set event daystart to today (for recurring events, this is the start date)
+	!! Use max(1, daystart) to avoid issues in test environment
+	event_vars['daystart'] = max(1, daystart)
+
+	!! Not all-day events
+	event_vars['all_day'] = 0
+
+	!! Blocking and priority from job definition
+	!! Blocking jobs get priority 2 (high), non-blocking get priority 1 (normal)
+	event_vars['blocking'] = job_blocking[$ARGS[1]]
+	event_vars['priority'] = iif(job_blocking[$ARGS[1]] = 1, 2, 1)
+
+	!! Color — 0 means assign_color will pick a random color
+	event_vars['color'] = 0
+
+	!! Not a holiday
+	event_vars['holiday'] = 0
+
+	!! Build recurrence pattern
+	if $job_schedule_mode[$ARGS[1]] = 'fixed' or $job_schedule_mode[$ARGS[1]] = 'windowed':
+		!! Both fixed and windowed use flex_type=1 (flexible) in the calendar
+		!! All scheduled jobs have arrival windows, so calendar always shows flexible block
+		!! The fixed/windowed distinction affects gameplay (end time behavior), not calendar display
+		!!
+		!! Calendar fields:
+		!!   window_start_ts = arrival / 15  (earliest player can arrive)
+		!!   window_end_ts   = start / 15	(latest player can start work)
+		!!   duration_ts	 = shift / 15	(work duration)
+		!!
+		!! Calendar conflict span = window_start_ts → window_end_ts + duration_ts
+		!!   Fixed:	9:00 arrival, 10:00 start, 8h shift → span 9:00-18:00 ✓
+		!!   Windowed: 6:00 arrival, 8:00 start, 8h shift → span 6:00-16:00 ✓
+		event_vars['flex_type'] = 1
+
+		!! Get active schedule group (or use override if provided)
+		if ARGS[2] >= 0:
+			temp_bev_sched_idx = ARGS[2]
+		else
+			temp_bev_sched_idx = func('jobs', 'resolve_schedule_idx', $ARGS[1])
+		end
+
+		!! Convert to timestamps (15-minute intervals)
+		event_vars['window_start_ts'] = job_arrival[$ARGS[1] + ', ' + $str(temp_bev_sched_idx)] / 15
+		event_vars['window_end_ts'] = job_start[$ARGS[1] + ', ' + $str(temp_bev_sched_idx)] / 15
+		event_vars['duration_ts'] = job_shift[$ARGS[1] + ', ' + $str(temp_bev_sched_idx)] / 15
+
+		!! Build recurrence string; seasonal jobs use yearly date range instead of weekday list
+		if $job_work_dates[$ARGS[1]] <> '':
+			$event_vars['recur'] = 'yearly-' + $job_work_dates[$ARGS[1]]
+		else
+			$event_vars['recur'] = $job_work_days[$ARGS[1] + ', ' + $str(temp_bev_sched_idx)]
+		end
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'on_demand':
+		!! On-demand jobs create availability events (if enabled)
+		event_vars['flex_type'] = 1
+		event_vars['blocking'] = 0  & !! Override - availability never blocks
+		event_vars['priority'] = 0   & !! Low priority
+
+		!! Availability window
+		event_vars['window_start_ts'] = job_available_start[$ARGS[1]] / 15
+		event_vars['window_end_ts'] = job_available_end[$ARGS[1]] / 15
+		event_vars['duration_ts'] = 0  & !! No fixed duration
+
+		$event_vars['recur'] = $job_available_days[$ARGS[1]]
+
+	elseif $job_schedule_mode[$ARGS[1]] = 'booking':
+		!! Booking jobs - individual events created per booking
+		!! For conflict checking, we don''t have a schedule to check
+		!! So just set minimal data (conflict check will fail gracefully)
+		event_vars['flex_type'] = 0
+		event_vars['start_ts'] = 0
+		event_vars['duration_ts'] = 0
+		$event_vars['recur'] = ''
+	end
+
+	!! No recurrence end date (ongoing employment)
+	event_vars['recur_end'] = 0
+
+	!! Clean up temp variables
+	killvar 'temp_bev_sched_idx'
+	exit
+end
+
+
+if $ARGS[0] = 'create_recurring_event':
+	!! Create recurring calendar event for fixed/windowed job
+	!! gs 'jobs', 'create_recurring_event', $job_id
+
+	!! Load job definition
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+
+	!! Build event_vars{} for this job
+	gs 'jobs', 'build_event_vars_for_job', $ARGS[1], -1
+
+	!! Assign a random color if none was set
+	gs 'calendar_list', 'assign_color'
+
+	!! Create the calendar event
+	gs 'calendar_events', 'add_event', 'job_' + $ARGS[1]
+
+	!! Store event ID for later removal
+	$job_event_id[$ARGS[1]] = 'job_' + $ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'create_availability_events':
+	!! Create availability reminder events for on-demand job
+	!! gs 'jobs', 'create_availability_events', $job_id
+
+	!! Load job definition
+	gs 'jobs', 'get_job_definition', $ARGS[1]
+
+	!! Only create if enabled
+	if job_create_availability_events[$ARGS[1]] = 1:
+		!! Build event_vars{} for availability
+		gs 'jobs', 'build_event_vars_for_job', $ARGS[1], -1
+
+		!! Assign a random color if none was set
+		gs 'calendar_list', 'assign_color'
+
+		!! Create the calendar event
+		$event_vars['id'] = 'job_avail_' + $ARGS[1]
+		gs 'calendar_events', 'add_event', 'job_avail_' + $ARGS[1]
+
+		!! Store event ID
+		$job_event_id[$ARGS[1]] = 'job_avail_' + $ARGS[1]
+	end
+
+	exit
+end
+
+
+!! Compute messages and icons for stat_display, called from stat_display_compute
+!! First part is for unmigrated jobs and misc jobs, second is for v4 migrated jobs.
+if $ARGS[0] = 'compute_stat_display':
+	!! Aurora Commercial Jobs ───────────────────────────────────────
+	if SMTV_commercial = daystart + 1:
+		$stat_texts['aurora_jobs'] = '奥罗拉经纪公司的商业拍摄定于明天<<$func(''time'', ''get_time_string'', 10, 0, cheatVars[''time_format''])>>.'
+		gs 'stat_display_compute', 'queue_msg', 'aurora_jobs'
+	elseif SMTV_commercial = daystart:
+		if hour <= 11:
+			$stat_texts['aurora_jobs'] = '奥罗拉经纪公司的商业拍摄在市中心，于<<$func(''time'', ''get_time_string'', 10, 0, cheatVars[''time_format''])>>!'
+			gs 'stat_display_compute', 'queue_msg', 'aurora_jobs'
+			gs 'stat_display_compute', 'queue_alert', '你今天 10:00 有一场奥罗拉经纪公司的商业拍摄。', 'neg'
+		end
+	end
+
+	!! Porn Studio Delivery ─────────────────────────────────────────
+	if $job_status['city_pornstudio_delivery'] = 'employed' and workDisk = 0 and week = 4 and hour >= 9 and workDolg = 0:
+		$stat_texts['porn_delivery'] = '你今天应该去色情片场领取你的配送任务。'
+		gs 'stat_display_compute', 'queue_msg', 'porn_delivery'
+		gs 'stat_display_compute', 'queue_alert', '今天去色情片场领取你的配送任务。', 'neg'
+	end
+	if week = 5 and workDolg = 0 and $job_status['city_pornstudio_delivery'] = 'employed':
+		if workDisk = 2:
+			$stat_texts['porn_delivery'] = '你应该去桑拿房完成配送。'
+			gs 'stat_display_compute', 'queue_msg', 'porn_delivery'
+		elseif workDisk = 3:
+			$stat_texts['porn_delivery'] = '你应该回到片场完成配送。'
+			gs 'stat_display_compute', 'queue_msg', 'porn_delivery'
+		end
+	end
+	if workDolg > 0:
+		$stat_texts['porn_delivery'] = '你欠色情工作室<<$func(''money'', ''string_debt'', workDolg)>>'
+		gs 'stat_display_compute', 'queue_msg', 'porn_delivery'
+		gs 'stat_display_compute', 'queue_alert', '你欠色情片场的钱。', 'neg'
+	end
+
+	!! Porn Acting Job ──────────────────────────────────────────────
+	if job_booking_debt['city_pornstudio_actress'] > 0:
+		$stat_texts['porn_acting_debt'] = '你欠色情工作室<<$func(''money'', ''format'', job_booking_debt[''city_pornstudio_actress''])>>.'
+		gs 'stat_display_compute', 'queue_msg', 'porn_acting_debt'
+		gs 'stat_display_compute', 'queue_alert', '你因一次拍摄欠色情片场钱。', 'neg'
+	end
+	if firstkasting > 0 and pfilmNO < 1:
+		sd_cm['pa_avail'] = job_booking_max_concurrent['city_pornstudio_actress'] - job_bookings_active['city_pornstudio_actress']
+		if sd_cm['pa_avail'] > 0:
+			$stat_texts['porn_acting_avail'] = '你可以在色情片场签约拍摄<<iif(sd_cm[''pa_avail''] = 1, ''再拍1'', ''最多'' + $str(sd_cm[''pa_avail'']))>>部色情片。'
+			gs 'stat_display_compute', 'queue_msg', 'porn_acting_avail'
+		end
+		killvar 'sd_cm'
+	end
+	if job_bookings_active['city_pornstudio_actress'] > 0:
+		if func('jobs', 'has_booking_for_day', 'city_pornstudio_actress', daystart) = 0:
+			if func('jobs', 'has_booking_for_day', 'city_pornstudio_actress', daystart + 1) = 0:
+				sd_cm['porn_next'] = func('jobs', 'get_next_booking_day', 'city_pornstudio_actress', daystart + 2, 50)
+				$stat_texts['porn_acting_sched'] = '你有一个色情拍摄定于<<sd_cm[''porn_next''] - daystart>>天后。'
+				gs 'stat_display_compute', 'queue_msg', 'porn_acting_sched'
+				killvar 'sd_cm'
+			else
+				$stat_texts['porn_acting_sched'] = '你有一个色情拍摄定于明天。'
+				gs 'stat_display_compute', 'queue_msg', 'porn_acting_sched'
+			end
+		end
+	end
+
+	!! V4 migrated jobs ─────────────────────────────────────────────
+	sd_si['max'] = arrsize('$job_list')
+	if sd_si['max'] > 0:
+		sd_si['now'] = hour * 60 + minut
+		sd_si['idx'] = 0
+		:sd_v4job_loop
+		if sd_si['idx'] < sd_si['max']:
+			$sd_si['job'] = $job_list[sd_si['idx']]
+
+			if $job_status[$sd_si['job']] = 'employed' and job_suspended[$sd_si['job']] = 0:
+				if $job_title[$sd_si['job']] = '': gs 'jobs', 'get_job_definition', $sd_si['job']
+
+				if job_show_stat_icon[$sd_si['job']] = 1 and func('jobs', 'is_work_day', $sd_si['job'], daystart) = 1:
+					!! Determine job state: suffix (green/blue/red/black|white), show flag
+					$sd_si['suffix'] = ''
+					sd_si['show'] = 0
+					sd_si['r_arrival'] = 0
+					sd_si['r_start'] = 0
+					sd_si['missed_today'] = 0
+
+					if $job_schedule_mode[$sd_si['job']] = 'booking':
+						!! Booking mode — check yesterday cross-midnight first
+						sd_si['crossmid'] = 0
+						if func('jobs', 'has_booking_for_day', $sd_si['job'], daystart - 1) = 1:
+							gs 'jobs', 'get_shift_for_day', $sd_si['job'], daystart - 1
+							sd_si['xm_i'] = 0
+							:sd_v4_crossmid
+							if sd_si['xm_i'] < result_slot_count:
+								if result_slot_end[sd_si['xm_i']] > 1440:
+									sd_si['overflow'] = result_slot_end[sd_si['xm_i']] - 1440
+									if job_last_work_day[$sd_si['job']] = daystart - 1 and job_worked_count[$sd_si['job']] > 0 and sd_si['now'] < sd_si['overflow']:
+										$sd_si['suffix'] = 'green'
+										sd_si['show'] = 1 & sd_si['crossmid'] = 1
+									elseif job_last_work_day[$sd_si['job']] <> daystart - 1 and sd_si['now'] < sd_si['overflow'] + 60:
+										$sd_si['suffix'] = 'red'
+										sd_si['show'] = 1 & sd_si['crossmid'] = 1
+									end
+								end
+								sd_si['xm_i'] += 1
+								if sd_si['crossmid'] = 0: jump 'sd_v4_crossmid'
+							end
+						end
+
+						!! Today''s slots — pick highest-priority state
+						if sd_si['crossmid'] = 0 and func('jobs', 'has_booking_for_day', $sd_si['job'], daystart) = 1:
+							gs 'jobs', 'get_shift_for_day', $sd_si['job'], daystart
+							sd_si['best'] = 0
+							sd_si['slot_i'] = 0
+							:sd_v4_slot_loop
+							if sd_si['slot_i'] < result_slot_count:
+								if job_last_work_day[$sd_si['job']] = daystart and job_worked_count[$sd_si['job']] > 0 and sd_si['now'] >= result_slot_arrival[sd_si['slot_i']] and sd_si['now'] < result_slot_end[sd_si['slot_i']]:
+									sd_si['best'] = 4
+									$sd_si['suffix'] = 'green'
+								elseif sd_si['best'] < 3 and sd_si['now'] >= result_slot_arrival[sd_si['slot_i']] and sd_si['now'] < result_slot_start[sd_si['slot_i']]:
+									sd_si['best'] = 3
+									$sd_si['suffix'] = 'blue'
+									sd_si['r_start'] = result_slot_start[sd_si['slot_i']]
+								elseif sd_si['best'] < 2 and job_last_work_day[$sd_si['job']] <> daystart and sd_si['now'] >= result_slot_start[sd_si['slot_i']] and sd_si['now'] < result_slot_end[sd_si['slot_i']] + 60:
+									sd_si['best'] = 2
+									$sd_si['suffix'] = 'red'
+									sd_si['missed_today'] = 1
+								elseif sd_si['best'] < 1 and sd_si['now'] < result_slot_arrival[sd_si['slot_i']]:
+									sd_si['best'] = 1
+									$sd_si['suffix'] = iif(theme['is_dark'] = 1, 'white', 'black')
+									sd_si['r_arrival'] = result_slot_arrival[sd_si['slot_i']]
+									sd_si['r_start'] = result_slot_start[sd_si['slot_i']]
+								end
+								sd_si['slot_i'] += 1
+								if sd_si['best'] < 4: jump 'sd_v4_slot_loop'
+							end
+							if job_last_work_day[$sd_si['job']] = daystart and $sd_si['suffix'] = '':
+								sd_si['show'] = 0
+							elseif $sd_si['suffix'] <> '':
+								sd_si['show'] = 1
+							end
+						end
+					elseif $job_schedule_mode[$sd_si['job']] = 'on_demand':
+						!! on_demand: show static white/black icon while available; suppress after working today
+						if job_last_work_day[$sd_si['job']] = daystart:
+							sd_si['show'] = 0
+						else
+							$sd_si['suffix'] = iif(theme['is_dark'] = 1, 'white', 'black')
+							sd_si['show'] = 1
+						end
+					else
+						!! Fixed/windowed
+						gs 'jobs', 'get_shift_for_day', $sd_si['job'], daystart
+						if job_last_work_day[$sd_si['job']] = daystart and job_worked_count[$sd_si['job']] > 0 and sd_si['now'] >= result_arrival and sd_si['now'] < iif(job_clocked_in[$sd_si['job']] > 0, job_clocked_in[$sd_si['job']], result_start) + result_duration:
+							$sd_si['suffix'] = 'green'
+							sd_si['show'] = 1
+						elseif job_last_work_day[$sd_si['job']] = daystart:
+							sd_si['show'] = 0
+						elseif sd_si['now'] >= result_start and sd_si['now'] < result_start + result_duration + 60:
+							$sd_si['suffix'] = 'red'
+							sd_si['show'] = 1
+							sd_si['missed_today'] = 1
+						elseif sd_si['now'] >= result_arrival and sd_si['now'] < result_start:
+							$sd_si['suffix'] = 'blue'
+							sd_si['show'] = 1
+							sd_si['r_start'] = result_start
+						elseif sd_si['now'] < result_arrival:
+							$sd_si['suffix'] = iif(theme['is_dark'] = 1, 'white', 'black')
+							sd_si['show'] = 1
+							sd_si['r_arrival'] = result_arrival
+							sd_si['r_start'] = result_start
+						end
+					end
+					
+					!! Build message from determined state (shared across all schedule modes)
+					if sd_si['show'] = 1 and $sd_si['suffix'] <> '':
+
+						$sd_si['f_title'] = $job_title[$sd_si['job']] + ' at ' + $job_location[$sd_si['job']] + ': '
+						$sd_si['f_start'] = func('time', 'get_time_string', sd_si['r_start'] / 60, sd_si['r_start'] mod 60)
+						$sd_si['f_arrival'] = func('time', 'get_time_string', sd_si['r_arrival'] / 60, sd_si['r_arrival'] mod 60)
+						
+						if $sd_si['suffix'] = 'green':
+							$sd_si['msg'] = $sd_si['f_title'] + '当前工作中。'
+						elseif $sd_si['suffix'] = 'blue':
+							$sd_si['msg'] = $sd_si['f_title'] + '你的班次开始于' + $sd_si['f_start'] + '. 立即前往！'
+							gs 'stat_display_compute', 'queue_alert', $sd_si['msg']
+						elseif $sd_si['suffix'] = 'red':
+							$sd_si['msg'] = $sd_si['f_title'] + '你错过了班次' + iif(sd_si['missed_today'] = 1, ' 今天！', '！')
+						elseif $job_schedule_mode[$sd_si['job']] = 'on_demand':
+							$sd_si['msg'] = $sd_si['f_title'] + '今天有空。'
+						else
+							$sd_si['msg'] = $sd_si['f_title'] + '请在' + $sd_si['f_arrival'] + ', 班次开始于' + $sd_si['f_start'] + '。'
+							gs 'stat_display_compute', 'queue_alert', $sd_si['msg']
+						end
+						
+						$sd_si['label'] = 'v4_job_' + $sd_si['job']
+						$stat_texts[$sd_si['label']] = $sd_si['msg']
+						if stat_cfg['job_icon_themed'] = 1:
+							$sd_si['icon_path'] = iif($job_icons_source[$sd_si['job']] <> '', $job_icons_source[$sd_si['job']] + '/', 'jobs/') + $sd_si['job']
+							if $sd_si['suffix'] = 'green':
+								$sd_si['icon_path'] += ':' + $theme_hex['v_pos']
+							elseif $sd_si['suffix'] = 'blue':
+								$sd_si['icon_path'] += ':' + $theme_hex['accent']
+							elseif $sd_si['suffix'] = 'red':
+								$sd_si['icon_path'] += ':' + $theme_hex['v_neg']
+							end
+						else
+							$sd_si['icon_path'] = iif($job_icons_source[$sd_si['job']] <> '', $job_icons_source[$sd_si['job']] + '/', 'status/jobs/') + $sd_si['job'] + '_' + $sd_si['suffix']
+						end
+						gs 'stat_display_compute', 'queue_msg', $sd_si['label'], '', $sd_si['icon_path'], 4
+					end
+				end
+			end
+
+			sd_si['idx'] += 1
+			jump 'sd_v4job_loop'
+		end
+		killvar 'sd_si'
+	end
+	exit
+end
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           CLEANUP HELPER                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'cleanup_job':
+	!! Remove all job data and properties for a job_id
+	!! Used for testing cleanup and potentially for job removal
+	!! gs 'jobs', 'cleanup_job', $job_id
+	!!
+	!! NOTE: QSP cannot delete individual string keys from arrays
+	!! Must set each value to empty ('' or 0) instead
+
+	!! Remove calendar event if it exists
+	if $job_event_id[$ARGS[1]] <> '':
+		gs 'calendar_events', 'remove_event', $job_event_id[$ARGS[1]]
+	end
+
+	!! Also check for the standard event ID format
+	gs 'calendar_events', 'remove_event', 'job_' + $ARGS[1]
+
+	!! And availability event format
+	gs 'calendar_events', 'remove_event', 'job_avail_' + $ARGS[1]
+
+	!! Clear employment data arrays (set to empty)
+	$job_status[$ARGS[1]] = ''
+	job_rank[$ARGS[1]] = 0
+	job_added[$ARGS[1]] = 0
+	job_hiring_step[$ARGS[1]] = 0
+	job_termination_day[$ARGS[1]] = 0
+	$job_termination_reason[$ARGS[1]] = ''
+	job_worked_count[$ARGS[1]] = 0
+	job_shifts_total[$ARGS[1]] = 0
+	job_shifts_this_period[$ARGS[1]] = 0
+	job_last_work_day[$ARGS[1]] = 0
+	job_clocked_in[$ARGS[1]] = 0
+	job_missed_total[$ARGS[1]] = 0
+	job_miss_acknowledged[$ARGS[1]] = 0
+	job_paid_total[$ARGS[1]] = 0
+	job_suspended[$ARGS[1]] = 0
+	job_bonus_pay[$ARGS[1]] = 0
+	job_docked_pay[$ARGS[1]] = 0
+	$job_pay_interval[$ARGS[1]] = ''
+	job_pay_rate[$ARGS[1]] = 0
+	$job_event_id[$ARGS[1]] = ''
+	$job_active_schedule[$ARGS[1]] = ''
+	job_bookings_active[$ARGS[1]] = 0
+	job_booking_debt[$ARGS[1]] = 0
+	$job_recurrence_pattern[$ARGS[1]] = ''
+
+	!! Clear booking slots (iterate over all days × all slots per day)
+	!! Use the larger of 7 or the job''s booking window size
+	temp_booking_range = job_booking_window_days[$ARGS[1]]
+	if temp_booking_range < 7: temp_booking_range = 7
+	temp_cleanup_max_slot = job_booking_slots_per_day[$ARGS[1]]
+	if temp_cleanup_max_slot < 1: temp_cleanup_max_slot = 1
+	temp_day_idx = daystart - temp_booking_range
+	:cleanup_bookings_loop
+	if temp_day_idx <= daystart + temp_booking_range:
+		temp_cleanup_slot = 0
+		:cleanup_bookings_slot_loop
+		if temp_cleanup_slot < temp_cleanup_max_slot:
+			if $job_booking[$ARGS[1] + ', ' + $str(temp_day_idx) + ', ' + $str(temp_cleanup_slot)] <> '':
+				$job_booking[$ARGS[1] + ', ' + $str(temp_day_idx) + ', ' + $str(temp_cleanup_slot)] = ''
+				!! Also remove calendar event for this booking
+				gs 'calendar_events', 'remove_event', 'job_booking_' + $ARGS[1] + '_' + $str(temp_day_idx) + '_' + $str(temp_cleanup_slot)
+			end
+			temp_cleanup_slot += 1
+			jump 'cleanup_bookings_slot_loop'
+		end
+		temp_day_idx += 1
+		jump 'cleanup_bookings_loop'
+	end
+	killvar 'temp_cleanup_max_slot'
+	killvar 'temp_cleanup_slot'
+
+	!! Reset booking counter
+	job_bookings_active[$ARGS[1]] = 0
+
+	!! Clear job definition arrays (set to empty)
+	$job_title[$ARGS[1]] = ''
+	$job_location[$ARGS[1]] = ''
+	$job_schedule_mode[$ARGS[1]] = ''
+	$job_pay_interval_def[$ARGS[1]] = ''
+	job_pay_rate_def[$ARGS[1]] = 0
+	$job_work_dates[$ARGS[1]] = ''
+	$job_available_days[$ARGS[1]] = ''
+	job_available_start[$ARGS[1]] = 0
+	job_available_end[$ARGS[1]] = 0
+	job_create_availability_events[$ARGS[1]] = 0
+	job_booking_window_days[$ARGS[1]] = 0
+	job_booking_slots_per_day[$ARGS[1]] = 0
+	job_booking_max_concurrent[$ARGS[1]] = 0
+	job_booking_min_gap_days[$ARGS[1]] = 0
+	job_arrival_start[$ARGS[1]] = 0
+	job_arrival_end[$ARGS[1]] = 0
+	!! Clear per-slot timing (for up to max slots)
+	temp_cleanup_slot_idx = 0
+	:cleanup_slot_timing_loop
+	if temp_cleanup_slot_idx < 4:
+		job_slot_arrival[$ARGS[1] + ', ' + $str(temp_cleanup_slot_idx)] = 0
+		job_slot_start[$ARGS[1] + ', ' + $str(temp_cleanup_slot_idx)] = 0
+		job_slot_shift[$ARGS[1] + ', ' + $str(temp_cleanup_slot_idx)] = 0
+		temp_cleanup_slot_idx += 1
+		jump 'cleanup_slot_timing_loop'
+	end
+	killvar 'temp_cleanup_slot_idx'
+	job_blocking[$ARGS[1]] = 0
+	job_add_to_calendar[$ARGS[1]] = 0
+	job_show_stat_icon[$ARGS[1]] = 0
+	job_refresh_desc[$ARGS[1]] = 0
+	job_penalty_per_miss[$ARGS[1]] = 0
+	job_penalty_max_debt[$ARGS[1]] = 0
+	$job_on_miss_handler[$ARGS[1]] = ''
+	$job_on_miss_handler_func[$ARGS[1]] = ''
+	job_schedule_switchable[$ARGS[1]] = 0
+
+	!! Clear schedule properties (for up to 5 schedules - should cover all jobs)
+	temp_schedule_idx = 0
+	:cleanup_schedules_loop
+	if temp_schedule_idx < 5:
+		$job_work_days[$ARGS[1] + ', ' + $str(temp_schedule_idx)] = ''
+		job_arrival[$ARGS[1] + ', ' + $str(temp_schedule_idx)] = 0
+		job_start[$ARGS[1] + ', ' + $str(temp_schedule_idx)] = 0
+		job_shift[$ARGS[1] + ', ' + $str(temp_schedule_idx)] = 0
+		$job_recurrence_pattern[$ARGS[1] + ', ' + $str(temp_schedule_idx)] = ''
+		temp_schedule_idx += 1
+		jump 'cleanup_schedules_loop'
+	end
+
+	!! Remove from job_list (integer index - killvar works here!)
+	temp_list_idx = arrpos('$job_list', $ARGS[1])
+	if temp_list_idx >= 0: killvar 'job_list', temp_list_idx
+
+	killvar 'temp_schedule_idx'
+	killvar 'temp_day_idx'
+	killvar 'temp_list_idx'
+	killvar 'temp_booking_range'
+	exit
+end
+
+
+if $ARGS[0] = 'terminate_all_jobs':
+	!! Terminate and clean up ALL employed/fired/terminated v4 jobs at once.
+	!! Used for major life events (prison, etc.) that strip all employment.
+	!! gs 'jobs', 'terminate_all_jobs'
+	!!
+	!! cleanup_job removes entries from $job_list, so iterate backwards to
+	!! avoid index shifting issues.
+
+	temp_term_idx = arrsize('$job_list') - 1
+	:terminate_all_loop
+	if temp_term_idx >= 0:
+		$temp_term_job = $job_list[temp_term_idx]
+		gs 'jobs', 'cleanup_job', $temp_term_job
+		temp_term_idx -= 1
+		jump 'terminate_all_loop'
+	end
+
+	killvar 'temp_term_idx'
+	killvar 'temp_term_job'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ format_days — convert a space-separated day-number string (1=Mon…7=Sun)│
+!! │ to readable text. Common patterns use shorthand; falls back to a       │
+!! │ comma-separated list.                                                  │
+!! │ ARGS[1] = day string (e.g. '1 2 3 4 5')                                │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'format_days':
+	if $ARGS[1] = '1 2 3 4 5':			$result = '周一至周五'				& exit
+	if $ARGS[1] = '1 2 3 4 5 6':		$result = '周一至周六'				& exit
+	if $ARGS[1] = '1 2 3 4 5 6 7':		$result = '每天'			& exit
+	if $ARGS[1] = '2 3 4 5 6':			$result = '周二至周六'				& exit
+	if $ARGS[1] = '6 7':				$result = '周末'			& exit
+	if $ARGS[1] = '6':					$result = '每周六'			& exit
+	if $ARGS[1] = '7':					$result = '每周日'				& exit
+	if $ARGS[1] = '3 4':				$result = '周三至周四'				& exit
+	if $ARGS[1] = '5 6':				$result = '周五至周六'				& exit
+	if $ARGS[1] = '4 5 6 7 1 2':		$result = '周一至周二，周四至周日'	& exit
+	!! Generic fallback — comma-separated day names
+	$fd_names[1] = '周一' & $fd_names[2] = '周二' & $fd_names[3] = '结婚'
+	$fd_names[4] = '周四' & $fd_names[5] = '周五' & $fd_names[6] = '周六' & $fd_names[7] = '周日'
+	$result = ''
+	fd_i = 1
+	:fd_loop
+	if instr($ARGS[1], str(fd_i)) > 0:
+		if $result <> '': $result += ', '
+		$result += $fd_names[fd_i]
+	end
+	fd_i += 1
+	if fd_i <= 7: jump 'fd_loop'
+	killvar 'fd_names'
+	killvar 'fd_i'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ ensure_registry — lazily populate $job_registry[] with all jobs_list   │
+!! │ IDs in display order. Safe to call repeatedly; initialises only once.  │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'ensure_registry':
+	if arrsize('$job_registry') < 27:
+		$job_registry[0] = 'pav_voc_school_teacher'
+		$job_registry[1] = 'city_office_secretary'
+		$job_registry[2] = 'city_cafe_waitress'
+		$job_registry[3] = 'city_hospital_nurse'
+		$job_registry[4] = 'city_diner_dishwasher'
+		$job_registry[5] = 'city_diner_floor_washer'
+		$job_registry[6] = 'city_office_cleaner'
+		$job_registry[7] = 'city_office_toilet_cleaner'
+		$job_registry[8] = 'city_diner_secretary'
+		$job_registry[9] = 'city_strip_bargirl'
+		$job_registry[10] = 'city_strip_stripper'
+		$job_registry[11] = 'city_pussycats_clerk'
+		$job_registry[12] = 'city_market_saleswoman'
+		$job_registry[13] = 'city_pornstudio_actress'
+		$job_registry[14] = 'city_pornstudio_delivery'
+		$job_registry[15] = 'city_aphrodite_model'
+		$job_registry[16] = 'city_salon_masseuse'
+		$job_registry[26] = 'nich_maid'
+		$job_registry[17] = 'pav_hotel_maid'
+		$job_registry[18] = 'pav_clinic_cleaner'
+		$job_registry[19] = 'pav_factory'
+		$job_registry[20] = 'pav_mailgirl'
+		$job_registry[21] = 'pav_tour_guide'
+		$job_registry[22] = 'pav_barbershop_cleaner'
+		$job_registry[23] = 'pav_train_cleaner'
+		$job_registry[24] = 'pav_pool_lifeguard'
+		$job_registry[25] = 'highway_brothel_prostitute'
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ card — return an HTML card for a single jobs_list job.                 │
+!! │ ARGS[1] = job_id                                                       │
+!! │ Returns HTML in $result. Reads and updates $temp_bcolor (caller-       │
+!! │ managed) for alternating row backgrounds.                              │
+!! │ Hidden + not employed → mystery card with hidden.png (like traits).    │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'card':
+	$jc_id = $ARGS[1]
+	gs 'jobs', 'get_job_definition', $jc_id
+
+	!! Hidden jobs — render a mystery card unless employed or discovered
+	if job_card_hidden[$jc_id] = 1 and $job_status[$jc_id] <> 'employed' and job_hiring_step[$jc_id] = 0 and cheatVars['show_hidden_jobs'] = 0:
+		$temp_bcolor = $func('themes', 'alt_color', $temp_bcolor)
+		$card_in['icon'] = 'images/system/icons/traits/hidden.png'
+		$card_in['title'] = '???'
+		$card_in['body'] = '<div style="font-size:0.9em; margin-top:4px;">这份工作目前尚未解锁。继续探索即可解锁。</div>'
+		$card_in['bg'] = $temp_bcolor
+		$card_in['opacity'] = '0.4'
+		gs 'cards', 'shell'
+		killvar 'card_in'
+		killvar 'jc_id'
+		exit
+	end
+
+	!! ── Employment state ──────────────────────────────────────────────
+	if $job_status[$jc_id] = 'employed':
+		$jc_opac = '1.0'
+		$jc_border = $theme_hex['accent']
+		$jc_status = $func('wrap', 'v_pos', '&#9679; 已就业')
+	elseif job_hiring_step[$jc_id] > 0:
+		$jc_opac = '0.85'
+		$jc_border = $theme_hex['goth']
+		$jc_status = $func('wrap', 'pos', '&#9675; 目前未就业')
+	else
+		$jc_opac = '0.6'
+		$jc_border = iif(theme['is_dark'] = 1, '#555555', '#aaaaaa')
+		$jc_status = $func('wrap', 'goth', '&#9675; 无业')
+	end
+
+	!! ── Icon ──────────────────────────────────────────────────────────
+	$jc_icon = 'images/system/icons/' + iif($job_icons_source[$jc_id] <> '', $job_icons_source[$jc_id], 'jobs') + '/' + $jc_id + '.png'
+
+	!! ── Schedule info ─────────────────────────────────────────────────
+	jc_slot = iif($job_active_schedule[$jc_id] <> '', val($job_active_schedule[$jc_id]), 0)
+	$jc_skey = $jc_id + ', ' + str(jc_slot)
+	if $job_schedule_mode[$jc_id] = 'booking':
+		$jc_sched = '基于预订 —报名可用时段'
+	elseif $job_schedule_mode[$jc_id] = 'on_demand':
+		$jc_sched = '按需，随时'
+	else
+		$jc_days = $func('jobs', 'format_days', $job_work_days[$jc_skey])
+		$jc_t_arr = $func('time', 'get_time_string', job_arrival[$jc_skey] / 60, job_arrival[$jc_skey] mod 60)
+		$jc_t_st = $func('time', 'get_time_string', job_start[$jc_skey] / 60, job_start[$jc_skey] mod 60)
+		jc_end_m = (job_start[$jc_skey] + job_shift[$jc_skey]) mod 1440
+		$jc_t_end = $func('time', 'get_time_string', jc_end_m / 60, jc_end_m mod 60)
+		if $job_schedule_mode[$jc_id] = 'windowed':
+			jc_shift_h = job_shift[$jc_skey] / 60
+			jc_shift_m = job_shift[$jc_skey] mod 60
+			$jc_dur = iif(jc_shift_m = 0, str(jc_shift_h) + 'h', str(jc_shift_h) + 'h ' + str(jc_shift_m) + 'min')
+			$jc_sched = $jc_days + ', anytime ' + $jc_t_arr + '-' + $jc_t_st + ', ' + $jc_dur + ' shift'
+		else
+			$jc_sched = $jc_days + ', arrive ' + $jc_t_arr + '-' + $jc_t_st + ', until ' + $jc_t_end
+		end
+	end
+
+	!! ── Pay info ──────────────────────────────────────────────────────
+	if $job_pay_interval_def[$jc_id] = 'none':
+		$jc_pay = '薪酬：单独管理'
+	elseif job_pay_rate_def[$jc_id] = 0:
+		$jc_pay = '薪酬：视表现而定'
+	else
+		$jc_pay = '报酬： ' + $func('money', 'string_profit', job_pay_rate_def[$jc_id]) + '每' + $job_pay_interval_def[$jc_id]
+	end
+
+	!! ── Body text: hire hint (not employed) or description ──────────────
+	if job_refresh_desc[$jc_id] = 1:
+		!! Re-call definition to let jobs_list recompute $job_desc from runtime state
+		if $job_definition_source[$jc_id] <> '' and loc($job_definition_source[$jc_id]):
+			gs $job_definition_source[$jc_id], $jc_id
+		else
+			gs 'jobs_list', $jc_id
+		end
+	end
+	$jc_body = ''
+	if $job_status[$jc_id] <> 'employed':
+		$jc_body = $job_hire_hint[$jc_id + ', ' + str(job_hiring_step[$jc_id])]
+	end
+	if $jc_body = '': $jc_body = $job_desc[$jc_id]
+
+	!! ── Alternating background (caller sets $temp_bcolor = '' to begin) ─
+	$temp_bcolor = $func('themes', 'alt_color', $temp_bcolor)
+
+	!! ── Render ────────────────────────────────────────────────────────
+	$jc_body_html = '<div style="font-size:0.85em; margin-top:3px;"><<$jc_status>></div>'
+	if $jc_sched <> '':
+		$jc_body_html += '<div style="font-size:0.85em; margin-top:2px; opacity:0.8;"><<$jc_sched>></div>'
+	end
+	$jc_body_html += '<div style="font-size:0.85em; margin-top:2px; opacity:0.8;"><<$jc_pay>></div>'
+	if $jc_body <> '':
+		$jc_body_html += '<div style="margin-top:6px; font-size:0.9em;"><<$jc_body>></div>'
+	end
+
+	$card_in['icon'] = $jc_icon
+	$card_in['title'] = $job_title[$jc_id]
+	$card_in['title_sub'] = 'at ' + $job_location[$jc_id]
+	$card_in['body'] = $jc_body_html
+	$card_in['border'] = $jc_border
+	$card_in['bg'] = $temp_bcolor
+	$card_in['opacity'] = $jc_opac
+	gs 'cards', 'shell'
+	killvar 'card_in'
+	killvar 'jc_body_html'
+
+	killvar 'jc_id'		& killvar 'jc_opac'		& killvar 'jc_border'
+	killvar 'jc_icon'	& killvar 'jc_slot'		& killvar 'jc_skey'
+	killvar 'jc_days'	& killvar 'jc_t_arr'	& killvar 'jc_t_st'
+	killvar 'jc_end_m'	& killvar 'jc_shift_h'	& killvar 'jc_shift_m'
+	killvar 'jc_pay'	& killvar 'jc_body'		& killvar 'jc_status'
+	killvar 'jc_sched'	& killvar 'jc_t_end'	& killvar 'jc_dur'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ show_all — print HTML cards for every jobs_list job, sorted by status: │
+!! │   employed → preemployed → terminated → fired → unemployed → hidden    │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'show_all':
+	gs 'jobs', 'ensure_registry'
+	!! Sort registry into status buckets
+	show_all_ji = 0
+	:show_all_sort
+	if show_all_ji < arrsize('$job_registry'):
+		$sa_id = $job_registry[show_all_ji]
+		gs 'jobs', 'get_job_definition', $sa_id
+		if job_card_hidden[$sa_id] = 1 and $job_status[$sa_id] <> 'employed' and job_hiring_step[$sa_id] = 0:
+			$sa_hidden[] = $sa_id
+		elseif $job_status[$sa_id] = 'employed':
+			$sa_emp[] = $sa_id
+		elseif $job_status[$sa_id] = 'preemployed':
+			$sa_pre[] = $sa_id
+		elseif $job_status[$sa_id] = 'terminated':
+			$sa_term[] = $sa_id
+		elseif $job_status[$sa_id] = 'fired':
+			$sa_fired[] = $sa_id
+		else
+			$sa_unemp[] = $sa_id
+		end
+		show_all_ji += 1
+		jump 'show_all_sort'
+	end
+	!! Render buckets in order
+	$temp_bcolor = ''
+	show_all_ji = 0
+	:show_all_r_emp
+	if show_all_ji < arrsize('$sa_emp'):
+		*p $func('jobs', 'card', $sa_emp[show_all_ji])
+		show_all_ji += 1
+		jump 'show_all_r_emp'
+	end
+	show_all_ji = 0
+	:show_all_r_pre
+	if show_all_ji < arrsize('$sa_pre'):
+		*p $func('jobs', 'card', $sa_pre[show_all_ji])
+		show_all_ji += 1
+		jump 'show_all_r_pre'
+	end
+	show_all_ji = 0
+	:show_all_r_term
+	if show_all_ji < arrsize('$sa_term'):
+		*p $func('jobs', 'card', $sa_term[show_all_ji])
+		show_all_ji += 1
+		jump 'show_all_r_term'
+	end
+	show_all_ji = 0
+	:show_all_r_fired
+	if show_all_ji < arrsize('$sa_fired'):
+		*p $func('jobs', 'card', $sa_fired[show_all_ji])
+		show_all_ji += 1
+		jump 'show_all_r_fired'
+	end
+	show_all_ji = 0
+	:show_all_r_unemp
+	if show_all_ji < arrsize('$sa_unemp'):
+		*p $func('jobs', 'card', $sa_unemp[show_all_ji])
+		show_all_ji += 1
+		jump 'show_all_r_unemp'
+	end
+	show_all_ji = 0
+	:show_all_r_hidden
+	if show_all_ji < arrsize('$sa_hidden'):
+		*p $func('jobs', 'card', $sa_hidden[show_all_ji])
+		show_all_ji += 1
+		jump 'show_all_r_hidden'
+	end
+	killvar 'temp_bcolor' & killvar 'show_all_ji' & killvar 'sa_id'
+	killvar 'sa_emp' & killvar 'sa_pre' & killvar 'sa_term' & killvar 'sa_fired' & killvar 'sa_unemp' & killvar 'sa_hidden'
+	exit
+end
+
+
+--- jobs ---------------------------------

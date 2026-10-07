@@ -1,0 +1,229 @@
+# pet_dog
+
+if $ARGS[0] = 'gadukino':
+	*clr & cla
+	minut += 1
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/rex/rex_gadukino_'+iif(month > 3 and month < 11, 'summer', 'winter')+'.jpg"></center>'
+	'<<$rex[''name'']>>正在到处跑，'+iif(month > 3 and month < 11, '嗅来嗅去', '在雪地里玩耍')+'。你的祖母很喜欢照顾他，所以你在加杜基诺村期间不用担心他。'
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	minut += 1
+	menu_off = 1
+	$location_type = 'private'
+	gs 'stat'
+
+	if objects['chew'] > 0 and rand(1, 10) > 5 and rex['chew_day'] ! daystart:
+		rex['relationship'] += 1
+		objects['chew'] -= 1
+		rex['chew_day'] = daystart
+		'<center><img <<$set_imgh>> src="images/characters/shared/rex/rex_chew.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/pet shop/pets/dog.jpg"></center>'
+	end
+	'你的狗叫<<$rex[''name'']>>。照顾他是你的责任。他需要每天喂食两次、遛两次，并且每周洗澡一次。'+iif((rex['count_walk'] + rex['count_feed'] + rex['count_bath']) = 0, ' 你已经完成了所有必要的家务。', '')
+
+	*nl
+
+	if (rex['count_walk'] + rex['count_feed'] + rex['count_bath']) > 0:
+		'<b>家务：</b>'
+		if rex['count_walk'] > 0: '- 你今天要遛他<<rex[''count_walk'']>>次。'
+		if rex['count_feed'] > 0: '- 你今天要喂他<<rex[''count_feed'']>>次。'
+		if rex['count_bath'] > 0: '- 这周你要给他洗<<rex[''count_bath'']>>次澡。'
+		*nl
+	end
+
+	if rex['relationship'] < 10:
+		'<<$rex[''name'']>>在你靠近时无视你。 '+iif(objects['chew'] = 0, '他的旧咬咬玩具已经破旧不堪。也许该给他买个新的了？', '')
+	elseif rex['relationship'] < 30:
+		'<<$rex[''name'']>>在你靠近时抬起头。 '+iif(objects['chew'] = 0, '他的旧咬咬玩具已经破旧不堪。也许该给他买个新的了？', '')
+	elseif rex['relationship'] < 60:
+		'<<$rex[''name'']>>在你靠近时抬起头，摇着尾巴'+iif(rex['relationship'] > 45, '，', ' 微微')+'。 '+iif(objects['chew'] = 0, '他的旧咬咬玩具已经破旧不堪。也许该给他买个新的了？', '')
+	else
+		'<<$rex[''name'']>>跳起来，'+iif(rex['relationship'] > 80, '开心地', ' ')+'摇着尾巴迎接你。 '+iif(objects['chew'] = 0, '他的旧咬咬玩具已经破旧不堪。也许该给他买个新的了？', '')
+	end
+
+	gs 'pet_dog', 'activities_normal'
+	act '离开': gt $loc, $loc_arg
+
+end
+
+!! --- Activities: Actions ---
+
+
+if $ARGS[0] = 'activities_normal':
+	if rex['count_feed'] > 0 and hour > (rex['timer_feed'] + 3) and ($home['current'] = 'parents_home' or objects['dog_food'] > 0):
+		act '喂他 (0:03)': gt 'pet_dog', 'feed'
+	elseif rex['count_feed'] > 0 and hour > (rex['timer_feed'] + 3) and $home['current'] ! 'parents_home' and objects['dog_food'] <= 0:
+		'<br>你没有狗粮可以喂他。'
+	end
+
+	if objects['treats'] > 0 and rex['timer_treat'] ! daystart:
+		act '给他零食 (0:01)': gt 'pet_dog', 'treat'
+	elseif objects['treats'] = 0 and rex['timer_treat'] ! daystart:
+		'<br>你没有任何零食可以给他。'
+	end
+
+	if $clothingworntype = 'nude':
+		'<br>如果你想和<<$rex[''name'']>>一起出去，你应该穿上些衣服。'
+	else
+		if rex['count_walk'] > 0 and hour > (rex['timer_walk'] + 3):
+			act '和他一起去散步 '+iif(daystage = 5 or sunWeather = 0, '(0:10)', '(0:15)')+' ': gt 'pet_dog', 'exercise', 'walk'
+			if rex['count_run'] = 0 and PSport = 1:
+				if hour >= 7 and hour <= 21:
+					act '和他一起去跑步 (1:00)': gt 'pet_dog', 'exercise', 'run'
+				else
+					'<br>现在去和他跑步太'+iif(hour < 7, '早', '晚')+'了。'
+				end
+			end
+		end
+	end
+
+	if rex['count_bath'] > 0: act '给<<$rex[''name'']>>洗澡 (0:25)': gt 'pet_dog', 'bath'
+
+	if rex['play_inside'] ! daystart and hour < 23 and objects['toys'] = 1: act '和他在屋里玩 (0:20)': gt 'pet_dog', 'play_inside'
+end
+!! --- Activities ---
+
+
+if $ARGS[0] = 'feed':
+	*clr & cla
+	minut += 3
+	rex['relationship'] += 1
+	rex['timer_feed'] = hour
+	rex['count_feed'] -= 1
+	if $home['current'] ! 'parents_home': objects['dog_food'] -= 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/rex/feeding_'+rand(0, 1)+'.jpg"></center>'
+	'"来，'+iif(rand(0, 1) = 0, '好孩子', $rex['name'])+'，我们给你弄点吃的，"你说着走进厨房。他'+iif(rand(0, 1) = 0, '跟在你身后，用充满感激的大眼睛看着你往碗里倒狗粮', '一听到你倒狗粮的声音就立刻跑进厨房')+'，然后迫不及待地大口吃了起来。'
+	*nl
+	if $home['current'] ! 'parents_home': '你的狗粮还够<<objects[''dog_food'']>>顿。'
+
+	act '让他吃': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'treat':
+	*clr & cla
+	minut += 1
+	rex['relationship'] += 2
+	objects['treats'] -= 1
+	rex['timer_treat'] = daystart
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/rex/treat.jpg"></center>'
+	'"谁是乖孩子？"你微笑着问道，从口袋里掏出一块他最喜欢的零食。他嗅了嗅，尾巴来回摇动。"谁是乖孩子？"你又问了一遍，他汪汪叫着回应。"对，就是你！"你赞同地说，把零食递过去。他一把从你手里叼走零食，开心地跑回自己的狗窝。'
+
+	act '继续': gt 'pet_dog', 'start'
+end
+
+
+if $ARGS[0] = 'exercise':
+	*clr & cla
+	rex['count_walk'] -= 1
+	$location_type = 'public_outdoors'
+
+	if $ARGS[1] = 'walk':
+		rex['timer_walk'] = hour
+		rex['relationship'] += 1
+		minut += iif(daystage = 5 or sunWeather = 0, 10, 15)
+
+		act '回家': gt $loc, $loc_arg, 'check'
+
+		if daystage = 5:
+			'<center><img <<$set_imgh>> src="images/characters/shared/rex/walk_night_'+rand(0, 2)+'.jpg"></center>'
+			'现在太'+iif(hour < 9, '早', '晚')+'了，不适合长途散步或和他玩耍。你只带他在附近转转，直到他办完自己的事。'
+		elseif sunWeather = 0:
+			'<center><img <<$set_imgh>> src="images/characters/shared/rex/walk_rain.jpg"></center>'
+			'天气糟透了，长途散步根本不可能。你只带他在附近转转，直到他办完自己的事。'
+		else
+			'<center><img <<$set_imgh>> src="images/characters/shared/rex/walk_day_'+rand(0, 4)+'.jpg"></center>'
+			'他每隔几米就停下来嗅嗅有趣的东西，开心地和另一只狗打招呼，或者标记自己的地盘，你也偶尔和其他狗主人聊上一两分钟，最后终于到了公园。到达专供狗活动的区域后，你解开他的牵引绳，让他自由奔跑一会儿。'
+
+			act '和他一起玩 (0:10)':
+				*clr & cla
+				minut += 10
+				gs 'mood', 'raise', 'tiny'
+				rex['relationship'] += iif(objects['toys'] = 1, 2, 1)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/shared/rex/play_outside_'+rand(0, 3)+'.jpg"></center>'
+				'你'+iif(objects['toys'] = 1, '掏出一个橡胶球', '捡起一根树枝')+'，他开心地摇着尾巴，知道接下来会发生什么。"接住！"你喊道，然后把'+iif(objects['toys'] = 1, '球', '树枝')+'扔得尽可能远。他吠叫着追上去，然后捡起来，得意地把它带回给你。 '+iif(objects['toys'] = 1, '他似乎更喜欢和他的玩具球玩捡球游戏。 ', '')+'你继续这样玩了十分钟，最后你…'
+
+				act '……回家': gt $loc, $loc_arg
+			end
+		end
+	else
+		rex['timer_walk'] = hour
+		rex['relationship'] += 3
+		gs 'mood', 'raise', 'small'
+		sunWeather = 1
+		gs 'sweat', 'add', 20
+		gs 'exercise', 'tier1', 60, 'run'
+		fat -= rand(1, 3)
+		'<center><img <<$set_imgh>> src="images/characters/shared/rex/run_'+iif(daystage = 1 or daystage = 3 or daystage = 4 or daystage = 6, 'sunset', str(rand(0, 1)))+'.jpg"></center>'
+		'你穿上跑鞋时，<<$rex[''name'']>>兴奋地围着你转圈。他喜欢和你一起跑步。"没错，"你笑着说。"我们要去跑步了。准备好了吗？"他摇着尾巴。"好，我们出发吧，好孩子！"'
+		'你出门开始跑步。<<$rex[''name'']>>顺从地跟在后面，有时会停下来嗅嗅或标记地盘，但你还没跑远，他总会回到你身边。'
+		'一个小时后，你筋疲力尽、大汗淋漓地回到家。'
+
+		act '继续': gt $loc, $loc_arg
+	end
+
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'play_inside':
+	*clr & cla
+	minut += 20
+	gs 'mood', 'raise', 'small'
+	rex['relationship'] += 2
+	rex['play_inside'] = daystart
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/rex/play_inside_'+rand(0, 3)+'.jpg"></center>'
+	'你和<<$rex[''name'']>>嬉闹玩耍，尽情地给他应得的关爱。你拿出他的一颗玩具球，在公寓里滚来滚去，玩一种安全的室内接球游戏。你和他依偎在沙发上，用最后几分钟抚摸他柔软的皮毛。'
+
+	act '停止玩耍': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'bath':
+	*clr & cla
+	minut += 25
+	rex['count_bath'] -= 1
+	rex['relationship'] += 3
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/rex/bath.jpg"></center>'
+	'"来吧，<<$rex[''name'']>>，该洗澡了，"你说着打开浴室的门。<<$rex[''name'']>>看起来有点困惑。"来吧，好孩子，"你打响指说道，他终于跟着你走了进去。'
+	'你先把他的皮毛梳理一遍，然后试着让他进浴缸。劝了好几次他才肯听话，但最终他还是照做了。'
+	'"别动，"你用平静而令人安心的声音说道，然后轻轻用狗狗香波给他搓洗，再冲洗干净并擦干他的皮毛。结束后，你让他离开浴室。'
+
+	act '继续': gt $loc, $loc_arg
+end
+!! --- Name ---
+
+
+if $ARGS[0] = 'name':
+	*clr & cla
+	menu_off = 1
+	rex['status'] = 1
+	rex['count_walk_base'] = 2
+	rex['count_feed_base'] = 2
+	rex['count_bath_base'] = 1
+	rex['count_walk'] = rex['count_walk_base']
+	rex['count_feed'] = rex['count_feed_base']
+	rex['count_bath'] = rex['count_bath_base']
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/pet shop/pets/dog.jpg"></center>'
+	$rex['name'] = input("你给你的狗取什么名字？（留空则为 雷克斯)")
+	if $rex['name'] = '': $rex['name'] = 'Rex'
+
+	act '继续': $status['dog'] = 'active' & gt $loc, $loc_arg
+	act '移除这只狗（之后可在作弊菜单中恢复）': $status['dog'] = 'blocked' & gt $loc, $loc_arg
+end
+
+--- pet_dog ---------------------------------

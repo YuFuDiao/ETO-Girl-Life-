@@ -1,0 +1,643 @@
+# dream_events
+menu_off = 1
+
+!! Dream events trigger after deciding to go to sleep, but before any time has advanced.
+!! Note that dreams are supposed to stick on the screen during the sleep cycle. So only use xgt and gs!!
+!!
+!! Moved here from sleep
+!! When done: Move to sleep
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Event handlers                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	menu_off = 1
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+
+	if sleepVars['dreams_active'] = 1:
+		sleepVars['events_done'] = 0
+
+		if stepdadQW = 3:
+			$sleep_events_priority[] = 'gs ''dream_events'', ''stepdad_dream'' '
+		end
+		if canBraidHair = 0 and $start_type['loc'] ! 'sg' and pcs_hairlng > 80:
+			$sleep_events_priority[] = 'gs ''dream_events'', ''braid_hair_dream'' '
+		end
+		if succubusQW = 1 or succubusQW = 2:
+			!! this is for initial dream and a reoccuring dream if the feeling was ignored
+			$sleep_events_priority[] = 'gs ''dream_events'', ''succubus_dream'' '
+		end
+
+		if rand(1, 100) <= cheatVars['no_dream_chance']:
+			!! nodream chance cheat
+			$sleep_events[] = 'gs ''dream_events'', ''no_dream'' '
+		else
+			if pcs_horny <= 50:
+				$sleep_events[] = 'gs ''dream_events'', ''d_dreams'' '
+			elseif rand(0, 3) < hypnoTime:
+				!! dreams for hypnotized girls
+				$sleep_events[] = 'gs ''dream_events'', ''hypno_dreams'' '
+			else
+				!! erotic dream
+				$sleep_events[] = 'gs ''dream_events'', ''erotic_dream_switch'' '
+			end
+			gs 'blackmailer', 'blackmail_dream_events'
+		end
+
+		xgt 'dream_events', 'mod_sleepevents'
+	end
+
+	xgt 'dream_events', 'continue'
+end
+
+
+if $ARGS[0] = 'mod_sleepevents':
+	!! This location is here to allow mods to hook into the system.
+	!! Either check for: if $ARGS[0] = 'dream_events' and $ARGS[1] = 'mod_sleepevents'
+	!!
+	!! You can add events as: $sleep_events[] = 'gs ''mod_loc'' ''mod_args0'' '
+	!! A random event will be chosen from amongst the added ones.
+	!! If an event MUST trigger (due to quest timing), add it tp $sleep_events_priority[] = 'gs ''mod_loc'' ''mod_args0'' '
+	!!
+	!! If the event does not break the sleep cycle (merely interrupts it) it needs to end with gs 'dream_events', 'event_end'
+	!! If the event removed Sveta from her location (aka her sleep is cut short and/or she leaves her bed), you must call gs 'dream_events', 'exit'
+	!!
+	!! This is to cleanup all necessary variables.
+	!!
+	!! DO NOT DIRECTLY GOTO/GOSUB OUTOF THIS LOCATION. ALWAYS ADD IT TO THE QUEUEs!!!!
+	!! IT WILL ALMOST CERTIANLY END BADLY WHEN MORE THAN 1 MOD IS INVOLVED.
+
+	gs 'mod_system', 'sleep', 'dream_events', 'mod_sleepevents'
+	xgt 'dream_events', 'event_handler'
+end
+
+
+if $ARGS[0] = 'event_handler':
+	if sleepVars['events_done'] < 1:
+		if arrsize('$sleep_events_priority') > 0:
+			gt 'dream_events', 'event_handler2', 'priority'
+		elseif arrsize('$sleep_events') > 0:
+			gt 'dream_events', 'event_handler2'
+		end
+	end
+
+	xgt 'dream_events', 'continue'
+end
+
+
+if $ARGS[0] = 'event_handler2':
+	sleepVars['events_done'] += 1
+
+	if $ARGS[1] = 'priority':
+		temp_slev_id = rand(0, arrsize('$sleep_events_priority')-1)
+		$temp_sleep_event_chosen = $sleep_events_priority[temp_slev_id]
+		killvar 'sleep_events_priority', temp_slev_id
+	else
+		temp_slev_id = rand(0, arrsize('$sleep_events')-1)
+		$temp_sleep_event_chosen = $sleep_events[temp_slev_id]
+		killvar 'sleep_events', temp_slev_id
+	end
+
+	killvar 'temp_slev_id'
+	dynamic $temp_sleep_event_chosen
+
+	xgt 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'event_end':
+	killvar 'temp_sleep_event_chosen'
+
+!!	if arrsize('$sleep_events_priority') > 0:
+!!		gt 'bed_events', 'event_handler2', 'priority'
+!!	end
+
+	xgt 'dream_events', 'event_handler'
+end
+
+
+if $ARGS[0] = 'exit':
+	sleepVars['events_done'] = 0
+	sleepVars['stat_display'] = 0
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+	killvar 'temp_slev_id'
+	killvar 'temp_sleep_event_chosen'
+	inSleep = 0
+	gs 'wakeup', 'wear_bed_clothes'
+end
+
+
+if $ARGS[0] = 'continue':
+	sleepVars['events_done'] = 0
+	sleepVars['stat_display'] = 0
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+	killvar 'temp_slev_id'
+	killvar 'temp_sleep_event_chosen'
+
+	xgt 'sleep', 'post_dream'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               Events                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'stepdad_dream':
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/vladimir/sex/bath_voyer_1.jpg"></center>'
+	'你做了一个非常奇怪的梦：你蒙着眼睛和一个陌生人做爱。完事后你摘下眼罩，看到你的继父正对着你咧嘴笑。'
+	pcs_horny = max(100, pcs_horny)
+	stepdadQW += 1
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'braid_hair_dream':
+	canBraidHair = 1
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/anya/braid.jpg"></center>'
+	'你梦到姐姐教你编辫子的那段时光。那是你搬出去前不久，最难忘的姐妹情谊时刻之一。'
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'succubus_dream':
+	'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/succubdream.jpg"></center>'
+	if succubusQW = 1:
+		succubusQW = 2
+		'你梦见自己和多个伴侣做爱，从他们每个人身上吸取能量。'
+	else
+		'你又做了同样的梦，从多个伴侣身上吸取能量。'
+	end
+	pcs_horny = max(100, pcs_horny)
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'no_dream':
+	if $start_type['magic'] ! 'tg' or rand(0, 9) > 2:
+		'你睡着了，一夜无梦。'
+	else
+		temp = rand(0, 2)
+		if temp = 0:
+			'你做了关于过去的模糊的梦。'
+		elseif temp = 1:
+			'你梦见月亮用他那血红的独眼注视着世界。'
+		else
+			'你梦见自己又变成了男人。'
+		end
+	end
+	gs 'dream_events', 'event_end'
+end
+
+
+
+!! ----------------------------Erotic Dreams----------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'erotic_dream_switch':
+	!! erotic dream
+	if func('pcs_has_attr', 'sex_virgin') and stat['think_virgin'] = 1 and func('pcs_has_attr', 'sex_anal_virgin') and (stat['anal'] + stat['bj'] + stat['hj'] + stat['cuni']+ stat['female_sexual_partners'] + stat['male_sexual_partners'] + stat['herm_sexual_partners']) = 0:
+		!! dreams only for virgin
+		temp_rand = rand(1, 6)
+	else
+		temp_rand = rand(1, 7 + succublvl)
+	end
+
+	if temp_rand <= 1:
+		gs 'dream_events', 'd_dreams'
+	elseif temp_rand = 2:
+		gs 'dream_events', 'ero_dreams'
+	elseif temp_rand = 3:
+		gs 'dream_events', 'sex_dreams'
+	elseif temp_rand = 4:
+		gs 'dream_events', 'bj_dreams'
+	elseif temp_rand = 5:
+		gs 'dream_events', 'anal_dreams'
+	elseif temp_rand = 6:
+		gs 'dream_events', 'preg_dreams'
+	elseif temp_rand = 7:
+		gs 'dream_events', 'gang_dreams'
+	else
+		gs 'dream_events', 'succub_dreams'
+	end
+	killvar 'temp_rand'
+end
+
+
+if $ARGS[0] = 'd_dreams':
+	!! random dreams about nothing
+	if clownQW = 0:
+		temp_rand = rand(1, 13)
+	else
+		temp_rand = rand(1, 14)
+	end
+
+	if temp_rand = 1:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream1.jpg"></center>'
+		'你梦见一座古老的小镇，坐落在高耸瀑布的对岸。怪异的生物在它的尖塔之间飞翔。'
+	elseif temp_rand = 2:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream2.jpg"></center>'
+		'你梦见一座高塔，矗立在结冰的岩石上，覆盖着冰雪。'
+	elseif temp_rand = 3:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream3.jpg"></center>'
+		'你梦见一座冰山，山顶上矗立着一座奇怪的建筑，几乎像一座修道院。'
+	elseif temp_rand = 4:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream4.jpg"></center>'
+		'你梦见一个陌生的女孩，在漆黑狭窄的街道上冒着倾盆大雨奔跑。'
+	elseif temp_rand = 5:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream5.jpg"></center>'
+		'你梦见微笑的母亲站在一个堆满旧物的房间里。真奇怪。这会意味着什么呢？'
+	elseif temp_rand = 6:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream6.jpg"></center>'
+		'你梦见一个骑手站在湖边，四周环绕着陡峭的高山。'
+	elseif temp_rand = 7:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream7.jpg"></center>'
+		'你梦见一个皮肤焦黑的可怖男人，用链子牵着一只奇怪的生物，正准备和一个手持长剑的白发中年男人交手。也许是时候改掉睡前看电视的习惯了……'
+	elseif temp_rand = 8:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream8.jpg"></center>'
+		'你又梦见了那个白发男人，但他明显苍老了许多，还留着浓密的胡子。他身边站着一个漂亮的白发女孩。也许那是他的女儿？'
+	elseif temp_rand = 9:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream9.jpg"></center>'
+		'你梦见自己站在街上，混在人群中，看着一场核爆。真是太吓人了！'
+	elseif temp_rand = 10:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream10.jpg"></center>'
+		'你梦见一条充满未来感的街道，地上散落着垃圾。'
+	elseif temp_rand = 11:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream11.jpg"></center>'
+		'你梦见河岸边矗立着一座美丽而宏伟的大教堂。'
+	elseif temp_rand = 12:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream12.jpg"></center>'
+		'你梦见自己在冬天的湖边，注视着一个黑色的身影。他站在湖中央的亭子里，苍白的月光给这一幕蒙上了一层诡异的气氛。'
+	elseif temp_rand = 13:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream14.jpg"></center>'
+		'你做了一个奇怪的梦。你站在一片蔓延上陡峭山坡的黑暗森林前。从高处，水流和有毒的绿光倾泻进山谷。瀑布汇成一条小溪，蜿蜒流向你。小溪中蹲伏着一只奇怪的生物，用发光的眼睛盯着你……'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/dream13.jpg"></center>'
+		'你做了一场噩梦，梦见一个可怕的丑角想把你骗进下水道。'
+	end
+	killvar 'temp_rand'
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'hypno_dreams':
+	if therapistFuckedPussyStage < 1:
+		gs 'arousal', 'erotic', -15
+		temp_rand = rand(1, 2)
+	else
+		gs 'arousal', 'erotic', -20
+		temp_rand = rand(1, 7)
+	end
+
+	if temp_rand = 1:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/schoolSitBlow2.mp4"></video></center>'
+		'你梦见自己在吮吸某个人的鸡巴。'
+		if dreamedOfTherapistFucking = 2:
+			'那是你的治疗师。你抬起头，对上他的目光，急切地侍弄着他的肉棒。'
+		elseif stat['men_fucked'] = 0:
+			'你以前从没对男人做过这种事，但不知为何，感觉就是……很对。不过你却无法让自己抬头看看你吮吸的鸡巴是谁的。'
+		else
+			'这感觉几乎像真的一样，就像你真的在吮吸鸡巴，而且感觉很好！然而，你却无法让自己抬头看看你吮吸的鸡巴是谁的。'
+		end
+	elseif temp_rand = 2:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/throatFuck1.mp4"></video></center>'
+		'你梦见自己的喉咙被狠狠深插。很痛，你喘不过气来，但你只是静静坐着，任由自己被使用。男人把鸡巴埋进你的喉咙，他的睾丸有节奏地拍打着你的脸。'
+		if dreamedOfTherapistFucking = 2:
+			'从这个角度你看不到他的脸，但不知怎的，你知道那是你的治疗师。即使你双眼含泪、喉咙酸痛，你仍感到一种无法解释的取悦他的渴望。'
+		elseif stat['men_fucked'] = 0:
+			'你以前从没做过这种事，虽然你几乎喘不过气来，但感觉其实不错。不过你分辨不出是谁在操你。'
+		else
+			'这感觉几乎像真的一样，就像你的喉咙里真的插着一根巨大的鸡巴！你的喉咙很痛，但不知为何，你感觉自己快要高潮了。不过你分辨不出是谁在操你。'
+		end
+	elseif temp_rand = 3:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/hypnoAnalPiledriver1.mp4"></video></center>'
+		'你梦见自己的屁股被狠狠操弄。你的双腿被拉到头顶上方，你正拼命地刺激着自己的阴蒂。'
+		if dreamedOfTherapistFucking = 2:
+			'你的治疗师用力地顶入你的身体。即使在梦里，你内心的一部分也清楚地知道他是谁，这让快感变得更加剧烈。'
+		elseif stat['men_fucked'] = 0:
+			'你以前从没做过爱，但感觉棒极了！不过你分辨不出是谁在操你。'
+		else
+			'这感觉几乎像真的一样，就像你的屁股真的被鸡巴塞得满满的。感觉很棒，但你分辨不出是谁在操你。'
+		end
+	elseif temp_rand = 4:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/hypnoRide4.mp4"></video></center>'
+		if dreamedOfTherapistFucking = 2:
+			'你梦见自己骑在治疗师的鸡巴上。你拼命地把小穴往他粗大的肉棒上撞，他巨大的鸡巴顶到你的子宫颈。感觉美妙极了，你内心深处渴望感受他的精液灌进你的身体。'
+		else
+			'你梦见自己骑在某个人的鸡巴上。你拼命地把小穴往他粗大的肉棒上撞，你的乳房随着动作疯狂地上下晃动。'
+			if stat['men_fucked'] = 0:
+				'你从没做过这种事。每次完全坐下去，内心深处都会隐隐作痛，但感觉也很舒服！你无法让自己转头去看你骑的是谁。'
+			else
+				'这感觉几乎像真的一样，就像你真的骑在某个人的巨大鸡巴上！不过你无法让自己转头去看你骑的是谁。'
+			end
+		end
+	elseif temp_rand = 5:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/hypnoFuckCouchKneel1.mp4"></video></center>'
+		if dreamedOfTherapistFucking = 2:
+			'你梦见自己被治疗师从身后狠狠操弄。'
+			'他每用力把鸡巴顶进你体内，你湿漉漉的小穴就贪婪地发出咕啾声。感觉太爽了……'
+		else
+			'你梦见自己趴在地上，被从身后狠狠操弄。'
+			if stat['men_fucked'] = 0:
+				'你从未做过爱，但感觉太棒了！你不知道是谁在操你也无法强迫自己回头看。'
+			else
+				'这感觉几乎像是真的，就像你真的被一根鸡巴塞满小穴而且感觉太爽了！你不知道是谁在操你也无法强迫自己回头看。'
+			end
+		end
+	elseif temp_rand = 6:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/schoolDoggy3.mp4"></video></center>'
+		if dreamedOfTherapistFucking = 2:
+			'你梦见自己的双手被反绑在背后，被治疗师从身后狠狠操弄。'
+			'他巨大的鸡巴撑开你的小穴，你感到一种美妙的充实感。'
+		else
+			'你梦见自己的双手被反绑在背后，被从身后狠狠操弄。'
+			if stat['men_fucked'] = 0:
+				'你从未做过爱，但感觉太棒了！你不知道是谁在操你也无法强迫自己回头看。'
+			else
+				'这感觉几乎像是真的，就像你真的被一根鸡巴塞满小穴而且感觉太爽了！你不知道是谁在操你也无法强迫自己回头看。'
+			end
+		end
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/clinic/therapist/sex/schoolFuckCouchBack1.mp4"></video></center>'
+		if dreamedOfTherapistFucking = 2:
+			'你梦见自己被治疗师狠狠操弄小穴。你尽可能把腿张到最开，好让他的鸡巴插得尽可能深。感觉妙不可言。'
+		else
+			if dreamedOfTherapistFucking <= 0: dreamedOfTherapistFucking = 1
+			'你梦见自己的小穴被狠狠操弄。你尽可能把腿张开并保持到最开，好让他们的鸡巴插得尽可能深。'
+			if stat['men_fucked'] = 0:
+				'你以前从没做过爱，但感觉妙不可言！你努力集中精神，然后意识到……你的治疗师在操你？'
+			else
+				'这感觉几乎像真的一样，就像你的小穴真的被鸡巴塞得满满的，感觉棒极了！你努力集中精神，然后意识到……你的治疗师在操你？！'
+			end
+		end
+	end
+
+	*nl
+
+	if stat['men_fucked'] = 0 and dreamedOfTherapistFucking < 2:
+		'你醒来时感到既奇怪又兴奋。尽管你从未做过爱，那个梦却感觉非常真实。'
+	elseif func('pcs_has_attr', 'sex_virgin') = 0:
+		if stat['vaginal'] = 0 and dreamedOfTherapistFucking < 2:
+			'你以前从未有过鸡巴插进小穴，然而梦中的感觉非常真实并让你有点兴奋。'
+		else
+			'看来你的<<$vaginatipe>>小穴急需得到关注。'
+		end
+	end
+	if dreamedOfTherapistFucking = 1:
+		'可你的治疗师为什么要操你呢？也许你应该<font color=grey><s>担心一下</s></font><i>跟他谈谈这件事？</i>'
+	elseif dreamedOfTherapistFucking = 2:
+		'你和治疗师做的事感觉很好……真的很好。光是想想，你的小穴就一阵悸动。你躺在床上，心不在焉地幻想着他会用什么方式操你。'
+	end
+	killvar 'temp_rand'
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'ero_dreams':
+	!! only erotica
+	gs 'arousal', 'erotic', -10
+	if $start_type['magic'] = 'no_magic':
+		temp_rand = rand(1, 5)
+	else
+		temp_rand = rand(1, 6)
+	end
+	if temp_rand = 1:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/ero1.jpg"></center>'
+		'你梦见自己在一所学校里，那里的所有女孩都被要求裸体上课。'
+	elseif temp_rand = 2:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/ero2.jpg"></center>'
+		'你梦见自己赤身裸体，在沙发上爱抚着一个体格健壮的男人。他亲吻着你的脖子，慢慢往下吻到你的胸口，舌尖在你的乳头上轻轻挑逗。'
+	elseif temp_rand = 3:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/ero3.jpg"></center>'
+		'你梦见自己和男人一起淋浴。他往你身上涂抹泡沫，特别照顾你的胸部和下身，而他坚硬的鸡巴不时蹭过你的背。'
+	elseif temp_rand = 4:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/ero4.jpg"></center>'
+		'你梦见自己和一个女孩赤裸着躺在床上，热情地亲吻、爱抚着彼此。'
+	elseif temp_rand = 5:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/ero5.jpg"></center>'
+		'你梦见自己赤身裸体，和一个陌生人亲热。'
+	else
+		gs 'arousal', 'erotic', -5
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/magicerodream1.jpg"></center>'
+		'你梦见一个性感的精灵在自慰。'
+		'你把自己想象成那个精灵，在偏僻的池塘里用手指玩弄自己的小穴。四下无人，你一边寻找所有最刺激的部位，一边摆动腰肢，把自己一步步推向高潮的边缘。'
+		'但你始终没能到达高潮，结果反而变得更加欲火中烧。'
+	end
+	killvar 'temp_rand'
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'sex_dreams':
+	!! only vaginal sex
+	gs 'arousal', 'erotic', -25
+	temp_rand = rand(1, 5)
+	if temp_rand = 1:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/sex1.jpg"></center>'
+		'你梦见自己在一座豪宅的泳池边，和一个英俊健壮的男人做爱。你骑在他的鸡巴上上下颠动，他则紧紧抓着你的屁股。'
+		'他开始呻吟、绷紧身体，于是你加快了上下颠动的速度，然后……'
+	elseif temp_rand = 2:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/sex2.jpg"></center>'
+		'你梦见自己和陌生人在沙发上做爱。他温柔地吻着你，双手握住你的乳房揉弄，同时把鸡巴在你的小穴里进进出出。'
+	elseif temp_rand = 3:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/sex3.jpg"></center>'
+		'你梦见自己和陌生人躺在沙滩上。你以传教士体位躺在沙子上，他亲吻着你的脖子，有节奏地把鸡巴顶进你的小穴。'
+	elseif temp_rand = 4:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/sex4.jpg"></center>'
+		'你梦见自己趴在沙发上，一个男人在你身后，紧紧抓着你的屁股，把鸡巴在你体内进进出出。你因为快感而咬着嘴唇。'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/sex5.jpg"></center>'
+		'你梦见自己骑在一个男人身上，在他的鸡巴上上下颠动。'
+	end
+
+	if stat['think_virgin'] = 1:
+		'你醒来时感到既奇怪又兴奋。尽管你从未做过爱，那个梦却感觉非常真实。'
+	elseif func('pcs_has_attr', 'sex_virgin') = 0 and stat['vaginal'] = 0:
+		'你以前从未有过鸡巴插进小穴，然而梦中的感觉非常真实并让你有点兴奋。'
+	else
+		'看来你的<<$vaginatipe>>小穴急需得到关注。'
+	end
+	killvar 'temp_rand'
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'bj_dreams':
+	!! only Blowjob
+	gs 'arousal', 'erotic', -15
+	if rand(0, 1) = 0:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/bj1.jpg"></center>'
+		'你梦见自己在大海边的日落时分吮吸一个男人的鸡巴。'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/bj2.jpg"></center>'
+		'你做了一个梦，梦见自己被绑在楼梯上，双腿大张地蹲着，吮吸、品味着一个衣着考究的男人的鸡巴。'
+	end
+
+	if stat['bj'] = 0:
+		'你从没给别人口交过，但嘴里含着鸡巴的感觉非常真实。这个梦让你有点兴奋。'
+	else
+		'看来你潜意识里想吮吸鸡巴……'
+	end
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'anal_dreams':
+	!! only anal sex
+	gs 'arousal', 'erotic', -25
+	if rand(0, 1) = 0:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/anal1.jpg"></center>'
+		'你梦见自己弯下腰，一个男人用鸡巴有节奏地操弄你的屁股，而你一边爱抚着自己的阴蒂。'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/anal2.jpg"></center>'
+		'你梦见自己侧躺着，一个男人在操你的屁股。快感让你大声呻吟起来。'
+	end
+
+	if stat['anal'] = 0 and func('pcs_has_attr', 'sex_anal_virgin'):
+		'你醒来时感到既奇怪又兴奋。尽管你从没做过肛交，但那个梦感觉非常真实。'
+	elseif stat['anal'] = 0:
+		'你以前从没让鸡巴进过你的屁股，但梦里的感觉非常真实，让你有点兴奋。'
+	else
+		'看来你的<<$anustipe>>肛门急需得到关注。'
+	end
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'gang_dreams':
+	!! only Gangbang
+	gs 'arousal', 'erotic', -25
+	if rand(0, 1) = 0:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/gang1.jpg"></center>'
+		'你梦见两个男人在操你。你躺在他们中间，吮吸着其中一个，另一个则操着你的屁股。'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sex/gang2.jpg"></center>'
+		'你梦见自己夹在两个帅气的男人中间，一个操着你的小穴，另一个操着你的屁股。两人都用力地操你，让你舒服得大声呻吟。'
+	end
+
+	if stat['gangbang_count'] = 0:
+		if stat['think_virgin'] = 1 and func('pcs_has_attr', 'sex_anal_virgin') and (stat['anal'] + stat['bj'] + stat['hj'] + stat['male_sexual_partners'] + stat['female_sexual_partners']) = 0:
+			'你连正常的性爱都没经历过，更别说三人行了。虽然你很兴奋，但这个梦还是让你有点害怕。'
+		elseif stat['vaginal'] > 0 and func('pcs_has_attr', 'sex_anal_virgin') and (stat['anal'] + stat['bj'] + stat['hj']) = 0:
+			'尽管你做过爱，但一想到群交，哪怕只是在梦里，还是有点吓人。'
+		elseif func('pcs_has_attr', 'sex_virgin') and func('pcs_has_attr', 'sex_anal_virgin_not') and stat['male_sexual_partners'] > 0 and stat['female_sexual_partners'] = 0:
+			'尽管严格来说你还是个处女，但一想到群交，哪怕只是在梦里，还是有点吓人。'
+		elseif func('pcs_has_attr', 'sex_anal_virgin') and stat['anal'] = 0 and stat['male_sexual_partners'] > 0 and stat['female_sexual_partners'] = 0:
+			'看来在你的梦里，一次一个男人已经不够了……'
+		else
+			'这个梦感觉非常真实而且让你感到有点兴奋。'
+		end
+	else
+		if stat['male_sexual_partners'] = 0 and stat['female_sexual_partners'] = 0:
+			'这个梦感觉非常真实而且让你感到有点兴奋。'
+		elseif stat['female_sexual_partners'] = 0:
+			'看来你和几个男人玩交换的经历没有白费，你的潜意识正在积极地提醒你这一点。'
+		elseif stat['male_sexual_partners'] = 0:
+			'看来你和几个女孩玩交换的经历没有白费，你的潜意识正在积极地提醒你这一点。'
+		else
+			'看来你玩交换的经历没有白费，你的潜意识正在积极地提醒你这一点。'
+		end
+	end
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'succub_dreams':
+!! Succubus dreams
+	if sucpcinfo < 4:
+		temp_rand = rand(1, 5)
+	else
+		temp_rand = rand(2, 5)
+	end
+
+	if temp_rand = 1:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sucrandream1.jpg"></center>'
+		'你梦见自己长着角、翅膀和尾巴。'
+		if sucpcinfo > 0:
+			'你变成了某种恶魔！'
+		else
+			'你变成了某种非人的存在！'
+		end
+	elseif temp_rand = 2:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sucrandream2.jpg"></center>'
+		'你梦见自己碾碎了所有挡路的人，在议会中赢得了一席之地。'
+	elseif temp_rand = 3:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sucrandream3.jpg"></center>'
+		if succublvl < 3:
+			$sucselftmp = '你内心深处<<$sucself1>>的化身'
+		else
+			$sucselftmp = $sucself1
+		end
+		'你梦见自己在和<<$sucselftmp>>争吵。'
+		'你不知道是为了什么，但你觉得你赢了……'
+	elseif temp_rand = 4:
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sucrandream4.jpg"></center>'
+		'你梦见自己走过一个拥挤的会展大厅，里面挤满了穿着奇装异服的人。'
+		'你不知道自己为什么在这里，直到你看到<i>她</i>，然后你就<b>明白了</b>。你在这里是为了<b>繁衍</b>！'
+	else
+		'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sucrandream5.jpg"></center>'
+		'你梦见在<i>你</i>的地盘上遭遇了另一只魅魔！'
+		if succhungry < (0 - 1 - succublvl):
+			'不过你已经饱足，所以这并不困扰你。'
+		else
+			'你不能允许这种事发生！'
+		end
+	end
+	killvar 'temp_rand'
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'preg_dreams':
+	'<center><img <<$set_imgh>> src="images/pc/body/shape/preg/0/<<rand(3,8)>>.jpg"></center>'
+	temp_rand = rand(1, 10)
+	if temp_rand = 1:
+		'你梦见自己挺着大肚子走过一片安静的森林，阳光透过树叶温柔地洒落。树木似乎都在善意地注视着你。'
+		'当你来到一潭静水边，低头看去，水中映出的不是你的脸，而是你体内一个孩子的笑脸。'
+	elseif temp_rand = 2:
+		'你梦见自己泡在温暖的烛光浴缸里，双手捧着肚子，皮肤下闪烁着微小的星座。星星一颗颗移动、排列，拼出一个你不认识、却又莫名知道属于你孩子的名字。'
+		'它发出光芒，然后缓缓融入你的皮肤。'
+	elseif temp_rand = 3:
+		'你梦见自己在一间安静的病房里，抱着刚出生的婴儿。婴儿睁开眼睛——那是你的眼睛——不用言语，只用眼神说着：我记得你。'
+		'一阵记忆的浪潮涌过你心头——有些是你的，有些不是——就像一段你从不知道的共有过往。'
+	elseif temp_rand = 4:
+		'你梦见自己赤着脚，浑身发着光，独自在一座金碧辉煌的舞厅里跳舞。你隆起的肚子随着音乐的节奏摆动。'
+		'然后你看到另一个自己，也同样怀着孕，在你对面跳舞，模仿着你的每一个动作。她笑了——你也笑了。'
+	elseif temp_rand = 5:
+		'你梦见自己躺在草地上，头顶的天空流转着柔和的色彩。每当宝宝踢动一下，附近就有一朵花绽放。当你笑出声时，风把笑声像摇篮曲一样吹过田野。'
+		'整个世界仿佛都在和你一起等待，满怀期待地哼着歌。'
+	elseif temp_rand = 6:
+		'你梦见自己坐着火车穿过一片发光的、无尽的夜色。你是唯一的乘客，双手放在隆起的肚子上。'
+		'每到一站，都有一个不同版本的你上车——有些更年长，有些更年轻。她们用会意的眼神朝你微笑，但没有人开口说话。'
+	elseif temp_rand = 7:
+		'你梦见自己在自己的婴儿洗礼派对上，身边围满了你从未见过、却莫名知道你名字的人。他们送给你奇怪的礼物：一个指南针、一把钥匙、一个装满星星的玻璃罐。你问这些礼物是送给谁的。'
+		'"送给那个你怀里的旅人。"一位客人回答。'
+	elseif temp_rand = 8:
+		'你梦见自己在一座没有天花板的图书馆里，怀着孕，在寻找着什么。你触碰书籍时，它们会低声细语，然后一本书落入你手中，自行翻开。'
+		'里面写着一个改变一切的孩子故事。那个孩子的名字……就是你的名字，用金字写着。'
+	elseif temp_rand = 9:
+		'你梦见自己漂浮在水下，平静而失重，隆起的肚子像灯笼一样发着光。海洋生物聚拢过来，安静而虔诚。'
+		'"她记得海洋。"其中一个擦身而过时轻声说道。'
+		'你立刻明白，你的宝宝以前来过这里。'
+	else
+		'你梦见自己仰望星空，肚子轻轻搁在腿上。一颗流星划过天空，你感到宝宝用力踢了一下。'
+		'有那么一瞬，星星重新排列成一只眼睛的形状，你感到有什么存在注视着你——不是恐惧，而是敬畏。'
+	end
+
+	killvar 'temp_rand'
+	gs 'dream_events', 'event_end'
+end
+
+--- dream_events ---------------------------------

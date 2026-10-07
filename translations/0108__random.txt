@@ -1,0 +1,165 @@
+# random
+
+
+!! $ARGS[1] the array to randomly pick from
+!! ARGS[2] the starting index (inclusive)
+!! ARGS[3] the ending index (exclusive)
+if $ARGS[0] = 'pick_from_array':
+	temp_randomVars['start'] = max(0, ARGS[2])
+	temp_randomVars['end'] = min(max(0, ARGS[3]), arrsize($ARGS[1]))
+	if temp_randomVars['start'] > temp_randomVars['end']:
+		killvar 'temp_randomVars'
+		exit
+	end
+
+	temp_randomVars['i'] = rand(temp_randomVars['start'], temp_randomVars['end'])
+	if $mid($ARGS[1], 1, 1) = '$':
+		$result = $dyneval("$result = <<$ARGS[1]>>[temp_randomVars['i']]")
+	else
+		result = dyneval("result = <<$ARGS[1]>>[temp_randomVars['i']]")
+	end
+
+	killvar 'temp_randomVars'
+	exit
+end
+
+
+!! $ARGS[1] the delimited string
+!! $ARGS[2] the delimiter (Default = '|' pip)
+!!  ARGS[3] force string output (Defaults to 0 = no)
+if $ARGS[0] = 'pick_from_delimited_string':
+	$temp_randomVars['string'] = $ARGS[1]
+	$temp_randomVars['delimiter'] = iif($ARGS[2] = '', '|', $ARGS[2])
+	if instr($temp_randomVars['string'], $temp_randomVars['delimiter']) <= 0:
+		msg '<b>错误：未找到分隔字符串！</b>在 random 中，pick_from_delimited_string'
+		exit
+	end
+
+
+	killvar 'temp_pick_from_delimited_string_array'
+	:pick_from_delimited_string_loop
+	temp_randomVars['i'] = instr($temp_randomVars['string'], $temp_randomVars['delimiter'])
+	if temp_randomVars['i'] > 0:
+		$temp_pick_from_delimited_string_array[] = $mid($temp_randomVars['string'], 1, temp_randomVars['i'] - 1)
+		$temp_randomVars['string'] = $mid($temp_randomVars['string'], temp_randomVars['i'] + 1)
+		jump 'pick_from_delimited_string_loop'
+	end
+
+	$temp_randomVars['result'] = $func('random', 'pick_from_array', '$temp_pick_from_delimited_string_array')
+
+	if ARGS[3]:
+		$result = $temp_randomVars['result']
+	elseif isnum($temp_randomVars['result']):
+		result = val($temp_randomVars['result'])
+	else
+		$result = $temp_randomVars['result']
+	end
+
+	killvar 'temp_pick_from_delimited_string_array'
+	killvar 'temp_randomVars'
+	exit
+end
+
+
+!! $ARGS[1+] strings you want to pick from
+!!  ARGS[1+] numbers you want to pick from
+if $ARGS[0] = 'pick_from':
+	if arrsize('ARGS') = 1:
+		msg '未找到输入'
+	end
+
+	temp_randomVars['i'] = rand(1, arrsize('ARGS') - 1)
+
+	if $ARGS[temp_randomVars['i']] = '':
+		result = ARGS[temp_randomVars['i']]
+	else
+		$result = $ARGS[temp_randomVars['i']]
+	end
+
+	killvar 'temp_randomVars'
+	exit
+end
+
+
+!! generates n rand numbers and selects min or max (max for lucky or min for unlucky)
+!! use: func('random' 'roll', 'lucky' x, y, n)
+!! where x and y set range and n sets amount of rolls
+!! example: func('random' 'roll', 'lucky' 0, 5)
+!! example: func('random' 'roll', 'unlucky' 0, 100, 5)
+if $ARGS[0] = 'roll':
+	temp_randomVars['roll'] = rand(ARGS[2], ARGS[3])
+	temp_randomVars['i'] = 1
+	:roll_loop
+		temp_randomVars['rand'] = rand(ARGS[2], ARGS[3])
+		if $ARGS[1] = 'lucky' or $ARGS[1] = 'max':
+			if temp_randomVars['rand'] > temp_randomVars['roll']:
+				temp_randomVars['roll'] = temp_randomVars['rand']
+			end
+		else
+			if temp_randomVars['rand'] < temp_randomVars['roll']:
+				temp_randomVars['roll'] = temp_randomVars['rand']
+			end
+		end
+		temp_randomVars['i'] += 1
+	if temp_randomVars['i'] < ARGS[4]: jump 'roll_loop'
+	result = temp_randomVars['roll']
+
+	killvar 'temp_randomVars'
+	exit
+end
+
+
+!! returns sum of rand calls
+!! ARGS[1] = lower bound of rand calls
+!! ARGS[2] = upper bound of rand calls
+!! ARGS[3] = number of rand calls to sum
+if $ARGS[0] = 'multirand':
+	temp_mr_count = 0
+	result = 0
+	:loop_math_multirand
+		result += rand(ARGS[1], ARGS[2])
+		temp_mr_count += 1
+	if temp_mr_count < ARGS[3]: jump 'loop_math_multirand'
+	killvar 'temp_mr_count'
+	exit
+end
+
+!! function to generate a seeded random number, between two bounds (both inclusive)
+!! seed is the fixed_prnd generated at character creation
+!! ARGS[1] = seed
+!! ARGS[2] = min
+!! ARGS[3] = max
+!! example:
+!!	func('random','srand',seed,50,100) -> generates a seeded random number (always the same for the same seed) between 50 and 100 (including)
+if $ARGS[0] = 'srand':
+	result = (1664525 * (fixed_prnd + ARGS[1]) + 1013904223)
+	result = result mod 2147483647
+	if result < 0: result += 2147483647
+	result = (result mod ((ARGS[3] + 1) - ARGS[2])) + ARGS[2]
+	exit
+end
+
+
+!! Deterministic string -> non-negative integer hash. for use as srand seed
+!! ARGS[1] = string to hash
+!! example: func('random', 'string_hash', 'clinic_gyno_pav')
+if $ARGS[0] = 'string_hash':
+	$temp_sh_alphabet = ' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_'
+	temp_sh_hash = 0
+	temp_sh_i = 1
+	:string_hash_loop
+	if temp_sh_i <= len($ARGS[1]):
+		temp_sh_hash = (temp_sh_hash * 131 + instr($temp_sh_alphabet, mid($ARGS[1], temp_sh_i, 1))) mod 1000003
+		temp_sh_i += 1
+		jump 'string_hash_loop'
+	end
+	if temp_sh_hash < 0: temp_sh_hash *= -1
+	result = temp_sh_hash
+	killvar 'temp_sh_alphabet'
+	killvar 'temp_sh_hash'
+	killvar 'temp_sh_i'
+	exit
+end
+
+
+--- random ---------------------------------

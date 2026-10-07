@@ -1,0 +1,842 @@
+# komp
+!! 2021/04/26
+
+if $ARGS[0] <> 'fin':
+	if $loc = 'pav_library' and (hour >= 18 or hour < 8) or $loc = 'city_library' and (hour >= 19 or hour < 8) or $loc = 'uni_library' and ((week >= 6 and hour = 23) or hour < 8):
+
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+		'图书馆要关门了。'
+
+		act '关掉你的电脑': gt 'komp', 'fin'
+		exit
+	end
+end
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	killvar 'account_used'
+	!! This is stupid, if Sveta uses the library computer or Artem's computer, her electricity bill won't go up
+	!! elektro += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+	'你的电脑启动了，很快你就看到操作系统的主屏幕。'
+
+	act '关掉你的电脑': gt 'komp', 'fin'
+	act '玩纸牌接龙 (0:20)': gt 'komp', 'pasians'
+
+	if AlbinaQW['flashdrive'] = 1:
+		if ($loc = 'pav_shared_apt' and $loc_arg = 'pcsRoom') or ($loc = 'mey_home' and $loc_arg = 'guest_bedroom') or $loc = 'nichBedroomServant' or (locat['Anya_inroom'] = 0 and $loc = 'bedrPar'):
+			act '查看阿尔比娜的U盘': gt 'albina_events', 'flash_drive'
+		end
+	end
+
+	!! WNIP if anyone wants to finish it, feel free to do so
+	!! if mc_inventory['tech_game_disopl'] > 0: act 'Play Disopl': gt 'KGDstart'
+
+	if mc_inventory['tech_game_ds'] > 0: act '玩死亡之城': gt 'KGZstart'
+	!! if GameCD3 > 0: act 'Play Albido': gt 'FSstart'
+
+	!! If the access uses one of the home connections (i.e. Sveta is at home, or in a location that she owns and the 'internet_enabled' value is 1, then Sveta is paying utlities.
+	!! Now electricity can go up - but by 5???
+	elektro += 5
+
+	!! Only because subscription[$subs] is easier to type than subscription[$access[''subscription'']]
+	$subs = $access['subscription']
+
+	!! Any location that calls 'komp', 'start' has to set up $access.
+	!! $access includes the subscription/conection used, and limitations like 'noporn' and 'nocamshow'
+	!! arrived here from mobile net.
+	!! Sveta can access the internet if > 0
+	if subscription[$subs] > 0:
+		if access['metered'] = 0:
+			act '浏览互联网': gt 'komp', 'browse'
+		else
+			act '浏览互联网 - 你还有<<subscription[$subs]>>分钟的上网时间': gt 'komp', 'browse'
+		end
+	else
+		'你在这里无法上网，而且你甚至没有移动网络。'
+	end
+end
+
+
+if $ARGS[0] = 'browse':
+	*clr & cla
+	menu_off = 0
+	gs 'family_schedule'
+	gs 'stat'
+
+	if locat['Anya_inroom'] = 1 and $loc = 'bedrPar':
+		if $access['noporn'] = '': gs 'internet_mobile', 'add_limitation', 'noporn', '你姐姐在房间里时你不能看色情片！'
+		if $access['nocamshow'] = '': gs 'internet_mobile', 'add_limitation', 'nocamshow', '你姐姐在房间里时你不能进行摄像头直播！'
+	end
+
+	act '关闭浏览器': gt 'komp', 'start'
+
+	!! TODO: Update
+	!! check if the original account still valid?
+	!! if account_used > 0
+	!! There are 3 ways this can happen during the use of the inernet:
+	!! 1. Sveta is using minute based internet and ran out of minutes.
+	!! 2. Sveta is using a subscription, she didn''t have enough money to pay the monthly fee, the grace period expired and the interned service has been cut off.
+	!! 3. Sveta is using free internet and something went really, really wrong that set subscription[''free''] to 0.
+	if subscription[$subs] < 1:
+		'<center><b>浏览器</b></center>'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/eror.jpg"></center>'
+		'你没有网络连接。 '+iif(access['metered'], ' 你需要购买更多分钟。', ' 也许你忘了付网费？')
+
+		if camGirl['MFC_account'] = 1 and $access['nocamshow'] = '' and mc_inventory['tech_webcam'] = 1:
+			'由于 MyFreeCams 会承担费用，你仍然可以登录进行摄像头直播。'
+			act '访问MyFreeCams.org': gt 'komp_cam_MFC_main', 'start'
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+		if $access['general'] <> '': '<center><h4 style="color: red;"><b><<$access[''general'']>></b></h4></center>'
+		'你一边思考想做什么，一边打开你最喜欢的起始页。'
+		'角落里不断弹出一个闪烁的横幅，用于<a href="exec: gt ''komp'',''agent''">基尔萨诺娃房地产中介</a>。'
+		if func('homes_properties', 'is_property_of_status', 'owned', 'city_apartment') and $husID = '' and $wifID = '': act '把你的公寓租出去': gt 'komp', 'sale'
+
+		if $access['noporn'] = '':
+			act '看色情片': gt 'komp', 'porno'
+		else
+			"<b><<$access['noporn']>></b>"
+		end
+
+		act '浏览交友网站 (1:00)': gt 'komp', 'znak'
+
+		if hour >= 8 and hour < 20:
+			if $clothingworntype = 'nude':
+				'你应该先穿好衣服再找工作。'
+			else
+				act '在网上找工作': gt 'komp', 'rabota'
+			end
+		end
+
+		act '搜索有线电视服务 (1:00)': gt 'komp', 'kabtv'
+		act '玩在线游戏': gt 'KGstart'
+		act '在屁股书上查看社交媒体': gt 'komp_assbook', 'main'
+		if shantfoto > 0: act '寻找你在公园拍照的那个女孩': gt 'komp_assbook', 'blackmail'
+		!! WIP. Only here so I don''t forget about it.
+		!! if desiresQW['know_website'] = 1 and $loc = 'dachain' or $loc = 'sitr' or $loc = 'bedr' or $loc = 'bedr2x' or ($loc = 'uni_dorm' and $loc_arg = 'dorm_room') or ($loc = 'city_mansion_residence_2' and $loc_arg = 'yoffice') or ($loc = 'pav_shared_apt' and $loc_arg = 'pcsRoom') or ($loc = 'mey_home' and $loc_arg = 'guest_bedroom') or ($loc = 'city_house_res_misc' and $loc_arg = 'livroom') or $loc = 'nichBedroomServant' or $loc = 'bedrPar':
+			!! act 'Visit the Knotty Desires website': gt 'komp_KD', 'browse'
+		!! end
+		if fuckornot = 3: act '访问"能不能上"网站': $view_location = 'komp' & gt 'komp_HF_or_not', 'fuckornot'
+		if hotornot >= 2: act '访问"性感与否"网站': $view_location = 'komp' & gt 'komp_HF_or_not', 'hotornot'
+
+		if fuckornot_uni = 1: act '访问"能不能上"大学网站': $view_location = 'komp' & gt 'komp_HF_or_not', 'fuckornot_uni'
+		if hotornot_uni = 1: act '访问"性感与否"大学网站': $view_location = 'komp' & gt 'komp_HF_or_not', 'hotornot_uni'
+		!! if bankAccount > 0: act 'Visit the bank website': gt 'komp', 'bank'
+		if hostel['status'] = 7: act '阅读尤金的来信': gt 'pav_voc_school', 'dating_profile'
+
+		if camGirl['MFC_account'] = 1 and mc_inventory['tech_webcam'] = 1:
+			if $access['nocamshow'] = '':
+				act '访问MyFreeCams.org': gt 'komp_cam_MFC_main', 'start'
+			else
+				"<b><<$access['nocamshow']>></b>"
+			end
+		end
+		if ($start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0) or func('uniutil', 'student', 'enrolled'): act '花时间学习': gt 'komp', 'study'
+		if sucpcinfo = 0 and succubxp > 0: act '研究你一直有的奇怪感觉': gt 'succubus', 'kompresearch'
+	end
+end
+
+
+if $ARGS[0] = 'sale':
+	*clr & cla
+	!! TODO: Update time and internet
+
+	!! IMPORTANT: What happens if an activity takes more time than the minutes Sveta has? We just say "You tried, but could not finish"?
+	if access['metered'] and subscription[$subs] < 15:
+		'你查看了网站，但意识到<<subscription[$subs]>>分钟不够填完所有的表格。'
+	else
+		minut += 30
+		elektro += 3
+		gs 'internet_mobile', 'use_internet', $subs, 30
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+		'你来到一个热门网站，人们可以在上面免费发布广告。你可以在这里发布广告。'
+		if obkvsdam >= 1 and func('homes_properties', 'is_property_of_status', 'owned', 'city_apartment') and $husID = '' and $wifID = '': '你发布了出租公寓的广告。你应该时不时查看有没有人回应。'
+
+		if obkvsdam = 0 and func('homes_properties', 'is_property_of_status', 'owned', 'city_apartment') and $husID = '' and $wifID = '':
+			act '出租你的市区住宅公寓': obkvsdam = 1 & gt 'komp', 'sale'
+		elseif obkvsdam > 0:
+			act '查看是否有人回应':
+				cla
+				if obkvsdam = 1:
+					'还没有人回应你出租公寓的广告。'
+				elseif obkvsdam > 1:
+					predsum = 14000 + (obkvsdam*1000)
+					'有人想在你的公寓住一个月！他们愿意出<<func(''money'', ''string_profit'', predsum)>>现金。'
+
+					act '接受提议':
+						gs 'homes_properties', 'tenants_move_in', 'city_apartment', iif(month + 1 > 12, 1, month + 1), min(day, monthsEnd[tenant_endmonth])
+						gs 'money', 'earn', predsum, 'cash'
+						gt 'komp', 'start'
+					end
+					killvar 'predsum'
+				end
+
+				act '离开这个网站': gt 'komp', 'browse'
+			end
+		end
+	end
+	act '离开这个网站': gt 'komp', 'browse'
+end
+
+
+if $ARGS[0] = 'porno':
+	*clr & cla
+	gs 'stat'
+
+	if subscription[$subs] < 1:
+		'<center><b>浏览器</b></center>'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/eror.jpg"></center>'
+		'你没有网络连接。 '+iif(access['metered'], ' 你需要购买更多分钟。', ' 也许你忘了付网费？')
+
+		act '关闭浏览器': gt 'komp', 'start'
+	elseif $access['noporn'] <> '':
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+		*p $access['noporn']
+
+		act '离开这个网站': gt 'komp', 'browse'
+	else
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+		'你打开一个色情网站，浏览了几分钟的视频。'
+
+		if porn_studio['pickup_porn'] = 1 and porn_studio['pickup_porn_seen'] = 0 and rand(1, 5) = 1:
+			porn_studio['pickup_porn_seen'] = 1
+			gt 'pickup_porn', 'discover_video'
+		end
+
+		if strip_club['porn_scout_pickup'] = 2:
+			act '查看你的海选视频': gt 'pickup_porn', 'watch_casting_call'
+		end
+
+		if AlbinaQW['porno'] = 1:
+			gs 'willpower', 'voyeur', 'resist', 'hard'
+			if pcs_willpwr < will_cost:
+				act '查找阿尔宾娜的色情片' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '查找阿尔宾娜的色情片' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					gt 'albina_events', 'casting_video'
+				end
+			end
+		end
+
+		if fame['city_porn'] >= 100:
+			act '观看你自己的一个视频':
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/porno.jpg"></center>'
+				'你找到一个看起来不错的视频，点击打开，然后舒舒服服地坐好。当视频加载出来时，你惊讶地发现，片中的女主角……竟然是<i>你</i>！'
+				act '观看它':
+					cla
+					elektro += 3
+					gs 'mood', 'raise', 'small'
+					minut += 30
+					gs 'internet_mobile', 'use_internet', $subs, 30
+					gs 'stat'
+					'看着自己在镜头前表演是一种奇特的色情体验。'
+					if fame['city_porn'] < 300:
+						'大多数评论的人似乎并不知道你是谁。你想知道有没有认识的人看过你的视频？'
+					else
+						'观众毫不费力就认出了你，很多评论都用你的艺名称呼你。你想知道有没有认识的人看过你的视频？'
+					end
+					gs 'arousal', 'porn', 30
+					gs 'arousal', 'erotic', -30
+					gs 'stat'
+
+					act '视频结束了。': gt 'komp', 'porno'
+				end
+
+				act '关掉它':
+					cla
+					minut += 5
+					gs 'stat'
+					'你立刻关掉视频，离开了网站。如果连你自己都能找到那个视频，那有多少人看过你了？'
+
+					act '离开这个网站': gt 'komp', 'browse'
+				end
+			end
+		end
+
+		act '观看普通色情片':
+			*clr & cla
+			elektro += 3
+			gs 'mood', 'raise', 'small'
+			'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/porno.jpg"></center>'
+			'你找到一个女孩被操的视频，看了一会儿，想象自己处在她的位置。'
+			gs 'internet_mobile', 'use_internet', $subs, 30
+			gs 'arousal', 'porn', 30
+			gs 'stat'
+
+			act '视频结束了。': gt 'komp', 'porno'
+		end
+
+		act '观看肛交色情片':
+			*clr & cla
+			elektro += 3
+			gs 'mood', 'raise', 'small'
+			'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/porno.jpg"></center>'
+			'你找到一个女孩被操屁股的视频，看了一会儿，想象自己处在她的位置。'
+			gs 'internet_mobile', 'use_internet', $subs, 30
+			gs 'arousal', 'porn', 30
+			gs 'stat'
+
+			act '视频结束了。': gt 'komp', 'porno'
+		end
+
+		act '观看女同色情片':
+			*clr & cla
+			elektro += 3
+			gs 'mood', 'raise', 'small'
+			'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/porno.jpg"></center>'
+			'你找到一个两个女孩互相舔阴部的视频，想象自己是其中之一。'
+			gs 'internet_mobile', 'use_internet', $subs, 30
+			gs 'arousal', 'porn', 30
+			gs 'stat'
+
+			act '视频结束了。': gt 'komp', 'porno'
+		end
+
+		act '观看BBC色情片':
+			*clr & cla
+			elektro += 3
+			gs 'mood', 'raise', 'small'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/porno.jpg"></center>'
+			'你找到一个女孩被黑人猛男操的视频，看了一会儿。你无法把目光从屏幕上那根巨大的鸡巴上移开，想象自己处在那个女孩的位置。'
+			gs 'internet_mobile', 'use_internet', $subs, 30
+			gs 'arousal', 'porn', 30
+			gs 'stat'
+
+			act '视频结束了。': gt 'komp', 'porno'
+		end
+
+		act '观看BDSM色情片':
+			*clr & cla
+			elektro += 3
+			gs 'mood', 'raise', 'small'
+			'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/porno.jpg"></center>'
+			if rand(0, 1) = 0:
+				'你找到一个视频：一个女孩被赤身裸体绑起来堵住嘴，被抽打、鞭笞，任她极具支配欲的主人——一个手臂肌肉发达的男人——摆布。'
+				'你看了一会儿，想象着同时扮演主和奴会是什么感觉。'
+			else
+				'你找到一个视频：一个年轻女人被赤身裸体绑起来堵住嘴，被抽打、鞭笞，任她强势的女主人——一个穿着皮革的年纪较大的女人——摆布。'
+				'你看了一会儿，想象着分别处在两个女人的位置会是什么感觉。'
+			end
+			gs 'internet_mobile', 'use_internet', $subs, 30
+			gs 'arousal', 'porn', 30
+			gs 'stat'
+
+			act '视频结束了。': gt 'komp', 'porno'
+		end
+
+		if pcs_horny >= 50: act '自慰': gt 'komp', 'masturbate'
+
+		act '离开这个网站': gt 'komp', 'browse'
+	end
+end
+
+
+if $ARGS[0] = 'masturbate':
+	*clr & cla
+	!! needs this because you can arrive here from this code block and time can be gone
+	if subscription[$subs] < 1:
+		'你没有网络连接。 '+iif(access['metered'], ' 你需要购买更多分钟。', ' 也许你忘了付网费？')
+	else
+		gs 'sweat', 'add', 10
+
+		if divanmastr = 0:
+			divanmastr = 1
+			if pcs_inhib < 30: gs 'exp_gain', 'inhib', rand(1, 3)
+		end
+
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/kompmas.jpg"></center>'
+		'你点开一个很黄很暴力的链接，在电脑前舒舒服服地坐好，揉着阴蒂，用手指插着自己，想象自己就是视频里的女孩。'
+		gs 'arousal', 'clit_finger', 30, 'masturbate'
+		gs 'arousal', 'vaginal_finger', -30, 'masturbate'
+		gs 'stat'
+
+		if pcs_horny >= 100:
+			$orgasm_or = 'yes'
+			$orgasm_txt = '你的肌肉突然绷紧，你压抑住呻吟，迎来了一次强烈的高潮。这正是你需要的！'
+			gs 'arousal', 'clit_finger', -1, 'masturbate'
+			gs 'stat'
+		end
+
+		act '停止自慰': divanmastr = 0 & gt 'komp', 'porno'
+
+		gs 'arousal', 'end'
+
+		if pcs_horny >= 50: act '再多自慰一会儿': gt 'komp', 'masturbate'
+	end
+end
+
+
+if $ARGS[0] = 'pasians':
+	*clr & cla
+	minut += 20
+	elektro += 3
+	gs 'mood', 'raise', 'small'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+	'你玩了一局纸牌接龙来消遣。'
+
+	act '再玩20分钟': gt 'komp', 'pasians'
+	act '返回桌面': gt 'komp', 'start'
+end
+
+
+if $ARGS[0] = 'znak':
+	*clr & cla
+	minut += 30
+	gs 'mood', 'raise', 'tiny'
+	elektro += 3
+	gs 'internet_mobile', 'use_internet', $subs, 30
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+	'你进入一个交友网站，立刻看到各种男女的档案。'
+
+	if hostel['status'] = 8:
+		act '为叶夫根尼娅挑选合适的人':
+			cla
+			hostel['status'] = 9
+			'你浏览了几十个档案，选中一个你觉得和 叶夫根尼娅 很般配的男人，给他发了条消息，问他愿不愿意在某个地方见面。'
+			'现在开始等待游戏！希望你为她挑了个好男人……'
+
+			act '离开这个网站': gt 'komp', 'browse'
+		end
+	!! Eligible homes: 1, 2, 3, 4, 5, 7 , 10, 11, 15
+	elseif $home['type'] <> 'permanent_residence':
+		gs 'mood', 'raise', 'tiny'
+		'你花时间浏览了各种档案，但除非你有自己的家，否则它不让你注册。'
+		'不过，有些照片相当露骨，而那些比较饥渴的档案真的很好笑。'
+	else
+		act '寻找温柔的男人':
+			cla
+			gs 'npcgeneratec', 0
+			gs 'npcStat', $npclastgenerated
+			npc_gentle[$npcID] = 1
+			npc_rough[$npcID] = 0
+			gs 'lover', 'add_boyfriend', $npcID
+			'你找到一个名叫<<$npcdesc>>的男人，查看他的资料后把你的号码发给他。你希望他会给你打电话！'
+
+			act '离开这个网站': gt 'komp', 'browse'
+		end
+
+		act '寻找普通的男人':
+			cla
+			gs 'npcgeneratec', 0
+			gs 'npcStat', $npclastgenerated
+			npc_gentle[$npcID] = 0
+			npc_rough[$npcID] = 0
+			gs 'lover', 'add_boyfriend', $npcID
+			'你找到一个名叫<<$npcdesc>>的男人，查看他的资料后把你的号码发给他。你希望他会给你打电话！'
+
+			act '离开这个网站': gt 'komp', 'browse'
+		end
+
+		act '寻找强壮的男人':
+			cla
+			gs 'npcgeneratec', 0
+			gs 'npcStat', $npclastgenerated
+			npc_gentle[$npcID] = 0
+			npc_rough[$npcID] = 1
+			gs 'lover', 'add_boyfriend', $npcID
+			'你找到一个名叫<<$npcdesc>>的男人，查看他的资料后把你的号码发给他。你希望他会给你打电话！'
+
+			act '离开这个网站': gt 'komp', 'browse'
+		end
+	end
+	act '离开这个网站': gt 'komp', 'browse'
+end
+
+
+if $ARGS[0] = 'kabtv':
+	*clr & cla
+	minut += 5
+	elektro += 3
+	gs 'internet_mobile', 'use_internet', $subs, 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+	'你查看了当地有线电视供应商的网站。有线电视订阅费用为<<$func(''money'', ''string_price'', 300)>>每月，25日支付。'
+	''
+
+	if kabel = 1:
+		'你目前为你的电视订阅了有线服务。'
+
+		act '取消你的有线电视订阅 (<<$func(''money'', ''string_price'', 300)>>)':
+			cla
+			kabel = 0
+			gs 'money', 'pay', 300, 'bank'
+			msg '你的订阅已取消，无法再观看额外频道。有线电视公司收取一次性费用<<$func(''money'', ''string_price'', 300)>>用于断开你的服务。'
+			gt 'komp', 'browse'
+		end
+	elseif kabel = 0 and mc_inventory['tech_tv'] >= 1 and mc_inventory['plasma_tv'] = 0:
+		'你目前没有为电视订阅有线服务。'
+
+		act '为你的电视开通有线服务':
+			cla
+			msg '你的电视太旧了，不支持有线。你需要先升级一台更好的电视。'
+			gt 'komp', 'browse'
+		end
+	elseif kabel = 0 and mc_inventory['plasma_tv'] >= 1:
+		'你目前没有为电视订阅有线服务。'
+
+		act '为你的电视开通有线服务 (<<$func(''money'', ''string_price'', 300)>>/月）':
+			cla
+			kabel = 1
+			minut += 10
+			gs 'internet_mobile', 'use_internet', $subs, 10
+			gs 'stat'
+
+			msg '你填完表格后不久，就收到了一条确认消息，你的注册成功了。现在你的电视应该能收看额外频道了。'
+			gt 'komp', 'browse'
+		end
+	else
+		'你连电视都没有！'
+		act '离开这个网站': gt 'komp', 'browse'
+	end
+	act '离开这个网站': gt 'komp', 'browse'
+end
+
+
+if $ARGS[0] = 'foto':
+	*clr & cla
+	gs 'stat'
+
+	if subscription[$subs] < 1:
+		'<center><b>浏览器</b></center>'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/eror.jpg"></center>'
+		'你没有网络连接。 '+iif(access['metered'], ' 你需要购买更多分钟。', ' 也许你忘了付网费？')
+		act '关闭浏览器': gt 'komp', 'start'
+	else
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+		'你目前正在俄罗斯最大的社交网站"Assbook"上。几乎人人都有这里的账号，很可能包括你前几天拍照的那个女孩！'
+		'"如果我找到她，就能勒索她了吧？"你心想。"毕竟这张照片非常露骨……我敢打赌，如果她是个有头有脸的人物，一定不想看到它被公开！"'
+		'你看着它时，忍不住不时地揉着自己的小穴。不管怎样，你可能会自己留一份副本！'
+
+		if shantfoto > 0:
+			act '试着查明她是谁 (1:00)':
+				cla
+				minut += 60
+				elektro += 6
+				gs 'internet_mobile', 'use_internet', $subs, 60
+				fotsearchrand = rand(0, 10)
+
+				if fotsearchrand <= 7:
+					'尽管你尽了最大努力，这次你还是没能找到那个女孩。'
+
+					act '返回"屁股书"主页': gt 'komp', 'foto'
+				end
+
+				if fotsearchrand > 7:
+					shantfoto -= 1
+					'尽管你尽了最大努力，你还是没能……等等，那就是她！你找到她了！'
+					gerofotorand = rand(0, 100)
+
+					if gerofotorand > 30:
+						'当你查看她的档案时，你的希望迅速破灭了。廉价的衣服、寥寥无几的朋友、住在城市的贫困区……这个女孩不值得勒索。'
+
+						act '返回"屁股书"主页': gt 'komp', 'foto'
+					end
+
+					if gerofotorand >= 5 and gerofotorand <= 30:
+						shantsr += 1
+						'当你浏览她的档案时，你发现她照片里穿的衣服看起来很时尚，所以她肯定有钱。'
+						'"为什么不把其中一些花在我身上呢？"你暗自笑道。'
+						'你发送了一张照片副本，并附言告诉她，她有48小时的时间把<<$func(''money'', ''string_profit'', 5000)>>转入你的银行账户，否则你就要把照片发给她的全部好友列表。'
+
+						act '返回"屁股书"主页': gt 'komp', 'foto'
+					end
+
+					if gerofotorand < 5:
+						shantbog += 1
+						'查看她的档案时，你简直不敢相信。这个女孩是个名人！如果这张照片被公开，那将是一桩大丑闻！'
+						'你发送了一张照片副本，并附言告诉她，她有48小时的时间把<<$func(''money'', ''string_profit'', 30000)>>转入你的银行账户，否则你就要把照片泄露给媒体。'
+
+						act '返回"屁股书"主页': gt 'komp', 'foto'
+					end
+				end
+			end
+		end
+
+		act '离开这个网站': gt 'komp', 'browse'
+	end
+end
+
+
+if $ARGS[0] = 'rabota':
+	*clr & cla
+	if subscription[$subs] < 1:
+		'<center><b>浏览器</b></center>'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/eror.jpg"></center>'
+		'你没有网络连接。 '+iif(access['metered'], ' 你需要购买更多分钟。', ' 也许你忘了付网费？')
+
+		act '关闭浏览器': gt 'komp', 'start'
+	else
+		minut += 30
+		elektro += 3
+		gs 'internet_mobile', 'use_internet', $subs, 30
+		komprabota = rand(0, 13)
+		if $loc = 'vasilyhome': komprabota = rand(5, 16)
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+
+		if komprabota = 0 and gorodokkomp = 0:
+			'你在一个看起来正规的网站上找到一条招聘信息。上面写着："招聘<b>急需</b>！女性内衣模特，用于摄影拍摄。报酬： <<$func(''money'', ''string_profit'', 2000)>>现金。"'
+			'描述说明他们今天需要人。如果你决定接受这份工作，就需要立刻赶过去。'
+
+			if pcs_apprnc < 120:
+				'你考虑了一下，但决定不接。你可能不够漂亮，当不了内衣模特。'
+			else
+				act '接受工作': gt 'qjob', 'var1'
+			end
+		elseif komprabota = 1 and gorodokkomp = 0:
+			'你在一个看起来正规的网站上找到一条招聘信息。上面写着："招聘<b>急需</b>！女性内衣模特，用于摄影拍摄。报酬： <<$func(''money'', ''string_profit'', 2000)>>现金。"'
+			'描述说明他们今天需要人。如果你决定接受这份工作，就需要立刻赶过去。'
+
+			if pcs_apprnc < 120:
+				'你考虑了一下，但决定不接。你可能不够漂亮，当不了内衣模特。'
+			else
+				act '接受工作': gt 'qjob', 'var2'
+			end
+		elseif komprabota >= 2 and komprabota < 5 and gorodokkomp = 0:
+			'你在一个看起来正规的网站上找到一条招聘信息。上面写着："招聘<b>急需</b>！美女模特，为艺术作品摆姿势。必须能够长时间保持一个姿势不动。报酬： <<$func(''money'', ''string_profit'', 1000)>>现金。"'
+			'描述说明他们今天需要人。如果你决定接受这份工作，就需要立刻赶过去。'
+
+			if pcs_apprnc < 60:
+				'你考虑了一下，但决定不接。你可能不够漂亮，当不了模特。'
+			else
+				act '接受工作': gt 'qjob', 'var3'
+			end
+		elseif komprabota >= 5 and komprabota < 8 and camGirl['MFC_account'] = 0:
+			'你在一个看起来正规的网站上找到一条招聘信息。上面写着："招聘摄像头模特！工作时间灵活。点击了解更多信息。"'
+			act '收集更多信息':
+				*clr & cla
+				minut += 5
+				elektro += 1
+				gs 'internet_mobile', 'use_internet', $subs, 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/camwhore1.jpg"></center>'
+				'你点击按钮，看到了完整的职位描述。'
+				'<i>你需要在观众面前裸露身体，满足他们的每一个愿望。报酬基于打赏系统：网站上的顾客购买代币，用来打赏他们喜欢看的女孩。'
+				'网站会承担你直播期间的所有费用，但你能赚多少钱取决于你自己：你越擅长吸引观众，越愿意取悦他们，他们就越可能给你打赏。'
+				'你赚到的任何代币都会在直播结束后立即兑换成卢布存入你的银行账户。网站还会对你所在地区的观众隐藏你的直播，所以你被现实中的熟人认出的几率非常低。'
+				'如果你感兴趣，请填写下面的问卷。</i>'
+
+				if bankAccount = 0:
+					'你需要一个有效的银行账户才能注册这份工作。'
+				else
+					if pcs_inhib >= 40 or trait_vars['exhibitionist'] > 1 or (pcs_inhib >= 35 and trait_vars['exhibitionist'] > 0):
+						act '填写问卷':
+							*clr & cla
+							minut += 20
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/camwhore2.jpg"></center>'
+
+							gs 'komp_cam_functions', 'MFC_init'
+
+							'你填写了问卷，注册成为一名摄像头模特。十分钟后，你通过了审核，现在可以以摄像头女孩的身份赚钱了。'
+							'当然，你需要一个能用的摄像头才能做这个！如果你还没有，大多数本地连锁超市都能以相当便宜的价格买到。'
+							act '离开这个网站': gt 'komp', 'browse'
+						end
+					else
+						*nl
+						'你不习惯以这种方式展示自己的身体。'
+					end
+				end
+				act '离开这个网站': gt 'komp', 'browse'
+			end
+		elseif komprabota >= 8 and komprabota < 10 and film = 0:
+			'你在一个看起来正规的网站上找到一条招聘信息。上面写着："招聘裸体女模特！时间和报酬灵活。点击了解更多信息。"'
+			act '收集更多信息':
+				*clr & cla
+				minut += 5
+				elektro += 1
+				gs 'internet_mobile', 'use_internet', $subs, 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/komp.jpg"></center>'
+				'你点击按钮查看完整职位描述，但它很简短，帮不上什么大忙。'
+				'<i>你是一个喜欢在镜头前、在色情情境中为他人取乐而暴露自己的女孩吗？如果是，那就来这个地址找迪米特里吧！21岁以下优先。</i>"'
+				'你快速搜索了一下广告上的地址，发现它位于市里的红灯区。'
+				if pornstudio = 0: '你听说过传闻，那个区域某个地方有一个地下色情工作室。'
+				if pornstudio = 1: '色情工作室就在那个区域。这条招聘信息突然让你明白了什么。'
+
+				if pcs_inhib >= 40:
+					act '记下地址':
+						cla
+						minut += 2
+						if pornstudio = 0: pornstudio = 1
+						gs 'stat'
+						'你迅速记下了地址。工作就是工作，即使是见不得光的。'
+						act '离开这个网站': gt 'komp', 'browse'
+					end
+					act '离开这个网站': gt 'komp', 'browse'
+				else
+					*nl
+					'你很清楚这条招聘信息暗示着什么，不愿意参与其中。你迅速关掉了这个标签页。'
+					act '离开这个网站': gt 'komp', 'browse'
+				end
+			end
+			exit
+		elseif komprabota = 10 and experimentQW['discovered'] < 1:
+			gs 'city_experimental_trials_events', 'computer_ad'
+		elseif komprabota = 11 and job_hiring_step['pav_hotel_maid'] = 0:
+			'<center><img <<$set_imgh>> src="images/shared/newspaper/hotelmaidoffer.jpg"></center>'
+			'你在本地招聘板上找到一条信息："<b>招聘女仆！</b>巴甫洛夫斯克酒店正在招聘一名勤劳的女仆。无需经验。时间灵活。请亲自到酒店前台申请。"'
+			'<i>这份工作看起来并不光鲜，但至少是正经工作。你默默记下了酒店在巴甫洛夫斯克市场的位置。</i>'
+			job_hiring_step['pav_hotel_maid'] = 1
+		else
+			'遗憾的是，你没有找到任何你愿意做的工作。'
+		end
+
+		if hour < 20 and hour > 7: act '搜索更多工作': gt 'komp', 'rabota'
+		act '离开这个网站': gt 'komp', 'browse'
+
+		killvar 'komprabota'
+	end
+end
+
+
+if $ARGS[0] = 'study':
+	*clr & cla
+	minut += 30
+	elektro += 3
+	gs 'internet_mobile', 'use_internet', $subs, 30
+	gs 'exp_gain', 'intel', 1
+	gs 'exp_gain', 'compskl', 1
+	'<center><b>教育测量研究所</b></center>'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/study.jpg"></center>'
+	'你在IEM网站上花了半个小时，阅读新闻文章和教育博客。你已经感觉自己聪明了一点。'
+
+	act '离开这个网站': gt 'komp', 'browse'
+end
+
+
+if $ARGS[0] = 'agent' :
+	*clr & cla
+	minut += 30
+	elektro += 3
+	gs 'internet_mobile', 'use_internet', $subs, 30
+	gs 'stat'
+	gs 'housing', 'rent'
+	gs 'housing', 'sale'
+	'<center><b>基尔萨诺娃房地产中介</b></center>'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/agent.jpg"></center>'
+	*nl
+	'你目前正位于该地区最大的房地产中介——基尔萨诺娃房地产中介的网站上。'
+	'<br>网站上显示，他们在市内外的各个区域都有公寓可供出租或购买。租房或购房需要你前往市中心的代理处填写申请表并领取钥匙。所有房产的租金在每月25日扣除。'
+	*nl
+	'<b>房产列表</b>：'
+	if func('homes_properties', 'is_property_of_status', 'rented', 'city_apartment') :
+		if func('homes_properties', 'get_rent_days', 'city_apartment') > 0:
+			'你的圣彼得堡公寓租约还剩<b><<func(''homes_properties'', ''get_rent_days'', ''city_apartment'')>>天</b>。'
+			*nl
+		end
+		act '支付圣彼得堡的房租' + $func('money', 'get_cost_string', func('homes_properties', 'get_rent_amount', 'city_apartment'), 'bank'):
+			if func('money', 'can_afford', func('homes_properties', 'get_rent_amount', 'city_apartment'), 'bank') = 0:
+				$noMoney
+			else
+				cla
+				gs 'homes_properties', 'pay_rent', 'city_apartment', 'bank'
+				'经过一个非常简单的流程，你现在可以继续拥有市区住宅区的一套公寓一个月。你的公寓租约还剩<b><<func(''homes_properties'', ''get_rent_days'', ''city_apartment'')>>天</b>。'
+				act '离开这个网站': gt 'komp', 'browse'
+			end
+		end
+	elseif func('homes_properties', 'has_access', 'city_apartment') = 0:
+		'圣彼得堡住宅区有一套公寓可供出租或购买。'
+		'租金是： <<$func(''money'', ''string_price'', func(''homes_properties'', ''get_rent_amount'', ''city_apartment''))>>每月。当前售价为： <<$func(''money'', ''string_price'', func(''homes_properties'', ''get_property_sales_price'', ''city_apartment''))>>。'
+		*nl
+	end
+
+	if func('homes_properties', 'has_access', 'village_cottage') = 0:
+		'公有村有一套带相邻菜地的度假小屋出售。'
+		'当前挂牌售价为： <<$func(''money'', ''string_price'', func(''homes_properties'', ''get_property_sales_price'', ''village_cottage''))>>。'
+		*nl
+	end
+
+	if func('homes_properties', 'is_property_of_status', 'rented', 'old_town_apartment'):
+		if func('homes_properties', 'get_rent_days', 'old_town_apartment') >= 0:
+			'你的普希金公寓租约还剩<b><<func(''homes_properties'', ''get_rent_days'', ''old_town_apartment'')>>天</b>。'
+			*nl
+		end
+
+		act '支付普希金的房租' + $func('money', 'get_cost_string', func('homes_properties', 'get_rent_amount', 'old_town_apartment'), 'bank'):
+			if func('money', 'can_afford', func('homes_properties', 'get_rent_amount', 'old_town_apartment'), 'bank') = 0:
+				$noMoney
+			else
+				cla
+				gs 'homes_properties', 'pay_rent', 'old_town_apartment', 'bank'
+				'经过一个非常简单的流程，你现在可以继续拥有普希金的一套公寓一个月。你的公寓租约还剩<b><<func(''homes_properties'', ''get_rent_days'', ''old_town_apartment'')>>天</b>。'
+				act '离开这个网站': gt 'komp', 'browse'
+			end
+		end
+	elseif func('homes_properties', 'has_access', 'old_town_apartment') = 0:
+		'普希金地区（老城区）有一套公寓可供出租。'
+		'租金是： <<$func(''money'', ''string_price'', func(''homes_properties'', ''get_rent_amount'', ''old_town_apartment''))>>每月。'
+		*nl
+	end
+
+	if func('homes_properties', 'has_access', 'matryona_mansion') = 0:
+		'郊区有一块可供购买的地皮，已获准建造豪宅。'
+		'当前挂牌售价为： <<$func(''money'', ''string_price'', func(''homes_properties'', ''get_property_sales_price'', ''matryona_mansion''))>>。'
+		*nl
+	end
+
+	act '离开这个网站': gt 'komp', 'browse'
+end
+
+
+if $ARGS[0] = 'bank':
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/online_bank.jpg"></center>'
+	*pl
+	'你可以通过银行账户在线购买预付费上网时间。1 小时的上网时间只需<<$func(''money'', ''string_price'', 10)>>！*'
+	*pl
+
+	if karta >= bankDebtLimit:
+		'你的账户里有<<$func(''money'', ''format_balance'', ''bank'')>>。'
+		'你的透支额度为 ' + $func('wrap', 'accent','<<$func(''money'', ''format'', bankDebtLimit)>>！')
+	else
+		'你的账户已透支 ' + $func('wrap', 'neg', '<<$func(''money'', ''format'', bankDebtLimit - karta)>> <b>₽</b>。')
+		'你的剩余信用额度为 ' + $func('wrap', 'accent','<<$func(''money'', ''format'', karta)>>！')
+	end
+
+	*pl
+
+	!! TODO: This needs to be updated
+	act '购买上网时间' + $func('money', 'get_cost_string', 10, 'bank'):
+		if func('money', 'can_afford', 10, 'bank') = 0:
+			$noMoney
+		else
+			cla
+			intinp = input ("你想购买多少小时的上网时间？（1小时 = <<$func('money', 'string_price', 10)>>）")
+
+			if intinp <= 0 or func('money', 'can_afford', intinp * 10, 'bank') = 0:
+				'无效的金额。'
+			else
+				gs 'money', 'pay', intinp * 10, 'bank'
+				internet += intinp
+				'你支付了<<intinp>>小时的预付上网时间。你总共还剩<<internet>>小时的上网时间。'
+				'<<$func(''money'', ''string_price'', intinp * 10)>>已从你的账户中扣除以支付这笔费用。'
+			end
+			act '继续': gt 'komp', 'bank'
+		end
+	end
+	act '关闭浏览器': gt 'komp', 'browse'
+end
+
+
+if $ARGS[0] = 'fin':
+	killvar 'subs'
+	killvar 'access'
+	gt $loc, $loc_arg
+end
+
+
+--- komp ---------------------------------

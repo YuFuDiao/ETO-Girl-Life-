@@ -1,0 +1,1371 @@
+# intro_character_custom
+
+
+if $ARGS[0] = 'start':
+	'如果你想将技能和属性设置为某个数值，请使用作弊菜单，这里的相关选项已被移除。'
+
+	if $start_type['group']	= '': $start_type['group']	= 'custom'
+	if $start_type['cat']	= '': $start_type['cat']	= 'custom'
+	if $clothingworntype = '': gs 'outfit', 'clear_all'
+
+	intro_custom['money'] = -1
+	$intro_custom['loc'] = ''
+	$intro_custom['loc_arg'] = ''
+	$intro_custom['loc_s'] = ''
+	$intro_custom['args_s'] = ''
+	$intro_custom['menu_loc'] = ''
+	$intro_custom['menu_arg'] = ''
+
+	if pcs_mass['butt_gen'] = 0: pcs_mass['butt_gen'] = 22
+	if pcs_mass['bust_gen'] = 0: pcs_mass['bust_gen'] = 22
+	if $soc_grup = '': gs 'intro_character_custom', 'none'
+
+	act '设置属性': gt 'intro_character_custom', 'modatt'
+	act '设置技能': gt 'intro_character_custom', 'modskl'
+	act '设置外貌': gt 'intro_character_custom', 'modapp'
+	act '设置钱包': gt 'intro_character_custom', 'modpur'
+	act '设置物品': gt 'intro_character_custom', 'modite'
+	act '设置衣服': gt 'intro_character_custom', 'modclo_menu'
+	act '设置金钱 (<<$func(''money'', ''format'', money)>>)':
+		money = input('设置现金数额')
+		gt 'intro_character_custom', 'start'
+	end
+
+	if $start_type['loc'] = 'sg':
+		act '选择一个社交群体': gt 'intro_character_custom', 'modgrup'
+		act '设置关系': gt 'intro_character_custom', 'modrel'
+		act '确认这些选项':
+			dynamic 'grupvalue[<<grupTipe>>] = 600'
+			if $soc_grup = 'nerd':
+				trait_vars['academic_exp'] = 350
+				trait_vars['academic'] = 2
+				trait_vars['nerd_learn_home'] = 5
+			elseif $soc_grup = 'gopnik':
+				trait_vars['academic_exp'] = -20
+			end
+			if pcs_inhib < 10: pcs_inhib = 10
+			!! This line should get sveta to wear school uniform because she has no other clothing with > 50
+			if pcs_inhib > 50: gs 'clothing', 'wear', 'gm_school', 6
+			if bag = 1:
+				!! using current combination should prevent having more than 1 bag at the start of game.
+				gs 'purses', 'add_item', $currentpursetype, currentpursenumber
+				gs 'obj_din', 'old'
+			end
+			gs 'intro_functions', 'reset_school'
+			if $loc = 'intro_tg_teen_start':
+				gt $loc, $loc_arg
+			else
+				gt 'intro_character_creation', 'appearance_hub'
+			end
+		end
+	else
+		act '确认这些选项':
+			killvar 'intro_custom'
+			killvar 'menu_name'
+			if bag = 1:
+				!! using current combination should prevent having more than 1 bag at the start of game.
+				gs 'purses', 'add_item', $currentpursetype, currentpursenumber
+				gs 'obj_din', 'old'
+			end
+			gt 'intro_character_creation', 'appearance_hub'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'modclo_menu':
+	'请务必在选择服装之前确定外貌属性，否则游戏开始后衣服可能不合身。'
+
+	gs 'body', 'initial'
+	gs 'wardrobe', 'removeall'
+	gs 'tattoo_management', 'count'
+	gs 'piercing_management', 'count'
+
+	if intro_custom['money'] = -1:
+		intro_custom['money'] = money
+		money = 999999999
+	end
+	if $intro_custom['loc'] = '':
+		$intro_custom['loc'] = $loc
+		$intro_custom['loc_arg'] = $loc_arg
+		$intro_custom['loc_s'] = $loc_s
+		$intro_custom['args_s'] = $args_s
+		$intro_custom['menu_loc'] = $menu_loc
+		$intro_custom['menu_arg'] = $menu_arg
+
+		intro_custom_shop_return = 1
+		intro_custom_step = 1
+	end
+
+	act '返回':
+		money = intro_custom['money']
+		intro_custom['money'] = -1
+
+		$loc = $intro_custom['loc']
+		$loc_arg = $intro_custom['loc_arg']
+		$intro_custom['loc'] = ''
+		$intro_custom['loc_arg'] = ''
+
+		$menu_loc = $intro_custom['menu_loc']
+		$menu_arg = $intro_custom['menu_arg']
+		$intro_custom['menu_loc'] = ''
+		$intro_custom['menu_arg'] = ''
+
+		$loc_s = $intro_custom['loc_s']
+		$args_s = $intro_custom['args_s']
+		$intro_custom['loc_s'] = ''
+		$intro_custom['args_s'] = ''
+
+		intro_custom_shop_return = 0
+
+		gt 'intro_character_custom', 'start'
+	end
+
+	gs 'core_library', 'setloc', 'intro_character_custom', 'modclo_menu'
+
+	act '浏览':
+		$menu_name = ''
+		gt 'intro_character_custom', 'modclo'
+	end
+	act '打开衣柜':
+		gt 'wardrobe', 'main'
+	end
+	act '查看外貌':
+		gt '$menu_looks'
+	end
+	if pcs_tattoos['total'] > 0:
+		act '管理纹身':	gt 'intro_character_custom', 'modclo_tattoos'
+	end
+	if pcs_piercings['total'] > 0:
+		act '管理穿孔': gt 'piercing_management', 'main'
+	end
+end
+
+
+if $ARGS[0] = 'modclo_tattoos':
+	act '返回':					gt 'intro_character_custom', 'modclo_menu'
+	if pcs_tattoos['total'] > 0:	act '移除所有纹身':		gs 'tattoo_management', 'full_reset'		 & gt 'intro_character_custom', 'modclo_menu'
+	if pcs_tattoos['face'] > 0:		act '移除脸部纹身':		gs 'tattoo_management', 'remove', 'face'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['lip'] > 0:		act '移除嘴唇纹身':		gs 'tattoo_management', 'remove', 'lip'		 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['neck'] > 0:		act '移除脖子纹身':		gs 'tattoo_management', 'remove', 'neck'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['back'] > 0:		act '移除背部纹身':		gs 'tattoo_management', 'remove', 'back'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['shoulder'] > 0:	act '移除肩膀纹身':	gs 'tattoo_management', 'remove', 'shoulder' & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['breast'] > 0:	act '移除胸部纹身':		gs 'tattoo_management', 'remove', 'breast'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['under'] > 0:	act '移除乳房下纹身':		gs 'tattoo_management', 'remove', 'under'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['chest'] > 0:	act '移除胸口纹身':		gs 'tattoo_management', 'remove', 'chest'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['side'] > 0:		act '移除侧腰纹身':		gs 'tattoo_management', 'remove', 'side'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['belly'] > 0:	act '移除腹部纹身':		gs 'tattoo_management', 'remove', 'belly'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['arm'] > 0:		act '移除手臂纹身':		gs 'tattoo_management', 'remove', 'arm'		 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['wrist'] > 0:	act '移除手腕纹身':		gs 'tattoo_management', 'remove', 'wrist'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['hand'] > 0:		act '移除手部纹身':		gs 'tattoo_management', 'remove', 'hand'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['leg'] > 0:		act '移除腿部纹身':		gs 'tattoo_management', 'remove', 'leg'		 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['ankle'] > 0:	act '移除脚踝纹身':		gs 'tattoo_management', 'remove', 'ankle'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['tramp'] > 0:	act '移除后腰纹身':		gs 'tattoo_management', 'remove', 'tramp'	 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['ass'] > 0:		act '移除臀部纹身':		gs 'tattoo_management', 'remove', 'ass'		 & gt 'intro_character_custom', 'modclo_tattoos'
+	if pcs_tattoos['pussy'] > 0:	act '移除小穴纹身':		gs 'tattoo_management', 'remove', 'pussy'	 & gt 'intro_character_custom', 'modclo_tattoos'
+end
+
+
+if $ARGS[0] = 'modclo':
+	'请务必在选择服装之前确定外貌属性，否则游戏开始后衣服可能不合身。'
+	$loc_s = 'intro_character_custom'
+	$args_s = 'modclo'
+
+	if $menu_name = '':
+		act '返回':			gt 'intro_character_custom', 'modclo_menu'
+
+		act '魅力':			$menu_name = 'allure'			 & gt 'intro_character_custom', 'modclo'
+		act '可可·卡门':		$menu_name = 'coco_carmen'		 & gt 'intro_character_custom', 'modclo'
+		act '达尼洛维奇':		$menu_name = 'danilovich'		 & gt 'intro_character_custom', 'modclo'
+		act '色情狂':		$menu_name = 'erotomaniac'		 & gt 'intro_character_custom', 'modclo'
+		act '花哨':		$menu_name = 'fancy_pancy'		 & gt 'intro_character_custom', 'modclo'
+		act '时尚达人（Fashionista）':		$menu_name = 'fashionista'		 & gt 'intro_character_custom', 'modclo'
+		act '火烈鸟（Flamingos）':		$menu_name = 'flamingos'		 & gt 'intro_character_custom', 'modclo'
+		act 'G&M':				$menu_name = 'gm'				 & gt 'intro_character_custom', 'modclo'
+		act '奢内衣':		$menu_name = 'lusso'			 & gt 'intro_character_custom', 'modclo'
+		act '市场':		gt 'intro_character_custom', 'modclo_loop', 'clothing', 'market_outfits'
+		act '妈妈风格':		$menu_name = 'materinstvo'		 & gt 'intro_character_custom', 'modclo'
+		act '我的宝贝':		$menu_name = 'moncheri'			 & gt 'intro_character_custom', 'modclo'
+		act '书呆天堂':			$menu_name = 'nerdvana'			 & gt 'intro_character_custom', 'modclo'
+		act '拼布娃娃（Patchwork Dolls）':	$menu_name = 'dolls'			 & gt 'intro_character_custom', 'modclo'
+		act '猫咪小铺':		$menu_name = 'pussycats'		 & gt 'intro_character_custom', 'modclo'
+		act '惹火':	$menu_name = 'scandalicious'	 & gt 'intro_character_custom', 'modclo'
+		act '纯粹淫荡':	$menu_name = 'exhibitionist'	 & gt 'intro_character_custom', 'modclo'
+		act '沙皇炸弹（Tsar Bomba）':		$menu_name = 'tsar_bomba'		 & gt 'intro_character_custom', 'modclo'
+
+		act '纹身与穿孔':	$menu_name = 'pirsingsalon' & gt 'intro_character_custom', 'modclo'
+
+	elseif $menu_name = 'allure':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看泳衣':			gt 'intro_character_custom', 'modclo_loop', 'clothing', 'allure_swimsuit'
+		act '查看比基尼':				gt 'intro_character_custom', 'modclo_loop', 'clothing', 'allure_bikinis'
+
+		$func('wrap', 'header center b', '魅力')
+		'<center><img src="images/locations/city/residential/lake/allure/shop.jpg"></center>'
+		'这家商店给人一种海滩夏日的感觉，考虑到它卖的是泳装，这也难怪。'
+
+	elseif $menu_name = 'coco_carmen':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'coco_dress'
+		act '查看其他服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'coco_outfits'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'coco'
+
+		$func('wrap', 'header center b', '可可·卡门')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/coco/shop.jpg"></center>'
+		'如果你不介意在游客堆里挤来挤去，可可 有年轻人想穿的一切。它比 G&M 高一个档次，除非你买得起老城区的精品店，否则你少不了要在这里花不少时间挑衣服。'
+
+	elseif $menu_name = 'danilovich':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看运动服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'danilovich_outfits'
+		act '查看泳装':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'danilovich_swimsuit'
+		act '查看运动文胸':			gt 'intro_character_custom', 'modclo_loop', 'bras',		'danilovich'
+		act '查看运动内裤':		gt 'intro_character_custom', 'modclo_loop', 'panties',		'danilovich'
+		act '查看运动鞋':		gt 'intro_character_custom', 'modclo_loop', 'shoes',		'danilovich'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'danilovich'
+		act '查看外套':				gt 'intro_character_custom', 'modclo_loop', 'coats',		'danilovich'
+
+		$func('wrap', 'header center b', '达尼洛维奇体育用品')
+		'<center><img src="images/locations/city/citycenter/mall/sportshop/sportshop.jpg"></center>'
+		'你一进门，一首节奏强劲、低音轰鸣的高能量歌曲便灌满你的耳膜，让你精神一振。这家店时尚而专业，墙面和地板上展示着各种各样的运动器材和服装。店里满是身材健美的人在购物，他们的体形从高大壮硕到精瘦匀称各不相同。如果他们不能激发你锻炼的欲望，那些宣传过去和现役著名运动员的海报也绝对激励人心。'
+
+		gs 'themes', 'indoors'
+		gs 'item_cart', 'shopping_aisle', 'sports'
+
+	elseif $menu_name = 'erotomaniac':
+		act '返回': $menu_name = '' & 				gt 'intro_character_custom', 'modclo'
+		act '成人玩具与用品':					gt 'shop_erotomaniac', 'sexshop_menu'
+		act '浏览情趣连衣裙':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'eroto_dress'
+		act '浏览情趣服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'eroto_outfits'
+		act '浏览脱衣舞服装':	gt 'intro_character_custom', 'modclo_loop', 'clothing',	'eroto_strip'
+		act '浏览文胸':				gt 'intro_character_custom', 'modclo_loop', 'bras',		'eroto'
+		act '浏览内裤':				gt 'intro_character_custom', 'modclo_loop', 'panties',		'eroto'
+		act '浏览情趣鞋':		gt 'intro_character_custom', 'modclo_loop', 'shoes',		'eroto'
+
+		$backimage = ''
+		$func('wrap', 'header center b', '色情狂')
+		'<center><img <<$set_imgh>> src="images/locations/city/redlight/erotomaniac/sexshop.jpg"></center>'
+		'主柜台上展示着各种性玩具：'
+		'润滑油 - 145 <b>₽</b>'
+		'振动器 - 800 <b>₽</b>'
+		'肛门塞 - 800 <b>₽</b>'
+		'穿戴式假阴茎 - 500 <b>₽</b>'
+		'假阴茎 - 起价 800 <b>₽</b>'
+
+	elseif $menu_name = 'fancy_pancy':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看服装':			gt 'intro_character_custom', 'modclo_loop', 'clothing', 'fancy_burlesque'
+
+		$func('wrap', 'header center b', '花哨')
+		'<center><img <<$set_imgh>> src="images/locations/pushkin/fancypancy/shop.jpg"></center>'
+		'这家小精品店看起来更像是附近艳舞俱乐部的一间更衣室。缎面、皮革、褶边和华丽感都清楚地表明，这里不是买实用服装的地方。这里是唯一能买到艳舞俱乐部行头的地方，也许还能给卧室添点情趣。'
+		'这家精品店出售设计师款冬季外套、艳舞服装、漂亮的鞋子和精美的手袋。'
+
+	elseif $menu_name = 'fashionista':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '试穿连衣裙':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'fashionista_dress'
+		act '试穿套装':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'fashionista_outfits'
+		act '试穿文胸':				gt 'intro_character_custom', 'modclo_loop', 'bras',		'fashionista'
+		act '试穿内裤':			gt 'intro_character_custom', 'modclo_loop', 'panties',		'fashionista'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'fashionista'
+
+		$func('wrap', 'header center b', '时尚达人（Fashionista）')
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/fashionista/fashionista.jpg"></center>'
+		'这家店有许多大牌和设计师服装。连他们的包看着都很潮。'
+		'你可以在试衣间试穿衣服。'
+
+	elseif $menu_name = 'flamingos':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'flamingos_dress'
+		act '查看其他服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'flamingos_outfits'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'flamingos'
+
+		$func('wrap', 'header center b', '火烈鸟（Flamingos）')
+		'<center><img <<$set_imgh>> src="images/locations/city/island/flamingos/shop.jpg"></center>'
+		'火烈鸟（Flamingos）时尚又新潮，价格还压得很低，正好迎合岛上庞大的学生群体。它模仿年轻人最新的流行款式，却在面料和做工上抠成本。这正合那些衣服还没穿坏就已经腻了的顾客的胃口，所以店里总是很热闹。'
+
+	elseif $menu_name = 'gm':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看服装':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'gm_outfits'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'gm_dress'
+		act '查看职业装':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'gm_office'
+		act '查看女仆装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'gm_maid'
+		act '查看服务生制服':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'gm_server'
+		act '查看校服':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'gm_school'
+		act '查看胸罩':				gt 'intro_character_custom', 'modclo_loop', 'bras',		'gm'
+		act '查看内裤':				gt 'intro_character_custom', 'modclo_loop', 'panties',		'gm'
+		act '查看鞋子':				gt 'intro_character_custom', 'modclo_loop', 'shoes',		'gm'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'gm'
+		act '查看外套':				gt 'intro_character_custom', 'modclo_loop', 'coats',		'gm'
+
+		$func('wrap', 'header center b', '欢迎来到 G&M——满足你所有需求的服装')
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/gandm/shop.jpg"></center>'
+		'G&M 并不华丽，当然也不算高端时尚，但它便宜，而且有专门的工作装和校服。'
+
+	elseif $menu_name = 'lusso':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看胸罩':				gt 'intro_character_custom', 'modclo_loop', 'bras',		'lusso'
+		act '查看内裤':				gt 'intro_character_custom', 'modclo_loop', 'panties',		'lusso'
+		act '查看连体衣':			gt 'intro_character_custom', 'modclo_loop', 'bodysuits',	'lusso'
+
+		$func('wrap', 'header center b', '奢内衣')
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/lusso/lusso.jpg"></center>'
+		'装饰明亮而现代，鲜花是真的，梳妆台是用昂贵的木材制成的。'
+		'这显然是一家高端内衣店。只要知道你在穿这些，就会让你更出众，而且它们感觉如此舒适，你可能再也不想穿回以前不得不忍受的那些廉价又不合身的内衣了。当然，前提是你买得起这里的价格。'
+
+	elseif $menu_name = 'materinstvo':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看衣服':				gt 'intro_character_custom', 'modclo_loop', 'clothing', 'materinstvo_dress', 'mommy'
+
+		$func('wrap', 'header center b', '妈妈风格')
+		'<center><img src="images/locations/city/citycenter/mall/mommy/shop.jpg"></center>'
+		'这是一家专门出售与怀孕相关物品的商店。在这里你可以买到孕妇装或帮助你度过日常生活的物品。'
+
+	elseif $menu_name = 'moncheri':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '试穿礼服':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'moncheri_gown'
+		act '试穿连衣裙':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'moncheri_dress'
+		act '试穿连体衣':			gt 'intro_character_custom', 'modclo_loop', 'bodysuits',	'moncheri'
+		act '查看鞋子':				gt 'intro_character_custom', 'modclo_loop', 'shoes',		'moncheri'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'moncheri'
+		act '查看外套':				gt 'intro_character_custom', 'modclo_loop', 'coats',		'moncheri'
+
+		$func('wrap', 'header center b', '我的宝贝')
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/boutique/butik.jpg"></center>'
+		'你走进精品店才几秒钟，一个高挑苗条的黑发女人就款款走到你面前。她身上的一切都优雅而完美，从她穿的漂亮银色连衣裙，到她无瑕的肌肤和珍珠般洁白的牙齿。她微笑着把你迎进店内，动作略带夸张："欢迎光临 梦雪丽, 亲爱的。我们这里只卖最精美奢华的商品。来，看看吧！你不会失望的。" 精品店里的一切都是高端货，绝不是普通顾客能消受的，但陈列的商品确实美得惊人。'
+		'这家精品店出售设计师款冬装外套、正装、漂亮的鞋子和精致的手提包。'
+
+	elseif $menu_name = 'nerdvana':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看角色扮演服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'nerdvana_cosplay'
+		act '查看其他服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'nerdvana_outfits'
+		act '查看泳衣':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'nerdvana_swimsuit'
+		act '查看比基尼':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'nerdvana_bikinis'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'nerdvana'
+
+		$func('wrap', 'header center b', '书呆天堂')
+		'<center><img <<$set_imgh>> src="images/locations/city/island/nerdvana/shop.jpg"></center>'
+		'如果你不介意在游客堆里挤来挤去，书呆子天堂（书呆天堂）有年轻人想穿的一切。它比 G&M 高一个档次，除非你买得起老城区的精品店，否则你少不了要在这里花不少时间挑衣服。'
+
+	elseif $menu_name = 'dolls':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'dolls_dress'
+		act '查看其他服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'dolls_outfits'
+		act '查看鞋子':				gt 'intro_character_custom', 'modclo_loop', 'shoes',		'dolls'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'dolls'
+		act '查看外套':				gt 'intro_character_custom', 'modclo_loop', 'coats',		'dolls'
+
+		$func('wrap', 'header center b', '拼布娃娃（Patchwork Dolls）')
+		'<center><img <<$set_imgh>> src="images/locations/city/island/dolls/dollsshop.jpg"></center>'
+		'这家店在一条小巷里有一个小门面，但只需一眼就能看出这不是一家普通服装店。店里，架子和衣架上挂满了另类服装，塞满了每一寸可用空间——任何人想找一寸墙都要费一番功夫。收银台在入口附近。'
+
+	elseif $menu_name = 'pussycats':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'cats_dress'
+		act '查看其他服装':		gt 'intro_character_custom', 'modclo_loop', 'clothing',	'cats_outfits'
+		act '查看胸罩':				gt 'intro_character_custom', 'modclo_loop', 'bras',		'cats'
+		act '查看内裤':				gt 'intro_character_custom', 'modclo_loop', 'panties',		'cats'
+		act '查看鞋子':				gt 'intro_character_custom', 'modclo_loop', 'shoes',		'cats'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'cats'
+		act '查看外套':				gt 'intro_character_custom', 'modclo_loop', 'coats',		'cats'
+
+		'<b><center><font size="4">猫咪俱乐部（猫咪俱乐部）</font></center></b>'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+		'店里循环放着最新的排行榜冠军单曲。内部装饰色彩鲜艳、设计大胆，地板上摆满了展示更前卫风格服装的架子和桌子。看着四周那些迷人却瘦削的模特广告，你要么被诱惑着掏钱买了东西，要么自尊心又低了一截。'
+
+	elseif $menu_name = 'scandalicious':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看服装':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'scandalicious_outfits'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'scandalicious_dress'
+		act '查看泳衣':			gt 'intro_character_custom', 'modclo_loop', 'clothing',	'scandalicious_swimsuit'
+		act '查看比基尼':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'scandalicious_bikinis'
+		act '查看连体衣':			gt 'intro_character_custom', 'modclo_loop', 'bodysuits',	'scandalicious'
+		act '查看鞋子':				gt 'intro_character_custom', 'modclo_loop', 'shoes',		'scandalicious'
+
+		$func('wrap', 'header center b', '惹火')
+		'<center><img src="images/locations/city/citycenter/mall/scandalicious/shop.jpg"></center>'
+		'这家店又便宜又俗气。不过衣服倒是名副其实，你猜他们在布料上省了不少钱。'
+		'这不是你会和妈妈一起去的地方，你也不会让她知道你多看了那橱窗一眼，但如果你想展示身材，没有比这里更合适的购物地点了。店员不会对谁指指点点，所以逛起来很放松，不过还是有人藏着尴尬，也有人浑身透着自信。'
+
+	elseif $menu_name = 'exhibitionist':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看服装':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'salacious_dress'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'salacious_outfits'
+		act '查看胸罩':				gt 'intro_character_custom', 'modclo_loop', 'bras',		'salacious'
+		act '查看内裤':				gt 'intro_character_custom', 'modclo_loop', 'panties',		'salacious'
+		act '查看连体衣':			gt 'intro_character_custom', 'modclo_loop', 'bodysuits',	'salacious'
+
+		$func('wrap', 'header center b', '纯粹淫荡')
+		'<center><img <<$set_imgh>> src="images/locations/pushkin/exhibitshop/shop.jpg"></center>'
+		'一家装修极为现代的店，但里面的衣服都很暴露，远不如店面本身那么有格调。'
+
+	elseif $menu_name = 'tsar_bomba':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '查看连衣裙':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'bomba_dress'
+		act '查看服装':				gt 'intro_character_custom', 'modclo_loop', 'clothing',	'bomba_outfits'
+		act '查看鞋子':				gt 'intro_character_custom', 'modclo_loop', 'shoes',		'bomba'
+		act '查看钱包':				gt 'intro_character_custom', 'modclo_loop', 'purses',		'bomba'
+		act '查看外套':				gt 'intro_character_custom', 'modclo_loop', 'coats',		'bomba'
+
+		$func('wrap', 'header center b', '沙皇炸弹（Tsar Bomba）')
+		'<center><img <<$set_imgh>> src="images/locations/pushkin/bomba/shop.jpg"></center>'
+		'沙皇炸弹（Tsar Bomba），奥赫洛普科夫广场上的一家小服装店。这家店很独特，曾经靠朋克时尚风光过。如今它大众化了不少，风格转向另类，很容易被当成一家另类时尚连锁店。'
+		'简单来说，这地方非常酷，而且大部分衣服都怪得妙不可言。'
+
+	elseif $menu_name = 'pirsingsalon':
+		act '返回': $menu_name = '' & gt 'intro_character_custom', 'modclo'
+		act '纹身': $menu_name = 'pirsingsalon_tattoos' & gt 'intro_character_custom', 'modclo'
+		act '穿孔': $menu_name = 'pirsingsalon_piercings' & gt 'intro_character_custom', 'modclo'
+
+	elseif $menu_name = 'pirsingsalon_tattoos':
+		act '返回': $menu_name = 'pirsingsalon' & gt 'intro_character_custom', 'modclo'
+		act '脚踝':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'ankle'
+		act '手臂':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'arm'
+		act '屁股':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'ass'
+		act '背部':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'back'
+		act '腹部':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'belly'
+		act '乳房':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'breast'
+		act '胸口':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'chest'
+		act '外貌':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'face'
+		act '手':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'hand'
+		act '腿':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'leg'
+		act '嘴唇':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'lip'
+		act '脖子':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'neck'
+		act '小穴':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'pussy'
+		act '肩膀': gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'shoulder'
+		act '侧边':		gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'side'
+		act '破鞋':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'tramp'
+		act '内衣':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'under'
+		act '手腕':	gt 'intro_character_custom', 'modclo_loop', 'tattoos', 'wrist'
+
+	elseif $menu_name = 'pirsingsalon_piercings':
+		act '返回': $menu_name = 'pirsingsalon' & gt 'intro_character_custom', 'modclo'
+		act '耳朵':		gt 'intro_character_custom', 'modclo_loop', 'piercings', 'ears'
+		act '眉毛':		gt 'intro_character_custom', 'modclo_loop', 'piercings', 'brow'
+		act '嘴唇':		gt 'intro_character_custom', 'modclo_loop', 'piercings', 'lip'
+		act '鼻子':		gt 'intro_character_custom', 'modclo_loop', 'piercings', 'nose'
+		act '舌头':	gt 'intro_character_custom', 'modclo_loop', 'piercings', 'tongue'
+		act '肚脐':	gt 'intro_character_custom', 'modclo_loop', 'piercings', 'navel'
+		act '乳头':	gt 'intro_character_custom', 'modclo_loop', 'piercings', 'nipples'
+		act '小穴':	gt 'intro_character_custom', 'modclo_loop', 'piercings', 'pussy'
+
+	end
+end
+
+
+if $ARGS[0] = 'modclo_loop':
+	if shop_display['init'] = 0:
+		$intro_custom_shop['slot'] = $ARGS[1]
+
+		gs 'core_library', 'setloc', 'intro_character_custom', 'modclo_loop'
+		killvar 'shop_display_exceptions'
+		if $intro_custom_shop['slot'] = 'clothing':
+			gs 'clothing', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'bras':
+			gs 'bras', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'panties':
+			gs 'panties', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'bodysuits':
+			gs 'underwear_bodysuits', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'coats':
+			gs 'coats', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'purses':
+			gs 'purses', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'shoes':
+			gs 'shoes', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'tattoos':
+			gs 'tattoo_management', 'set_shop_display_exceptions', $ARGS[2]
+		elseif $intro_custom_shop['slot'] = 'piercings':
+			gs 'piercing_management', 'set_shop_display_exceptions', $ARGS[2]
+		end
+		gs 'shop_utils', 'init', 'start', $ARGS[1], 'cheat'
+		gs 'shop_utils', 'init', 'add_type', $ARGS[2]
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display_<<$intro_custom_shop[''slot'']>>_grid_shop'
+
+	act '返回': gs 'shop_utils', 'cleanup' & gt 'intro_character_custom', 'modclo'
+end
+
+
+if $ARGS[0] = 'modapp':
+	cla & *clr
+	if pcs_mass['bust_gen'] = 0: pcs_mass['bust_gen'] = 12
+	if pcs_mass['butt_gen'] = 0: pcs_mass['butt_gen'] = 22
+
+	'不同角色的体重会有所不同，因为计算时会考虑胸围和臀围。'
+	*nl
+	*nl
+	*nl
+
+	'选择基础基因胸部尺寸：（这是基因倾向，而不是游戏开始时的实际尺寸）'
+	nl
+	temp_idx = 0
+	:modapp_bust_loop
+	temp_val = temp_idx * 5 + 2
+	if temp_idx = 0:
+		$temp_label = '非常小'
+	elseif temp_idx = 1:
+		$temp_label = '低于平均'
+	elseif temp_idx = 2:
+		$temp_label = '平均'
+	elseif temp_idx = 3:
+		$temp_label = '高于平均'
+	elseif temp_idx = 4:
+		$temp_label = '大'
+	elseif temp_idx = 5:
+		$temp_label = '特大'
+	elseif temp_idx = 6:
+		$temp_label = '非常大'
+	elseif temp_idx = 7:
+		$temp_label = '巨大'
+	elseif temp_idx = 8:
+		$temp_label = '开始离谱'
+	end
+	if pcs_mass['bust_gen'] = temp_val:
+		'<<$temp_label>> - 当前设置'
+	else
+		'<a href="exec:pcs_mass[''bust_gen''] = <<temp_val>> & gt ''intro_character_custom'', ''modapp''"><<$temp_label>></a>'
+	end
+	temp_idx += 1
+	if temp_idx < 9: jump 'modapp_bust_loop'
+	killvar 'temp_idx'
+	killvar 'temp_val'
+	killvar 'temp_label'
+
+	*nl
+	*nl
+	*nl
+	'选择基础基因臀部尺寸：（这是基因倾向，而不是游戏开始时的实际尺寸）'
+	temp_idx = 0
+	:modapp_butt_loop
+	temp_val = temp_idx * 5 + 2
+	if temp_idx = 0:
+		$temp_label = '平坦'
+	elseif temp_idx = 1:
+		$temp_label = '基本平坦'
+	elseif temp_idx = 2:
+		$temp_label = '小'
+	elseif temp_idx = 3:
+		$temp_label = '低于平均'
+	elseif temp_idx = 4:
+		$temp_label = '平均'
+	elseif temp_idx = 5:
+		$temp_label = '高于平均'
+	elseif temp_idx = 6:
+		$temp_label = '大'
+	elseif temp_idx = 7:
+		$temp_label = '巨大'
+	elseif temp_idx = 8:
+		$temp_label = '开始离谱'
+	end
+	if pcs_mass['butt_gen'] = temp_val:
+		'<<$temp_label>> - 当前设置'
+	else
+		'<a href="exec:pcs_mass[''butt_gen''] = <<temp_val>> & gt ''intro_character_custom'', ''modapp''"><<$temp_label>></a>'
+	end
+	temp_idx += 1
+	if temp_idx < 9: jump 'modapp_butt_loop'
+	killvar 'temp_idx'
+	killvar 'temp_val'
+	killvar 'temp_label'
+
+	act '体脂 (<<pcs_mass[''body'']>>/200)': gs 'intro_character_custom', 'setbodymass' & pcs_mass['body'] = nstat & gt 'intro_character_custom', 'modapp'
+	act '返回': gt 'intro_character_custom', 'start'
+end
+
+
+if $ARGS[0] = 'setgenbsize':
+	nstat = pcs_mass['bust_gen']
+	nstat = input '输入以 2 或 7 结尾的数字。比如 2, 7, 12 等。'
+	if nstat > 97:
+		msg '请输入小于或等于 97 的值'
+		gs 'intro_character_custom', 'setval2'
+	elseif nstat < 2:
+		msg '请输入大于或等于 2 的值'
+		gs 'intro_character_custom', 'setval2'
+	elseif nstat mod 5 ! 2:
+		msg '请输入以 2 或 7 结尾的值'
+		gs 'intro_character_custom', 'setval2'
+	else
+		exit
+	end
+end
+
+
+if $ARGS[0] = 'modite':
+	act '假护照 (<<fakepassport>>/1)':
+		if fakepassport = 0:
+			fakepassport = 1
+		else
+			fakepassport = 0
+		end
+		gt 'intro_character_custom', 'modite'
+	end
+	act '电脑 (<<mc_inventory[''tech_computer'']>>/1)':
+		if mc_inventory['tech_computer'] = 0:
+			mc_inventory['tech_computer'] = 1
+		else
+			mc_inventory['tech_computer'] = 0
+		end
+		gt 'intro_character_custom', 'modite'
+	end
+	act '化妆品': gt 'intro_character_custom', 'modite_cos'
+	act '药品': gt 'intro_character_custom', 'modite_pha'
+	act '杂项物品': gt 'intro_character_custom', 'modite_mis'
+	act '返回': gt 'intro_character_custom', 'start'
+end
+
+
+if $ARGS[0] = 'modrel_setup2':
+	dynamic 'if <<$ARGS[1]>> < 0: <<$ARGS[1]>> = 0'
+	dynamic 'if <<$ARGS[1]>> > 100: <<$ARGS[1]>> = 100'
+	dynamic 'x = <<$ARGS[1]>>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td><<$ARGS[2]>> (<<x>>/100)</td><td><a href="exec:<<$ARGS[1]>> = 0 & gt ''intro_character_custom'', $locM_arg">清零</a></td><td bgcolor=#ff9999><a href="exec:<<$ARGS[1]>> -= 10 & gt ''intro_character_custom'', $locM_arg">减10</a></td><td bgcolor=#ff9999><a href="exec:<<$ARGS[1]>> -= 5 & gt ''intro_character_custom'', $locM_arg">减5</a></td><td bgcolor=#99ff99><a href="exec:<<$ARGS[1]>> += 5 & gt ''intro_character_custom'', $locM_arg">加5</a></td><td bgcolor=#99ff99><a href="exec:<<$ARGS[1]>> += 10 & gt ''intro_character_custom'', $locM_arg">加10</a></td><td><a href="exec:<<$ARGS[1]>> = 100 & gt ''intro_character_custom'', $locM_arg">100</a></td>'
+end
+
+
+if $ARGS[0] = 'modrel_setup3':
+	dynamic 'if <<$ARGS[1]>> < 50: <<$ARGS[1]>> = 50'
+	dynamic 'if <<$ARGS[1]>> > 200: <<$ARGS[1]>> = 200'
+	dynamic 'x = <<$ARGS[1]>>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td><<$ARGS[2]>> (<<x>>/200)</td><td><a href="exec:<<$ARGS[1]>> = 0 & gt ''intro_character_custom'', $locM_arg">清零</a></td><td bgcolor=#ff9999><a href="exec:<<$ARGS[1]>> -= 10 & gt ''intro_character_custom'', $locM_arg">减10</a></td><td bgcolor=#ff9999><a href="exec:<<$ARGS[1]>> -= 5 & gt ''intro_character_custom'', $locM_arg">减5</a></td><td bgcolor=#99ff99><a href="exec:<<$ARGS[1]>> += 5 & gt ''intro_character_custom'', $locM_arg">加5</a></td><td bgcolor=#99ff99><a href="exec:<<$ARGS[1]>> += 10 & gt ''intro_character_custom'', $locM_arg">加10</a></td><td><a href="exec:<<$ARGS[1]>> = 200 & gt ''intro_character_custom'', $locM_arg">200</a></td>'
+end
+
+
+!! Values reversed just for inhib use
+if $ARGS[0] = 'modrel_setup4':
+	dynamic 'if <<$ARGS[1]>> < 0: <<$ARGS[1]>> = 0'
+	dynamic 'if <<$ARGS[1]>> > 100: <<$ARGS[1]>> = 100'
+	dynamic 'x = 100-<<$ARGS[1]>>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td><<$ARGS[2]>> (<<x>>/100)</td><td><a href="exec:<<$ARGS[1]>> = 100 & gt ''intro_character_custom'', $locM_arg">清零</a></td><td bgcolor=#ff9999><a href="exec:<<$ARGS[1]>> += 10 & gt ''intro_character_custom'', $locM_arg">减10</a></td><td bgcolor=#ff9999><a href="exec:<<$ARGS[1]>> += 5 & gt ''intro_character_custom'', $locM_arg">减5</a></td><td bgcolor=#99ff99><a href="exec:<<$ARGS[1]>> -= 5 & gt ''intro_character_custom'', $locM_arg">加5</a></td><td bgcolor=#99ff99><a href="exec:<<$ARGS[1]>> -= 10 & gt ''intro_character_custom'', $locM_arg">加10</a></td><td><a href="exec:<<$ARGS[1]>> = 0 & gt ''intro_character_custom'', $locM_arg">100</a></td>'
+end
+
+
+if $ARGS[0] = 'modite_cos':
+	$locM_arg = 'modite_cos'
+	'<center><b>化妆品</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''cosmetics'']', '化妆品'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''razor'']', '剃刀（可刮次数）'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''suncream'']', '防晒霜'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''scrunchies'']', '发圈'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''kirbygrips'']', '发夹'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''shampoo'']', '洗发水'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modite'
+end
+
+
+if $ARGS[0] = 'modite_pha':
+	$locM_arg = 'modite_pha'
+	'<center><b>药品</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''equipped_condoms'']', '避孕套'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''pregnancy_test'']', '验孕棒'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''contraceptive_pill'']', '避孕药'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''antibiotics'']', '抗生素'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''vitamins'']', '维生素'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''painkillers'']', '止痛药'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''chafing_cream'']', '防磨膏'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''lubricant'']', '润滑剂'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''lipbalm'']', '润唇膏'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''weight_loss_pill'']', '减肥药'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''tampons'']', '卫生棉条'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''sanitary_pads'']', '卫生巾'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modite'
+end
+
+
+if $ARGS[0] = 'modite_mis':
+	$locM_arg = 'modite_mis'
+	'<center><b>杂项</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''cigarettes'']', '香烟'
+	gs 'intro_character_custom', 'modrel_setup2', 'dur', '可卡因'
+	gs 'intro_character_custom', 'modrel_setup2', 'mc_inventory[''food_biscuits'']', '茶饼干'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modite'
+end
+
+
+if $ARGS[0] = 'modpur':
+	*clr & cla
+	if $ARGS[1] ! '':
+		$currentpursetype = $ARGS[1]
+		currentpursenumber = ARGS[2]
+	end
+	*clr & cla
+	if $currentpursetype = '' or $currentpursetype = 'none':
+		$currentpursetype = 'none'
+		'你没有钱包。'
+	else
+		bag = 1
+		'<center><img <<$set_imgh>> src="images/pc/items/<<$currentpursetype>>/purses/<<currentpursenumber>>.jpg"></center>'
+		'你当前的钱包是<<$currentpursetype>>_<<currentpursenumber>>.'
+	end
+	act '返回':
+		dynamic $currentpursetype + '_purses[<<currentpursenumber>>] = 1'
+		gt 'intro_character_custom', 'start'
+	end
+	act '获取 G&M':
+		*clr & cla
+		'<center><img src="images/locations/city/citycenter/mall/gm.png"></center>'
+		i = 1
+		:loopgmpurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''gm'', <<i>>"><img height="300" src="images/pc/items/gm/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 20: jump 'loopgmpurses'
+	end
+	act '选择达尼洛维奇':
+		*clr & cla
+		'<center><img src="images/locations/city/citycenter/mall/sports.png"></center>'
+		i = 1
+		:loopdanilovichpurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''danilovich'', <<i>>"><img height="300" src="images/pc/items/danilovich/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 60: jump 'loopdanilovichpurses'
+	end
+	act '选择娃娃':
+		*clr & cla
+		'<center><img src="images/locations/city/island/dolls/shop_name.png"></center>'
+		i = 1
+		:loopdollspurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''dolls'', <<i>>"><img height="300" src="images/pc/items/dolls/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 40: jump 'loopdollspurses'
+	end
+	act '选择沙皇炸弹（Tsar Bomba）':
+		*clr & cla
+		'<center><img src="images/locations/pushkin/bomba/shop_name.png"></center>'
+		i = 1
+		:loopbombapurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''bomba'', <<i>>"><img height="300" src="images/pc/items/bomba/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 20: jump 'loopbombapurses'
+	end
+	act '选择时尚达人（Fashionista）':
+		*clr & cla
+		'<center><img src="images/locations/city/citycenter/mall/fashionista.png"></center>'
+		i = 1
+		:loopfashionistapurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''fashionista'', <<i>>"><img height="300" src="images/pc/items/fashionista/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 40: jump 'loopfashionistapurses'
+	end
+	act '选择可可':
+		*clr & cla
+		'<center><img src="images/locations/pavlovsk/coco/shop_name.png"></center>'
+		i = 1
+		:loopcocopurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''coco'', <<i>>"><img height="300" src="images/pc/items/coco/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 60: jump 'loopcocopurses'
+	end
+	act '选择猫咪小铺':
+		*clr & cla
+		'<center><img src="images/locations/city/citycenter/mall/pussycat.png"></center>'
+		i = 1
+		:loopkatspurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''cats'', <<i>>"><img height="300" src="images/pc/items/cats/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 20: jump 'loopkatspurses'
+	end
+	act '选择火烈鸟（Flamingos）':
+		*clr & cla
+		'<center><img src="images/locations/city/island/flamingos/shop_name.png"></center>'
+		i = 1
+		:loopflamingospurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''flamingos'', <<i>>"><img height="300" src="images/pc/items/flamingos/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 20: jump 'loopflamingospurses'
+	end
+	act '选择我的宝贝':
+		*clr & cla
+		'<center><img src="images/locations/city/citycenter/mall/moncheri.png"></center>'
+		i = 1
+		:loopmoncheripurses
+		*p '<a href="exec:gt ''intro_character_custom'', ''modpur'', ''moncheri'', <<i>>"><img height="300" src="images/pc/items/moncheri/purses/<<i>>.jpg"/></a>'
+		i += 1
+		if i <= 40: jump 'loopmoncheripurses'
+	end
+	act '我不想要钱包。':
+		bag = 0
+		$currentpursetype = 'none'
+		currentpursenumber = 0
+		gt 'intro_character_custom', 'modpur'
+	end
+end
+
+
+!! This is used to set value, is used to avoid any values that go below 5.
+if $ARGS[0] = 'setval':
+	nstat = 0
+	nstat = input '请输入 5 的倍数，范围在 10 到 150 之间。比如 10, 15, 60 等。'
+	if nstat > 150:
+		msg '请输入小于或等于 150 的值'
+		gs 'intro_character_custom', 'setval'
+	elseif nstat < 10:
+		msg '请输入大于或等于 5 的值'
+		gs 'intro_character_custom', 'setval'
+	elseif nstat mod 5 ! 0:
+		msg '请输入5的倍数的值'
+		gs 'intro_character_custom', 'setval'
+	else
+		gs 'stat'
+		exit
+	end
+end
+
+
+!! This is used to set values, that can go below 5 and ranges from 100 to -100.
+if $ARGS[0] = 'setval2':
+	nstat = 0
+	nstat = input '请输入 5 的倍数。比如 5, 0, -5 等。'
+	if nstat > 100:
+		msg '请输入小于或等于 100 的值'
+		gs 'intro_character_custom', 'setval2'
+	elseif nstat < -100:
+		msg '请输入大于或等于 -100 的值'
+		gs 'intro_character_custom', 'setval2'
+	elseif nstat mod 5 ! 0:
+		msg '请输入5的倍数的值'
+		gs 'intro_character_custom', 'setval2'
+	else
+		exit
+	end
+end
+
+
+!! This is used to set values, that can go to 0 and ranges from 0 to 100.
+if $ARGS[0] = 'setval3':
+	nstat = 0
+	nstat = input '请输入 5 的倍数。比如 0, 5, 10 等。'
+	if nstat > 100:
+		msg '请输入小于或等于 100 的值'
+		gs 'intro_character_custom', 'setval3'
+	elseif nstat < 0:
+		msg '请输入大于或等于 0 的值'
+		gs 'intro_character_custom', 'setval3'
+	elseif nstat mod 5 ! 0:
+		msg '请输入5的倍数的值'
+		gs 'intro_character_custom', 'setval3'
+	else
+		exit
+	end
+end
+
+
+if $ARGS[0] = 'setbodymass':
+	*clr & cla
+	'不同角色的体重会有所不同，因为计算时会考虑胸围和臀围。'
+	*nl
+	'15 = 体重不足，纤细，瘦削'
+	'30 = 苗条，骨感，精瘦'
+	'45 = 健康，结实，线条分明'
+	'60 = 可爱，肌肉发达'
+	'75 = 微胖，曲线丰满，壮硕'
+	'90 = 超重，敦实'
+	'105 = 肥胖，体型沉重'
+
+	nstat = pcs_mass['body']
+	nstat = input '请输入 5 的倍数，范围在 10 到 150 之间。比如 10, 15, 60 等。'
+	if nstat > 150:
+		msg '请输入小于 150 的值'
+		gs 'intro_character_custom', 'setbodymass'
+	elseif nstat < 10:
+		msg '请输入大于 10 的值'
+		gs 'intro_character_custom', 'setbodymass'
+	elseif nstat mod 5 ! 0:
+		msg '请输入5的倍数的值'
+		gs 'intro_character_custom', 'setbodymass'
+	else
+		exit
+	end
+end
+
+
+if $ARGS[0] = 'modatt':
+	*clr & cla
+	$locM_arg = 'modatt'
+	'<center><b>属性</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup4', 'pcs_inhib', '抑制'
+	gs 'intro_character_custom', 'modrel_setup3', 'willpowermax', '意志力'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_stren', '力量'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_agil', '敏捷'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_vital', '耐力'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_intel', '智力'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_sprt', '精神'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_react', '反应'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_chrsm', '魅力'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_prcptn', '感知'
+	if $start_type['magic'] ! 'nomagic': gs 'intro_character_custom', 'modrel_setup2', 'pcs_magik', '魔法'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'modskl':
+	*clr & cla
+	act '心理技能':	gt 'intro_character_custom', 'modskl_men'
+	act '运动技能':		gt 'intro_character_custom', 'modskl_spo'
+	act '战斗技能':	gt 'intro_character_custom', 'modskl_com'
+	act '美容技能':	gt 'intro_character_custom', 'modskl_bea'
+	act '艺术技能':	gt 'intro_character_custom', 'modskl_art'
+	act '工作技能':		gt 'intro_character_custom', 'modskl_job'
+	act '返回':			gt 'intro_character_custom', 'start'
+end
+
+
+if $ARGS[0] = 'modskl_men':
+	*clr & cla
+	$locM_arg = 'modskl_men'
+	'<center><b>教师 - 信誉</b></center>'
+	*nl
+	killvar 'table_display'
+	if $start_type['magic'] ! 'nomagic': gs 'intro_character_custom', 'modrel_setup2', 'pcs_splcstng', '法术施放'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_humint', '人际技能'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_persuas', '说服'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_observ', '观察'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'modskl'
+	end
+end
+
+
+if $ARGS[0] = 'modskl_spo':
+	*clr & cla
+	$locM_arg = 'modskl_spo'
+	'<center><b>战斗技能</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_run', '跑步'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_vball', '排球'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_ftbll', '足球'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_bkball', '篮球'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_wrstlng', '摔跤'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_icesktng', '滑冰'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_gaming', '游戏'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_chess', '国际象棋'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_pool', '台球'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'modskl'
+	end
+end
+
+
+if $ARGS[0] = 'modskl_com':
+	*clr & cla
+	$locM_arg = 'modskl_com'
+	'<center><b>美容技能</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_jab', '刺拳'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_punch', '重击'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_kick', '踢击'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_def', '防御'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_shoot', '射击术'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_bushcraft', '野外生存'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'modskl'
+	end
+end
+
+
+if $ARGS[0] = 'modskl_bea':
+	*clr & cla
+	$locM_arg = 'modskl_bea'
+	'<center><b>美容技能</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_makupskl', '化妆技巧'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_danc', '舞蹈'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_dancero', '艳舞'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_dancpol', '钢管舞'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_cheer', '啦啦队'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_heels', '高跟鞋'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'modskl'
+	end
+end
+
+
+if $ARGS[0] = 'modskl_art':
+	*clr & cla
+	$locM_arg = 'modskl_art'
+	'<center><b>艺术技能</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_vokal', '唱歌'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_instrmusic', '乐器'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_photoskl', '摄影'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_artskls', '艺术技能'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_perform', '表演'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_musicprod', '音乐制作'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'modskl'
+	end
+end
+
+
+if $ARGS[0] = 'modskl_job':
+	*clr & cla
+	$locM_arg = 'modskl_job'
+	'<center><b>职业技能</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_compskl', '电脑技能'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_comphckng', '黑客技术'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_hndiwrk', '手工'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_sewng', '裁缝'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_servng', '服务'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_medcn', '医学'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_cleaning', '清洁'
+	gs 'intro_character_custom', 'modrel_setup2', 'pcs_mdlng', '模特'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	nl
+
+	act '返回':
+		gt 'intro_character_custom', 'modskl'
+	end
+end
+
+
+!! Birthday picker has moved to intro_character_creation/core_birthday.
+!! $locM/$locM_arg must already be set by the caller before this is reached.
+if $ARGS[0] = 'birthday':
+	gt 'intro_character_creation', 'core_birthday'
+end
+
+
+!! ── SG-only labels (absorbed from intro_sg_select_custom) ──────────────────
+if $ARGS[0] = 'modgrup':
+	*clr & cla
+	'你当前的社交群体是<<$soc_grup>>。'
+	act '书呆子':
+		killvar 'grupvalue'
+		$start_type['group'] = 'nerd'
+		$soc_grup = '书呆子'
+		grupTipe = 3
+		grupvalue[1] = 200
+		grupvalue[2] = 100
+		grupvalue[3] = 800
+		grupvalue[4] = 100
+		grupvalue[6] = 600
+		gt 'intro_character_custom', 'modgrup'
+	end
+	act '运动员':
+		killvar 'grupvalue'
+		$start_type['group'] = 'jock'
+		$soc_grup = '运动员'
+		grupTipe = 2
+		grupvalue[1] = 400
+		grupvalue[2] = 800
+		grupvalue[3] = 100
+		grupvalue[4] = 200
+		grupvalue[6] = 400
+		gt 'intro_character_custom', 'modgrup'
+	end
+	act '人气':
+		killvar 'grupvalue'
+		$start_type['group'] = 'cool'
+		$soc_grup = '酷'
+		grupTipe = 1
+		grupvalue[1] = 800
+		grupvalue[2] = 400
+		grupvalue[3] = 200
+		grupvalue[4] = 100
+		grupvalue[6] = 400
+		gt 'intro_character_custom', 'modgrup'
+	end
+	act '戈普尼克':
+		killvar 'grupvalue'
+		$start_type['group'] = 'gopnik'
+		$soc_grup = 'Gopnik'
+		grupTipe = 4
+		grupvalue[1] = 200
+		grupvalue[2] = 300
+		grupvalue[3] = 100
+		grupvalue[4] = 800
+		grupvalue[6] = 100
+		gt 'intro_character_custom', 'modgrup'
+	end
+	act '被排斥者/独行侠':
+		killvar 'grupvalue'
+		$start_type['group'] = 'outcast'
+		$soc_grup = 'Outcast'
+		grupTipe = 5
+		grupvalue[1] = 200
+		grupvalue[2] = 200
+		grupvalue[3] = 200
+		grupvalue[4] = 200
+		grupvalue[6] = 200
+		gt 'intro_character_custom', 'modgrup'
+	end
+	act '返回': gt 'intro_character_custom', 'start'
+end
+
+
+if $ARGS[0] = 'none':
+	gs 'intro_functions', 'reset_all'
+	$soc_grup	= 'outcast'
+	grupTipe	= 5
+end
+
+
+if $ARGS[0] = 'modrel':
+	act '家庭': gt 'intro_character_custom', 'modrel_fam'
+	act '受欢迎的学生': gt 'intro_character_custom', 'modrel_pop'
+	act '运动员': gt 'intro_character_custom', 'modrel_ath'
+	act '书呆子': gt 'intro_character_custom', 'modrel_ner'
+	act '戈普尼克': gt 'intro_character_custom', 'modrel_gop'
+	act '被排斥者/独行侠': gt 'intro_character_custom', 'modrel_out'
+	act '教师/教练': gt 'intro_character_custom', 'modrel_tea'
+	act '其他': gt 'intro_character_custom', 'modrel_oth'
+	act '返回': gt 'intro_character_custom', 'start'
+end
+
+
+if $ARGS[0] = 'modrel_fam':
+	if npc_rel['A28'] < 0: npc_rel['A28'] = 0
+	if npc_rel['A29'] < 0: npc_rel['A29'] = 0
+	if npc_rel['A33'] < 0: npc_rel['A33'] = 0
+	if npc_rel['A34'] < 0: npc_rel['A34'] = 0
+	if npc_rel['A28'] > 100: npc_rel['A28'] = 100
+	if npc_rel['A29'] > 100: npc_rel['A29'] = 100
+	if npc_rel['A33'] > 100: npc_rel['A33'] = 100
+	if npc_rel['A34'] > 100: npc_rel['A34'] = 100
+	'<center><b>家庭关系等级</b></center>'
+	*nl
+	*nl
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	'<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>继父：<<npc_rel[''A28'']>></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A28'', 0 & gt ''intro_character_custom'', ''modrel_fam''">清零</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A28'', -10 & gt ''intro_character_custom'', ''modrel_fam''">减10</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A28'', -5 & gt ''intro_character_custom'', ''modrel_fam''">减5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A28'', 5 & gt ''intro_character_custom'', ''modrel_fam''">加5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A28'', 10 & gt ''intro_character_custom'', ''modrel_fam''">加10</a></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A28'', 100 & gt ''intro_character_custom'', ''modrel_fam''">100</a></td>'
+	'<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>母亲：<<npc_rel[''A29'']>></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A29'', 0 & gt ''intro_character_custom'', ''modrel_fam''">清零</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A29'', -10 & gt ''intro_character_custom'', ''modrel_fam''">减10</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A29'', -5 & gt ''intro_character_custom'', ''modrel_fam''">减5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A29'', 5 & gt ''intro_character_custom'', ''modrel_fam''">加5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A29'', 10 & gt ''intro_character_custom'', ''modrel_fam''">加10</a></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A29'', 100 & gt ''intro_character_custom'', ''modrel_fam''">100</a></td>'
+	'<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>姐姐：<<npc_rel[''A33'']>></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A33'', 0 & gt ''intro_character_custom'', ''modrel_fam''">清零</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A33'', -10 & gt ''intro_character_custom'', ''modrel_fam''">减10</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A33'', -5 & gt ''intro_character_custom'', ''modrel_fam''">减5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A33'', 5 & gt ''intro_character_custom'', ''modrel_fam''">加5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A33'', 10 & gt ''intro_character_custom'', ''modrel_fam''">加10</a></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A33'', 100 & gt ''intro_character_custom'', ''modrel_fam''">100</a></td>'
+	'<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>兄弟：<<npc_rel[''A34'']>></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A34'', 0 & gt ''intro_character_custom'', ''modrel_fam''">清零</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A34'', -10 & gt ''intro_character_custom'', ''modrel_fam''">减10</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A34'', -5 & gt ''intro_character_custom'', ''modrel_fam''">减5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A34'', 5 & gt ''intro_character_custom'', ''modrel_fam''">加5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''A34'', 10 & gt ''intro_character_custom'', ''modrel_fam''">加10</a></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''A34'', 100 & gt ''intro_character_custom'', ''modrel_fam''">100</a></td>'
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_setup':
+	if npc_rel['<<$ARGS[1]>>'] < 0: npc_rel['<<$ARGS[1]>>'] = 0
+	if npc_rel['<<$ARGS[1]>>'] > 100: npc_rel['<<$ARGS[1]>>'] = 100
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td><<$npc_firstname[''<<$ARGS[1]>>'']>> <<$npc_lastname[''<<$ARGS[1]>>'']>>: <<npc_rel[''<<$ARGS[1]>>'']>></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''<<$ARGS[1]>>'', 0 & gt ''intro_character_custom'', $locM_arg">清零</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''<<$ARGS[1]>>'', -10 & gt ''intro_character_custom'', $locM_arg">减10</a></td><td bgcolor=#ff9999><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''<<$ARGS[1]>>'', -5 & gt ''intro_character_custom'', $locM_arg">减5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''<<$ARGS[1]>>'', 5 & gt ''intro_character_custom'', $locM_arg">加5</a></td><td bgcolor=#99ff99><a href="exec:gs ''npc_relationship'', ''modify_exact'', ''<<$ARGS[1]>>'', 10 & gt ''intro_character_custom'', $locM_arg">加10</a></td><td><a href="exec:gs ''npc_relationship'', ''set'', ''<<$ARGS[1]>>'', 100 & gt ''intro_character_custom'', $locM_arg">100</a></td>'
+end
+
+
+if $ARGS[0] = 'modrel_pop':
+	$locM_arg = 'modrel_pop'
+	'<center><b>受欢迎学生关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A1'
+	gs 'intro_character_custom', 'modrel_setup', 'A4'
+	gs 'intro_character_custom', 'modrel_setup', 'A14'
+	gs 'intro_character_custom', 'modrel_setup', 'A15'
+	gs 'intro_character_custom', 'modrel_setup', 'A17'
+	gs 'intro_character_custom', 'modrel_setup', 'A22'
+	gs 'intro_character_custom', 'modrel_setup', 'A146'
+	gs 'intro_character_custom', 'modrel_setup', 'A147'
+	gs 'intro_character_custom', 'modrel_setup', 'A148'
+	gs 'intro_character_custom', 'modrel_setup', 'A25'
+	gs 'intro_character_custom', 'modrel_setup', 'A139'
+	gs 'intro_character_custom', 'modrel_setup', 'A140'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有男生的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 0, 1, nstat & gt ''intro_character_custom'',''modrel_pop''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有女孩的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 1, 1, nstat & gt ''intro_character_custom'',''modrel_pop''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_ath':
+	$locM_arg = 'modrel_ath'
+	'<center><b>体育生关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A3'
+	gs 'intro_character_custom', 'modrel_setup', 'A5'
+	gs 'intro_character_custom', 'modrel_setup', 'A8'
+	gs 'intro_character_custom', 'modrel_setup', 'A13'
+	gs 'intro_character_custom', 'modrel_setup', 'A18'
+	gs 'intro_character_custom', 'modrel_setup', 'A19'
+	gs 'intro_character_custom', 'modrel_setup', 'A23'
+	gs 'intro_character_custom', 'modrel_setup', 'A149'
+	gs 'intro_character_custom', 'modrel_setup', 'A150'
+	gs 'intro_character_custom', 'modrel_setup', 'A141'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有男生的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 0, 2, nstat & gt ''intro_character_custom'',''modrel_ath''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有女孩的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 1, 2, nstat & gt ''intro_character_custom'',''modrel_ath''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_ner':
+	$locM_arg = 'modrel_ner'
+	'<center><b>书呆子关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A2'
+	gs 'intro_character_custom', 'modrel_setup', 'A6'
+	gs 'intro_character_custom', 'modrel_setup', 'A12'
+	gs 'intro_character_custom', 'modrel_setup', 'A16'
+	gs 'intro_character_custom', 'modrel_setup', 'A151'
+	gs 'intro_character_custom', 'modrel_setup', 'A152'
+	gs 'intro_character_custom', 'modrel_setup', 'A153'
+	gs 'intro_character_custom', 'modrel_setup', 'A142'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有男生的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 0, 3, nstat & gt ''intro_character_custom'',''modrel_ner''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有女孩的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 1, 3, nstat & gt ''intro_character_custom'',''modrel_ner''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_gop':
+	$locM_arg = 'modrel_gop'
+	'<center><b>戈普尼克学生关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A9'
+	gs 'intro_character_custom', 'modrel_setup', 'A10'
+	gs 'intro_character_custom', 'modrel_setup', 'A11'
+	gs 'intro_character_custom', 'modrel_setup', 'A20'
+	gs 'intro_character_custom', 'modrel_setup', 'A21'
+	gs 'intro_character_custom', 'modrel_setup', 'A24'
+	gs 'intro_character_custom', 'modrel_setup', 'A154'
+	gs 'intro_character_custom', 'modrel_setup', 'A155'
+	gs 'intro_character_custom', 'modrel_setup', 'A156'
+	gs 'intro_character_custom', 'modrel_setup', 'A157'
+	gs 'intro_character_custom', 'modrel_setup', 'A158'
+	gs 'intro_character_custom', 'modrel_setup', 'A143'
+	gs 'intro_character_custom', 'modrel_setup', 'A144'
+	gs 'intro_character_custom', 'modrel_setup', 'A145'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有男生的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 0, 4, nstat & gt ''intro_character_custom'',''modrel_gop''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有女孩的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 1, 4, nstat & gt ''intro_character_custom'',''modrel_gop''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_out':
+	$locM_arg = 'modrel_out'
+	'<center><b>边缘学生关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A7'
+	gs 'intro_character_custom', 'modrel_setup', 'A159'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有男生的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 0, 5, nstat & gt ''intro_character_custom'',''modrel_out''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_tea':
+	$locM_arg = 'modrel_tea'
+	'<center><b>老师关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A26'
+	gs 'intro_character_custom', 'modrel_setup', 'A128'
+	gs 'intro_character_custom', 'modrel_setup', 'A129'
+	gs 'intro_character_custom', 'modrel_setup', 'A130'
+	gs 'intro_character_custom', 'modrel_setup', 'A131'
+	gs 'intro_character_custom', 'modrel_setup', 'A132'
+	gs 'intro_character_custom', 'modrel_setup', 'A133'
+	gs 'intro_character_custom', 'modrel_setup', 'A134'
+	gs 'intro_character_custom', 'modrel_setup', 'A135'
+	gs 'intro_character_custom', 'modrel_setup', 'A136'
+	gs 'intro_character_custom', 'modrel_setup', 'A137'
+	gs 'intro_character_custom', 'modrel_setup', 'A138'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有男性的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 0, 6, nstat & gt ''intro_character_custom'',''modrel_tea''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display += '<tr bgcolor=<<$theme_hex[''table_bg'']>>><td>设置本组中所有女性的关系等级</td><td><a href="exec: gs ''intro_character_custom'',''setval2'' & gs ''intro_character_custom'', ''pol_grup_set'', 1, 6, nstat & gt ''intro_character_custom'',''modrel_tea''">设置数值</a></td><td></td><td></td><td></td><td></td><td></td>'
+	$table_display
+	'</table></center>'
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'modrel_oth':
+	$locM_arg = 'modrel_oth'
+	'<center><b>其他人关系等级</b></center>'
+	*nl
+	killvar 'table_display'
+	gs 'intro_character_custom', 'modrel_setup', 'A69'
+	gs 'intro_character_custom', 'modrel_setup', 'A112'
+	'<center><table border=0 cellspacing=0 cellpadding=25 bgcolor=#808080><th></th><th>设为零</th><th>减10</th><th>减5</th><th>加5</th><th>加10</th><th>设为100</th>'
+	$table_display
+	'</table></center>'
+	!! Volleyball Coach is here because it wasnt being controlled by grup6 the teachers/coaches.
+	act '返回': gt 'intro_character_custom', 'modrel'
+end
+
+
+if $ARGS[0] = 'pol_grup_set':
+	!! ARGS[1] 0 is boys, 1 is girls. ARGS[2] 1nerd 2jock 3cool 4gopnik 5outcast 6teachers. ARGS[3] is changes to value
+	r = 1
+	:pol_grup_set_loop
+		if npc_gender['A<<r>>'] = ARGS[1] and npc_grupTipe['A<<r>>'] = ARGS[2]:
+			npc_rel['A<<r>>'] = ARGS[3]
+		end
+		r += 1
+	if r <= aarraynumber : jump 'pol_grup_set_loop'
+end
+
+
+--- intro_character_custom ---------------------------------

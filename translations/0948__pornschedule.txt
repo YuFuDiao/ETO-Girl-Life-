@@ -1,0 +1,501 @@
+# pornschedule
+
+if $ARGS[0] = 'on_booking_miss':
+	!! Miss handler invoked by daily_check for a missed booking-mode shift.
+	!! gs 'pornschedule', 'on_booking_miss', $job_id, $booking_data
+	!! $ARGS[2] = booking_data string holding the film type number set by do_contract.
+	!! Sets pornmiss/missedshoot for the manager dialog and accumulates a debt
+	!! sized by the film''s production cost.
+
+	$temp_obm_job = $ARGS[1]
+	$temp_obm_data = $ARGS[2]
+	temp_obm_film_type = val($temp_obm_data)
+
+	pornmiss = 1
+	missedshoot = 0
+
+	!! dynamic $pornfilmdesc sets pcash, pfactor, etc. for the given film type.
+	if temp_obm_film_type > 0:
+		dynamic $pornfilmdesc, temp_obm_film_type
+		!! pcash * 10 stands in for studio overhead (crew, actors, equipment).
+		temp_obm_cost = pcash * 10
+	else
+		!! Unknown film type — flat penalty.
+		temp_obm_cost = 500
+	end
+
+	job_booking_debt[$temp_obm_job] += temp_obm_cost
+	!! pornstudio.qsrc reads job_last_miss_cost when offering forgiveness.
+	job_last_miss_cost[$temp_obm_job] = temp_obm_cost
+
+	if job_booking_debt[$temp_obm_job] > job_penalty_max_debt[$temp_obm_job]:
+		$job_termination_reason[$temp_obm_job] = 'blacklisted'
+		gs 'jobs', 'set_fired', $temp_obm_job
+		pfilmNO = 1
+	end
+
+	killvar 'temp_obm_job'
+	killvar 'temp_obm_data'
+	killvar 'temp_obm_film_type'
+	killvar 'temp_obm_cost'
+end
+
+
+if $ARGS[0] = 'pornmiss':
+	!! Older miss path retained for saves predating the daily_check booking system.
+	pornmiss = 1
+	missedshoot = 0
+	film_idx = film
+	dynamic $pornfilmdesc, pornfilmType[film]
+	temp_pm_cost = pcash * 10
+	if temp_pm_cost = 0: temp_pm_cost = 500
+	job_booking_debt['city_pornstudio_actress'] += temp_pm_cost
+	job_last_miss_cost['city_pornstudio_actress'] = temp_pm_cost
+	killvar 'temp_pm_cost'
+	if job_booking_debt['city_pornstudio_actress'] > job_penalty_max_debt['city_pornstudio_actress']:
+		$job_termination_reason['city_pornstudio_actress'] = 'blacklisted'
+		gs 'jobs', 'set_fired', 'city_pornstudio_actress'
+		pfilmNO = 1
+	end
+end
+
+
+if $ARGS[0] = 'schedule':
+	missedshoot = 0
+
+	gs 'jobs', 'get_job_definition', 'city_pornstudio_actress'
+
+	!! porndays = days until the player''s next booked shoot.
+	temp_sched_next = func('jobs', 'get_next_booking_day', 'city_pornstudio_actress', daystart, job_booking_window_days['city_pornstudio_actress'])
+	if temp_sched_next > 0:
+		porndays = temp_sched_next - daystart
+	else
+		porndays = -1
+	end
+	killvar 'temp_sched_next'
+
+	days = 0
+	:fillschedule
+		porns = 0
+		:moveschedule
+			if porntaken['<<days+1>>,<<porns>>'] = 0 and days >= 14:
+				if rand(1, 100) = 1: pornplan['<<days+1>>,<<porns>>'] = 0
+				!! Change of plans if there is no contract on the movie, shooting some other kind of porn instead
+			end
+			if days = job_booking_window_days['city_pornstudio_actress'] or pornplan['<<days+1>>,<<porns>>'] = 0:
+			!! If there is a missing slot in the schedule, it fills in. It also regenerates the last selection on the end, so no endless repetition
+				pornvariable = rand(0, 90)
+				if pornvariable <= 1:
+					!! 50 person
+					pornplan['<<days+1>>,<<porns>>'] = 14
+				elseif pornvariable <= 10:
+					!! 4 person
+					!! some way to randomize the scene
+					pornplan['<<days+1>>,<<porns>>'] = rand(10, 13)
+				elseif pornvariable <= 30:
+					!! 2 person
+					!! some way to randomize the scene
+					pornplan['<<days+1>>,<<porns>>'] = rand(8, 9)
+				elseif pornvariable <= 60:
+					!! single person
+					!! some way to randomize the scene
+					pornplan['<<days+1>>,<<porns>>'] = rand(1, 7)
+				elseif pornvariable <= 80:
+					!! single person
+					!! some way to randomize the scene
+					pornplan['<<days+1>>,<<porns>>'] = rand(15, 20)
+				else
+					!! masturbation scene
+					!! some way to randomize the scene - if there will be more than one(???)
+					pornplan['<<days+1>>,<<porns>>'] = 15
+				end
+			end
+			pornplan['<<days>>,<<porns>>'] = pornplan['<<days+1>>,<<porns>>']
+			porntaken['<<days>>,<<porns>>'] = porntaken['<<days+1>>,<<porns>>']
+			!! moving the shooting schedule and the contracts ahead by one day. "days = 0" is the current day
+			if porntaken['<<days>>,<<porns>>'] = 0:
+				if rand(1, days*3/2) = 1: porntaken['<<days>>,<<porns>>'] = 1
+				!! some other porn actress contracted the movie. The more closer the shooting day is, the more likely, that all of them is taken
+			end
+			if porntaken['<<days>>,<<porns>>'] = 1:
+				if rand(1, 100) = 1: porntaken['<<days>>,<<porns>>'] = 0
+				!! some other porn actress contracted to the movie has canceled her contract. Not likely, but it happens.
+			end
+		if porns < 3: porns += 1 & jump 'moveschedule'
+	if days < job_booking_window_days['city_pornstudio_actress']: days += 1 & jump 'fillschedule'
+	!! Finally deleting the unnecessary (and the next day overwritten) schedule day to reduce array size
+	temp_sched_tail = (job_booking_window_days['city_pornstudio_actress'] + 1) * 4
+	killvar 'pornplan', temp_sched_tail + 3
+	killvar 'pornplan', temp_sched_tail + 2
+	killvar 'pornplan', temp_sched_tail + 1
+	killvar 'pornplan', temp_sched_tail
+	killvar 'temp_sched_tail'
+end
+
+
+if $ARGS[0] = 'porn_type_selector':
+	temp_edit_day = ARGS[1]
+	temp_edit_session = ARGS[2]
+
+	*clr & cla
+	'为 #<<temp_edit_session+1>>选择新的色情类型（<<$ARGS[3]>>）：'
+	*nl
+	'当前： <<$porndesc[pornplan[''<<temp_edit_day>>,<<temp_edit_session>>'']]>>'
+	*nl
+
+	type_i = 1
+	num_types = arrsize('$porndesc')
+
+	:type_loop
+		killvar 'selector_html'
+		if type_i <= num_types:
+			if type_i = pornplan['<<temp_edit_day>>,<<temp_edit_session>>']:
+				$selector_html = '<b><font color="yellow">'
+			end
+
+			$selector_html += '<a href="exec:pornplan[''<<temp_edit_day>>,<<temp_edit_session>>''] = <<type_i>> & killvar ''temp_edit_day'' & killvar ''temp_edit_session'' & gs ''stat'' & *clr & cla &gs ''pornschedule'', ''contracting''"><<$porndesc[type_i]>></a>'
+
+			if type_i = pornplan['<<temp_edit_day>>,<<temp_edit_session>>']:
+				$selector_html += ' （当前）</font></b>'
+			end
+			$selector_html
+			*nl
+			type_i += 1
+			jump 'type_loop'
+		end
+
+	*nl
+	act '取消': gt $loc, $loc_arg
+
+	killvar 'temp_edit_day'
+	killvar 'temp_edit_session'
+	killvar 'selector_html'
+	killvar 'type_i'
+	killvar 'num_types'
+end
+
+
+if $ARGS[0] = 'do_contract':
+	!! Book a porn shoot for an offset/slot from the contracting UI.
+	!! gs 'pornschedule', 'do_contract', day_offset, slot_index
+	temp_dc_offset = ARGS[1]
+	temp_dc_slot = ARGS[2]
+	temp_dc_film_type = pornplan[$str(temp_dc_offset) + ',' + $str(temp_dc_slot)]
+	temp_dc_daystart = daystart + temp_dc_offset
+
+	!! book_slot handles count increment, calendar event, and conflict checks.
+	temp_dc_result = func('jobs', 'book_slot', 'city_pornstudio_actress', temp_dc_daystart, temp_dc_slot, $str(temp_dc_film_type))
+
+	if temp_dc_result = 1:
+		porntaken[$str(temp_dc_offset) + ',' + $str(temp_dc_slot)] = 2
+		!! book_slot stored the numeric film type as both booking_data and event
+		!! description; replace the event description with the human-readable name
+		!! so the calendar reads nicely. booking_data stays numeric for consumers.
+		$temp_dc_event_id = 'job_booking_city_pornstudio_actress_' + $str(temp_dc_daystart) + '_' + $str(temp_dc_slot)
+		if $event_desc[$temp_dc_event_id] <> '':
+			$event_desc[$temp_dc_event_id] = $porndesc[temp_dc_film_type]
+		end
+		killvar 'temp_dc_event_id'
+	end
+
+	killvar 'temp_dc_offset'
+	killvar 'temp_dc_slot'
+	killvar 'temp_dc_film_type'
+	killvar 'temp_dc_daystart'
+	killvar 'temp_dc_result'
+	gs 'stat'
+	gs 'pornschedule', 'contracting'
+end
+
+
+if $ARGS[0] = 'do_cancel':
+	!! Cancel a booked porn shoot for an offset/slot from the cancellation UI.
+	!! gs 'pornschedule', 'do_cancel', day_offset, slot_index
+	temp_cc_offset = ARGS[1]
+	temp_cc_slot = ARGS[2]
+	temp_cc_daystart = daystart + temp_cc_offset
+
+	!! cancel_booking handles count decrement and calendar event removal.
+	gs 'jobs', 'cancel_booking', 'city_pornstudio_actress', temp_cc_daystart, temp_cc_slot
+
+	porntaken[$str(temp_cc_offset) + ',' + $str(temp_cc_slot)] = 0
+
+	killvar 'temp_cc_offset'
+	killvar 'temp_cc_slot'
+	killvar 'temp_cc_daystart'
+	gs 'stat'
+	gs 'pornschedule', 'canceling'
+end
+
+
+if $ARGS[0] = 'contracting':
+	cla
+	gs 'pornstudio', 'options'
+	*clr
+
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/studio_porn/studia_0.jpg"></center>'
+	''
+	gs 'jobs', 'get_job_definition', 'city_pornstudio_actress'
+	d1 = day
+	w1 = week
+	m1 = month
+	ps_i = 1
+	$pornofday = ''
+	:pornopt
+		killvar 'nh1'
+		pcount[ps_i] = ps_i
+		w1 += 1
+		if w1 > 7: w1 = 1
+		d1 += 1
+		if monthsend[m1] < d1: m1 += 1 & d1 = 1
+		if m1 > 12: m1 = 1
+
+		if m1 = 1 and d1 >= 1 and d1 <= 8: nh1 = 1
+		if m1 = 2 and d1 = 23: nh1 = 1
+		if m1 = 3 and d1 = 8: nh1 = 1
+		if m1 = 5 and (d1 = 1 or d1 = 2): nh1 = 1
+		if m1 = 5 and d1 = 9: nh1 = 1
+		if m1 = 6 and (d1 = 12 or d1 = 13): nh1 = 1
+		if m1 = 11 and d1 = 4: nh1 = 1
+
+		if (weekdayfilter = 1 and w1 >= 6) or (weekendfilter = 1 and w1 < 6) or (weekdayfilter = 0 and weekendfilter = 0) or nh1 = 1:
+			if datefilter['<<selected[ps_i]>>'] = 0:
+				if nh1 = 1:
+					$pornofday = '<i><b>国定假日，不拍摄！</b></i><br>'
+				else
+					porns = 0
+					!! Check for calendar conflicts and gap violations once per day
+					temp_ps_daystart = daystart + ps_i
+					temp_ps_conflict = func('jobs', 'check_booking_conflict', 'city_pornstudio_actress', temp_ps_daystart)
+					temp_ps_gap = func('jobs', 'check_booking_gap', 'city_pornstudio_actress', temp_ps_daystart)
+					gs 'jobs', 'get_job_definition', 'city_pornstudio_actress'
+					:pornplanloop
+						$temp_hour = $func('time', 'get_time_string', job_slot_start['city_pornstudio_actress, ' + $str(porns)] / 60, 0)
+						dynamic $pornfilmdesc, pornplan['<<ps_i>>,<<porns>>']
+						if (pfactor <= ppnum) or (ppnum = 0):
+
+							if cheatVars['edit_porn'] = 1:
+								$edit_button = ' <a href="exec:gs ''pornschedule'', ''porn_type_selector'', <<ps_i>>, <<porns>>, ''<<$monthName[m1]>> <<d1>>, <<$weekName[w1]>>''">[Edit]</a>'
+								$cheat_force = ' <a href="exec:gs ''pornschedule'', ''do_contract'', <<ps_i>>, <<porns>>">[Force]</a>'
+								$cheat_steal = ' <a href="exec:gs ''pornschedule'', ''do_contract'', <<ps_i>>, <<porns>>">[Steal]</a>'
+							end
+
+							$temp_pc_booking = $func('jobs', 'get_booking_data', 'city_pornstudio_actress', temp_ps_daystart, porns)
+
+							if $temp_pc_booking <> '':
+								$pornofday += '<<$temp_hour>>: ' + $func('wrap', 'v_pos', '<b><<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>></b> - <i>已签约</i><<$edit_button>><br>')
+							elseif porntaken['<<ps_i>>,<<porns>>'] = 1:
+								if func('jobs', 'has_booking_for_day', 'city_pornstudio_actress', daystart + ps_i) = 1:
+									$pornofday += '<<$temp_hour>>: ' + $func('wrap', 'neg', '<<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>> - <i>被别人占用了</i><<$edit_button>><br>')
+								else
+									$pornofday += '<<$temp_hour>>: ' + $func('wrap', 'neg', '<<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>> - <i>被别人占用了</i><<$edit_button>><<$cheat_steal>><br>')
+								end
+							elseif job_bookings_active['city_pornstudio_actress'] < job_booking_max_concurrent['city_pornstudio_actress'] and temp_ps_conflict = 0 and temp_ps_gap = 0:
+								$pornofday += '<<$temp_hour>>: <a href="exec:gs ''pornschedule'', ''do_contract'', <<ps_i>>, <<porns>>"><<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>></a><<$edit_button>><br>'
+							elseif temp_ps_gap = 1:
+								$pornofday += '<<$temp_hour>>: <font color="grey"><<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>> - <i>与另一场拍摄时间太近</i><<$edit_button>><<$cheat_force>></font><br>'
+							elseif temp_ps_conflict = 1:
+								$pornofday += '<<$temp_hour>>: <font color="grey"><<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>> - <i>日程冲突</i><<$edit_button>></font><br>'
+							else
+								$pornofday += '<<$temp_hour>>: <font color="grey"><<$porndesc[pornplan[''<<ps_i>>,<<porns>>'']]>><<$edit_button>><<$cheat_steal>></font><br>'
+							end
+						end
+						porns += 1
+					if porns < 4: jump 'pornplanloop'
+				end
+				if $pornofday <> '':
+					'<<$monthName[m1]>> <<d1>>, <<$weekName[w1]>>: '
+					'<<$pornofday>>'
+					$pornofday = ''
+				end
+			end
+		end
+		ps_i += 1
+	if ps_i < job_booking_window_days['city_pornstudio_actress'] + 1: jump 'pornopt'
+	killvar 'ps_i'
+	killvar 'porns'
+	killvar 'edit_button'
+	killvar 'cheat_force'
+	killvar 'cheat_steal'
+	killvar 'temp_ps_daystart'
+	killvar 'temp_ps_conflict'
+	killvar 'temp_ps_gap'
+	killvar 'temp_pc_booking'
+end
+
+
+if $ARGS[0] = 'canceling':
+	*clr
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/studio_porn/studia_0.jpg"></center>'
+	gs 'jobs', 'get_job_definition', 'city_pornstudio_actress'
+	d1 = day
+	w1 = week
+	m1 = month
+	ps_i = 1
+	:nopornopt
+		pcount[ps_i] = ps_i
+		w1 += 1
+		if w1 > 7: w1 = 1
+		d1 += 1
+		if monthsend[m1] < d1: m1 += 1 & d1 = 1
+		temp_nc_daystart = daystart + ps_i
+		if func('jobs', 'has_booking_for_day', 'city_pornstudio_actress', temp_nc_daystart) = 1:
+			'<<$monthName[m1]>> <<d1>>, <<$weekName[w1]>>: '
+		end
+		porns = 0
+		:nopornplanloop
+			$temp_nc_booking = $func('jobs', 'get_booking_data', 'city_pornstudio_actress', temp_nc_daystart, porns)
+			if $temp_nc_booking <> '': '<a href="exec:gs ''pornschedule'', ''do_cancel'', <<ps_i>>, <<porns>>"><<$porndesc[val($temp_nc_booking)]>></a>'
+			porns += 1
+		if porns < 4: jump 'nopornplanloop'
+		ps_i += 1
+	if ps_i < job_booking_window_days['city_pornstudio_actress'] + 1: jump 'nopornopt'
+	killvar 'ps_i'
+	killvar 'porns'
+	killvar 'temp_nc_daystart'
+	killvar 'temp_nc_booking'
+end
+
+
+if $ARGS[0] = 'displaynum':
+	*clr
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/studio_porn/studia_0.jpg"></center>'
+	'<font color="grey">超过所选搭档数量的电影将不会被显示</color><br>'
+	if ppnum = 1:
+		$pp1 = '<b><font color="red" size=8>1</font></b>'
+	else
+		$pp1 = '<a href="exec:ppnum = 1 & gs ''pornschedule'', ''displaynum''"><font size=8>1</font></a>'
+	end
+	if ppnum = 2:
+		$pp2 = '<b><font color="red" size=8>2</font></b>'
+	else
+		$pp2 = '<a href="exec:ppnum = 2 & gs ''pornschedule'', ''displaynum''"><font size=8>2</font></a>'
+	end
+	if ppnum = 3:
+		$pp3 = '<b><font color="red" size=8>3</font></b>'
+	else
+		$pp3 = '<a href="exec:ppnum = 3 & gs ''pornschedule'', ''displaynum''"><font size=8>3</font></a>'
+	end
+	if ppnum = 4:
+		$pp4 = '<b><font color="red" size=8>4</font></b>'
+	else
+		$pp4 = '<a href="exec:ppnum = 4 & gs ''pornschedule'', ''displaynum''"><font size=8>4</font></a>'
+	end
+	if ppnum = 5:
+		$pp5 = '<b><font color="red" size=8>5</font></b>'
+	else
+		$pp5 = '<a href="exec:ppnum = 5 & gs ''pornschedule'', ''displaynum''"><font size=8>5</font></a>'
+	end
+	'<table border=0 cellspacing=10><tr><th><<$pp1>></th><th><<$pp2>></th><th><<$pp3>></th><th><<$pp4>></th><th><<$pp5>></th></tr>'
+	''
+	'<a href="exec:killvar ''ppnum'' & gs ''pornschedule'', ''displaynum''">清除参与者限制</a>'
+end
+
+
+if $ARGS[0] = 'selection':
+	*clr
+	'<center><img <<$set_imgh>> src="images/locations/city/redlight/studio_porn/studia_0.jpg"></center>'
+	'<font color="grey">选定的日期将不会显示</font><br>'
+	m1 = month
+	d1 = day + 1
+	if monthsend[m1] < d1: m1 += 1 & d1 = 1
+	if m1 > 12: m1 = 1
+	w2 = week + 1
+	if w2 > 7: w2 = 1
+	p1 = 1
+	w1 = 1
+	:monthloop
+		*p '<table border=0 cellpadding=1><tr><th colspan=7><b><i><font size=6 color="brown"><<$monthName[m1]>></font></i></b></th></tr>'
+		*p '<tr align="center"><th>星期一</th><th>星期二</th><th>星期三</th><th>星期四</th><th>星期五</th><th>星期六</th><th>星期日</th></tr>'
+		:weekloop
+			selected[p1] = p1
+			if w1 = 1: *p '<tr>'
+			!! Making sure that the date and the day of the week are in the correct position
+			if w2 <> 1:
+				if w2 = 7:
+					w1 = 7 & *p '<td></td><td></td><td></td><td></td><td></td><td></td>'
+				elseif w2 = 6:
+					w1 = 6 & *p '<td></td><td></td><td></td><td></td><td></td>'
+				elseif w2 = 5:
+					w1 = 5 & *p '<td></td><td></td><td></td><td></td>'
+				elseif w2 = 4:
+					w1 = 4 & *p '<td></td><td></td><td></td>'
+				elseif w2 = 3:
+					w1 = 3 & *p '<td></td><td></td>'
+				else
+					w1 = 2 & *p '<td></td>'
+				end
+				w2 = 1
+			end
+			!! Selectable day display comes
+			if inversefilter = 1:
+				if datefilter['<<selected[p1]>>'] = 1:
+					datefilter['<<selected[p1]>>'] = 0
+				else
+					datefilter['<<selected[p1]>>'] = 1
+				end
+			end
+
+			if m1 = 1 and d1 >= 1 and d1 <= 8: nh1 = 1
+			if m1 = 2 and d1 = 23: nh1 = 1
+			if m1 = 3 and d1 = 8: nh1 = 1
+			if m1 = 5 and (d1 = 1 or d1 = 2): nh1 = 1
+			if m1 = 5 and d1 = 9: nh1 = 1
+			if m1 = 6 and (d1 = 12 or d1 = 13): nh1 = 1
+			if m1 = 11 and d1 = 4: nh1 = 1
+
+			if nh1 = 1:
+				$option = '<font color="red"><del><b><<d1>><b></del></font>'
+			elseif func('jobs', 'has_booking_for_day', 'city_pornstudio_actress', daystart + p1) = 1:
+				$option = $func('wrap', 'v_pos', '<<d1>>')
+			elseif datefilter['<<selected[p1]>>'] = 1 or (weekdayfilter = 1 and w1 < 6) or (weekendfilter = 1 and w1 >= 6):
+				$option = '<font color="grey"><del><<d1>></del></font>'
+			else
+				$option = '<a href="exec:datefilter[''<<selected[p1]>>''] = 1 & gs ''pornschedule'', ''selection''"><<d1>></a>'
+			end
+			killvar 'nh1'
+			*p '<td align="center"><font size=5><<$option>></font></td>'
+			!! Preparing for next day
+			d1 += 1
+			p1 += 1
+			w1 += 1
+	!! We have to check the end of the month too
+	if monthsend[m1] < d1:
+		!! Oh-oh, this is the next month already
+		*p '</tr></table><br>'
+		if w1 = 8: w1 = 1
+		w2 = w1
+		w1 = 1
+		m1 += 1
+		if m1 > 12: m1 = 1
+		d1 = 1
+		!! Is it necessary to display the next month?
+		if p1 < 50: jump 'monthloop'
+	else
+		!! The next day is still the same month
+		if p1 < 50:
+			!! The next day has to be displayed
+			if w1 = 8: *p '</tr>' & w1 = 1
+			jump 'weekloop'
+		else
+			!! The next day does not have to be displayed
+			*p '</tr></table><br>'
+		end
+	end
+	inversefilter = 0
+	''
+	if weekdayfilter = 0:
+		$weekdayfilter_link = '<a href="exec:weekdayfilter = 1 & gs ''pornschedule'', ''selection''">移除工作日</a>'
+	else
+		$weekdayfilter_link = '<a href="exec:weekdayfilter = 0 & gs ''pornschedule'', ''selection''">恢复工作日</a>'
+	end
+	if weekendfilter = 0:
+		$weekendfilter_link = '<a href="exec:weekendfilter = 1 & gs ''pornschedule'', ''selection''">移除周末</a>'
+	else
+		$weekendfilter_link = '<a href="exec:weekendfilter = 0 & gs ''pornschedule'', ''selection''">恢复周末</a>'
+	end
+	*p '<<$weekdayfilter_link>> <<$weekendfilter_link>> <a href="exec:inversefilter = 1 & gs ''pornschedule'', ''selection''">反选</a><br>'
+	*p '<a href="exec:killvar ''datefilter'' & killvar ''selected'' & weekdayfilter = 0 & weekendfilter = 0 & gs ''pornschedule'', ''selection''">清除日期筛选</a>'
+end
+
+--- pornschedule ---------------------------------

@@ -1,0 +1,311 @@
+# mod_system
+
+
+if $ARGS[0] = 'LOCA':
+	$mod_system_loc = ''
+	mod_warning = 1
+
+	gs 'mod_system', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'sleep':
+	!! $mod_system_loc = '_sleep'
+	$mod_system_loc = ''
+	mod_warning = 0
+
+	killvar 'modARGS'
+	$modARGS[0] = $ARGS[1]
+	$modARGS[1] = $ARGS[2]
+
+	gs 'mod_system', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'stat':
+	exit
+	$mod_system_loc = '_stat'
+	mod_warning = 0
+	killvar 'modARGS'
+
+	gs 'mod_system', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'stat_display':
+	exit
+	$mod_system_loc = '_stat_display'
+	mod_warning = 0
+	killvar 'modARGS'
+
+	gs 'mod_system', 'core_loop'
+end
+
+
+if $ARGS[0] = 'func':
+	exit
+	$mod_system_loc = '_func'
+	mod_warning = 0
+
+	gs 'mod_system', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'arousal':
+	exit
+	$mod_system_loc = '_arousal'
+	mod_warning = 0
+
+	gs 'mod_system', 'core_loop'
+	exit
+end
+
+
+if $ARGS[0] = 'outfit':
+	exit
+	$mod_system_loc = '_' + $ARGS[1]
+	killvar 'modARGS'
+	$modARGS[0] = $ARGS[2]
+	modARGS[1] = ARGS[3]
+
+	gs 'mod_system', 'core_loop'
+	exit
+end
+
+
+
+if $ARGS[0] = 'core_loop':
+	if arrsize('$mod_name') <= 0: exit
+
+	mod_i = 0
+	:mod_exec
+		if $mod_name[mod_i] ! '':
+			$mod_su_name = 'mod_<<$mod_name[mod_i]>><<$mod_system_loc>>'
+			if loc($mod_su_name):
+				gs $mod_su_name, iif(modARGS[0]=0, $modARGS[0], modARGS[0]), iif(modARGS[1]=0, $modARGS[1], modARGS[1]), iif(modARGS[2]=0, $modARGS[2], modARGS[2]), iif(modARGS[3]=0, $modARGS[3], modARGS[3]), iif(modARGS[4]=0, $modARGS[4], modARGS[4]), iif(modARGS[5]=0, $modARGS[5], modARGS[5]), iif(modARGS[6]=0, $modARGS[6], modARGS[6]), iif(modARGS[7]=0, $modARGS[7], modARGS[7]), iif(modARGS[8]=0, $modARGS[8], modARGS[8])
+			elseif mod_warning:
+				$func('wrap', 'v_neg', '警告：<<$mod_su_name>>未找到！')
+			end
+		end
+		mod_i += 1
+	if mod_i < arrsize('$mod_name'): jump 'mod_exec'
+
+	killvar 'mod_i'
+	killvar 'mod_system_loc'
+	killvar 'mod_warning'
+	killvar 'modARGS'
+	killvar 'mod_su_name'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'saveupdater':
+	if arrsize('$mod_name') <= 0: exit
+
+	mod_i = 0
+	:mod_data_updater
+		if $mod_name[mod_i] ! '':
+			$mod_su_name = 'mod_<<$mod_name[mod_i]>>_setup'
+			if loc($mod_su_name): gs $mod_su_name, 'saveupdater'
+			$mod_name[mod_i]	= $mod_info[0]
+			$mod_version[mod_i]	= $mod_info[1]
+			$mod_author[mod_i]	= $mod_info[2]
+			$mod_desc[mod_i]	= $mod_info[3]
+			$mod_opt[mod_i]		= $mod_info[4]
+
+			$mod_su_name = 'mod_<<$mod_name[mod_i]>>_saveupdater'
+			if loc($mod_su_name): gs $mod_su_name
+		end
+		mod_i += 1
+	if mod_i < arrsize('$mod_name'): jump 'mod_data_updater'
+
+	killvar 'mod_i'
+	killvar 'mod_su_name'
+end
+
+
+if $ARGS[0] = 'add_mod':
+	if $ARGS[1] = '': exit
+
+	if $qspver < '5.8.0':
+		addqst 'mod/<<$ARGS[1]>>.qsp'
+	else
+		inclib 'mod/<<$ARGS[1]>>.qsp'
+	end
+	$mod_temp = 'mod_<<$ARGS[1]>>_setup'
+	if loc($mod_temp): gs $mod_temp
+
+	if $mod_info[0] = '':
+		msg '<b><<$ARGS[1]>>.qsp</b>不是 Girl Life ECV 模组，请联系其作者寻求帮助'
+		exit
+	end
+
+	$mod_name[] = $mod_info[0]
+	$mod_version[] = $mod_info[1]
+	$mod_author[] = $mod_info[2]
+	$mod_desc[] = $mod_info[3]
+	$mod_opt[] = $mod_info[4]
+	killvar 'mod_temp'
+	killvar 'mod_info'
+end
+
+
+if $ARGS[0] = 'delete_mod':
+	mod_removed_temp = ARGS[1]
+
+	mod_i = 0
+	:mod_data_remover
+		if mod_i = mod_removed_temp:
+			$mod_temp = $mod_name[mod_i]
+			$mod_su_name = 'mod_<<$mod_temp>>_onremove'
+			if loc($mod_su_name): gs $mod_su_name
+		else
+			$mod_name_temp[mod_i] = $mod_name[mod_i]
+			$mod_version_temp[mod_i] = $mod_version[mod_i]
+			$mod_author_temp[mod_i] = $mod_author[mod_i]
+			$mod_desc_temp[mod_i] = $mod_desc[mod_i]
+			$mod_opt_temp[mod_i] = $mod_opt[mod_i]
+		end
+		mod_i += 1
+	if mod_i < arrsize('$mod_name'): jump 'mod_data_remover'
+	killvar 'mod_i'
+	killvar 'mod_removed_temp'
+	killvar 'mod_su_name'
+
+	if $qspver < '5.8.0':
+		killqst
+	else
+		freelib
+	end
+
+	killvar 'mod_name'
+	killvar 'mod_version'
+	killvar 'mod_author'
+	killvar 'mod_desc'
+	killvar 'mod_opt'
+
+	mod_i = 0
+	:mod_data_restore
+		if $mod_name_temp[mod_i] ! '':
+			if $qspver < '5.8.0':
+				addqst 'mod/<<$mod_name_temp[mod_i]>>.qsp'
+			else
+				inclib 'mod/<<$mod_name_temp[mod_i]>>.qsp'
+			end
+
+			$mod_name[] = $mod_name_temp[mod_i]
+			$mod_version[] = $mod_version_temp[mod_i]
+			$mod_author[] = $mod_author_temp[mod_i]
+			$mod_desc[] = $mod_desc_temp[mod_i]
+			$mod_opt[] = $mod_opt_temp[mod_i]
+		end
+		mod_i += 1
+	if mod_i < arrsize('$mod_name_temp'): jump 'mod_data_restore'
+	killvar 'mod_i'
+
+	killvar 'mod_name_temp'
+	killvar 'mod_version_temp'
+	killvar 'mod_author_temp'
+	killvar 'mod_desc_temp'
+	killvar 'mod_opt_temp'
+end
+
+
+if $ARGS[0] = 'update_all_mods':
+	mod_i = 0
+	:mod_data_saver
+		$mod_name_temp[mod_i] = $mod_name[mod_i]
+		$mod_version_temp[mod_i] = $mod_version[mod_i]
+		$mod_author_temp[mod_i] = $mod_author[mod_i]
+		$mod_desc_temp[mod_i] = $mod_desc[mod_i]
+		$mod_opt_temp[mod_i] = $mod_opt[mod_i]
+		mod_i += 1
+	if mod_i < arrsize('$mod_name'): jump 'mod_data_saver'
+
+	if $qspver < '5.8.0':
+		killqst
+	else
+		freelib
+	end
+
+	killvar 'mod_name'
+	killvar 'mod_version'
+	killvar 'mod_author'
+	killvar 'mod_desc'
+	killvar 'mod_opt'
+
+	mod_i = 0
+	:mod_data_restore_update
+		$mod_temp = $mod_name_temp[mod_i]
+		if $mod_temp ! '':
+			if $qspver < '5.8.0':
+				addqst 'mod/<<$mod_temp>>.qsp'
+			else
+				inclib 'mod/<<$mod_temp>>.qsp'
+			end
+
+			$mod_temp = 'mod_<<$mod_temp>>_setup'
+			if loc($mod_temp): gs $mod_temp
+
+			$mod_name[]		= $mod_info[0]
+			$mod_version[]	= $mod_info[1]
+			$mod_author[]	= $mod_info[2]
+			$mod_desc[]		= $mod_info[3]
+			$mod_opt[]		= $mod_info[4]
+			killvar 'mod_info'
+		end
+		mod_i += 1
+	if mod_i < arrsize('$mod_name_temp'): jump 'mod_data_restore_update'
+
+	killvar 'mod_name_temp'
+	killvar 'mod_version_temp'
+	killvar 'mod_author_temp'
+	killvar 'mod_desc_temp'
+	killvar 'mod_opt_temp'
+	killvar 'mod_temp'
+	killvar 'mod_i'
+end
+
+
+if $ARGS[0] = 'delete_all_mods':
+	if arrsize('$mod_name') > 0:
+		mod_i = 0
+		:mod_data_remover_delall
+			if $mod_name[mod_i] ! '':
+				$mod_su_name = 'mod_<<$mod_name[mod_i]>>_onremove'
+				if loc($mod_su_name): gs $mod_su_name
+			end
+			mod_i += 1
+		if mod_i < arrsize('$mod_name'): jump 'mod_data_remover_delall'
+		killvar 'mod_su_name'
+		killvar 'mod_i'
+	end
+
+	if $qspver < '5.8.0':
+		killqst
+	else
+		freelib
+	end
+
+	killvar 'mod_name'
+	killvar 'mod_version'
+	killvar 'mod_author'
+	killvar 'mod_desc'
+	killvar 'mod_opt'
+end
+
+
+--- mod_system ---------------------------------

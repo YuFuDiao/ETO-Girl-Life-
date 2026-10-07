@@ -1,0 +1,207 @@
+# city_market
+!! 2021/04/29
+$location_type = 'public_outdoors'
+if $ARGS[0] = 'start' or $loc_arg = 'start':
+	CLOSE ALL
+	if sound_settings['environment_off'] = 0:
+		if month >=11 and month <= 12 or month >=1 and month <=3:
+			if hour >= 8 and hour <= 23: PLAY 'sound/rynok.mp3', 30 & PLAY 'sound/zima.mp3', 30
+			if hour >= 0 and hour <= 7: PLAY 'sound/street_night.mp3', 30 & PLAY 'sound/zima.mp3', 30
+		else
+			if hour >= 8 and hour <= 23: PLAY 'sound/rynok.mp3', 30 & PLAY 'sound/street_leto.mp3', 30
+			if hour >= 0 and hour <= 7: PLAY 'sound/street_night.mp3', 30
+		end
+	end
+	!! if sound_settings['environment_off'] = 0:PLAY 'sound/street.mp3',30
+
+	gs 'core_library', 'setloc', 'city_market', 'start'
+	minut += 5
+	menu_off = 0
+	gs 'stat'
+
+	gs 'themes', 'outdoors'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/market/rinok.jpg"></center>'
+	'其中一个摊位上挂着一块牌子，上面写着"现金收购旧衣服"。你可以<a href="exec:cloc=2 & gt ''clothing_view'', ''view_lists_list'', ''sell''">单件出售物品</a>，也可以<a href="exec:gs ''portnoi''">把你不想要的旧衣服全都卖掉</a>。'
+
+	if analPlugIn = 1 and $pantyworntype = 'none' and PCloSkirt > 2:
+		nurand = rand(0, 100)
+
+		if nurand >= 80:
+			gs 'mood', 'lower', 'tiny'
+			'你感到一只手轻轻抚摸着<a href="exec:gt ''ETO_salon'', ''market_grope''">你的屁股</a>。'
+
+			gs 'arousal', 'foreplay', 3
+			gs 'stat'
+		end
+	end
+
+	act '离开':
+		minut += 5
+		gs 'arousal', 'end'
+		gt 'city_residential'
+	end
+
+	act '浏览商品': gt 'city_market', 'wares'
+
+	if $job_status['city_market_saleswoman'] = 'employed':
+		if week = 2 or week = 4 or week = 6:
+			if hour < 9:
+				'亚瑟正等着帮你把摊位支起来。'
+				act '<b>支起摊位</b>':
+					*clr & cla
+					menu_off = 1
+					hour = 9
+					minut = 0
+					prodpayum = 1200
+					gs 'stat'
+
+					'亚瑟从卡车上卸下箱子交给你，你开始把衣服挂满摊位四周。'
+					'临走前，亚瑟向你交代了几句。"你想卖什么价都行，但轮班结束时，我会按每卖出一件物品向你收<<$func(''money'', ''string_price'', 1000)>>。你应该让我赚到不少于<<$func(''money'', ''string_profit'', arturplan)>>。"'
+
+					act '开始工作': gt 'city_marketwork', 'start'
+				end
+			end
+		end
+		act '辞职':
+			cla
+			menu_off = 1
+			gs 'jobs', 'set_terminated', 'city_market_saleswoman'
+			gs 'stat'
+
+			'你辞去了市场里的工作，拿回了自己的证件。'
+
+			act '离开': gt 'city_market', 'start'
+		end
+	end
+
+	if $job_status['city_market_saleswoman'] <> 'employed':
+		nl
+		'一个摊位上挂着一张字迹潦草的广告。"急聘女性摊位店员。薪水丰厚。"'
+
+		act '上前找广告的主人':
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+
+			'你好，我叫亚瑟。我在这里有很多摊位，我需要一名女售货员。想干这份工作吗？'
+			'工资是销售额的一定比例，轮班结束时支付。你的班次是周二、周四和周六，从 '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 14, 0)+'。'
+			'政府坚持要我把你的证件存档，所以这会是你的一份正式工作。'
+
+			act '离开': gt 'city_market', 'start'
+
+			act '接受这份工作':
+				cla
+				gs 'jobs', 'set_employed', 'city_market_saleswoman'
+				arturplan = 5000
+				'你把证件交给亚瑟，他握住你的手晃了晃，欢迎你加入。'
+
+				act '离开': gt 'city_market', 'start'
+			end
+		end
+	end
+
+	act '去书摊看看':
+		*clr & cla
+		menu_off = 1
+		minut += 15
+		gs 'stat'
+
+		'你走到摊位前，翻看着出售的货品。你看到一本奇幻小说、一本科幻小说和各式各样的爱情小说。每本售价<<$func(''money'', ''string_price'', 350)>>。'
+
+		gs 'library_functions', 'set_book_buy_acts'
+
+		act '离开': gt 'city_market', 'start'
+	end
+
+	act '查看服装': minut += 5 & gt 'city_market', 'clo'
+end
+
+
+if $ARGS[0] = 'clo':
+	gs 'core_library', 'setloc', 'city_market', 'clo'
+	menu_off = 0
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'clothing', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'market_outfits'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	$func('wrap', 'header center b', '衣服。')
+	'你仔细翻看摊位上那些廉价的衣服。'
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'city_market', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'wares':
+	*clr & cla
+	$loc_s = 'city_market'
+	$args_s = 'wares'
+	menu_off = 1
+
+	gs 'themes', 'outdoors'
+	gs 'item_cart', 'shopping_aisle', 'market'
+	gs 'stat'
+
+	$backimage = 'images/locations/city/residential/market/rinok.jpg'
+
+	act '不再浏览商品': gt 'city_market', 'start'
+end
+
+
+if $ARGS[0] = 'tailor':
+	*clr & cla
+	gs 'core_library', 'setloc', 'city_market', 'tailor'
+	menu_off = 0
+	minut += 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/market/tailor.jpg"></center>'
+	'牌子上写着："雅科夫·索洛莫诺维奇·施内尔松，裁缝，'+func('time', 'get_time_string', 8, 0)+'-'+func('time', 'get_time_string', 16, 0)+' 周一至周五"'
+	'一位上了年纪的犹太男人坐在桌旁。他把眼镜往下拉了拉，从镜框上方望着你，同时伸手指向你。'
+	*nl
+
+	if portnoyQW > 0:
+		gs 'city_market', 'tailor_acts'
+	else
+		'"你好，年轻的女士。我是雅科夫·索洛莫诺维奇，你可以叫我雅沙。你叫什么名字？"'
+
+		act '告诉他你的名字':
+			cla
+			portnoyQW = 1
+			'"<<$pcs_nickname>>"'
+			'"<<$pcs_nickname>>……多漂亮的名字啊。来，坐在这把椅子上。有什么需要我帮忙的吗？"'
+
+			act '向他询问你的衣服':
+				cla
+				minut += 5
+				gs 'stat'
+
+				*nl
+				'"你能帮我把衣服改得更合身一些吗？"'
+				'"当然可以！不然我还算什么裁缝？来，让我看看你穿的什么。"'
+				'他一下子站起来，灵巧地从脖子上取下卷尺，开始量你的胸围、腰围和臀围。'
+				'"任何不合身的衣服我都能修改，每件收费<<$func(''money'', ''string_price'', 500)>>。"'
+				gs 'city_market', 'tailor_acts'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'tailor_acts':
+	'"那么，<<$pcs_nickname>>。你有什么需要修改的衣服吗？"'
+	gs 'tailor', 'set_tailor_acts'
+	act '离开': minut += 10 & gt 'city_residential'
+end
+
+--- city_market ---------------------------------

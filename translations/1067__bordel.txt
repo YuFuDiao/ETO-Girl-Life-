@@ -1,0 +1,295 @@
+# bordel
+
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	$location_type = 'event'
+	menu_off = 1
+	gs 'stat'
+	'<center><b>妓院</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/bordel.jpg"></center>'
+
+	'老鸨看着你从门外走了进来。'
+
+	if pcs_apprnc < 0:
+		'"你看起来半死不活的！快去治疗一下自己。"'
+
+		act '离开': gt 'city_redlight', 'start'
+	elseif pcs_apprnc < 100:
+		'"看看你现在的样子！没有人会为这样的货付钱！去洗干净再回来。"'
+
+		act '离开': gt 'city_redlight', 'start'
+	else
+		'"回你的房间准备一下。"'
+
+		act '回你的房间': gt 'bordel', 'brothel'
+	end
+end
+
+
+if $ARGS[0] = 'brothel':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bordel', 'brothel'
+	$location_type = 'private'
+	$sexloc = 'bordel'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/borroom.jpg"></center>'
+	'这是你在妓院的房间。中间放着一张巨大的床，旁边有一扇小侧门通往<a href="exec:gt ''bordel'', ''dysh''">浴室</a>，但没多少别的东西。'
+	'妓院里竞争激烈。为了避免任何争斗，他们定下一条规矩——每天最多接待两位客人。'
+
+	act '离开':
+		if $clothingworntype ! 'nude':
+			gt 'city_redlight', 'start'
+		else
+			cla
+			'你不能光着身子出去。'
+
+			act '去卫生间': gt 'bordel', 'dysh'
+		end
+	end
+
+	if func('bordel', 'is_open') = 0:
+		'妓院晚上关门了。你现在不能工作了。'
+	else
+		if borsexkol >= 2:
+			!! borsexkol is reset in cikl, meaning that it is reset at midnight, not when the brothel
+			!! opens or closes. if this is not desired behavior, will need to handle resetting this var
+			!! in brothel specific code.
+			'你已经达到这个限额了，所以要到午夜才能再次工作。'
+		else
+			act '去接待室等顾客':
+
+				if cumloc[6] = 1 or cumloc[7] = 1 or cumloc[11] = 1 or pcs_makeup < 2 or pcs_leghair > 3 or pcs_pubes > 3 or pcs_sweat > 25 or pcs_hairbsh < 1:
+					cla
+					'妓院老鸨朝你走来。"我们的顾客希望你剃得干干净净、化好妆、头发也弄得漂漂亮亮。现在就去把自己收拾好！"'
+
+					act '去卫生间': gt 'bordel', 'dysh'
+				elseif $clothingworntype ! 'fancy_burlesque' and PCloStyle ! 4 and $clothingworntype ! 'nude':
+					cla
+					'你需要穿一套能用来卖淫的衣服。如果没有合适的，你可以全裸工作，但报酬会少一些，还可能被粗暴对待。'
+					'你可以在浴室里换衣服。'
+
+					act '去卫生间': gt 'bordel', 'dysh'
+				else
+					gt 'bordel', 'var'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'dysh':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'bordel', 'dysh'
+	$location_type = 'bathroom'
+	$locclass = 'restroom'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/bordysh.jpg"></center>'
+	'浴室设施齐全、干净整洁，顾客可以使用，而在妓院里卫生非常重要。'
+	'你的房间是如此专注于它的用途，以至于你的衣服都存放在这里。'
+
+	act '回到你的房间': gt 'bordel', 'brothel'
+	act '使用浴室': gt 'vann', 'start'
+	act '使用镜子': gt 'mirror', 'start'
+	act '换衣服': gt 'wardrobe', 'start'
+end
+
+
+if $ARGS[0] = 'var':
+	$location_type = 'event'
+	menu_off = 1
+	gs 'npcgeneratec', 0, '客人', rand(18, 40)
+	gs 'boyStat', $npclastgenerated
+	minut += 30
+	gs 'stat'
+	borrand = rand(0, 10)
+
+	if borrand = 0:
+		bordelpay += rand(10, 30) * 10
+		'一位顾客点了你（<<$func(''money'', ''string_profit'', bordelpay)>>）。'
+
+		gs 'willpower', 'sex', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'sex', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'bordel', 'brothel'
+			end
+		end
+
+		act '同意':
+			borsexkol += 1
+			gs 'money', 'earn', bordelpay
+			stat['prostitution_count'] += 1
+			bordelslutty += 1
+			minut += 10
+			zpprand = rand(0, 100)
+
+			if zpprand >= 70: gs 'dinSex', 'std_trigger'
+
+			picrand = rand(0, 40)
+			gt 'sex', 'start'
+		end
+	elseif borrand = 1:
+		bordelpay += rand(10, 30) * 10
+		'一位顾客点了你和另一个女孩（<<$func(''money'', ''string_profit'', bordelpay)>>）。'
+
+		gs 'willpower', 'sex', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'sex', 'resist', 'hard'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'bordel', 'brothel'
+			end
+		end
+
+		act '同意':
+			borsexkol += 1
+			gs 'money', 'earn', bordelpay
+			stat['prostitution_count'] += 1
+			bordelslutty += 1
+			minut += 10
+			zpprand = rand(0, 100)
+
+			if zpprand >= 70: gs 'dinSex', 'std_trigger'
+
+			gt 'podrsex', 'start'
+		end
+	elseif borrand = 2:
+		bordelpay += rand(15, 45) * 10
+		'两位顾客预订了你（<<$func(''money'', ''string_profit'', bordelpay)>>）。'
+
+		gs 'willpower', 'sex', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'sex', 'resist', 'hard'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'bordel', 'brothel'
+			end
+		end
+
+		act '同意':
+			borsexkol += 1
+			gs 'money', 'earn', bordelpay
+			stat['prostitution_count'] += 1
+			bordelslutty += 1
+			minut += 10
+			zpprand = rand(0, 100)
+
+			if zpprand >= 70: gs 'dinSex', 'std_trigger'
+
+			gs 'npcgeneratec', 0, '客人', rand(18, 40)
+			gs 'boyStat', $npclastgenerated, '1'
+			gt 'sexdvoe', 'start'
+		end
+	elseif borrand = 3:
+		bordelpay += rand(15, 45) * 10
+		'两位顾客预订了你和另一个女孩（<<$func(''money'', ''string_profit'', bordelpay)>>）。'
+
+		gs 'willpower', 'sex', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'sex', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'bordel', 'brothel'
+			end
+		end
+
+		act '同意':
+			borsexkol += 1
+			gs 'money', 'earn', bordelpay
+			stat['prostitution_count'] += 1
+			bordelslutty += 1
+			minut += 10
+			zpprand = rand(0, 100)
+
+			if zpprand >= 70: gs 'dinSex', 'std_trigger'
+
+			gs 'npcgeneratec', 0, '客人', rand(18, 40)
+			gs 'boyStat', $npclastgenerated, '1'
+			gt 'sexdvanadva', 'start'
+		end
+	elseif borrand = 4:
+		bordelpay += rand(20, 60) * 10
+		'一群顾客点了你（<<$func(''money'', ''string_profit'', bordelpay)>>）。'
+
+		gs 'willpower', 'sex', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'sex', 'resist', 'hard'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'bordel', 'brothel'
+			end
+		end
+
+		act '同意':
+			borsexkol += 1
+			gs 'money', 'earn', bordelpay
+			stat['prostitution_count'] += 1
+			bordelslutty += 1
+			minut += 10
+			zpprand = rand(0, 100)
+
+			if zpprand >= 70: gs 'dinSex', 'std_trigger'
+
+			guy += 3
+			killvar 'boy'
+			gs 'npcgeneratec', 0, '妓院客人', rand(18, 40)
+			gs 'boyStat', $npclastgenerated
+			gs 'npcgeneratec', 0, '妓院客人', rand(18, 40)
+			gs 'boyStat', $npclastgenerated, 1
+			gs 'npcgeneratec', 0, '妓院客人', rand(18, 40)
+			gs 'boyStat', $npclastgenerated, 2
+			gt 'paysex', 'start'
+		end
+	else
+		act '回你的房间': gt 'bordel', 'brothel'
+		if func('bordel', 'is_open'):
+			'你没有被选中。'
+			act '再等下一个': gt 'bordel', 'var'
+		else
+			'你没有被选中，妓院现在也关门了。'
+		end
+	end
+
+	if borrand <= 4 and func('bordel', 'is_open') = 0:
+		'妓院现在要关门了，所以这是你今天最后一次工作机会。'
+	end
+	killvar 'bordelpay'
+	killvar 'borrand'
+	killvar 'zpprand'
+end
+
+
+if $ARGS[0] = 'is_open':
+	RESULT = hour >= func('bordel', 'open_hour') or hour <= func('bordel', 'close_hour')
+end
+
+
+if $ARGS[0] = 'open_hour':
+	RESULT = 20
+end
+
+
+if $ARGS[0] = 'close_hour':
+	RESULT = 3
+end
+
+
+--- bordel ---------------------------------

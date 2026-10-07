@@ -1,0 +1,397 @@
+# arousal_funcs
+
+
+if $ARGS[0] = 'get_base_stimmag':
+	result = 1 + rand(0, 2) + rand(0, 3) + rand(0, 3)
+end
+
+
+if $ARGS[0] = 'calc_stimtotal':
+	tempStim['mag'] = max(1, ARGS[1])
+	tempStim['act'] = max(1, ARGS[2])
+	tempStim['kink'] = max(80, ARGS[3])
+	tempStim['pref'] = ARGS[4]
+	tempStim['time'] = max(1, ARGS[5])
+	result = (tempStim['mag'] * tempStim['act'] * tempStim['kink'] / 100 + tempStim['pref']) * tempStim['time'] / 120
+	killvar 'tempStim'
+end
+
+
+if $ARGS[0] = 'stretch':
+	temp_amount = iif(ARGS[2] = 0, 1, ARGS[2])
+	!! If inelastic, 25% to stretch
+	!! if elastic, 33% to stretch double
+	if $ARGS[1] = 'vaginal':
+		if trait_vars['elasticity'] >= 0 or rand(0, 3) = 0:
+			pcs_vag += temp_amount
+		end
+		if trait_vars['elasticity'] >= 1 and rand(0, 2) = 0:
+			pcs_vag += temp_amount
+		end
+	elseif $ARGS[1] = 'anal':
+		if trait_vars['elasticity'] >= 0 or rand(0, 3) = 0:
+			pcs_ass += temp_amount
+		end
+		if trait_vars['elasticity'] >= 1 and rand(0, 2) = 0:
+			pcs_ass += temp_amount
+		end
+	elseif $ARGS[1] = 'oral':
+		if trait_vars['elasticity'] >= 0 or rand(0, 3) = 0:
+			pcs_throat += temp_amount
+		end
+		if trait_vars['elasticity'] >= 1 and rand(0, 2) = 0:
+			pcs_throat += temp_amount
+		end
+	end
+	killvar 'temp_amount'
+	exit
+end
+
+
+if $ARGS[0] = 'get_hole_pain':
+	!! ARGS[1] hole size
+	!! ARGS[2] hole slippery
+	!! ARGS[3] current pain
+	!! ARGS[4] length of inserted object
+	!! ARGS[5] grange of inserted object
+	!! ARGS[6] skill (0-2) aka silavag
+	!! ARGS[7] stim_time (optional)
+	if arrsize('ARGS') < 5: ARGS[4] = dick_length11
+	if arrsize('ARGS') < 6: ARGS[5] = arousalVars['girth_range']
+	if arrsize('ARGS') < 7: ARGS[6] = silavag11
+	if arrsize('ARGS') < 8: ARGS[7] = stim['time']
+
+	temp_arousalVars['hole_size'] = ARGS[1]
+	temp_arousalVars['hole_slip'] = ARGS[2]
+	temp_arousalVars['pain'] = ARGS[3]
+	temp_arousalVars['length'] = ARGS[4]
+	temp_arousalVars['girth'] = ARGS[5]
+	temp_arousalVars['skill'] = max(0, min(ARGS[6], 2))
+	temp_arousalVars['stim_time'] = max(1, ARGS[7])
+
+	arousalVars['girth_diff'] = 0
+	arousalVars['length_diff'] = 0
+	!! cap pain to vitality
+	if temp_arousalVars['pain'] < arousalVars['max_sex_pain'] and temp_arousalVars['stim_time'] > 0:
+		temp_arousalVars['i'] = 0
+		temp_arousalVars['maxi'] = temp_arousalVars['stim_time']
+		:stim_time_loop
+			temp_arousalVars['ltdif'] = 0
+			temp_arousalVars['grdif'] = 0
+
+			!! length and girth abilities of hole are not also separated
+			!! but I suppose that they are related although it is not propable
+			!! we can estimate difference in girth and length
+			!! diffs are kept x1000 to preserve precision across integer divisions.
+			temp_arousalVars['ltdif'] = (temp_arousalVars['length'] - temp_arousalVars['hole_size']) * 1000 / 4
+			temp_arousalVars['grdif'] = (temp_arousalVars['girth'] - temp_arousalVars['hole_size']) * 1000 / 2
+			!! painful intercourse
+			if rand(0, 2) < pain_coeff:
+				temp_arousalVars['ltdif'] += rand(pain_coeff / 2, pain_coeff) * 1000
+				temp_arousalVars['grdif'] += rand(pain_coeff / 2, pain_coeff) * 1000
+			end
+			!! in pain, compensated with lube
+			if temp_arousalVars['pain'] > 0:
+				if rand(temp_arousalVars['hole_slip'] / 2, temp_arousalVars['hole_slip']) < temp_arousalVars['pain']: temp_arousalVars['ltdif'] += rand(temp_arousalVars['pain'] / max(1, temp_arousalVars['hole_slip'] / 2), temp_arousalVars['pain'] / max(1, temp_arousalVars['hole_slip'] / 4)) * 1000
+				if rand(temp_arousalVars['hole_slip'] / 2, temp_arousalVars['hole_slip']) < temp_arousalVars['pain']: temp_arousalVars['grdif'] += rand(temp_arousalVars['pain'] / max(1, temp_arousalVars['hole_slip'] / 2), temp_arousalVars['pain'] / max(1, temp_arousalVars['hole_slip'] / 4)) * 1000
+			end
+			!! lube can compensate the difference a bit, or make it worse if there is no lube at all
+			if temp_arousalVars['hole_slip'] > 0:
+				temp_arousalVars['ltdif'] -= rand(temp_arousalVars['hole_slip'] * 250, temp_arousalVars['hole_slip'] * 500)
+				temp_arousalVars['grdif'] -= rand(temp_arousalVars['hole_slip'] * 500, temp_arousalVars['hole_slip'] * 1000)
+			else
+				temp_arousalVars['ltdif'] += max(1, rand(temp_arousalVars['ltdif'] / 6, temp_arousalVars['ltdif'] / 4)) / max(1, temp_arousalVars['skill'] + 1)
+				temp_arousalVars['grdif'] += max(1, rand(temp_arousalVars['grdif'] / 4, temp_arousalVars['grdif'] / 2)) / max(1, temp_arousalVars['skill'] + 1)
+			end
+			!! when skilled, length does not harm PC
+			if temp_arousalVars['skill'] > 0 and temp_arousalVars['ltdif'] > 0: temp_arousalVars['ltdif'] /= max(1, temp_arousalVars['skill'] + 1)
+
+			!! min\max
+			temp_arousalVars['ltdif'] = max(0, temp_arousalVars['ltdif'] / max(1, (temp_arousalVars['hole_size'] / 6)))
+			temp_arousalVars['grdif'] = max(0, temp_arousalVars['grdif'] / max(1, (temp_arousalVars['hole_size'] / 6)))
+
+			arousalVars['length_diff'] += temp_arousalVars['ltdif']
+			arousalVars['girth_diff'] += temp_arousalVars['grdif']
+
+			temp_arousalVars['i'] += 1 + temp_arousalVars['skill']
+		if temp_arousalVars['i'] < temp_arousalVars['maxi']: jump 'stim_time_loop'
+	end
+
+	!! divide accumulated x1000 diffs back to normal scale
+	arousalVars['length_diff'] /= 1000
+	arousalVars['girth_diff'] /= 1000
+
+	!! "hole size <<temp_arousalVars['hole_size']>>; length: <<temp_arousalVars['length']>>; grange: <<temp_arousalVars['girth']>>; hole slippery: <<temp_arousalVars['hole_slip']>>; current pain: <<temp_arousalVars['pain']>>; stim_time: <<temp_arousalVars['stim_time']>>; skill: <<temp_arousalVars['skill']>>; arousalVars['girth_diff']: <<arousalVars['girth_diff']>>; arousalVars['length_diff']: <<arousalVars['length_diff']>>"
+	killvar 'temp_arousalVars'
+end
+
+
+if $ARGS[0] = 'in_vag':
+	if arousal_overcall = 0:
+		!! add anal lube from vaginal juices
+		if anal_slip < max(1, vaginal_slip / 2):
+			anal_slip = max(1, vaginal_slip / rand(2, 3))
+			if cumloc[0] > 0: anal_slip += rand(cumvol[0] / 15, cumvol[0] / 10)
+		end
+		gs 'arousal_funcs', 'get_hole_pain', pcs_vag, vaginal_slip, pain['vaginal'], dick_length11, arousalVars['girth_range'], silavag11, max(1, stim['time'])
+		stim['act'] = 80 - arousalVars['girth_diff'] + arousalVars['length_diff'] + 8 * silavag11
+		stim['act'] = func('traits', 'sizequeen', 'calc_effect', stim['act'], dick_length11, pcs_vag)
+		if trait_vars['creampie_fetish'] = 2 and sexcontra = 3: stim['act'] /= 2
+
+		!! the pain lover the pleasure
+		if arousalVars['girth_diff'] + arousalVars['length_diff'] > 0:
+			gs 'pain', arousalVars['girth_diff'] + arousalVars['length_diff'], 'vaginal', 'stretch'
+			pain['vaginal'] = min(pain['vaginal'], arousalVars['max_sex_pain'])
+			if rand(pcs_vag / 2, pcs_vag) < dick_length11 / max(1, silavag11):
+				gs 'pain', rand(0, arousalVars['length_diff']), 'cervix', 'shock'
+				pain['cervix'] = min(pain['cervix'], arousalVars['max_sex_pain'])
+			end
+			if rand(pcs_vag / 2, pcs_vag) < arousalVars['girth_range'] / max(1, silavag11):
+				gs 'pain', rand(0, arousalVars['girth_diff']), 'labia', 'stretch'
+				pain['labia'] = min(pain['labia'], arousalVars['max_sex_pain'])
+			end
+		end
+		if pain_coeff > 0: gs 'pain', rand(0, pain_coeff) / 5, 'clitoris', 'hit'
+		!! calculate the harm
+		if arousalVars['girth_diff'] + arousalVars['length_diff'] > 2 * vgape + pcs_vag / 2: vgape += 1
+		if pcs_vag < dick_length11: gs 'arousal_funcs', 'stretch', 'vaginal'
+		if pcs_vag < dick_length11 / 2: gs 'arousal_funcs', 'stretch', 'vaginal'
+	end
+	!! force cum leak
+	if ARGS[1] > 0 and rand(pcs_vag / 2, pcs_vag) < cumvol[0]: gs 'cum_manage', 'cum_decay', ((dick_length11 + arousalVars['girth_range']) / 2) * max(1, stim['time'] / 5)
+end
+
+
+if $ARGS[0] = 'in_anal':
+	if trait_vars['buttslut'] = 1:
+		stim['mag'] += 1
+	elseif trait_vars['buttslut'] >= 2:
+		stim['mag'] += 3
+	end
+
+	if arousal_overcall = 0:
+		!! add some lube for future sex type changes
+		if vaginal_slip < max(1, anal_slip / 2) and cumloc[3] > 0: vaginal_slip += rand(cumvol[3] / 10, cumvol[3] / 5)
+		gs 'arousal_funcs', 'get_hole_pain', pcs_ass, anal_slip, pain['asshole'], dick_length11, arousalVars['girth_range'], silavag11, max(1, stim['time'])
+		stim['act'] = 80 - arousalVars['girth_diff'] + arousalVars['length_diff'] + 8 * silavag11
+		if trait_vars['buttslut'] >= 1:
+			stim['act'] += 10 + 5 * (trait_vars['buttslut'] - 1)
+		end
+		stim['act'] = func('traits', 'sizequeen', 'calc_effect', stim['act'], dick_length11, pcs_ass)
+		!! the pain lover the pleasure
+		if arousalVars['girth_diff'] + arousalVars['length_diff'] > 0:
+			gs 'pain', arousalVars['girth_diff'] + arousalVars['length_diff'], 'asshole', 'stretch'
+			pain['asshole'] = min(pain['asshole'], arousalVars['max_sex_pain'])
+		end
+		!! calculate the harm
+		if arousalVars['girth_diff'] + arousalVars['length_diff'] > 2 * agape + pcs_ass / 2: agape += 1
+		if pcs_ass < dick_length11: gs 'arousal_funcs', 'stretch', 'anal', 1
+		if pcs_ass < dick_length11 / 2: gs 'arousal_funcs', 'stretch', 'anal', 1
+	end
+	!! force cum leak
+	if ARGS[1] > 0 and cumvol[3] > rand(pcs_ass / 2, pcs_ass): gs 'cum_manage', 'cum_decay', ((dick_length11 + arousalVars['girth_range']) / 2) * max(1, stim['time'] / 5)
+end
+
+
+if $ARGS[0] = 'in_throat':
+	if arousal_overcall = 0:
+		!! add lube from saliva
+		if anal_slip < max(1, pcs_hydra / 20): anal_slip += max(1, pcs_hydra / 20)
+		if vaginal_slip < max(1, pcs_hydra / 20): vaginal_slip += max(1, pcs_hydra / 20)
+		if pain_coeff > 0: gs 'pain', rand(0, pain_coeff), 'mouth', 'stretch'
+		if pcs_lipbalm > 0:
+			pcs_lipbalm = max(0, pcs_lipbalm - max(1, stim['time'] / 5))
+			if stim['rape'] or stim['hidden_rape'] or stim['rough'] or stim['gangbang'] or stim['hidden_gangbang'] or arrpos('$ARGS', 'beast') >= 0:
+				pcs_lipbalm = max(0, pcs_lipbalm - max(1, stim['time'] / 5))
+			end
+		end
+		if stim['deepthroat'] = 1:
+			gs 'arousal_funcs', 'get_hole_pain', pcs_throat, pcs_hydra / 10, pain['throat'], dick_length11, arousalVars['girth_range'], silavag11, max(1, stim['time'])
+			stim['act'] = 80 - arousalVars['length_diff'] + arousalVars['girth_diff'] + 8 * silavag11
+			stim['act'] = func('traits', 'sizequeen', 'calc_effect', stim['act'], dick_length11, pcs_throat)
+			if arousalVars['girth_diff'] + arousalVars['length_diff'] > 0:
+				gs 'pain', arousalVars['girth_diff'] + arousalVars['length_diff'], 'throat', 'stretch'
+				pain['throat'] = min(pain['throat'], arousalVars['max_sex_pain'])
+				gs 'pain', arousalVars['girth_diff'], 'jaw', 'stretch'
+				pain['jaw'] = min(pain['jaw'], arousalVars['max_sex_pain'])
+			end
+			if pcs_throat < dick_length11: gs 'arousal_funcs', 'stretch', 'oral', 1
+			if pcs_throat < dick_length11 / 2: gs 'arousal_funcs', 'stretch', 'oral', 1
+		else
+			!! non-deepthroat: apply size-preference effect only, no penetration so no pain
+			stim['act'] = func('traits', 'sizequeen', 'calc_effect', stim['act'], dick_length11, pcs_throat)
+		end
+		if pcs_throat < dick_length11 / 3: gs 'arousal_funcs', 'stretch', 'oral', 1
+	end
+end
+
+
+if $ARGS[0] = 'set_virginity_stats':
+	!! Handles both vaginal and anal virginity
+	$temp_svs_suffix = iif($ARGS[2] = 'anal', '_anal', '')
+	if $virgin_stats['lost_cause' + $temp_svs_suffix] <> '': killvar 'temp_svs_suffix' & exit
+
+	virgin_stats['day_lost' + $temp_svs_suffix] = daystart
+	virgin_stats['age_lost' + $temp_svs_suffix] = age
+	$virgin_stats['lost_cause' + $temp_svs_suffix] = 'unknown'
+	if arousalVars['self'] or $ARGS[1] = 'birth':
+		$virgin_stats['taker_ID' + $temp_svs_suffix] = 'self'
+		$virgin_stats['virgin_taker' + $temp_svs_suffix] = $pcs_nickname
+	else
+		$virgin_stats['taker_ID' + $temp_svs_suffix] = $npcID10
+		$virgin_stats['virgin_taker' + $temp_svs_suffix] = $npcdesc10
+	end
+	if instr($ARGS[1], 'fist'):
+		$virgin_stats['cock_desc' + $temp_svs_suffix] = 'fist'
+		virgin_stats['cock_size' + $temp_svs_suffix] = 25
+		virgin_stats['cock_width' + $temp_svs_suffix] = 15
+		$virgin_stats['cock_girth' + $temp_svs_suffix] = 'monstrous'
+	elseif $ARGS[1] = 'birth':
+		$virgin_stats['cock_desc' + $temp_svs_suffix] = '你的孩子'
+		virgin_stats['cock_size' + $temp_svs_suffix] = 25
+		virgin_stats['cock_width' + $temp_svs_suffix] = 15
+		$virgin_stats['cock_girth' + $temp_svs_suffix] = 'monstrous'
+		$virgin_stats['lost_cause' + $temp_svs_suffix] = 'birth'
+	else
+		$virgin_stats['cock_desc' + $temp_svs_suffix] = $dick_desc11
+		virgin_stats['cock_size' + $temp_svs_suffix] = dick_length11
+		virgin_stats['cock_width' + $temp_svs_suffix] = dick_width11
+		$virgin_stats['cock_girth' + $temp_svs_suffix] = $dick_girth11
+	end
+	if day = birthday and month = birthmonth: virgin_stats['birthday' + $temp_svs_suffix] = 1
+	killvar 'temp_svs_suffix'
+end
+
+
+if $ARGS[0] = 'feed':
+	if ARGS[1] <= 0: exit
+	if succubusflag = 0: exit
+	if arousalVars['no_feeding'] <> 0: exit
+	if arousalVars['self'] <> 0: exit
+	if npcGender10 = 0: exit
+
+	arousal_npc_feed[$npcID10] += ARGS[1] * stim['time']
+	if arrpos('$arousal_npc_feed_ids', $npcID10) < 0: $arousal_npc_feed_ids[] = $npcID10
+end
+
+
+if $ARGS[0] = 'check_events':
+	copyarr('ARGS', $ARGS[1])
+
+	gs 'nichUtil', 'onArouse', $ARGS[0]
+	exit
+end
+
+
+if $ARGS[0] = 'count':
+	gs 'arousal_funcs', 'count2', $ARGS[1]
+	if count[$ARGS[1]] = 1 or count['hidden_' + $ARGS[1]] = 1:
+		count['flashlite'] = 0
+		count['flash'] = 0
+		count['voyeur'] = 0
+		count['voyeur_sex'] = 0
+		count['erotic'] = 0
+		count['erotic_nudity'] = 0
+		count['hidden_flashlite'] = 0
+		count['hidden_flash'] = 0
+		count['hidden_voyeur'] = 0
+		count['hidden_voyeur_sex'] = 0
+		count['hidden_erotic'] = 0
+		count['hidden_erotic_nudity'] = 0
+	end
+end
+
+
+if $ARGS[0] = 'count2':
+	if count[$ARGS[1]] = 1:
+		count[$ARGS[1]] = 0
+		stat[$ARGS[1]] += 1
+	end
+	if count['hidden_' + $ARGS[1]] = 1:
+		count['hidden_' + $ARGS[1]] = 0
+		stat['hidden_' + $ARGS[1]] += 1
+	end
+end
+
+
+if $ARGS[0] = 'checks':
+	if stim[$ARGS[1]] = 1:
+		stim[$ARGS[1]] = 0
+		!! only add fetish exp for actual fetishes.
+		if arrpos('$fetish_name', $ARGS[1]) >= 0:
+			gs 'fetish', 'add_exp', $ARGS[1], 1
+		end
+	end
+end
+
+
+!! The auto lube application
+!! to use enter gs 'arousal_funcs', 'auto_lube', 'anal' or 'vag'
+!! add 'custom' to display a custom or no text by setting $lube_txt, if $lube_txt is '' no text will be displayed
+if $ARGS[0] = 'auto_lube':
+	if $ARGS[1] = 'anal' and auto_anal_lube = 1 and anal_slip < 8 + pain['asshole'] / 2 - pcs_ass:
+		if mc_inventory['lubricant'] > 0:
+			minut += 1
+			ar_anal_lube = 1
+			mc_inventory['lubricant'] -= 1
+			anslipVars['lube'] = 8
+			count['anal_finger'] = 1
+			count['vaginal_finger'] = 1
+
+			if $ARGS[2] ! 'custom':
+				'你在肛门里和周围涂抹了一些润滑剂。'
+			elseif $lube_txt ! '':
+				$lube_txt
+			end
+
+			temp_stim['mag'] = func('arousal_funcs', 'get_base_stimmag')
+			temp_stim['act'] = 40
+			if trait_vars['buttslut'] >= 1:
+				temp_stim['mag'] += 1
+				temp_stim['act'] += 20 * trait_vars['buttslut']
+			end
+			if rand(pcs_ass / 2, pcs_ass) < cumvol[3]: gs 'cum_manage', 'cum_decay', rand(2, 5) * max(1, stim['time'] / 5)
+			temp_stim['mag'] = max(1, min(temp_stim['mag'], 9))
+			temp_stim['total'] = func('arousal_funcs', 'calc_stimtotal', temp_stim['mag'], temp_stim['act'])
+			pcs_horny += temp_stim['total']
+			orgasm_buildup += temp_stim['total']
+			stim['event'] += temp_stim['total']
+
+			killvar 'temp_stim'
+		elseif $ARGS[2] ! 'custom' or ($ARGS[2] = 'custom' and $lube_txt ! ''):
+			'你没有剩余的润滑剂了，所以在这个性行为中无法使用它。'
+		end
+
+	elseif $ARGS[1] = 'vag' and auto_vag_lube = 1 and vaginal_slip < 8 + pain['vaginal'] / 2 - pcs_vag:
+		if mc_inventory['lubricant'] > 0:
+			minut += 1
+			ar_vag_lube = 1
+			mc_inventory['lubricant'] -= 1
+			vagslipVars['lube'] = 8
+
+			if $ARGS[2] ! 'custom':
+				'你在阴道里和周围涂抹了一些润滑剂。'
+			elseif $lube_txt ! '':
+				$lube_txt
+			end
+
+			temp_stim['mag'] = func('arousal_funcs', 'get_base_stimmag')
+			temp_stim['mag'] += 1
+			temp_stim['act'] = 80
+			if rand(pcs_vag / 2, pcs_vag) < cumvol[0]: gs 'cum_manage', 'cum_decay', rand(2, 5) * max(1, stim['time'] / 5)
+			temp_stim['mag'] = max(1, min(temp_stim['mag'], 9))
+			temp_stim['total'] = func('arousal_funcs', 'calc_stimtotal', temp_stim['mag'], stim['act'])
+			pcs_horny += temp_stim['total']
+			orgasm_buildup += temp_stim['total']
+			stim['event'] += temp_stim['total']
+
+			killvar 'temp_stim'
+		elseif $ARGS[2] ! 'custom' or ($ARGS[2] = 'custom' and $lube_txt ! ''):
+			'你没有剩余的润滑剂了，所以在这个性行为中无法使用它。'
+		end
+	end
+	killvar 'lube_txt'
+end
+
+
+--- arousal_funcs ---------------------------------

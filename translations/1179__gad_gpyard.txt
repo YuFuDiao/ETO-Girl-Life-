@@ -1,0 +1,518 @@
+# gad_gpyard
+!! 2024/05/05 - Mira schedule introduced.
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	music_loop = 0
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_gpyard', 'start'
+	$location_type = 'public_outdoors'
+	killvar 'locclass'
+	gs 'miroslava_schedule'
+	gs 'stat'
+	gs 'gadukino_event', 'sound'
+
+	'<center><h4>爷爷奶奶家的院子</h4></center>'
+
+	if month >= 4 and month <= 10:
+		if hour >= 6 and hour < 22:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/dvor.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/dvor_night.jpg"></center>'
+		end
+	else
+		if hour >= 8 and hour < 18:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/dvor_winter.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/dvor_winter_night.jpg"></center>'
+		end
+	end
+	*nl
+	'你爷爷奶奶家后面有一个带栅栏的院子。院子里有一个小谷仓、一个花园、一个地窖，还有一间可以沐浴的俄式桑拿。'
+
+	if $clothingworntype = 'nude':
+		*nl
+		'你现在赤身裸体，只能进爷爷奶奶家穿衣服，或者去俄式桑拿。'
+		act '进入爷爷奶奶家': minut += 1 & gt 'gad_gphouse', 'main'
+		act '进入俄式桑拿': minut += 1 & gt 'gad_gpbath', 'start'
+	else
+		if grandmaQW['chore_feed_chickens'] = 1 or (hour >= 6 and hour < 20 and month >= 4 and month <= 10): '院子里有几只<a href="exec:gt ''gad_gpyard'', ''chickens''">鸡</a>在跑来跑去。'
+		if func('homes_properties', 'is_current_home') and hour > 7 and hour < 20 and rex['owned'] = 1:
+			if $status['dog'] = '':
+				gt 'pet_dog', 'name'
+			else
+				if rex['gadukino_day'] ! daystart:
+					rex['relationship'] += 2
+					rex['gadukino_day'] = daystart
+				end
+				'<br><a href="exec: gt ''pet_dog'', ''gadukino''"><<$rex[''name'']>></a>正在花园里跑来跑去。'
+			end
+		end
+	end
+
+	if MiraVars['guest'] = 1 or func('miroslava_schedule', 'is_here'): '你的朋友<a href="exec: gt ''miroslava'', ''start''">米拉</a>站在你身边。'
+	!! if no func('miroslava_schedule', 'is_here'): MiraVars['guest'] = 0
+
+	act '<b>离开，前往村庄</b>':
+		if $clothingworntype ! 'nude':
+			minut += 5
+			gt 'gadukino'
+		else
+			msg '<b><font color = red>你需要穿好衣服。</font></b>'
+			gt 'gad_gpyard', 'start'
+		end
+	end
+	act '进入爷爷奶奶家': minut += 1 & gt 'gad_gphouse', 'main'
+	act '进入俄式桑拿': minut += 1 & gt 'gad_gpbath', 'start'
+	act '去谷仓': minut += 1 & gt 'gad_gpbarn'
+	act '去地窖': minut += 1 & gt 'gad_gpyard', 'root_cellar'
+	act '去花园': minut += 1 & gt 'gad_gpyard', 'garden'
+
+	gs 'gp_zlatek', 'check_for_chores', 'yard'
+	if grandmaQW['chore_feed_chickens'] = 1 or (hour >= 6 and hour < 20 and month >= 4 and month <= 10): act '看看爷爷奶奶的鸡': gt 'gad_gpyard', 'chickens'
+
+	if func('miroslava_schedule', 'is_here', 'gp') and MiraVars['guest'] = 0:
+		*clr & cla
+		menu_off = 1
+		minut += 5
+		gs 'miroslava', 'miraclothes'
+		'你走到院子里，注意到米拉站在那里。'
+		'"哦，<<$pcs_nickname>>，嗨。希望你不介意我来做客。一个人在家太无聊了，"她笑着说。'
+		MiraVars['guestday'] = daystart
+		MiraVars['guest'] = 1
+		gs 'stat'
+
+		act '继续': gt 'gad_gpyard', 'start'
+	end
+
+
+	if func('clothing', 'lost_clothes_here', 'gad_gpyard'):
+		if $clothingworntype = 'nude':
+			act '穿好衣服':
+				gs 'clothing', 'recover_lost_clothes', 'gad_gpyard', 1
+				gs 'underwear', 'wear'
+				gt 'gad_gpyard', 'start'
+			end
+		else
+			act '捡起你的衣服':
+				gs 'clothing', 'recover_lost_clothes', 'gad_gpyard'
+				'你捡起了你的衣服。'
+				gt 'gad_gpyard', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'root_cellar':
+	*clr & cla
+	$loc_arg = 'root_cellar'
+	'<center><h4>地窖</h4></center>'
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/root_cellar.jpg"></center>'
+	*nl
+	if boletus_stored + bilberry_stored >= 20:
+		'你爷爷奶奶的地窖已经满了。'
+	elseif boletus_stored + bilberry_stored > 0:
+		'你爷爷奶奶的地窖已经装了一部分。'
+	else
+		'你爷爷奶奶的地窖是空的。'
+	end
+	'尽管你爷爷奶奶允许你存放采摘的多余蘑菇和浆果，但他们也保留使用这些东西的权利，所以如果有一些不见了，你也不会感到意外。'
+	if boletus_stored + bilberry_stored > 0:
+		$temp_text = '你目前储存了 '
+		if boletus_stored > 0:
+			$temp_text += '<b><<boletus_stored>></b>公斤生蘑菇'
+			if bilberry_stored > 0: $temp_text += '和'
+		end
+		if bilberry_stored > 0: $temp_text += '<b><<bilberry_stored>></b>公斤生浆果'
+		$temp_text += '.'
+		'<<$temp_text>>'
+		killvar 'temp_text'
+	end
+	if boletus_stored + bilberry_stored >= 20:
+		'你不能再储存更多的蘑菇和浆果了。'
+	else
+		'你仍然可以储存<b><<20 - boletus_stored - bilberry_stored>></b>公斤蘑菇和浆果。'
+	end
+	if fish_stored > 0: '你目前储存了<b><<fish_stored>></b>公斤腌鱼。'
+	if fish_stored >= 10:
+		'你不能再储存更多的腌鱼了。'
+	else
+		'你仍然可以储存<b><<10 - fish_stored>></b>公斤腌鱼。'
+	end
+	*nl
+
+	if boletus + boletus_cooked + bilberry >= 5:
+		'你的篮子已经满了，你不能再携带更多了。'
+	elseif boletus + boletus_cooked + bilberry > 0:
+		'你的篮子装了一部分。'
+	else
+		'你的篮子是空的。'
+	end
+
+	if boletus > 0: '你目前携带了<b><<boletus>></b>公斤生蘑菇。'
+	if boletus_cooked > 0: '你目前携带了<b><<boletus_cooked>></b>公斤熟蘑菇。'
+	if bilberry > 0: '你目前携带了<b><<bilberry>></b>公斤生浆果。'
+
+	act '回到院子里': minut += 1 & gt 'gad_gpyard', 'start'
+	if (boletus_stored + bilberry_stored < 20) and (boletus > 0 or bilberry > 0):
+		act '尽可能多地存放生蘑菇和生浆果（最多20公斤）：':
+			:store_bb_loop
+				if boletus > 0 and boletus_stored + bilberry_stored < 20:
+					boletus_stored += 1
+					boletus -= 1
+				end
+				if bilberry > 0 and boletus_stored + bilberry_stored < 20:
+					bilberry_stored += 1
+					bilberry -= 1
+				end
+			if boletus_stored + bilberry_stored < 20 and boletus + bilberry > 0: jump 'store_bb_loop'
+			gt 'gad_gpyard', 'root_cellar'
+		end
+		if boletus > 0:
+			act '存放1公斤生蘑菇':
+				boletus_stored += 1
+				boletus -= 1
+				gt 'gad_gpyard', 'root_cellar'
+			end
+		end
+		if bilberry > 0:
+			act '存放1公斤生浆果':
+				bilberry_stored += 1
+				bilberry -= 1
+				gt 'gad_gpyard', 'root_cellar'
+			end
+		end
+	end
+	if boletus_stored + bilberry_stored <= 10:
+		if mc_inventory['mushrooms'] > 0 and boletus_stored + bilberry_stored <= 10:
+			act '存放10公斤买来的蘑菇':
+				mc_inventory['mushrooms'] -= 1
+				boletus_stored += 10
+				gt 'gad_gpyard', 'root_cellar'
+			end
+		end
+		if mc_inventory['berries'] > 0 and boletus_stored + bilberry_stored <= 10:
+			act '存放10公斤买来的浆果':
+				mc_inventory['berries'] -= 1
+				bilberry_stored += 10
+				gt 'gad_gpyard', 'root_cellar'
+			end
+		end
+	end
+	if (boletus_stored > 0 or bilberry_stored > 0) and (boletus + boletus_cooked + bilberry < 5):
+		act '尽可能多地取出你能携带的生蘑菇和生浆果（最多5公斤）':
+			:retrieve_bb_loop
+			if boletus_stored > 0:
+				boletus += 1
+				boletus_stored -= 1
+				if boletus + boletus_cooked + bilberry < 5: jump 'retrieve_bb_loop'
+			end
+			if bilberry_stored > 0:
+				bilberry += 1
+				bilberry_stored -= 1
+				if boletus + boletus_cooked + bilberry < 5: jump 'retrieve_bb_loop'
+			end
+			gt 'gad_gpyard', 'root_cellar'
+		end
+		if (boletus_stored > 0 and grandmaQW['chore_can_mushrooms'] ! 1) or (boletus_stored > 5 and grandmaQW['chore_can_mushrooms'] = 1):
+			act '取出1公斤生蘑菇':
+				boletus += 1
+				boletus_stored -= 1
+				gt 'gad_gpyard', 'root_cellar'
+			end
+		end
+		if (bilberry_stored > 0 and grandmaQW['chore_can_berries'] ! 1) or (bilberry_stored > 5 and grandmaQW['chore_can_berries'] = 1):
+			act '取出1公斤生浆果':
+				bilberry += 1
+				bilberry_stored -= 1
+				gt 'gad_gpyard', 'root_cellar'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'chickens':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/chickens1.jpg"></center>'
+	'几只普通的鸡在鸡圈里咯咯叫着。'
+
+	act '离开': gt 'gad_gpyard', 'start'
+	!! job Granny
+	gs 'gp_elene', 'check_for_chores', 'chickens'
+end
+
+
+if $ARGS[0] = 'garden':
+	$location_type = 'secluded'
+	gs 'core_library', 'setloc', 'gad_gpyard', 'garden'
+	menu_off = 0
+	gs 'gadukino_event', 'sound'
+	gs 'miroslava_schedule'
+	gs 'stat'
+
+	if month >= 4 and month <= 10:
+		if hour >= 6 and hour < 21:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/garden.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/garden_night.jpg"></center>'
+		end
+	else
+		if hour >= 8 and hour < 18:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/garden_winter.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/garden_winter_night.jpg"></center>'
+		end
+	end
+
+	'一个很大的菜园，你爷爷奶奶为此感到非常自豪。'
+	if month >= 4 and month <= 10:
+		'还有一小块土地专门用来种植<a href="exec: gt ''gad_gpyard'', ''strawberry'' ">草莓</a>和一片<a href="exec: gt ''gad_gpyard'',''fruit_garden'' ">果树园</a>。'
+	else
+		'还有一小块土地专门用来种植草莓，以及一个小型果树园，不过现在还没到季节。'
+	end
+
+	act '回到院子里': minut += 1 & gt 'gad_gpyard', 'start'
+	!! job Granny
+	gs 'gp_elene', 'check_for_chores', 'garden'
+end
+
+
+if $ARGS[0] = 'strawberry':
+	gs 'core_library', 'setloc', 'gad_gpyard', 'strawberry'
+	menu_off = 0
+	gs 'gadukino_event', 'sound'
+	gs 'stat'
+	!! gs'time'
+
+	if month = 6 or month = 7:
+		if hour >= 6 and hour < 21:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/strawberry1.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/strawberry_night.jpg"></center>'
+		end
+	else
+		if hour >= 6 and hour < 21:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/strawberry2.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/strawberry_night.jpg"></center>'
+		end
+	end
+
+	if month >= 7 and month <= 9:
+		'现在是草莓季，你走近种着草莓的田地，寻找一些成熟的草莓。'
+	else
+		'你走近种着草莓的田地，但现在不是草莓季。'
+	end
+
+	act '回到花园': minut += 1 & gt 'gad_gpyard', 'garden'
+
+	if month >= 7 and month <= 9 and strawberriesday ! daystart:
+		act '吃一些草莓（1:00）':
+			*clr & cla
+			menu_off = 1
+			strawberriesday = daystart
+			minut += 60
+			gs 'food', 'bilberry_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/eat_strawberries.jpg"></center>'
+			'你花了一些时间在地里四处走动，寻找成熟的草莓。你一路走过去，把找到的草莓摘下来塞进嘴里。'
+
+			act '完成': gt 'gad_gpyard', 'strawberry'
+		end
+	end
+	!! job Granny
+	gs 'gp_elene', 'check_for_chores', 'strawberry'
+end
+
+
+if $ARGS[0] = 'fruit_garden':
+	gs 'core_library', 'setloc', 'gad_gpyard', 'fruit_garden'
+	menu_off = 0
+	gs 'gadukino_event', 'sound'
+	cls
+	gs 'stat'
+	!! gs'time'
+
+	if hour >= 6 and hour < 21:
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/fruit_garden.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/gp_dacha/fruit_garden_night.jpg"></center>'
+	end
+
+	'果树园里种着苹果和梨。'
+
+	act '回到花园': minut += 1 & gt 'gad_gpyard', 'garden'
+
+	if month >= 7 and month <= 9 and fruitday ! daystart:
+		act '吃水果（1:00）':
+			*clr & cla
+			menu_off = 1
+			fruitday = daystart
+			minut += 60
+			gs 'food', 'light_snack_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/eat_fruit.jpg"></center>'
+			'你花了一些时间在果园里闲逛，大口吃着成熟的水果。'
+
+			act '完成': gt 'gad_gpyard', 'fruit_garden'
+		end
+	end
+	!! job Granny
+	gs 'gp_elene', 'check_for_chores', 'fruit_garden'
+end
+
+
+if $ARGS[0] = 'cikl':
+	!! vovan, from 1.2.5
+	hunterVars['check'] = 0
+	mushroom_pickers = 0
+	forestpicnic = 0
+
+	!! new grandparent chore stuff, for 0.8.0
+	if gadstay = 1 and lost_girl = 0:
+		if daystart > (grandmaQW['last_day_helped'] + 3) and daystart > (grandpaQW['last_day_helped'] + 3):
+			if (daystart - grandmaQW['last_day_helped']) <= (daystart - grandpaQW['last_day_helped']):
+				'你已经有<<daystart - grandmaQW[''last_day_helped'']>>天没帮祖父母做任何家务了。你应该多帮忙，好让祖父母喜欢你。'
+			else
+				'你已经有<<daystart - grandpaQW[''last_day_helped'']>>天没帮祖父母做任何家务了。你应该多帮忙，好让祖父母喜欢你。'
+			end
+			grandmaQW['help_amount'] -= 1
+		end
+	end
+
+	!! disappointing grandma
+	if grandmaQW['chore_clean_floor'] = 1 or grandmaQW['chore_clean_floor'] = 2:
+		grandmaQW['chore_clean_floor'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_wash_clothes'] = 1 or grandmaQW['chore_wash_clothes'] = 2:
+		grandmaQW['chore_wash_clothes'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_milk_cow'] = 1 or grandmaQW['chore_milk_cow'] = 2:
+		grandmaQW['chore_milk_cow'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_groceries'] = 1 or grandmaQW['chore_groceries'] = 2:
+		grandmaQW['chore_groceries'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_can_mushrooms'] = 1 or grandmaQW['chore_can_mushrooms'] = 2:
+		grandmaQW['chore_can_mushrooms'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_can_berries'] = 1 or grandmaQW['chore_can_berries'] = 2:
+		grandmaQW['chore_can_berries'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_can_veggies'] = 1 or grandmaQW['chore_can_veggies'] = 2:
+		grandmaQW['chore_can_veggies'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_feed_chickens'] = 1 or grandmaQW['chore_feed_chickens'] = 2:
+		grandmaQW['chore_feed_chickens'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_work_in_garden'] = 1 or grandmaQW['chore_work_in_garden'] = 2:
+		grandmaQW['chore_work_in_garden'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_water_garden'] = 1 or grandmaQW['chore_water_garden'] = 2:
+		grandmaQW['chore_water_garden'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_collect_strawberries'] = 1 or grandmaQW['chore_collect_strawberries'] = 2:
+		grandmaQW['chore_collect_strawberries'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_collect_fruit'] = 1 or grandmaQW['chore_collect_fruit'] = 2:
+		grandmaQW['chore_collect_fruit'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_harvest_garden'] = 1 or grandmaQW['chore_harvest_garden'] = 2:
+		grandmaQW['chore_harvest_garden'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_gather_mushrooms'] = 1 or grandmaQW['chore_gather_mushrooms'] = 2:
+		grandmaQW['disappointment'] = 2
+	elseif grandmaQW['chore_gather_mushrooms'] = 1 or grandmaQW['chore_gather_mushrooms'] = 2 and grandmaQW['disappointment'] = 2:
+		grandmaQW['chore_gather_mushrooms'] = 0
+		grandmaQW['chore_mushroom_quantity'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_gather_berries'] = 1 or grandmaQW['chore_gather_berries'] = 2:
+		grandmaQW['disappointment'] = 2
+	elseif grandmaQW['chore_gather_berries'] = 1 or grandmaQW['chore_gather_berries'] = 2 and grandmaQW['disappointment'] = 2:
+		grandmaQW['chore_gather_berries'] = 0
+		grandmaQW['chore_berry_quantity'] = 0
+		grandmaQW['disappointment'] = 1
+	elseif grandmaQW['chore_gather_both'] = 1 or grandmaQW['chore_gather_both'] = 2:
+		grandmaQW['disappointment'] = 2
+	elseif grandmaQW['chore_gather_both'] = 1 or grandmaQW['chore_gather_both'] = 2 and grandmaQW['disappointment'] = 2:
+		grandmaQW['chore_gather_both'] = 0
+		grandmaQW['chore_mushroom_quantity'] = 0
+		grandmaQW['chore_berry_quantity'] = 0
+		grandmaQW['disappointment'] = 1
+	end
+
+	!! disappointing grandpa
+	if grandpaQW['chore_fetch_firewood'] = 1 or grandpaQW['chore_fetch_firewood'] = 2:
+		grandpaQW['chore_fetch_firewood'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_feed_horse'] = 1 or grandpaQW['chore_feed_horse'] = 2:
+		grandpaQW['chore_feed_horse'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_feed_cow'] = 1 or grandpaQW['chore_feed_cow'] = 2:
+		grandpaQW['chore_feed_cow'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_clean_yard'] = 1 or grandpaQW['chore_clean_yard'] = 2:
+		grandpaQW['chore_clean_yard'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_feed_boar'] = 1 or grandpaQW['chore_feed_boar'] = 2:
+		grandpaQW['chore_feed_boar'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_bathe_horse'] = 1 or grandpaQW['chore_bathe_horse'] = 2:
+		grandpaQW['chore_bathe_horse'] = 0
+		grandpaQW['chore_bathe_horse_prog'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_brush_horse'] = 1 or grandpaQW['chore_brush_horse'] = 2:
+		grandpaQW['chore_brush_horse'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_lead_horse_to_field'] = 1 or grandpaQW['chore_lead_horse_to_field'] = 2:
+		grandpaQW['chore_lead_horse_to_field'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_herd_cattle'] = 1 or grandpaQW['chore_herd_cattle'] = 2:
+		grandpaQW['chore_herd_cattle'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_lead_cow_to_field'] = 1 or grandpaQW['chore_lead_cow_to_field'] = 2:
+		grandpaQW['chore_lead_cow_to_field'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_gather_mushrooms'] = 1 or grandpaQW['chore_gather_mushrooms'] = 2:
+		grandpaQW['disappointment'] = 2
+	elseif grandpaQW['chore_gather_mushrooms'] = 1 or grandpaQW['chore_gather_mushrooms'] = 2 and grandpaQW['disappointment'] = 2:
+		grandpaQW['chore_gather_mushrooms'] = 0
+		grandpaQW['chore_mushroom_quantity'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_gather_berries'] = 1 or grandpaQW['chore_gather_berries'] = 2:
+		grandpaQW['disappointment'] = 2
+	elseif grandpaQW['chore_gather_berries'] = 1 or grandpaQW['chore_gather_berries'] = 2 and grandpaQW['disappointment'] = 2:
+		grandpaQW['chore_gather_berries'] = 0
+		grandpaQW['chore_berry_quantity'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_gather_both'] = 1 or grandpaQW['chore_gather_both'] = 2:
+		grandpaQW['disappointment'] = 2
+	elseif grandpaQW['chore_gather_both'] = 1 or grandpaQW['chore_gather_both'] = 2 and grandpaQW['disappointment'] = 2:
+		grandpaQW['chore_gather_both'] = 0
+		grandpaQW['chore_mushroom_quantity'] = 0
+		grandpaQW['chore_berry_quantity'] = 0
+		grandpaQW['disappointment'] = 1
+	elseif grandpaQW['chore_bale_hay'] = 1 or grandpaQW['chore_bale_hay'] = 2:
+		grandpaQW['chore_bale_hay'] = 0
+		grandpaQW['disappointment'] = 1
+	end
+
+	!! grandparents use root cellar
+	if boletus_stored > 0: boletus_stored -= rand(0, 1)
+	if bilberry_stored > 0: bilberry_stored -= rand(0, 1)
+	if boletus_stored < 0: boletus_stored = 0
+	if bilberry_stored < 0: bilberry_stored = 0
+	!! end of new grandparent chore stuff, for 0.8.0
+
+	killvar 'catout'
+	killvar 'feedcat'
+end
+
+
+--- gad_gpyard ---------------------------------

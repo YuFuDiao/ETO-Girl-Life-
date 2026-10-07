@@ -1,0 +1,535 @@
+# progressbar
+
+!! ═══════════════════════════════════════════════════════════════════════
+!!  PROGRESSBAR V2 — Theme-aware HTML progress bar system
+!! ═══════════════════════════════════════════════════════════════════════
+!!
+!!  $func('progressbar', $gradient, value [, max_value, phantom,
+!!        overlay, $overlay_gradient, $label_pos, $thresholds, render_mode])
+!!
+!!    $ARGS[0] $gradient    'positive', 'negative', 'smooth_positive',
+!!                          'smooth_negative', 'mono:<key>',
+!!                          a $theme_hex key, or '#RRGGBB'.
+!!    ARGS[1]  value        Fill % (0–100) or raw value when max_value > 0.
+!!    ARGS[2]  max_value    (opt) When > 0, bar fills to value*100/max_value.
+!!    ARGS[3]  phantom      (opt) Faded extension endpoint after the main bar.
+!!    ARGS[4]  overlay      (opt) Independent bar on the bottom half (0–100).
+!!    $ARGS[5] $overlay_gradient  (opt) Gradient for overlay. Default: 'accent'.
+!!    $ARGS[6] $label_pos   (opt) 'auto'|'inside'|'outside'|'right'|'none'. Default: 'auto'.
+!!    $ARGS[7] $thresholds  (opt) '20,40,60,80' — stepped gradient breakpoints.
+!!    ARGS[8]  render_mode  (opt) 1=table, 2=character, 3=text-only.
+!!                          0 or omitted → table mode (0).
+!!    Bar width:   reads stat_cfg['bar_width'] (px, default 200).
+!!
+!!  $func('progressbar', 'color', $gradient, value [, $thresholds])
+!!    Returns the resolved hex color for a gradient at a value.
+!!
+!!  DEPENDENCIES: shortgs.qsrc, math.qsrc, themes.qsrc
+!!
+!! ═══════════════════════════════════════════════════════════════════════
+
+
+	!!====================================================================!!
+	!!                        PUBLIC ENTRY POINT                          !!
+	!!====================================================================!!
+
+if sd_font_pct <= 0: sd_font_pct = 100
+
+	!!====================================================================!!
+	!!                        COLOR SYSTEM                                !!
+	!!====================================================================!!
+
+
+!! Resolve gradient + value (0–100) → hex color.
+!! $ARGS[1]: gradient name or '#RRGGBB' passthrough.
+!! $ARGS[3]: optional custom thresholds '20,40,60,80' (default: '15,35,65,85').
+
+if $ARGS[0] = 'color':
+	$color_gradient = $ARGS[1]
+	color_value = ARGS[2]
+	$color_thresholds = $ARGS[3]
+
+	if $mid($color_gradient, 1, 1) = '#':
+		$result = $color_gradient
+		killvar 'color_gradient' & killvar 'color_value' & killvar 'color_thresholds'
+		exit
+	end
+
+	!! Parse thresholds ('20,40,60,80' format); default 15,35,65,85
+	if $color_thresholds <> '':
+		$color_thr_work = $color_thresholds
+		color_thr_pos = instr($color_thr_work, ',')
+		color_thr[0] = val($mid($color_thr_work, 1, color_thr_pos - 1))
+		$color_thr_work = $mid($color_thr_work, color_thr_pos + 1, 100)
+		color_thr_pos = instr($color_thr_work, ',')
+		color_thr[1] = val($mid($color_thr_work, 1, color_thr_pos - 1))
+		$color_thr_work = $mid($color_thr_work, color_thr_pos + 1, 100)
+		color_thr_pos = instr($color_thr_work, ',')
+		color_thr[2] = val($mid($color_thr_work, 1, color_thr_pos - 1))
+		$color_thr_work = $mid($color_thr_work, color_thr_pos + 1, 100)
+		color_thr[3] = val($color_thr_work)
+		killvar 'color_thr_work' & killvar 'color_thr_pos'
+	else
+		color_thr[0] = 15
+		color_thr[1] = 35
+		color_thr[2] = 65
+		color_thr[3] = 85
+	end
+
+	if $color_gradient = 'positive':
+		!! v_neg → neg → neutral → pos → v_pos
+		if color_value < color_thr[0]:
+			$result = $theme_hex['v_neg']
+		elseif color_value < color_thr[1]:
+			$result = $theme_hex['neg']
+		elseif color_value < color_thr[2]:
+			$result = $theme_hex['neutral']
+		elseif color_value < color_thr[3]:
+			$result = $theme_hex['pos']
+		else
+			$result = $theme_hex['v_pos']
+		end
+
+	elseif $color_gradient = 'negative':
+		!! v_pos → pos → neutral → neg → v_neg
+		if color_value < color_thr[0]:
+			$result = $theme_hex['v_pos']
+		elseif color_value < color_thr[1]:
+			$result = $theme_hex['pos']
+		elseif color_value < color_thr[2]:
+			$result = $theme_hex['neutral']
+		elseif color_value < color_thr[3]:
+			$result = $theme_hex['neg']
+		else
+			$result = $theme_hex['v_neg']
+		end
+
+	elseif $color_gradient = 'centrum_positive':
+		if color_value < color_thr[0]:
+			$result = $theme_hex['v_neg']
+		elseif color_value < color_thr[1]:
+			$result = $theme_hex['neutral']
+		elseif color_value < color_thr[2]:
+			$result = $theme_hex['v_pos']
+		elseif color_value < color_thr[3]:
+			$result = $theme_hex['neutral']
+		else
+			$result = $theme_hex['v_neg']
+		end
+
+	elseif $color_gradient = 'centrum_negative':
+		if color_value < color_thr[0]:
+			$result = $theme_hex['v_pos']
+		elseif color_value < color_thr[1]:
+			$result = $theme_hex['neutral']
+		elseif color_value < color_thr[2]:
+			$result = $theme_hex['v_neg']
+		elseif color_value < color_thr[3]:
+			$result = $theme_hex['neutral']
+		else
+			$result = $theme_hex['v_pos']
+		end
+
+
+	elseif $color_gradient = 'smooth_positive' or $color_gradient = 'smooth_negative':
+		!! Linearly interpolates between 5 stops. Stop positions derived
+		!! from threshold midpoints; negative reverses the color order.
+		$color_stop_hex[0] = $theme_hex['v_neg']
+		$color_stop_hex[1] = $theme_hex['neg']
+		$color_stop_hex[2] = $theme_hex['neutral']
+		$color_stop_hex[3] = $theme_hex['pos']
+		$color_stop_hex[4] = $theme_hex['v_pos']
+
+		color_stop_at[0] = 0
+		color_stop_at[1] = color_thr[0] + (color_thr[1] - color_thr[0]) / 2
+		color_stop_at[2] = color_thr[1] + (color_thr[2] - color_thr[1]) / 2
+		color_stop_at[3] = color_thr[2] + (color_thr[3] - color_thr[2]) / 2
+		color_stop_at[4] = 100
+
+		if $color_gradient = 'smooth_negative':
+			$color_stop_hex[0] = $theme_hex['v_pos']
+			$color_stop_hex[1] = $theme_hex['pos']
+			$color_stop_hex[2] = $theme_hex['neutral']
+			$color_stop_hex[3] = $theme_hex['neg']
+			$color_stop_hex[4] = $theme_hex['v_neg']
+		end
+
+		color_stop_upper = 4
+		color_stop_lower = 0
+		if color_value <= color_stop_at[0]:
+			$result = $color_stop_hex[0]
+		elseif color_value >= color_stop_at[4]:
+			$result = $color_stop_hex[4]
+		else
+			color_stop_i = 1
+			:color_smooth_find_loop
+			if color_stop_i <= 4:
+				if color_stop_at[color_stop_i] >= color_value:
+					color_stop_upper = color_stop_i
+					color_stop_lower = color_stop_i - 1
+				else
+					color_stop_i += 1
+					jump 'color_smooth_find_loop'
+				end
+			end
+
+			color_stop_span = color_stop_at[color_stop_upper] - color_stop_at[color_stop_lower]
+			if color_stop_span > 0:
+				color_stop_ratio = (color_value - color_stop_at[color_stop_lower]) * 100 / color_stop_span
+			else
+				color_stop_ratio = 0
+			end
+
+			$result = $func('math', 'color_mix', $color_stop_hex[color_stop_lower], $color_stop_hex[color_stop_upper], color_stop_ratio)
+		end
+
+		killvar 'color_stop_hex' & killvar 'color_stop_at'
+		killvar 'color_stop_upper' & killvar 'color_stop_lower'
+		killvar 'color_stop_i' & killvar 'color_stop_span' & killvar 'color_stop_ratio'
+
+	elseif $mid($color_gradient, 1, 5) = 'mono:':
+		!! Single-hue gradient: faded base (75% toward bg) → full color at 100
+		$color_mono_key = $mid($color_gradient, 6, len($color_gradient) - 5)
+		$color_mono_full = $theme_hex[$color_mono_key]
+
+		if theme['is_dark']:
+			$color_mono_base = $func('math', 'color_mix', $color_mono_full, '#000000', 75)
+		else
+			$color_mono_base = $func('math', 'color_mix', $color_mono_full, '#FFFFFF', 75)
+		end
+
+		$result = $func('math', 'color_mix', $color_mono_base, $color_mono_full, color_value)
+
+		killvar 'color_mono_key' & killvar 'color_mono_full' & killvar 'color_mono_base'
+
+	else
+		!! Flat: treat as a $theme_hex key
+		$result = $theme_hex[$color_gradient]
+	end
+
+	killvar 'color_gradient' & killvar 'color_value'
+	killvar 'color_thresholds' & killvar 'color_thr'
+	exit
+end
+
+$progressbar['gradient'] = $ARGS[0]
+progressbar['raw_value'] = ARGS[1]
+progressbar['max_value'] = ARGS[2]
+progressbar['phantom_raw'] = ARGS[3]
+progressbar['overlay'] = min(max(0, ARGS[4]), 100)
+$progressbar['overlay_gradient'] = iif($ARGS[5] = '', 'accent', $ARGS[5])
+
+!! Per-call options
+$progressbar['label_pos'] = iif($ARGS[6] = '', 'auto', $ARGS[6])
+$progressbar['thresholds'] = $ARGS[7]
+!! bar_width: stat_cfg['bar_width'] px (settings menu), default 200px
+progressbar['bar_width_val'] = iif(stat_cfg['bar_width'] > 0, stat_cfg['bar_width'], 200)
+$progressbar['bar_width_css'] = str(progressbar['bar_width_val']) + 'px'
+$progressbar['bar_width_attr'] = str(progressbar['bar_width_val'])
+
+!! Fill %: ratio mode when max_value > 0, else value is the %
+if progressbar['max_value'] > 0:
+	progressbar['value'] = min(100, progressbar['raw_value'] * 100 / progressbar['max_value'])
+	progressbar['phantom'] = min(100, progressbar['phantom_raw'] * 100 / progressbar['max_value'])
+else
+	progressbar['value'] = min(max(0, progressbar['raw_value']), 100)
+	progressbar['phantom'] = min(max(0, progressbar['phantom_raw']), 100)
+end
+
+if progressbar['phantom'] > 0:
+	!! Phantom bar must be larger than the normal bar
+	if progressbar['phantom'] < progressbar['value']:
+		progressbar['pv_swapped'] = 1
+		dynamic "
+			progressbar['phantom'] = <<progressbar['value']>>
+			progressbar['value'] = <<progressbar['phantom']>>
+		"
+	end
+	!! Phantom stored as delta width (endpoint minus main bar)
+	progressbar['phantom'] -= progressbar['value']
+end
+
+!! Label: "70" or "30 (60)" when phantom is set
+$progressbar['label'] = str(progressbar['raw_value'])
+if progressbar['phantom_raw'] > 0 and progressbar['phantom_raw'] ! progressbar['raw_value']:
+	$progressbar['label'] += ' (<<progressbar[''phantom_raw'']>>)'
+end
+$progressbar['label_raw'] = $progressbar['label']
+if $progressbar['label_raw'] ! '' and sd_font_pct <> 100:
+	$progressbar['label'] = '<span style="font-size:' + $str(sd_font_pct) + '%;">' + $progressbar['label_raw'] + '</span>'
+end
+
+!! Estimate label pixel width for frontier placement.
+!! 9px/char (7px actual + 2px margin). Unknown container → assume 200px.
+if stat_cfg['font_size'] > 0:
+	progressbar['label_px'] = len($progressbar['label']) * (stat_cfg['font_size'] + 2)
+else
+	progressbar['label_px'] = len($progressbar['label']) * 9
+end
+progressbar['label_width_pct'] = progressbar['label_px'] * 100 / progressbar['bar_width_val']
+
+!! Frontier placement: put label at rightmost colored area (bar → phantom → bg)
+if $progressbar['label'] = '' or $progressbar['label_pos'] = 'none':
+	$progressbar['label_pos'] = 'none'
+elseif $progressbar['label_pos'] = 'outside' or $progressbar['label_pos'] = 'right':
+	$progressbar['label_pos'] = 'bg'
+elseif $progressbar['label_pos'] = 'auto' or $progressbar['label_pos'] = 'inside':
+	if progressbar['pv_swapped'] = 0:
+		if progressbar['value'] >= progressbar['label_width_pct']:
+			$progressbar['label_pos'] = 'bar'
+		elseif progressbar['phantom'] >= progressbar['label_width_pct']:
+			$progressbar['label_pos'] = 'phantom_left'
+		else
+			$progressbar['label_pos'] = 'bg'
+		end
+	else
+		if progressbar['phantom'] >= progressbar['label_width_pct']:
+			$progressbar['label_pos'] = 'phantom_right'
+		elseif $progressbar['label_pos'] = 'auto':
+			if progressbar['value'] + progressbar['phantom'] <= 100 - progressbar['label_width_pct']:
+				$progressbar['label_pos'] = 'bg'
+			else
+				$progressbar['label_pos'] = 'bar'
+			end
+		elseif $progressbar['label_pos'] = 'inside':
+			if progressbar['value'] >= progressbar['label_width_pct']:
+				$progressbar['label_pos'] = 'bar'
+			else
+				$progressbar['label_pos'] = 'bg'
+			end
+		end
+	end
+end
+
+!! Safety: no bg cell when bar is full — fall back to last colored segment
+if $progressbar['label_pos'] = 'bg' and (progressbar['value'] + progressbar['phantom']) > progressbar['label_width_pct']:
+	if progressbar['phantom'] >= progressbar['label_width_pct']:
+		$progressbar['label_pos'] = 'phantom'
+	else
+		$progressbar['label_pos'] = 'bar'
+	end
+end
+
+
+$progressbar['bar_color'] = $func('progressbar', 'color', $progressbar['gradient'], progressbar['value'] + iif(progressbar['pv_swapped'] = 0, 0, progressbar['phantom']), $progressbar['thresholds'])
+if progressbar['overlay'] > 0:
+	$progressbar['overlay_color'] = $func('progressbar', 'color', $progressbar['overlay_gradient'], progressbar['overlay'])
+end
+
+!! Phantom fill colour only when a phantom segment exists (sleep/mood bars).
+!! Inlined from the former _color_faded sub-function: 50% mix toward bg.
+if progressbar['phantom'] > 0:
+	if theme['is_dark']:
+		$progressbar['phantom_color'] = $func('math', 'color_mix', $progressbar['bar_color'], '#000000', 50)
+	else
+		$progressbar['phantom_color'] = $func('math', 'color_mix', $progressbar['bar_color'], '#FFFFFF', 50)
+	end
+end
+
+!! Label contrast colour only for wherever the label lands (bar or phantom);
+!! 'bg'/'none' labels use the inherited text colour, so need neither.
+!! Inlined from the former _label_contrast sub-function: theme font color
+!! when contrast >= 80 (luminance diff), else bg mixed 60% toward black/white.
+!! hex_str_to_int is a shared utility (also used outside progressbar), so its
+!! definition is untouched — but there is no reason to pay a location call
+!! for it on every bar, so its 2-char-hex parse is inlined here directly
+!! (same technique used inside math.color_mix for its own hex parsing).
+if $progressbar['label_pos'] = 'bar' or $progressbar['label_pos'] = 'phantom_left' or $progressbar['label_pos'] = 'phantom_right':
+	$pb_lc_hex = $ucase(iif($progressbar['label_pos'] = 'bar', $progressbar['bar_color'], $progressbar['phantom_color']))
+	pb_lc_bar_r = instr('123456789ABCDEF', mid($pb_lc_hex, 2, 1)) * 16 + instr('123456789ABCDEF', mid($pb_lc_hex, 3, 1))
+	pb_lc_bar_g = instr('123456789ABCDEF', mid($pb_lc_hex, 4, 1)) * 16 + instr('123456789ABCDEF', mid($pb_lc_hex, 5, 1))
+	pb_lc_bar_b = instr('123456789ABCDEF', mid($pb_lc_hex, 6, 1)) * 16 + instr('123456789ABCDEF', mid($pb_lc_hex, 7, 1))
+	pb_lc_bar_lum = (pb_lc_bar_r * 299 + pb_lc_bar_g * 587 + pb_lc_bar_b * 114) / 1000
+
+	$pb_lc_font_hex = $func('shortgs', 'rgb_to_hex', theme['fcolor'])
+	pb_lc_font_r = instr('123456789ABCDEF', mid($pb_lc_font_hex, 2, 1)) * 16 + instr('123456789ABCDEF', mid($pb_lc_font_hex, 3, 1))
+	pb_lc_font_g = instr('123456789ABCDEF', mid($pb_lc_font_hex, 4, 1)) * 16 + instr('123456789ABCDEF', mid($pb_lc_font_hex, 5, 1))
+	pb_lc_font_b = instr('123456789ABCDEF', mid($pb_lc_font_hex, 6, 1)) * 16 + instr('123456789ABCDEF', mid($pb_lc_font_hex, 7, 1))
+	pb_lc_font_lum = (pb_lc_font_r * 299 + pb_lc_font_g * 587 + pb_lc_font_b * 114) / 1000
+
+	pb_lc_diff = pb_lc_bar_lum - pb_lc_font_lum
+	if pb_lc_diff < 0: pb_lc_diff = -1 * pb_lc_diff
+
+	if pb_lc_diff >= 80:
+		$pb_lc_result = $pb_lc_font_hex
+	else
+		$pb_lc_bg_hex = $func('shortgs', 'rgb_to_hex', theme['bcolor'])
+		if theme['is_dark']:
+			$pb_lc_result = $func('math', 'color_mix', $pb_lc_bg_hex, '#000000', 60)
+		else
+			$pb_lc_result = $func('math', 'color_mix', $pb_lc_bg_hex, '#FFFFFF', 60)
+		end
+	end
+
+	if $progressbar['label_pos'] = 'bar':
+		$progressbar['label_on_color'] = $pb_lc_result
+	else
+		$progressbar['phantom_on_color'] = $pb_lc_result
+	end
+
+	killvar 'pb_lc_hex'		& killvar 'pb_lc_bar_r'		& killvar 'pb_lc_bar_g'
+	killvar 'pb_lc_bar_b'	& killvar 'pb_lc_bar_lum'	& killvar 'pb_lc_font_hex'
+	killvar 'pb_lc_font_r'	& killvar 'pb_lc_font_g'	& killvar 'pb_lc_font_b'
+	killvar 'pb_lc_diff'	& killvar 'pb_lc_bg_hex'	& killvar 'pb_lc_result'
+	killvar 'pb_lc_font_lum'
+end
+
+
+if progressbar['pv_swapped'] = 1:
+	dynamic "
+		$progressbar['bar_color'] = '<<$progressbar['phantom_color']>>'
+		$progressbar['phantom_color'] = '<<$progressbar['bar_color']>>'
+		$progressbar['label_on_color'] = '<<$progressbar['phantom_on_color']>>'
+		$progressbar['phantom_on_color'] = '<<$progressbar['label_on_color']>>'
+	"
+end
+
+
+!! Renderer: ARGS[8] (1=table, 2=char, 3=text), else default table mode.
+!! Inlined from the former _render_table / _render_text / _render_text_only
+!! sub-functions — exactly one of these three runs per call.
+progressbar['mode'] = iif(ARGS[8] > 0, ARGS[8] - 1, 0)
+
+if progressbar['mode'] = 2:
+	!! ── Text-only: label in bar color only (for ETOmenu text-only mode) ──
+	if $progressbar['bar_color'] <> '':
+		$result = '<font color=<<$progressbar[''bar_color'']>>><b><<$progressbar[''label'']>></b></font>'
+	else
+		$result = '<b><<$progressbar[''label'']>></b>'
+	end
+
+elseif progressbar['mode'] = 1:
+	!! ── Text: Unicode block chars. █ = bar, ░ = phantom, _ = empty ──
+	if stat_cfg['bar_size'] = 1:
+		bar_font_size = 2
+	else
+		bar_font_size = 3
+	end
+	if stat_cfg['font_size'] > 0 and stat_cfg['font_size'] < bar_font_size: bar_font_size = stat_cfg['font_size']
+
+	bar_char_index = 0
+	bar_char_step = 5
+	bar_phantom_end = progressbar['value'] + progressbar['phantom']
+
+	$bar_html = '<font face="courier new" size=<<bar_font_size>> color=<<$progressbar[''bar_color'']>>> '
+
+	:progressbar_text_loop
+		if bar_char_index < progressbar['value']:
+			$bar_html += '█'
+		elseif bar_char_index < bar_phantom_end:
+			$bar_html += '░'
+		else
+			$bar_html += '_'
+		end
+		bar_char_index += bar_char_step
+	if bar_char_index < 100: jump 'progressbar_text_loop'
+
+	$bar_html += ' </font>'
+
+	$bar_html += '<font color=<<$progressbar[''bar_color'']>>><<$progressbar[''label'']>></font>'
+
+	if progressbar['overlay'] > 0:
+		$bar_html += ' <font color=<<$progressbar[''overlay_color'']>>>(<<progressbar[''overlay'']>>)</font>'
+	end
+
+	$result = $bar_html
+	killvar 'bar_html'		& killvar 'bar_font_size'	& killvar 'bar_char_index'
+	killvar 'bar_char_step'	& killvar 'bar_phantom_end'
+
+else
+	!! ── Table: three-column bar | phantom | bg. Label placed at frontier. ──
+	!! Overlay mode adds two absolute-positioned divs on top (z-index 1,2).
+	bar_bg_pct = 100 - progressbar['value'] - progressbar['phantom']
+
+	$bar_html = ''
+	$pb_fs = 'font-size: <<sd_font_pct>>%;'
+
+	if progressbar['overlay'] > 0:
+		!! Overlay: 3-layer stack (color table → overlay div → text div)
+		$bar_html += '<div style="position: relative; width: <<$progressbar[''bar_width_css'']>>; display: inline-block; vertical-align: middle; margin: 0; padding: 0; line-height: 0;">'
+
+		!! Layer 1: color table — one cell gets &nbsp; so the div takes natural bar height
+		$bar_html += '<table cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; margin: 0; padding: 0; line-height: normal;"><tr>'
+
+		if progressbar['value'] > 0:
+			$bar_html += '<td bgcolor="<<$progressbar[''bar_color'']>>" width="<<progressbar[''value'']>>%" style="<<$pb_fs>>">&nbsp;</td>'
+		end
+		if progressbar['phantom'] > 0:
+			$bar_html += '<td bgcolor="<<$progressbar[''phantom_color'']>>" width="<<progressbar[''phantom'']>>%" style="<<$pb_fs>>"></td>'
+		end
+		if bar_bg_pct > 0:
+			$bar_html += '<td width="<<bar_bg_pct>>%" style="<<$pb_fs>>"></td>'
+		end
+
+		$bar_html += '</tr></table>'
+
+		!! Layer 2: overlay on bottom half
+		$bar_html += '<div style="position: absolute; bottom: 0; left: 0; width: <<progressbar[''overlay'']>>%; height: 50%; background-color: <<$progressbar[''overlay_color'']>>; z-index: 1;"></div>'
+
+		!! Layer 3: value label on top
+		if $progressbar['label_pos'] ! 'none':
+			if $progressbar['label_pos'] = 'bar':
+				$bar_html += '<div style="position: absolute; top: 0; left: 0; width: <<progressbar[''value'']>>%; height: 100%; z-index: 2; display: flex; align-items: center; justify-content: flex-end; white-space: nowrap; overflow: hidden; <<$pb_fs>>">'
+				$bar_html += '<font color="<<$progressbar[''label_on_color'']>>"><<$progressbar[''label_raw'']>></font>&nbsp;'
+			elseif $progressbar['label_pos'] = 'phantom_left':
+				$bar_html += '<div style="position: absolute; top: 0; left: <<progressbar[''value'']>>%; height: 100%; z-index: 2; display: flex; align-items: center; white-space: nowrap; overflow: hidden; <<$pb_fs>>">'
+				$bar_html += '&nbsp;<font color="<<$progressbar[''phantom_on_color'']>>"><<$progressbar[''label_raw'']>></font>'
+			elseif $progressbar['label_pos'] = 'phantom_right':
+				$bar_html += '<div style="position: absolute; top: 0; left: 0; width: <<progressbar[''value''] + progressbar[''phantom'']>>%; height: 100%; z-index: 2; display: flex; align-items: center; justify-content: flex-end; white-space: nowrap; overflow: hidden; <<$pb_fs>>">'
+				$bar_html += '<font color="<<$progressbar[''phantom_on_color'']>>"><<$progressbar[''label_raw'']>></font>&nbsp;'
+			else
+				pb2d_txt_left = progressbar['value'] + progressbar['phantom']
+				$bar_html += '<div style="position: absolute; top: 0; left: <<pb2d_txt_left>>%; height: 100%; z-index: 2; display: flex; align-items: center; white-space: nowrap; overflow: hidden; <<$pb_fs>>">'
+				$bar_html += '&nbsp;<<$progressbar[''label_raw'']>>'
+			end
+			$bar_html += '</div>'
+		end
+
+		$bar_html += '</div>'
+	else
+		!! Normal mode
+		$bar_html += '<table cellpadding="0" cellspacing="0" width="<<$progressbar[''bar_width_attr'']>>"><tr>'
+
+		if progressbar['value'] > 0:
+			$bar_html += '<td bgcolor="<<$progressbar[''bar_color'']>>" width="<<progressbar[''value'']>>%" style="white-space: nowrap; overflow: hidden; <<$pb_fs>>"'
+			if $progressbar['label_pos'] = 'bar':
+				$bar_html += ' align="right"><font color="<<$progressbar[''label_on_color'']>>"><<$progressbar[''label_raw'']>></font>&nbsp;'
+			else
+				$bar_html += '>&nbsp;'
+			end
+			$bar_html += '</td>'
+		end
+
+		if progressbar['phantom'] > 0:
+			$bar_html += '<td bgcolor="<<$progressbar[''phantom_color'']>>" width="<<progressbar[''phantom'']>>%" style="white-space: nowrap; overflow: hidden; <<$pb_fs>>"'
+			if $progressbar['label_pos'] = 'phantom_left':
+				$bar_html += '>&nbsp;<font color="<<$progressbar[''phantom_on_color'']>>"><<$progressbar[''label_raw'']>></font>'
+			elseif $progressbar['label_pos'] = 'phantom_right':
+				$bar_html += ' align="right"><font color="<<$progressbar[''phantom_on_color'']>>"><<$progressbar[''label_raw'']>></font>&nbsp;'
+			else
+				$bar_html += '>&nbsp;'
+			end
+			$bar_html += '</td>'
+		end
+
+		if bar_bg_pct > 0:
+			$bar_html += '<td width="<<bar_bg_pct>>%" style="white-space: nowrap; overflow: hidden; <<$pb_fs>>"'
+			if $progressbar['label_pos'] = 'bg':
+				$bar_html += '>&nbsp;<<$progressbar[''label_raw'']>>'
+			else
+				$bar_html += '>&nbsp;'
+			end
+			$bar_html += '</td>'
+		end
+
+		$bar_html += '</tr></table>'
+	end
+
+	$result = $bar_html
+	killvar 'bar_html' & killvar 'bar_bg_pct' & killvar 'pb2d_txt_left' & killvar 'pb_fs'
+end
+
+killvar 'progressbar'
+
+
+--- progressbar ---------------------------------

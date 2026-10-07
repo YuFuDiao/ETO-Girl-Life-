@@ -1,0 +1,35 @@
+# court_functions
+
+if $ARGS[0] = 'get_total_arrests':
+	result = policeQW['shoplift_booked'] + policeQW['prostitution_booked']
+end
+
+
+if $ARGS[0] = 'arrest_for':
+	policeQW['<<$ARGS[1]>>_booked'] += 1
+	$policeQW['crime_flag'] = $ARGS[1]
+end
+
+
+!! gs 'court_functions', 'add_fine', fine
+if $ARGS[0] = 'add_fine':
+	gs 'money', 'debt_add', 'policeQW[''legal_fine'']', ARGS[1]
+
+	temp_tot_missed = max(0, policeQW['tot_court_dates_missed'] + policeQW['tot_fines_deadlines_missed'])
+	temp_current_missed = max(0, policeQW['missed_fine_deadlines'] + policeQW['missed_court_dates'] - 1)
+
+	if policeQW['fine_deadline'] = 0:
+		policeQW['fine_deadline'] = daystart + 28 - min(14, temp_tot_missed / 4)
+	else
+		policeQW['fine_deadline'] = max(daystart, policeQW['fine_deadline']) + 14 - min(7, 2 * temp_current_missed + temp_tot_missed / 4)
+	end
+
+	!! Calendar event for fine deadline
+	gs 'calendar', 'add', 'fine_deadline'
+
+	killvar 'temp_current_missed'
+	killvar 'temp_tot_missed'
+end
+
+
+--- court_functions ---------------------------------

@@ -1,0 +1,1211 @@
+# city_saunawhore
+
+if moodTypeRand <= 0:
+	$moodType = '糟糕'
+elseif moodTypeRand >= 1 and moodTypeRand <= 3:
+	$moodType = '一般'
+elseif moodTypeRand >= 4:
+	$moodType = '不错'
+end
+
+!! saunawork start ---------------------------------------------------------------------------------
+
+if $ARGS[0] = 'saunawork':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_saunawhore', 'saunawork'
+	$location_type = 'public_indoors'
+	$locBroom = 'city_saunawhore'
+	$metkaBroom = 'saunawork'
+	saunaYouRoom = 1
+
+	if paymamka = 0: paymamka = 300
+	if workDolg > 0: paymamka = 300
+	if workDolg <= 0: paymamka = 500
+
+	gs 'stat'
+	$func('wrap', 'header center b', '桑拿')
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sauna1.jpg"></center>'
+	''
+	'桑拿在 '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 0, 0)+' 之间向“客户”开放。'
+	'墙上挂满了<a href="exec:gt ''mirror'', ''start''">镜子</a>。'
+
+	if saunaWorkNow = 1:
+		saunaWorkNow = 0
+		gs 'money', 'pay', paymamka
+		'一名护士走进房间，每接待一位客户就从你这里拿走 ' + $func('money', 'string_price', paymamka) + '。'
+	end
+	!! Use all your money to pay off as much of the debt as possible every time
+	if workDolg > 0:
+		gs 'money', 'debt_pay', 'workDolg'
+		if workDolg <= 0: abductionReturned = 1
+		'你的债务是 ' + $func('money', 'string_debt', workDolg)
+	end
+
+	gs 'stat'
+
+	if workDolg <= 0: act '离开': gt 'city_sauna'
+
+	act '回你的房间': gt 'city_sauna', 'saunaroom'
+
+	act '使用员工卫生间': minut += 1 & gt 'city_saunawhore', 'bathroom'
+
+	if workDolg > 0 and (pcs_mood <= 10 or drugVars['heroin_need'] > 0):
+		*clr & cla
+		gs 'money', 'debt_add', 'workDolg', 420
+		gs 'stat'
+		'护士向你招了招手。你走到她跟前，她要求看看你的手臂。你伸出手臂，她拿出一支装满毒品的针筒。“坐好别动，我现在给你打一针，你就会感觉恢复正常了。”'
+
+		act '离开':
+			minut += 10
+			gs 'drugs', 'heroin'
+
+			gt 'city_saunawhore', 'saunawork'
+		end
+		exit
+	end
+	if workDolg <= 0 and pcs_mood <= 50 and saunaWhore > 0 and func('money', 'can_afford', 420) = 1:
+		act '要些毒品':
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			'“好，过来吧。”'
+			'你走到她跟前，她要求看看你的手臂。你伸出手臂，她拿出一支装满毒品的针筒。“坐好别动，我现在给你打一针，你就会感觉恢复正常了。”'
+
+			act '离开':
+				gs 'drugs', 'heroin'
+				minut += 10
+				gs 'money', 'pay', 420
+				gt 'city_saunawhore', 'saunawork'
+			end
+		end
+	end
+
+	if cumcondslip > 0 and cumcondslip_aware > 0:
+		act '要求看医生':
+			cla
+			*clr
+			minut += 25
+			menu_off = 1
+			gs 'stat'
+			'你说明自己感到恶心，而且阴部疼痛。护士给你做了检查，最终得出了结论。'
+			'“我觉得可能是中毒性休克。我们得给你处理一下。在这儿等着，我去叫医生。”'
+			act '过了一会儿':
+				cla
+				minut += 15
+				gs 'cum_cleanup', 'cleanloc', 17
+				cumcondslip = 0
+				gs 'stat'
+				'他来了之后，医生给你做了检查，确认你是因为体内残留的用过的安全套而患上了中毒性休克。'
+				'“我一发现就把它取出来了。如果你之前觉得难受，症状应该会慢慢消退。”'
+				'你下意识地感谢了医生，尽管他是在这种地方给你看病。'
+
+				act '返回': gt 'city_saunawhore', 'saunawork'
+			end
+		end
+	end
+
+	act '找护士做性病检查':
+		if Gerpes+Sifilis+Triper > rand(2, 4) or Kandidoz > 10:
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			'护士让你脱光衣服，把双腿架在腿架上，然后粗略地给你做了检查。'
+
+			if GerpesOnce = 1:
+				'你得了生殖器疱疹。你付不起治疗费，我也没法给你治。'
+				if Gerpes >= 3:
+					if GerpesNapr = 0:
+						GerpesNapr = 3 & '我要给你安排一个疗程的疱疹针剂。你总共需要注射 3 次（每天不超过 1 次），每次注射会增加 ' + $func('money', 'string_debt_addition', 750) + ' 的债务，如果本来没有债务，就会让你负债。'
+					elseif GerpesNapr > 0:
+						'你需要完成你的疱疹注射疗程。'
+					end
+				else
+					'你的疱疹正处于非活动期，服用维生素它就不会发作。'
+				end
+			end
+
+			if SifacOnce = 1:
+				SifNapr = 1
+				'你得了梅毒，如果不治疗可能致命。不过多亏了现代医学，现在打一针就能治好。'
+				'注射将花费 ' + $func('money', 'string_debt_addition', 1000) + '，这笔钱会加到你的债务中，如果你还没有债务，则会让你负债。'
+			end
+
+			if TriperOnce = 1:
+				'我们发现了淋病。原则上这种病是可以治好的。'
+				if TriperNapr = 0:
+					TriperNapr = 5 & '我要给你安排一个疗程的淋病针剂。你总共需要注射 5 次（每天不超过 1 次），每次注射会增加 ' + $func('money', 'string_debt_addition', 750) + ' 的债务，如果本来没有债务，就会让你负债。'
+				elseif TriperNapr > 0:
+					'你需要完成你的淋病注射疗程。'
+				end
+			end
+
+			if KandidozOnce = 1:
+				'你得了念珠菌感染。这种病的治疗费用非常昂贵，但它危害不大，很容易抑制住。'
+
+				if KandidNapr = 0:
+					KandidNapr = 1
+					mc_inventory['antibiotics'] += 5
+					'这里有些药片，制药公司的代表会免费发放这些药，所以我不会给你增加债务。病情缓解后你必须服用维生素来保持。'
+				end
+				if Kandidoz < 30: '你的念珠菌感染目前处于缓解期，服用维生素，它就会保持这样。'
+			end
+			act '返回': gt 'city_saunawhore', 'saunawork'
+		else
+			'护士让你脱光衣服，把双腿架在腿架上，然后粗略地给你做了检查。我看不出你下面有什么问题，所以不管你得了什么，现在都处于缓解期，你可以接客。'
+			act '返回': gt 'city_saunawhore', 'saunawork'
+		end
+	end
+
+	if GerpesNapr > 0 and GerpesUkolDay ! daystart:
+		act '找护士打疱疹针':
+			*clr & cla
+			minut += 15
+			gs 'money', 'debt_add', 'workDolg', 750
+			GerpesUkolDay = daystart
+			GerpesNapr -= 1
+			gs 'stat'
+			'你看到护士，她在你屁股上打了一针，很疼。'
+			if GerpesNapr = 0: Gerpes = -10 & '你已完成疗程。'
+			act '返回': gt 'city_saunawhore', 'saunawork'
+		end
+	end
+
+	if TriperNapr > 0 and TriperUkolDay ! daystart:
+		act '找护士打淋病针':
+			*clr & cla
+			minut += 15
+			gs 'money', 'debt_add', 'workDolg', 750
+			TriperUkolDay = daystart
+			TriperNapr -= 1
+			gs 'stat'
+			'你看到护士，她在你屁股上打了一针，很疼。'
+			if TriperNapr = 0:
+				TriperOral = 0
+				TriperOralSigns = 0
+				Triper = 0
+				Venera -= 1
+				TriperOnce = 0
+				'你已完成治疗。'
+			end
+			act '返回': gt 'city_saunawhore', 'saunawork'
+		end
+	end
+	if Sifilis > 0:
+		act '找护士打梅毒针':
+			*clr & cla
+			minut += 15
+			gs 'money', 'debt_add', 'workDolg', 1000
+			SifNapr = 0
+			SifacOnce = 0
+			Sifilis = 0
+			Venera -= 1
+			gs 'stat'
+			'你看到护士，她在你屁股上打了一针，很疼。'
+			'“就这样，你可能还会有点不舒服，但感染现在治好了”。'
+			act '返回': gt 'city_saunawhore', 'saunawork'
+		end
+	end
+
+
+	if hour >= 8:
+		act '坐在沙发上':
+			if pcs_makeup <= 1 or pcs_hairbsh <> 1 or pcs_sweat >= 26 or pcs_leghair > 3 or pcs_pubes > 3:
+				cla
+				'老鸨走了过来。“我们的客户希望你干净、剃毛、化好妆，头发也要打理得漂亮。现在就去把自己收拾好！”'
+				act '离开': gt 'city_saunawhore', 'saunawork'
+			else
+				*clr & cla
+				minut += 60
+				menu_off = 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/saunawork.jpg"></center>'
+				'你在沙发上坐了一个小时，等待客户上门。'
+
+				saunaWorkKlient = 0
+
+				if hour >= 21:
+					if rand(0, 100) >= 10: saunaWorkKlient = 1
+				elseif hour >= 16:
+					if rand(0, 100) >= 20: saunaWorkKlient = 1
+				elseif hour >= 12:
+					if rand(0, 100) >= 40: saunaWorkKlient = 1
+				elseif hour >= 8:
+					if rand(0, 100) >= 80: saunaWorkKlient = 1
+				else
+					if rand(0, 100) >= 40: saunaWorkKlient = 1
+				end
+
+				if saunaWorkKlient = 0:
+					'客户选了另一个女孩，她把他带到了后面的一个房间。'
+
+					act '继续': gt 'city_saunawhore', 'saunawork'
+				else
+					*clr & cla
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/saunawhore.jpg"></center>'
+					'一位客户来到了桑拿房，女孩们排成一排，让客户从中挑选一个。'
+
+					if rand(0, 120) < pcs_apprnc:
+						'客户用手指指着你。“就这个。”'
+						act '跟客户走':
+							saunaWorkKlient = 1
+							guy += 1
+							saunaWhore += 1
+							menu_off = 1
+							gt 'city_saunawhore', 'clientGate'
+						end
+					else
+						'客户仔细地打量了你一番，但还是转身去挑别的女孩了。'
+
+						act '继续': gt 'city_saunawhore', 'saunawork'
+					end
+				end
+			end
+		end
+	end
+
+	if clenerSauna ! daystart:
+		act '打扫厕所':
+			cla
+			*clr
+			minut += 60
+			clenerSauna = daystart
+			gs 'mood', 'lower', 'large'
+			gs 'exp_gain', 'cleaning', rand(1, 3)
+			menu_off = 1
+			gs 'sweat', 'add', 30
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener2.jpg"></center>'
+			if workDolg > 0:
+				'你擦洗桑拿厕所一小时，减少了你的债务 ' + $func('money', 'string_debt_reduction', 100) + '。'
+				gs 'money', 'debt_pay', 'workDolg', 100, 'none'
+			else
+				'你擦洗桑拿厕所一小时。你得到报酬 ' + $func('money', 'string_profit', 100) + '。'
+				gs 'money', 'earn', 100
+			end
+
+			act '离开': gt 'city_saunawhore', 'saunawork'
+		end
+	end
+
+	if clenerSauna2 ! daystart:
+		act '擦洗地板':
+			*clr & cla
+			menu_off = 1
+			minut += 60
+			clenerSauna2 = daystart
+			gs 'exp_gain', 'cleaning', rand(1, 2)
+			gs 'mood', 'lower', 'large'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/office/clener1.jpg"></center>'
+			if workDolg > 0:
+				'你花了一小时拖地擦洗所有地板，减少了你的债务 ' + $func('money', 'string_debt_reduction', 100) + '。'
+				gs 'money', 'debt_pay', 'workDolg', 100, 'none'
+			else
+				'你花了一小时拖地擦洗所有地板。你得到报酬 ' + $func('money', 'string_profit', 100) + '。'
+				gs 'money', 'earn', 100
+			end
+
+			gs 'sweat', 'add', 30
+			act '离开': gt 'city_saunawhore', 'saunawork'
+		end
+	end
+
+	if npc_QW['A113'] = 1 and workDolg <= 0 and belgangPay <= 0:
+		cla & *clr
+		menu_off = 0
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/fedor/fedorev/Strela/vadimbely.jpg"></center>'
+		'你走进桑拿房时看到一张熟悉的面孔。瓦季姆·别雷和他的兄弟站在一起。“好消息，小婊子，你终于还清债务了。现在你想做什么就做什么，你自由了。”'
+		'你用充满仇恨的眼神看着他。“你知道你在这里让我经历了什么吗？你是我这辈子见过的最卑鄙的男人！”'
+		*nl
+		'瓦季姆放声大笑。“说话小心点，丫头。你的未来还掌握在我手里，说不定我觉得你还没还清债务呢？”'
+		'你不想让事态升级，只好沉默地低头看着地板。'
+		'“乖女孩。既然你现在自由了，不如来跟我们一起狂欢，庆祝你的自由？”'
+		act '不':
+			cla & *clr
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/school/boy/fedor/fedorev/Strela/vadimbely.jpg"></center>'
+			'“不。对不起，我只想回家……也许改天吧。”'
+			'瓦季姆严肃地盯着你。“算你运气好，我今天心情不错。这次就放过你了。”'
+			'趁他还没改变主意，你赶紧收拾好东西，跑出了桑拿房。'
+			npc_QW['A113'] = 2
+
+			act '离开': gt 'city_sauna'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'bathroom':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_saunawhore', 'bathroom'
+	$location_type = 'bathroom'
+
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/brothelshower.jpg"></center>'
+	''
+	'你走进员工卫生间，这里通常由刚来这里上班的新女孩打扫，不管她们愿不愿意。'
+	'这里有一面<a href="exec:gt ''mirror'', ''start''">镜子</a>，你可以 ' + iif(pcs_hairbsh < 1, '<a href="exec:gt ''mirror'',''brush''">梳</a>', '梳') + ' 头发，也可以淋浴、用马桶和水槽。'
+
+	act '返回门厅': minut += 1 & gt 'city_saunawhore', 'saunawork'
+
+	act '洗个澡 (0:15)':
+		*clr & cla
+		minut += 15
+		menu_off = 1
+		gs 'stat'
+		gs 'din_van', 'showerdin'
+		'<center><h3>员工卫生间</h3></center>'
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/brothelshower.jpg"></center>'
+		''
+		'你脱掉衣服，拿起毛巾、搓澡巾和肥皂走向淋浴间。你把自己彻底洗干净，好以最干净的状态迎接潜在的客户。'
+		if deodorant_on = 1: gs 'sweat', 'remove_deo' & '<br>你的除臭剂被淋浴冲掉了。'
+		if workDolg > 0:
+			if mc_inventory['razor'] <= 0: mc_inventory['razor'] = 5
+			gs 'din_van', 'brit'
+		elseif workDolg = 0 and mc_inventory['razor'] > 0:
+			gs 'din_van', 'brit'
+		end
+		gs 'din_van', 'dryOff'
+	end
+
+	*nl
+	if mc_inventory['razor'] > 0:
+		if workDolg > 0:
+			'你有几把便宜的剃须刀可以使用，足够<<mc_inventory[''razor'']>>次剃毛。 <a href="exec:gs ''din_van'', ''shave_options''">剃毛选项</a>'
+		else
+			'你现在的剃须刀包还可以使用<b><<mc_inventory[''razor'']>></b>次剃毛。 <a href="exec:gs ''din_van'', ''shave_options''">剃毛选项</a>'
+		end
+		gs 'din_van', 'brit'
+	else
+		if workDolg > 0:
+			'你的一次性剃须刀用完了。你应该回自己的房间再要一些。'
+		else
+			'你的一次性剃须刀用完了。你应该去商店再买一些。'
+		end
+	end
+	gs 'din_van', 'prvt_pee'
+	gs 'din_van', 'enema'
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'bteeth'
+	gs 'din_van', 'basin'
+	if mc_inventory['breast_pump'] > 0 and bp_unbox >= 1:
+		act '使用吸奶器' : gt 'lact_bp', 'bp_milking'
+	end
+end
+
+
+if $ARGS[0] = 'debtPay':
+	gs 'money', 'debt_pay', 'workDolg'
+end
+
+
+if $ARGS[0] = 'clientGate':
+	moodTypeRand = rand(-3, 3)
+
+	!! customer body type
+	!! -1=skinny, 3-4=regular, 5-6=muscular, 7+=fat
+	bodyTypeRand = 3
+
+	!! customer height type
+	!! -1=small, 3-4=regular, 5+=tall
+	heightTypeRand = 3
+
+	!! customer age
+	customerAge = rand(15, 90)
+
+	gs 'npcgeneratec', 0, '客人', customerAge, rand(3, 4), 1
+	gs 'boyStat', $npclastgenerated
+
+	!! customer race, racial modifiers, dick modifiers
+	raceRand = rand(1, 10)
+	if raceRand <= 7:
+		$raceType = '白人'
+		dickChance = 30
+		bodyTypeRand += rand(-2, 8)
+		heightTypeRand += rand(-1, 6)
+	elseif raceRand <= 9:
+		$raceType = '亚洲人'
+		dickChance = 20
+		bodyTypeRand += rand(-6, 2)
+		heightTypeRand += rand(-4, 1)
+	else
+		$raceType = '黑人'
+		dickChance = 40
+		bodyTypeRand += rand(0, 6)
+		heightTypeRand += rand(0, 6)
+	end
+
+	dickRand = rand(1, 100)
+	if dickRand <= dickChance:
+		dick = rand(15, 30)
+	elseif dickRand <= (dickChance * 2):
+		dick = rand(10, 20)
+	else
+		dick = rand(8, 12)
+	end
+
+	!! customer dick size
+	if dick >= 26:
+		$dick_girth = 'monstrous'
+		cumVol = rand(4, 5)
+	elseif dick >= 23:
+		$dick_girth = 'massive'
+		cumVol = rand(3, 5)
+	elseif dick >= 20:
+		$dick_girth = 'thick'
+		cumVol = rand(2, 5)
+	elseif dick >= 16:
+		$dick_girth = 'thicker than average'
+		cumVol = rand(2, 4)
+	elseif dick >= 12:
+		$dick_girth = 'well proportioned'
+		cumVol = rand(1, 4)
+	else
+		$dick_girth = 'slim'
+		cumVol = rand(0, 3)
+	end
+
+	!! customer cum volume
+	if cumVol <= 1:
+		$cumType = '一点点'
+		cumVolMl = 10
+	elseif cumVol = 2:
+		$cumType = '一些'
+		cumVolMl = 20
+	elseif cumVol = 3:
+		$cumType = '他温热的'
+		cumVolMl = 40
+	elseif cumVol = 4:
+		$cumType = '大量'
+		cumVolMl = 60
+	elseif cumVol >= 5:
+		$cumType = '巨量'
+		cumVolMl = 100
+	end
+
+	if bodyTypeRand <= 1:
+		$bodyType = '瘦削'
+	elseif bodyTypeRand >= 2 and bodyTypeRand <= 4:
+		$bodyType = '健壮'
+	elseif bodyTypeRand >= 5 and bodyTypeRand <= 6:
+		$bodyType = '微胖'
+	elseif bodyTypeRand >= 7:
+		$bodyType = '肥胖'
+	end
+
+	if heightTypeRand <= 1:
+		$heightType = '偏矮'
+	elseif heightTypeRand >= 2 and heightTypeRand <= 4:
+		$heightType = '中等'
+	elseif heightTypeRand >= 5:
+		$heightType = '偏高'
+	end
+
+	if customerAge <= 18:
+		$ageType = '十几岁的'
+	elseif customerAge > 18 and customerAge <= 30:
+		$ageType = '年轻的'
+	elseif customerAge > 30 and customerAge <= 45:
+		$ageType = '中年的'
+	elseif customerAge > 45 and customerAge <= 60:
+		$ageType = '中晚年的'
+	elseif customerAge > 60 and customerAge <= 80:
+		$ageType = '年长的'
+	elseif customerAge > 80:
+		$ageType = '很老的'
+	end
+
+	if rand(0, 19) = 0: gt 'city_saunawhore', 'bdsmclient'
+
+	minut += 5
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/room.jpg"></center>'
+	'你把客户领进自己的房间，随后关上门。他在椅子上坐下，毫不掩饰地用充满欲望的眼神盯着你。'
+	'他是<<$ageType>> <<$raceType>>男人，身高<<$heightType>>，体型<<$bodyType>>。'
+	if dick >= 16: '从他裤裆鼓起的形状看，他大概有一根<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>的鸡巴。'
+	'他看起来情绪<<$moodType>>。'
+
+	if $clothingworntype = 'nude':
+		if pcs_inhib < 40:
+			inhib_exp += rand(2, 4)
+		elseif pcs_inhib >= 40 and pcs_inhib < 60:
+			inhib_exp += 1
+		end
+		moodTypeRand += 1
+		act '直接进入正题': gt 'city_saunawhore', 'strippedGate'
+		gs 'arousal', 'foreplay', 3, 'prostitution'
+		gs 'stat'
+	else
+		if pcs_dancero >= 10: act '跳一段脱衣舞': gt 'city_saunawhore', 'striptease'
+		act '脱掉衣服': gt 'city_saunawhore', 'simplystrip'
+	end
+end
+
+
+if $ARGS[0] = 'striptease':
+	gs 'exp_gain', 'dancero', rand(0, 1)
+	if pcs_inhib < 40:
+		inhib_exp += rand(2, 4)
+	elseif pcs_inhib >= 40 and pcs_inhib < 60:
+		inhib_exp += 1
+	end
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/striptease'+rand(1, 5)+'.mp4"></video></center>'
+	'为了取悦客户，你决定给他表演一小段。你在心里数着节拍开始起舞，一件一件慢慢脱下衣服。要是有真正的音乐大概会更好，不过客户咧嘴一笑，似乎照样很享受。'
+	moodTypeRand += 1
+	gs 'arousal', 'striptease', 5, 'prostitution'
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'strippedGate'
+end
+
+
+if $ARGS[0] = 'simplystrip':
+	gs 'exp_gain', 'dancero', rand(0, 1)
+	if pcs_inhib < 40:
+		inhib_exp += rand(1, 2)
+	elseif pcs_inhib >= 40 and pcs_inhib < 60:
+		inhib_exp += rand(0, 1)
+	end
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/simplystrip'+rand(1, 2)+'.mp4"></video></center>'
+	'你脱掉衣服扔到一旁，心里为接下来的活儿做好准备。客户看上去有些不悦——也许他期待的是更撩人的表演？'
+	moodTypeRand -= 1
+	gs 'arousal', 'foreplay', 2, 'prostitution'
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'strippedGate'
+end
+
+
+if $ARGS[0] = 'strippedGate':
+	minut += 2
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/nakedstand.jpg"></center>'
+	'你在客户面前一丝不挂，他的目光贪婪地扫过你身体的每一寸。'
+
+	if pcs_dancero >= 20: act '裸舞': gt 'city_saunawhore', 'nakeddance'
+	if stat['men_fucked'] >= 20: act '把两个穴展示给他看': gt 'city_saunawhore', 'holeshow'
+	act '跪下张开嘴': gt 'city_saunawhore', 'blowjob'
+end
+
+
+if $ARGS[0] = 'nakeddance':
+	gs 'exp_gain', 'dancero', rand(0, 1)
+	if pcs_inhib < 40:
+		inhib_exp += rand(3, 6)
+	elseif pcs_inhib >= 40 and pcs_inhib < 60:
+		inhib_exp += rand(1, 2)
+	end
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/nakeddance'+rand(1, 4)+'.mp4"></video></center>'
+	'你走向客户，跨坐在他腿上开始跳舞。他向后靠着，你使出浑身解数给他跳最棒的贴身舞。你时而把乳房凑到他脸上磨蹭，时而转身用屁股在他裆部研磨。从他把裤子顶起的硬度来看，他对你的努力很满意。'
+	moodTypeRand += 1
+	gs 'arousal', 'foreplay', 5, 'prostitution'
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'blowjob'
+end
+
+
+if $ARGS[0] = 'holeshow':
+	if pcs_inhib < 40:
+		inhib_exp += rand(3, 6)
+	elseif pcs_inhib >= 40 and pcs_inhib < 60:
+		inhib_exp += rand(1, 2)
+	end
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/holeshow'+rand(1, 5)+'.mp4"></video></center>'
+	'你决定更进一步地挑逗他。你凑近他，张开嘴伸出舌头，吮吸着自己的手指，然后转过身弯下腰，双手抓住自己的屁股。'
+	'你掰开两瓣屁股，让他把你的两个穴都看得一清二楚。'
+	moodTypeRand += 1
+	gs 'arousal', 'foreplay', 5, 'prostitution'
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'blowjob'
+end
+
+
+if $ARGS[0] = 'blowjob':
+	minut += 5
+
+	if $moodType = '一般':
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/blowjob'+rand(1, 5)+'.mp4"></video></center>'
+		'你跪在他面前，咬着嘴唇，双手隔着裤子抚摸他的鸡巴。他掏出他那根<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>的鸡巴，送到你的<<$pc_desc[''lips'']>>嘴唇前。'
+		'你开始亲吻龟头，绕着它舔了一圈，再把它含进嘴里一点，吮吸着龟头。'
+		gs 'arousal', 'bj', 5, 'prostitution'
+		gs 'stat'
+
+		act '吮吸它': gt 'city_saunawhore', 'blowjobGate'
+	elseif $moodType = '不错':
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/blowjob'+rand(1, 5)+'.mp4"></video></center>'
+		'你跪在他面前，咬着嘴唇，用手隔着裤子抚摸他的鸡巴。'
+		'然后他抚摸你的头发和脸庞，轻轻抓住你的手臂，把你从地上拉起来。他把你引到床边，脱掉衣服，你们俩一起躺下。'
+
+		act '拥抱他': gt 'city_saunawhore', 'fuckGate'
+	elseif $moodType = '糟糕':
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/slapface'+rand(1, 1)+'.mp4"></video></center>'
+		'你跪在他面前，咬着嘴唇，用双手隔着裤子抚摸他的鸡巴。'
+		'他走近你，突然狠狠地扇了你一巴掌。你猝不及防，泪水涌上眼眶。他似乎非常愤怒，甚至因为你的不幸而兴奋起来。'
+		'当你含着泪跪在他面前时，他粗暴地抓住你的手臂，把它们扭到背后，疼得厉害，然后把你重重地摔在床上。'
+		gs 'pain', 1, 'cheeks', 'slap'
+		if stat['prostitution_count'] < 10:
+			Mana -= 50
+		else
+			Mana -= 10
+		end
+
+		gs 'pain', 2, 'armL', 'twist'
+		gs 'pain', 2, 'armR', 'twist'
+		act '做好准备': gt 'city_saunawhore', 'fuckRoughGate'
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'blowjobGate':
+	'你开始认真地吮吸他的鸡巴，脑袋来回起伏，舌头沿着他鸡巴的下侧滑动。'
+	'他现在硬得像石头一样，你能完完整整地看到他那根<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 的肉棒。'
+	'他似乎对你的表现还算满意，但你觉得他还想让你更进一步。'
+	gs 'arousal', 'bj', 5, 'prostitution'
+	gs 'stat'
+	if dick > pcs_throat:
+		'你根本不可能把整根东西都塞进嘴里。'
+		act '试着给他深喉': gt 'city_saunawhore', 'blowjobCaress'
+	else
+		act '给他深喉': gt 'city_saunawhore', 'blowjobDeepthroat'
+	end
+end
+
+
+if $ARGS[0] = 'blowjobCaress':
+	'你试着给他深喉，但他那<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>的鸡巴对你来说实在太大了，结果你把自己弄得干呕起来，不停咳嗽。'
+	gs 'arousal', 'bj', 5, 'prostitution', 'deepthroat'
+	''
+	moodChange = rand (-2, 0)
+	moodTypeRand += moodChange
+
+	if $moodType = '不错':
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/blowjob'+rand(1, 5)+'.mp4"></video></center>'
+		'不过他似乎还挺享受你的努力，示意自己准备进入下一个环节。'
+		act '继续': gt 'city_saunawhore', 'fuckGate'
+	elseif $moodType = '一般':
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/blowjob'+rand(1, 5)+'.mp4"></video></center>'
+		'他似乎已经满足了，拉起你的手，把你领向床边。'
+		act '继续': gt 'city_saunawhore', 'fuckGate'
+	elseif $moodType = '糟糕':
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/slapface'+rand(1, 1)+'.mp4"></video></center>'
+		'他皱着眉看着你这糟糕的表现，把鸡巴从你嘴里抽了出来。'
+		question = rand (1, 3)
+		if question = 1:
+			'他狠狠扇了你一巴掌。“你到底怎么回事？什么样的婊子连吸鸡巴都吸不好？！”'
+		elseif question = 2:
+			'他狠狠扇了你一巴掌。“我的鸡巴不够好吃，所以你就不好好吸，贱货？！”'
+		elseif question = 3:
+			'他狠狠扇了你一巴掌。“你到底算个什么废物婊子？！”'
+		end
+		gs 'pain', 1, 'cheeks', 'slap'
+		'他怒气冲冲地粗暴抓住你的手臂，把它们扭到背后，疼得你直皱眉，然后把你狠狠按倒在床上。'
+		act '继续': gt 'city_saunawhore', 'fuckRoughGate'
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'blowjobDeepthroat':
+	moodChange += rand (-1, 2)
+	moodTypeRand += moodChange
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/deepthroat'+rand(1, 5)+'.mp4"></video></center>'
+	'你把他整根含到底时，客户发出一声呻吟——他那<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 的鸡巴正深深顶进你的喉咙。'
+	'你尽量坚持得久一些，同时用舌头挑逗他的睾丸。'
+	if $moodType = '糟糕':
+		'他眼里露出施虐的神情，接着抓住你的后脑勺把你死死按住，不让你挣脱。'
+		'你开始感到窒息，慌乱地想从他身下逃开，但他比你强壮得多，把你牢牢按在原地。你翻起白眼，意识逐渐模糊，就在这时他终于松开了你。你剧烈地咳嗽干呕，浓稠的唾液从你的嘴一直挂到他的鸡巴上。他好像非常享受这一切。'
+	end
+	gs 'arousal', 'bj', 5, 'prostitution', 'deepthroat'
+	'他似乎已经满足了，却又示意想要更多。'
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'fuckGate'
+end
+
+
+if $ARGS[0] = 'fuckGate':
+	minut += 2
+	noCondChance = rand(1, 100)
+	if noCondChance < 40:
+		'他色迷迷地盯着你。“那么宝贝，不戴安全套的话要多少钱？”'
+		'见你犹豫，他又补了一句：“来吧，我给你双倍的价钱。”'
+		act '让他不戴套操你': gt 'city_saunawhore', 'fuckGateCondomNo'
+		act '坚持要戴安全套': gt 'city_saunawhore', 'fuckGateCondomYes'
+	else
+		gs 'city_saunawhore', 'fuckGateCondomYes'
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'fuckGateCondomYes':
+	useCondom = 1
+	moodTypeRand -= 2
+	gs 'city_saunawhore', 'fuckGateGo'
+end
+
+
+if $ARGS[0] = 'fuckGateCondomNo':
+	useCondom = 2
+	moodTypeRand += 1
+	gs 'city_saunawhore', 'fuckGateGo'
+end
+
+
+if $ARGS[0] = 'fuckGateGo':
+	minut += 2
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/lieonbedboth.jpg"></center>'
+	'你在客户面前仰面躺到床上。'
+	'“你想怎么要我？”你挑逗地问。'
+	if $moodType = '糟糕':
+		'“我想怎么要你，婊子？我要你尖叫！”'
+		forced = 1
+		act '继续': gt 'city_saunawhore', 'fuckRoughGate'
+	else
+		forced = 2
+		holeType = rand(1, 2)
+		if holeType = 1:
+			'“我想要小穴。”'
+			act '张开双腿': gt 'city_saunawhore', 'fuckVaginal'
+		elseif holeType = 2:
+			'“我要操你的屁股。”'
+			act '转过身去，掰开屁股': gt 'city_saunawhore', 'fuckAnal'
+		end
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'fuckVaginal':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/fuckvaginal'+rand(1, 5)+'.mp4"></video></center>'
+	'他爬到你身上，把鸡巴插进你体内。'
+	if dick > pcs_vag:
+		'他那<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 的鸡巴对你的小穴来说太大了，撑得你超出极限，疼得你眼泪都流了出来。好在他还不算太粗暴。'
+		'他一次又一次地猛力把他的<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 鸡巴插进你体内，似乎很享受这份紧致，并不太在意你的疼痛。'
+		DMG = (dick - pcs_vag) / 2
+		gs 'pain', 1, 'vaginal', 'stretch'
+		gs 'mood', 'lower', (DMG * 5)
+		gs 'arousal', 'vaginal', 10, 'prostitution', 'rough'
+	else
+		'他一次又一次地猛力把他的<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 鸡巴插进你体内，不太讲究技巧，也不在乎你有没有快感。'
+		gs 'arousal', 'vaginal', 10, 'prostitution'
+	end
+	''
+	'过了一会儿，你能感觉到他快要射了。'
+	gs 'stat'
+	if useCondom = 2:
+		act '求他不要射在你体内':
+			not_inside = 1
+			gt 'city_saunawhore', 'cumClientGate'
+		end
+	end
+	act '让他想射哪里就射哪里':
+		not_inside = 2
+		gt 'city_saunawhore', 'cumClientGate'
+	end
+end
+
+
+if $ARGS[0] = 'fuckAnal':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/fuckanal'+rand(1, 5)+'.mp4"></video></center>'
+	'他爬上床来到你身后，把龟头顶住你的后穴，开始往里顶。'
+	if dick > pcs_ass:
+		'他那<<dick>> cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>的鸡巴对你的屁股来说太大了，把里面撑得生疼，还深深顶进你体内。'
+		'他一次又一次地猛力把他的<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 鸡巴插进你的屁股里，似乎很享受这份紧致，并不太在意你的疼痛。'
+		DMG = (dick - pcs_ass) / 2
+		gs 'pain', 1, 'asshole', 'stretch'
+		gs 'mood', 'lower', (DMG * 5)
+		gs 'arousal', 'anal', 10, 'prostitution', 'rough'
+	else
+		'他一次又一次地猛力把他的<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 鸡巴插进你的屁股里，不太讲究技巧，也不管你到底享不享受。'
+		gs 'arousal', 'anal', 10, 'prostitution'
+	end
+	''
+	'过了一会儿，你能感觉到他快要射了。'
+	gs 'stat'
+	act '让他想射哪里就射哪里':
+		not_inside = 2
+		gt 'city_saunawhore', 'cumClientGate'
+	end
+end
+
+
+if $ARGS[0] = 'fuckRoughGate':
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bedoverpowered.jpg"></center>'
+	'这个男人比你强壮得多，你完全被压制住，只能任他摆布。'
+	'他把你双臂反扭在背后压得生疼，同时狠狠地操你。'
+	gs 'mood', 'lower', 'huge'
+	useCondom = rand(1, 2)
+	forced = 1
+	gs 'pain', 2, 'armL', 'twist'
+	gs 'pain', 2, 'armR', 'twist'
+	holeType = rand(1, 2)
+	if holeType = 1 and useCondom = 1:
+		'你感觉到他的龟头顶在你的小穴上。感觉他戴着安全套。'
+		act '继续': gt 'city_saunawhore', 'fuckRoughVaginal'
+	elseif holeType = 1 and useCondom = 2:
+		'你感觉到他的龟头顶在你的小穴上。感觉他根本没戴安全套！'
+		act '继续': gt 'city_saunawhore', 'fuckRoughVaginal'
+	elseif holeType = 2:
+		'你感觉到他的龟头顶在你的后穴上。'
+		act '继续': gt 'city_saunawhore', 'fuckRoughAnal'
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'fuckRoughVaginal':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/fuckroughvaginal'+rand(1, 5)+'.mp4"></video></center>'
+	'他把鸡巴强行插进你体内，开始粗暴地操你娇嫩的小穴。'
+	'你忍不住痛得尖叫，这似乎让他更加兴奋，插得更用力、更深。'
+	if dick > pcs_vag:
+		'他那<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 的东西对你的小穴来说太大了，把你撑得剧痛难忍，还一下下撞在你的子宫颈上。'
+		DMG = (dick - pcs_vag)
+		gs 'pain', 2, 'vaginal', 'stretch'
+		!! gs 'pain', 2, 'cervix', 'pinch'
+		gs 'mood', 'lower', (DMG * 5)
+	end
+	gs 'arousal', 'vaginal', 10, 'prostitution', 'rough', 'bound'
+	''
+	'在仿佛没有尽头的抽插之后，你终于感觉到他快要射了。'
+	gs 'stat'
+	if useCondom = 2:
+		act '求他不要射在你体内':
+			not_inside = 1
+			gt 'city_saunawhore', 'cumClientGate'
+		end
+	end
+	act '让他想射哪里就射哪里':
+		not_inside = 2
+		gt 'city_saunawhore', 'cumClientGate'
+	end
+end
+
+
+if $ARGS[0] = 'fuckRoughAnal':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/fuckroughanal'+rand(1, 5)+'.mp4"></video></center>'
+	'他粗暴地把整根鸡巴捅进你的屁股，然后疯狂地抽插起来。'
+	'你忍不住痛苦地尖叫，这让他更加兴奋，插得更用力、更深。'
+	if dick > pcs_ass:
+		'他那<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>> <<dick>>cm 的东西对你的屁股来说太大了，把你撑得剧痛，感觉就像要被撕裂开一样。'
+		DMG = (dick - pcs_ass)
+		gs 'pain', 2, 'asshole', 'stretch'
+		gs 'mood', 'lower', (DMG * 5)
+	end
+	not_inside = 2
+	gs 'arousal', 'anal', 10, 'prostitution', 'rough', 'bound'
+	''
+	'在仿佛没有尽头的后穴抽插之后，你终于感觉到他快要射了。'
+	gs 'stat'
+	act '让他想射哪里就射哪里': gt 'city_saunawhore', 'cumClientGate'
+end
+
+
+if $ARGS[0] = 'cumClientGate':
+	if $moodType = '糟糕':
+		if not_inside = 2:
+			cumRand = rand(1, 10)
+			if cumRand <= 9 and holeType = 1:
+				'你感到他的鸡巴抽动，意识到他要射在你里面。'
+				act '继续': gt 'city_saunawhore', 'cumVaginal'
+			elseif cumRand <= 9 and holeType = 2:
+				'你感到他的鸡巴抽动，意识到他要射进你的屁股里。'
+				act '继续': gt 'city_saunawhore', 'cumAnal'
+			else
+				'他抽出来，把阴茎凑到你面前。'
+				act '继续': gt 'city_saunawhore', 'cumFace'
+			end
+		else
+			cumRand = rand(1, 2)
+			if cumRand = 1 and holeType = 1:
+				'他只是笑了笑，你意识到他无论如何都要射在你里面。'
+				act '继续': gt 'city_saunawhore', 'cumVaginal'
+			elseif cumRand = 2:
+				'他只是冷笑一声。“好吧，那射进你眼睛里怎么样，婊子？”'
+				gs 'pain', 1, 'eyes', 'burn'
+				act '继续': gt 'city_saunawhore', 'cumFace'
+			end
+		end
+	else
+		if not_inside = 2:
+			cumRand = rand(1, 5)
+			if cumRand = 1 and holeType = 1:
+				'你感到他的鸡巴抽动，意识到他要射在你里面。'
+				act '继续': gt 'city_saunawhore', 'cumVaginal'
+			elseif cumRand = 1 and holeType = 2:
+				'你感到他的鸡巴抽动，意识到他要射进你的屁股里。'
+				act '继续': gt 'city_saunawhore', 'cumAnal'
+			elseif cumRand = 2:
+				'他抽出来，把阴茎凑到你面前。'
+				act '继续': gt 'city_saunawhore', 'cumFace'
+			elseif cumRand = 3:
+				'他抽出来，把阴茎凑到你面前。'
+				act '继续': gt 'city_saunawhore', 'cumMouth'
+			elseif cumRand = 4:
+				'他抽出来，把鸡巴放在你的身体上方。'
+				act '继续': gt 'city_saunawhore', 'cumBelly'
+			elseif cumRand = 5:
+				'他抽出来，把鸡巴放在你的身体上方。'
+				act '继续': gt 'city_saunawhore', 'cumTits'
+			end
+		else
+			cumRand = rand(1, 9)
+			if cumRand <= 2:
+				'他点点头，抽出来，把鸡巴举到你的脸前。'
+				act '继续': gt 'city_saunawhore', 'cumFace'
+			elseif cumRand <= 4:
+				'他点点头，抽出来，把鸡巴举到你的脸前。'
+				act '继续': gt 'city_saunawhore', 'cumMouth'
+			elseif cumRand <= 6:
+				'他点点头，抽出来，把鸡巴悬在你的身体上方。'
+				act '继续': gt 'city_saunawhore', 'cumBelly'
+			elseif cumRand <= 8:
+				'他点点头，抽出来，把鸡巴悬在你的身体上方。'
+				act '继续': gt 'city_saunawhore', 'cumTits'
+			else
+				'他摇了摇头。“抱歉，我现在停不下来！”你意识到他无论如何都要射进你体内了！'
+				act '继续': gt 'city_saunawhore', 'cumVaginal'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'cumVaginal':
+	minut += 5
+	if useCondom = 1:
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumcondomvaginal.jpg"></center>'
+		'客户的鸡巴又抽动了几下，他射进了安全套里。'
+		'他从鸡巴上撕下安全套，你看到里面有<<$cumType>>精液。'
+		moodTypeRand += rand (-2, 2)
+		if $moodType = '糟糕':
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumcondompourface.jpg"></center>'
+			'然后他突然抓住你的头，把里面的东西倒在你脸上。'
+			gs 'cum_call', '', '桑拿客人', 0, 3, 0, cumVolMl
+			gs 'cum_call', 'face', '桑拿客人', 0, 0, 0, cumVolMl
+		elseif $moodType = '一般':
+			'他把它扔在地上，不在乎液体洒得到处都是。'
+			gs 'cum_call', '', '桑拿客人', 0, 3, 0, cumVolMl
+		elseif $moodType = '不错':
+			'他把它扔进垃圾桶，然后轻轻抚摸你的头发。'
+			gs 'cum_call', '', '桑拿客人', 0, 3, 0, cumVolMl
+		end
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumvaginal'+rand(1, 5)+'.mp4"></video></center>'
+		'客户的鸡巴又抽动了几下，你感到一股暖流在体内扩散，他把<<$cumType>>精液深深射进了你的小穴里。'
+		gs 'cum_call', '', '桑拿客人', 0, 0, 0, cumVolMl
+		if rand(1, 100) >= 70: gs 'dinSex', 'std_trigger'
+	end
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'clientLeave'
+end
+
+
+if $ARGS[0] = 'cumAnal':
+	if useCondom = 1:
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumcondomanal.jpg"></center>'
+		'客户的鸡巴又抽动了几下，他射进了安全套里。'
+		'他从鸡巴上撕下安全套，你看到里面有<<$cumType>>精液。'
+		moodTypeRand += rand (-2, 2)
+		if $moodType = '糟糕':
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumcondompourface.jpg"></center>'
+			'然后他突然抓住你的头，把里面的东西倒在你脸上。'
+			gs 'cum_call', 'anus', '桑拿客人', 0, 3, 0, cumVolMl
+			gs 'cum_call', 'face', '桑拿客人', 0, 0, 0, cumVolMl
+		elseif $moodType = '一般':
+			'他把它扔在地上，不在乎液体洒得到处都是。'
+			gs 'cum_call', 'anus', '桑拿客人', 0, 3, 0, cumVolMl
+		elseif $moodType = '不错':
+			'他把它扔进垃圾桶，然后轻轻抚摸你的头发。'
+			gs 'cum_call', 'anus', '桑拿客人', 0, 3, 0, cumVolMl
+		end
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumanal'+rand(1, 5)+'.mp4"></video></center>'
+		'客户的鸡巴又抽动了几下，你感到一股暖流在体内扩散，他把<<$cumType>>精液深深射进了你的肠道里。'
+		if rand(1, 100) >= 70: gs 'dinSex', 'std_trigger'
+		gs 'cum_call', 'anus', '桑拿客人', 0, 0, 0, cumVolMl
+	end
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'clientLeave'
+end
+
+
+if $ARGS[0] = 'cumFace':
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumface'+rand(1, 5)+'.mp4"></video></center>'
+	if useCondom = 1:
+		'客户从鸡巴上撕下安全套，<<$cumType>>精液随即喷满了你的脸。'
+	else
+		'客户自己撸完后，<<$cumType>>精液喷满了你的脸。'
+	end
+	gs 'cum_call', 'face', 0, 0, 0, cumVolMl
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'clientLeave'
+end
+
+
+if $ARGS[0] = 'cumMouth':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cummouth'+rand(1, 5)+'.mp4"></video></center>'
+	if useCondom = 1:
+		'客户从鸡巴上撕下安全套，把<<$cumType>>精液射进了你嘴里。'
+	else
+		'客户把鸡巴重新塞回你嘴里，将<<$cumType>>精液射进你的喉咙。'
+	end
+	if rand(1, 100) >= 70: gs 'dinSex', 'std_trigger_oral'
+	gs 'cum_call', 'mouth_swallow', 0, 0, 0, cumVolMl
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'clientLeave'
+end
+
+
+if $ARGS[0] = 'cumBelly':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumbelly'+rand(1, 5)+'.mp4"></video></center>'
+	if useCondom = 1:
+		'客户从鸡巴上撕下安全套，<<$cumType>>精液随即洒满了你的肚子。'
+	else
+		'客户自己撸完后，<<$cumType>>精液洒满了你的肚子。'
+	end
+	gs 'cum_call', 'stomach', 0, 0, 0, cumVolMl
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'clientLeave'
+end
+
+
+if $ARGS[0] = 'cumTits':
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/cumtits'+rand(1, 5)+'.mp4"></video></center>'
+	'你在他面前跪下，把乳房抬高，好让他把精液射在上面。'
+	if useCondom = 1:
+		'客户从鸡巴上撕下安全套，把<<$cumType>>精液射满了你的奶子。'
+	else
+		'客户自己撸完后，把<<$cumType>>精液射满了你的奶子。'
+	end
+	gs 'cum_call', 'breasts', 0, 0, 0, cumVolMl
+	gs 'stat'
+	act '继续': gt 'city_saunawhore', 'clientLeave'
+end
+
+
+if $ARGS[0] = 'bdsmclient':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bdsm1.jpg"></center>'
+	'你被带进一间私人桑拿房，他们告诉你说，今天你要做的工作和平时不一样。'
+	'你环顾四周，看到长凳旁挂着几根绳子。当你意识到那些绳子是为你准备的时候，你的身体不由得绷紧了……'
+	'“别担心，<<$pcs_nickname>>。这位客户只是有点特殊癖好，他不会伤害你的。”他们一边让你坐到长凳上把你绑起来，一边向你保证。'
+	'“还有最后一件事。”他们说着，把一个纸袋套在你头上。他们离开房间，你静静地坐着。'
+	act '坐着等待':
+		*clr & cla
+		gs 'pain', 2, 'handL', 'bind'
+		gs 'pain', 2, 'handR', 'bind'
+		minut += 15
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bdsm2.jpg"></center>'
+		'绳子磨得你很疼，你很不舒服，仿佛过了漫长的一个世纪，你才听到有人打开门。你听到沉重的脚步声朝你走来，但你什么都看不见。'
+		'“让我来帮你。”你听到一个低沉的声音说着，同时把纸袋从你头上拿了下来。当你看到他头上戴着一个面具时，你吓得一缩。'
+		'这个男人叫你放松，说他不打算操你，只想看你扭动挣扎。'
+		act '扭动挣扎':
+			*clr & cla
+			minut += 4
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bdsm3.jpg"></center>'
+			'你不想惹恼这位主顾，于是开始装出挣扎着想挣脱的样子，一边哼哼一边呻吟。'
+			'“很好，很好。”男人说着脱下裤子，开始抚摸他那根小小的鸡巴。你现在很清楚，为什么你不必担心会被这家伙操。'
+			'你这样做了一段时间，男人也开始抚摸自己。这样持续了几分钟，直到他突然停下手，并命令你也停下。他走到门边，对外面站着的几个男人低声说了些什么。'
+			act '站起来':
+				*clr & cla
+				minut += 10
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bdsm4.jpg"></center>'
+				'那几个男人迅速走进房间，抓住你并让你站起来。“你想怎么处置她？”'
+				'男人站在那里，琢磨着接下来该怎么做。“就照她现在这样把她绑起来。我想让她站着让我好好观察。”面具后面的声音命令道。'
+				'那几个男人动作很快，把你的双手、腰部和双腿都绑了起来，让你动弹不得。他们一弄完就离开了，男人则再次开始抚摸自己的鸡巴。'
+				'“你的身材真棒，姑娘，有人这么夸过你吗？”他问道，而你正试着挪动身体找个舒服点的姿势。'
+				'“对，就是这样，扭啊，你这个小婊子。我知道你很难受。让别人掌控你的命运，感觉怎么样？”'
+				'你开始担心他真正的意图到底是什么。'
+				act '跪趴着':
+					*clr & cla
+					gs 'pain', 2, 'legs', 'bind'
+					minut += 10
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bdsm5.jpg"></center>'
+					'男人拍了拍手，那几个男人又跑进房间。“我想从后面看看她。绑得漂亮点，别像上次那样敷衍了事。”'
+					'他们很快弄完，把你交给这个男人任意摆布。“我说过了，你不用担心。我不会操你。对我来说，能掌控一切就足够了。”'
+					'你太害怕了，不敢出声，只能点点头。“现在把腿张开。我想看看你那漂亮的小穴和阴唇。”'
+					'你尽力把腿张开，但绳子却阻止着你，你越是用力，绳子就勒得越痛。当他开始发出低哼时，你绝望地叫了一声。'
+					act '仰卧':
+						*clr & cla
+						gs 'pain', 4, 'labia', 'pinch'
+						'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/sex/bdsm6.jpg"></center>'
+						'“你这个小妖精！你想让我这么快就射出来吗？不不，我们还没完呢。”他再次把那些男人叫了进来，他们让你仰面躺下，张开你的双腿，把你紧紧绑住。他们还将你的双手绑在头顶上方。'
+						'“干得不错。我要的东西带来了吗？”男人问道。'
+						'你听着，胃里一阵翻腾。那些男人递过来一个棕色袋子，然后离开了房间。'
+						'男人走到你面前，什么也没说，拿出一些别针，沿着你的阴唇夹了上去。这种夹痛很疼，但同时又让你感到兴奋。'
+						'“感觉很棒吧？我知道怎么取悦女人。”男人自信地说。你用一声响亮的呻吟回答了他。这对他来说已经足够了，他开始撸动自己的鸡巴，没过多久就射在了地板上。他很快穿好衣服，留下被绑着的你。'
+						gs 'arousal', 'foreplay', 15, 'prostitution', 'bound', 'sub'
+						gs 'stat'
+						act '完成':
+							*clr & cla
+							basePay = (10 * rand(85, 135))
+							payment = (basePay / 2)
+							'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/givemoney.jpg"></center>'
+							if workDolg > 0:
+								gs 'money', 'debt_pay', 'workDolg', payment, 'none'
+								'客户离开房间，付给桑拿房 ' + $func('money', 'string_debt_reduction', payment) + ' 作为你的服务费。'
+								'那些男人给你松了绑，让你慢慢转了一圈，好让老鸨确认你身上没有留下伤痕，然后离开了。'
+							else
+								gs 'money', 'earn', payment
+								'客户一边数钱，一边让手下给你松绑。他把钱递给你 ' + $func('money', 'string_profit', payment) + ' 作为你的服务费。'
+							end
+							gs 'arousal', 'end'
+
+							act '回到主区域': gt 'city_saunawhore', 'saunawork'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'clientLeave':
+	basePay = (10 * rand(75, 125))
+	if mc_inventory['equipped_condoms'] = 0:
+		condomPrice = 100
+	elseif mc_inventory['equipped_condoms'] > 0:
+		gs 'dina', 'prezik'
+		condomPrice = 0
+	end
+	if forced = 2:
+		payment = (basePay * useCondom) - condomPrice
+	else
+		payment = (basePay / 2) - condomPrice
+	end
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/sauna/givemoney.jpg"></center>'
+
+	if workDolg > 0:
+		gs 'money', 'debt_pay', 'workDolg', payment, 'none'
+		'完事后，客户穿上衣服，离开房间，并付给桑拿房 ' + $func('money', 'string_debt_reduction', payment) + ' 作为你的服务费。'
+
+		gs 'arousal', 'end'
+
+		act '回到主区域': gt 'city_saunawhore', 'saunawork'
+	elseif nichTarSauna = 1:
+		nichTarSaunaPay += payment
+		'完事后，客户穿上衣服，离开房间，并付给桑拿房 ' + $func('money', 'string_profit', payment) + ' 作为你的服务费。这笔钱稍后由塔拉斯收走。'
+		'你赚到了 ' + $func('money', 'string_profit', nichTarSaunaPay) + ' 给塔拉斯。'
+		gs 'arousal', 'end'
+		act '回到主区域': gt 'city_saunawhore', 'saunawork'
+	else
+		gs 'money', 'earn', payment
+		'和你完事之后，客户穿上衣服，拿出钱包，递给你 ' + $func('money', 'string_profit', payment) + '。'
+
+		gs 'arousal', 'end'
+
+		act '收下钱并送他出去': gt 'city_saunawhore', 'saunawork'
+	end
+end
+
+
+--- city_saunawhore ---------------------------------

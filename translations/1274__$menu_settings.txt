@@ -1,0 +1,1956 @@
+# $menu_settings
+
+
+$settings['table_start'] = '<center><table width="80%" cellspacing="0" cellpadding="20" valign="top"><tr><td width="500" cellspacing="0" cellpadding="20" valign="top">'
+$settings['table_second'] = '</td><td width="500" cellspacing="0" cellpadding="20" valign="top">'
+$settings['table_end'] = '</td></tr></table></center>'
+gs 'themes', 'indoors'
+
+if $ARGS[0] = 'menu_exit':
+	settingmode = 0
+	menu_off = 0
+	killvar 'settings'
+	killvar 'menu_page'
+	killvar 'explanation_table'
+end
+
+
+if $ARGS[0] = 'settingtabs':
+	cla
+	!! 0: Gameplay
+	!! 1: Difficulty
+	!! 2: Display
+	!! 3: Status
+	!! 4: Phone
+	!! 5: Mods
+	!! 6: Information (Glossary + About)
+
+	$tabsname[0] = '玩法'
+	$tabsaction[0] = "menu_page = <<i>> & gt '$menu_settings'"
+	$tabsname[1] = '难度'
+	$tabsaction[1] = "menu_page = <<i>> & gt '$menu_settings', 'difficulty'"
+	$tabsname[2] = '显示'
+	$tabsaction[2] = "menu_page = <<i>> & gt '$menu_settings', 'display'"
+	$tabsname[3] = '状态窗口'
+	$tabsaction[3] = "menu_page = <<i>> & gt '$menu_settings', 'status'"
+	if settingmode <> 1:
+		$tabsname[4] = '手机主题'
+		$tabsaction[4] = "menu_page = <<i>> & gt '$menu_settings', 'theme'"
+	end
+	$tabsname[5] = '模组'
+	$tabsaction[5] = "menu_page = <<i>> & gt '$menu_settings', 'mods'"
+	$tabsname[6] = '信息'
+	$tabsaction[6] = "menu_page = <<i>> & gt '$menu_settings', 'explanation_start'"
+
+	if $ARGS[1] <> '':
+		temp_menu_page = arrpos('$tabsname', $ARGS[1])
+		if temp_menu_page >= 0: menu_page = temp_menu_page
+		killvar 'temp_menu_page'
+	end
+
+	*nl
+	gs 'tabhead', menu_page
+	if settingmode = 1:
+		act '<center><b>返回角色创建</b></center>':
+			gs '$menu_settings', 'menu_exit'
+			gt 'begin', 'start'
+		end
+	else
+		!! call from Menu - Game settings
+		act '进入作弊菜单': gs '$menu_settings', 'menu_exit' & gs '$menu_cheat'
+		act '导出游戏设置': gs '$menu_settings', 'menu_exit' & gt 'import_export', 'export'
+		act '导入游戏设置': gs '$menu_settings', 'menu_exit' & gt 'import_export', 'import'
+		act '紧急出口': gs '$menu_settings', 'menu_exit' & gt '$menu_settings', 'emergency'
+		act '退出菜单': gs '$menu_settings', 'menu_exit' & gt $menu_loc, $menu_arg
+	end
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ Unified swap handler                                            │
+!! │ All reorder callers use: gs '$menu_settings', 'swap', ...       │
+!! │ Convention:                                                     │
+!! │   ARGS[0] = 'swap'                                              │
+!! │   ARGS[1] = array name to swap within (e.g. 'stat_order',       │
+!! │             'menu_bar_order', 'rel_grp_coolkids', ...)          │
+!! │   ARGS[2] = index to move                                       │
+!! │   ARGS[3] = 'up' or 'down'                                      │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'swap':
+	$temp_arr = $ARGS[1]
+	!! --- boundary check ---
+	if ARGS[2] = 0 and $ARGS[3] = 'up': jump 'swap_cleanup'
+	if ARGS[2] = (arrsize('$' + $temp_arr) - 1) and $ARGS[3] = 'down': jump 'swap_cleanup'
+	!! --- perform swap via dyneval/dynamic ---
+	if $ARGS[3] = 'up':
+		$temp_stat_feature = $dyneval('$result = $<<$temp_arr>>[<<ARGS[2] - 1>>]')
+		dynamic '$<<$temp_arr>>[<<ARGS[2] - 1>>] = $<<$temp_arr>>[<<ARGS[2]>>]'
+		dynamic '$<<$temp_arr>>[<<ARGS[2]>>] = $temp_stat_feature'
+	elseif $ARGS[3] = 'down':
+		$temp_stat_feature = $dyneval('$result = $<<$temp_arr>>[<<ARGS[2] + 1>>]')
+		dynamic '$<<$temp_arr>>[<<ARGS[2] + 1>>] = $<<$temp_arr>>[<<ARGS[2]>>]'
+		dynamic '$<<$temp_arr>>[<<ARGS[2]>>] = $temp_stat_feature'
+	end
+	:swap_cleanup
+	killvar 'temp_stat_feature'
+	killvar 'temp_arr'
+	exit
+end
+
+
+!! Reorder a member within one skill/relation group.
+if $ARGS[0] = 'swap_grp_member':
+	$temp_sgm_base = $ARGS[1]
+	temp_sgm_i = ARGS[3]
+	if $ARGS[4] = 'up' and temp_sgm_i > 0:
+		temp_sgm_j = temp_sgm_i - 1
+	elseif $ARGS[4] = 'down':
+		temp_sgm_j = temp_sgm_i + 1
+	else
+		jump 'swap_gm_cleanup'
+	end
+	$temp_sgm_a = $ARGS[2] + '_' + $str(temp_sgm_i)
+	$temp_sgm_b = $ARGS[2] + '_' + $str(temp_sgm_j)
+	!! Empty neighbour = past the last member; nothing to swap (would leave a hole)
+	$temp_sgm_bval = $dyneval('$result = $<<$temp_sgm_base>>[''<<$temp_sgm_b>>'']')
+	if $temp_sgm_bval = '': jump 'swap_gm_cleanup'
+	$temp_stat_feature = $dyneval('$result = $<<$temp_sgm_base>>[''<<$temp_sgm_a>>'']')
+	dynamic '$<<$temp_sgm_base>>[''<<$temp_sgm_a>>''] = $temp_sgm_bval'
+	dynamic '$<<$temp_sgm_base>>[''<<$temp_sgm_b>>''] = $temp_stat_feature'
+	:swap_gm_cleanup
+	killvar 'temp_stat_feature'
+	killvar 'temp_sgm_base'
+	killvar 'temp_sgm_i'
+	killvar 'temp_sgm_j'
+	killvar 'temp_sgm_a'
+	killvar 'temp_sgm_b'
+	killvar 'temp_sgm_bval'
+	exit
+end
+
+
+!! Reset relations order (group order + all member entries → defaults on next init)
+if $ARGS[0] = 'reset_rels':
+	killvar 'rel_grp'
+	killvar 'rel_group_order'
+	exit
+end
+
+
+!! Reset skills order (group order + all member entries → defaults on next init)
+if $ARGS[0] = 'reset_skills':
+	killvar 'skill_grp'
+	killvar 'skill_group_order'
+	exit
+end
+
+
+$menu_span = '<span style="display: inline-block; width: 40%;">'
+
+
+if $ARGS[0] = 'toggle_menu':
+	!! call example: gs '$menu_settings', 'toggle_menu', 'status', 'Enable_statimg_loc', 'Image toolbar position', 'Middle', 'Top', 'Bottom'
+	*p $menu_span + $ARGS[3] + ':</span>'
+	dynamic "temp_value = " + $ARGS[2]
+
+	i = 0
+	:toggle_menu_loop
+		if i > 0: *p '&nbsp;|&nbsp;'
+		if temp_value = i:
+			*p '<b><<$ARGS[i+4]>></b>'
+		else
+			*p '<a href="exec:<<$ARGS[2]>>=<<i>> & gt ''$menu_settings'', ''<<$ARGS[1]>>''"><<$ARGS[i+4]>></a>'
+		end
+
+		*p $temp_toggle_names
+		i += 1
+	if $ARGS[i+4] <> '': jump 'toggle_menu_loop'
+
+	killvar 'temp_value'
+	killvar 'temp_toggle_names'
+	killvar 'temp_options'
+	exit
+end
+
+
+!! display values in reverse for negative binary variables
+if $ARGS[0] = 'toggle_menu_rev':
+	!! call example: gs '$menu_settings', 'toggle_menu_rev', 'setting', "cfg_vars['disable_autosave']", 'Autosave', 'Enabled', 'Disabled'
+	*p $menu_span + $ARGS[3] + ':</span>'
+	dynamic "temp_value = " + $ARGS[2]
+
+	i = arrsize('ARGS')-5
+	:toggle_menu_rev_loop
+		if $ARGS[i+5] <> '': *p '&nbsp;|&nbsp;'
+		if temp_value = i:
+			*p '<b><<$ARGS[i+4]>></b>'
+		else
+			*p '<a href="exec:<<$ARGS[2]>>=<<i>> & gt ''$menu_settings'', ''<<$ARGS[1]>>''"><<$ARGS[i+4]>></a>'
+		end
+
+		i -= 1
+	if i >= 0: jump 'toggle_menu_rev_loop'
+
+	killvar 'temp_value'
+	killvar 'temp_toggle_names'
+	exit
+end
+
+
+if $ARGS[0] = 'toggle_menu_sym_opt':
+	!! Push one or more options, each as a "value:Label" string (up to 8 per call, ARGS[1]–ARGS[8]).
+	!! value is the integer written to / compared against $var; Label is the display text.
+	temp_tms_pi = 1
+	:toggle_menu_sym_opt_loop
+	if $ARGS[temp_tms_pi] <> '':
+		temp_tms_colon = instr($ARGS[temp_tms_pi], ':')
+		tms_opt_val[tms_opt_count] = val(mid($ARGS[temp_tms_pi], 1, temp_tms_colon - 1))
+		$tms_opt_lbl[tms_opt_count] = mid($ARGS[temp_tms_pi], temp_tms_colon + 1)
+		tms_opt_count += 1
+		temp_tms_pi += 1
+		jump 'toggle_menu_sym_opt_loop'
+	end
+	killvar 'temp_tms_pi'
+	killvar 'temp_tms_colon'
+	exit
+end
+
+
+if $ARGS[0] = 'toggle_menu_sym':
+	!! $ARGS[1] = menu name
+	!! $ARGS[2] = variable to set/compare (e.g. "cheatVars['deg_speed_opt']")
+	!! $ARGS[3] = menu label (e.g. "Skill degradation rate")
+	!! $ARGS[4] = custom option label, optional
+	!! $ARGS[5] = custom option exec, optional
+	!! $ARGS[6] = disable option label, optional
+	*p $menu_span + $ARGS[3] + ':</span>'
+	dynamic 'temp_tms_cur = ' + $ARGS[2]
+
+	temp_tms_i = 0
+	temp_tms_matched = 0
+
+	!! Optional disable button: ARGS[6] = label string (e.g. 'Off').
+	!! When provided, a button that sets the opt var to -99 (= 0×) is prepended.
+	if $ARGS[6] <> '' and temp_tms_cur = -99:
+		temp_tms_matched = 1
+	end
+
+	:toggle_menu_sym_loop
+	if temp_tms_i < tms_opt_count:
+		if temp_tms_i > 0: *p '&nbsp;|&nbsp;'
+		if temp_tms_cur = tms_opt_val[temp_tms_i]:
+			*p '<b><<$tms_opt_lbl[temp_tms_i]>></b>'
+			temp_tms_matched = 1
+		else
+			*p '<a href="exec:<<$ARGS[2]>>=<<tms_opt_val[temp_tms_i]>> & gt ''$menu_settings'', ''<<$ARGS[1]>>''"><<$tms_opt_lbl[temp_tms_i]>></a>'
+		end
+		temp_tms_i += 1
+		jump 'toggle_menu_sym_loop'
+	end
+
+	!! Custom option — only shown if both ARGS[4] and ARGS[5] are non-empty
+	if $ARGS[4] <> '' and $ARGS[5] <> '':
+		*p '&nbsp;|&nbsp;'
+		if temp_tms_matched = 0:
+			dynamic '$temp_tms_custom_val = $str(' + $ARGS[4] + ')'
+			*p '<b>自定义： <<$temp_tms_custom_val>>%</b>'
+			killvar 'temp_tms_custom_val'
+		else
+			!! normalise to single apostrophe
+			$temp_tms_custom_exec = $replace($ARGS[5], "''", "'")
+			*p '<a href="exec: <<$temp_tms_custom_exec>>">自定义</a>'
+			killvar 'temp_tms_custom_exec'
+		end
+	end
+
+	!! Off button — appended last, after the symmetric options and Custom
+	if $ARGS[6] <> '':
+		*p '&nbsp;|&nbsp;'
+		if temp_tms_cur = -99:
+			*p '<b>' + $ARGS[6] + '</b>'
+		else
+			*p '<a href="exec:<<$ARGS[2]>>=-99 & gt ''$menu_settings'', ''<<$ARGS[1]>>''"><<$ARGS[6]>></a>'
+		end
+	end
+
+	*nl
+
+	killvar 'temp_tms_cur'
+	killvar 'temp_tms_i'
+	killvar 'temp_tms_matched'
+	!! Clear the option arrays for the next call
+	killvar 'tms_opt_val'
+	killvar 'tms_opt_lbl'
+	killvar 'tms_opt_count'
+	exit
+end
+
+
+if $ARGS[0] = 'toggle_menu_show_hide':
+	!! call example: gs '$menu_settings', 'toggle_menu_show_hide', 'stat_hide[''skills'']'
+	dynamic "temp_value = " + $ARGS[1]
+	if temp_value = 1:
+		*p '<a href="exec:<<$ARGS[1]>>=0 & gt ''$menu_settings'', ''status'' & gs ''stat_display''">显示</a>&nbsp;|&nbsp;<b>隐藏</b>'
+	else
+		*p '<b>显示</b>&nbsp;|&nbsp;<a href="exec:<<$ARGS[1]>>=1 & gt ''$menu_settings'', ''status'' & gs ''stat_display''">隐藏</a>'
+	end
+	killvar 'temp_value'
+	exit
+end
+
+
+if $ARGS[0] = 'show_hide_calendar':
+	if $ARGS[3] = 'pack':
+		$temp_func = ' ''pack'','
+	else
+		$temp_func = ''
+	end
+	if calendar_show[$ARGS[1]] = 0:
+		*p $menu_span + '<<$ARGS[2]>>事件：</span><b>隐藏</b>&nbsp;|&nbsp;<a href="exec: calendar_show[''<<$ARGS[1]>>''] = 1 & gs ''calendar'',<<$temp_func>> ''add'', ''<<$ARGS[1]>>'' & gt ''$menu_settings'', ''setting''">显示</a><br>'
+	else
+		*p $menu_span + '<<$ARGS[2]>>事件：</span><a href="exec: calendar_show[''<<$ARGS[1]>>''] = 0 & gs ''calendar'',<<$temp_func>> ''remove'', ''<<$ARGS[1]>>'' & gt ''$menu_settings'', ''setting''">隐藏</a>&nbsp;|&nbsp;<b>显示</b><br>'
+	end
+	killvar 'temp_func'
+	exit
+end
+
+
+if $ARGS[0] = 'show_hide_cycle_cal':
+	if calCycleOpts['show_' + ARGS[1]] = 0:
+		*p $menu_span + '<<$ARGS[2]>>:</span><b>隐藏</b>&nbsp;|&nbsp;<a href="exec: calCycleOpts[''show_<<ARGS[1]>>''] = 1 & gs ''calendar'', ''cycle_rebuild'', 1 & gt ''$menu_settings'', ''setting''">显示</a><br>'
+	else
+		*p $menu_span + '<<$ARGS[2]>>:</span><a href="exec: calCycleOpts[''show_<<ARGS[1]>>''] = 0 & gs ''calendar'', ''cycle_rebuild'', 1 & gt ''$menu_settings'', ''setting''">隐藏</a>&nbsp;|&nbsp;<b>显示</b><br>'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'pick_theme':
+	*p iif($theme['name'] = $iif(cfg_vars['themetype'] = 0, 'Dynamic ', '') + $ARGS[1], '<b><<$ARGS[1]>></b>', '<a href="exec: $cfg_vars[''theme_main_name''] = ''<<$ARGS[1]>>'' & gs ''themes'', ''set_theme'',''<<$iif(cfg_vars[''themetype''] = 0, ''Dynamic '', '''') + $ARGS[1]>>'', ''<<$ARGS[2]>>'' & gs ''$menu_obnovit'' & gt ''$menu_settings'', ''display''"><<$ARGS[1]>></a>')
+end
+
+
+if $ARGS[0] = 'print_life_sim_cheat':
+	!! Disable or enable all lifesim features.
+	if cheatVars['willpower'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['inf_willpower'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['hunger'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['thirst'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['mood'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['sleep'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['always_brushed'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['makeup_smear'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['no_sweat'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['no_leghair'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['fat'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['no_periods'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	!! elseif cheatVars['enema'] = 1:
+	!! 	gs '$menu_settings', 'print_life_sim_cheats_off'
+	!! elseif cheatVars['auto_tampons'] = 1:
+	!! 	gs '$menu_settings', 'print_life_sim_cheats_off'
+	elseif cheatVars['clothes_dirt'] = 1:
+		gs '$menu_settings', 'print_life_sim_cheats_off'
+	else
+		gs '$menu_settings', 'print_life_sim_cheats_on'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'print_life_sim_cheats_off':
+	$menu_span + '所有生活模拟功能：</span><a href="exec: gs ''$menu_settings'', ''lifesim_cheats_off''">已启用</a> | <b>禁用</b>'
+	exit
+end
+
+
+if $ARGS[0] = 'print_life_sim_cheats_on':
+	$menu_span + '所有生活模拟功能：</span><b>已启用</b> | <a href="exec: gs ''$menu_settings'', ''lifesim_cheats_on''">禁用</a>'
+	exit
+end
+
+
+if $ARGS[0] = 'lifesim_cheats_off':
+	cheatVars['willpower']			= 0
+	cheatVars['inf_willpower']		= 0
+	cheatVars['hunger']				= 0
+	cheatVars['thirst']				= 0
+	cheatVars['mood']				= 0
+	cheatVars['sleep']				= 0
+	cheatVars['always_brushed']		= 0
+	cheatVars['makeup_smear']		= 0
+	cheatVars['no_sweat']			= 0
+	cheatVars['no_leghair']			= 0
+	cheatVars['fat']				= 0
+	if cheatVars['no_periods'] = 1: gs 'cheatmenu_din', 'slutshot'
+	!! cheatVars['enema']			= 0
+	!! cheatVars['auto_tampons']	= 0
+	cheatVars['clothes_dirt']		= 0
+	gt '$menu_settings'
+end
+
+
+if $ARGS[0] = 'lifesim_cheats_on':
+	*clr & cla
+	'这将激活多项作弊，并对游戏体验产生深远影响。'
+	'我们强烈不建议使用此功能，但我们也理解生活模拟部分并不适合所有人。'
+	'你确定要启用吗？'
+	act '不，保留生活模拟功能': gt '$menu_settings'
+	act '是，禁用所有生活模拟功能':
+		cheatVars['willpower']			= 1
+		cheatVars['inf_willpower']		= 1
+		cheatVars['hunger']				= 1
+		cheatVars['thirst']				= 1
+		cheatVars['mood']				= 1
+		cheatVars['sleep']				= 1
+		cheatVars['always_brushed']		= 1
+		cheatVars['makeup_smear']		= 1
+		cheatVars['no_sweat']			= 1
+		cheatVars['no_leghair']			= 1
+		cheatVars['fat']				= 1
+		if cheatVars['no_periods'] = 0: gs 'cheatmenu_din', 'slutshot'
+		!! cheatVars['enema']			= 1
+		cheatVars['auto_tampons']		= 1
+		cheatVars['clothes_dirt']		= 1
+		gs 'washer', 'wash_all'
+		pcs_mass['body'] = func('body', 'CalcOptBodyMass', 225)
+		gs 'body', 'softreset'
+		gs 'stat'
+
+		gt '$menu_settings'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'music':
+	if sound_settings['music_off'] = 1 or sound_settings['environment_off'] = 1 or sound_settings['menu_off'] = 1:
+		CLOSE ALL
+	end
+
+	if sound_settings['music_off'] = 0:
+		music_loop = 1
+	else
+		music_loop = 0
+		$track_loop = ''
+	end
+
+	gt '$menu_settings', 'setting'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                MAIN                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = '' or $ARGS[0] = 'setting':
+	*clr & cla
+	gs 'stat'
+	$BACKIMAGE = ''
+	if $theme['name'] = '自定义':
+		gs 'themes', 'check_custom_vars'
+		gs 'themes', 'set_theme', '自定义', 'static'
+		gs '$menu_obnovit'
+	end
+	menu_page = 0
+	gs '$menu_settings', 'settingtabs', '玩法'
+	'<center><h2>常规设置</h2></center>'
+	$settings['table_start']
+		gs '$menu_settings', 'toggle_menu', 'setting', "cfg_vars['disable_autosave']", '自动存档', '已启用', '已禁用' & *nl
+		gs '$menu_settings', 'toggle_menu', 'music', "sound_settings['music_off']", '音乐', '已启用', '已禁用' & *nl
+		gs '$menu_settings', 'toggle_menu', 'music', "sound_settings['environment_off']", '环境音效', '已启用', '已禁用' & *nl
+		gs '$menu_settings', 'toggle_menu', 'music', "sound_settings['menu_off']", '菜单/手机音效', '已启用', '已禁用' & *nl
+
+		*nl
+
+		gs '$menu_settings', 'toggle_menu', 'setting', "cfg_vars['pay_opt']", '默认支付方式', '现金', '银行卡', '每次选择' & *nl
+		if cfg_vars['pay_opt'] = 0:
+			gs '$menu_settings', 'toggle_menu', 'setting', "cfg_vars['pay_opt_backup']", '备用支付方式', '银行卡', '混合支付', '每次选择' & *nl
+		elseif cfg_vars['pay_opt'] = 1:
+			gs '$menu_settings', 'toggle_menu', 'setting', "cfg_vars['pay_opt_backup']", '备用支付方式', '现金', '混合支付', '每次选择' & *nl
+		end
+		gs '$menu_settings', 'toggle_menu', 'setting', "cfg_vars['income_opt']", '收入方式', '现金', '银行卡', '每次选择' & *nl
+		if bankAccount = 0 and (cfg_vars['income_opt'] = 1 or cfg_vars['pay_opt'] = 1):
+			$func('wrap', 'v_neg b', '警告：你选择了银行卡支付，但还没有银行账户！')
+		end
+		gs '$menu_settings', 'toggle_menu', 'setting', "cfg_vars['allow_overdraft']", '允许透支支付', '已禁用', '已启用' & *nl
+		'<font color="grey">混合支付会先花光你的现金，然后用卡支付剩余部分。</font>'
+
+		*nl
+
+		gs '$menu_settings', 'print_life_sim_cheat'
+		gs '$menu_settings', 'toggle_menu', 'setting', "cheatVars['auto_brush']", '照镜子时自动梳头', '已禁用', '已启用' & *nl
+		gs '$menu_settings', 'toggle_menu_rev', 'setting', "cheatVars['enema']", '灌肠真实感', '已启用', '已禁用' & *nl
+		gs '$menu_settings', 'toggle_menu', 'setting', "cheatVars['pee']", '排尿', '已启用', '已禁用' & *nl
+		*nl
+		
+		gs 'daily_routine', 'settings_defaults'
+		gs '$menu_settings', 'toggle_menu', 'setting', "droutine_settings['disabled']", '快速执行早晚日常', '已启用', '已禁用' & *nl
+		if droutine_settings['disabled'] = 0:
+			'<a href="exec:gs ''$menu_settings'', ''menu_exit'' & gt ''daily_routine'', ''manage'', $menu_loc, $menu_arg">设置你的日常安排</a>'
+		end
+		
+		*nl
+		
+		gs '$menu_settings', 'toggle_menu', 'setting', "cheatVars['rename_porn']", '为你出演的色情影片重命名', '已禁用', '已启用' & *nl
+		*nl
+		'<b>日历事件</b>'
+		gs '$menu_settings', 'show_hide_calendar', 'disco_party', '迪斯科派对'
+		gs '$menu_settings', 'show_hide_calendar', 'church', '教堂礼拜', 'pack'
+		gs '$menu_settings', 'show_hide_calendar', 'intercity_trains', '城际列车', 'pack'
+		'<b>生理周期日历事件</b>'
+		gs '$menu_settings', 'show_hide_cycle_cal', 0, '月经期'
+		gs '$menu_settings', 'show_hide_cycle_cal', 1, '卵泡期'
+		gs '$menu_settings', 'show_hide_cycle_cal', 2, '易孕期'
+		gs '$menu_settings', 'show_hide_cycle_cal', 3, '黄体期'
+
+	$settings['table_end']
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             DIFFICULTY                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'difficulty':
+	*clr & cla
+	gs '$menu_settings', 'settingtabs', '难度'
+	!! Re-init trait constants in case difficulty was just changed
+	gs 'archetypes', 'init'
+	'<center><h2>难度设置</h2></center>'
+	$settings['table_start']
+
+		!! Difficulty presets
+		*p $menu_span + '<b>难度预设：</b></span>'
+		temp_preset = func('_difficulty', 'preset', 'get')
+		*p iif(temp_preset = 1, '<b>模拟市民</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''sims'' & gt ''$menu_settings'', ''difficulty''">模拟市民</a>') + '&nbsp;|&nbsp;'
+		*p iif(temp_preset = 2, '<b>非常简单</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''very easy'' & gt ''$menu_settings'', ''difficulty''">非常简单</a>') + '&nbsp;|&nbsp;'
+		*p iif(temp_preset = 3, '<b>简单</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''easy'' & gt ''$menu_settings'', ''difficulty''">简单</a>') + '&nbsp;|&nbsp;'
+		*p iif(temp_preset = 4, '<b>正常</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''normal'' & gt ''$menu_settings'', ''difficulty''">正常</a>') + '&nbsp;|&nbsp;'
+		*p iif(temp_preset = 5, '<b>用力地</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''hard'' & gt ''$menu_settings'', ''difficulty''">用力地</a>') + '&nbsp;|&nbsp;'
+		*p iif(temp_preset = 6, '<b>非常困难</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''very hard'' & gt ''$menu_settings'', ''difficulty''">非常困难</a>') + '&nbsp;|&nbsp;'
+		*p iif(temp_preset = 7, '<b>俄罗斯</b>', '<a href="exec: gs ''_difficulty'', ''preset'', ''set'', ''russia'' & gt ''$menu_settings'', ''difficulty''">俄罗斯</a>')
+		killvar 'temp_preset'
+		*nl
+		'<font color="grey">选择预设将一次调整多个设置。</font>'
+
+		'<center><h3>自定义难度设置</h3></center>'
+
+		!! Skill gain and degradation
+		'<b>技能倍率：</b>'
+		!! cheatVars['skill_gain'] values: 1=Very Fast, 2=Fast, 3=Normal (default), 4=Slow
+		*p $menu_span + '    技能获取速率：</span>'
+		*p iif(cheatVars['skill_gain'] = 1, '<b>非常快</b>', '<a href="exec: gs ''_difficulty'', ''setdifficulty_int'', 1 & gt ''$menu_settings'', ''difficulty''">非常快</a>') + '&nbsp;|&nbsp;'
+		*p iif(cheatVars['skill_gain'] = 2, '<b>快</b>', '<a href="exec: gs ''_difficulty'', ''setdifficulty_int'', 2 & gt ''$menu_settings'', ''difficulty''">快</a>') + '&nbsp;|&nbsp;'
+		*p iif(cheatVars['skill_gain'] = 3, '<b>正常</b>', '<a href="exec: gs ''_difficulty'', ''setdifficulty_int'', 3 & gt ''$menu_settings'', ''difficulty''">正常</a>') + '&nbsp;|&nbsp;'
+		*p iif(cheatVars['skill_gain'] = 4, '<b>慢</b>', '<a href="exec: gs ''_difficulty'', ''setdifficulty_int'', 4 & gt ''$menu_settings'', ''difficulty''">慢</a>')
+		*nl
+
+		!! deg_speed_opt: ⅓, ½, ¾, 1, 1.5, 2, 3 = opts -4, -3, -1, 0, 2, 3, 4; -99 = Off
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-4:⅓×', '-3:½×', '-1:¾×', '0:1× ✿', '2:1½×', '3:2×', '4:3×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['deg_speed_opt']", '    技能退化速度', "cheatVars['deg_speed_custom']", "cheatVars[''deg_speed_opt''] = 99 & cheatVars[''deg_speed_custom''] = input(''设置退化速度（单位：%）'') & gt ''$menu_settings'', ''difficulty''", '关闭'
+
+		!! Economy — ⅓, ½, ¾, 1, 1.5, 2, 3 (symmetric with degradation)
+		'<b>经济倍率：</b>'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-4:⅓×', '-3:½×', '-1:¾×', '0:1× ✿', '2:1½×', '3:2×', '4:3×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cfg_vars['pos_mult_opt']", '    收入', "cfg_vars['pos_mult']", "cfg_vars[''pos_mult''] = input(''设置收入倍率（单位：%）'') & cfg_vars[''pos_mult_opt''] = 99 & gt ''$menu_settings'', ''difficulty''"
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-4:⅓×', '-3:½×', '-1:¾×', '0:1× ✿', '2:1½×', '3:2×', '4:3×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cfg_vars['neg_mult_opt']", '    支出', "cfg_vars['neg_mult']", "cfg_vars[''neg_mult''] = input(''设置支出倍率（单位：%）'') & cfg_vars[''neg_mult_opt''] = 99 & gt ''$menu_settings'', ''difficulty''"
+
+		!! Mood — ½, ⅔, ¾, 1, 1¼, 1.5, 2 (symmetric set)
+		'<b>心情倍率：</b>'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-3:½×', '-2:⅔×', '-1:¾×', '0:1× ✿', '1:1¼×', '2:1½×', '3:2×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['pos_mood_opt']", '    正面心情效果', "cheatVars['pos_mood_mult']", "cheatVars[''pos_mood_mult''] = input(''设置正面心情效果倍率（单位：%）'') & cheatVars[''pos_mood_opt''] = 99 & gt ''$menu_settings'', ''difficulty''"
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-3:½×', '-2:⅔×', '-1:¾×', '0:1× ✿', '1:1¼×', '2:1½×', '3:2×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['neg_mood_opt']", '    负面心情效果', "cheatVars['neg_mood_mult']", "cheatVars[''neg_mood_mult''] = input(''设置负面心情效果倍率（单位：%）'') & cheatVars[''neg_mood_opt''] = 99 & gt ''$menu_settings'', ''difficulty''"
+
+		!! Willpower — ½, ⅔, ¾, 1, 1¼, 1.5, 2 (same as mood for consistency)
+		'<b>意志力消耗倍率：</b>'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-3:½×', '-2:⅔×', '-1:¾×', '0:1× ✿', '1:1¼×', '2:1½×', '3:2×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['wp_cost_opt']", '    意志力消耗', "cheatVars['wp_cost_mult']", "cheatVars[''wp_cost_mult''] = input(''设置意志力消耗倍率（单位：%）'') & cheatVars[''wp_cost_opt''] = 99 & gt ''$menu_settings'', ''difficulty''"
+
+		!! Fertility — ⅓, ½, ⅔, 1, 1.5, 2, 3 (symmetric with degradation/economy)
+		'<b>生育倍率：</b>'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-4:⅓×', '-3:½×', '-2:⅔×', '0:1× ✿', '2:1½×', '3:2×', '4:3×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['preg_chance']", '    怀孕几率', "cheatVars['preg_chance_custom']", "cheatVars['preg_chance'] = 99 & cheatVars['preg_chance_custom'] = input('设置怀孕几率倍率（单位：%）') & gt '$menu_settings', 'difficulty'"
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-4:⅓×', '-3:½×', '-2:⅔×', '0:1× ✿', '2:1½×', '3:2×', '4:3×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['preg_speed']", '    怀孕速度', "cheatVars['preg_speed_custom']", "cheatVars['preg_speed'] = 99 & cheatVars['preg_speed_custom'] = input('设置怀孕速度倍率（单位：%）') & gt '$menu_settings', 'difficulty'"
+
+		*nl
+
+		!! Random events — _opt indices: 0=Normal, 1=Disabled, 2=Low, 3=High, 4=Very High → centre Normal
+		'<b>事件几率：</b>'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '1:禁用', '2:低', '0:正常 ✿', '3:高', '4:很高'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['random_lovers']", '    随机男友／女友事件'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '1:禁用', '2:低', '0:正常 ✿', '3:高', '4:很高'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['random_robbers']", '    随机抢劫事件'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '1:禁用', '2:低', '0:正常 ✿', '3:高', '4:很高'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['random_snatchers']", '    随机抢包事件'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '1:禁用', '2:低', '0:正常 ✿', '3:高', '4:很高'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['random_rapists']", '    随机强奸事件'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '1:禁用', '2:低', '0:正常 ✿', '3:高', '4:很高'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['abduction_chance']", '    绑架事件'
+
+		*nl
+
+		'<b>其他调整：</b>'
+		if cheatVars['no_periods'] = 0:
+			gs '$menu_settings', 'toggle_menu_rev', 'difficulty', "cheatVars['auto_tampons']", '    自动丢弃用过的卫生巾和卫生棉条', '已禁用', '已启用' & *nl
+			gs '$menu_settings', 'toggle_menu_rev', 'difficulty', "cheatVars['track_period']", '    自动记录生理周期', '已禁用', '已启用' & *nl
+		end
+		if $start_type['magic'] <> 'nomagic':
+			gs '$menu_settings', 'toggle_menu', 'difficulty', "cheatVars['tatiana_apprnc_change']", '    塔蒂亚娜可以帮你改善外貌', '已启用', '已禁用' & *nl
+		end
+
+		!! Archetype activation difficulty
+		'<b>原型难度：</b>'
+		'<font color="grey">控制激活特质并达到完全效果所需的特质点数。较低的数值使获取特质更容易。</font>'
+		gs '$menu_settings', 'toggle_menu_sym_opt', '-2:¼×', '-1:½×', '0:1× ✿', '1:2×', '2:4×'
+		gs '$menu_settings', 'toggle_menu_sym', 'difficulty', "cheatVars['arch_difficulty']", '    原型激活阈值', '', "cheatVars[''arch_difficulty''] = val(input(''设置特质难度选项（-2 到 2）'')) & gs ''archetypes'', ''init'' & gt ''$menu_settings'', ''difficulty''"
+
+		*nl
+		'<font color="grey">✿ = 默认值</font>'
+
+	$settings['table_end']
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              DISPLAY                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'display':
+	*clr & cla
+	gs '$menu_settings', 'settingtabs', '显示'
+	'<center><h2>显示设置</h2></center>'
+	$settings['table_start']
+	'<b><a href="exec: $themes_menu_ret_loc = ''$menu_settings'' & $themes_menu_ret_arg = ''display'' & gt ''themes'', ''menu''">显示主题选择器</a></b>'
+	
+	gs '$menu_settings', 'toggle_menu', 'display', "cfg_vars['themetype']", '主题类型', '动态', '静态' & *nl
+	*nl
+
+	if $theme['name'] = '' or $theme['type'] = '':
+		$theme['name'] = 'Dynamic 默认'
+		$theme['type'] = 'dynamic'
+		gs 'themes', 'set_theme', 'Dynamic 默认', 'dynamic'
+	end
+
+	if $cfg_vars['theme_main_name'] = '': $cfg_vars['theme_main_name'] = '默认'
+
+
+	if cfg_vars['themetype'] = 0:
+		if $theme['type'] = 'static':
+			if $cfg_vars['theme_main_name'] = '白色' or $cfg_vars['theme_main_name'] = '黑色' or $cfg_vars['theme_main_name'] = '现代灰' or $cfg_vars['theme_main_name'] = '自定义':
+				$cfg_vars['theme_main_name'] = '默认'
+			end
+			gs 'themes', 'set_theme', 'Dynamic ' + $cfg_vars['theme_main_name'], 'dynamic'
+			gs '$menu_obnovit'
+			gt '$menu_settings', 'display'
+		end
+		*p $menu_span + '经典主题选择 [仅动态]：</span>'
+		gs '$menu_settings', 'pick_theme', '默认', 'dynamic'
+
+	else
+		if $theme['type'] = 'dynamic':
+			if $cfg_vars['theme_main_name'] = '默认':
+				$cfg_vars['theme_main_name'] = '白色'
+			end
+			gs 'themes', 'set_theme', $cfg_vars['theme_main_name'], 'static'
+			gs '$menu_obnovit'
+			gt '$menu_settings', 'display'
+		end
+		*p $menu_span + '经典主题选择 [仅静态]：</span>'
+		gs '$menu_settings', 'pick_theme', '白色', 'static' & *p '&nbsp;|&nbsp;'
+		gs '$menu_settings', 'pick_theme', '黑色', 'static' & *p '&nbsp;|&nbsp;'
+		gs '$menu_settings', 'pick_theme', '现代灰', 'static' & *p '&nbsp;|&nbsp;'
+		gs '$menu_settings', 'pick_theme', '自定义', 'static' & *p '&nbsp;'
+		*p '<a href="exec: gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/preferences<<iif(theme[''is_dark''] = 0, ''_b'', ''_w'')>>.png" height="<<fsize*15/10>>"></a>'
+	end
+	*nl
+	*p $menu_span + 'Catppuccin 主题：</span>'
+	gs '$menu_settings', 'pick_theme', '拿铁', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '冰沙', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '玛奇朵', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '摩卡', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static')
+	*nl
+	*p $menu_span + 'Nord 主题：</span>'
+	gs '$menu_settings', 'pick_theme', '北欧浅色', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '北欧深色', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static')
+	*nl
+	*p $menu_span + 'Solarized 主题：</span>'
+	gs '$menu_settings', 'pick_theme', '日光浅色', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '日光深色', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static')
+	*nl
+	*p $menu_span + 'Tokyo Night 主题：</span>'
+	gs '$menu_settings', 'pick_theme', '东京之夜浅色', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '东京之夜', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static')
+	*nl
+	*p $menu_span + 'Rosé Pine 主题：</span>'
+	gs '$menu_settings', 'pick_theme', '玫瑰松·黎明', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '玫瑰松', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static') & *p '&nbsp;|&nbsp;'
+	gs '$menu_settings', 'pick_theme', '玫瑰松·月夜', $iif(cfg_vars['themetype'] = 0, 'dynamic', 'static')
+	*nl
+	'<font color="grey">动态主题会根据游戏内时间改变配色。</font>'
+	*nl
+	!! Allow popups
+	gs '$menu_settings', 'toggle_menu', 'display', "cfg_vars['use_popups']", '允许弹出图片', '关', '开' & *nl
+	!! Image scaling
+	if cfg_vars['imgh'] > 0:
+		cfg_vars['imgw'] = 0
+		$set_imgh = 'height = <<cfg_vars[''imgh'']>>'
+	elseif cfg_vars['imgw'] > 0:
+		cfg_vars['imgh'] = 0
+		$set_imgh = 'width = <<cfg_vars[''imgw'']>>'
+	elseif cfg_vars['imgh'] <= 0 and cfg_vars['imgw'] <= 0:
+		$set_imgh = ''
+	end
+
+	$temp_height = $iif(cfg_vars['imgh']=0, '关', $str(cfg_vars['imgh']))
+	$temp_width = $iif(cfg_vars['imgw']=0, '关', $str(cfg_vars['imgw']))
+	$menu_span + '强制图片高度：</span><a href="exec:cfg_vars[''imgw'']=0 & cfg_vars[''imgh'']=input(''输入图片高度（默认：0）'') & gt ''$menu_settings'', ''display'' & gs ''stat''"><<$temp_height>></a> <a href="exec:cfg_vars[''imgw''] = 0 & cfg_vars[''imgh''] = 0 & gt ''$menu_settings'', ''display'' & gs ''stat''">[默认]</a>'
+	$menu_span + '强制图片宽度：</span><a href="exec:cfg_vars[''imgh'']=0 & cfg_vars[''imgw'']=input(''输入图片宽度（默认：0）'') & gt ''$menu_settings'', ''display'' & gs ''stat''"><<$temp_width>></a> <a href="exec:cfg_vars[''imgh''] = 0 & cfg_vars[''imgw''] = 0 & gt ''$menu_settings'', ''display'' & gs ''stat''">[默认]</a>'
+	killvar 'temp_height'
+	killvar 'temp_width'
+	*nl
+
+	!! List friends in table
+	gs '$menu_settings', 'toggle_menu', 'display', "cfg_vars['tablemap']", '在表格中列出朋友', '已禁用', '已启用' & *nl
+	!! Android mode
+	gs '$menu_settings', 'toggle_menu', 'display', "stat_cfg['android']", '安卓模式', '已禁用', '已启用' & *nl
+	!! Show debug on load
+	gs '$menu_settings', 'toggle_menu_rev', 'display', "cfg_vars['debug']", '读档时显示调试窗口', '已禁用', '已启用' & *nl
+	if cfg_vars['debug'] = 0 and debug_warning_closed = 0:
+		'<font color="grey">即使 <b>禁用</b>, 调试窗口仍会显示直到你点击 <b>移除调试信息</b>!</font>'
+	end
+	if stat_cfg['android'] = 1:
+		'设置状态栏字体大小：不支持'
+		'点击状态窗口顶部的 <b>刷新</b> 即可更新。'
+	end
+	*nl
+
+	!! Willpower cost style
+	gs '$menu_settings', 'toggle_menu', 'display', "cheatVars['willcost_style']", '意志力消耗显示样式', '意志力／消耗', '消耗／意志力', '消耗' & *nl
+	*nl
+
+	!! Always show face
+	gs '$menu_settings', 'toggle_menu', 'display', "cfg_vars['faceturn']", '始终显示面部', '已禁用', '已启用' & *nl
+	gs '$menu_settings', 'toggle_menu', 'display', "face_style['type']", '头像图片类型', '动态', '固定', '渲染' & *nl
+	if face_style['type'] = 1:
+		if $temp_path ! '': $face_style['avatar_path'] = $temp_path
+		if $face_style['avatar_path'] = '': $face_style['avatar_path'] = 'images/avatar.jpg'
+		$menu_span + '当前头像：</span><a href="exec: $temp_path = $input(''头像图片在哪里？'') & gt ''$menu_settings'', ''display''"><<$face_style[''avatar_path'']>></a>'
+	end
+	gs '$menu_settings', 'toggle_menu', 'display', "face_style['custom_hair_toggle']", '自定义发型描述', '已禁用', '已启用' & *nl
+	if face_style['custom_hair_toggle'] = 1:
+		$menu_span + '自定义头发描述：</span><a href="exec: $face_style[''avatar_hair''] = $input(''输入你的发型描述：'') & gt ''$menu_settings'', ''display''"><<iif($face_style[''avatar_hair''] = '''', ''未设置'', $face_style[''avatar_hair''])>></a>'
+	end
+	*nl
+
+	!! disabled inner thought font selection during char creation, as it breaks menu.
+	if settingmode = 0:
+		$menu_span + '<a href="exec:$temp_loc_font = ''$menu_settings'' & $temp_loc_arg_font = ''display'' & gt ''$menu_settings'', ''fonts'', ''thought'', ''$openInnerThought'', ''$closeInnerThought'' ">设置内心独白的字体样式：</a></span><<$openInnerThought>>哦我的天哪，邻居们会怎么看我们？<<$closeInnerThought>>'
+		*nl
+	end
+
+	gs '$menu_settings', 'toggle_menu', 'display', "cheatVars['shop_alt_color']", '过滤替代颜色', '<font color="green">绿色</font>', $func('wrap', 'accent', '蓝色')
+
+	$settings['table_end']
+end
+
+
+if $ARGS[0] = 'theme_customize':
+	*clr
+	gs 'themes', 'check_custom_vars'
+	if $theme['name'] = '自定义': gs 'themes', 'set_theme', '自定义', 'static' & gs '$menu_obnovit'
+
+	menu_page = -1
+	gs '$menu_settings', 'settingtabs'
+
+	cla
+	act '返回': menu_page = 2 & gt '$menu_settings', 'display'
+	act '预设': gs '$menu_settings', 'theme_presets'
+	act '导出': gt '$menu_settings', 'theme_export'
+	act '导入': killvar 'menu_page' & gt 'initg', 'set_game_set'
+
+	'<center><h2>自定义主题</h2></center>'
+	*p '<center><table width="90%" cellspacing="0" cellpadding="20" valign="top"><tr><td bgcolor="black" width="50%" cellspacing="0" cellpadding="20" valign="top"><font face="Tahoma" size="4" color="white">'
+
+	$icon_selector = '_w'
+	icon_height = 13
+	!!  --- FONT ---
+	*p '字体族：<<$custom_theme[''fname'']>>&nbsp;'
+	*pl '<a href="exec: gs ''$menu_settings'', ''theme_customize_input_fname'' & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '字体大小：&nbsp;'
+	*p '<a href="exec: custom_theme[''fsize''] = iif(custom_theme[''fsize''] <= 9, 9, custom_theme[''fsize''] - 1) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/less<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	*p '&nbsp;<<custom_theme[''fsize'']>>&nbsp;'
+	*p '<a href="exec: custom_theme[''fsize''] += 1 & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/more<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	*pl '&nbsp;<a href="exec: gt ''$menu_settings'', ''theme_customize_input_fsize'' & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	!!  --- BCOLOR ---
+	*nl
+	*p '背景色：<<func(''shortgs'', ''rgb_to_hex'', custom_theme[''bcolor''])>>&nbsp;'
+	*pl '<a href="exec: custom_theme[''bcolor''] = func(''$menu_settings'', ''theme_customize_input'', ''hex'', custom_theme[''bcolor'']) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '红：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'red', 'custom_theme[''bcolor'']') + '&nbsp;|&nbsp;'
+	*p '绿：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'green', 'custom_theme[''bcolor'']') + '&nbsp;|&nbsp;'
+	*pl '蓝：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'blue', 'custom_theme[''bcolor'']')
+
+	!!  --- FCOLOR ---
+	*nl
+	*p '前景（文字）颜色：<<func(''shortgs'', ''rgb_to_hex'', custom_theme[''fcolor''])>>&nbsp;'
+	*pl '<a href="exec: custom_theme[''fcolor''] = func(''$menu_settings'', ''theme_customize_input'', ''hex'', custom_theme[''fcolor'']) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '红：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'red', 'custom_theme[''fcolor'']') + '&nbsp;|&nbsp;'
+	*p '绿：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'green', 'custom_theme[''fcolor'']') + '&nbsp;|&nbsp;'
+	*pl '蓝：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'blue', 'custom_theme[''fcolor'']')
+
+	!!  --- LCOLOR ---
+	*nl
+	*p '链接颜色：<<func(''shortgs'', ''rgb_to_hex'', custom_theme[''lcolor''])>>&nbsp;'
+	*pl '<a href="exec: custom_theme[''lcolor''] = func(''$menu_settings'', ''theme_customize_input'', ''hex'', custom_theme[''lcolor'']) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '红：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'red', 'custom_theme[''lcolor'']') + '&nbsp;|&nbsp;'
+	*p '绿：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'green', 'custom_theme[''lcolor'']') + '&nbsp;|&nbsp;'
+	*pl '蓝：&nbsp;' + $func('$menu_settings', 'theme_customize_print_color_line', 'blue', 'custom_theme[''lcolor'']')
+
+	!!  --- TABLE BG ---
+	*nl
+	*p '表格背景：<font color="<<$custom_theme[''table_bg'']>>">&#9632;</font>&nbsp;<<$custom_theme[''table_bg'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''table_bg''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''table_bg''], ''表格背景'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	!!  --- TABLE BG ALT ---
+	*p '备选表格背景：<font color="<<$custom_theme[''table_bg_alt'']>>">&#9632;</font>&nbsp;<<$custom_theme[''table_bg_alt'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''table_bg_alt''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''table_bg_alt''], ''备选表格背景'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	!!  --- DARK MODE ---
+	*nl
+	*p '深色模式&nbsp;'
+	if custom_theme['is_dark'] = 0:
+		*pl '<a href="exec: custom_theme[''is_dark''] = 1 & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/box<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	else
+		*pl '<a href="exec: custom_theme[''is_dark''] = 0 & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/check<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	end
+
+	!!  --- ACCENT & STAT COLORS ---
+	*nl
+	*p '强调色：<font color="<<$custom_theme[''accent'']>>">&#9632;</font>&nbsp;<<$custom_theme[''accent'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''accent''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''accent''], ''强调色'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '非常正面：<font color="<<$custom_theme[''v_pos'']>>">&#9632;</font>&nbsp;<<$custom_theme[''v_pos'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''v_pos''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''v_pos''], ''非常正面'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '正面：<font color="<<$custom_theme[''pos'']>>">&#9632;</font>&nbsp;<<$custom_theme[''pos'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''pos''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''pos''], ''正面'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '中立：<font color="<<$custom_theme[''neutral'']>>">&#9632;</font>&nbsp;<<$custom_theme[''neutral'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''neutral''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''neutral''], ''中立'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '负面：<font color="<<$custom_theme[''neg'']>>">&#9632;</font>&nbsp;<<$custom_theme[''neg'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''neg''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''neg''], ''负面'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '非常负面：<font color="<<$custom_theme[''v_neg'']>>">&#9632;</font>&nbsp;<<$custom_theme[''v_neg'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''v_neg''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''v_neg''], ''非常负面'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	!!  --- PERSONALITY COLORS ---
+	*nl
+	*p '芭比：<font color="<<$custom_theme[''bimbo'']>>">&#9632;</font>&nbsp;<<$custom_theme[''bimbo'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''bimbo''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''bimbo''], ''芭比'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '哥特：<font color="<<$custom_theme[''goth'']>>">&#9632;</font>&nbsp;<<$custom_theme[''goth'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''goth''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''goth''], ''哥特'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '朋克：<font color="<<$custom_theme[''punk'']>>">&#9632;</font>&nbsp;<<$custom_theme[''punk'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''punk''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''punk''], ''朋克'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '催眠：<font color="<<$custom_theme[''hypno'']>>">&#9632;</font>&nbsp;<<$custom_theme[''hypno'']>>&nbsp;'
+	*pl '<a href="exec: $custom_theme[''hypno''] = $func(''$menu_settings'', ''theme_customize_input_hex_str'', $custom_theme[''hypno''], ''催眠'') & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	!!  --- INCREMENT ---
+	*nl
+	if custom_theme['increment'] = 0: custom_theme['increment'] = 16
+	*p '增量：&nbsp;'
+	*p '<a href="exec: custom_theme[''increment''] = iif(custom_theme[''increment''] <= 1, 1, custom_theme[''increment''] - 1) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/less<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	*p '&nbsp;<<custom_theme[''increment'']>>&nbsp;'
+	*p '<a href="exec: custom_theme[''increment''] += 1 & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/more<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	*pl '&nbsp;<a href="exec: gt ''$menu_settings'', ''theme_customize_input_increment'' & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+
+	*p '</font></td>'
+
+	!!  --- PREVIEW ---
+	!! Wire theme_hex to custom values so the preview and progressbars reflect the custom theme
+	$theme_hex['table_bg']		= $custom_theme['table_bg']
+	$theme_hex['table_bg_alt']	= $custom_theme['table_bg_alt']
+	$theme_hex['accent']		= $custom_theme['accent']
+	$theme_hex['v_pos']			= $custom_theme['v_pos']
+	$theme_hex['pos']			= $custom_theme['pos']
+	$theme_hex['neutral']		= $custom_theme['neutral']
+	$theme_hex['neg']			= $custom_theme['neg']
+	$theme_hex['v_neg']			= $custom_theme['v_neg']
+
+	$tc_fg_hex = func('shortgs', 'rgb_to_hex', custom_theme['fcolor'])
+
+	*p '<td valign="top" style="padding:20px;">'
+
+	'<font color="<<$custom_theme[''bimbo'']>>">芭比</font>女孩走进一家 <font color="<<$custom_theme[''goth'']>>">哥特</font>咖啡馆，引发了一场 <font color="<<$custom_theme[''punk'']>>">朋克</font>风潮，空气中弥漫着 <font color="<<$custom_theme[''hypno'']>>">催眠</font>能量。 <a href="exec:gt ''$menu_settings'', ''theme_customize''">人们来了又走</a>，留下的只有故事。'
+	*nl
+
+	*p '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse; min-width:320px;">'
+	*p '<tr><td style="background:<<$custom_theme[''table_bg'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第1行，A列</td><td style="background:<<$custom_theme[''table_bg'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第1行，B列</td><td style="background:<<$custom_theme[''table_bg'']>>; padding:6px 14px; color:<<$tc_fg_hex>>; font-style:italic; opacity:0.7;">table_bg</td></tr>'
+	*p '<tr><td style="background:<<$custom_theme[''table_bg_alt'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第2行，A列</td><td style="background:<<$custom_theme[''table_bg_alt'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第2行，B列</td><td style="background:<<$custom_theme[''table_bg_alt'']>>; padding:6px 14px; color:<<$tc_fg_hex>>; font-style:italic; opacity:0.7;">table_bg_alt</td></tr>'
+	*p '<tr><td style="background:<<$custom_theme[''table_bg'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第3行，A列</td><td style="background:<<$custom_theme[''table_bg'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第3行，B列</td><td style="background:<<$custom_theme[''table_bg'']>>; padding:6px 14px; color:<<$tc_fg_hex>>; font-style:italic; opacity:0.7;">table_bg</td></tr>'
+	*p '<tr><td style="background:<<$custom_theme[''table_bg_alt'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第4行，A列</td><td style="background:<<$custom_theme[''table_bg_alt'']>>; padding:6px 14px; color:<<$tc_fg_hex>>;">第4行，B列</td><td style="background:<<$custom_theme[''table_bg_alt'']>>; padding:6px 14px; color:<<$tc_fg_hex>>; font-style:italic; opacity:0.7;">table_bg_alt</td></tr>'
+	*p '</table>'
+	*nl
+
+	*p '<table style="border-collapse:collapse; vertical-align:top;"><tr>'
+	*p '<td style="vertical-align:top; padding-right:16px;">'
+	*p $func('progressbar', 'positive', 100, 0, 0, 0, '', '', '21,41,61,81')
+	*p $func('progressbar', 'positive', 80, 0, 0, 0, '', '', '21,41,61,81')
+	*p $func('progressbar', 'positive', 60, 0, 0, 0, '', '', '21,41,61,81')
+	*p $func('progressbar', 'positive', 40, 0, 0, 0, '', '', '21,41,61,81')
+	*p $func('progressbar', 'positive', 20, 0, 0, 0, '', '', '21,41,61,81')
+	*p '</td>'
+	*p '<td style="vertical-align:top;">'
+	*p $func('progressbar', 'mono:accent', 100)
+	*p $func('progressbar', 'mono:accent', 80)
+	*p $func('progressbar', 'mono:accent', 60)
+	*p $func('progressbar', 'mono:accent', 40)
+	*p $func('progressbar', 'mono:accent', 20)
+	*p '</td>'
+	*p '</tr></table>'
+
+	*p '</td></tr></table></center>'
+	killvar 'tc_fg_hex'
+end
+
+
+!! BROKEN
+if $ARGS[0] = 'theme_customize_input':
+	if $ARGS[1] = 'rgb':
+		result = ARGS[3]
+		$temp_input = $ucase($trim($input('输入 <<$ARGS[2]>> 颜色分量，格式为 0 - 255 或 00 - FF')))
+		if $temp_input <> '':
+			if isnum($temp_input) <> 0:
+				if val($temp_input) < 0 or val($temp_input) > 255:
+					msg '无效输入'
+				else
+					temp_result = val($temp_input)
+				end
+			else
+				if len($temp_input) > 2 or instr('0123456789ABCDEF', $mid($temp_input, 1, 1)) = 0 or instr('0123456789ABCDEF', $mid($temp_input, 2, 1)) = 0:
+					msg '无效输入'
+				else
+					temp_result = func('shortgs', 'hex_str_to_int', $temp_input)
+				end
+			end
+		end
+		if arrsize('temp_result') = 1:
+			if $ARGS[2] = 'red':
+				result = ((ARGS[3] and (-256)) or temp_result)
+			elseif $ARGS[2] = 'green':
+				result = ((ARGS[3] and (-65281)) or (temp_result * 256))
+			elseif $ARGS[2] = 'blue':
+				result = ((ARGS[3] and (-16711681)) or (temp_result * 65536))
+			end
+		end
+		killvar 'temp_result'
+	elseif $ARGS[1] = 'hex':
+		result = ARGS[2]
+		$temp_input = $ucase($trim($input('输入颜色，格式为 ABC 或 AABBCC')))
+		if $temp_input <> '':
+			$temp_input = $replace($temp_input, '#')
+			temp_length = len($temp_input)
+			if temp_length = 3 or temp_length = 6:
+				temp_index = 1
+				:is_hex_loop
+					if instr('0123456789ABCDEF', $mid($temp_input, temp_index, 1)) = 0:
+						msg '无效输入' & jump 'invalid_input_exit'
+					end
+				if temp_index < temp_length: temp_index += 1 & jump 'is_hex_loop'
+				killvar 'temp_index'
+
+				if temp_length = 3:
+					$temp_red = $mid($temp_input, 1, 1) & $temp_red = $temp_red + $temp_red
+					$temp_green = $mid($temp_input, 2, 1) & $temp_green = $temp_green + $temp_green
+					$temp_blue = $mid($temp_input, 3, 1) & $temp_blue = $temp_blue + $temp_blue
+				else
+					$temp_red = $mid($temp_input, 1, 2)
+					$temp_green = $mid($temp_input, 3, 2)
+					$temp_blue = $mid($temp_input, 5, 2)
+				end
+
+				result = rgb(func('shortgs', 'hex_str_to_int', $temp_red), func('shortgs', 'hex_str_to_int', $temp_green), func('shortgs', 'hex_str_to_int', $temp_blue))
+
+				killvar 'temp_red'
+				killvar 'temp_green'
+				killvar 'temp_blue'
+			else
+				msg '无效输入'
+			end
+			:invalid_input_exit
+			killvar 'temp_length'
+		end
+	end
+	killvar 'temp_input'
+end
+
+
+if $ARGS[0] = 'theme_customize_input_fname':
+	$temp_input = $trim($input('输入字体名称：'))
+	if $temp_input <> '': $custom_theme['fname'] = $temp_input
+	killvar 'temp_input'
+end
+
+
+if $ARGS[0] = 'theme_customize_input_fsize':
+	$temp_input = $trim($input('输入字体大小：'))
+	if $temp_input <> '':
+		if isnum($temp_input):
+			custom_theme['fsize'] = iif(val($temp_input) <= 9, 9, val($temp_input))
+		else
+			msg '无效输入'
+		end
+	end
+	killvar 'temp_input'
+end
+
+
+if $ARGS[0] = 'theme_customize_input_increment':
+	$temp_input = $trim($input('输入增量：'))
+	if $temp_input <> '':
+		if isnum($temp_input):
+			custom_theme['increment'] = iif(val($temp_input) <= 1, 1, val($temp_input))
+		else
+			msg '无效输入'
+		end
+	end
+	killvar 'temp_input'
+end
+
+
+!! Returns the validated hex string entered by the player, or ARGS[1] unchanged on cancel/invalid.
+!! ARGS[1] = current hex value (e.g. '#38C0D6'), ARGS[2] = label shown in dialog
+if $ARGS[0] = 'theme_customize_input_hex_str':
+	$result = $ARGS[1]
+	$temp_hsi = $ucase($trim($input('输入 <<$ARGS[2]>> 颜色 (ABC 或 AABBCC 十六进制格式）：')))
+	if $temp_hsi <> '':
+		$temp_hsi = $replace($temp_hsi, '#')
+		temp_hsi_len = len($temp_hsi)
+		if temp_hsi_len = 3 or temp_hsi_len = 6:
+			temp_hsi_idx = 1
+			:hsi_hex_loop
+				if instr('0123456789ABCDEF', $mid($temp_hsi, temp_hsi_idx, 1)) = 0:
+					msg '无效输入：不是有效的十六进制颜色。' & jump 'hsi_exit'
+				end
+			if temp_hsi_idx < temp_hsi_len: temp_hsi_idx += 1 & jump 'hsi_hex_loop'
+			killvar 'temp_hsi_idx'
+			if temp_hsi_len = 3:
+				$result = '#' + $mid($temp_hsi, 1, 1) + $mid($temp_hsi, 1, 1) + $mid($temp_hsi, 2, 1) + $mid($temp_hsi, 2, 1) + $mid($temp_hsi, 3, 1) + $mid($temp_hsi, 3, 1)
+			else
+				$result = '#' + $temp_hsi
+			end
+			:hsi_exit
+			killvar 'temp_hsi_len'
+		else
+			msg '无效输入：必须是 3 或 6 个十六进制字符。'
+		end
+	end
+	killvar 'temp_hsi'
+end
+
+
+if $ARGS[0] = 'extract_color_component':
+	if $ARGS[1] = 'red':
+		result = (ARGS[2] and 255)
+	elseif $ARGS[1] = 'green':
+		result = ((ARGS[2] and 65280) / 256)
+	elseif $ARGS[2] = 'blue':
+		result = ((ARGS[2] and 16711680) / 65536)
+	end
+end
+
+
+if $ARGS[0] = 'theme_customize_increment':
+	if $ARGS[1] = 'rgb':
+		result = func('$menu_settings', 'extract_color_component', $ARGS[2], ARGS[3]) + ARGS[4]
+		result = iif(result > 255, result - 256, iif(result < 0, 256 + result, result))
+		if $ARGS[2] = 'red':
+			result = ((ARGS[3] and (-256)) or result)
+		elseif $ARGS[2] = 'green':
+			result = ((ARGS[3] and (-65281)) or (result * 256))
+		elseif $ARGS[2] = 'blue':
+			result = ((ARGS[3] and (-16711681)) or (result * 65536))
+		else
+			result = ARGS[2]
+		end
+	end
+end
+
+
+if $ARGS[0] = 'theme_customize_print_color_line':
+	$result = '<a href="exec: <<$ARGS[2]>> = func(''$menu_settings'', ''theme_customize_increment'', ''rgb'', ''<<$ARGS[1]>>'', <<$ARGS[2]>>, -custom_theme[''increment'']) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/less<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	$result += '&nbsp;<<func(''$menu_settings'', ''extract_color_component'', ''<<$ARGS[1]>>'', dyneval(''result = <<$ARGS[2]>>''))>>&nbsp;'
+	$result += '<a href="exec: <<$ARGS[2]>> = func(''$menu_settings'', ''theme_customize_increment'', ''rgb'', ''<<$ARGS[1]>>'', <<$ARGS[2]>>, custom_theme[''increment'']) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/more<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+	$result += '&nbsp;'
+	$result += '<a href="exec: <<$ARGS[2]>> = func(''$menu_settings'', ''theme_customize_increment'', ''rgb'', ''<<$ARGS[1]>>'', <<$ARGS[2]>>) & gt ''$menu_settings'', ''theme_customize''"><img src="images/system/ui/pencil<<$icon_selector>>.png" height="<<icon_height>>"></img></a>'
+end
+
+
+if $ARGS[0] = 'theme_presets_copy':
+	$custom_theme['fname'] = $theme['fname']
+	custom_theme['fsize'] = theme['fsize']
+
+	custom_theme['bcolor'] = theme['bcolor']
+	custom_theme['fcolor'] = theme['fcolor']
+	custom_theme['lcolor'] = theme['lcolor']
+
+	$custom_theme['table_bg'] = $theme_hex['table_bg']
+	$custom_theme['table_bg_alt'] = $theme_hex['table_bg_alt']
+
+	custom_theme['is_dark'] = theme['is_dark']
+
+	$custom_theme['accent']		= $theme_hex['accent']
+	$custom_theme['v_pos']		= $theme_hex['v_pos']
+	$custom_theme['pos']		= $theme_hex['pos']
+	$custom_theme['neutral']	= $theme_hex['neutral']
+	$custom_theme['neg']		= $theme_hex['neg']
+	$custom_theme['v_neg']		= $theme_hex['v_neg']
+	$custom_theme['punk']		= $theme_hex['punk']
+	$custom_theme['bimbo']		= $theme_hex['bimbo']
+	$custom_theme['goth']		= $theme_hex['goth']
+	$custom_theme['hypno']		= $theme_hex['hypno']
+
+	gs 'themes', 'set_theme', '自定义', 'static'
+	gt '$menu_settings', 'theme_customize'
+end
+
+
+if $ARGS[0] = 'theme_export':
+	*clr & cla
+	act '返回': gt '$menu_settings', 'theme_customize'
+	"$custom_theme['fname'] = '<<$custom_theme['fname']>>'"
+	"custom_theme['fsize'] = <<custom_theme['fsize']>>"
+	""
+	"custom_theme['bcolor'] = <<custom_theme['bcolor']>>"
+	"custom_theme['fcolor'] = <<custom_theme['fcolor']>>"
+	"custom_theme['lcolor'] = <<custom_theme['lcolor']>>"
+	""
+	"$custom_theme['table_bg']     = '<<$custom_theme['table_bg']>>'"
+	"$custom_theme['table_bg_alt'] = '<<$custom_theme['table_bg_alt']>>'"
+	""
+	"custom_theme['is_dark'] = <<custom_theme['is_dark']>>"
+	""
+	"$custom_theme['accent']  = '<<$custom_theme['accent']>>'"
+	"$custom_theme['v_pos']   = '<<$custom_theme['v_pos']>>'"
+	"$custom_theme['pos']     = '<<$custom_theme['pos']>>'"
+	"$custom_theme['neutral'] = '<<$custom_theme['neutral']>>'"
+	"$custom_theme['neg']     = '<<$custom_theme['neg']>>'"
+	"$custom_theme['v_neg']   = '<<$custom_theme['v_neg']>>'"
+	"$custom_theme['punk']    = '<<$custom_theme['punk']>>'"
+	"$custom_theme['bimbo']   = '<<$custom_theme['bimbo']>>'"
+	"$custom_theme['goth']    = '<<$custom_theme['goth']>>'"
+	"$custom_theme['hypno']   = '<<$custom_theme['hypno']>>'"
+end
+
+
+if $ARGS[0] = 'theme_presets':
+	cla
+	act '返回': gt '$menu_settings', 'theme_customize'
+	!! Classic
+	act '白色':       $theme['name'] = '白色'				& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '黑色':       $theme['name'] = '黑色'				& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '现代灰': $theme['name'] = '现代灰'		& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	!! Catppuccin
+	act '拿铁':       $theme['name'] = '拿铁'			& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '冰沙':      $theme['name'] = '冰沙'			& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '玛奇朵':   $theme['name'] = '玛奇朵'			& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '摩卡':       $theme['name'] = '摩卡'				& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	!! Nord
+	act '北欧浅色':  $theme['name'] = '北欧浅色'		& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '北欧深色':   $theme['name'] = '北欧深色'			& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	!! Solarized
+	act '日光浅色':  $theme['name'] = '日光浅色'	& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '日光深色':   $theme['name'] = '日光深色'	& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	!! Tokyo Night
+	act '东京之夜浅色':    $theme['name'] = '东京之夜浅色'	& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '东京之夜': $theme['name'] = '东京之夜'		& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	!! Rosé Pine
+	act '玫瑰松·黎明':     $theme['name'] = '玫瑰松·黎明'	& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '玫瑰松':   $theme['name'] = '玫瑰松'			& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+	act '玫瑰松·月夜':     $theme['name'] = '玫瑰松·月夜'	& $theme['type'] = 'static' & gs 'themes', 'get_theme', 'indoors' & gs '$menu_settings', 'theme_presets_copy'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           STATUS WINDOW                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'status':
+	*clr & cla
+	gs 'stat'
+	gs '$menu_settings', 'settingtabs', '状态窗口'
+	*p '<center><h2>状态窗口设置</h2></center>'
+	*p $func('stat_display_menu', 'start')
+end
+
+
+if $ARGS[0] = 'fonts':
+	!! $ARGS[1] - font group: 'thought'
+	!! $ARGS[2] - name of open tag variable, e.g. $openInnerThought
+	!! $ARGS[3] - name of close tag variable, e.g. $closeInnerThought
+	!! must set $temp_loc_font and $temp_loc_arg_font before calling for return to work
+	!! Save args to temp vars so they persist across cycling page refreshes
+	if $ARGS[1] <> '': $temp_args1 = $ARGS[1]
+	if $ARGS[2] <> '': $temp_args2 = $ARGS[2]
+	if $ARGS[3] <> '': $temp_args3 = $ARGS[3]
+	!! Populate font list
+	killvar 'fontList'
+	$fontList[] = 'Default'
+	$fontList[] = 'Ariel'
+	$fontList[] = 'Times New Roman'
+	$fontList[] = 'Helvetica'
+	$fontList[] = 'Lucida'
+	$fontList[] = 'Tahoma'
+	$fontList[] = 'Verdana'
+	$fontList[] = 'Courier New'
+	$fontList[] = 'Courier'
+	$fontList[] = 'Georgia'
+	$fontList[] = 'Garamond'
+	$fontList[] = 'Bookman'
+	$fontList[] = 'Times'
+	$fontList[] = 'Comic Sans MS'
+	$fontList[] = 'Trebuchet MS'
+	$fontList[] = 'Impact'
+	$fontList[] = 'BankGothic'
+
+	!! Populate font color list
+	killvar 'fontColor'
+	$fontColor[] = 'Theme: Foreground'
+	$fontColor[] = '主题：强调色'
+	$fontColor[] = '主题：1'
+	$fontColor[] = '主题：2'
+	$fontColor[] = '主题：3'
+	$fontColor[] = '主题：4'
+	$fontColor[] = '主题：5'
+	$fontColor[] = '主题：6'
+	$fontColor[] = '主题：7'
+	$fontColor[] = '主题：8'
+	$fontColor[] = 'aqua'
+	$fontColor[] = 'black'
+	$fontColor[] = 'blue'
+	$fontColor[] = 'magenta'
+	$fontColor[] = 'green'
+	$fontColor[] = 'gray'
+	$fontColor[] = 'lime'
+	$fontColor[] = 'maroon'
+	$fontColor[] = 'navy'
+	$fontColor[] = 'olive'
+	$fontColor[] = 'purple'
+	$fontColor[] = 'red'
+	$fontColor[] = 'silver'
+	$fontColor[] = 'teal'
+	$fontColor[] = 'white'
+	$fontColor[] = 'yellow'
+
+	!! Populate font modifier list
+	killvar 'fontMod'
+	$fontMod[] = 'Italic'
+	$fontMod[] = '粗体'
+	$fontMod[] = '下划线'
+	$fontMod[] = 'Bold + Italic'
+	$fontMod[] = 'Bold + Underline'
+	$fontMod[] = 'Italic + Underline'
+	$fontMod[] = 'Bold + Italic + Underline'
+	$fontMod[] = '无'
+
+	!! Set temporary variables from saved settings
+	$tempFont = $fontList[font_vars[$temp_args1 + '_font'] mod arrsize('$fontList')]
+	$tempFontActual = iif($tempFont = 'Default', '', $tempFont)
+	$tempColor = $fontColor[font_vars[$temp_args1 + '_color'] mod arrsize('$fontColor')]
+	if $tempColor = 'Theme: Foreground':
+		$tempColorActual = ''
+	elseif $tempColor = 'Theme: Accent':
+		$tempColorActual = $theme_hex['accent']
+	elseif $tempColor = 'Theme: 1':
+		$tempColorActual = $theme_hex['v_pos']
+	elseif $tempColor = 'Theme: 2':
+		$tempColorActual = $theme_hex['pos']
+	elseif $tempColor = 'Theme: 3':
+		$tempColorActual = $theme_hex['neutral']
+	elseif $tempColor = 'Theme: 4':
+		$tempColorActual = $theme_hex['neg']
+	elseif $tempColor = 'Theme: 5':
+		$tempColorActual = $theme_hex['v_neg']
+	elseif $tempColor = 'Theme: 6':
+		$tempColorActual = $theme_hex['punk']
+	elseif $tempColor = 'Theme: 7':
+		$tempColorActual = $theme_hex['bimbo']
+	elseif $tempColor = 'Theme: 8':
+		$tempColorActual = $theme_hex['goth']
+	else
+		$tempColorActual = $tempColor
+	end
+	$tempModifier = $fontMod[font_vars[$temp_args1 + '_mod'] mod arrsize('$fontMod')]
+	if $tempModifier = 'Italic':
+		$tempModifierActual = '<em>'
+		$tempModifierBack = '</em>'
+	elseif $tempModifier = 'Bold':
+		$tempModifierActual = '<b>'
+		$tempModifierBack = '</b>'
+	elseif $tempModifier = 'Underline':
+		$tempModifierActual = '<u>'
+		$tempModifierBack = '</u>'
+	elseif $tempModifier = 'Bold + Italic':
+		$tempModifierActual = '<b><em>'
+		$tempModifierBack = '</em></b>'
+	elseif $tempModifier = 'Bold + Underline':
+		$tempModifierActual = '<b><u>'
+		$tempModifierBack = '</u></b>'
+	elseif $tempModifier = 'Italic + Underline':
+		$tempModifierActual = '<em><u>'
+		$tempModifierBack = '</u></em>'
+	elseif $tempModifier = 'Bold + Italic + Underline':
+		$tempModifierActual = '<b><em><u>'
+		$tempModifierBack = '</u></em></b>'
+	else
+		$tempModifierActual = ''
+		$tempModifierBack = ''
+	end
+
+	!! Construct open and close phrases based on temporary variables.
+	if $tempFontActual = '' and $tempColorActual = '':
+		$tempOpenPhrase = $tempModifierActual
+		$tempClosePhrase = $tempModifierBack
+	else
+		$tempOpenPhrase = '<font' + iif($tempColorActual <> '', ' color="<<$tempColorActual>>"', '') + iif($tempFontActual <> '', ' face="<<$tempFontActual>>"', '') + '>' + $tempModifierActual
+		$tempClosePhrase = $tempModifierBack + '</font>'
+	end
+
+	dynamic '<<$temp_args2>> = $tempOpenPhrase'
+	dynamic '<<$temp_args3>> = $tempClosePhrase'
+
+	$tempOpenPhrase + '敏捷的棕色狐狸跳过了懒狗。1234567890 ₽' + $tempClosePhrase
+	*nl
+	$menu_span + '当前字体族：</span><a href="exec: font_vars[$temp_args1 + ''_font''] = (font_vars[$temp_args1 + ''_font''] + 1) mod arrsize(''$fontList'') & gt ''$menu_settings'', ''fonts''"><<$tempFont>></a>'
+	$menu_span + '当前字体颜色：</span><a href="exec: font_vars[$temp_args1 + ''_color''] = (font_vars[$temp_args1 + ''_color''] + 1) mod arrsize(''$fontColor'') & gt ''$menu_settings'', ''fonts''"><<$tempColor>></a>'
+	$menu_span + '当前字体修饰：</span><a href="exec: font_vars[$temp_args1 + ''_mod''] = (font_vars[$temp_args1 + ''_mod''] + 1) mod arrsize(''$fontMod'') & gt ''$menu_settings'', ''fonts''"><<$tempModifier>></a>'
+
+
+	killvar 'tempFont'
+	killvar 'tempFontActual'
+	killvar 'tempColor'
+	killvar 'tempColorActual'
+	killvar 'tempModifier'
+	killvar 'tempModifierActual'
+	killvar 'tempOpenPhrase'
+	killvar 'tempClosePhrase'
+
+	act '返回':
+		killvar 'temp_args1'
+		killvar 'temp_args2'
+		killvar 'temp_args3'
+		gt $temp_loc_font, $temp_loc_arg_font
+	end
+	exit
+end
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                MODS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'mods':
+	if settingmode = 0:
+		!! call from Menu - Game settings
+		$temp_act_pre = ''
+		$temp_act_post = ''
+	else
+		!! value = 1, call from Character creation
+		$temp_act_pre = '<center><b>'
+		$temp_act_post = '</b></center>'
+	end
+
+	!! 'Mod system 1.0 by illume'
+	if settingmode <> 2: gs '$menu_settings', 'settingtabs', '模组'
+	cla
+
+	if settingmode = 2:
+		act '<<$temp_act_pre>>返回游戏开始<<$temp_act_post>>':
+			!! call from start
+			killvar 'settingmode'
+			gt 'start', 'start'
+		end
+	elseif settingmode = 1:
+		act '<<$temp_act_pre>>返回角色创建<<$temp_act_post>>':
+			!! call from Character creation
+			killvar 'menu_page'
+			gt 'begin', 'start'
+		end
+	else
+		act '<<$temp_act_pre>>退出菜单<<$temp_act_post>>':
+			!! call from Menu - Game settings
+			gs '$menu_settings', 'menu_exit'
+			gt $menu_loc, $menu_arg
+		end
+	end
+	act '<<$temp_act_pre>>安装新模组<<$temp_act_post>>': gs '$menu_settings', 'install_new_mod'
+
+	'<center><h2>模组</h2></center>'
+	'<center>'
+	'<b>警告</b>: 安装过多模组或结构不良的模组时，可能会导致游戏变慢。'
+	*nl
+	'你可以在此帖中找到可用模组的信息以及安装模组的说明：'
+	'<a href="https://tfgames.site/phpbb3/viewtopic.php?f=70&t=11793&sid=08ee13168a1ea71fa2348f20815b8380">https://tfgames.site/phpbb3/viewtopic.php?f=70&t=11793&sid=08ee13168a1ea71fa2348f20815b8380</a>'
+	*nl
+
+	if arrsize('$mod_name') <= 0:
+		'<br>你没有启用任何模组。'
+	else
+		gs '$menu_settings', 'display_mod_table'
+		act '<<$temp_act_pre>>更新所有模组<<$temp_act_post>>': gs '$menu_settings', 'update_all_mods'
+		act '<<$temp_act_pre>>禁用所有模组<<$temp_act_post>>': gs '$menu_settings', 'delete_all_mods'
+	end
+	'</center>'
+
+	killvar 'temp_act_pre'
+	killvar 'temp_act_post'
+end
+
+
+if $ARGS[0] = 'display_mod_table':
+	$temp_table = '<table border=1>'
+	$temp_table +=	'<tr>'
+	$temp_table +=		'<th>id</th>'
+	$temp_table +=		'<th>名字</th>'
+	$temp_table +=		'<th>版本</th>'
+	$temp_table +=		'<th>作者</th>'
+	$temp_table +=		'<th>描述</th>'
+	$temp_table +=		'<th>选项</th>'
+	$temp_table +=		'<th>删除</th>'
+	$temp_table +=	'</tr>'
+
+	mod_i = 0
+	:mod_alllist
+		if $mod_name[mod_i] = '':
+			'加载模组 id <<mod_i>> 时出错，没有可用的模组名称'
+		else
+			$temp_table +=	'<tr>'
+
+			!! id
+			$temp_table +=		'<td><<mod_i>></td>'
+			!! name
+			$temp_table +=		'<td><<$mod_name[mod_i]>></td>'
+			!! version
+			$temp_table +=		'<td><<val($mod_version[mod_i])/10000>>.<<(val($mod_version[mod_i]) mod 10000)/100>> <<iif(val($mod_version[mod_i]) mod 100 > 0, ''修复<<val($mod_version[mod_i]) mod 100>> '', '' '')>></td>'
+			!! author
+			$temp_table +=		'<td><<$mod_author[mod_i]>></td>'
+			!! description and readme
+			$temp_table +=		'<td><a href="exec:gs ''mod_<<$mod_name[mod_i]>>_readme''"><img src="images/system/icons/anptekainfo.jpg"></a> <<$mod_desc[mod_i]>></td>'
+			!! mod options page
+			$temp_table +=		'<td>'+iif($mod_opt[mod_i] <> '', '<a href="exec:gs ''mod_<<$mod_name[mod_i]>>_options''"><<$mod_opt[mod_i]>></a>', '')+'</td>'
+			!! delete mod
+			$temp_table +=		'<td><a href="exec:gs ''$menu_settings'', ''delete_mod'', <<mod_i>>">删除</a></td>'
+
+			$temp_table +=	'</tr>'
+		end
+		mod_i += 1
+	if mod_i < arrsize('$mod_name'): jump 'mod_alllist'
+
+	$temp_table += '</table>'
+	'<<$temp_table>>'
+
+	killvar 'temp_table'
+	killvar 'mod_info'
+	killvar 'mod_i'
+end
+
+
+if $ARGS[0] = 'install_new_mod':
+	killvar 'mod_info'
+	$mod_temp = input('输入模组名称（参考上图示例，输入 <b>isample</b>）')
+	gs 'mod_system', 'add_mod', $mod_temp
+	killvar 'mod_temp'
+	gt '$menu_settings', 'mods'
+end
+
+
+if $ARGS[0] = 'delete_mod':
+	if input('确定要删除 <<$mod_name[ARGS[1]]>> 吗？（输入任意内容以确认）') <> '':
+		gs 'mod_system', 'delete_mod', ARGS[1]
+		msg '模组<<$mod_temp>>已被禁用。'
+		killvar 'mod_temp'
+		gt '$menu_settings', 'mods'
+	end
+end
+
+
+if $ARGS[0] = 'update_all_mods':
+	if input('确定要刷新所有模组吗？（输入任意内容以确认）') = '':
+		exit
+	end
+
+	gs 'mod_system', 'update_all_mods'
+	gt '$menu_settings', 'mods'
+end
+
+
+if $ARGS[0] = 'delete_all_mods':
+	if input('确定吗？所有模组都将被禁用！<br>请输入 <b>qqq</b> 以确认') = 'qqq':
+		gs 'mod_system', 'delete_all_mods'
+		msg '所有模组已禁用。你可以稍后重新安装。'
+		gt '$menu_settings', 'mods'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            PHONE THEME                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'theme':
+	*clr & cla
+	gs '$menu_settings', 'settingtabs', '手机主题'
+	'<center><h2>手机主题菜单</h2></center>'
+	$settings['table_start']
+	*nl
+	if pcs_phonetheme = 0: $phoneNameTemp = 'Standard' & $phoneNameTempZh = '标准（Standard）'
+	if pcs_phonetheme = 1: $phoneNameTemp = 'Bimbo' & $phoneNameTempZh = '花瓶（Bimbo）'
+	if pcs_phonetheme = 2: $phoneNameTemp = 'Aluminus' & $phoneNameTempZh = '铝（Aluminus）'
+	if pcs_phonetheme = 3: $phoneNameTemp = 'Bottlecapped' & $phoneNameTempZh = '瓶盖（Bottlecapped）'
+	if pcs_phonetheme = 4: $phoneNameTemp = 'Galactic' & $phoneNameTempZh = '银河（Galactic）'
+	if pcs_phonetheme = 5: $phoneNameTemp = 'Vectored' & $phoneNameTempZh = '矢量（Vectored）'
+	if pcs_phonetheme = 6: $phoneNameTemp = 'Veneer' & $phoneNameTempZh = '贴面（Veneer）'
+	if pcs_phonetheme = 7: $phoneNameTemp = 'Voidwalker' & $phoneNameTempZh = '虚空行者（Voidwalker）'
+	if pcs_phonetheme = 8: $phoneNameTemp = 'Voidwalker Red' & $phoneNameTempZh = '虚空行者·红（Voidwalker Red）'
+	if pcs_phonetheme = 9: $phoneNameTemp = 'Voidwalker Toxic' & $phoneNameTempZh = '虚空行者·毒（Voidwalker Toxic）'
+	if pcs_phonetheme = 10: $phoneNameTemp = 'Gopnik' & $phoneNameTempZh = '戈普尼克（Gopnik）'
+	if pcs_phonetheme = 11: $phoneNameTemp = 'Sports' & $phoneNameTempZh = '运动（Sports）'
+	if pcs_phonetheme = 12: $phoneNameTemp = 'Succubus' & $phoneNameTempZh = '魅魔（Succubus）'
+	if pcs_phonetheme = 13: $phoneNameTemp = 'Woodshop' & $phoneNameTempZh = '木工房（Woodshop）'
+	'当前主题：<b><<$phoneNameTempZh>></b>'
+	*nl
+	'从可用主题中选择：'
+	*nl
+	i = 0
+	$temp_table = '<table><tr>'
+	:phonethemeloop
+		if phonetheme[i] = 1: $temp_table += '<td align="center" valign="top"><a href="exec: pcs_phonetheme = <<i>> & gs ''telefon'',''Phone_menu'' & gt ''$menu_settings'', ''theme''"><img height="100" width="100" src="images/system/phone/theme/' + $phonetheme_name[i] + '/icon_call.png"></a></td>'
+		i += 1
+		if i < arrsize('phonetheme'):
+			if i mod 4 = 0: $temp_table += '</tr><tr>'
+			jump 'phonethemeloop'
+		end
+	$temp_table += '</tr></table>'
+	*pl $temp_table
+	killvar 'temp_table'
+	$settings['table_end']
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          STAT EXPLANATION                          !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'explanation_start':
+	if $stat_explanation = '':
+		gs '$menu_settings', 'settingtabs', '信息'
+	else
+		gs '$menu_settings', 'explanation_start_exit'
+	end
+	menu_off = 1
+	gs 'stat'
+	gs 'themes', 'indoors'
+	'<center><h2>词汇表</h2></center>'
+	$settings['table_start']
+	'这里我们要解释 <<$pcs_firstname>> 拥有的各项属性，并提供关于游戏机制的其他有用信息。'
+	*nl
+	'词汇表分为若干页，分别解释角色属性的不同方面。对于新玩家，我们建议按给出的顺序依次阅读；如果你需要某些具体信息，直接前往包含它的页面即可。'
+	*nl
+	'<a href="exec:gt ''$menu_settings'', ''explanation_icons''">第一页</a>包含基础信息，以及状态显示中出现的各种图标的说明。'
+	*nl
+	'<a href="exec:gt ''$menu_settings'', ''explanation_attributes''">第二页</a>包含 <<$pcs_firstname>> 所拥有的基础属性信息。'
+	*nl
+	'<a href="exec:gt ''$menu_settings'', ''explanation_skill''">第三页</a>包含 <<$pcs_firstname>> 所拥有的技能信息。'
+	*nl
+	'<a href="exec:gt ''$menu_settings'', ''explanation_status''">第四页</a>包含关于不同状态效果的信息，例如 <<$pcs_firstname>> 的心情、饥饿和意志力。'
+	*nl
+	'<a href="exec:gt ''$menu_settings'', ''explanation_archetypes''">第五页</a>介绍原型系统、其效果以及戒断反应。'
+	$settings['table_end']
+	if $stat_explanation = '':
+		gs 'saveg'
+		gs 'addbuilddate'
+		'<center><h2>关于</h2></center>'
+		$settings['table_start']
+		'<h4><center>Girl Life 版本<<version_major+"."+version_minor+"."+version_revision+"."+version_patch+iif($git_hash <> "", "<br>"+$git_hash+" (开发版)", "")>><br>构建于<<$builddate>></center></h4>'
+		$settings['table_end']
+		killvar 'tmp'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_icons':
+	if $stat_explanation = '':
+		gs '$menu_settings', 'settingtabs', '信息'
+	end
+	menu_off = 1
+	gs 'stat'
+	cla
+	'<center>简介与图标</center>'
+	'我们将逐一介绍状态显示，也就是你的 QSP 播放器可能称为“附加描述”的窗口。 '
+	'它以一张天气图片开始' + $weatherImage + ' 后面是当前的摄氏温度。如果你点击图片，就会弹出一个更详细的描述。'
+	'天气图片下方是一行显示当前时间和日期，后面可能还有一行说明你是否有假期，以及距离假期结束还有多久。'
+	*nl
+	'接下来是一行重要图标。第一个是角色描述 <img title="Character description" height = <<stat_cfg[''menu_icon_height'']>> src="images/system/icons/menu/icon_character.png"> 点击它会带你进入角色描述。你现在可能还无法这样做 '
+	'角色描述有 ' + iif($start_type['magic'] <> 'nomagic' , '6', '7') + ' 个不同的标签页。第一个标签页“角色”概述你角色的外貌和体型。第二个标签页是“技能”。我们会在本简介后面解释技能。'
+	'第三个标签页“统计”列出了<<$pcs_firstname>>在游戏中取得的若干成就。第四个标签页“疼痛”详细描述<<$pcs_firstname>>正在经历的任何疼痛。'
+	'第五个标签页“特质”列出了<<$pcs_firstname>>拥有或可以获得的若干特质，以及如何获得它们。第六个标签页“名声”包含关于<<$pcs_firstname>>的声誉和名气的信息。' + iif( $start_type['magic'] <> 'nomagic', '第七个标签页“魔法”包含<<$pcs_firstname>>会使用哪些法术的信息。', '')
+	*nl
+	'下一个图标是外貌 <img title="Looks (Face, body, clothing,…)" height = <<stat_cfg[''menu_icon_height'']>> src="images/system/icons/menu/icon_lookself.png"> 其中包含你角色的图片，以及她们穿着和佩戴的衣服及其他服饰。'
+	*nl
+	if bag > 0:
+		'第三个图标是钱包 <img title="Your purse" height = <<stat_cfg[''menu_icon_height'']>> src="images/system/icons/menu/icon_purse.png"> 里面装着 <<$pcs_firstname>> 随身携带的东西，打开它你可以与这些东西互动。'
+		*nl
+	end
+	' ' + iif(bag > 0, '第四', '第三') + '个图标是手机 <img title="Your phone" height = <<stat_cfg[''menu_icon_height'']>> src="images/system/icons/menu/<<iif(telefon[''UnreadSMS'']=0, ''icon_phone.png'', ''icon_phone_sms.gif'')>>"> 当你收到短信或来电时可以打开它，用来发送消息和自拍。'
+	*nl
+	' ' + iif(bag > 0, '第五', '第四') + '个图标是你的日记 <img title="<<$journal_tooltip>>" height = <<stat_cfg[''menu_icon_height'']>> src="images/system/icons/menu/<<$journalIcon>>"> 其中有许多重要的标签页。'
+	if $start_type['magic'] <> 'nomagic':
+		'	那里的第一个标签页非常重要，因为学会法术后你可以用它来施法。'
+	end
+	'	其中包括一个描述你居住地的标签页，如果你有多个可选住处，还可以更换。还有一个包含你工作信息的标签页。'
+	'	“任务”标签页包含如何开始和推进游戏中若干任务的提示。并非所有任务都已收录，但如果你想了解有哪些可能的事情，这里是很好的去处；如果你卡在某个任务里，也应该首先来这里查看。'
+	'	关系标签页包含其他 NPC 如何看待<<$pcs_firstname>>的信息。数值从0到100。如果低于20，表示他们不喜欢甚至讨厌你。20到60之间通常是中立。高于60时，NPC 认为<<$pcs_firstname>>是朋友；高于80时，他们可能会爱上角色。'
+	'	但每个角色都不同，有些人可能永远不会爱上角色；对某些 NPC 来说，仅仅让他们喜欢你也许还不够。'
+	'	游戏信息标签页包含很多关于世界的信息。 ' + iif($start_type['loc'] = 'sg', '学校子标签页包含关于成绩和学校小团体的信息。', '') + iif($start_type['loc'] = 'uni' or university['student'] = 1, '大学子标签页包含关于科目和成绩的信息。', '')
+	*nl
+	'最后一个图标 <img title="Menu & Cheatmenu" height = <<stat_cfg[''menu_icon_height'']>> src="images/system/icons/menu/icon_menu.png"> 是游戏设置菜单，可以用来更改游戏设置。'
+	*nl
+	if bag = 0:
+		'如果 <<$pcs_firstname>> 拥有一个钱包，在那一行也会有一个它的图标。可以用来与你随身携带的东西互动。钱包可以在商店里买到，或者也许 <<$pcs_firstname>> 的祖父母就有一个，就扔在他们的杂物堆里。'
+		*nl
+	end
+	'这些图标下方有一行显示 <<$pcs_firstname>> 有多少钱。一部分是现金，一部分在银行账户里。'
+	*nl
+	'接下来是图标窗口，这里会有各种图标，告知你角色的状态以及他们必须做的事情。把鼠标悬停在这些图标上会显示一段文字，大多数图标可以点击，以获取更多信息或解决它们警告的问题。'
+	'第一行主要是关于你角色外貌的信息。第二行是关于角色感受的信息。第三行是关于 <<$pcs_firstname>> 身体方面的情况，其中总是包含一个图标 <img title="Click to open the cycle menu." height = <<stat_cfg[''icon_height'']>> src="images/system/icons/status/vagina.png">，显示你处在生理周期的哪个阶段。'
+	'然后会有一行关于你必须做的事情（如果有的话）。下一行主要是关于衣服，在下面可能有一行包含 <<$pcs_firstname>> 的状态，例如是否喝醉或吸毒。'
+	*nl
+	'图标下方有一行，你可以在状态显示中开启或关闭信息。“文字”会以文本形式显示与图标相同的信息，“图片”会添加角色衣服和身体的图片。'
+	'关于“状态”部分的讨论我们留到后面。现在请确保“属性”标签页处于开启状态，因为接下来要解释的就是它。'
+	act '继续了解属性说明': gt '$menu_settings', 'explanation_attributes'
+	act '返回词汇表概览': gt '$menu_settings', 'explanation_start'
+	act '跳到技能说明': gt '$menu_settings', 'explanation_skill'
+	act '跳到状态效果说明': gt '$menu_settings', 'explanation_status'
+	act '跳转到原型说明': gt '$menu_settings', 'explanation_archetypes'
+	if $stat_explanation = '':
+		act '退出菜单': gs '$menu_settings', 'menu_exit' & gt $menu_loc, $menu_arg
+	else
+		gs '$menu_settings', 'explanation_start_exit'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_attributes':
+	if $stat_explanation = '':
+		gs '$menu_settings', 'settingtabs', '信息'
+	end
+	menu_off = 1
+	gs 'stat'
+	cla
+	'<center><h2>属性</h2></center>'
+	'<table border="0"><tr><td colspan=2>属性是 <<$pcs_firstname>> 的基本特征。除下面解释的少数例外，它们的范围在1到100之间。1表示 <<$pcs_firstname>> 在该领域几乎什么都做不了，100表示 <<$pcs_firstname>> 是游戏区域内该属性最强的人物之一。这意味着力量达到最大值并不会让 <<$pcs_firstname>> 成为世界最强，只是俄罗斯圣彼得堡地区最强女孩之一。所有属性，除了一个例外，都完全基于 <<$pcs_firstname>> 在该属性上拥有的经验点。经验点通过使用该属性获得。如果你有一段时间不使用该属性，也就是不再获得任何新的经验点，那么你在这项属性上的经验点数量就会开始下降。大多数属性从30开始，游戏经过校准，大约需要3年集中的每日训练才能把它从30提升到100。</td></tr></table>' & *nl
+	gs '$menu_settings', 'explanation_build_attr'
+	'<center>以上就是所有属性。接下来是技能。请确保你在状态显示中已展开它们。</center>'
+	act '继续了解技能说明': gt '$menu_settings', 'explanation_skill'
+	act '返回词汇表概览': gt '$menu_settings', 'explanation_start'
+	act '跳回图标说明': gt '$menu_settings', 'explanation_icons'
+	act '跳到状态效果说明': gt '$menu_settings', 'explanation_status'
+	act '跳转到原型说明': gt '$menu_settings', 'explanation_archetypes'
+	if $stat_explanation = '':
+		act '退出菜单': gs '$menu_settings', 'menu_exit' & gt $menu_loc, $menu_arg
+	else
+		gs '$menu_settings', 'explanation_start_exit'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_skill':
+	if $stat_explanation = '':
+		gs '$menu_settings', 'settingtabs', '信息'
+	end
+	menu_off = 1
+	gs 'stat'
+	cla
+	'<center><h2>技能</h2></center>'
+	'<table border="0"><tr><td colspan="2">在状态显示中，技能被分为不同的类别：“心智”“运动”“美貌”“艺术”和“工作”，所以记得把它们全部开启。虽然这些类别包含相似的技能，但它们只是用于显示。类别本身不涉及任何机制。技能和属性一样，范围从1到100。然而，技能并不只由你在这项技能上拥有多少经验点决定，还取决于一项或多项相关属性。因此，即使某项技能没有任何经验点，也可能有不错的值。反过来说，某项技能经验拉满也未必能让你得到100分，那还需要所有相关属性都达到100。下面逐一介绍技能时，我们会说明某项技能与哪些属性相关。一般来说，技能经验占你数值的一半，相关属性占另一半。技能经验通过使用该技能获得，同时也会把其中一部分经验加到相关的属性上。由于大多数技能的用途显而易见，下面我们只提及那些不明显的用途。</td></tr></table>' & *nl
+	gs '$menu_settings', 'explanation_build_skill'
+	'<center>以上就是所有技能。接下来我们解释 <<$pcs_firstname>> 可能处于的各种状态。所以在状态显示中向上移动，确保状态显示出来。</center>'
+	act '继续了解状态条说明': gt '$menu_settings', 'explanation_status'
+	act '返回词汇表概览': gt '$menu_settings', 'explanation_start'
+	act '跳回图标说明': gt '$menu_settings', 'explanation_icons'
+	act '跳回属性说明': gt '$menu_settings', 'explanation_attributes'
+	act '跳转到原型说明': gt '$menu_settings', 'explanation_archetypes'
+	if $stat_explanation = '':
+		act '退出菜单': gs '$menu_settings', 'menu_exit' & gt $menu_loc, $menu_arg
+	else
+		gs '$menu_settings', 'explanation_start_exit'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_status':
+	if $stat_explanation = '':
+		gs '$menu_settings', 'settingtabs', '信息'
+	end
+	menu_off = 1
+	gs 'stat'
+	cla
+	'<center><h2>状态条</h2></center>'
+	'<table border="0"><tr><td colspan="2">状态条代表玩家身体和精神状态的不同部分。它们与属性和技能的不同之处在于，它们会快速波动，充当玩家在游戏过程中消耗和补充的资源。它们不与任何经验点挂钩，但通常有由不同属性决定的最大值，并随着使用而减少。其中几种的自然状态是0，会随着玩家遭遇事件而增加，然后慢慢回落到0。它们不受任何统一机制支配，因此每一种都会详细解释。</td></tr></table>' & *nl
+	gs '$menu_settings', 'explanation_build_stat'
+	'<center>关于 <<$pcs_firstname>> 属性的基本介绍到此结束。接下来我们将介绍原型系统。</center>'
+	act '继续阅读原型说明': gt '$menu_settings', 'explanation_archetypes'
+	act '返回词汇表概览': gt '$menu_settings', 'explanation_start'
+	act '跳回图标说明': gt '$menu_settings', 'explanation_icons'
+	act '跳回属性说明': gt '$menu_settings', 'explanation_attributes'
+	act '跳回技能说明': gt '$menu_settings', 'explanation_skill'
+	if $stat_explanation = '':
+		act '退出菜单': gs '$menu_settings', 'menu_exit' & gt $menu_loc, $menu_arg
+	else
+		gs '$menu_settings', 'explanation_start_exit'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_archetypes':
+	if $stat_explanation = '':
+		gs '$menu_settings', 'settingtabs', 'Glossary'
+	end
+	menu_off = 1
+	gs 'stat'
+	cla
+	'<center><h2>原型</h2></center>'
+	'<table border="0"><tr><td colspan=2>原型是<<$pcs_firstname>>可以偏向的五种宽泛人设：花瓶、学院风、保守派、朋克和哥特。它们构成一个对立五角星：花瓶与保守派和朋克对立，学院风与朋克和哥特对立，保守派与哥特和花瓶对立，朋克与花瓶和学院风对立，哥特与学院风和保守派对立。与属性和技能不同，原型点数在对立面之间共享：在一个原型中获得点数会从其两个对立原型中扣除同等的点数，因此强烈偏向某人设会让你稳步远离它的对立面。<br><br>你获得和失去原型点数取决于<<$pcs_firstname>>的服装、妆容和发型，以及特定场景和事件中做出的选择。只有点数最高的原型才会处于“激活”状态，而且至少要达到<<arch_const[''point_min'']/250>>点——低于这个数值时，没有任何原型激活，下面的效果也不会生效。之后效果会逐渐增强，当你的激活原型达到<<arch_const[''points_full_effect'']/250>>点时达到满强度。<br><br>原型点数会随时间自行衰减，原型的点数越高，衰减得越快。这意味着要让一个原型保持激活状态，需要持续强化，而不是一次性推动。</td></tr></table>' & *nl
+	gs '$menu_settings', 'explanation_build_archetypes'
+	*nl
+	'<center><h3>戒断</h3></center>'
+	'<table border="0"><tr><td colspan=2>游戏会追踪你激活原型点数的 7 天滚动平均值。如果你的当前点数低于该平均值——例如连续几天穿着与平时差异很大，或者只是让衰减侵蚀一个你不再强化的原型——<<$pcs_firstname>>就会出现戒断反应。<br><br>戒断的严重程度取决于你比自己的平均值低了多少：1-10% 为轻度，11-20% 为中度，21-40% 为重度，超过 40% 为极度，每种都有各自的描述文本。重度戒断还会开始主动拉低你的心情，将其上限压到 40；极度戒断会把上限降到 25，并叠加在其他影响心情的因素之上，直到戒断缓解。<br><br>要避免或摆脱戒断，请继续穿着、参与和选择那些能强化你激活原型的服装、活动和选项，或者试着让点数更缓慢地流失。角色菜单的“原型”标签页会始终显示你当前的戒断百分比（如果有的话），以及你点数的完整明细和历史记录。</td></tr></table>' & *nl
+	'<center>原型说明到此结束。</center>'
+	act '返回术语表总览': gt '$menu_settings', 'explanation_start'
+	act '跳回图标说明': gt '$menu_settings', 'explanation_icons'
+	act '跳回属性说明': gt '$menu_settings', 'explanation_attributes'
+	act '跳回技能说明': gt '$menu_settings', 'explanation_skill'
+	act '跳回状态效果说明': gt '$menu_settings', 'explanation_status'
+	if $stat_explanation = '':
+		act '退出菜单': gs '$menu_settings', 'menu_exit' & gt $menu_loc, $menu_arg
+	else
+		gs '$menu_settings', 'explanation_start_exit'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_start_exit':
+	if $stat_explanation = 'sg':
+		act '开始演奏':
+			CLOSE ALL
+			music_loop = 0
+			if start_location = 0:
+				gt 'intro_sg', 'intro_pavlovsk'
+			else
+				gt 'intro_sg', 'intro_gadukino'
+			end
+		end
+		act '重新开始角色选择':
+			*clr & cla
+			'这会重置一切，并带你回到开头。你确定要重新开始吗？'
+			act '否': gt 'intro_sg', 'four'
+			act '是': killall & gt 'start'
+		end
+	elseif $stat_explanation = 'sg_m':
+		act '<center><b>开始！</b></center>':
+			CLOSE ALL
+			music_loop = 0
+			if start_location = 0:
+				gt 'intro_sg', 'intro_pavlovsk'
+			else
+				gt 'intro_sg', 'intro_gadukino'
+			end
+		end
+	elseif $stat_explanation = 'sg_tg':
+		act '开始你的新生活':
+			CLOSE ALL
+			music_loop = 0
+			if start_location = 0:
+				gt 'intro_sg', 'intro_pavlovsk'
+			else
+				gt 'intro_sg', 'intro_gadukino'
+			end
+		end
+	elseif $stat_explanation = 'city':
+		act '开始游戏': gt 'korr'
+	elseif $stat_explanation = 'uni':
+		act '开始游戏': gt 'uni_grounds'
+	end
+end
+
+
+if $ARGS[0] = 'explanation_build_attr':
+	!! increase version number on any change here
+	if explanation_table['attr_version'] < 1:
+		explanation_table['attr_version'] = 1
+		$explanation_table['attr'] = '<table border="0" cellpadding="10" cellspacing="10">'
+		$explanation_table['attr'] += '<tr><th align="center">属性</th><th align="center">描述</th></tr>'
+		$explanation_table['attr'] += '<tr><td><b>抑制</b></td><td>它反映 <<$pcs_firstname>> 有多在意被别人看到裸体。它表明 <<$pcs_firstname>> 是否对此感到困扰。这与 <<$pcs_firstname>> 对性的态度无关。<<$pcs_firstname>> 可以有0的抑制力，并且仍然完全是性冷淡甚至对性感到厌恶。重申一下，它不是衡量 <<$pcs_firstname>> 堕落程度的标准。这项属性有点特殊，因为它是反向的：0经验点会让抑制力为100，而经验点拉满则会让抑制力为0。经验点通过做 <<$pcs_firstname>> 通常不会做的事情获得。例如，如果抑制力高于某个阈值，<<$pcs_firstname>> 就不会裸晒日光浴。如果抑制力处于两个阈值之间，裸晒日光浴就会获得经验点。如果抑制力低于该值，裸晒日光浴就不会获得经验点。最常见的获得经验的方式是穿着你的角色认为有点暴露但又不算太暴露的衣服。你的角色是否认为衣服暴露，可以在换衣时从衣柜中看到。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>力量</b></td><td>描述 <<$pcs_firstname>> 的力量。它用于许多运动，也决定 <<$pcs_firstname>> 出拳有多重。获得力量经验主要靠进行各种运动或锻炼。这项属性很特殊，通过正常方式它只能提升到100。但通过专门的举重训练（训练中会说明），你可以把它提高到150；如果在举重训练期间服用类固醇，还能提高到200。这确实会对外貌有一些负面影响，等下面讲到外貌属性时会说明。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>敏捷</b></td><td>描述 <<$pcs_firstname>> 的敏捷度。它用于运动和战斗。获得敏捷经验的主要方式是通过运动和其他锻炼。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>耐力</b></td><td>代表 <<$pcs_firstname>> 的身体抗性。它用于运动、战斗，也决定 <<$pcs_firstname>> 的体力，这稍后会解释。获得耐力经验的主要方式是通过运动和其他锻炼。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>智力</b></td><td>是综合属性，表示 <<$pcs_firstname>> 有多擅长解决心理问题和学习学科知识。如果没有更合适的特殊技能，它也用作玩家的知识。对于在学校或大学取得好成绩尤其重要。获得智力经验的方法有很多，但学习是主要方法。这包括在家学习，或者在 <<$pcs_firstname>> 上学或上大学时在课堂上专心听讲。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>精神</b></td><td>代表你的角色的心理韧性。当你试图抵抗某人强迫 <<$pcs_firstname>> 去做某事时使用；成功抵抗也会获得精神经验。这将在解释意志力时详细说明。另一种获得精神经验的方法是做瑜伽练习。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>反应</b></td><td>描述 <<$pcs_firstname>> 对事情的反应有多快。它在战斗中非常重要，决定了你的先手顺序，从而影响你多快能获得行动回合。在一些体育运动中也会用到。通过战斗、体育运动和其他练习，你可以获得反应经验。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>魅力</b></td><td>影响别人和 <<$pcs_firstname>> 相处以及交谈时的感受。更高的魅力使社交互动更可能获得好结果。魅力经验主要通过与他人交谈和积极参与社交活动获得。</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>感知</b></td><td>是 <<$pcs_firstname>> 察觉事物的能力。这项属性在游戏中用得不多。获得经验同样是通过注意到发生的事情，而目前能做这件事的地方并不多。</td></tr>'
+		if $start_type['magic'] <> 'nomagic': $explanation_table['attr'] += '<tr><td><b>魔法</b></td><td>这项属性决定你能学习哪些法术、你的法术有多强以及你拥有多少法力。'+iif(tatiana_teach_escalation > 0 , ' 你的魔法经验点等于你达到高潮的次数。', ' 如何获得魔法经验会在故事展开过程中揭晓。')+'</td></tr>'
+		$explanation_table['attr'] += '<tr><td><b>外貌</b></td><td>是普通人如何看待 <<$pcs_firstname>> 的外表。这项属性的范围从1到200，不是通过获得经验点提升的。相反，它由许多因素构成，其中最重要的是你的 BMI。要达到最高值，请把 BMI 保持在19到24的健康区间。你的身体属性——敏捷、耐力和力量——也有影响。对它们来说，100是理想值，所以如果你的力量因为举重训练超过100，就会拖低你的外貌。此外，护肤也很重要。皮肤越好越好，所以要好好保养。其他因素如坏牙、难看的眼镜等影响较小。你穿的衣服会修正这项属性，化妆也能提升你的外貌。你不需要把外貌拉满就能体验游戏内容。外貌150时，几乎所有人都会觉得你的角色非常性感，想要和她交往；而如果你有165，就没有任何内容会被锁住。当然，外貌更高时你仍然可能得到更好的反应。还应注意，许多 NPC 对什么样的女孩性感有自己的偏好，所以你的外貌可能会根据你与她们偏好的匹配程度而被修正。</td></tr>'
+		$explanation_table['attr'] += '</table>'
+	end
+	*pl $explanation_table['attr']
+end
+
+
+if $ARGS[0] = 'explanation_build_skill':
+	!! increase version number on any change here
+	if explanation_table['skill_version'] < 1:
+		explanation_table['skill_version'] = 1
+		$explanation_table['skill'] = '<table border="0" cellpadding="10" cellspacing="10">'
+		$explanation_table['skill'] += '<tr><th align="left">技能</th><th align="center">描述</th></tr>'
+		if $start_type['magic'] <> 'nomagic': $explanation_table['skill'] += '<tr><td><b>施法</b></td><td>相关属性是智力和反应。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>人际技能</b></td><td>相关属性是魅力、感知和反应。这项技能涉及理解和改善与他人的互动，因此影响别人多快会对 <<$pcs_firstname>> 产生好感，并使负面互动不那么严重。人际关系技能达到100时，与NPC的关系点获取速度是0时的两倍，失去速度是0时的一半。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>说服</b></td><td>相关属性是魅力和感知。这项技能影响 <<$pcs_firstname>> 说服别人的能力。这将在讨论意志力时更详细地解释。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>观察</b></td><td>相关属性是智力、感知和反应。这项技能目前在这款游戏中用得不多。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>刺拳</b></td><td>关联属性为敏捷和力量，其中敏捷的权重是力量的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>重击</b></td><td>相关属性是敏捷和力量，力量的重要性是敏捷的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>踢击</b></td><td>相关属性是敏捷和力量，力量的重要性是敏捷的三倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>防御</b></td><td>相关属性是敏捷、反应和力量。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>跑步</b></td><td>相关属性是敏捷、耐力和力量，力量和敏捷的重要性是耐力的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>排球</b></td><td>相关属性是敏捷、耐力、反应和力量，敏捷的重要性是其他各项的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>足球</b></td><td>关联属性为敏捷、耐力和力量。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>篮球</b></td><td>关联属性为敏捷、耐力和力量。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>摔跤</b></td><td>相关属性是敏捷、耐力和力量，力量的重要性是其他各项的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>射击术</b></td><td>相关属性是敏捷和反应。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>野外生存</b></td><td>相关属性是敏捷、智力和力量。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>国际象棋</b></td><td>关联属性为智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>滑冰</b></td><td>关联属性为敏捷和力量，其中敏捷的权重是力量的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>游戏</b></td><td>关联属性为智力和反应，其中智力的权重是反应的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>台球</b></td><td>相关属性是智力，但在台球上的经验比重远高于智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>化妆技巧</b></td><td>相关属性是敏捷和智力。这项技能决定化妆能提升多少外貌，范围从化妆技能为0时的-5到化妆技能为100时的20。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>现代舞</b></td><td>关联属性为敏捷、耐力和反应。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>艳舞</b></td><td>相关属性是敏捷、魅力和耐力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>钢管舞</b></td><td>相关属性是敏捷、魅力和力量。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>啦啦队</b></td><td>关联属性为敏捷、耐力和反应。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>模特</b></td><td>相关属性是敏捷和耐力，但技能经验的权重高于属性。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>高跟鞋</b></td><td>这项技能没有相关属性。它决定穿着某双高跟鞋是否会感到疼痛。通过穿高跟鞋获得经验。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>唱歌</b></td><td>相关属性是魅力和智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>器乐</b></td><td>关联属性为敏捷和智力，其中敏捷的权重是智力的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>摄影</b></td><td>关联属性为智力和反应，其中智力的权重是反应的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>艺术技能</b></td><td>相关属性是敏捷、智力和反应。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>表演</b></td><td>相关属性是魅力和感知。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>音乐制作</b></td><td>相关属性是智力、感知和精神。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>清洁技能</b></td><td>关联属性为耐力和智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>电脑技能</b></td><td>关联属性为智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>黑客技术</b></td><td>相关属性是智力和反应。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>手工技能</b></td><td>关联属性为敏捷和智力，其中敏捷的权重是智力的两倍。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>裁缝</b></td><td>相关属性是敏捷和智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>服务</b></td><td>关联属性为耐力和智力。</td></tr>'
+		$explanation_table['skill'] += '<tr><td><b>医学</b></td><td>相关属性是智力、感知和反应。</td></tr>'
+		$explanation_table['skill'] += '</table>'
+	end
+	*pl $explanation_table['skill']
+end
+
+
+if $ARGS[0] = 'explanation_build_stat':
+	!! increase version number on any change here
+	if explanation_table['stat_version'] < 2:
+		explanation_table['stat_version'] = 2
+		$explanation_table['status'] = '<table border="0" cellpadding="10" cellspacing="10">'
+		$explanation_table['status'] += '<tr><th align="left">状态栏</th><th align="left">描述</th></tr>'
+		$explanation_table['status'] += '<tr><td><b>性兴奋</b></td><td>这衡量<<$pcs_firstname>>有多性奋。它会随着角色经历刺激性刺激而增加，例如看色情片或受到性方面的触碰。当性奋值为100时，状态条会满，此时即便轻微刺激也能让角色高潮。但100并非上限；它可以更高。性奋与高潮相关，但仅靠性奋无法引发高潮，必须有外部刺激。它会随时间下降，如果<<$pcs_firstname>>达到高潮，通常就会回到0。不过，<<$pcs_firstname>>有可能进入一种可以连续多次高潮的状态。在这种情况下，高潮只会降低性兴奋，而且只有在没有新刺激的情况下过一段时间，它才会回到0。有些行为，比如自慰，需要最低限度的性兴奋，但性兴奋成为同意性行为的前提条件并不常见。非常饥渴确实会影响角色拒绝性行为的能力，这一点会在下面关于意志力的部分更详细地说明。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>疼痛</b></td><td>这是角色感受到的累积疼痛总量。疼痛可以来自许多来源，例如在高跟鞋技能不够高时穿高跟鞋、在战斗中被殴打、或进行非常粗暴的性行为，尤其是试图把过大的物体插入<<$pcs_firstname>>的孔洞。处于疼痛状态会有若干负面后果，其中一些会在下面解释。疼痛会随时间减少，但可以通过服用止痛药暂时缓解。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>健康</b></td><td>这代表角色身体的整体健康状况。它会在战斗受伤、生病、饥饿、经历疼痛等情况下减少。你的最大生命值等于耐力的10倍加上力量的5倍。睡觉时它会缓慢恢复。如果生命值变成负数，你就会死亡，游戏结束。</td></tr>'
+		if $start_type['magic'] <> 'nomagic': $explanation_table['status'] += '<tr><td><b>法力</b></td><td>这是用来施放法术的资源。它取决于魔法、智力和耐力。一开始，它看起来像是施法的限制，但在魔法达到中等水平时，最大法力会变得非常大，而且由于恢复速度是每小时恢复最大法力的5%，它就不再重要了。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>意志力</b></td><td>这是<<$pcs_firstname>>抵抗被强迫做某事，或试图强迫其他角色做某事的能力。在游戏中，你会遇到带有意志力消耗的行动，行动会清楚地标明这一点。如果你有足够的意志力，就可以选择该行动，消耗会从你的意志力中扣除。意志力消耗取决于许多因素。首先，每次意志力检定都有一个难度等级：简单、普通或困难。其次，每次意志力检定都有一个类型：试图让别人做你想做的事是“强制”，抵抗强迫是“抵抗”，克服<<$pcs_firstname>>内心的不情愿是“自我”。强制意志力检定的消耗会受角色说服技能影响，说服为0时的消耗是说服为100时的两倍。同样，抵抗意志力检定的消耗受精神属性影响。通过强制或抵抗意志力检定会给相关技能或属性增加经验。意志力消耗还会根据<<$pcs_firstname>>的状况进一步修正。如果玩家非常性兴奋，与性有关的抵抗或自我意志力检定会更难，但强制意志力检定的消耗会更低。处于疼痛、非常疲惫、口渴、饥饿以及心情低落都会增加意志力检定的消耗。喝醉或吸毒也会影响意志力检定的消耗。你角色的最大意志力由你选择的开局决定，但最多可以提升到150。提升最大意志力的方法是：通过非杂务行动（用于专注无聊任务的行动）的意志力检定。通过强制检定会让它提升得更快。要小心：如果你的意志力低于最大意志力的25%或25点（取较低者）的次数太多，你的最大意志力就会下降。意志力恢复的速度是：睡眠时每小时恢复最大意志力的4%，清醒时每小时恢复4/3%。你也可以通过做瑜伽来恢复意志力。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>体力</b></td><td>这是你进行体力消耗活动时的储备。做运动和锻炼会消耗体力，体力太低时一般不应进行。体力低会导致心情下降，体力为负会让你更疲惫。最大体力按 ((30 * (2 * 耐力 + 敏捷 + 力量）） + 1000) / 13 计算，如果你怀孕了，还要根据怀孕的进展减去一定数值。如果你不是太饿，体力会以取决于饥饿程度的速率恢复，清醒时每小时最多恢复最大体力的20%。睡眠时恢复得快得多，尤其是当你完全休息好醒来时。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>心情</b></td><td>这描述了你当前的情绪状态。它的范围从0到100，但某些疾病、创伤和其他状态效果可能会降低上限。心情会随时间趋向于你的性情，并受到许多事件的影响。例如，心情可以通过吃美食、高潮、服用毒品、吸烟、喝酒、作为宗教角色去教堂以及许多其他事件和情况来提高。另一方面，心情可能会因疲惫、痛苦、经历戒断反应、做不愉快的工作等而降低。心情低落会增加行动的意志力消耗，如果长期低落可能会降低你的最大意志力。心情达到最低值会降低你的生命值，如果意志力也处于最低值，你可能会游戏结束。 </td></tr>'
+		$explanation_table['status'] += '<tr><td><b>态度</b></td><td>这是你的情绪基线，你的心情会自然地趋向于它。如果你经常感到心情低落，提高性情是改善整体心情最可靠的方法。正如心情趋向于性情，性情本身也会在较慢的时间尺度上趋向于心情，因此，维持一个高于或低于你性情平均水平的心情，会随着时间提高或降低性情。性情也可能被某些事件直接改变，尽管这类事件比改变心情的事件要少得多，通常代表你生活环境中值得注意的变化。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>饥饿</b></td><td>这衡量你的饥饿程度，范围从0到100。每清醒一小时减少8点，每睡眠一小时减少4点，但许多体力活动也会消耗它。你可以通过进食和喝能量饮料来满足饥饿。进食或饮水可以暂时让饥饿超过100，但每小时的额外饥饿都会导致体重增加。饥饿值过低会增加意志力消耗，并阻止你进行运动和锻炼。如果饥饿降到0以下，你会受到生命值伤害，并且你的一些多余脂肪会转化为饥饿。如果继续这样下去，你的心情会下降。如果你没有多余脂肪，它会将力量或耐力转化为脂肪。极端情况下，这可能导致饿死并游戏结束。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>口渴</b></td><td>这衡量<<$pcs_firstname>>的干渴程度，范围从1到100。每清醒一小时减少16点，每睡眠一小时减少8点，但许多体力活动也会消耗它。你可以通过喝水来解渴。如果口渴降到1以下，你会损失生命值；如果你不加处理，心情也会受影响。口渴值低会增加意志力消耗。</td></tr>'
+		$explanation_table['status'] += '<tr><td><b>睡眠</b></td><td>这衡量<<$pcs_firstname>>的清醒程度，范围从0到100。每清醒一小时减少5点，并通过睡眠恢复。睡眠值低会使意志力检定更困难。如果睡眠为0时仍保持清醒，会降低心情，并让你的角色获得削弱经验获取的减益效果，在最严重时会使经验获取减半。这些减益效果只有在你获得一整晚充分休息后才会消失。</td></tr>'
+		$explanation_table['status'] += '</table>'
+	end
+	*pl $explanation_table['status']
+end
+
+
+if $ARGS[0] = 'explanation_build_archetypes':
+	!! increase version number on any change here
+	if explanation_table['archetype_version'] < 1:
+		explanation_table['archetype_version'] = 1
+		$explanation_table['archetype'] = '<table border="0" cellpadding="10" cellspacing="10">'
+		$explanation_table['archetype'] += '<tr><th align="left">原型</th><th align="left">效果</th></tr>'
+		$explanation_table['archetype'] += '<tr><td><b><font color="<<$theme_hex[''bimbo'']>>">花瓶</font></b><br><i>与保守派和朋克对立</i></td><td>提升外貌、魅力、艳舞、钢管舞、高跟鞋、服务、模特和拘谨，同时降低智力、国际象棋、感知、精神、电脑、观察力和缝纫。还会持续推高欲望。</td></tr>'
+		$explanation_table['archetype'] += '<tr><td><b><font color="<<$theme_hex[''accent'']>>">学院风</font></b><br><i>与朋克和哥特对立</i></td><td>提升外貌、魅力、性情、模特、舞蹈、人际交往、啦啦队、说服力、电脑、化妆和体育，同时降低战斗、精神、力量、艺术和音乐。还会消耗意志力。</td></tr>'
+		$explanation_table['archetype'] += '<tr><td><b><font color="<<$theme_hex[''neutral'']>>">保守派</font></b><br><i>与哥特和花瓶对立</i></td><td>提升智力、国际象棋、电脑、观察力、缝纫和清洁，同时降低外貌、魅力、艳舞、钢管舞、高跟鞋、抑制、化妆、歌曲创作、表演和暴露运动。还会抑制性唤起。</td></tr>'
+		$explanation_table['archetype'] += '<tr><td><b><font color="<<$theme_hex[''punk'']>>">朋克</font></b><br><i>与花瓶和学院风对立</i></td><td>提升力量、战斗、精神和音乐，同时强烈降低外貌，并在较小程度上降低魅力、模特、舞蹈、高跟鞋、化妆、电脑、服务和清洁。还会恢复意志力。</td></tr>'
+		$explanation_table['archetype'] += '<tr><td><b><font color="<<$theme_hex[''goth'']>>">哥特</font></b><br><i>与学院风和保守派对立</i></td><td>提升精神、感知、艺术、化妆、歌曲创作和表演，同时降低魅力、性情、人际交往、啦啦队、说服、运动和暴露运动。还会恢复意志力。</td></tr>'
+		$explanation_table['archetype'] += '</table>'
+	end
+	*pl $explanation_table['archetype']
+end
+
+
+--- $menu_settings ---------------------------------

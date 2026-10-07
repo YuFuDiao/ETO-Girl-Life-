@@ -1,0 +1,1160 @@
+# calendar_schedule
+
+!! =======================================
+!! Calendar v2 - Schedule Builder (New Architecture)
+!! =======================================
+!!
+!! This module builds a complete week_schedule{} data structure
+!! using a clean three-phase algorithm:
+!!
+!! Phase 1: Event Collection - Categorize all events by type
+!! Phase 2: All-Day Placement - Assign row positions
+!! Phase 3: Timed Event Placement - Place static then flexible events
+!! Phase 4: Rendering Layout - Assign columns and colspan
+!!
+!! See: docs/calendar_scheduler_architecture.md for full design
+!!
+!! TODO: Add display support for cross-midnight events
+
+!! =======================================
+!! Main Entry Point
+!! =======================================
+
+if $ARGS[0] = 'build_week_schedule':
+	!! Input: ARGS[1] = start_daystart (Monday of the week to display)
+	!! Output: Populates week_schedule{} global structure
+
+	temp_week_start = ARGS[1]
+
+	!! Initialize all structures
+	killvar 'week_schedule'
+	killvar 'event_range_cache'
+	killvar 'placement_state'
+	week_schedule['start_daystart'] = temp_week_start
+
+	!! Phase 1: Collect and categorize events
+	gs 'calendar_schedule', 'collect_events_for_week', temp_week_start
+
+	!! Phase 2: Place all-day events
+	gs 'calendar_schedule', 'place_allday_events'
+
+	!! Phase 3: Place timed events per day
+	temp_d = 1
+	:loop_days
+	if temp_d <= 7:
+		gs 'calendar_schedule', 'place_day_events', temp_d
+		temp_d += 1
+		jump 'loop_days'
+	end
+
+	!! Phase 4: Assign rendering layout
+	gs 'calendar_schedule', 'assign_columns'
+
+	!! Cleanup temporary structures
+	gs 'calendar_schedule', 'cleanup_temp_structures'
+
+	exit
+end
+
+
+!! =======================================
+!! Phase 1: Event Collection
+!! =======================================
+
+
+if $ARGS[0] = 'collect_events_for_week':
+	!! Input: ARGS[1] = week_start_daystart
+	!! Output: Populates event lists and range cache
+
+	temp_week_start = ARGS[1]
+
+	killvar 'allday_events_week'
+	temp_allday_count = 0
+
+	!! Process each day
+	temp_d = 1
+	:loop_collect_days
+	if temp_d <= 7:
+		temp_daystart = temp_week_start + (temp_d - 1)
+		week_schedule['days=<<temp_d>>, date'] = temp_daystart
+
+		!! Get all events for this day
+		gs 'calendar_query', 'get_events_for_day', temp_daystart
+
+		!! Initialize day''s event lists
+		killvar 'static_events_day_<<temp_d>>'
+		killvar 'flexible_events_day_<<temp_d>>'
+		temp_static_count = 0
+		temp_flex_count = 0
+
+		!! Categorize events
+		temp_i = 0
+		:loop_categorize
+		if temp_i < arrsize('$query_events_for_day'):
+			$temp_evt_id = $query_events_for_day[temp_i]
+			gs 'calendar_events', 'get_event', $temp_evt_id
+
+			if event_vars['all_day'] = 1:
+				!! All-day event - check if already in week list
+				temp_found = 0
+				temp_check = 0
+				:check_allday_dup
+					if temp_check < temp_allday_count:
+						if $allday_events_week[temp_check] = $temp_evt_id:
+							temp_found = 1
+							jump 'skip_allday_dup'
+						end
+						temp_check += 1
+						jump 'check_allday_dup'
+					end
+				:skip_allday_dup
+
+				if temp_found = 0:
+					$allday_events_week[temp_allday_count] = $temp_evt_id
+					temp_allday_count += 1
+				end
+			else
+				!! Timed event - cache range and categorize
+				if event_vars['flex_type'] = 1:
+					!! Flexible event
+					event_range_cache['<<$temp_evt_id>>, orig_start'] = event_vars['window_start_ts']
+					event_range_cache['<<$temp_evt_id>>, orig_end'] = event_vars['window_end_ts']
+					event_range_cache['<<$temp_evt_id>>, duration'] = event_vars['duration_ts']
+					event_range_cache['<<$temp_evt_id>>, priority'] = event_vars['priority']
+
+					dyneval('$flexible_events_day_<<temp_d>>[<<temp_flex_count>>] = $temp_evt_id')
+					temp_flex_count += 1
+				else
+					!! Static event - cache actual position
+					temp_start = event_vars['start_ts']
+					temp_end = temp_start + event_vars['duration_ts'] - 1
+					!! Clamp to end-of-day for cross-midnight events (start_ts + duration > 96)
+					if temp_end > 95: temp_end = 95
+					event_range_cache['<<$temp_evt_id>>, start'] = temp_start
+					event_range_cache['<<$temp_evt_id>>, end'] = temp_end
+					event_range_cache['<<$temp_evt_id>>, duration'] = temp_end - temp_start + 1
+					event_range_cache['<<$temp_evt_id>>, priority'] = event_vars['priority']
+
+					dyneval('$static_events_day_<<temp_d>>[<<temp_static_count>>] = $temp_evt_id')
+					temp_static_count += 1
+				end
+			end
+
+			temp_i += 1
+			jump 'loop_categorize'
+		end
+
+		temp_d += 1
+		jump 'loop_collect_days'
+	end
+	exit
+end
+
+
+!! =======================================
+!! Phase 2: All-Day Event Placement
+!! =======================================
+
+
+if $ARGS[0] = 'place_allday_events':
+	!! Input: Uses $allday_events_week[] from collection phase
+	!! Output: Populates week_schedule['days=d, allday=r, *'] entries
+
+	temp_allday_count = arrsize('$allday_events_week')
+	if temp_allday_count = 0: exit
+
+	!! Build span information for each event
+	killvar 'allday_spans'
+	temp_i = 0
+	:loop_build_spans
+	if temp_i < temp_allday_count:
+		$temp_evt_id = $allday_events_week[temp_i]
+
+		!! Find first and last day this event occurs
+		temp_first_day = -1
+		temp_last_day = -1
+		temp_d = 1
+		:loop_find_span
+		if temp_d <= 7:
+			temp_daystart = week_schedule['days=<<temp_d>>, date']
+			temp_occurs = func('calendar_events', 'event_occurs_in_day', $temp_evt_id, temp_daystart)
+			if temp_occurs = 1:
+				if temp_first_day = -1: temp_first_day = temp_d
+				temp_last_day = temp_d
+			end
+			temp_d += 1
+			jump 'loop_find_span'
+		end
+
+		allday_spans['<<temp_i>>, first'] = max(temp_first_day, 1)
+		allday_spans['<<temp_i>>, last'] = min(temp_last_day, 7)
+		allday_spans['<<temp_i>>, length'] = temp_last_day - temp_first_day + 1
+
+		temp_i += 1
+		jump 'loop_build_spans'
+	end
+
+	!! Sort by length (longest first) using bubble sort
+	temp_swapped = 1
+	:loop_sort
+	if temp_swapped = 1:
+		temp_swapped = 0
+		temp_i = 0
+		:loop_sort_pass
+		if temp_i < temp_allday_count - 1:
+			if allday_spans['<<temp_i>>, length'] < allday_spans['<<temp_i+1>>, length']:
+				!! Swap events and their spans
+				$temp_swap = $allday_events_week[temp_i]
+				$allday_events_week[temp_i] = $allday_events_week[temp_i+1]
+				$allday_events_week[temp_i+1] = $temp_swap
+
+				temp_swap_first = allday_spans['<<temp_i>>, first']
+				temp_swap_last = allday_spans['<<temp_i>>, last']
+				temp_swap_len = allday_spans['<<temp_i>>, length']
+
+				allday_spans['<<temp_i>>, first'] = allday_spans['<<temp_i+1>>, first']
+				allday_spans['<<temp_i>>, last'] = allday_spans['<<temp_i+1>>, last']
+				allday_spans['<<temp_i>>, length'] = allday_spans['<<temp_i+1>>, length']
+
+				allday_spans['<<temp_i+1>>, first'] = temp_swap_first
+				allday_spans['<<temp_i+1>>, last'] = temp_swap_last
+				allday_spans['<<temp_i+1>>, length'] = temp_swap_len
+
+				temp_swapped = 1
+			end
+			temp_i += 1
+			jump 'loop_sort_pass'
+		end
+		jump 'loop_sort'
+	end
+
+	!! Initialize row tracking (max 5 rows)
+	temp_r = 0
+	:init_rows
+	if temp_r < 5:
+		row_last_occupied[temp_r] = 0 & !! last occupied day
+		row_first_occupied[temp_r] = 8 & !! First occupied day
+		temp_r += 1
+		jump 'init_rows'
+	end
+
+	temp_max_row = -1
+
+	!! Place each event in first available row
+	temp_i = 0
+	:loop_place_events
+	if temp_i < temp_allday_count:
+		$temp_evt_id = $allday_events_week[temp_i]
+		gs 'calendar_events', 'get_event', $temp_evt_id
+
+		temp_first_day = allday_spans['<<temp_i>>, first']
+		temp_last_day = allday_spans['<<temp_i>>, last']
+		temp_span_days = temp_last_day - temp_first_day + 1
+
+		!! Find first available row
+		temp_r = 0
+		:find_row
+		if temp_r < 5:
+			if temp_last_day < row_first_occupied[temp_r] or temp_first_day > row_last_occupied[temp_r]:
+				!! Row is available - place event
+				temp_d = temp_first_day
+				:place_days
+				if temp_d <= temp_last_day:
+					if temp_d = temp_first_day:
+						!! First day - full entry
+						$week_schedule['days=<<temp_d>>, allday=<<temp_r>>, id'] = $temp_evt_id
+						$week_schedule['days=<<temp_d>>, allday=<<temp_r>>, title'] = $event_vars['title']
+						week_schedule['days=<<temp_d>>, allday=<<temp_r>>, color'] = event_vars['color']
+						week_schedule['days=<<temp_d>>, allday=<<temp_r>>, colspan'] = temp_span_days
+					else
+						!! Continuation marker
+						$week_schedule['days=<<temp_d>>, allday=<<temp_r>>, id'] = ''
+						week_schedule['days=<<temp_d>>, allday=<<temp_r>>, continued'] = 1
+					end
+					temp_d += 1
+					jump 'place_days'
+				end
+				row_first_occupied[temp_r] = min(row_first_occupied[temp_r], temp_first_day)
+				row_last_occupied[temp_r] = max(row_last_occupied[temp_r], temp_last_day)
+				if temp_r > temp_max_row: temp_max_row = temp_r
+				jump 'next_allday'
+			end
+			temp_r += 1
+			jump 'find_row'
+		end
+		:next_allday
+
+		temp_i += 1
+		jump 'loop_place_events'
+	end
+
+	!! Set max rows for all days
+	temp_max_rows = temp_max_row + 1
+	if temp_max_rows < 0: temp_max_rows = 0
+	temp_d = 1
+	:set_max_rows
+	if temp_d <= 7:
+		week_schedule['days=<<temp_d>>, max_allday_rows'] = temp_max_rows
+		temp_d += 1
+		jump 'set_max_rows'
+	end
+	killvar 'row_last_occupied'
+	killvar 'row_first_occupied'
+	killvar 'temp_i'
+	killvar 'temp_r'
+	killvar 'temp_d'
+	exit
+end
+
+
+!! =======================================
+!! Phase 3: Timed Event Placement
+!! =======================================
+
+
+if $ARGS[0] = 'place_day_events':
+	!! Input: ARGS[1] = day_index (1-7)
+	!! Output: Populates timed events for this day
+
+	temp_d = ARGS[1]
+
+	!! Place static events first (by priority)
+	gs 'calendar_schedule', 'place_static_events', temp_d
+
+	!! Then place flexible events (by priority with smart placement)
+	gs 'calendar_schedule', 'place_flexible_events', temp_d
+
+	exit
+end
+
+
+
+if $ARGS[0] = 'place_static_events':
+	!! Input: ARGS[1] = day_index
+	!! Output: Adds static events, updates is_hidden flags based on priority
+
+	temp_d = ARGS[1]
+
+	!! Process by priority: high to low (2, 1, 0)
+	temp_priority = 2
+	:loop_priority_pse
+	if temp_priority >= 0:
+		temp_static_count = arrsize('$static_events_day_<<temp_d>>')
+
+		temp_i = 0
+		:loop_events_pse
+		if temp_i < temp_static_count:
+			$temp_evt_id = dyneval('$result = $static_events_day_<<temp_d>>[<<temp_i>>]')
+			temp_evt_priority = event_range_cache['<<$temp_evt_id>>, priority']
+
+			if temp_evt_priority = temp_priority:
+				!! Get event details
+				gs 'calendar_events', 'get_event', $temp_evt_id
+				!! Add to schedule (initially visible)
+				temp_start_ts = event_range_cache['<<$temp_evt_id>>, start']
+				temp_end_ts = event_range_cache['<<$temp_evt_id>>, end']
+				gs 'calendar_schedule', 'add_event_to_schedule', temp_d, temp_start_ts, $temp_evt_id
+
+				!! Get the index where this event was just added
+				temp_this_event_index = week_schedule['days=<<temp_d>>, timeslots=<<temp_start_ts>>, event_count'] - 1
+
+				!! Check for conflicts with already-placed events
+				temp_check_t = temp_end_ts
+				:loop_check_conflicts
+				if temp_check_t >= 0:
+					temp_check_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, event_count']
+					if temp_check_count > 0:
+						temp_check_e = 0
+						:loop_check_events
+						if temp_check_e < temp_check_count:
+							$temp_other_id = $week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, events=<<temp_check_e>>, id']
+
+							if $temp_other_id <> $temp_evt_id:
+								!! Check if they overlap
+								temp_overlaps = func('calendar_schedule', 'check_overlap', $temp_evt_id, $temp_other_id)
+
+								if temp_overlaps = 1:
+									temp_other_priority = event_range_cache['<<$temp_other_id>>, priority']
+
+									if temp_other_priority > temp_evt_priority:
+										!! Higher priority event blocks this one
+										week_schedule['days=<<temp_d>>, timeslots=<<temp_start_ts>>, events=<<temp_this_event_index>>, is_hidden'] = 1
+										gs 'calendar_schedule', 'change_busy_timeslots', temp_d, temp_start_ts, temp_this_event_index, -1
+										jump 'skip_conflict_check'
+									elseif temp_other_priority < temp_evt_priority:
+										!! This event hides lower priority one
+										week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, events=<<temp_check_e>>, is_hidden'] = 1
+										gs 'calendar_schedule', 'change_busy_timeslots', temp_d, temp_check_t, temp_check_e, -1
+
+									end
+									!! Equal priority: both remain visible
+								end
+							end
+
+							temp_check_e += 1
+							jump 'loop_check_events'
+						end
+					end
+					temp_check_t -= 1
+					jump 'loop_check_conflicts'
+				end
+				:skip_conflict_check
+			end
+
+			temp_i += 1
+			jump 'loop_events_pse'
+		end
+
+		temp_priority -= 1
+		jump 'loop_priority_pse'
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'place_flexible_events':
+	!! Input: ARGS[1] = day_index
+	!! Output: Places flexible events using three-tier strategy
+
+	temp_d = ARGS[1]
+
+	!! Process by priority: high to low (2, 1, 0)
+	temp_priority = 2
+	:loop_priority_pfe
+	if temp_priority >= 0:
+		temp_flex_count = arrsize('$flexible_events_day_<<temp_d>>')
+
+		temp_i = 0
+		:loop_events_pfe
+		if temp_i < temp_flex_count:
+			$temp_evt_id = dyneval('$result = $flexible_events_day_<<temp_d>>[<<temp_i>>]')
+			temp_evt_priority = event_range_cache['<<$temp_evt_id>>, priority']
+
+			if temp_evt_priority = temp_priority:
+				!! Three-tier placement attempt
+
+				!! Tier 1: Conflict-free placement
+				gs 'calendar_schedule', 'find_best_placement', temp_d, $temp_evt_id, 'conflict_free'
+				if placement_found = 1:
+					gs 'calendar_schedule', 'apply_placement', temp_d, $temp_evt_id
+					placement_state['<<$temp_evt_id>>, attempt'] = 1
+					jump 'next_flex_event'
+				end
+
+				!! Tier 2: Hide lower priority
+				gs 'calendar_schedule', 'find_best_placement', temp_d, $temp_evt_id, 'hide_lower'
+				if placement_found = 1:
+					gs 'calendar_schedule', 'apply_placement', temp_d, $temp_evt_id
+					gs 'calendar_schedule', 'hide_overlapping_lower_priority', temp_d, $temp_evt_id
+					placement_state['<<$temp_evt_id>>, attempt'] = 2
+					jump 'next_flex_event'
+				end
+
+				!! Tier 3: Coexist with same priority
+				gs 'calendar_schedule', 'find_best_placement', temp_d, $temp_evt_id, 'coexist_same'
+				if placement_found = 1:
+					gs 'calendar_schedule', 'apply_placement', temp_d, $temp_evt_id
+					placement_state['<<$temp_evt_id>>, attempt'] = 3
+					jump 'next_flex_event'
+				end
+
+				!! Fallback: Could not place this event (blocked by higher priority)
+				!! Don't add to schedule - it's simply not placed
+				placement_state['<<$temp_evt_id>>, attempt'] = 0
+
+				:next_flex_event
+			end
+
+			temp_i += 1
+			jump 'loop_events_pfe'
+		end
+
+		temp_priority -= 1
+		jump 'loop_priority_pfe'
+	end
+
+	exit
+end
+
+
+!! =======================================
+!! Helper Functions - Conflict Detection
+!! =======================================
+
+
+if $ARGS[0] = 'check_overlap':
+	!! Input: $ARGS[1] = event1_id, $ARGS[2] = event2_id
+	!! Output: result = 1 if overlap, 0 if not
+
+	$temp_evt1 = $ARGS[1]
+	$temp_evt2 = $ARGS[2]
+
+	!! Get ranges from cache
+	temp_start1 = event_range_cache['<<$temp_evt1>>, start']
+	temp_end1 = event_range_cache['<<$temp_evt1>>, end']
+	temp_start2 = event_range_cache['<<$temp_evt2>>, start']
+	temp_end2 = event_range_cache['<<$temp_evt2>>, end']
+
+	!! Check overlap: [start1, end1] overlaps [start2, end2]
+	if temp_start1 <= temp_end2 and temp_end1 >= temp_start2:
+		result = 1
+	else
+		result = 0
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'is_range_blocked':
+	!! Input: ARGS[1] = day, ARGS[2] = start_slot, ARGS[3] = end_slot, $ARGS[4] = event_id (exclude), $ARGS[5] = mode
+	!! Output: result = 1 if any slot in range is blocked, 0 if entire range is free
+
+	temp_d = ARGS[1]
+	temp_range_start = ARGS[2]
+	temp_range_end = ARGS[3]
+	$temp_evt_id = $ARGS[4]
+	$temp_mode = $ARGS[5]
+
+	temp_evt_priority = event_range_cache['<<$temp_evt_id>>, priority']
+
+	!! Scan backward from end of range to beginning of day
+	temp_check_t = temp_range_end
+	:loop_scan_backward
+	if temp_check_t >= 0:
+		temp_event_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, event_count']
+		if temp_event_count > 0:
+			temp_e = 0
+			:loop_scan_events
+			if temp_e < temp_event_count:
+				$temp_other_id = $week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, events=<<temp_e>>, id']
+				temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, events=<<temp_e>>, is_hidden']
+
+				!! Skip self and hidden events
+				if $temp_other_id <> $temp_evt_id and temp_is_hidden = 0:
+					!! Check if this event overlaps our range [temp_range_start, temp_range_end]
+					!! Otherwise use the actual start..end range.
+					temp_other_is_flex = week_schedule['days=<<temp_d>>, timeslots=<<temp_check_t>>, events=<<temp_e>>, is_flex']
+					if temp_other_is_flex = 1:
+						temp_other_start = event_range_cache['<<$temp_other_id>>, window_start']
+						temp_other_end = event_range_cache['<<$temp_other_id>>, window_end']
+					else
+						temp_other_start = event_range_cache['<<$temp_other_id>>, start']
+						temp_other_end = event_range_cache['<<$temp_other_id>>, end']
+					end
+
+					!! Check for overlap: other event overlaps our range if other_start <= range_end AND other_end >= range_start
+					if temp_other_start <= temp_range_end and temp_other_end >= temp_range_start:
+						!! Event overlaps this range - check if it blocks based on mode
+						temp_other_priority = event_range_cache['<<$temp_other_id>>, priority']
+
+						if $temp_mode = 'conflict_free':
+							!! Any event blocks
+							result = 1
+							exit
+						elseif $temp_mode = 'hide_lower':
+							!! Only events with >= priority block
+							if temp_other_priority >= temp_evt_priority:
+								result = 1
+								exit
+							end
+						elseif $temp_mode = 'coexist_same':
+							!! Only events with > priority block
+							if temp_other_priority > temp_evt_priority:
+								result = 1
+								exit
+							end
+						end
+					end
+				end
+
+				temp_e += 1
+				jump 'loop_scan_events'
+			end
+		end
+		temp_check_t -= 1
+		jump 'loop_scan_backward'
+	end
+
+	!! Not blocked
+	result = 0
+	exit
+end
+
+
+!! =======================================
+!! Helper Functions - Flexible Placement
+!! =======================================
+
+
+if $ARGS[0] = 'find_best_placement':
+	!! Input: ARGS[1] = day, $ARGS[2] = event_id, $ARGS[3] = mode
+	!! Output: placement_found, placement_start, placement_window_start/end
+
+	temp_d = ARGS[1]
+	$temp_evt_id = $ARGS[2]
+	$temp_mode = $ARGS[3]
+
+	temp_orig_start = event_range_cache['<<$temp_evt_id>>, orig_start']
+	temp_orig_end = event_range_cache['<<$temp_evt_id>>, orig_end']
+	temp_duration = event_range_cache['<<$temp_evt_id>>, duration']
+
+	!! Find all valid placements
+	temp_best_window_size = -1
+	placement_found = 0
+
+	temp_try_start = temp_orig_start
+	:loop_try_positions
+	if temp_try_start <= temp_orig_end:
+		!! OPTIMIZATION: Check if entire range is valid using range check
+		temp_blocked = func('calendar_schedule', 'is_range_blocked', temp_d, temp_try_start, temp_try_start + temp_duration - 1, $temp_evt_id, $temp_mode)
+
+		!! This position is valid - find its free window
+		if temp_blocked = 0:
+			gs 'calendar_schedule', 'find_free_window_around', temp_d, temp_try_start, $temp_evt_id, $temp_mode
+			temp_window_size = result_window_end - result_window_start + 1
+
+			if temp_window_size > temp_best_window_size:
+				temp_best_window_size = temp_window_size
+				placement_found = 1
+				placement_start = temp_try_start
+				placement_window_start = result_window_start
+				placement_window_end = result_window_end
+			end
+		end
+
+		temp_try_start += 1
+		jump 'loop_try_positions'
+	end
+	killvar 'temp_blocked'
+	exit
+end
+
+
+if $ARGS[0] = 'find_free_window_around':
+	!! Input: ARGS[1] = day, ARGS[2] = placement_start, $ARGS[3] = event_id, $ARGS[4] = mode
+	!! Output: result_window_start, result_window_end
+
+	temp_d = ARGS[1]
+	temp_center = ARGS[2]
+	$temp_evt_id = $ARGS[3]
+	$temp_mode = $ARGS[4]
+
+	temp_orig_start = event_range_cache['<<$temp_evt_id>>, orig_start']
+	temp_orig_end = event_range_cache['<<$temp_evt_id>>, orig_end']
+
+	!! Expand left from center
+	temp_left = temp_center
+	:expand_left
+	if temp_left > temp_orig_start:
+		temp_blocked = func('calendar_schedule', 'is_range_blocked', temp_d, temp_left - 1, temp_left - 1, $temp_evt_id, $temp_mode)
+		if temp_blocked = 0:
+			temp_left -= 1
+			jump 'expand_left'
+		end
+	end
+
+	!! Expand right from center + duration - 1
+	temp_duration = event_range_cache['<<$temp_evt_id>>, duration']
+	temp_right = temp_center + temp_duration - 1
+	:expand_right
+	if temp_right < temp_orig_end:
+		temp_blocked = func('calendar_schedule', 'is_range_blocked', temp_d, temp_right + 1, temp_right + 1, $temp_evt_id, $temp_mode)
+		if temp_blocked = 0:
+			temp_right += 1
+			jump 'expand_right'
+		end
+	end
+
+	result_window_start = temp_left
+	result_window_end = temp_right
+
+	exit
+end
+
+
+if $ARGS[0] = 'apply_placement':
+	!! Input: ARGS[1] = day, $ARGS[2] = event_id
+	!! Uses: Global placement variables from find_best_placement
+
+	temp_d = ARGS[1]
+	$temp_evt_id = $ARGS[2]
+
+	!! Update cache with placement position
+	event_range_cache['<<$temp_evt_id>>, start'] = placement_start
+	event_range_cache['<<$temp_evt_id>>, end'] = placement_start + event_range_cache['<<$temp_evt_id>>, duration'] - 1
+	event_range_cache['<<$temp_evt_id>>, window_start'] = placement_window_start
+	event_range_cache['<<$temp_evt_id>>, window_end'] = placement_window_end
+
+	!! Add to schedule at the WINDOW START position (not placement position)
+	!! The renderer expects flexible events to start where the valid window begins
+	gs 'calendar_schedule', 'add_event_to_schedule', temp_d, placement_window_start, $temp_evt_id
+
+
+	!! Mark as placed
+	placement_state['<<$temp_evt_id>>, placed'] = 1
+
+	exit
+end
+
+
+if $ARGS[0] = 'hide_overlapping_lower_priority':
+	!! Input: ARGS[1] = day, $ARGS[2] = event_id
+	!! Output: Updates week_schedule is_hidden for overlapping lower priority events
+
+	temp_d = ARGS[1]
+	$temp_evt_id = $ARGS[2]
+
+	temp_evt_priority = event_range_cache['<<$temp_evt_id>>, priority']
+
+	!! Scan all events in schedule
+	temp_t = 0
+	:loop_scan
+	if temp_t < 96:
+		temp_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count']
+		if temp_count > 0:
+			temp_e = 0
+			:loop_events_hide
+			if temp_e < temp_count:
+				$temp_other_id = $week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, id']
+
+				if $temp_other_id <> $temp_evt_id:
+					temp_other_priority = event_range_cache['<<$temp_other_id>>, priority']
+
+					if temp_other_priority < temp_evt_priority:
+						!! Check overlap
+						temp_overlaps = func('calendar_schedule', 'check_overlap', $temp_evt_id, $temp_other_id)
+						if temp_overlaps = 1:
+							!! Hide the lower priority event
+							week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_hidden'] = 1
+							gs 'calendar_schedule', 'change_busy_timeslots', temp_d, temp_t, temp_e, -1
+						end
+					end
+				end
+
+				temp_e += 1
+				jump 'loop_events_hide'
+			end
+		end
+		temp_t += 1
+		jump 'loop_scan'
+	end
+
+	exit
+end
+
+
+!! =======================================
+!! Helper Functions - Schedule Management
+!! =======================================
+
+
+if $ARGS[0] = 'add_event_to_schedule':
+	!! Input: ARGS[1] = day, ARGS[2] = timeslot (start), $ARGS[3] = event_id
+	!! Output: Populates week_schedule entry
+
+	temp_d = ARGS[1]
+	temp_t = ARGS[2]
+	$temp_evt_id = $ARGS[3]
+
+	!! Get current event count at this timeslot
+	temp_e = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count']
+	!! Get event details
+	gs 'calendar_events', 'get_event', $temp_evt_id
+
+	!! Store event data
+	$week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, id'] = $temp_evt_id
+	$week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, title'] = $event_vars['title']
+	$week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, location'] = $event_vars['loc']
+	$week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, description'] = $event_vars['desc']
+	week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, color'] = event_vars['color']
+	week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, priority'] = event_vars['priority']
+	week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_flex'] = event_vars['flex_type']
+
+	!! Store range info from cache
+	week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, start_ts'] = event_range_cache['<<$temp_evt_id>>, start']
+
+	!! For flexible events, calculate window_slots and event_slots for rendering
+	if event_vars['flex_type'] = 1:
+		temp_valid_window_start = event_range_cache['<<$temp_evt_id>>, window_start']
+		temp_valid_window_end = event_range_cache['<<$temp_evt_id>>, window_end']
+		temp_event_duration = event_range_cache['<<$temp_evt_id>>, duration']
+
+		!! Calculate window size (valid window minus event duration)
+		temp_window_slots = temp_valid_window_end - temp_valid_window_start + 1 - temp_event_duration
+		temp_event_slots = temp_event_duration
+		temp_total_span = temp_window_slots + temp_event_slots
+		!! Clamp to end-of-day for cross-midnight flexible events
+		if temp_t + temp_total_span > 96: temp_total_span = 96 - temp_t
+
+		!! Store only what the renderer needs
+		week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, span'] = temp_total_span
+		week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, window_slots'] = temp_window_slots
+		week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, event_slots'] = temp_event_slots
+	else
+		!! Fixed event: span is just duration
+		week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, span'] = event_range_cache['<<$temp_evt_id>>, duration']
+	end
+
+	!! Default to visible (will be updated if hidden by priority conflicts)
+	week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_hidden'] = 0
+
+	!! increment busy timeslots
+	gs 'calendar_schedule', 'change_busy_timeslots', temp_d, temp_t, temp_e, 1
+
+	!! Increment event count
+	week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count'] = temp_e + 1
+
+	exit
+end
+
+
+if $ARGS[0] = 'change_busy_timeslots':
+	!! ARGS[1] = day, ARGS[2] = event start timeslot, ARGS[3] = event id in schedule, ARGS[4] = change amount
+	temp_mb_ts = ARGS[2]
+	temp_mb_end = temp_mb_ts + week_schedule['days=<<ARGS[1]>>, timeslots=<<ARGS[2]>>, events=<<ARGS[3]>>, span'] - 1
+	:inc_busy_ts_loop
+		if temp_mb_ts <= temp_mb_end and temp_mb_ts < 96:
+			week_schedule['days=<<ARGS[1]>>, timeslots=<<temp_mb_ts>>, busy_count'] += ARGS[4]
+			temp_mb_ts += 1
+		jump 'inc_busy_ts_loop'
+		end
+	killvar 'temp_mb_ts'
+	killvar 'temp_mb_end'
+	exit
+end
+
+
+!! =======================================
+!! Phase 4: Rendering Layout
+!! =======================================
+
+
+if $ARGS[0] = 'assign_columns':
+	!! Input: None (uses week_schedule)
+	!! Output: Sets column and colspan for all events
+
+	!! Pass 1: Assign base columns per day
+	temp_d = 1
+	:loop_pass1
+	if temp_d <= 7:
+		gs 'calendar_schedule', 'assign_day_columns', temp_d
+		temp_d += 1
+		jump 'loop_pass1'
+	end
+
+	!! Pass 2: Calculate colspan expansion
+	temp_d = 1
+	:loop_pass2
+	if temp_d <= 7:
+		gs 'calendar_schedule', 'calculate_day_colspans', temp_d
+		temp_d += 1
+		jump 'loop_pass2'
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'assign_day_columns':
+	!! Input: ARGS[1] = day_index
+	!! Output: Sets 'column' for all visible events, sets max_columns
+
+	temp_d = ARGS[1]
+
+	!! Initialize column tracking (max 4 columns)
+	killvar 'column_end_slot'
+	temp_init_c = 0
+	:init_columns
+	if temp_init_c < 4:
+		column_end_slot[temp_init_c] = -1
+		temp_init_c += 1
+		jump 'init_columns'
+	end
+
+	temp_max_col_used = -1
+
+	!! Process all timeslots
+	temp_t = 0
+	:loop_ts_adc
+	if temp_t < 96:
+		temp_event_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count']
+		if temp_event_count > 0:
+			temp_e = 0
+			:loop_ev_adc
+			if temp_e < temp_event_count:
+				!! Skip hidden events
+				temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_hidden']
+				if temp_is_hidden = 0:
+					!! Get event span
+					temp_event_span = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, span']
+					temp_event_end_slot = temp_t + temp_event_span - 1
+
+					!! Find first available column
+					temp_col = 0
+					:find_column
+					if temp_col >= 4:
+						!! Safety limit - use column 3 anyway
+						temp_col = 3
+						jump 'assign_column'
+					end
+
+					if column_end_slot[temp_col] < temp_t:
+						!! Column is available
+						:assign_column
+						week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, column'] = temp_col
+						week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, colspan'] = 1
+						column_end_slot[temp_col] = temp_event_end_slot
+						if temp_col > temp_max_col_used: temp_max_col_used = temp_col
+						jump 'found_column'
+					end
+					temp_col += 1
+					jump 'find_column'
+					:found_column
+				end
+
+				temp_e += 1
+				jump 'loop_ev_adc'
+			end
+		end
+		temp_t += 1
+		jump 'loop_ts_adc'
+	end
+
+	!! Store max columns for this day
+	week_schedule['days=<<temp_d>>, max_columns'] = temp_max_col_used + 1
+
+	exit
+end
+
+
+if $ARGS[0] = 'calculate_day_colspans':
+	!! Input: ARGS[1] = day_index
+	!! Output: Sets 'colspan' for all visible events
+
+	temp_d = ARGS[1]
+
+	!! First pass: Initialize all colspan values to 1
+	temp_t = 0
+	:loop_init_timeslots
+	if temp_t < 96:
+		temp_event_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count']
+		if temp_event_count > 0:
+			temp_e = 0
+			:loop_init_events
+			if temp_e < temp_event_count:
+				week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, colspan'] = 1
+				temp_e += 1
+				jump 'loop_init_events'
+			end
+		end
+		temp_t += 1
+		jump 'loop_init_timeslots'
+	end
+
+	!! Second pass: Calculate optimal colspan for each event
+	temp_t = 0
+	:loop_ts_cdc
+	if temp_t < 96:
+		temp_event_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, event_count']
+		if temp_event_count > 0:
+			temp_e = 0
+			:loop_ev_cdc
+			if temp_e < temp_event_count:
+				!! Skip hidden events
+				temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, is_hidden']
+				if temp_is_hidden = 0:
+					!! Calculate colspan for this event
+					temp_colspan = func('calendar_schedule', 'calculate_event_colspan', temp_d, temp_t, temp_e)
+					week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, colspan'] = temp_colspan
+				end
+
+				temp_e += 1
+				jump 'loop_ev_cdc'
+			end
+		end
+		temp_t += 1
+		jump 'loop_ts_cdc'
+	end
+
+	exit
+end
+
+
+if $ARGS[0] = 'calculate_event_colspan':
+	!! Input: ARGS[1] = day_index, ARGS[2] = timeslot_index, ARGS[3] = event_index
+	!! Output: result = colspan (1-4)
+
+	temp_d = ARGS[1]
+	temp_t = ARGS[2]
+	temp_e = ARGS[3]
+
+	!! Get event properties
+	temp_col = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, column']
+	temp_span = week_schedule['days=<<temp_d>>, timeslots=<<temp_t>>, events=<<temp_e>>, span']
+	temp_event_end = temp_t + temp_span - 1
+	temp_max_cols = week_schedule['days=<<temp_d>>, max_columns']
+
+	!! Try to expand into adjacent columns
+	temp_colspan = 1
+	temp_check_col = temp_col + 1
+
+	:loop_expand
+	if temp_check_col >= temp_max_cols: jump 'done'
+	if temp_check_col >= 4: jump 'done'
+
+	!! Check if this column is free for event''s span
+	temp_is_free = func('calendar_schedule', 'is_column_free_for_span', temp_d, temp_check_col, temp_t, temp_event_end)
+
+	if temp_is_free = 1:
+		temp_colspan += 1
+		temp_check_col += 1
+		jump 'loop_expand'
+	end
+
+	:done
+	result = temp_colspan
+
+	exit
+end
+
+
+if $ARGS[0] = 'is_column_free_for_span':
+	!! Input: ARGS[1] = day, ARGS[2] = column, ARGS[3] = start_slot, ARGS[4] = end_slot
+	!! Output: result = 1 if free, 0 if occupied
+
+	temp_d = ARGS[1]
+	temp_check_col = ARGS[2]
+	temp_start_ts = ARGS[3]
+	temp_end_ts = ARGS[4]
+
+	!! First, check for events that started earlier but span into this range
+	temp_scan_t = 0
+	:loop_earlier_timeslots
+	if temp_scan_t < temp_start_ts:
+		temp_scan_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, event_count']
+		if temp_scan_count > 0:
+			temp_scan_e = 0
+			:loop_earlier_events
+			if temp_scan_e < temp_scan_count:
+				temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, is_hidden']
+				if temp_is_hidden = 0:
+					!! Check if this event spans into our range
+					temp_evt_span = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, span']
+					temp_evt_end = temp_scan_t + temp_evt_span - 1
+
+					if temp_evt_end >= temp_start_ts:
+						!! This event spans into our range - check if it occupies check_col
+						temp_evt_col = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, column']
+						temp_evt_colspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, colspan']
+
+						if temp_check_col >= temp_evt_col and temp_check_col < temp_evt_col + temp_evt_colspan:
+							!! Column is occupied by earlier event
+							result = 0
+							exit
+						end
+					end
+				end
+
+				temp_scan_e += 1
+				jump 'loop_earlier_events'
+			end
+		end
+		temp_scan_t += 1
+		jump 'loop_earlier_timeslots'
+	end
+
+	!! Now scan timeslots in the actual range
+	temp_scan_t = temp_start_ts
+	:loop_ts_icfs
+	if temp_scan_t <= temp_end_ts:
+		!! Check all visible events at this timeslot
+		temp_scan_count = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, event_count']
+		if temp_scan_count > 0:
+			temp_scan_e = 0
+			:loop_ev_icfs
+			if temp_scan_e < temp_scan_count:
+				!! Skip hidden events
+				temp_is_hidden = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, is_hidden']
+				if temp_is_hidden = 0:
+					!! Check if this event occupies check_col
+					temp_evt_col = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, column']
+					temp_evt_colspan = week_schedule['days=<<temp_d>>, timeslots=<<temp_scan_t>>, events=<<temp_scan_e>>, colspan']
+
+					!! Event occupies columns: evt_col to (evt_col + evt_colspan - 1)
+					if temp_check_col >= temp_evt_col and temp_check_col < temp_evt_col + temp_evt_colspan:
+						!! Column is occupied
+						result = 0
+						exit
+					end
+				end
+
+				temp_scan_e += 1
+				jump 'loop_ev_icfs'
+			end
+		end
+		temp_scan_t += 1
+		jump 'loop_ts_icfs'
+	end
+
+	!! Column is free
+	result = 1
+	exit
+end
+
+
+!! =======================================
+!! Cleanup
+!! =======================================
+
+
+if $ARGS[0] = 'cleanup_temp_structures':
+	!! Cleanup temporary working structures
+
+
+	!! Keep week_schedule (that''s the output)
+	!! Clean up working structures
+	killvar 'event_range_cache'
+	killvar 'placement_state'
+	killvar 'allday_spans'
+	killvar 'column_end_slot'
+	killvar 'temp_other_is_flex'
+	killvar 'temp_other_start'
+	killvar 'temp_other_end'
+	killvar 'temp_check_t'
+	killvar 'temp_check_col'
+	killvar 'temp_start'
+	killvar 'temp_end'
+	killvar 'placement_found'
+	killvar 'placement_window_start'
+	killvar 'placement_window_end'
+	killvar 'temp_colspan'
+	killvar 'temp_other_id'
+	killvar 'temp_other_priority'
+	killvar 'temp_range_start'
+	killvar 'temp_range_end'
+	killvar 'temp_evt_id'
+	killvar 'temp_found'
+	killvar 'temp_check'
+	killvar 'temp_is_hidden'
+	killvar 'temp_week_start'
+
+
+	!! Clean up day-specific event lists
+	temp_d = 1
+	:loop_cleanup
+	if temp_d <= 7:
+		killvar 'static_events_day_<<temp_d>>'
+		killvar 'flexible_events_day_<<temp_d>>'
+		temp_d += 1
+		jump 'loop_cleanup'
+	end
+
+	killvar 'allday_events_week'
+
+	exit
+end
+
+
+--- calendar_schedule ---------------------------------

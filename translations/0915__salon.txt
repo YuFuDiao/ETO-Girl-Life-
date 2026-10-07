@@ -1,0 +1,2335 @@
+# salon
+!! Salon migrated to new payments system 22-12-01
+!! Refactoring of services code and other additions.
+!! Additional functions: salon, discount calculates staff discount and outputs salon_rate
+!! salon, cleanvar clears transitory variables.
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'salon', $ARGS[0]
+	$location_type = 'public_indoors'
+	$sexloc = 'salon'
+	salonrand = rand(0, 9)
+	gs 'family_schedule'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '美容吧')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/salon.jpg"></center>'
+
+	if locat['Mother'] = 21 and locat['Mom_Salon_daystart'] <> daystart: gt 'salon', 'mom'
+
+	if $job_status['city_salon_masseuse'] = 'employed':
+		if job_missed_total['city_salon_masseuse'] >= 3: gt 'masseuse_work', 'fired'
+		if masseuse['uniform'] <> 1:
+			if ($job_booking['city_salon_masseuse, ' + $str(daystart) + ', 0'] <> '' and hour >= 9 and hour < 13 and masseuse['worked_<<daystart>>_1'] = 0) or ($job_booking['city_salon_masseuse, ' + $str(daystart) + ', 1'] <> '' and hour >= 13 and hour < 17 and masseuse['worked_<<daystart>>_2'] = 0) or ($job_booking['city_salon_masseuse, ' + $str(daystart) + ', 2'] <> '' and hour >= 17 and hour < 21 and masseuse['worked_<<daystart>>_3'] = 0):
+				if masseuse['late'] = 0:
+					masseuse['late'] = 1
+					'"嘿！"希安从前台冲你喊道。"你迟到了！为此要扣你一个小时的工资！现在去换衣服，然后进去干活！"'
+				end
+			end
+		end
+	end
+	act '离开':
+		if masseuse['uniform'] = 1:
+			msg '你离开前应该先换回自己的衣服。'
+		else
+			gt 'city_mall'
+		end
+	end
+	act '走向前台接待员': gt 'salon', 'receptionist'
+	if hour < 8 or (hour > 20 and $job_status['city_salon_masseuse'] <> 'employed'):
+		*clr & cla
+		'美容吧要打烊了，有人礼貌地请你离开。'
+		act '离开': minut += 3 & gt 'city_mall'
+	end
+	if $job_status['city_salon_masseuse'] = 'employed':
+		act '更衣室': gt 'salon', 'lockers'
+		act '去按摩室':
+			if func('jobs', 'is_work_time', 'city_salon_masseuse') = 1:
+				gt 'masseuse_work', 'massage_room'
+			else
+				gt 'salon', 'lei_work'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'receptionist':
+	gs 'core_library', 'setloc', 'salon', $ARGS[0]
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	if $job_status['city_salon_masseuse'] <> 'employed' and $masseuse['salon_state'] = '':
+		'你走到前台，和坐在后面的那位年轻漂亮的亚洲女子说话。'
+		'"你好！今天有什么可以帮你的吗？"她的俄语带着很重的口音。'
+	else
+		'你走到前台，和希安说话。'
+	end
+
+	if hour >= 21:
+		'"已经下班了，<<$pcs_firstname>>。你该回家了。"'
+	elseif $masseuse['salon_state'] = 'fired':
+		'"你好，今天有什么可以帮你的吗？"'
+	elseif $masseuse['salon_state'] = 'resigned':
+		'"又见面了，<<$pcs_firstname>>。有什么可以帮你的吗？"'
+	elseif week = 5 and job_bonus_pay['city_salon_masseuse'] > 0:
+		'"你好，<<$pcs_firstname>>！你是来领工资的吗？"'
+	elseif $job_status['city_salon_masseuse'] = 'employed':
+		'"你好，<<$pcs_firstname>>！你今天排了班吗？还是来做折扣服务的？"'
+	end
+	gs 'salon', 'receptionist_talk_menu'
+end
+
+
+if $ARGS[0] = 'receptionist_talk_menu':
+	act '走开': gt 'salon', 'start'
+	if hour < 21:
+		act '我想看看你们的服务项目': gt 'salon', 'services'
+	end
+	if $job_status['city_salon_masseuse'] <> 'employed' and $masseuse['salon_state'] = '':
+		act '你们这里招人吗？': gt 'masseuse_work', 'job_interview1'
+	elseif $masseuse['salon_state'] = 'resigned':
+		act '我能重新回来工作吗？': gt 'masseuse_work', 'rehire1'
+	elseif $job_status['city_salon_masseuse'] = 'employed':
+		act '我能安排自己的班次吗？':
+			cla
+			*nl
+			'"当然可以。而且如果你安排下周的班次，就能挑到更好的时间段。"'
+			act '安排本周班次': gt 'masseuse_work', 'set_schedule', 'this_week'
+			act '安排下周班次': gt 'masseuse_work', 'set_schedule', 'next_week'
+		end
+		act '我想换岗位': gt 'masseuse_work', 'job_change'
+		act '我想辞职': gt 'masseuse_work', 'resignation'
+		if job_bonus_pay['city_salon_masseuse'] > 0:
+			act '我是来领工资的': gt 'masseuse_work', 'payday'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'discount':
+	!! Set staff discount
+	if $job_status['city_salon_masseuse'] = 'employed':
+		salon_rate = ARGS[1] / 2
+	else
+		salon_rate = ARGS[1]
+	end
+end
+
+
+if $ARGS[0] = 'services':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"你今天想做什么？"'
+
+	act '走开': gs 'salon', 'cleanvar' & gt 'salon', 'start'
+	gs 'salon', 'discount', 1000
+	act '日光浴舱' + $func('money', 'get_cost_string', salon_rate):
+		if func('money', 'can_afford', salon_rate) = 0:
+			$noMoney
+		else
+			gs 'salon', 'discount', 1000
+			gs 'money', 'pay', salon_rate
+			gt 'salon', 'tanning_booth'
+		end
+	end
+
+	act '按摩服务': gt 'salon', 'massage'
+
+	act '见睫毛专家': gt 'salon', 'eyelashes'
+
+	gs 'salon', 'discount', 5000
+	if salon['skin_care_day'] < max(daystart - 7, 1):
+		act '皮肤护理' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 5000
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'skin_care'
+			end
+		end
+	else
+		act '皮肤护理' + $func('money', 'get_cost_string', salon_rate):
+			msg '你上次做皮肤护理后需要等一周，再做一次才会有效果。'
+		end
+	end
+
+	gs 'salon', 'discount', 25000
+	act '全身焕肤护理' + $func('money', 'get_cost_string', salon_rate):
+		if func('money', 'can_afford', salon_rate) = 0:
+			$noMoney
+		else
+			gs 'salon', 'discount', 25000
+			gs 'money', 'pay', salon_rate
+			gt 'salon', 'rejuvination'
+		end
+	end
+
+	if lashair <> 1:
+		if pcs_pubes > 2 or pcs_leghair > 2:
+			gs 'salon', 'discount', 1000
+			act '部分或全身脱毛，最多花费' + $func('money', 'get_cost_string', salon_rate):
+				if func('money', 'can_afford', salon_rate) = 0:
+					$noMoney
+				else
+					gt 'salon', 'hair_removal'
+				end
+			end
+		elseif pcs_pubes <= 2 or pcs_leghair <= 2:
+			gs 'salon', 'discount', 1000
+			act '身体脱毛' + $func('money', 'get_cost_string', salon_rate):
+				msg '你的体毛不够多，做不了这个项目！'
+			end
+		end
+		gs 'salon', 'discount', 500
+		if pcs_pubes > 20:
+			act '染阴毛' + $func('money', 'get_cost_string', salon_rate):
+				if func('money', 'can_afford', salon_rate) = 0:
+					$noMoney
+				else
+					gs 'salon', 'discount', 500
+					gs 'money', 'pay', salon_rate
+					gt 'salon', 'pubes'
+				end
+			end
+		else
+			act '染阴毛' + $func('money', 'get_cost_string', salon_rate):
+				msg '你的阴毛太短了！'
+			end
+		end
+	end
+
+	gs 'salon', 'discount', 1000
+	act '专业化妆' + $func('money', 'get_cost_string', salon_rate):
+		if func('money', 'can_afford', salon_rate) = 0:
+			$noMoney
+		else
+			gs 'salon', 'discount', 1000
+			gs 'money', 'pay', salon_rate
+			gt 'salon', 'makeup'
+		end
+	end
+
+	if cosmetic_tattoo <= 4:
+		act '纹绣服务': gt 'salon', 'cosmetic_tattoo_start'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                        JOB INTERVIEW STUFF                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'job_interview1':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"其实我是想问你们这里有没有职位空缺。"'
+	'"我们有几个女按摩师的空缺。你觉得怎么样？"'
+	act '我不感兴趣':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"我对那种工作不太感兴趣。你们没有别的职位吗，比如化妆助理或者销售员之类的？"'
+		'"这个嘛，我们现在确实没有别的需要人手的岗位。你问的那些职位我们是有，但都已经满了。"那女人同情地朝你笑了笑。"抱歉。"'
+		act '离开': gt 'salon', 'start'
+		act '告诉我更多关于按摩师工作的信息':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"好吧……如果只有这个，那就再给我讲讲按摩师的工作吧。"'
+			'"我很乐意！"她笑着说。'
+			gs 'salon', 'job_offer'
+		end
+	end
+	act '说说这个工作吧':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"我可能会感兴趣。再多讲讲？"'
+		'"我很乐意！"她笑着说。'
+		gs 'salon', 'job_offer'
+	end
+end
+
+
+if $ARGS[0] = 'job_offer':
+	'"每个班次四小时，每班报酬<<$func(''money'', ''string_profit'', 400)>>。我们允许员工自己排班，而不是由我们指派，但老员工比新员工有优先权。兼职的话我们希望你能上 5 个班，全职则是 10 个班。我们不支付加班费，所以如果你选择多上班，或者因为客人而拖到很晚，你也只会拿到这个班次的报酬。"'
+	act '工资不太高啊':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"这报酬可不算多……"'
+		'"小费都归你，"那女人耸了耸肩。她环顾四周确认没有别人站在附近，然后凑过来低声对你说。'
+		'"说实话，如果你愿意，我们确实还有……别的工作。但严格来说，那并不合法……"'
+		act '我不想听这个':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"我不想听这些！"你厌恶地往后退。"我只是想找份工作，不想犯法！"'
+			'说完，你从她身边走开。'
+			act '离开': gt 'salon', 'start'
+		end
+		act '什么工作？':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"什么样的工作？"你好奇地问。'
+			'"这个嘛……"'
+			gs 'salon', 'whore_offer'
+		end
+	end
+
+	act '听起来不错':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"好吧，听起来都没问题。"'
+		'"太好了！"她说。"那你有按摩师的资格证书吗？"'
+		if license['masseuse'] = 1:
+			masseuse['pending_rank'] = 1
+			masseuse['hourly'] = 100
+			'"有的。"'
+			'"好的，能让我看看你的证书吗？"'
+			'你掏出了证明你是按摩治疗师的证书。'
+			'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+			act '下一步': gt 'salon', 'part_time_full_time'
+		else
+			'"No..."'
+			'"抱歉，在我们这里工作必须要有证书。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+			act '离开': gt 'salon', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'whore_offer':
+	masseuse['brothel_know'] = 1
+	'"除了提供普通按摩，我们有些按摩师还提供更……私密的服务。具体来说，就是裸体按摩、手交、口交，或者和客人做爱。我的意思是，我们既是美容吧，也是按摩院，还是妓院。如果你想赚得更多，我们有专门从事性工作的岗位。你对这种工作感兴趣吗？"'
+	act '呕，没兴趣':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"呃，"你厌恶地皱起鼻子。"不，我对那个没兴趣。"'
+		'"你确定吗？我们给妓女的报酬最高可达每班<<$func(''money'', ''string_profit'', 1000)>>。而且你不想做的事完全可以不做。有很多女孩只做裸体按摩，不提供任何性服务；也有女孩只做口交，不做爱。如果你真的不感兴趣，那我们就只能提供普通按摩师的岗位了。"'
+		act '完全没兴趣':
+			cla & *nl
+			'"一点也没有！"你说。"谁会想在那种地方工作！"'
+			'"哦。那真是遗憾。我们确实很需要人手。如果你改变主意就告诉我。既然来了，要不要试试我们的其他服务？"'
+			act '直接离开': gt 'salon', 'start'
+			act '既然来了，就看看吧': gt 'salon', 'services'
+		end
+
+		act '我宁愿只做按摩师':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"不行，"你说。"我可不会那样出卖自己的身体。不过普通的按摩师工作我想还行。"'
+			'"好的！我们一直缺这样的人。"她说。"那你有按摩师的资格证书吗？"'
+			if license['masseuse'] = 1:
+				masseuse['pending_rank'] = 1
+				masseuse['hourly'] = 100
+				'"有的。"'
+				'"好的，能让我看看你的证书吗？"'
+				'你拿出那张证明你按摩师身份的证书。"'
+				'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+				act '下一步': gt 'salon', 'part_time_full_time'
+			else
+				'"No..."'
+				'"抱歉，在我们这里工作必须要有证书。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+				act '离开': gt 'salon', 'start'
+			end
+		end
+
+		act '嗯……':
+			cla & *nl
+			'"这个嘛……"你说。那笔钱确实很诱人。"要不你再给我讲讲当妓女是怎么回事，看看我到底有没有兴趣……"'
+			gs 'salon', 'whore_offer2'
+		end
+	end
+
+	act '告诉我更多':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"再多跟我说说这个。"'
+		gs 'salon', 'whore_offer2'
+	end
+end
+
+
+if $ARGS[0] = 'whore_offer2':
+	'"我来解释一下。如果你想拿妓女里最高的报酬，就得会做我们菜单上的所有项目，包括普通身体按摩、裸体按摩、手交、口交，当然还有做爱。但每位客人付钱买的是不同的服务，我们没有全包套餐。如果你不想做到那一步，也可以只做较轻的服务，当然报酬也少一些。如果你愿意，可以只做口交和手交、不做爱，或者只做裸体普通按摩。这些对我们来说都没问题，只是报酬会低一些。"'
+	*nl
+	'"我们给全职妓女每班<<$func(''money'', ''string_profit'', 1000)>>，给口交按摩师<<$func(''money'', ''string_profit'', 700)>>，给幸福结局按摩师<<$func(''money'', ''string_profit'', 600)>>，给裸体按摩师<<$func(''money'', ''string_profit'', 500)>>，当然，普通按摩师<<$func(''money'', ''string_profit'', 400)>>。所有员工还能享受美容吧其他任何服务五折优惠。哦，不过避孕药我们不报销。而且公司规定我们从不和客人用避孕套。除此之外，其他一切都一样。妓女可以自己挑选班次。每次四小时一个班。发薪日是周五。"'
+	*nl
+	'她平静而有条不紊地为你解释一切，就像在推销一款身体按摩油。'
+	'"大致就这些了。还有兴趣吗？"'
+	act '再想想，还是算了':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"再想想，还是算了……"'
+		'"哦，好吧。那做普通按摩师呢？也没兴趣吗？"'
+		act '还是没有':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"我想也没兴趣。"'
+			'"嗯。如果你以后改变主意，随时欢迎回来。既然你来了，还有别的什么我能为你效劳的吗？"'
+			act '不用了': gt 'salon', 'start'
+			act '当然，让我看看': gt 'salon', 'services'
+		end
+		act '我想那也行':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"那也行吧。"'
+			'"那么，你有按摩师的资格证书吗？"'
+			if license['masseuse'] = 1:
+				masseuse['pending_rank'] = 1
+				masseuse['hourly'] = 100
+				'"有的。"'
+				'"好的，能让我看看你的证书吗？"'
+				'你掏出了证明你是按摩治疗师的证书。'
+				'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+				act '下一步': gt 'salon', 'part_time_full_time'
+			else
+				'"No..."'
+				'"抱歉，在我们这里工作必须要有证书。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+				act '离开': gt 'salon', 'start'
+			end
+		end
+	end
+
+	act '宁愿做个普通按摩师':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"我想我还是做普通按摩师吧。"'
+		'"那也行！我们一直缺这样的人，"她说。"那你有按摩师的资格证书吗？"'
+		if license['masseuse'] = 1:
+			masseuse['pending_rank'] = 1
+			masseuse['hourly'] = 100
+			'"有的。"'
+			'"好的，能让我看看你的证书吗？"'
+			'你掏出了证明你是按摩治疗师的证书。'
+			'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+			act '下一步': gt 'salon', 'part_time_full_time'
+		else
+			'"No..."'
+			'"抱歉，在我们这里工作必须要有证书。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+			act '离开': gt 'salon', 'start'
+		end
+	end
+
+	act '我不介意当裸体按摩师':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"做裸体按摩师我倒不介意，"你说。'
+		'"好，那没问题，"她说。"那你有按摩师的资格证书吗？"'
+		if license['masseuse'] = 1:
+			masseuse['pending_rank'] = 2
+			masseuse['hourly'] = 125
+			'"有的。"'
+			'"好的，能让我看看你的证书吗？"'
+			'你掏出了证明你是按摩治疗师的证书。'
+			'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+			act '下一步': gt 'salon', 'part_time_full_time'
+		else
+			'"什么？没有？"'
+			'"抱歉，在我们这里工作必须要有证书。"'
+			'"可你不是说我是编外的妓女吗？"'
+			'"但你仍然是名册上的员工。我们需要能推说每个员工都名副其实，也就是说该有的证书必须有。再说，你光着身子，也不代表你就不用会按摩。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+			act '离开': gt 'salon', 'start'
+		end
+	end
+
+	act '我可以提供手交服务':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"偶尔给客人手交我倒不介意，"你说。'
+		'"好，那没问题，"她说。"那你有按摩师的资格证书吗？"'
+		if license['masseuse'] = 1:
+			masseuse['pending_rank'] = 3
+			masseuse['hourly'] = 150
+			'"有的。"'
+			'"好的，能让我看看你的证书吗？"'
+			'你掏出了证明你是按摩治疗师的证书。'
+			'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+			act '下一步': gt 'salon', 'part_time_full_time'
+		else
+			'"什么？没有？"'
+			'"抱歉，在我们这里工作必须要有证书。"'
+			'"可你不是说我是编外的妓女吗？"'
+			'"但你仍然是名册上的员工。我们需要能推说每个员工都名副其实，也就是说该有的证书必须有。再说，作为幸福结局按摩师，你要给客人手交<i>还要</i>按摩。这依然是必备技能。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+			act '离开': gt 'salon', 'start'
+		end
+	end
+
+	act '我会口交':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"我可以给客人口交，"你说。'
+		'"太好了！"她说。"那你有按摩师的资格证书吗？"'
+		if license['masseuse'] = 1:
+			masseuse['pending_rank'] = 4
+			masseuse['hourly'] = 175
+			'"有的。"'
+			'"好的，能让我看看你的证书吗？"'
+			'你掏出了证明你是按摩治疗师的证书。'
+			'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+			act '下一步': gt 'salon', 'part_time_full_time'
+		else
+			'"什么？没有？"'
+			'"抱歉，在我们这里工作必须要有证书。"'
+			'"可你不是说我是编外的妓女吗？"'
+			'"但你仍然是名册上的员工。我们需要能推说每个员工都名副其实，也就是说该有的证书必须有。再说，作为口交按摩师，你要给客人口交<i>还要</i>按摩。这依然是必备技能。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+			act '离开': gt 'salon', 'start'
+		end
+	end
+
+	act '当然，我愿意当妓女':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"行，我就当你们的妓女，"你说。"为了钱跟人上床，容易得很。"'
+		'"太棒了！"她说。"那你有按摩师的资格证书吗？"'
+		if license['masseuse'] = 1:
+			masseuse['pending_rank'] = 5
+			masseuse['hourly'] = 250
+			'"有的。"'
+			'"好的，能让我看看你的证书吗？"'
+			'你掏出了证明你是按摩治疗师的证书。'
+			'"太好了。我这就帮你把合同准备好，"她说着在电脑上敲了些什么。'
+			act '下一步': gt 'salon', 'part_time_full_time'
+		else
+			'"什么？没有？"'
+			'"抱歉，在我们这里工作必须要有证书。"'
+			'"可你不是说我是编外的妓女吗？"'
+			'"但你仍然是名册上的员工。我们需要能推说每个员工都名副其实，也就是说该有的证书必须有，哪怕你主要只是用你的小穴。如果你还有兴趣，工业区的社区中心有 10 节课的培训课程。"'
+			act '离开': gt 'salon', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'part_time_full_time':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"那你是想做全职还是兼职？提醒一下，全职每周要上 10 个班，兼职是 5 个。全职在可选班次上也有优先权。"'
+	act '兼职':
+		masseuse['shifts_required'] = 5
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"兼职。"'
+		'"好的，"她打印出一张纸，把一支笔推到你面前。"这是兼职按摩师的雇佣合同。在下面签个名，我就给你简单做个入职说明。"'
+		act '招牌':
+			if masseuse['pending_rank'] = 1:
+				gt 'salon', 'masseuse_orientation'
+			else
+				gt 'salon', 'whore_orientation'
+			end
+		end
+	end
+
+	act '全职':
+		masseuse['shifts_required'] = 10
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"全职。"'
+		'"好的，"她打印出一张纸，把一支笔推到你面前。"这是全职按摩师的雇佣合同。在下面签个名，我就给你简单做个入职说明。"'
+		act '招牌':
+			if masseuse['pending_rank'] = 1:
+				gt 'salon', 'masseuse_orientation'
+			else
+				gt 'salon', 'whore_orientation'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                        MASSEUSE JOB  STUFF                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'masseuse_orientation':
+	masseuse['hired_day'] = daystart
+	gs 'jobs', 'set_employed', 'city_salon_masseuse'
+	gs 'jobs', 'set_rank', 'city_salon_masseuse', masseuse['pending_rank']
+	$masseuse['salon_state'] = ''
+	masseuse['pending_rank'] = 0
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/salon.jpg"></center>'
+	'你潦草地签了个名，她从你手中把纸拿了回去。'
+	'"非常感谢！以后你就知道了，我叫希安，是这里的经理之一。你所有的客人都到我这里来，他们会根据你有没有空来点你。现在请跟我来。"'
+	'她从椅子上站起来绕过桌子走向后面。'
+	act '跟着她':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/lockers.jpg"></center>'
+		'"这里是更衣室，上班时你可以把私人物品放在这里。我们这里的着装规定很严格。所有按摩师都必须穿美容吧的浴袍。浴袍里面不允许穿自己的衣服。也就是说，浴袍下面不能穿衬衫、连衣裙、裤子或任何形式的内衣。顺便说一句，这是你的。"'
+		'她从架子上拿起一个衣架，递给你一件薄薄的白色长袍，在寒冷的日子里你的乳头可能会刺穿它，下摆刚好到大腿中点的上方。她不等你发问，就也分配给你一个储物柜，然后迅速前往下一个房间。'
+		act '跟随':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'"这些是我们的按摩室。每天会随机给你分配一间，你要在班次开始后半小时内进去并准备好。班次结束时，你要把它收拾干净，好让下一个女孩使用；如果你是收尾班，就收拾好留给第二天。"'
+			'她朝墙上指了指。"那面墙上有个钟，用来掌握这次服务进行了多久、客人的时间什么时候到。门边你还会看到一个对讲机。每位客人进来之前，我都会按铃通知你，告诉你来了客人，以及他想接受哪种服务。我们的按摩服务项目如下：'
+			*nl
+			'按摩就只是身体按摩。'
+			*nl
+			' 裸体按摩就是''带风景的按摩。'' '
+			*nl
+			'手淫请求被称为''老式''按摩而口交请求是''头部''按摩。'
+			*nl
+			'花钱来操的客人要求的是''全身''按摩。 '
+			*nl
+			'当然，如果有客人动粗，你可以用对讲机通知我，需要保安介入。"'
+			*nl
+			'她继续飞快地说着，不给你留下任何插话提问的余地。'
+			'"如果客人在你嘴里射精，你要咽下去。如果客人在你小穴里射精，你怀孕了他们不承担责任。我们不发避孕药，如果你本来没有在服用，也不会为避孕药额外补偿。每位新客人都应该看到你干净的脸和身体，所以同样的，如果客人在你体内射精，你要为下一位客人把自己擦干净。沾了体液的毛巾扔进粉色洗衣筐，其他毛巾扔进蓝色洗衣筐。客人准备离开时，如果你已经赤裸，就不要重新穿衣服。他们走出房间时，你要鞠躬说：''谢谢惠顾，先生，''"她一边说一边为你示范动作和话语。"只要距离你下班还有 5 分钟以上，我就会继续带客人进来。如果下班时间到了你还在接待客人，你仍然要把这次服务做完。超出的时间不会给你补偿。接下来我们去休息室。"'
+			act '跟着她':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/break.jpg"></center>'
+				'"每个班次你可以休息一次，15 分钟，时间由你自己选。在这间屋里，你可以随意补水、吃点东西，或者如果你有抽烟的习惯就抽根烟。入职说明就到这里。"'
+				'她领着你回到前面。'
+				act '跟上她！': gt 'salon', 'questions'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'whore_orientation':
+	masseuse['hired_day'] = daystart
+	gs 'jobs', 'set_employed', 'city_salon_masseuse'
+	gs 'jobs', 'set_rank', 'city_salon_masseuse', masseuse['pending_rank']
+	$masseuse['salon_state'] = ''
+	masseuse['pending_rank'] = 0
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/salon.jpg"></center>'
+	'你潦草地签了个名，她从你手中把纸拿了回去。'
+	'"非常感谢！以后你就知道了，我叫希安，是这里的经理之一。你所有的客人都到我这里来，他们会根据你有没有空来点你。现在请跟我来。"'
+	'她从椅子上站起来绕过桌子走向后面。'
+	act '跟着她':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/lockers.jpg"></center>'
+		'"这里是更衣室，上班时你可以把私人物品放在这里。我们这里的着装规定很严格。所有按摩师都必须穿美容吧的浴袍。浴袍里面不允许穿自己的衣服。也就是说，浴袍下面不能穿衬衫、连衣裙、裤子或任何形式的内衣。顺便说一句，这是你的。"'
+		'她从架子上拿起一个衣架，递给你一件薄薄的白色长袍，在寒冷的日子里你的乳头可能会刺穿它，下摆刚好到大腿中点的上方。她不等你发问，就也分配给你一个储物柜，然后迅速前往下一个房间。'
+		act '跟随':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'"这些是我们的按摩室。每天会随机给你分配一间，你要在班次开始后半小时内进去并准备好。班次结束时，你要把它收拾干净，好让下一个女孩使用；如果你是收尾班，就收拾好留给第二天。"'
+			'她朝墙上指了指。"那面墙上有个钟，用来掌握这次服务进行了多久、客人的时间什么时候到。门边你还会看到一个对讲机。每位客人进来之前，我都会按铃通知你，告诉你来了客人，以及他想接受哪种服务。我们的按摩服务项目如下：'
+			*nl
+			'按摩就只是身体按摩。'
+			*nl
+			' 裸体按摩就是''带风景的按摩。'' '
+			*nl
+			'手淫请求被称为''老式''按摩而口交请求是''头部''按摩。'
+			*nl
+			'花钱来操的客人要求的是''全身''按摩。 '
+			*nl
+			'当然，如果有客人动粗，你可以用对讲机通知我，需要保安介入。"'
+			*nl
+			'她继续飞快地说着，不给你留下任何插话提问的余地。'
+			'"如果客人在你嘴里射精，你要咽下去。如果客人在你小穴里射精，你怀孕了他们不承担责任。我们不发避孕药，如果你本来没有在服用，也不会为避孕药额外补偿。每位新客人都应该看到你干净的脸和身体，所以同样的，如果客人在你体内射精，你要为下一位客人把自己擦干净。沾了体液的毛巾扔进粉色洗衣筐，其他毛巾扔进蓝色洗衣筐。客人准备离开时，如果你已经赤裸，就不要重新穿衣服。他们走出房间时，你要鞠躬说：''谢谢惠顾，先生，''"她一边说一边为你示范动作和话语。"只要距离你下班还有 5 分钟以上，我就会继续带客人进来。如果下班时间到了你还在接待客人，你仍然要把这次服务做完。超出的时间不会给你补偿。接下来我们去休息室。"'
+			act '跟着她':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/break.jpg"></center>'
+				'"每个班次你可以休息一次，15 分钟，时间由你自己选。在这间屋里，你可以随意补水、吃点东西，或者如果你有抽烟的习惯就抽根烟。入职说明就到这里。"'
+				'她领着你回到前面。'
+				act '跟上她！': gt 'salon', 'questions'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'questions':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"我们每周日排下一周的班，所以记得那天来定你的工时。发薪日是周五。那天或之后你随时可以来找我领。有什么问题吗？"'
+	act '没有更多问题了':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"我想我基本上都清楚了。"'
+		'"太好了！那你要不要现在安排下周的班次？"'
+		'"好啊。"'
+		act '查看时间表': gt 'masseuse_work', 'set_schedule', 'this_week'
+	end
+	if job_rank['city_salon_masseuse'] = 1:
+		if masseuse['brothel_know'] = 1:
+			act '你为什么告诉我关于卖淫的事？':
+				masseuse['brothel_question'] = 1
+				gs 'salon', 'questions'
+				*clr
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"呃，是啊……你为什么要跟我讲那些卖身的事？我们不是说好我只做普通按摩师吗？"'
+				'"以防你想换岗位，"她淡淡地说。"我以前可能提过，但就算你现在只是按摩师，将来也可能改变主意。只要你有证书，你在这里可以随时升到或降到任何级别的按摩师。因为这个体系很灵活，所以就算你不做那些工作，一次性在入职说明里全讲清楚最省事。"'
+			end
+		else
+			act '你为什么要跟我讲那些……别的事？':
+				masseuse['brothel_question'] = 1
+				gs 'salon', 'questions'
+				*clr
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"呃，是啊……你为什么要跟我讲那些……别的事？"'
+				'"以防你想换岗位。也因为我不想让你对我们这里的其他工作感到意外，"她淡淡地说。"我们也向客人提供许多性服务。只要你有证书，你在这里可以随时升到或降到任何级别的员工。因为这个体系很灵活，所以就算你不做那些工作，一次性在入职说明里全讲清楚最省事。"'
+			end
+		end
+	end
+	if masseuse['brothel_question'] = 1:
+		act '这是个妓院？！':
+			masseuse['brothel_know'] = 1
+			gs 'salon', 'questions'
+			*clr
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"等等，你是说这里是什么妓院吗？！"'
+			'"嗯，是啊。当然，"她说着瞟了你一眼。"你总不会以为这个镇上的按摩院<i>只是</i>按摩院吧？"'
+		end
+	end
+	if masseuse['brothel_know'] = 1:
+		act '如果我想换工作呢？':
+			*clr
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+			'"如果我想换岗位呢？"你问。'
+			'"你只要告诉我就行，我们会帮你换。之后你立刻按新岗位的新报酬开始工作。如果你在发薪日之前换，那这次就按新报酬算，而不是以前的。"'
+		end
+	end
+	act '为什么穿制服？':
+		*clr
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+		'"为什么制服规定这么，呃……"你瞥了一眼那件单薄的浴袍。"严格？"'
+		'"在这里保持统一感很重要。这能让客人相信，在这里工作的每个人都是专业人士，任何员工都和别的员工一样出色。而且我们也是一家美容吧。作为美的精髓，我们必须尽力确保我们的姑娘们看起来漂亮。薄纱遮掩的美只逊色于赤裸的美。但那样会公开把我们宣传成妓院，因为公开裸体不符合公共法律。我们是为客人穿衣，不是为自己。"'
+		'"啊哈……"你说。"好吧。那这条规定是男人还是女人定的？"'
+		'希安眨了眨眼看着你。"当然是女人。我们所有的规定都是老板 Lao 夫人制定的。"'
+	end
+end
+
+
+if $ARGS[0] = 'lockers':
+	$locM = 'salon'
+	$locM_arg = 'lockers'
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/lockers.jpg"></center>'
+	'员工更衣室，你上班时可以把东西放在这里。此刻除了你以外空无一人。'
+	*nl
+	'墙上还挂着一面<a href="exec: gt ''mirror'', ''start''">镜子</a>。'
+	act '离开': gt 'salon', 'start'
+	if masseuse['uniform'] = 1:
+		act '穿回你平时的衣服':
+			masseuse['uniform'] = 0
+			robe = 0
+			minut += rand(1, 2)
+			gs 'outfit', 'dress', 'masseuseQW'
+			*clr & cla
+			'<center><video autoplay loop <<$set_imgh>> src="images/pc/activities/misc/dress_1.mp4"></video></center>'
+			'你脱下浴袍，把它整齐叠好准备放回储物柜，同时取出你的衣服。'
+			*nl
+			'你花了几分钟重新穿好衣服，然后砰地关上储物柜，准备离开。'
+			act '继续': gt 'salon', 'lockers'
+		end
+	else
+		if (job_rank['city_salon_masseuse'] = 2 and pcs_inhib < 35) or (job_rank['city_salon_masseuse'] = 3 and (pcs_inhib < 40 and stat['prostitute_times'] < 20)) or (job_rank['city_salon_masseuse'] = 4 and (pcs_inhib < 50 and stat['prostitute_times'] < 35)) or (job_rank['city_salon_masseuse'] = 5 and (pcs_inhib < 60 and stat['prostitute_times'] < 50)) and masseuse['uniform'] <> 1:
+			act '换好衣服准备上班': gt 'masseuse_work', 'change_for_work_stress'
+		elseif $job_status['city_salon_masseuse'] = 'employed' and masseuse['uniform'] <> 1:
+			act '换好衣服准备上班': gt 'masseuse_work', 'change_for_work'
+		else
+			act '换好衣服准备上班':
+				gs 'outfit', 'undress', 'masseuseQW'
+				masseuse['uniform'] = 1
+				robe = 1
+				gs 'stat'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/lockers.jpg"></center>'
+				'你脱下衣服并塞进储物柜，同时拿出你的长袍。穿上它并系好腰带后，你对着镜子审视自己。'
+				*nl
+				'乳头轮廓清晰可见。大腿完全展露。如果弯错方向，下摆很可能会让你的私处走光。如果弯腰，屁股肯定会走光。'
+				*nl
+				'是的。这就是你的制服。'
+				act '继续': gt 'salon', 'lockers'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'lei_work':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/salon.jpg"></center>'
+	'你朝按摩室走去，但正当你把手放在门上时，你想起你现在没有排班。几乎就在同时，你听到门里传来呻吟声。'
+	*nl
+	act '走开': gt 'salon', 'start'
+	act '偷看一眼': gt 'salon', 'lei_work2'
+end
+
+
+if $ARGS[0] = 'lei_work2':
+	*clr & cla
+	masseuse['lei_peek'] = 1
+	if rand(0, 1) = 0:
+		gs 'arousal', 'voyeur', 1
+		pcs_horny += 10
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/lei/<<rand(1, 3)>>.mp4"></video></center>'
+		if masseuse['meet_lei'] = 0:
+			'你无法抗拒，小心地转动门把手，把门打开一条缝偷看。'
+			*nl
+			'映入你眼帘的是一个娇小的亚洲女孩正被一位客人彻底<i>猛干</i>。'
+			*nl
+			'她几乎是在冲客人尖叫，说着各种脏话，表达她有多爱他的鸡巴、他干得有多好。尽管她在喊叫，每一次抽插那断断续续的拍击声依然听得清清楚楚。'
+			'不想惹上麻烦，你轻轻把门重新关上，然后走开。'
+			act '离开': gt 'salon', 'start'
+		else
+			'你无法抗拒，小心地转动门把手，把门打开一条缝偷看。'
+			*nl
+			'"嗯嗯！对！对！用你的粗鸡巴猛干我的小穴！"'
+			*nl
+			'蕾在里面，像往常一样一边尖叫着脏话一边干着一位客人。她把他迷得神魂颠倒。'
+			'你决定在惹上麻烦之前离开并轻轻把门关上。'
+			act '走开': gt 'salon', 'start'
+		end
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/lei/4.mp4"></video></center>'
+		if masseuse['meet_lei'] = 0:
+			'你无法抗拒，小心地转动门把手，把门打开一条缝偷看。'
+			*nl
+			'看起来一个娇小的亚洲女孩刚让一位客人射在了脸上。'
+			*nl
+			'因为他随时可能离开，你轻轻把门关上，迅速退开。'
+			act '离开': gt 'salon', 'start'
+		else
+			'你无法抗拒，小心地转动门把手，把门打开一条缝偷看。'
+			*nl
+			'你看到蕾在里面噘着嘴，脸上满是精液。'
+			'"嗯……你尝起来<i>太～美～味～了</i>。我喜欢你把精液全射在我脸上……"'
+			*nl
+			'你决定在惹上麻烦之前离开并轻轻把门关上。'
+			act '走开': gt 'salon', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'resignation':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"其实我想辞掉这里的工作。"'
+	'"哦，"她说。"很遗憾听到这个消息。"'
+	if job_bonus_pay['city_salon_masseuse'] > 0:
+		masseuse['paycheck'] = func('jobs', 'paycheck', 'city_salon_masseuse', 'cash')
+		'她把手伸到桌子下面，在抽屉里翻找了一阵，把一些钱塞进信封。"嗯，这是你这周早些时候上班的工资。"'
+	end
+	'"如果你以后想回来，跟我们说一声就行，"她对你微笑着说。'
+	if masseuse['uniform'] = 1:
+		masseuse['uniform'] = 0
+		robe = 0
+		minut += rand(1, 2)
+		gs 'outfit', 'dress', 'masseuseQW'
+	end
+	'你从储物柜里取出衣服，穿好准备离开。'
+	masseuse['last_rank'] = job_rank['city_salon_masseuse']
+	gs 'jobs', 'set_terminated', 'city_salon_masseuse'
+	$masseuse['salon_state'] = 'resigned'
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'payday':
+	masseuse['paycheck'] = func('jobs', 'paycheck', 'city_salon_masseuse', 'cash')
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"我来领这周的工资。"'
+	'"好的！"她打开抽屉，翻看了几个不同的标签，然后伸手进去拿出一个信封。她把它递给你。'
+	if masseuse['hired_day'] <= daystart - 7:
+
+	!!	gs 'salon', 'first_week'
+	elseif job_shifts_this_period['city_salon_masseuse'] < masseuse['shifts_required']:
+		masseuse['warning'] -= 1
+		'"嘿，你只工作了<<job_shifts_this_period[''city_salon_masseuse'']>>这个星期。你应该工作<<masseuse[''shifts_required'']>>。"'
+		'"抱歉，"你说着伸手去拿信封。"不会再发生了。"'
+		'"最好别。"你试着把信封拉过来，但希安紧紧抓着不放，直到你与她对视才肯松手。"再<<masseuse[''warning'']>>次，你就要被开除了。"'
+		*nl
+		'她松开了手。'
+	elseif job_shifts_this_period['city_salon_masseuse'] >= masseuse['shifts_required']:
+		if job_shifts_this_period['city_salon_masseuse'] > masseuse['shifts_required']:
+			'"顺便说一下，谢谢你这周帮忙顶了那些额外的班次，<<$pcs_firstname>>。对我们真的很有帮助。"'
+			'"没问题，希安，"你接过信封说。"我正好需要这笔额外的钱。"'
+		end
+	end
+	gs 'salon', 'payday_end'
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'payday_end':
+	'往里面一看，你看到里面塞满了现金，数出来共<<$func(''money'', ''string_profit'', masseuse[''paycheck''])>>.'
+	masseuse['money_earned'] += masseuse['paycheck']
+	if job_rank['city_salon_masseuse'] = 2:
+		masseuse['nude_mass_money_earned'] += masseuse['paycheck']
+	elseif job_rank['city_salon_masseuse'] > 2:
+		masseuse['sex_money_earned'] += masseuse['paycheck']
+	end
+	masseuse['paycheck'] = 0
+end
+
+
+!!{
+if $ARGS[0] = 'first_week':
+	if masseuse['shifts_worked'] < masseuse['shifts_required']:
+		'"你没有上满你应该上的班次，但既然这是你第一周，我们就放过你这次。你觉得这里怎么样？"'
+	else
+		'"你在这里工作的第一周感觉怎么样？'
+	elseif masseuse['jobtype'] = 2:
+
+	elseif masseuse['jobtype'] = 3:
+
+	elseif masseuse['jobtype'] = 4:
+
+	elseif masseuse['jobtype'] = 5:
+
+	end
+end !}
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         EYELASH TECHNICIAN                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'eyelashes':
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/eyelash_salon.jpg"></center>'
+	'迎接你的是一位年轻、打扮精致的女人，她向你介绍她能做的各种睫毛护理：'
+	'"嗯，"她说，"如果你只是晚上出去玩，我可以给你贴上临时假睫毛；你会看起来很漂亮，但它们也就只能撑那么久。"'
+	'她朝一小堆叠放的盒子示意。"如果你想要更持久的效果，我也可以护理你的睫毛来促进它们生长，但你不会得到假睫毛那种夸张的效果。"'
+	'"还有睫毛嫁接，"她解释道。"用那种方法，我们会把你的每一根睫毛上粘上两、四或六根单独的睫毛，打造真正夸张、时刻在线的效果。非常华丽，但很贵，而且你得定期来店里做维护。"'
+	'"如果你需要的话，我想我也可以手动帮你卸除睫毛嫁接，"她若有所思地说，但似乎有些犹豫。"不过……我真的不推荐。最好让它们自然长掉。"'
+
+	gs 'salon', 'discount', 5000
+	if pcs_naturallashes < 2:
+		act '睫毛增长护理' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 5000
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashTreatment'
+			end
+		end
+	else
+		act '睫毛增长护理' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 500
+	if pcs_lashes < 3 and false_lashes <= 0:
+		act '简单假睫毛' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 500
+				lashfalsiesstyle = 1
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashFalsies'
+			end
+		end
+	else
+		act '简单假睫毛' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 1000
+	if pcs_lashes < 4 and false_lashes <= 0:
+		act '华丽假睫毛' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 1000
+				lashfalsiesstyle = 2
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashFalsies'
+			end
+		end
+	else
+		act '华丽假睫毛' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 2000
+	if lashextensionduration <= 0:
+		act '2D 浓密睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 2000
+				lashextensionstyle = 2
+				lashextensionnew = 1
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '2D 浓密睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 5000
+	if lashextensionduration <= 0:
+		act '4D 浓密睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 5000
+				lashextensionstyle = 4
+				lashextensionnew = 1
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '4D 浓密睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 10000
+	if lashextensionduration <= 0:
+		act '6D 浓密睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 10000
+				lashextensionstyle = 6
+				lashextensionnew = 1
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '6D 浓密睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 1000
+	if lashextensionduration >= 1 and lashextensionduration <= 4 and lashextensionstyle = 2:
+		act '补做你的 2D 睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 1000
+				lashextensionnew = 0
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '补做你的 2D 睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 2500
+	if lashextensionduration >= 1 and lashextensionduration <= 4 and lashextensionstyle = 4:
+		act '补做你的 4D 睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 2500
+				lashextensionnew = 0
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '补做你的 4D 睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	gs 'salon', 'discount', 5000
+	if lashextensionduration >= 1 and lashextensionduration <= 4 and lashextensionstyle = 6:
+		act '补做你的 6D 睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 5000
+				lashextensionnew = 0
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '补做你的 6D 睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+	gs 'salon', 'discount', 500
+	if lashextensionduration > 0:
+		act '卸除你的睫毛嫁接' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				gs 'salon', 'discount', 500
+				lashextensionnew = -1
+				gs 'money', 'pay', salon_rate
+				gt 'salon', 'lashExtension'
+			end
+		end
+	else
+		act '卸除你的睫毛嫁接' + $func('money', 'get_cost_string', salon_rate): msg '你不需要这项服务！'
+	end
+
+	act '返回': minut += 1 & gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'lashTreatment':
+	*clr & cla
+	minut += 30
+	if pcs_lashes < 2: pcs_lashes += 1
+	if pcs_naturallashes < 2: pcs_naturallashes += 1
+	gs 'exp_gain', 'inhib', rand(1, 5)
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/eyelash_salon.jpg"></center>'
+	'美容师收取你的费用，然后带你到一把有头枕的椅子上，让你把头向后仰靠上去。'
+	'这几乎没花多少时间——她拿清洁湿巾敷到你眼睛上，轻轻擦拭，直到她确信已经干净了，然后非常小心地用一根类似睫毛膏刷头的涂抹棒贴着你的睫毛根部刷过。'
+	'她轻轻吸掉那一点点多余的液体，然后让你离开，并告诉你应该很快就能看到效果。'
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'lashFalsies':
+	*clr & cla
+	minut += 20
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/eyelash_salon.jpg"></center>'
+	'美容师收取你的费用，然后带你到一把有头枕的椅子上，让你把头向后仰靠上去。'
+	if lashfalsiesstyle = 1:
+		if pcs_lashes < 3: pcs_lashes = 3
+		false_lashes = 1
+		'她花了几分钟挑选并修剪一副虽然简单却效果夸张的假睫毛，让它们与你自己的天然睫毛整齐对齐，然后以熟练的轻松手法把它们细致地粘好，只需要轻轻推一两下让它们贴合。'
+	end
+	if lashfalsiesstyle = 2:
+		if pcs_lashes < 4: pcs_lashes = 4
+		false_lashes = 1
+		'她花了几分钟挑选并修剪一副华丽、羽毛感十足的假睫毛，让它们与你自己的天然睫毛整齐对齐，然后以熟练的轻松手法把它们细致地粘好，只需要轻轻推一两下让它们贴合。'
+	end
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	'"好了！都弄好了！不管你接下来去哪儿，玩得开心！"'
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'lashExtension':
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/eyelash_salon.jpg"></center>'
+	'技师收下你的付款，把你带进一间里屋，请你在一张美容院式的床上躺下放松。'
+	if lashextensionnew = 1:
+		if false_lashes >= 1:
+			'她轻轻揭下你日常佩戴的旧假睫毛，花了几分钟清理粘住它们的胶水。"你不再需要这些了！"'
+			minut += 5
+			false_lashes = 0
+			pcs_lashes = pcs_naturallashes
+		end
+		if lashextensionstyle = 2:
+			if pcs_lashes < 3: pcs_lashes = 3
+			'在接下来的一个半小时里，你只能安静地躺在那儿闭着眼睛，而技师非常小心而精准地把一对又黑又长的睫毛粘到你每一根天然睫毛上。'
+			minut += 90
+		end
+		if lashextensionstyle = 4:
+			if pcs_lashes < 4: pcs_lashes = 4
+			'在接下来的两个小时里，你只能安静地躺在那儿闭着眼睛，而技师非常小心而精准地把两对又黑又长的睫毛粘到你每一根天然睫毛上。'
+			minut += 140
+		end
+		if lashextensionstyle = 6:
+			if pcs_lashes < 5: pcs_lashes = 5
+			'感觉你好像要在那里待上一辈子，你闭着眼睛躺在那儿，听着客人们在美容吧的主厅里来来往往。技师花了将近四个小时才把数不清的睫毛接到你自己的睫毛上，有些甚至还点缀着细小轻盈的宝石。你能感觉到它们的重量压在你自己的天然睫毛上——那些被藏在某处下面的睫毛。'
+			minut += 210
+		end
+		'"好了！"她完成辛苦的工作后长出一口气说。"现在，记得每隔两周左右来店里补一次睫毛；如果你让它们大部分都掉光了，我就要按一整套新的收费了，明白吗？"'
+		lashextensionduration = 16
+	end
+	if lashextensionnew = 0:
+		!! Actually, this should not even be possible to do, but just in case...
+		if false_lashes >= 1:
+			'她小心地取下你——说实话，很不明智地——用胶水粘在那套贵得多的嫁接睫毛上的假睫毛。'
+			'"别在这些上面涂胶水！"她告诫你。"你应该懂点分寸！"'
+			'她花了好一会儿才把它们清理干净。'
+			minut += 15
+			false_lashes = 0
+			pcs_lashes = pcs_naturallashes
+		end
+		if lashextensionstyle = 2:
+			if pcs_lashes < 3: pcs_lashes = 3
+			'在接下来大约一个小时里，你躺在那儿让技师整理你的睫毛；她把松动的那些重新粘好，并为你过去几周新长出的睫毛补上新的。'
+			minut += 60
+		end
+		if lashextensionstyle = 4:
+			if pcs_lashes < 4: pcs_lashes = 4
+			'一个半小时过去了，技师一边维护你的嫁接睫毛、给新长出的睫毛补上新的、重新固定可能松脱的那些，一边和你闲聊。'
+			minut += 90
+		end
+		if lashextensionstyle = 6:
+			if pcs_lashes < 5: pcs_lashes = 5
+			'就连维护你这副极其华丽的睫毛也要花上老半天，睫毛技师难受地弓着身子向前倾，为你每一根新长出的睫毛补上数不清的新睫毛，并整理其中松动的那些。'
+			minut += 120
+		end
+		'"好了！"她完成漫长的维护后长出一口气说。"你又恢复漂亮了！大约两周后再见？"'
+		lashextensionduration = 16
+	end
+	if lashextensionnew = -1:
+		if false_lashes >= 1:
+			'"嗯，恐怕我得先把这些假睫毛取下来。抱歉，"她一边解释，一边小心地取下你粘在嫁接睫毛上的假睫毛条。'
+			minut += 5
+		end
+		minut += 20
+		'虽然技师看起来不太情愿，但她还是顺从地开始了那个有点疼的过程：试着泡软并卸除你剩下的嫁接睫毛。有点刺痛，而且你感觉这一过程中大概也损失了一些自己的天然睫毛。'
+		if pcs_naturallashes > 0: pcs_naturallashes -= 1
+		pcs_lashes = pcs_naturallashes
+		killvar 'lashextensionnew'
+		killvar 'lashextensionduration'
+		killvar 'lashextensionstyle'
+	end
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	'在仿佛过了永远那么久之后，你终于可以睁开眼睛看一看了。'
+	act '离开': gt 'salon', 'start'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           SALON SERVICES                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'tanning_booth':
+	*clr & cla
+	minut += 25
+	pcs_tan += 10
+	gs 'outfit', 'undress'
+	gs 'exp_gain', 'inhib', rand(0, 2)
+	gs 'archetypes', 'gain', 'bimbo', 'tiny', '日光浴舱'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/solarium.jpg"></center>'
+	'你脱光所有衣服，整齐地叠放在提供的凳子上，然后在美黑舱里待了 15 分钟把皮肤晒成古铜色。'
+	act '穿好衣服离开':
+		minut += 5
+		gs 'outfit', 'dress'
+		gt 'salon', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'hair_removal':
+	*clr & cla
+
+	if $job_status['city_salon_masseuse'] = 'employed':
+		partialservice = 500
+		fullservice = 1000
+	else
+		partialservice = 1000
+		fullservice = 2000
+	end
+
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/depilation.jpg"></center>'
+
+	*pl '我们可以做腿部、比基尼区或全身脱毛。你想要哪种服务？<br>'
+
+	if pcs_leghair > 2 and func('money', 'can_afford', partialservice):
+		'腿部脱毛 <a href="exec: gs ''money'', ''pay'', <<partialservice>> & gt ''salon'', ''waxlegs''"><<$func(''money'', ''string_price'', partialservice)>></a> '
+	elseif pcs_leghair > 2:
+		'给腿部脱毛 (' + $func('wrap', 'neg', '<<$func(''money'', ''string_price'', partialservice)>>') + ') '
+	end
+	if pcs_pubes > 2 and func('money', 'can_afford', partialservice):
+		'比基尼区脱毛 <a href="exec: gs ''money'', ''pay'', <<partialservice>> & gt ''salon'', ''waxpubic''"><<$func(''money'', ''string_price'', partialservice)>></a> '
+	elseif pcs_pubes > 2:
+		'给比基尼区脱毛 (' + $func('wrap', 'neg', '<<$func(''money'', ''string_price'', partialservice)>>') + ') '
+	end
+	if pcs_pubes > 2 and pcs_leghair > 2 and func('money', 'can_afford', fullservice):
+		'全身脱毛 <a href="exec: gs ''money'', ''pay'', <<fullservice>> & gt ''salon'', ''waxbody''"><<$func(''money'', ''string_price'', fullservice)>></a> '
+	elseif pcs_pubes > 2 and pcs_leghair > 2:
+		'给全身脱毛 (' + $func('wrap', 'neg', '<<$func(''money'', ''string_price'', fullservice)>>') + ') '
+	end
+
+	act '离开': gs 'salon', 'cleanvar' & gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'waxlegs':
+	minut += 30
+	pcs_leghair = -10
+	gs 'exp_gain', 'inhib', rand(1, 5)
+	gs 'pain', 5, 'legL', 'pull'
+	gs 'pain', 5, 'legR', 'pull'
+	gs 'stat'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/depilation.jpg"></center>'
+	'你做了腿部蜜蜡脱毛，双腿感觉丝般光滑，完全没有毛发。'
+
+	act '离开': gs 'salon', 'cleanvar' & gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'waxpubic':
+	minut += 30
+	pcs_pubes = -10
+	gs 'exp_gain', 'inhib', rand(1, 5)
+	gs 'pain', 5, 'pubic', 'pull'
+	gs 'stat'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/depilation.jpg"></center>'
+	'你做了阴部蜜蜡脱毛，那里感觉丝般光滑，完全没有毛发。'
+	act '离开': gs 'salon', 'cleanvar' & gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'waxbody':
+	minut += 60
+	pcs_leghair = -10
+	pcs_pubes = -10
+	gs 'exp_gain', 'inhib', rand(1, 5)
+	gs 'pain', 5, 'legL', 'pull'
+	gs 'pain', 5, 'legR', 'pull'
+	gs 'pain', 5, 'pubic', 'pull'
+	gs 'stat'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/depilation.jpg"></center>'
+	'你做了一次全身脱毛护理，全身变得光滑，完全没有任何毛发。'
+	act '离开': gs 'salon', 'cleanvar' & gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'pubes':
+	*clr & cla
+	$menu_loc = 'salon'
+	$menu_arg = 'pubes'
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/salon.jpg"></center>'
+	'你走到技师那里，告诉她你想染阴毛。'
+	'她问你想染什么颜色。'
+	*nl
+
+	if pcs_pubecol[2] <> pcs_pubecol:
+		act '返回自然颜色':
+			cla
+			'"我想把阴毛的颜色变回去。我想要回我天然的颜色。"'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = pcs_pubecol
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+	if pcs_pubecol[2] <> 0:
+		act '黑色':
+			cla
+			'"黑色，"你说。"我想要显得神秘又诱人。"'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 0
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+
+	if pcs_pubecol[2] <> 1:
+		act '棕色':
+			cla
+			'"棕色，"你说。"我觉得那样很好看。"'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 1
+				pcs_pubecol[3] = rand(35, 42)
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+
+	if pcs_pubecol[2] <> 2:
+		act '姜黄色':
+			cla
+			'"姜黄色。我觉得这有点与众不同，还挺性感，"你说。'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 2
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+
+	if pcs_haircol <> 3:
+		act '金发女郎':
+			cla
+			'"金色！金发女郎更有趣。我不知道这对阴毛管不管用，但我想试试看，"你咯咯笑着说。'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 3
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+	if pcs_haircol <> 4:
+		act '红色':
+			cla
+			gs 'stat'
+			'"红色。就是特别红的那种，"你回答。'
+			'"那具体是哪种红呢？"理发师愉快地问。'
+			'"亮红色。就像消防车那样，"你说道。'
+			'"没问题！请坐，"她说着为你把其中一把椅子转过来。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 4
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+	if pcs_haircol <> 5:
+		act '蓝色':
+			cla
+			gs 'stat'
+			'"这有点不寻常，但我想试试蓝色，"你回答。'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 5
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+	if pcs_haircol <> 6:
+		act '绿色':
+			cla
+			gs 'stat'
+			'"绿色。为了帮助雨林，"你咯咯笑着说。'
+			'"我觉得这事不是这么运作的……"她说，看起来有点困惑。'
+			'"我们至少可以试试吗？"你问。'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 6
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+	if pcs_haircol <> 7:
+		act '粉色':
+			cla
+			gs 'stat'
+			'"粉色，"你说。'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 7
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+	if pcs_haircol <> 8:
+		act '紫色':
+			cla
+			gs 'stat'
+			'"你们有紫色染剂吗？"你问。'
+			'"没问题！"她愉快地说，然后把你带到一间私密房间。'
+			'"坐下，把衣服拉下来。我们很快就弄好！"她说着指向一个座位让你坐下。'
+
+			act '坐下':
+				cla
+				*clr
+				minut += 45
+				pcs_pubecol[2] = 8
+				pcs_pubecol[3] = pcs_pubes*2
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="<<func(''$body_image'', ''pubes'')>>"></center>'
+				'45 分钟后，染剂已经上色并干透，技师检查一切都没问题。"都好了！你可以穿衣服了。"'
+				'你重新穿好衣服，付给她<<$func(''money'', ''string_price'', 500)>>.'
+
+				act '走开': gt 'salon', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'skin_care':
+	*clr & cla
+	minut += 60
+	gs 'exp_gain', 'inhib', rand(1, 5)
+	salon['skin_care_day'] = daystart
+	if pcs_skin < 200:
+		pcs_skin += 50
+	elseif pcs_skin <= 400:
+		pcs_skin += 25
+	elseif pcs_skin <= 600:
+		pcs_skin += 15
+	elseif pcs_skin <= 800:
+		pcs_skin += 10
+	elseif pcs_skin <=995:
+		pcs_skin += 5
+	else
+		pcs_skin = 1000
+	end
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/facialmask.jpg"></center>'
+	'你做了一次美容面膜护理，脸部感觉丝般光滑。'
+	'你被告知要等一周才能做新的护理。'
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'rejuvination':
+	*clr & cla
+	minut += 60
+	gs 'exp_gain', 'inhib', rand(1, 5)
+	vidageday += 50
+	gs 'AppearanceSystem', 'UpdateBaseAppearance'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/bodyscrub.jpg"></center>'
+	'你做了一次全身焕肤护理，皮肤感觉柔软丝滑。'
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'massage':
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+	'"我今天想做个按摩。"'
+	act '没关系': gt 'salon', 'services'
+	if $job_status['city_salon_masseuse'] <> 'employed':
+		'"我们有几种适合女性的按摩。"'
+		*nl
+		'"首先，我们有<b>标准身体按摩</b>，<i>保证</i>让你感到放松和焕然一新！"'
+		*nl
+		'"然后我们还有<b>特殊保健按摩</b>。也非常放松，使用特别的精油会让你感觉更年轻，并延缓皮肤的衰老过程。"'
+		*nl
+		'"还有<b>魔术指按摩</b>，它能让你在一种<i>不同</i>方式。为了释放你身体的紧张感，我们确信它会让你在整场疗程中呻吟！它有非常<i>高潮般</i>的效果。"'
+		*nl
+		'"我们还有<b>喉部按摩</b>，适合有点口部依赖的人。有助于满足想吮吸东西的需求。附赠一杯免费鸡尾酒或一次面部护理，随你选。"'
+		*nl
+		'"我们有<b>硬核按摩</b>和<b>双人硬核按摩</b>。硬核按摩就是为了字面意义上地把压力从你身体里猛敲出去。我们的按摩师在用这种方式减压方面极其熟练。双人硬核按摩只是多加了个人。不是一位按摩师，而是两位同时猛干你，以达到最大程度的减压效果。"'
+		*nl
+		'"最后，我们有<b>轻柔按摩</b>。不是每个人都喜欢猛的，所以我们也有更轻柔的版本，如果你有这个倾向，它应该能很好地满足你的需求。"'
+		*nl
+		'"你今天想做哪种按摩？顺便说一下，我们只收现金。"'
+		gs 'salon', 'discount', 1000
+		act '标准身体按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做标准身体按摩？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'normal_massage'
+			end
+		end
+		gs 'salon', 'discount', 5000
+		act '特殊保健按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做特殊的保健按摩？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'wellness_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 2000
+		act '魔术指按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做魔术指按摩？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'magic_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 1500
+		act '喉咙按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做喉咙按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'throat_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 2500
+		act '硬核按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做硬核按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'hardcore_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 3000
+		act '双重硬核按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做双重硬核按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'double_hardcore_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 2500
+		act '温和按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做温和按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'gentle_massage'
+			end
+		end
+	else
+		'"今天想当接受的一方而不是付出的一方吗，<<$pcs_firstname>>？"'
+		act '都有哪些按摩？': gs 'salon', 'massage_explain'
+		gs 'salon', 'discount', 1000
+		act '标准全身按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做标准全身按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'normal_massage'
+			end
+		end
+		gs 'salon', 'discount', 5000
+		act '特色保健按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做特色保健按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'wellness_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 2000
+		act '魔术指按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做魔术指按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'magic_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 1500
+		act '喉咙按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做喉咙按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'throat_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 2500
+		act '硬核按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做硬核按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'hardcore_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 3000
+		act '双重硬核按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做双重硬核按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'double_hardcore_massage'
+			end
+		end
+
+		gs 'salon', 'discount', 2500
+		act '温和按摩' + $func('money', 'get_cost_string', salon_rate):
+			if func('money', 'can_afford', salon_rate) = 0:
+				$noMoney
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/xian.jpg"></center>'
+				'"你想做温和按摩吗？"'
+				act '算了，我不要按摩': gt 'salon', 'services'
+				act '让我再看看其他选项': gt 'salon', 'massage'
+				act '是的，我想要这个': gt 'salon', 'gentle_massage'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'massage_explain':
+	*nl
+	'"我们为女性提供好几种按摩。"'
+	*nl
+	'"首先，我们有<b>标准全身按摩</b>，<i>保证</i>让你感到放松、神清气爽！"'
+	*nl
+	'"然后我们还有<b>特色保健按摩</b>。同样非常放松，配合特制精油使用，会让你感觉更年轻，并延缓皮肤衰老。"'
+	*nl
+	'"还有<b>魔术指按摩</b>，它能以一种<i>不同</i>的方式让你放松。为了释放你身体的紧张感，我们确信它会让你在整场疗程中呻吟！它的效果非常<i>令人高潮</i>。"'
+	*nl
+	'"我们还有<b>喉咙按摩</b>，适合那些有点口腔依赖的人。有助于满足想吮吸点东西的需求。附赠一杯免费鸡尾酒或一次颜射，随你选。"'
+	*nl
+	'"我们有<b>硬核按摩</b>和<b>双重硬核按摩</b>。硬核按摩顾名思义，就是实实在在地把压力从你身体里砸出去。我们的按摩师在这方面减轻压力极其在行。双重硬核按摩不过是再加一个人。不是一位按摩师，而是两位同时猛干你，以达到最大的减压效果。"'
+	*nl
+	'"最后，我们还有<b>温和按摩</b>。不是每个人都喜欢激烈的，所以我们也有更温和的版本，如果你有意，它应该能很好地满足你的需求。"'
+end
+
+
+if $ARGS[0] = 'massage_end':
+	gs 'outfit', 'dress'
+	gs 'arousal', 'end'
+	killvar 'salon_masseur_id'
+	killvar 'salon_masseur2_id'
+	gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'normal_massage':
+	gs 'outfit', 'undress'
+	gs 'stat'
+	gs 'salon', 'discount', 1000
+	gs 'money', 'pay', salon_rate
+	pcs_sleep += 25
+	gs 'mood', 'raise', 'small'
+	gs 'arousal', 'massage', 30
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/mass.jpg"></center>'
+	'脱下衣服躺在按摩床上后，接下来的 30 分钟你都在极乐中度过，一位按摩师揉捏着你背部的肌肉。'
+	'说实话，他的触碰几乎……带着情欲，你注意到双腿之间越来越热。幸好一条毛巾盖着你的臀部，所以他应该看不到你湿润的样子。'
+	'但很快，按摩结束了，你独自重新穿好衣服，放松下来的身体让你感到精力焕然一新。'
+	act '离开': gt 'salon', 'massage_end'
+end
+
+
+if $ARGS[0] = 'wellness_massage':
+	*clr & cla
+	gs 'outfit', 'undress'
+	gs 'arousal', 'massage', 30
+	gs 'stat'
+	vidageday += 30
+	pcs_skin += 4
+	pcs_sleep += 25
+	gs 'mood', 'raise', 'small'
+	pcs_horny += 25
+	gs 'salon', 'discount', 5000
+	gs 'money', 'pay', salon_rate
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/mass.jpg"></center>'
+	'你脱下衣服躺在按摩床上，随后一名服务生走了进来。他开始揉捏你的背部，并把一种带来刺麻感的精油涂满你全身。按摩过程中，你舒服地呻吟起来，这家伙真的很懂得如何让你的肌肉放松。这甚至让你有点性奋……'
+	'按摩继续着，你感觉整个身体开始发热。精油仍然带来刺麻感，你的呼吸也开始加重。你的脸发烫，乳头隔着按摩床柔软的布料变得非常敏感，你努力不让自己在按摩师的触碰下扭动，双腿很想互相摩擦。'
+	'然后按摩突然结束了。你满脸通红，在按摩师离开后自己穿好衣服，心里纳闷那精油里到底加了什么鬼东西。'
+	act '离开': gt 'salon', 'massage_end'
+end
+
+
+if $ARGS[0] = 'magic_massage':
+	*clr & cla
+	gs 'salon', 'discount', 2000
+	gs 'money', 'pay', salon_rate
+	gs 'outfit', 'undress'
+	gs 'arousal', 'massage', 5
+	gs 'arousal', 'foreplay', 5
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/nipple_play1.mp4"></video></center>'
+	'你脱下衣服躺在按摩床上，随后一名服务生走了进来。他先把精油涂遍你全身，按摩你的肩膀，然后伸手抚向你的乳房。他也按摩了那里，手法完美得让人腿软，他的手指还没碰到，你的乳头就已经硬了。当他真的触碰时，你呼吸一滞，感觉双腿之间越来越湿润。'
+	'在挑逗你、把你的情欲一点点挑起几分钟后，他让你翻过身趴着。'
+	act '转过身':
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/finger_orgasm1.mp4"></video></center>'
+		'接下来的部分在快感与高潮的模糊中一晃而过。他先伸手按摩你的屁股，但很快就移到你双腿之间，开始向你展示为什么这被叫做"魔术指"按摩。他深入你的小穴，用奇怪的手法弄得你在他的触碰下扭动挣扎，让你倒吸一口气，立刻夹紧了他的手指。我靠，你刚刚高潮了！接着他又让你高潮。一次又一次。还<i>又一次</i>……你开始把口水淌到按摩床上，完全搞不清发生了什么。'
+		'这双手比你自己更了解你的小穴。它们按摩着每一处能让你兴奋的地方，用恰到好处的方式玩弄你的阴蒂，手指还钻进你体内，摩擦那些你从不知道存在的 G 点。你整个身体陷入反复循环：高潮积蓄时的紧绷，紧接着是高潮退去后令人失神的释放，然后又重新开始积累。在他的触碰下，你唯一会做的事就是从两张嘴里一起流口水……'
+		*nl
+		i = 0
+		:salon_loop
+		i += 1
+		$orgasm_or = 'yes'
+		gs 'arousal', 'vaginal_finger', 2, 'no_orgasm_msg'
+		if i <= 10: jump 'salon_loop'
+		gs 'stat'
+		'<i>哦哦哦哦哦我的天啊啊啊啊……</i>'
+		act '下一步':
+			gs 'mood', 'raise', 'medium'
+			gs 'arousal', 'end'
+			gs 'stat'
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/shared/sex/massage/after2.jpg"></center>'
+			'按摩终于结束了，你独自留在那里从这场体验中缓过来。你全身泛红，乳头硬得像石头，大腿上沾满了自己的汁液，高潮后的余韵让你感觉像漂浮在太空中。而且你猜怎么着？你确实<i>真的</i>觉得很放松！你当场就能睡着。'
+			act '离开':
+				gs 'outfit', 'dress'
+				gs 'arousal', 'end'
+				gt 'salon', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'throat_massage':
+	*clr & cla
+	gs 'outfit', 'undress'
+	gs 'npcgeneratec', 0, '按摩师', rand(18, 60), 0, 1
+	$salon_masseur_id = $npclastgenerated
+	gs 'arousal', 'foreplay', 15
+	gs 'arousal', 'bj', 15, $salon_masseur_id
+	gs 'stat'
+	gs 'mood', 'raise', 'small'
+	gs 'salon', 'discount', 1500
+	gs 'money', 'pay', salon_rate
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/bj1.mp4"></video></center>'
+	'你脱下衣服躺在按摩床上，随后一名服务生走了进来。他很快脱掉袍子，露出一根又大又漂亮的鸡巴，然后轻轻让你的头垂到按摩床外，用枕头垫住你的脖子。接着他开始小心地操你的喉咙。'
+	'你翻起白眼，任由他的双手在你乳房和身体上游走，同时把鸡巴捅进你嘴里，但肩膀被反复拍了几下后，你终于从恍惚中回过神来。'
+	'"女士，您想让我射在哪里？"'
+	act '"嗯嗯嗯嗯"（射在我嘴里）':
+		*clr & cla
+		gs 'cum_call', 'mouth_swallow', $salon_masseur_id
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/bj1.mp4"></video></center>'
+		'"嗯嗯嗯嗯，"你含着按摩师的鸡巴含糊地说。奇怪的是，他完全听懂了，你立刻感到一股热流射进嘴里，你把它咽了下去。'
+		'你把所有东西都咽下去后，按摩师用毛巾擦了擦鸡巴，感谢你的光顾，然后离开了，你则开始穿衣服。'
+		act '离开':
+			gs 'outfit', 'dress'
+			gs 'arousal', 'end'
+			gt 'salon', 'start'
+		end
+	end
+
+	act '"嗯嗯嗯嗯"（射在我脸上）':
+		*clr & cla
+		gs 'cum_call', 'face', $salon_masseur_id
+		gs 'cum_call', 'hair', $salon_masseur_id
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/facial2.mp4"></video></center>'
+		'"嗯嗯嗯嗯，"你含着按摩师的鸡巴含糊地说。奇怪的是，他完全听懂了，毫不犹豫地从你嘴里抽出来，爬上按摩床边缘，然后把精液全喷在你身上。'
+		'又热又黏的液体糊满你的脸和头发，按摩师用鸡巴把它涂抹得到处都是，尽可能扩大覆盖范围。被操了半小时喉咙之后，这竟有种奇怪的慰藉感。'
+		'等你的脸被完全覆盖后，他从按摩床上下来，用毛巾擦干净鸡巴，感谢你的光顾，然后离开让你自己穿衣服。'
+		act '把脸上的精液擦掉':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			cumspclnt = 12
+			gs 'cum_cleanup'
+			'你拿起旁边的一条毛巾，把脸和头发擦干净，把毛巾丢进垃圾桶，重新穿好衣服，准备离开。'
+			'"按摩感觉怎么样？"前台问道。'
+			'"非常好。我特别喜欢附赠的颜射，"你笑着说。'
+			act '离开':
+				gs 'outfit', 'dress'
+				gs 'arousal', 'end'
+				gt 'salon', 'start'
+			end
+		end
+
+		act '就这样离开':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'你无视旁边充足的毛巾，重新穿好衣服，走向美容吧大厅。'
+			'"按摩感觉怎么样？"前台问道。'
+			'"非常好。我特别喜欢附赠的颜射，"你带着满脸精液黏成的笑容说。'
+			act '离开':
+				gs 'outfit', 'dress'
+				gs 'arousal', 'end'
+				gt 'salon', 'start'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'hardcore_massage':
+	*clr & cla
+	cumnostd = 1
+	gs 'outfit', 'undress'
+	gs 'npcgeneratec', 0, '按摩师', rand(18, 60), 0, 1
+	$salon_masseur_id = $npclastgenerated
+	gs 'arousal', 'vaginal', 30, $salon_masseur_id, 'rough'
+	gs 'stat'
+	gs 'mood', 'raise', 'small'
+	gs 'salon', 'discount', 2500
+	gs 'money', 'pay', salon_rate
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/doggy<<rand(1, 6)>>.mp4"></video></center>'
+	'接下来的 30 分钟，你被一个鸡巴硬得像钢一样的男人<i>狠狠干</i>了个够。'
+	*nl
+	'肉棒一次次撞进你小穴的重复快感是你脑子里唯一想的事，它快要把你逼疯在快感里。'
+	'但天下没有不散的宴席。在意识的边缘，你听见按摩师的低吼。'
+	'"您想要内射还是颜射，女士？"'
+	act '语无伦次地呻吟':
+		*clr & cla
+		gs 'cum_call', '', $salon_masseur_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'vaginal', -5, $salon_masseur_id, 'rough', 'no_orgasm_msg'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/creampie<<rand(2, 4)>>.mp4"></video></center>'
+		'你其实没听懂他在说什么，只是用嗓子发出了某种声音作为回应。那听起来完全不像词句，但你觉得总该给点回应。'
+		'他的回应是直直捅进你体内，整根没入到根部。你舒服得脚趾蜷起，嘴里漏出一声"Nnnngh~！"，紧接着一股液体灌进他鸡巴和你小穴之间的缝隙，你狠狠地高潮了。'
+		'一切都绷紧了，你感觉自己像老虎钳一样紧紧咬住他的阴茎，用力到游走在痛苦与快感的边缘。然后，就像屏了很久的一口气，一切从你身体里释放出来。你瘫倒在按摩台上，感觉到他滑出你的身体，因那种空荡荡的感觉而呜咽。片刻之后，精液从你的小穴涌出。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'按摩师把自己清理干净并感谢你的光顾然后给你一点时间整理好自己。'
+			'他们说要把压力从你身体里砸出去时，可没有开玩笑……'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+		end
+	end
+
+	act '里面！里面！':
+		*clr & cla
+		gs 'cum_call', '', $salon_masseur_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'vaginal', -5, $salon_masseur_id, 'rough', 'no_orgasm_msg'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/creampie<<rand(2, 4)>>.mp4"></video></center>'
+		'"里面！里面！里面！<i><b>里面！</b></i>"你尖叫道。'
+		'你的回应野蛮而原始。你快感太盛、被这男人的鸡巴弄得几乎无法思考。你唯一知道的就是你想感觉他<i><b>现在</b></i>就射在你体内。'
+		'听到你的话，他整根没入你体内，一直顶到根部。你舒服得脚趾蜷起，嘴里漏出一声"Nnnngh~！"，紧接着一股液体灌进他鸡巴和你小穴之间的缝隙，你狠狠地高潮了。'
+		'一切都绷紧了，你感觉自己像老虎钳一样紧紧咬住他的阴茎，用力到游走在痛苦与快感的边缘。然后，就像屏了很久的一口气，一切从你身体里释放出来。你瘫倒在按摩台上，感觉到他滑出你的身体，因那种空荡荡的感觉而呜咽。片刻之后，精液从你的小穴涌出。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'按摩师把自己清理干净并感谢你的光顾然后给你一点时间整理好自己。'
+			'你感到恍惚。他们说要把压力从你身体里砸出去时，可没有开玩笑……'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+		end
+	end
+
+	act '脸！脸！脸！':
+		*clr & cla
+		gs 'cum_call', 'face', $salon_masseur_id
+		gs 'cum_call', 'hair', $salon_masseur_id
+		gs 'cum_call', 'mouth', $salon_masseur_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'vaginal', -5, $salon_masseur_id, 'rough', 'no_orgasm_msg'
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/facial<<rand(1, 2)>>.mp4"></video></center>'
+		'"脸！脸！脸！"你喊道。'
+		'你的回应野蛮而原始。你快感太盛、被这男人的鸡巴弄得几乎无法思考。你唯一知道的就是你想感觉他现在就射满你的脸。'
+		'你大大张开双腿，他从你体内抽出，立刻冲到你的头边。他一到位，精液就喷满你的脸和头发。它一碰到你的皮肤，你就感到一阵巨大的热潮并<i>狠狠</i>高潮了。'
+		'你张着嘴呻吟，舌头伸出，唯一能意识到的就是他的鸡巴把精液涂抹在你脸上其余的地方。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'按摩师把自己清理干净并感谢你的光顾然后给你一点时间整理好自己。'
+			'你感到恍惚。想想看，光是被人射在脸上你就能高潮……之前的积蓄一定非常强烈……'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+			act '先把脸擦干净':
+				cumspclnt = 12
+				gs 'cum_cleanup'
+				gt 'salon', 'massage_end'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'double_hardcore_massage':
+	*clr & cla
+	cumnostd = 1
+	gs 'outfit', 'undress'
+	gs 'npcgeneratec', 0, '按摩师', rand(18, 60), 0, 1
+	$salon_masseur_id = $npclastgenerated
+	gs 'npcgeneratec', 0, '按摩师', rand(18, 60), 0, 1
+	$salon_masseur2_id = $npclastgenerated
+	gs 'arousal', 'vaginal', 30, $salon_masseur_id, 'rough'
+	gs 'arousal', 'bj', -30, $salon_masseur2_id, 'rough'
+	gs 'stat'
+	gs 'mood', 'raise', 'small'
+	gs 'salon', 'discount', 3000
+	gs 'money', 'pay', salon_rate
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/spitroast1.mp4"></video></center>'
+	'"嗯嗯嗯……"你含着嘴里的鸡巴呻吟着，而身后那根已经第一百次撞进你体内。还是说第二次？大概更像第四次吧。'
+	*nl
+	'你完全不知道从开始到现在过了多久。二十分钟？半小时？你唯一知道的是，你多么享受在这两根鸡巴之间被来回抽插。而它们的主人<i>完全</i>清楚自己在做什么。每一次挺动都恰到好处地填满你，而你一直吮吸的那根，形状和味道对女孩来说堪称完美。你愿意永远待在这两根鸡巴之间……'
+	'但天下没有不散的宴席。'
+	'"时间快到了，女士。您想让我们射在您里面，还是给您来个双重颜射？"其中一人问道。'
+
+	act '"嗯—嗯嗯"（请射在里面）':
+		gs 'cum_call', '', $salon_masseur_id
+		gs 'cum_call', 'mouth', $salon_masseur2_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'bj', -5, $salon_masseur2_id, 'rough', 'no_orgasm_msg'
+		gs 'stat'
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/spitroast1.mp4"></video></center>'
+		'"嗯—嗯嗯，"你含着嘴里的鸡巴含糊地说。有意思的是，他们似乎完全听懂了，开始加快节奏，直到同时捅进你的两个洞，用肉体把它们填到极限，紧接着又灌满了精液。'
+		'浓郁的滋味充满你的口腔，同时你感到另一股浓稠的液体喷进小穴。这让你发疯，把你送上一场脚趾蜷起的高潮。在脑海深处某处，你注意到嘴里的精液甜得异常，你不禁好奇美容吧是不是鼓励他们多吃甜水果。'
+		'当他们两人从你体内退出时，你感到精液从两张嘴唇里往外流，只可惜你只能舔到其中一张。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'感谢你的光顾后，两位按摩师离开了，留给你一点时间喘口气、穿好衣服。'
+			'你又舔了舔嘴唇，仍感觉精液黏在嘴角。看来被训练有素的按摩师双人夹击，是一种非常美味的体验，而且不止在一个方面。'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+		end
+	end
+
+	act '"嗯嗯嗯嗯嗯嗯嗯"（给我颜射）':
+		gs 'cum_call', 'face', $salon_masseur_id
+		gs 'cum_call', 'face', $salon_masseur2_id
+		gs 'cum_call', 'hair', $salon_masseur_id
+		gs 'cum_call', 'hair', $salon_masseur2_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'bj', -5, $salon_masseur2_id, 'rough', 'no_orgasm_msg'
+		gs 'stat'
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/shared/sex/cum/facial/facial28.jpg"></center>'
+		'"嗯嗯嗯嗯嗯嗯嗯，"你含着嘴里的鸡巴含糊地说。有意思的是，他们似乎完全听懂了，立刻从你的洞里退出，围到你的脸旁。你期待地伸出舌头，随即得到回报：滚烫的精液一股股喷洒在你脸上。又浓又黏，让你觉得爽得不行。'
+		'他们一股接一股地射，把你的脸和头发都糊满，同时你疯狂地揉搓自己的阴蒂，直到最终被推过边缘，进入高潮。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'趁你的高潮渐渐退去，两位按摩师把自己擦干净，感谢你的光顾，然后离开，留给你一点时间喘口气、穿好衣服。'
+			'你伸了个懒腰，满足地叹了口气。这地方真懂得怎么好好招待女士。'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+			act '先把脸擦干净':
+				cumspclnt = 12
+				gs 'cum_cleanup'
+				gt 'salon', 'massage_end'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'gentle_massage':
+	*clr & cla
+	cumnostd = 1
+	gs 'outfit', 'undress'
+	gs 'npcgeneratec', 0, '按摩师', rand(18, 60), 0, 1
+	$salon_masseur_id = $npclastgenerated
+	gs 'arousal', 'massage', 5
+	gs 'arousal', 'vaginal', 25, $salon_masseur_id
+	gs 'stat'
+	gs 'mood', 'raise', 'small'
+	gs 'salon', 'discount', 2500
+	gs 'money', 'pay', salon_rate
+	gs 'stat'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/miss8.mp4"></video></center>'
+	'经过一场短暂却无比色情的按摩后，你刚过去的半小时都在被这位按摩师的鸡巴娇宠着。'
+	*nl
+	'开始不过几分钟，你就已经湿透了，他的鸡巴顺滑地滑进你体内。从那之后，它一直温柔得几乎折磨人，每一次挺动都又长又慢，填满你、撑开你的内壁，再像海浪一样退回去。奇怪的是，这感觉就像呼吸——如果呼吸能让你高潮的话。'
+	*nl
+	'按摩师依旧缓慢而温柔地挺动着，在你耳边低语。"您想让我射在哪里，女士？里面还是脸上？"'
+	act '里面':
+		gs 'cum_call', '', $salon_masseur_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'vaginal', -5, $salon_masseur_id, 'rough', 'no_orgasm_msg'
+		gs 'stat'
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/cum/vagcreampie/creampie5.mp4"></video></center>'
+		'"请射在里面，"你娇声回应。'
+		'按摩师顶进你体内，直到把你撑到极限。当他抵达你身体最深处的那一刻，你感觉到了。某种滚烫的东西在你体内扩散开来，你能感到它填满了你的子宫。他的鸡巴在你体内搏动，你也随之高潮，眼睛翻白。'
+		'他最终结束并抽了出来，一股浓稠的液体随后流了出来。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'男按摩师清理干净自己，感谢你的光顾，然后给你一点时间清理和穿衣，但你还继续在按摩台上躺了几分钟。'
+			'那可能是你一生中最放松的一次高潮……'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+		end
+	end
+	!!	act 'Outside':
+	act '我的脸':
+		gs 'cum_call', 'mouth', $salon_masseur_id
+		gs 'cum_call', 'face', $salon_masseur_id
+		gs 'cum_call', 'hair', $salon_masseur_id
+		$orgasm_or = 'yes'
+		gs 'arousal', 'vaginal', -5, $salon_masseur_id, 'rough', 'no_orgasm_msg'
+		gs 'stat'
+		*clr & cla
+		'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/massage/facial2.mp4"></video></center>'
+		'"请射在脸上，"你娇声说。'
+		*nl
+		'他又缓慢地在你体内抽插了几次，一边玩弄你的阴蒂，直到你开始高潮。你刚开始，他就立刻抽出，移到你脸旁开始自己射出来。'
+		'高潮的感官冲击加上精液涂满你的脸，简直不可思议，接下来的几分钟你都在极乐中度过。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/work/room.jpg"></center>'
+			'男按摩师清理干净自己，感谢你的光顾，然后给你一点时间清理和穿衣，但你还继续在按摩台上躺了几分钟。'
+			'那可能是你一生中最放松的一次做爱……'
+			act '穿好衣服离开': gt 'salon', 'massage_end'
+			act '先把脸擦干净':
+				cumspclnt = 12
+				gs 'cum_cleanup'
+				gt 'salon', 'massage_end'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'makeup':
+	minut += 30
+	pcs_hairbsh = 1
+	pcs_makeup = 5
+	pcs_lipbalm += 8
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/photo/makeup.jpg"></center>'
+	'改造完成后，你看着镜子里的自己。'
+	'看起来就像你根本没化妆一样。你还是你，但却是更完美的版本。'
+
+	act '离开': gs 'salon', 'cleanvar' & gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'cosmetic_tattoo_start':
+	*clr & cla
+	gs 'salon', 'discount', 2000
+	'<br>我们目前提供五个等级的纹绣：淡雅、鲜艳、性感、专业和名人。<br>请记住，这些疗程是永久性的。<br>另外，请注意，疗程后使用普通化妆品将会很困难。<br>价格定为<<$func(''money'', ''string_price'', salon_rate)>>'
+	if func('money', 'can_afford', salon_rate):
+		if cosmetic_tattoo = 5:
+			'你已经有店里提供的最浓重的纹绣了。'
+		elseif $arch_vars['main_active'] = 'bimbo' or inhib_lvl >= 10:
+			if cosmetic_tattoo < 1:
+				act '做淡雅纹绣 - <<$func(''money'', ''string_price'', salon_rate)>>':
+					gs 'money', 'pay', salon_rate
+					gt 'salon', 'cosmetic_tattoo_operation', 1
+				end
+			end
+			if cosmetic_tattoo < 2:
+				act '做鲜艳纹绣 - <<$func(''money'', ''string_price'', salon_rate)>>':
+					gs 'money', 'pay', salon_rate
+					gt 'salon', 'cosmetic_tattoo_operation', 2
+				end
+			end
+			if cosmetic_tattoo < 3:
+				act '做性感纹绣 - <<$func(''money'', ''string_price'', salon_rate)>>':
+					gs 'money', 'pay', salon_rate
+					gt 'salon', 'cosmetic_tattoo_operation', 3
+				end
+			end
+			if cosmetic_tattoo < 4:
+				act '做专业纹绣 - <<$func(''money'', ''string_price'', salon_rate)>>':
+					gs 'money', 'pay', salon_rate
+					gt 'salon', 'cosmetic_tattoo_operation', 4
+				end
+			end
+			if cosmetic_tattoo < 5:
+				act '做名人（无脑美女）纹绣 - <<$func(''money'', ''string_price'', salon_rate)>>':
+					gs 'money', 'pay', salon_rate
+					gt 'salon', 'cosmetic_tattoo_operation', 5
+				end
+			end
+		else
+			'<br>你觉得自己不够自信，不敢做这种纹绣。'
+		end
+	else
+		'<br>你负担不起这项护理。'
+	end
+	act '离开': gt 'salon', 'start'
+end
+
+
+if $ARGS[0] = 'cosmetic_tattoo_operation':
+	*clr & cla
+	temp_tattoo = ARGS[1]
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/salon/ct<<temp_tattoo>>.jpg"></center>'
+	if temp_tattoo = 1:
+		'技师用针工作了 45 分钟，直到你淡雅的纹绣完成。'
+	elseif temp_tattoo = 2:
+		'技师用针工作了 45 分钟，直到你鲜艳的纹绣完成。'
+	elseif temp_tattoo = 3:
+		'技师用针工作了 45 分钟，直到你性感撩人的纹绣完成。'
+	elseif temp_tattoo = 4:
+		'技师用针工作了 45 分钟，直到你专业的纹绣完成。'
+	elseif temp_tattoo = 5:
+		'技师用针工作了 45 分钟，直到你的名人（无脑美女）纹绣完成。'
+		gs 'archetypes', 'gain', 'bimbo', 'medium', '整容纹身'
+	end
+	cosmetic_tattoo = temp_tattoo
+	killvar 'temp_tattoo'
+	minut += 45
+	gs 'stat'
+	act '继续': gt 'salon', 'services'
+end
+
+
+if $ARGS[0] = 'mom':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/salon.jpg"></center>'
+	'美容吧今天似乎相当繁忙。你走进去，看到你的<<$npc_nickname[''A29'']>>和柳达阿姨。她们还没看到你，似乎只是在聊天，等着轮到她们。'
+
+	act '无视她们然后离开': gt 'city_mall'
+
+	act '过去和她们说话':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/momsalon.jpg"></center>'
+		'你走到你的<<$npc_nickname[''A29'']>>和柳达面前。"嗨，<<$npc_nickname[''A29'']>>，嗨，柳达阿姨！你们是要做头发吗？"'
+		'你的<<$npc_nickname[''A29'']>>抬头看着你，见到你似乎有点惊讶。"是啊。我们还要做美甲。你也一起来吧。我请客。"'
+		'柳达也开口了。"是啊，亲爱的，你也一起来吧。"'
+		'你的<<$npc_nickname[''A29'']>>被叫到名字，她起身坐下开始做头发。免费的美甲是不错，但那也意味着你得陪她们耗时间，听她们聊无聊的东西。'
+
+		act '告诉她你很忙':
+			*clr & cla
+			gs 'npc_relationship', 'modify', 'A29', -1
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/salon.jpg"></center>'
+			'你摇了摇头。"抱歉，我去不了。我已经有安排了。"'
+			'你的<<$npc_nickname[''A29'']>>轻轻叹了口气，显然很失望。"那好吧。别在外面待太晚。"'
+			'你们互相道别，你离开时她们又接着聊了起来。'
+			act '离开': gt 'city_mall'
+		end
+
+		act '同意':
+			*clr & cla
+			gs 'npc_relationship', 'modify', 'A29', 1
+			gs 'npc_relationship', 'modify', 'A30', 1
+			locat['Mom_Salon_daystart'] = daystart
+			minut += 20
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/momsvetsalon.jpg"></center>'
+			'你在柳达旁边坐下，但只坐了一会儿，因为她很快就被叫到名字，起身去做头发了。'
+			'她做完后，两人都被带去做了美甲，你也被叫过去和她们一起。你们三个人坐得很近，一边做美甲。柳达和你的<<$npc_nickname[''A29'']>>聊着各种话题，大多是关于巴甫洛夫斯克最近发生了什么、她们都认识的人，或是她们工作上发生的事的八卦。'
+			'你偶尔也插上几句，跟她们讲讲你最近在忙的事。出乎意料地有趣，而且你还顺便做了个漂亮的美甲。'
+			*nl
+			'等你做完后，你的<<$npc_nickname[''A29'']>>替你俩付了钱，柳达为自己付了钱，然后你们一起走了出去。'
+			'"今天玩得很开心，不过我该回去给我和奥卢做晚饭了，"柳达说。'
+			'你的<<$npc_nickname[''A29'']>>和柳达短暂地拥抱了一下。"我也一样。要是我再不开始做晚饭，弗拉德都不知道该怎么办，多半会饿死。"'
+			*nl
+			'两人都笑了起来，柳达道别后走开了。你的母亲也动身回家。'
+			'"晚饭大约半小时后就好。你也回家跟我们一起吃吧。"'
+			act '离开': gt 'city_mall'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'cleanvar':
+	killvar 'partialservice'
+	killvar 'fullservice'
+	killvar 'salon_rate'
+end
+
+
+--- salon ---------------------------------

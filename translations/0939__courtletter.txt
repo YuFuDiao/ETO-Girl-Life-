@@ -1,0 +1,231 @@
+# courtletter
+
+if $ARGS[0] = '':
+	if arrsize('policeQW_courtletter_dates') > 0 and daystart >= policeQW_courtletter_dates[0]: gt 'courtletter', 'letter'
+end
+
+
+if $ARGS[0] = 'letter':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+
+	if (policeQW['missed_court_dates'] + policeQW['missed_fine_deadlines']) > 1:
+		if (policeQW['tot_court_dates_missed'] + policeQW['tot_fines_deadlines_missed']) > 30 and policeQW['tot_arrested'] > 10:
+			policeQW['tot_arrested'] += 1
+			if policeQW['arrest_gameover_flag'] = 1:
+				gt 'sentence', 'police_arrest', 2
+			else
+				policeQW['arrest_gameover_flag'] = 1
+				gt 'sentence', 'police_arrest', 1
+			end
+
+		elseif (policeQW['missed_court_dates'] + policeQW['missed_fine_deadlines']) > 3:
+			policeQW['tot_arrested'] += 1
+			gt 'sentence', 'police_arrest', 0
+		end
+	end
+
+	'<center><img <<$set_imgh>> src="images/shared/mail/letter_open.jpg"></center>'
+
+	!! Handling the various different letters.
+	if $policeQW_courtletter_subjects[0] = 'fine':
+
+		if policeQW['courtletter_fine_counter'] < 10:
+			policeQW['courtletter_fine_counter'] += 1
+			gs 'mood', 'lower', 'huge'
+			gs 'stat'
+
+			'当你走进家门，你注意到一个法院寄来的信封。你焦急地看着它，深吸一口气，然后拆开信封。'
+
+			if week < 6:
+				'你翻看信件，得知你有一周的时间来全额支付罚款。'
+			else
+				'你翻看信件，得知你必须在从现在起一周后的周一之前全额支付罚款。'
+			end
+
+			'<i>未能在从现在起一周内全额支付罚款，将对被告造成严重后果。</i>看到那句话，你的心一沉……'
+			'<i>你应该使用随附的信封邮寄罚款。</i>'
+			'你把信放回信封，大声叹了口气……'
+
+			if policeQW['legal_fine'] <= 0:
+				gs 'mood', 'raise', 'huge'
+				gs 'stat'
+				'你意识到自己已经付清了罚款，松了一口气。'
+			else
+				'你把信放回信封，大声叹了口气……'
+			end
+
+		else
+			'回到家时，你看到了法院寄来的熟悉信封。你已经知道大意了， <i>未能支付罚款将带来严重后果，</i>云云……'
+			'你浏览信件，又一次看到同样的信息，看完后你把它扔到一边，继续往公寓里走……'
+			if policeQW['legal_fine'] <= 0:
+				'你已经付清罚款了，他们为什么还要来烦你。'
+			end
+		end
+
+		if policeQW['legal_fine'] > 0:
+			act '邮寄法律罚款' + $func('money', 'get_debt_cost_string', policeQW['legal_fine'], 'cash'):
+				if func('money', 'can_afford_debt', policeQW['legal_fine'], 'cash') = 0:
+					$noMoney
+				else
+					*clr & cla
+					gs 'money', 'debt_pay', 'policeQW[''legal_fine'']', 0, 'cash'
+					policeQW['missed_fine_deadlines'] = 0
+					policeQW['fine_deadline'] = 0
+					policeQW['arrest_gameover_flag'] = 0
+					minut += 5
+					gs 'stat'
+
+					!! Need an image of Sveta putting money in the envelope!!
+					!! '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/counter.jpg"></center>'
+					'你把全部未付罚款放入信封并封好。不到5分钟后，你就寄出了信并回来了。'
+					act '完成': gt $loc, $loc_arg
+				end
+			end
+		end
+
+	elseif $policeQW_courtletter_subjects[0] = 'missed_fine':
+		if policeQW['courtletter_fine_counter'] < 10:
+			policeQW['courtletter_fine_counter'] += 1
+			gs 'mood', 'lower', 'huge'
+			gs 'stat'
+
+			'当你走进家门，你注意到一个法院寄来的信封。你焦急地看着它，深吸一口气，然后拆开信封。'
+
+			if policeQW['legal_fine'] <= 0:
+				gs 'mood', 'raise', 'huge'
+				gs 'stat'
+				'你翻看信件，得知你有一周的时间全额支付罚款，而你已经付过了。'
+				'庆幸自己躲过了这份烦恼，你把信收了起来。'
+			else
+				temp_fine = 250 * rand(5, 10)
+				gs 'court_functions', 'add_fine', temp_fine
+				if week < 6:
+					'你翻阅信件，看到你未能支付罚款。法庭又给了你' + $func('money', 'string_price', temp_fine) + ' 罚款，并且宽宏大量地决定给你一周的时间来全额支付。'
+				else
+					'你翻阅信件，看到你未能支付罚款。法庭又给了你' + $func('money', 'string_price', temp_fine) + ' 罚款，并且宽宏大量地决定给你到下周一，也就是一周之后，来全额支付你的罚款。'
+				end
+
+				'<i>未能在从现在起一周内全额支付罚款，将对被告造成严重后果。</i>看到那句话，你的心一沉……'
+				'<i>你应该使用随附的信封邮寄罚款。</i>'
+				'你把信放回信封，大声叹了口气……'
+			end
+
+		else
+			if policeQW['legal_fine'] <= 0:
+				'回到家时，你看到了法院寄来的熟悉信封。你已经知道大意了， <i>未能支付罚款，不支付罚款将带来严重后果，</i>云云……'
+				'你已经付清了罚款，看完信后你把它扔到一边，继续往公寓里面走……'
+
+			else
+				temp_fine = 250 * rand(10, 20)
+				gs 'court_functions', 'add_fine', temp_fine
+				'回到家时，你看到了法院寄来的熟悉信封。你已经知道大意了， <i>未能支付你的罚款，额外的 ' + $func('money', 'string_price', temp_fine) + ' 罚款，未能支付你的罚款将带来严重后果，</i>云云……'
+				'你浏览信件，又一次看到同样的信息，看完后你把它扔到一边，继续往公寓里走……'
+			end
+		end
+
+		if policeQW['legal_fine'] > 0:
+			act '邮寄法律罚款（一项或多项）' + $func('money', 'get_debt_cost_string', policeQW['legal_fine'], 'cash'):
+				if func('money', 'can_afford_debt', policeQW['legal_fine'], 'cash') = 0:
+					$noMoney
+				else
+					*clr & cla
+					gs 'money', 'debt_pay', 'policeQW[''legal_fine'']', 0, 'cash'
+					policeQW['missed_fine_deadlines'] = 0
+					policeQW['fine_deadline'] = 0
+					policeQW['arrest_gameover_flag'] = 0
+					minut += 5
+					gs 'stat'
+
+					!! Need an image of Sveta putting money in the envelope!!
+					!! '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/counter.jpg"></center>'
+					'你把全部未付罚款放入信封并封好。不到5分钟后，你就寄出了信并回来了。'
+					act '完成': gt $loc, $loc_arg
+				end
+			end
+		end
+
+
+	elseif $mid($policeQW_courtletter_subjects[0], 1, 12) = 'missed_court':
+		if week = 6:
+			policeQW_courthearing_dates[] = daystart + 9
+		elseif week = 7:
+			policeQW_courthearing_dates[] = daystart + 8
+		else
+			policeQW_courthearing_dates[] = daystart + 7
+		end
+
+		$policeQW_courthearing_subjects[] = $mid($policeQW_courtletter_subjects[0], 14)
+
+		if policeQW['courtletter_hearing_counter'] < 10:
+			policeQW['courtletter_hearing_counter'] += 1
+			gs 'mood', 'lower', 'huge'
+			gs 'stat'
+
+			'当你走进家门，你注意到一个法院寄来的信封。你焦急地看着它，深吸一口气，然后拆开信封。'
+
+			temp_fine = 500 * rand(5, 10)
+			gs 'court_functions', 'add_fine', temp_fine
+			if week < 6:
+				'你翻看信件，得知你错过了法庭听证。新的听证会安排在一周之后，你被处以 ' + $func('money', 'string_price', temp_fine) + ' 的罚款。'
+			else
+				'你翻看信件，得知你错过了法庭听证。新的听证会安排在从现在起一周后的周一，你被处以 ' + $func('money', 'string_price', temp_fine) + ' 的罚款。'
+			end
+
+			'<i>未能出庭将对被告造成严重后果。</i>看到那句话，你的心一沉……'
+			'<i>法院位于市中心。你应该在 '+func('time', 'get_time_string', 9, 0)+' 之前到达，因为案件很多，我们无法确定什么时候会轮到你。</i>'
+			'你把信放回信封，大声叹了口气……'
+
+		else
+			temp_fine = 500 * rand(10, 20)
+			gs 'court_functions', 'add_fine', temp_fine
+			'回到家时，你看到了法院寄来的熟悉信封。你已经知道大意了， <i>错过了法庭， ' + $func('money', 'string_price', temp_fine) + ' 罚款，不出席将导致严重后果，</i>云云……'
+			'你浏览信件，又一次看到同样的信息，看完后你把它扔到一边，继续往公寓里走……'
+		end
+
+
+else
+		if week = 6:
+			policeQW_courthearing_dates[] = daystart + 9
+		elseif week = 7:
+			policeQW_courthearing_dates[] = daystart + 8
+		else
+			policeQW_courthearing_dates[] = daystart + 7
+		end
+
+		$policeQW_courthearing_subjects[] = $policeQW_courtletter_subjects[0]
+
+		if policeQW['courtletter_hearing_counter'] < 10:
+			policeQW['courtletter_hearing_counter'] += 1
+			gs 'mood', 'lower', 'huge'
+			gs 'stat'
+
+			'当你走进家门，你注意到一个法院寄来的信封。你焦急地看着它，深吸一口气，然后拆开信封。'
+
+			if week < 6:
+				'你翻看信件，得知你被传唤在一周之后出庭。'
+			else
+				'你翻看信件，得知你被传唤在从现在起一周后的周一出庭。'
+			end
+
+			'<i>未能出庭将对被告造成严重后果。</i>看到那句话，你的心一沉……'
+			'<i>法院位于市中心。你应该在 '+func('time', 'get_time_string', 9, 0)+' 之前到达，因为案件很多，我们无法确定什么时候会轮到你。</i>'
+			'你把信放回信封，大声叹了口气……'
+
+		else
+			'回到家时，你看到了法院寄来的熟悉信封。你已经知道大意了， <i>不出庭将带来严重后果，</i>云云……'
+			'你浏览信件，又一次看到同样的信息，看完后你把它扔到一边，继续往公寓里走……'
+		end
+	end
+
+	killvar 'temp_fine'
+	killvar 'policeQW_courtletter_dates', 0
+	killvar 'policeQW_courtletter_subjects', 0
+
+	act '继续': gt $loc, $loc_arg
+end
+
+
+
+--- courtletter ---------------------------------

@@ -1,0 +1,2671 @@
+# blackmailer
+
+!! blackmailQW['stage']:
+!!  1: Caught flashing. Start of the story
+!!  2: Had the first dream
+!!  3: Had the second dream
+!!  4: First SMS send
+!!  5: Hid money in park
+!!  6: Send a picture
+!!  7: Accepted the gift deal
+!!  8: Completed the outfit request
+
+!! blackmailQW['selfie_stage']:
+!!	0: Has not send any risque pics
+!!	1: Send underwear / bikini pic (unlocks flashing pic of tits/ass)
+!!	2: Send a pic of tits or ass (unlocks pussy)
+!!	3: Send a pic of pussy / fullbody nude
+
+!! blackmailQW['cosplay_stage']:
+!!	0: Has not received any cosplay
+!!	1: Has received cosplay
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           INITIALIZATION                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'init_check':
+	if blackmailQW['day'] ! 0: exit
+	if ($ARGS[2] = 'inside' or $ARGS[2] = 'indoors'):
+		if instr($loc, 'church') <= 0: exit
+	elseif $ARGS[2] = 'secluded':
+		exit
+	end
+	if $flash_image = '': exit
+
+
+	temp_prob_chance = 300
+	temp_prob_chance += max(fame['pav_slut'], fame['city_slut'])
+	temp_prob_chance += max(fame['pav_modelling'], fame['city_modelling']) / 10
+	temp_prob_chance += max(fame['pav_porn'], fame['city_porn']) / 10
+	temp_prob_chance += trait_vars['exhibitionist_exp']
+	temp_prob_chance -= 20 * min(trait_vars['exhibitionist'] * trait_vars['exhibitionist'], 9)
+	if temp_prob_chance > 600: killvar 'temp_prob_chance' & exit
+
+	if $ARGS[1] = 'tits':
+		temp_prob_chance -= 50
+	elseif $ARGS[1] = 'butt':
+		temp_prob_chance -= 75
+	elseif $ARGS[1] = 'pussy':
+		temp_prob_chance -= 85
+	elseif $ARGS[1] = 'full':
+		temp_prob_chance -= 120
+	end
+
+	if rand(0, temp_prob_chance) >= 5: killvar 'temp_prob_chance' & exit
+	killvar 'temp_prob_chance'
+
+	gs 'blackmailer', 'init_blackmail', $ARGS[1]
+end
+
+
+if $ARGS[0] = 'init_blackmail':
+	blackmailQW['day'] = daystart
+	blackmailQW['stage'] = 1
+	blackmailQW['init_day'] = daystart
+	if $ARGS[1] = 'panty':
+		$blackmailQW['init_flashaction'] = 'panties'
+	elseif $ARGS[1] = 'pantyrear':
+		$blackmailQW['init_flashaction'] = '穿着内裤的屁股'
+	elseif $ARGS[1] = 'butt_plug':
+		$blackmailQW['init_flashaction'] = '肛塞'
+	elseif $ARGS[1] = 'full':
+		$blackmailQW['init_flashaction'] = '赤裸的身体'
+	else
+		$blackmailQW['init_flashaction'] = $ARGS[1]
+	end
+
+	$blackmailQW['init_flashimage'] = $flash_image
+	$blackmailQW['init_flashloc'] = $loc
+	$blackmailQW['init_flashloc_arg'] = $loc_arg
+	$blackmailQW['init_flashregion'] = $region
+	blackmailQW['total_material'] = 1
+
+	*nl
+	if instr($loc, 'park') > 0:
+		$blackmailQW['init_flashloc_desc'] = '在公园里'
+		'<b>一道闪光</b>短暂地照亮了周围的树木，你看到一个影子在树间窜动。相机闪光灯的光芒刺得你裸露的皮肤发痒。'
+	elseif instr($loc, 'church') > 0:
+		$blackmailQW['init_flashloc_desc'] = '在教堂里'
+		'<b>相机闪光灯的亮光</b>照亮了教堂内部，但你找不到光源。'
+	elseif instr($loc, 'fuelstation') > 0:
+		$blackmailQW['init_flashloc_desc'] = '洗车时'
+		'你一度以为是一辆<b>汽车开了远光灯</b>，随后才意识到那是相机的闪光，而光源已经消失了。'
+	elseif $loc = 'pav_aptcourtev' or $loc = 'anushapt':
+		$blackmailQW['init_flashloc_desc'] = '在马克西姆面前'
+		'你觉得你似乎注意到了那个<b>相机闪光</b>从你眼角余光，但它的来源已经消失在视野之外。'
+	else
+		$blackmailQW['init_flashloc_desc'] = ''
+		'你觉得你似乎注意到了那个<b>相机闪光</b>从你眼角余光，但它的来源已经消失在视野之外。'
+	end
+	*nl
+	if trait_vars['exhibitionist'] > 0:
+		gs 'arousal', 'flashlite', -5
+		gs 'arousal', 'end'
+	end
+	wait 500
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                CIKL                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'cikl':
+	if blackmailQW['package_day'] > 0 and daystart > blackmailQW['package_day'] and blackmailQW['package'] > 0:
+		blackmailQW['package'] = 0
+		gs 'post_office', 'remove_mail', "gs 'blackmailer', 'set_post_act'"
+	end
+
+	if blackmailQW['next_payment'] > 0:
+		if daystart = blackmailQW['smsday']:
+			gs 'blackmailer', 'cikl_set_reminder'
+		elseif daystart > blackmailQW['smsday']:
+			gs 'blackmailer', 'cikl_set_failure'
+		end
+	elseif blackmailQW['smsday'] = 0:
+		gs 'blackmailer', 'cikl_set_smsday'
+	elseif daystart > blackmailQW['smsday']:
+		gs 'blackmailer', 'cikl_set_sms'
+	elseif daystart < blackmailQW['smsday'] and blackmailQW['toy_fund'] > rand(2000, 5000) and blackmailQW['package'] = 0 and blackmailQW['inventory'] = 0:
+		gs 'blackmailer', 'cikl_set_package'
+	end
+end
+
+
+if $ARGS[0] = 'cikl_set_reminder':
+	gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_reminder'", "(totminut > <<totminut + 480>> and rand(0, 50) = 0) or (totminut > <<totminut + 802>>)"
+end
+
+
+if $ARGS[0] = 'cikl_set_failure':
+	gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_failure'", "(totminut > <<totminut + 840>> and rand(0, 50) = 0) or (totminut > <<totminut + 1162>>)"
+end
+
+
+if $ARGS[0] = 'cikl_set_smsday':
+	if blackmailQW['stage'] = 3:
+		blackmailQW['smsday'] = blackmailQW['dreamday'] + 4
+		gs 'telefon', 'AddContact', 'Blackmailer', 'icon_na', 1
+	elseif blackmailQW['stage'] >= 5:
+		blackmailQW['smsday'] = daystart + 6
+		if blackmailQW['stage'] = 6:
+			blackmailQW['smsday'] += 4 - blackmailQW['selfie_stage']
+		end
+		if blackmailQW['stage'] < 8:
+			blackmailQW['smsday'] += rand(0, 6)
+		else
+			blackmailQW['smsday'] += rand(0, 4)
+		end
+	end
+end
+
+
+if $ARGS[0] = 'cikl_set_sms':
+	if blackmailQW['stage'] = 3:
+		gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS1'", "(totminut > <<totminut + 840>> and rand(0, 50) = 0) or (totminut > <<totminut + 1162>>)"
+	elseif blackmailQW['stage'] = 7:
+		if blackmailQW['cosplay_stage'] = 0 and blackmailQW['package'] = 0 and blackmailQW['inventory'] = 0 and blackmailQW['package_day'] = 0:
+			gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_package1'", "(totminut > <<totminut + 840>> and rand(0, 50) = 0) or (totminut > <<totminut + 1162>>)"
+		elseif blackmailQW['inventory'] > 0 or blackmailQW['cosplay_stage'] = 1:
+			gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_outfit1'", "(totminut > <<totminut + 840>> and rand(0, 50) = 0) or (totminut > <<totminut + 1162>>)"
+		elseif blackmailQW['package_day'] > 0 and daystart > blackmailQW['package_day']:
+			gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_failure'", "(totminut > <<totminut + 840>> and rand(0, 50) = 0) or (totminut > <<totminut + 1162>>)"
+		end
+	elseif blackmailQW['cosplay_stage'] = 2:
+			gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS2'", "(totminut > <<totminut + 480>> and rand(0, 50) = 0) or (totminut > <<totminut + 802>>)"
+	elseif blackmailQW['cosplay_stage'] = 3:
+			gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS2_reminder'", "(totminut > <<totminut + 480>> and rand(0, 50) = 0) or (totminut > <<totminut + 802>>)"
+	elseif blackmailQW['cosplay_stage'] = 4:
+			gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS3'", "(totminut > <<totminut + 480>> and rand(0, 50) = 0) or (totminut > <<totminut + 802>>)"
+	elseif blackmailQW['stage'] >= 5:
+		gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_repeat'", "(totminut > <<totminut + 840>> and rand(0, 50) = 0) or (totminut > <<totminut + 1162>>)"
+	end
+end
+
+
+if $ARGS[0] = 'cikl_set_package':
+	if blackmailQW['cosplay_stage'] = 1:
+		gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS_package_repeat'", "(totminut > <<totminut + 480>> and rand(0, 50) = 0) or (totminut > <<totminut + 802>>)"
+	elseif blackmailQW['cosplay_stage'] >= 5:
+		gs 'telefon', 'SetInSMSSchedule', $blackmailQW['nerdvana_phone_ID'], "gs 'blackmailer', 'Add_SMS_package_repeat2'", "(totminut > <<totminut + 480>> and rand(0, 50) = 0) or (totminut > <<totminut + 802>>)"
+	end
+end
+
+
+!! Helper: refresh the blackmail payment deadline calendar event
+!! Call this after smsday and next_payment are both set
+if $ARGS[0] = 'update_payment_calendar':
+	gs 'calendar', 'remove', 'blackmail_payment_deadline'
+	if blackmailQW['next_payment'] > 0 and blackmailQW['smsday'] > 0:
+		gs 'calendar', 'add', 'blackmail_payment_deadline'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              JOURNAL                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'journal_quests':
+	if pcs_inhib < 35 and blackmailQW['stage'] = 0: exit
+
+	gs 'cards', 'section_open', '敲诈者'
+	*nl
+	if blackmailQW['stage'] = 0:
+		'要是有人撞见我在暴露自己，那可就太不幸了。'
+		gs 'cards', 'section_close'
+		exit
+	elseif blackmailQW['stage'] < 0:
+		'我有一次错过了付款期限，敲诈者就当真兑现了他的威胁。现在再也无法挽回了。'
+		gs 'cards', 'section_close'
+		exit
+	elseif blackmailQW['stage'] <= 3:
+		'我在暴露自己时被抓住了！谁知道将来还会发生什么？'
+		gs 'cards', 'section_close'
+		exit
+	end
+
+	'这事拖得越久，他们似乎就对我要求得越多。'
+
+	if blackmailQW['next_payment'] = 0:
+		'我已经付钱给敲诈者了，但这能让他们闭嘴多久呢？'
+		if blackmailQW['stage'] >= 8:
+			if blackmailQW['worn_costume'] < 0:
+				'我交钱的时候没有穿他们要求的服装。我预感下次这要让我付出代价。'
+			elseif blackmailQW['worn_costume'] > 0:
+				'我像<i>乖女孩</i>一样穿上了那套服装。'
+			end
+		end
+	else
+		'敲诈者要求我把 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 留在最近的公园里。'
+		if daystart < blackmailQW['smsday'] - 1:
+			'我还剩<<blackmailQW[''smsday''] - daystart>>天'
+		elseif daystart = blackmailQW['smsday'] - 1:
+			'我的期限到明晚为止。'
+		elseif daystart = blackmailQW['smsday']:
+			'我的期限到今晚为止！'
+		else
+			'已经太迟了！！'
+		end
+		'<i>我可以把现金放在城里、巴甫洛夫斯克、普希金公园，或者加杜基诺村的森林里。</i>'
+	end
+
+	if blackmailQW['stage'] >= 6:
+		'我可以给敲诈者发自拍来减少债务，而且新拍的照片似乎比重复发送一张已经发过的更管用。'
+
+		if blackmailQW['selfie_stage'] < 3:
+			'    <i>试试穿不同的衣服（或者不穿）</i>'
+			if blackmailQW['selfie_stage'] = 0:
+				'    <i>尝试发送一张穿泳装或内衣的照片</i>'
+			elseif blackmailQW['selfie_stage'] = 1:
+				'    <i>尝试发送一张你的胸部或臀部的照片</i>'
+			else
+				'    <i>尝试发送一张你阴部的照片</i>'
+			end
+		end
+	end
+
+	if blackmailQW['escape'] = -1:
+		'我去警察局求助，但最终还是没能说出口。<i>我随时可以再去。</i>'
+	elseif blackmailQW['escape'] >= 1:
+		'我去了警察局，把手机给他们看了。我拿到了索科洛夫警官的名片。'
+		if blackmailQW['escape'] >= 2: '我把敲诈者的电话号码和账号给了索科洛夫警官。'
+	end
+
+	if blackmailQW['cosplay_stage'] >= 2 and blackmailQW['escape'] < 2:
+		'我拿到了敲诈者的电话号码和账号。'
+	end
+	if blackmailQW['cosplay_stage'] = 3:
+		'敲诈者要求我发四张穿着衣服的自拍，必须在我卧室里拍。'
+	elseif blackmailQW['cosplay_stage'] = 4:
+		'我已经给敲诈者发了四张穿着衣服的自拍，是在我卧室里拍的。'
+	elseif blackmailQW['cosplay_stage'] >= 5:
+		'我的举动惊动了敲诈者，他利用我那些穿着衣服的自拍骗过了 书呆天堂 的店员<<$npc_usedname[$blackmailQW[''nerdvana_phone_ID'']]>>。'
+	end
+
+	if blackmailQW['package'] > 0:
+		'敲诈者给我寄了一个包裹。我该去圣彼得堡的邮局取。'
+		if blackmailQW['stage'] >= 8:
+			if daystart < blackmailQW['package_day'] - 1:
+				'我还剩<<blackmailQW[''package_day'']-daystart>>天。'
+			elseif daystart = blackmailQW['package_day'] - 1:
+				'我只剩下一天了。'
+			elseif daystart = blackmailQW['package_day']:
+				'今天是最后一天。'
+			else
+				'错误。请上报此问题。'
+			end
+		end
+	elseif blackmailQW['inventory'] > 0:
+		'我手上有一个敲诈者寄来的包裹。也许我该打开看看。'
+	end
+
+
+	if blackmailQW['stage'] >= 7:
+		*nl
+		'规则：'
+		'    - 敲诈者要求我称呼他"先生"'
+		if blackmailQW['stage'] >= 8: '    - 敲诈者要求我交钱时必须穿着服装。'
+	end
+
+	gs 'cards', 'section_close'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             CHEATMENU                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'cheatmenu':
+	if blackmailQW['stage'] = 0: exit
+
+	'<b>敲诈者：</b>'
+	'    清除"敲诈者"任务线： <a href="exec: gs ''blackmailer'', ''purge_all'' & dynamic $cheatmenu[$cheatmenu[''this_menu'']]">永久重置整个任务线！</a>'
+	*nl
+	if daystart < blackmailQW['dreamday']:
+		'    距离下次做梦的最少天数：<<blackmailQW[''dreamday''] - daystart>>.  <a href="exec: blackmailQW[''dreamday'']=daystart & dynamic $cheatmenu[$cheatmenu[''this_menu'']]">设为0</a>'
+	else
+		'    距离下次做梦的最少天数：0'
+	end
+	if blackmailQW['stage'] >= 3:
+		temp_index = arrpos('$contact', 'Blackmailer')
+		if temp_index >= 0:
+			$temp_ISMSCode = $contactISMSCode[temp_index]
+			if $temp_ISMSCode <> "":
+				'    敲诈者将在今天联系你。  <a href="exec:gs ''blackmailer'', ''cheatmenu_force_sendsms'' & dynamic $cheatmenu[$cheatmenu[''this_menu'']]">立即强制发送短信</a>'
+			else
+				if blackmailQW['smsday'] = 0:
+					'    敲诈者将决定明天何时联系你。  <a href="exec:blackmailQW[''smsday'']=daystart & dynamic $cheatmenu[$cheatmenu[''this_menu'']]">明天强制发送下一条短信</a>'
+				else
+					'    到下一条短信的天数：<<max(1, blackmailQW[''smsday'']-daystart+1)>>.  <a href="exec:blackmailQW[''smsday'']=daystart-1 & gs ''blackmailer'', ''cikl_set_sms'' & dynamic $cheatmenu[$cheatmenu[''this_menu'']]">今天强制发送下一条短信</a>'
+				end
+			end
+			if blackmailQW['next_payment'] > 0:
+				'        ' + $func('wrap', 'v_neg', '警告：你有一笔未付的债务。')
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'cheatmenu_force_sendsms':
+	temp_index = arrpos('$contact', 'Blackmailer')
+	if temp_index >= 0:
+		$temp_ISMSCode = $contactISMSCode[temp_index]
+		if $temp_ISMSCode <> "":
+			dynamic $temp_ISMSCode
+		end
+	end
+	killvar 'temp_ISMSCode'
+	killvar 'temp_index'
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'purge_all':
+	gs 'telefon', 'DeleteContact', 'Blackmailer'
+	gs 'telefon', 'DeleteContact', 'Officer_bm'
+	gs 'telefon', 'DeleteContact', $blackmailQW['nerdvana_phone_ID']
+	gs 'calendar', 'remove', 'blackmail_payment_deadline'
+	killvar 'blackmailQW'
+end
+
+
+if $ARGS[0] = 'set_next_payment':
+	!! Base debt between 500 and 1000
+	blackmailQW['next_payment'] = 10 * rand(50, 100)
+
+	!! Adds an increasing debt dependent on your total amount paid.
+	!! 1000 at (5000), 2000 at (15000), 3000 at (45000), and approaches 4000 at infinite paid
+	blackmailQW['next_payment'] += 10 * ((400 * blackmailQW['total_payment']) / (15000 + blackmailQW['total_payment']))
+
+	!! Adds an increasing debt dependent on your total amount paid.
+	!! 180 at (2000), 400 at (5000), 1000 at (20000), 15000 at (60000) and approaches 2000 at infinite alternative payments
+	blackmailQW['next_payment'] += 10 * ((200 * blackmailQW['alter_payment']) / (20000 + blackmailQW['alter_payment']))
+
+
+	!! Adds an increasing debt dependent on pictures sent.
+	!! 40 at (1), 300 at (7), 510 at (13), 1000 at (34), 1250 at (50), 1660 at (100) and approaches 2500 at infinite pictures sent
+	temp_BM_material_send = blackmailQW['total_material'] - 1
+	blackmailQW['next_payment'] += 10 * ((250 * temp_BM_material_send) / (50 + temp_BM_material_send))
+	killvar 'temp_BM_material_send'
+
+	!! 1000 ruble reduction for wearing the costume
+	if blackmailQW['stage'] >= 8:
+		blackmailQW['next_payment'] -= 1000
+		blackmailQW['alter_payment'] += 1000
+	end
+
+	!! Adds a punishment if you did not wear the costume
+	if blackmailQW['worn_costume'] = -1:
+		blackmailQW['costume_punishment'] = 100 * rand(20, 40)
+	else
+		blackmailQW['costume_punishment'] = 0
+	end
+	blackmailQW['next_payment'] += blackmailQW['costume_punishment']
+end
+
+
+if $ARGS[0] = 'make_payment':
+	if ARGS[1] <= 0: ARGS[1] = blackmailQW['next_payment']
+	if ARGS[1] > blackmailQW['next_payment']: ARGS[1] = blackmailQW['next_payment']
+
+	if $ARGS[2] = 'money':
+		gs 'money', 'pay', ARGS[1], 'cash'
+		blackmailQW['total_payment'] += ARGS[1]
+	else
+		blackmailQW['alter_payment'] += ARGS[1]
+	end
+
+	blackmailQW['next_payment'] -= ARGS[1]
+	if blackmailQW['stage'] >= 8:
+		blackmailQW['toy_fund'] += ARGS[1] / 3
+	end
+
+	if blackmailQW['next_payment'] <= 0:
+		blackmailQW['partial_payment'] = 0
+		gs 'calendar', 'remove', 'blackmail_payment_deadline'
+	else
+		blackmailQW['partial_payment'] = 1
+	end
+end
+
+
+if $ARGS[0] = 'add_blackmail_selfie':
+	temp_i = 0
+	blackmailQW['unique_selfie_sent'] = 0
+
+	:add_blackmail_loop
+	if $blackmailQW['selfie_image_<<temp_i>>'] = $ARGS[1]:
+		blackmailQW['unique_selfie_sent'] = 1
+		killvar 'temp_i'
+		exit
+	elseif $blackmailQW['selfie_image_<<temp_i>>'] ! '':
+		temp_i += 1
+		if temp_i < 10: jump 'add_blackmail_loop'
+
+		temp_i = rand(0, 9)
+	end
+
+	$blackmailQW['selfie_image_<<temp_i>>']		= $ARGS[1]
+	$blackmailQW['selfie_location_<<temp_i>>']	= $ARGS[2]
+	$blackmailQW['selfie_dress_<<temp_i>>']		= $ARGS[3]
+	blackmailQW['selfie_LocIndex_<<temp_i>>']	= ARGS[4]
+	blackmailQW['selfie_number_<<temp_i>>']		= ARGS[5]
+	blackmailQW['total_material']				+= 1
+	killvar 'temp_i'
+end
+
+
+if $ARGS[0] = 'choose_blackmail_image':
+	$result = ''
+	if rand(0, 10) > 0 or ARGS[1] = 1:
+		$result = $blackmailQW['selfie_image_<<rand(0, min(blackmailQW[''total_material'']-1, 9))>>']
+	end
+	if $result = '': $result = $blackmailQW['init_flashimage']
+end
+
+
+if $ARGS[0] = 'choose_package':
+	temp_i2 = 0
+	:package_loop
+		if blackmailQW['cosplay_stage'] = 0:
+			temp_i = 7
+		elseif blackmailQW['cosplay_stage'] < 5:
+			temp_i = rand(1, 7)
+		elseif blackmailQW['cosplay_stage'] = 5:
+			temp_i = rand(1, 12)
+		!{
+		elseif blackmailQW['cosplay_stage'] = 6:
+			temp_i = rand(1, 18)
+		elseif blackmailQW['cosplay_stage'] = 7:
+			temp_i = rand(1, 20)
+		elseif blackmailQW['cosplay_stage'] = 8:
+			temp_i = rand(1, 20)
+		elseif blackmailQW['cosplay_stage'] = 9:
+			temp_i = rand(1, 30)
+		else
+			temp_i = rand(21, 40)
+		!}
+		end
+		temp_i2 += 1
+	if temp_i2 < 100 and instr($blackmailQW['packages_opened'], ';<<$mid(100 + temp_i, 2)>>;') >= 0: jump 'package_loop'
+	blackmailQW['package'] = temp_i
+	killvar 'temp_i'
+	killvar 'temp_i2'
+end
+
+
+if $ARGS[0] = 'open_package':
+	if $blackmailQW['packages_opened'] = '': $blackmailQW['packages_opened'] = ';'
+	if instr($blackmailQW['packages_opened'], ';' + $mid(100 + blackmailQW['inventory'], 2) + ';') <= 0:
+		$blackmailQW['packages_opened'] += $mid(100 + blackmailQW['inventory'], 2) + ';'
+	end
+
+	gs 'blackmailer', 'get_package_content', blackmailQW['inventory']
+
+	if $temp_package['type'] = 'clothing':
+		dynamic $temp_package['set_vars']
+		dynamic $temp_package['add_item']
+	else
+		dynamic $temp_package['add_item']
+	end
+
+	$result = $temp_package['image']
+
+	blackmailQW['inventory'] = 0
+	killvar 'temp_package'
+end
+
+
+if $ARGS[0] = 'decrease_toy_fund':
+	gs 'blackmailer', 'get_package_content', ARGS[1]
+
+	if $temp_package['type'] = 'clothing':
+		dynamic $temp_package['set_vars']
+		blackmailQW['toy_fund'] -= CloPrice
+	else
+		blackmailQW['toy_fund'] = 0
+	end
+	killvar 'temp_package'
+end
+
+
+if $ARGS[0] = 'get_package_content':
+	temp_package = ARGS[1]
+
+	if temp_package >= 1 and temp_package < 21:
+		bm_i = func('blackmailer', 'bmid_to_cosplaynumber', temp_package)
+
+		$temp_package['type'] = 'clothing'
+		$temp_package['set_vars'] = "gs 'clothing_attributes', 'nerdvana_cosplay', <<bm_i>>"
+		$temp_package['add_item'] = "gs 'clothing', 'add_item', 'nerdvana_cosplay', <<bm_i>>"
+		$temp_package['image'] = 'images/pc/items/nerdvana/cosplay/<<bm_i>>.jpg'
+
+	!{
+	elseif temp_package >= 21 and temp_package <= 25:
+		if temp_package = 21:
+			bm_i = 1
+		elseif temp_package = 22:
+			bm_i = 11
+		elseif temp_package = 23:
+			bm_i = 13
+		elseif temp_package = 24:
+			bm_i = 6
+		else
+			bm_i = 18
+		end
+
+		$temp_package['type'] = 'clothing'
+		$temp_package['set_vars'] = "gs 'clothing_attributes', 'salacious_outfits', <<bm_i>>"
+		$temp_package['add_item'] = "gs 'clothing', 'add_item', 'salacious_outfits', <<bm_i>>, 0"
+		$temp_package['image'] = 'images/pc/items/salacious/outfits/<<bm_i>>.jpg'
+
+	elseif temp_package >= 26 and temp_package <= 30:
+		if temp_package = 26:
+			bm_i = 2
+		elseif temp_package = 27:
+			bm_i = 19
+		elseif temp_package = 28:
+			bm_i = 66
+		elseif temp_package = 29:
+			bm_i = 88
+		else
+			bm_i = 98
+		end
+
+		$temp_package['type'] = 'clothing'
+		$temp_package['set_vars'] = "gs 'clothing_attributes', 'eroto_outfits', <<bm_i>>"
+		$temp_package['add_item'] = "gs 'clothing', 'add_item', 'eroto_outfits', <<bm_i>>"
+		$temp_package['image'] = 'images/pc/items/eroto/outfits/<<bm_i>>.jpg'
+
+	elseif temp_package >= 31 and temp_package <= 35:
+		if temp_package = 31:
+			bm_i = 7
+		elseif temp_package = 32:
+			bm_i = 9
+		elseif temp_package = 33:
+			bm_i = 2
+		elseif temp_package = 34:
+			bm_i = 19
+		else
+			bm_i = 30
+		end
+
+		$temp_package['type'] = 'clothing'
+		$temp_package['set_vars'] = "gs 'clothing_attributes', 'scandalicious_outfits', <<bm_i>>"
+		$temp_package['add_item'] = "gs 'clothing', 'add_item', 'scandalicious_outfits', <<bm_i>>"
+		$temp_package['image'] = 'images/pc/items/scandalicious/outfits/<<bm_i>>.jpg'
+
+	else
+		if temp_package = 36:
+			bm_i = 34
+		elseif temp_package = 37:
+			bm_i = 94
+		elseif temp_package = 38:
+			bm_i = 129
+		elseif temp_package = 39:
+			bm_i = 95
+		else
+			bm_i = 149
+		end
+
+		$temp_package['type'] = 'clothing'
+		$temp_package['set_vars'] = "gs 'clothing_attributes', 'scandalicious_dress', <<bm_i>>"
+		$temp_package['add_item'] = "gs 'clothing', 'add_item', 'scandalicious_dress', <<bm_i>>"
+		$temp_package['image'] = 'images/pc/items/scandalicious/dress/<<bm_i>>.jpg'
+	!}
+	end
+
+	killvar 'bm_i'
+end
+
+
+if $ARGS[0] = 'cosplaynumber_to_bmid':
+	result = 0
+	if ARGS[1] = 78:
+		result = 1
+	elseif ARGS[1] = 21:
+		result = 2
+	elseif ARGS[1] = 110:
+		result = 3
+	elseif ARGS[1] = 26:
+		result = 4
+	elseif ARGS[1] = 90:
+		result = 5
+	elseif ARGS[1] = 106:
+		result = 6
+	elseif ARGS[1] = 31:
+		result = 7
+	elseif ARGS[1] = 34:
+		result = 8
+	elseif ARGS[1] = 129:
+		result = 9
+	elseif ARGS[1] = 74:
+		result = 10
+	elseif ARGS[1] = 93:
+		result = 11
+	elseif ARGS[1] = 133:
+		result = 12
+	end
+	exit
+
+elseif $ARGS[0] = 'bmid_to_cosplaynumber':
+	result = 0
+	if ARGS[1] = 1:
+		result = 78
+	elseif ARGS[1] = 2:
+		result = 21
+	elseif ARGS[1] = 3:
+		result = 110
+	elseif ARGS[1] = 4:
+		result = 26
+	elseif ARGS[1] = 5:
+		result = 90
+	elseif ARGS[1] = 6:
+		result = 106
+	elseif ARGS[1] = 7:
+		result = 31
+	elseif ARGS[1] = 8:
+		result = 34
+	elseif ARGS[1] = 9:
+		result = 129
+	elseif ARGS[1] = 10:
+		result = 74
+	elseif ARGS[1] = 11:
+		result = 83
+	elseif ARGS[1] = 12:
+		result = 133
+	!{
+	elseif ARGS[1] = 13:
+
+	elseif ARGS[1] = 14:
+		bm_i = 37
+	elseif ARGS[1] = 15:
+		bm_i = 86
+	elseif ARGS[1] = 16:
+		bm_i = 95
+	elseif ARGS[1] = 17:
+		bm_i = 130
+	elseif ARGS[1] = 18:
+		bm_i = 132
+	elseif ARGS[1] = 19:
+		bm_i = 138
+	else
+		bm_i = 104
+	!}
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'register_cosplay_used':
+	if ARGS[1] = 0: ARGS[1] = func('blackmailer', 'cosplaynumber_to_bmid', clothingwornnumber)
+
+	$temp_cu = $mid(100 + ARGS[1], 2)
+	if $blackmailQW['cosplays_used'] = '': $blackmailQW['cosplays_used'] = ';'
+	if instr($blackmailQW['cosplays_used'], ';<<$temp_cu>>;') = 0: $blackmailQW['cosplays_used'] += '<<$temp_cu>>;'
+end
+
+
+if $ARGS[0] = 'choose_random_cosplay_used':
+	result = 7
+	if len($blackmailQW['cosplays_used']) < 4:
+		exit
+	end
+
+	temp_tries = 0
+	:choose_random_cosplay_loop
+		temp_rand = rand(1, 12)
+	if instr($blackmailQW['cosplays_used'], ';<<$mid(100 + temp_rand, 2)>>;') = 0:
+		temp_tries += 1
+		if temp_tries < 1000:
+			jump 'choose_random_cosplay_loop'
+		else
+			temp_rand = 7
+		end
+	end
+	result = temp_rand
+	killvar 'temp_rand'
+	killvar 'temp_tries'
+	exit
+end
+
+
+if $ARGS[0] = 'get_cosplay_img':
+	temp_i = func('blackmailer', 'cosplaynumber_to_bmid', ARGS[1])
+	if temp_i = 0: temp_i = 7
+	$result = 'images/locations/shared/park/blackmailer/cosplay<<temp_i>>.jpg'
+	killvar 'temp_i'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               DREAMS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'blackmail_dream_events':
+	if blackmailQW['stage'] = 0: exit
+	if daystart < blackmailQW['dreamday']: exit
+	if blackmailQW['stage'] <= 2: exit
+	if rand(0, 1) = 0: exit
+
+	$sleep_events[] = "gs 'blackmailer', 'photo_dream1'"
+	if blackmailQW['total_material'] > 1: $sleep_events[] = "gs 'blackmailer', 'photo_dream3'"
+	if blackmailQW['cosplay_stage'] = 1: $sleep_events[] = "gs 'blackmailer', 'cosplay_dream1'"
+end
+
+
+if $ARGS[0] = 'blackmail_sleep_events':
+	if blackmailQW['stage'] = 0: exit
+	if daystart < blackmailQW['dreamday']: exit
+	if rand(0, 59) > 0: exit
+
+	if blackmailQW['stage'] = 1:
+		$sleep_events_priority[] = "gt 'blackmailer', 'photo_dream1'"
+	elseif blackmailQW['stage'] = 2:
+		$sleep_events_priority[] = "gt 'blackmailer', 'photo_dream2'"
+	end
+
+	if blackmailQW['stage'] >= 3 and rand(0, 8) = 0:
+		$sleep_events_priority[] = "gt 'blackmailer', 'photo_dream2'"
+	end
+end
+
+
+if $ARGS[0] = 'blackmail_dreams':
+	if blackmailQW['stage'] = 0: exit
+	if daystart < blackmailQW['dreamday']: exit
+
+	if blackmailQW['stage'] = 1:
+		$sleep_events_priority[] = "gs 'blackmailer', 'photo_dream1'"
+	elseif blackmailQW['stage'] = 2:
+		$sleep_events_priority[] = "gt 'blackmailer', 'photo_dream2'"
+	else
+		temp_rand = rand(0, 9)
+		if temp_rand < 5:
+			!! empty
+		elseif temp_rand < 8:
+			$sleep_events[] = "gt 'blackmailer', 'photo_dream1'"
+		elseif temp_rand < 9:
+			$sleep_events[] = "gt 'blackmailer', 'photo_dream2'"
+		end
+		killvar 'temp_rand'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'photo_dream1':
+	blackmailQW['dreamday'] = daystart + 3
+
+	*clr
+	$func('wrap', 'header center b', '梦')
+	'<center><img <<$set_imgh>> src="<<$blackmailQW[''init_flashimage'']>>"></center>'
+	$temp_dream_text = '你梦见在暴露你的 '
+	$temp_dream_text += $blackmailQW['init_flashaction']
+	if $blackmailQW['init_flashloc_desc'] <> '':
+		$temp_dream_text += ' ' + $blackmailQW['init_flashloc_desc']
+	end
+	$temp_dream_text += '，无数相机闪光灯的光芒刺痛着你的皮肤。'
+	*pl $temp_dream_text
+	killvar 'temp_dream_text'
+
+	if instr('panty;pantyrear;bra', $blackmailQW['init_flashaction']) > 0:
+		gs 'arousal', 'flashlite', -5
+	else
+		gs 'arousal', 'flash', -5
+	end
+	gs 'arousal', 'end'
+
+	if blackmailQW['stage'] = 1:
+		blackmailQW['stage'] = 2
+		act '继续睡觉': gt 'sleep_events', 'event_end', 'sleep'
+	else
+		gs 'dream_events', 'event_end'
+	end
+
+elseif $ARGS[0] = 'photo_dream2':
+	if blackmailQW['stage'] = 2:
+		blackmailQW['stage'] = 3
+		blackmailQW['smsday'] = daystart + 6
+		gs 'telefon', 'AddContact', 'Blackmailer', 'icon_na', 1
+		gs 'telefon', 'SetInSMSSchedule', 'Blackmailer', "gs 'blackmailer', 'Add_SMS1'", "daystart > blackmailQW['smsday'] and (hour >= 14 and hour <= 19 and rand(0, 100) = 0 or hour = 19 and minut >= 22 or hour >= 20)"
+	end
+	blackmailQW['dreamday'] = daystart + 3
+
+	*clr
+	if motherKnowWhore = 0 and npc_rel['A29'] >= 10:
+		$func('wrap', 'header center b', '梦')
+		'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/mother.jpg"></center>'
+		'你梦见你的<<$npc_nickname[''A29'']>>坐在厨房桌旁，神情阴郁，几乎像是被打败了一样，读着一封像是信的东西。'
+
+		act '去问你的<<$npc_nickname[''A29'']>>怎么了':
+			*clr & cla
+			$func('wrap', 'header center b', '梦')
+			'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/mum_gyno2.jpg"></center>'
+			'你走到她身边问道："<<$npc_nickname[''A29'']>>，怎么了？"'
+			'她丢下了信，你看到信旁边还附着一张照片。'
+
+			act '看看那张照片':
+				*clr & cla
+				$func('wrap', 'header center b', '梦')
+				'<center><img <<$set_imgh>> src="<<$blackmailQW[''init_flashimage'']>>"></center>'
+				$temp_dream_text = '你清楚地看到那张描绘你正在暴露你的 '
+				$temp_dream_text += $blackmailQW['init_flashaction']
+				if $blackmailQW['init_flashloc_desc'] <> '':
+					$temp_dream_text += ' ' + $blackmailQW['init_flashloc_desc']
+				end
+				$temp_dream_text += '.'
+				*pl $temp_dream_text
+				killvar 'temp_dream_text'
+
+				gs 'arousal', 'flash', -5
+				gs 'arousal', 'end'
+
+
+				'从最初的震惊中回过神来，你几乎听不见你的<<$npc_nickname[''A29'']>>在对你说什么，你完全没听进去她说的话。'
+
+				act '听你母亲说话':
+					*clr & cla
+					$func('wrap', 'header center b', '梦')
+					'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/spank.jpg"></center>'
+					'"哦，你这荡妇！你父亲和我辛辛苦苦把你培养成一个正经人，盼着你将来能找个好丈夫，结果你却是个靠向陌生人暴露自己的<<$blackmailQW[''init_flashaction'']>>来获得快感的婊子！"'
+					'突然她的表情变得坚定，她下定了决心。"你还有救。我要把你从这条歧路上拉回来，哪怕要打掉你身上的罪孽，你也别想羞辱这个家。"'
+					'她抓住你的胳膊，把你拖过厨房的桌子，撕扯下你的裤子，同时伸手去拿你看不到的东西。'
+					'你听到金属和皮革的声响，厚实粗糙的皮革贴在你裸露的屁股上。她像甩鞭子一样把它抽响。"这是为你好，总有一天你会明白的。"'
+					'…'
+					'"总有一天你会明白的。"'
+
+					act '做好准备':
+						*clr & cla
+						$func('wrap', 'header center b', '梦')
+						'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/mom/hug_sad1.jpg"></center>'
+						'准备好迎接那从未到来的疼痛，梦境转换了。你被留在外面向里看，屋内一片狼藉，你的<<$npc_nickname[''A29'']>>在哭泣，<<$npc_nickname[''A34'']>>和你的<<$npc_nickname[''A28'']>>则不见踪影。'
+						'幸福家庭残存的感觉迅速消散。'
+						act '继续睡觉': gs 'sleep_events', 'event_end', 'sleep'
+					end
+				end
+			end
+		end
+	elseif $start_type['loc'] = 'sg' and grupTipe ! 5:
+		$func('wrap', 'header center b', '梦')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/building/locker.jpg"></center>'
+		'你梦见漫长的一天课终于结束了，你拖着疲惫的脚步走回储物柜，穿过单调乏味的走廊，时间枯燥地流逝。'
+		'你打开储物柜准备拿东西，像往常一样准备走回家，却惊叫出声——成百上千张拍立得照片从打开的柜子里倾泻而出。周围也响起此起彼伏的惊呼，更多照片从其他人的储物柜里涌了出来。'
+		'当惊讶消退，你听到周围传来窃笑声，你的朋友们拿着照片指着你大笑。'
+
+		act '抓起一张拍立得':
+			*clr & cla
+			$func('wrap', 'header center b', '梦')
+			'<center><img <<$set_imgh>> src="<<$blackmailQW[''init_flashimage'']>>"></center>'
+			$temp_dream_text = '你抓起其中一张照片，看到自己在暴露你的 '
+			$temp_dream_text += $blackmailQW['init_flashaction']
+			if $blackmailQW['init_flashloc_desc'] <> '':
+				$temp_dream_text += ' ' + $blackmailQW['init_flashloc_desc']
+			end
+			$temp_dream_text += '.'
+			*pl $temp_dream_text
+			killvar 'temp_dream_text'
+
+			gs 'arousal', 'flash', -5
+			gs 'arousal', 'end'
+
+			'周围的嘲笑声越来越大，你被人海的浪潮包围，他们举着你的照片嘲笑你。'
+			'你在拍立得照片的海洋中跋涉，不断直面这样一个事实：你已经失去了昔日朋友们的尊重。'
+			act '继续睡觉': gt 'sleep_events', 'event_end', 'sleep'
+		end
+	else
+		$func('wrap', 'header center b', '梦')
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/gorodok.jpg"></center>'
+		'你梦见自己在一个美丽、无风、无云、阳光明媚的下午漫步于巴甫洛夫斯克，汽车、行人、风声和鸟鸣的轻柔嗡鸣充盈你的耳朵，太阳灼热的光辉轻抚着你的肌肤。'
+		'周围人们交谈的片段不断涌入你的脑海边缘。'
+		'"…我想那就…", "…看起来像…", "…她不敢…", "…是个荡妇…"'
+		'凛冽的风把话语从空气中撕碎，你听不清他们在说什么，但从他们盯着报纸看的样子，你猜他们谈论的就是那个。'
+
+		act '前往邮局以满足你的好奇心':
+			*clr & cla
+			$func('wrap', 'header center b', '梦')
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pavresn.jpg"></center>'
+			'你急匆匆地赶到邮局想买一份报纸，狂风在耳边呼啸。寒冷让你脊背发凉，雨水无情地拍打在你的脸上。'
+			'当你终于赶到时，看到邮局局长——一个上了年纪的男人——正奇怪地看着你。震耳欲聋的雷声撼动整栋建筑，雨水猛烈敲打着窗户，窗外电闪雷鸣。'
+
+			act '买一份报纸':
+				*clr & cla
+				$func('wrap', 'header center b', '梦')
+				'<center><img <<$set_imgh>> src="<<$blackmailQW[''init_flashimage'']>>"></center>'
+				$temp_dream_text = '邮政局长冷淡地递给你一份报纸，封面上你看到一张自己在暴露你的 '
+				$temp_dream_text += $blackmailQW['init_flashaction']
+				if $blackmailQW['init_flashloc_desc'] <> '':
+					$temp_dream_text += ' ' + $blackmailQW['init_flashloc_desc']
+				end
+				$temp_dream_text += '.'
+				*pl $temp_dream_text
+				killvar 'temp_dream_text'
+
+				gs 'arousal', 'flash', -5
+				gs 'arousal', 'end'
+
+				'"没想到你是这样的婊子！"，"真的是她，真是个荡妇！"，"也许她也会让我们上呢！"'
+				'你冲进狂暴的风雨中，那些辱骂穿透雨幕，紧追不舍。'
+				act '继续睡觉': gt 'sleep_events', 'event_end', 'sleep'
+			end
+		end
+	end
+
+elseif $ARGS[0] = 'photo_dream3':
+	blackmailQW['dreamday'] = daystart + 3
+
+	$temp_dream_image = $func('blackmailer', 'choose_blackmail_image', 1)
+	*clr
+	$func('wrap', 'header center b', '梦')
+	'<center><img <<$set_imgh>> src="<<$temp_dream_image>>"></center>'
+	'你梦见给敲诈者发了一张自拍，按下发送键时你的下身一阵酥麻。'
+
+	gs 'arousal', 'flashlite', -5
+	gs 'arousal', 'end'
+
+	killvar 'temp_dream_image'
+
+	gs 'dream_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'cosplay_dream1':
+	blackmailQW['dreamday'] = daystart + 3
+
+	$temp_dream_image = $func('blackmailer', 'get_cosplay_img', func('blackmailer', 'choose_random_cosplay_used'))
+	*clr
+	$func('wrap', 'header center b', '梦')
+	'<center><img <<$set_imgh>> src="<<$temp_dream_image>>"></center>'
+	'你梦见自己按照敲诈者的要求穿着角色扮演服装在公园里行走，路人的目光追随着你，你的下身一阵酥麻。'
+	gs 'arousal', 'flashlite', -5
+	gs 'arousal', 'end'
+
+	killvar 'temp_dream_image'
+
+	gs 'dream_events', 'event_end'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                PARK                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+if $ARGS[0] = 'set_park_act':
+	if blackmailQW['next_payment'] > 0:
+		act '走到第四条长椅去给敲诈者付钱':
+			menu_off = 1
+			minut += 3
+			gs 'stat'
+			if blackmailQW['stage'] = 4:
+				gt 'blackmailer', 'park1'
+			elseif blackmailQW['stage'] = 7:
+				gt 'blackmailer', 'park2'
+			else
+				gt 'blackmailer', 'park_repeat'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'park1':
+	'<center><img <<$set_imgh>> src="images/locations/shared/park/bench_6.jpg"></center>'
+	'你找到了敲诈者说的那条长椅，在边缘坐下。'
+
+	act '把钱藏起来' + $func('money', 'get_cost_string', blackmailQW['next_payment'], 'cash'):
+		if func('money', 'can_afford', blackmailQW['next_payment'], 'cash') = 0:
+			$noMoney
+		else
+			*clr & cla
+			if blackmailQW['stage'] = 4: blackmailQW['stage'] = 5
+			gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+			blackmailQW['smsday'] = 0
+			gs 'blackmailer', 'make_payment', blackmailQW['next_payment'], 'money'
+
+			minut += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/shared/park/blackmailer/dropoff.jpg"></center>'
+			'你悄悄把钱塞进附近的一个纸袋里，把它藏在长椅边上。'
+
+			act '快速走开': gt $loc, $loc_arg
+		end
+	end
+
+	act '走开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'park2':
+	if blackmailQW['cosplay_stage'] = 0 or $clothingworntype ! 'nerdvana_cosplay':
+		'<center><img <<$set_imgh>> src="images/locations/shared/park/bench_6.jpg"></center>'
+		'你走到那张熟悉的长椅前，在边缘坐下。'
+
+		if blackmailQW['cosplay_stage'] = 0:
+			act '藏起钱 ' + $func('wrap', 'neg', '（先打开包裹）'):
+				$func('wrap', 'neg', '<br>你需要打开包裹才能这样做。')
+			end
+		else
+			act '藏起钱 ' + $func('wrap', 'neg', '（先穿上服装）'):
+				$func('wrap', 'neg', '<br>你需要穿上服装才能这样做。')
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/locations/shared/park/blackmailer/cosplay7.jpg"></center>'
+		'当你穿过公园时，你尽量不引起任何人的注意。'
+
+		act '走向长椅':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/park/blackmailer/cosplay7_1.jpg"></center>'
+			'你走到那张熟悉的长椅前，在边缘坐下。'
+
+			act '把钱藏起来' + $func('money', 'get_cost_string', blackmailQW['next_payment'], 'cash'):
+				if func('money', 'can_afford', blackmailQW['next_payment'], 'cash') = 0:
+					$noMoney
+				else
+					*clr & cla
+					blackmailQW['stage'] = 8
+					gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+					blackmailQW['smsday'] = 0
+					blackmailQW['cosplay_stage'] = 1
+					gs 'blackmailer', 'register_cosplay_used', 7
+					gs 'blackmailer', 'make_payment', blackmailQW['next_payment'], 'money'
+					minut += 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/shared/park/blackmailer/dropoff.jpg"></center>'
+					'你只能希望这身装扮不会引来太多注意同时试着把钱偷偷塞进附近一个纸袋里并藏在长椅边上。'
+
+					act '快速走开': gt $loc, $loc_arg
+				end
+			end
+		end
+	end
+
+	act '走开': gt $loc, $loc_arg
+end
+
+
+!!    -------- REPEATING --------    !!
+
+
+if $ARGS[0] = 'park_repeat':
+	'<center><img <<$set_imgh>> src="<<$func(''blackmailer'', ''get_park_img'')>>"></center>'
+	'你走到那张熟悉的长椅前，在边缘坐下。'
+
+	if blackmailQW['cosplay_stage'] = 0 or $clothingworntype = 'nerdvana_cosplay':
+		act '把钱藏起来' + $func('money', 'get_cost_string', blackmailQW['next_payment'], 'cash'):
+			if func('money', 'can_afford', blackmailQW['next_payment'], 'cash') = 0:
+				$noMoney
+			else
+				if blackmailQW['cosplay_stage'] = 0:
+					gt 'blackmailer', 'park_repeat_hide'
+				else
+					if rand(0, 9) = 0:
+						blackmailQW['worn_costume'] = 2
+					else
+						blackmailQW['worn_costume'] = 1
+					end
+					gt 'blackmailer', 'park_repeat_hide', 1
+				end
+			end
+		end
+	else
+		gs 'willpower', 'humiliation', 'resist', 'medium'
+		act '把钱藏起来' + $func('money', 'get_cost_string', blackmailQW['next_payment'], 'cash') + $func('willpower', 'get_willcost_string'):
+			if func('money', 'can_afford', blackmailQW['next_payment'], 'cash') = 0:
+				$noMoney
+			elseif pcs_willpwr < will_cost:
+				$noWillpower
+			else
+				gs 'willpower', 'humiliation', 'resist', 'medium'
+				gs 'willpower', 'pay', 'resist'
+				if rand(0, 9) = 0:
+					blackmailQW['worn_costume'] = -2
+				else
+					blackmailQW['worn_costume'] = -1
+				end
+				gt 'blackmailer', 'park_repeat_hide', -1
+			end
+		end
+	end
+
+	act '走开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'park_repeat_hide':
+	*clr & cla
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	blackmailQW['smsday'] = 0
+	gs 'blackmailer', 'make_payment', blackmailQW['next_payment'], 'money'
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/park/blackmailer/dropoff.jpg"></center>'
+	if ARGS[1] = 0:
+		'你悄悄把钱放进附近的一个纸袋里，把它藏在长椅边上。'
+	elseif ARGS[1] = -1:
+		'你试图悄悄把钱放进附近的一个纸袋里，把它藏在长椅边上。'
+		if blackmailQW['resist'] > 0:
+			'你只能希望警察已经吓得敲诈者不敢再来查你的情况'
+		else
+			'你只能希望敲诈者现在没有在看着你。'
+		end
+	elseif ARGS[1] = 1:
+		'你只能希望这身装扮不会引来太多注意同时试着把钱偷偷塞进附近一个纸袋里并藏在长椅边上。'
+		gs 'blackmailer', 'register_cosplay_used', clothingwornnumber
+	end
+
+	act '快速走开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'get_park_img':
+	if blackmailQW['cosplay_stage'] = 0 or $clothingworntype <> 'nerdvana_cosplay':
+		$result = 'images/locations/shared/park/bench_6.jpg'
+	else
+		$result = $func('blackmailer', 'get_cosplay_img', clothingwornnumber)
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               POLICE                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_police_act':
+	if blackmailQW['stage'] >= 4 and blackmailQW['escape'] = 0:
+		act '报案说你被敲诈了':
+			menu_off = 1
+			minut += 5
+			gs 'stat'
+			gt 'blackmailer', 'police1'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'police1':
+	if $region = 'pav':
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavrec.jpg" ></center>'
+		'你走向一个看起来百无聊赖、正在翻弄文件的警察。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/cityrec.jpg"></center>'
+		'你走到一个窗口前，拿起电话，听到另一头传来蜂鸣声。其中一名警官毫不犹豫地接起电话，看着你。'
+	end
+	'"有什么可以帮你的吗？"'
+	'"我……我被敲诈了"你结结巴巴地说。警察的眉毛微微挑起，除此之外他的表情没有任何变化。'
+	if $region = 'pav':
+		'"跟我来，我们到这边做笔录。"'
+	else
+		'"会有人出来接你。跟着他们，他们会在后面给你做笔录。"'
+	end
+	act '继续':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/interrogation1.jpg"></center>'
+		if $region = 'pav':
+			'你在一张破旧的办公桌前坐下，另一名警官坐在你对面，他看起来只比接待你的那位略微能干一点。'
+		else
+			'如约，有人出来把你带进后面的办公室。你在一张破旧的桌子前坐下，警官在桌子另一边就座。'
+		end
+		'"好的女士，你说你被敲诈了。能请你说明一下情况吗？"'
+		gs 'willpower', 'flash', 'self'
+		if pcs_willpwr < will_cost:
+			act '告诉他们有人撞见你露出你的<<$blackmailQW[''init_flashaction'']>>' + iif($blackmailQW['init_flashloc_desc'] = '', '', ' <<$blackmailQW[''init_flashloc_desc'']>>') + ' 并且一直在向你要钱' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '告诉他们有人撞见你露出你的<<$blackmailQW[''init_flashaction'']>>' + iif($blackmailQW['init_flashloc_desc'] = '', '', ' <<$blackmailQW[''init_flashloc_desc'']>>') + ' 并且一直在向你要钱。':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/shared/police/interrogation2.jpg"></center>'
+				'"有个变态拍了我一张照片，然后向我要钱，不然就把照片发出去！"'
+				'"嗯，这个人是怎么联系你的？"'
+				'"他给我发短信。"'
+				'你看到警察眼中闪过一丝希望的光芒，如果你能把短信给我们看，我们或许就能找到他。"'
+
+				if arrpos('$SMSContact', 'Blackmailer') >= 0:
+					act '给他们看那些短信':
+						*clr & cla
+						if $blackmailQW['blackmail_image_chosen'] = '': $blackmailQW['blackmail_image_chosen'] = $blackmailQW['init_flashimage']
+						blackmailQW['escape'] = 1
+						minut += 10
+						gs 'stat'
+
+						'<center><img <<$set_imgh>> src="<<$blackmailQW[''blackmail_image_chosen'']>>"></center>'
+						'你打开手机，把短信和对方发给你的图片给警察看。你看到警官挑了挑眉，你几乎能听到他低声嘟囔"不小心？"。'
+						'警官在你的手机上翻弄了几分钟，随着时间一分一秒过去，他的表情越来越阴沉。'
+						'"女士，我们非常重视这件事，但嫌疑人很狡猾，隐藏了他的电话号码。我们会尽最大努力，在这处交接地点蹲守，但我不抱太大希望能很快抓住他。"'
+						'"非常抱歉。"'
+						'一种挫败和屈辱感充满你的内心，想立刻逃离这个局面的冲动几乎难以忍受。'
+						'"我们会尽一切努力，来，拿着我的名片。有任何需要都可以找我。"'
+						'你连看都没看就把名片揣进口袋，匆匆离开了警局。'
+
+						act '离开':
+							gs 'blackmailer', 'set_officer_contact'
+							gt $loc, $loc_arg
+						end
+
+					end
+					act '谎称你删掉了短信': gt 'blackmailer', 'police_deleted'
+				else
+					act '说你删掉了短信': gt 'blackmailer', 'police_deleted'
+				end
+			end
+		end
+		act '这太难为情了，逃出警察局':
+			*clr & cla
+			blackmailQW['escape'] = -1
+			minut += 10
+			gs 'stat'
+
+			if $region = 'pav':
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavext.jpg" ></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/cityext.jpg"></center>'
+			end
+			'和警察一起坐在审讯室里，现实突然向你袭来。你得拿出一些证据。证明你当时在暴露你的<<$blackmailQW[''init_flashaction'']>>' + iif($blackmailQW['init_flashloc_desc'] = '', '', ' <<$blackmailQW[''init_flashloc_desc'']>>') + '。他们会看到短信、照片。他们会看透你的真面目。你已经能感觉到他们评判的目光。'
+			'"我……我……我不能，我不能，我不能……"你几乎喘不过气来，勉强挤出这几个字。'
+			'你几乎从椅子上跳起来，向门口退去。你惊恐地睁大眼睛："对不起，我搞错了"。'
+			'警察只是叹了口气，朝门口走去："如果你改变主意，你知……"'
+			'警官剩下的话被抛在脑后，你冲出了警察局。'
+
+			act '离开车站': gt $loc, $loc_arg
+		end
+	end
+end
+
+
+if $ARGS[0] = 'police_deleted':
+	minut += 10
+	blackmailQW['escape'] = -1
+	gs 'stat'
+
+	if $region = 'pav':
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavext.jpg" ></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/cityext.jpg"></center>'
+	end
+	'"呃……"你结结巴巴地说。"我，呃，我把它们删了。"'
+	'警察眼中的希望立刻熄灭了，取而代之的是一种不信任而疲惫的神情。"对不起女士，我们会尽力，但没有证据我们真的帮不了你。"'
+	'"如果嫌疑人再联系你，请不要删除短信。好吗？"'
+	'你沮丧地点了点头。'
+	'警官站起身，把你送回大厅。你一度想告诉警官交接地点的事，但还没来得及开口，你就已经站在警局门外了。'
+	'看来你得先拿出证据，他们才会认真对待你。'
+
+	act '离开': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'set_officer_contact':
+	$npc_nickname['Officer_bm'] = '索科洛夫警官'
+	gs 'telefon', 'AddContact', 'Officer_bm', 'images/system/phone/icons/icon_police.png', 0
+	gs 'telefon', 'SetOutCallSchedule', 'Officer_bm', "gt 'blackmailer', 'call_officer'", "hour >= 8 and hour < 21"
+end
+
+
+if $ARGS[0] = 'call_officer':
+	if blackmailQW['cosplay_stage'] > 1 and blackmailQW['escape'] = 1:
+		gt 'blackmailer', 'call_officer1'
+
+	else
+		gt 'blackmailer', 'call_officer_fail'
+	end
+end
+
+
+if $ARGS[0] = 'call_officer_fail':
+	'电话响起时，你意识到自己没有什么新消息要告诉他。'
+
+	act '挂断': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'call_officer1':
+	'"你好，我是索科洛夫警官。"'
+	'"你好，我是<<$pcs_firstname>> <<$pcs_lastname>>"'
+	'"…"'
+	'"不久前我报案说自己被敲诈时，我们见过面。"'
+	'"没错。<<$pcs_lastname>>小姐，我能为你做些什么？"'
+	'"我设法找到了与我敲诈者有关的电话号码和账号。这能帮到你们的调查吗？"'
+	'"你是怎么……算了。是的，那会非常有帮助。电话号码是多少？"'
+	'"电话号码是 945-977-7397"'
+	'"7397，那账号呢？"'
+	'"账号是 5334 7262 3618 0390"'
+	'"0390。谢谢你，<<$pcs_lastname>>小姐。我会随时向你通报进展！"'
+
+	blackmailQW['escape'] = 2
+
+	act '结束通话': gt $loc, $loc_arg
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             POST OFFICE                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_post_act':
+	act '领取包裹':
+		menu_off = 1
+		minut += 5
+		gs 'post_office', 'remove_mail', "gs 'blackmailer', 'set_post_act'"
+		gs 'stat'
+		if blackmailQW['stage'] = 7:
+			gt 'blackmailer', 'post_office1'
+		else
+			gt 'blackmailer', 'post_office_repeat'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'post_office1':
+	blackmailQW['inventory'] = blackmailQW['package']
+	blackmailQW['package'] = 0
+	blackmailQW['package_day'] = 0
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/worker.jpg"></center>'
+	'邮递员递给你一个普通的中等大小包裹。上面没有回信地址。'
+
+	act '问是谁寄的包裹':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/worker.jpg"></center>'
+		'他看着你，挑了挑眉毛。"你都不知道是谁寄的，为什么还要来取包裹？"'
+		'沉默了几秒后，邮局工作人员叹了口气，看向你视线之外的东西。'
+		if year <= 2016 or year = 2017 and month < 9:
+			'"这里写着，包裹是从巴甫洛夫斯克的一个公共邮筒里收的。"'
+		else
+			'"这里写着，包裹是从大学区的一个公共邮筒里收的。"'
+		end
+		'"恐怕再多线索就没有了。"'
+
+		act '谢谢他并离开': minut += 1 & gt 'post_office', 'pickup_mail'
+	end
+end
+
+
+if $ARGS[0] = 'open_package_act':
+	if blackmailQW['inventory'] > 0:
+		act '从你的<b>敲诈者</b>那里取出包裹':
+			menu_off = 1
+			minut += 3
+			gs 'stat'
+			if blackmailQW['stage'] = 7:
+				gt 'blackmailer', 'package1'
+			else
+				gt 'blackmailer', 'package_outfit_repeat'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'package1':
+	'<center><img <<$set_imgh>> src="images/shared/mail/package_receive1.jpg"></center>'
+	'你把包裹放在面前并检查它。它大约中等大小，没有标签也没有品牌名。唯一可辨认的特征是上面有一张写着你的名字的标签。'
+
+	act '打开包裹':
+		*clr & cla
+		minut += 3
+		gs 'stat'
+
+		bm_owns_cosplay = 0
+		if trait_vars['academic'] > 0 or $start_type['group'] = 'nerd':
+			bm_i = 1
+			:cosplays_owned
+			if nerdvana_cosplay[bm_i] = 1: bm_owns_cosplay = 1 & bm_i = 300
+			bm_i += 1
+			if bm_i < 200: jump 'cosplays_owned'
+			killvar 'bm_i'
+		end
+
+		$temp_bm_out_img = $func('blackmailer', 'open_package')
+		blackmailQW['cosplay_stage'] = 1
+
+		'<center><img <<$set_imgh>> src="<<$temp_bm_out_img>>"></center>'
+		if trait_vars['academic'] > 0 or $start_type['group'] = 'nerd':
+			'你打开包裹，惊讶地发现里面是一套高品质的神奇女侠角色扮演服装。'
+		else
+			'你打开包裹，惊讶地发现里面是一套看起来像是电影戏服之类的东西。'
+		end
+		'你很快就明白为什么有人给你寄这个包裹了，你叹了口气。'
+		'你只能等待敲诈者再次联系你。'
+		'…'
+		'除非……卖这种东西的商店应该不多。'
+		if trait_vars['academic'] > 0 or $start_type['group'] = 'nerd':
+			if bm_owns_cosplay = 1:
+				'下次你去 书呆天堂 的时候，应该打听一下。'
+			else
+				'你听说大学区有一家卖这种角色扮演服装的店。'
+				'你大可以去打听打听。'
+			end
+		end
+
+		killvar 'temp_bm_out_img'
+		killvar 'bm_owns_cosplay'
+		act '把这套衣服放进你的衣柜': gt $loc, $loc_arg
+	end
+end
+
+
+!!    -------- REPEATING --------    !!
+
+
+if $ARGS[0] = 'post_office_repeat':
+	blackmailQW['inventory'] = blackmailQW['package']
+	blackmailQW['package'] = 0
+	blackmailQW['package_day'] = 0
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/worker.jpg"></center>'
+	'邮递员递给你一个普通的中等大小包裹。上面没有回信地址。'
+
+	act '谢谢他并离开': minut += 1 & gt 'post_office', 'pickup_mail'
+end
+
+
+if $ARGS[0] = 'package_outfit_repeat':
+	'<center><img <<$set_imgh>> src="images/shared/mail/package_receive1.jpg"></center>'
+	'你把包裹放在面前并检查它。它大约中等大小，没有标签也没有品牌名。唯一可辨认的特征是上面有一张写着你的名字的标签。'
+
+	act '打开包裹':
+		*clr & cla
+		minut += 3
+		gs 'stat'
+
+		$bm_out_img = $func('blackmailer', 'open_package')
+
+		'<center><img <<$set_imgh>> src="<<$bm_out_img>>"></center>'
+		killvar 'temp_bm_out_img'
+		act '把这套衣服放进你的衣柜': gt $loc, $loc_arg
+	end
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              NEWSPAPER                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! Does this make sense???
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              NERDVANA                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_nerdvana_talk_act':
+	if blackmailQW['cosplay_stage'] >= 1 and daystart > blackmailQW['nerdvana_talkday']:
+		if blackmailQW['cosplay_stage'] = 1:
+			gs 'blackmailer', 'nerdvana_cosplay_talk1'
+
+		elseif pcs_inhib >= 50:
+			if blackmailQW[$npcID + '_bj'] > 0:
+				act '偷偷和<<$npcdesc>>':
+					*clr & cla
+					gs 'blackmailer', 'nerdvana_bj1'
+					act '回到柜台，带上<<$npcdesc>>':
+						gs 'blackmailer', 'return_to_nerdvana'
+					end
+				end
+			elseif blackmailQW[$npcID + '_kuni'] > 0:
+				act '偷偷和<<$npcdesc>>':
+					*clr & cla
+					gs 'blackmailer', 'nerdvana_kuni1'
+					act '回到柜台，带上<<$npcdesc>>':
+						gs 'blackmailer', 'return_to_nerdvana'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'return_to_nerdvana':
+	minut += 1
+	blackmailQW['nerdvana_talkday'] = daystart + ARGS[1]
+	killvar 'temp_knows_cosplay'
+	gt 'shop_nerdvana', 'start'
+end
+
+
+if $ARGS[0] = 'nerdvana_cosplay_talk1':
+	$temp_act_text = '试着弄清楚是谁送你的那件 '
+	temp_knows_cosplay = (trait_vars['academic'] > 0 or $start_type['group'] = 'nerd')
+
+	if temp_knows_cosplay:
+		$temp_act_text += 'cosplay'
+	else
+		$temp_act_text += 'costume'
+	end
+	$temp_act_text += iif(len($blackmailQW['packages_opened']) > 4, 's', '')
+
+	act $temp_act_text:
+		*clr & cla
+		menu_off = 1
+		minut += 2
+		gs 'stat'
+
+		act '离开': gs 'blackmailer', 'return_to_nerdvana', rand(5, 9)
+
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big<<$mid($npcID, 2)>>.jpg"></center>'
+
+		if len($blackmailQW['packages_opened']) <= 7:
+			if temp_knows_cosplay = 1:
+				'"嘿，我有个问题。这套角色扮演服装能是在这里买的吗？"你问道。'
+				'<<$Xec>>投来疑惑的目光，但还是检查了那套服装。"嗯，看起来确实是我们这儿的。"'
+				'"太好了！"你不由自主地喊出声。当<<$xe>>瞥了你一眼时，你迅速恢复了镇定。'
+				'"有没有办法查到是谁买的？这真的很重要！"'
+				'"抱歉小姐，光上个月我们就卖出去十几套这种。"'
+				'"没有更多线索的话，恐怕就算我想帮你，也无能为力。"'
+				'"更何况，我们也不能随便泄露顾客的信息。"'
+			else
+				'"嘿，我有个问题……这套……戏……戏服……能是在这里买的吗？"你问道。'
+				'<<$npcdesc>>给你一个疑惑的表情，显然在问<<$xemself>>你为什么在这里，但还是检查了那套服装。"嗯，看起来确实是我们这儿的。"'
+				'"太好了！"你不由自主地喊出声。当<<$xe>>瞥了你一眼时，你迅速恢复了镇定。'
+				'"有没有办法查到是谁买的？这真的很重要！"'
+				'"抱歉小姐，光上个月我们就卖出去十几套这种"，店员的声音里带着一丝不耐烦。'
+				'"没有更多线索的话，就算我想帮你，也无能为力。"'
+				'"更何况，我们也不能随便泄露顾客的信息。"'
+			end
+		else
+			if temp_knows_cosplay = 1:
+				'"嘿，我有个问题。这些角色扮演服装能是在这里买的吗？"你问道。'
+				'<<$Xec>>投来疑惑的目光，但还是检查了那些服装。"嗯，这些看起来确实是我们这儿的。"'
+				'"太好了！"你不由自主地喊出声。当<<$xe>>瞥了你一眼时，你迅速恢复了镇定。'
+				'"有没有办法查到是谁买的？这真的很重要！"'
+				'"抱歉小姐，我们不能随便泄露顾客的信息。"'
+				'你感觉脸色一沉，绝望慢慢涌遍全身。 <<$npcdesc>>注意到你脸上的变化，问道"一切都还好吗？"'
+				'"我真的需要知道是谁寄给我的，你能帮帮我吗。"'
+				'"听着小姐，我帮不了你。抱歉。"<<$xe>>说。'
+			else
+				'"嘿，我有个问题……这些……戏……戏服……能是在这里买的吗？"你问道。'
+				'<<$npcdesc>>给你一个疑惑的表情，显然在问<<$xemself>>你为什么在这里，但还是检查了那些服装。"嗯，这些看起来确实是我们这儿的。"'
+				'"太好了！"你不由自主地喊出声。当<<$xe>>瞥了你一眼时，你迅速恢复了镇定。'
+				'"有没有办法查到是谁买的？这真的很重要！"'
+				'"抱歉小姐，我们不能随便泄露顾客的信息"，店员的声音里带着一丝不耐烦。'
+				'你感觉脸色一沉，绝望慢慢涌遍全身。 <<$npcdesc>>，注意到你脸上的变化，语气缓和了，问道"一切都还好吗？"'
+				'"我真的需要知道是谁寄给我的，你能帮帮我吗。"'
+				'"听着小姐，我帮不了你。抱歉。"<<$xe>>说。"我会丢掉工作的。"'
+			end
+			act '试着说服<<$xem>>': gt 'blackmailer', 'nerdvana_cosplay_talk1_1'
+		end
+	end
+	killvar 'temp_act_text'
+end
+
+
+if $ARGS[0] = 'nerdvana_cosplay_talk1_1':
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big<<$mid($npcID, 2)>>.jpg"></center>'
+	'"求求你，<i>求求你</i>，一定有<b>办法</b>…"'
+	'你看到<<$xem>>朝你的<<iif(pcs_buttsize > pcs_cupsize, ''臀部'', ''胸部'')>>瞥了一眼，随即迅速移开视线。<<$Xec>>大概只需要再推一把。'
+
+	act '先放弃': gs 'blackmailer', 'return_to_nerdvana', rand(5, 9)
+
+	if pcs_inhib < 20:
+		gs 'willpower', 'flash', 'self', 'hard'
+	elseif pcs_inhib < 50:
+		gs 'willpower', 'flash', 'self', 'medium'
+	else
+		gs 'willpower', 'flash', 'self', 'easy'
+	end
+	if pcs_willpwr < will_cost:
+		act '露给<<$xem>>' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '露给<<$xem>>' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+
+			if pcs_buttsize > pcs_cupsize:
+				if $pantyworntype = 'none':
+					gs 'flash', 'pussy', 'inside', 5, 2
+					'你鼓起勇气，然后 ' + iif(PCloSkirt > 0, '掀起裙子前摆', '拉下裤子前襟') + '，露出你赤裸的肌肤，<<$xyr>>圆睁的双眼紧紧锁住你的小穴。'
+				else
+					gs 'flash', 'panties', 'inside', 5, 2
+					'你鼓起勇气，然后 ' + iif(PCloSkirt > 0, '掀起裙子前摆', '拉下裤子前襟') + '，露出了你的内衣。'
+				end
+			else
+				if $braworntype = 'none':
+					gs 'flash', 'tits', 'inside', 5, 2
+					'你鼓起勇气，然后 ' + iif(PCloSkirt > 0, '拉下', '掀起') + ' 你的上衣，露出你赤裸的肌肤，<<$xyr>>圆睁的双眼紧紧锁住你迅速挺立的乳头。'
+				else
+					gs 'flash', 'bra', 'inside', 5, 2
+					'你鼓起勇气，然后 ' + iif(PCloSkirt > 0, '拉下', '掀起') + ' 你的上衣，露出了你的内衣。'
+				end
+			end
+
+			'"求你了，这对我非常重要"'
+			'你看到<<$xyr>>的决心动摇了，但没有崩溃。<<$Xec>>只需要再推一把。'
+
+			act '先放弃': gs 'blackmailer', 'return_to_nerdvana', rand(5, 9)
+			act '贿赂 <<$xem>>' + $func('money', 'get_cost_string', 5000, 'cash'):
+				if func('money', 'can_afford', 5000, 'cash') = 0:
+					$noMoney
+				else
+					*clr & cla
+					minut += 3
+					gs 'money', 'pay', 5000, 'cash'
+					gs 'stat'
+
+
+					'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big<<$mid($npcID, 2)>>.jpg"></center>'
+					'你把手伸进钱包里，掏出 ' + $func('money', 'string_price', 5000) + '。'
+					'店员的眼睛里充满了欲望与贪婪，<<$xe>>伸手接过了钱。'
+
+					act '继续': gt 'blackmailer', 'nerdvana_cosplay_talk1_3'
+				end
+			end
+
+			gs 'willpower', 'bj', 'resist', 'hard'
+			if pcs_willpwr < will_cost and pcs_inhib >= 35:
+				act '<i>说服<<$xem>></i>' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '<i>说服<<$xem>></i>' + $func('willpower', 'get_willcost_string'):
+					*clr & cla
+					minut += 5
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big<<$mid($npcID, 2)>>.jpg"></center>'
+					'你靠在柜台上，保持<<$xyr>>的目光锁定在你身上，缓缓舔了舔嘴唇。'
+					'"我让你不白忙一场怎么样？"你 ' + iif(pcs_chrsm < 50, '结结巴巴地说', '妩媚地说') + '。'
+					'<<$Xec>>急切地点了点<<$xyr>>的头，然后你拖着<<$xem>>走进一间没人的试衣间。'
+
+					gs 'blackmailer', 'nerdvana_cosplay_talk1_2'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'nerdvana_cosplay_talk1_2':
+	if dick > 0:
+		act '解开<<$xyr>>的皮带':
+			*clr & cla
+			gs 'blackmailer', 'nerdvana_bj1'
+			act '回到柜台，带上<<$npcdesc>>':
+				gt 'blackmailer', 'nerdvana_cosplay_talk1_3'
+			end
+		end
+	else
+		act '把<<$xyr>>的短裤拉到一边':
+			*clr & cla
+			gs 'blackmailer', 'nerdvana_kuni1'
+			act '回到柜台，带上<<$npcdesc>>':
+				gt 'blackmailer', 'nerdvana_cosplay_talk1_3'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'nerdvana_bj1':
+	minut += 2
+	blackmailQW[$npcID + '_bj'] += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/fitting_room_bj.jpg"></center>'
+	'为了快点结束这一切，你脱下衬衫，让<<$xem>>好好看看你的' + iif($braworntype = 'none', '乳房。', '胸罩。')
+	'你跪下来，解开<<$xyr>>的皮带，拉下<<$xyr>>的裤子和内裤，释放出<<$xyr>>的<<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>鸡巴。'
+	'与<<$xyr>>的勃起对着你的脸，你感到下身一阵骚动，然后开始干活。'
+	'你感到一种自豪感，因为<<$xyr>>的呼吸渐渐变得浅而不稳，感觉到<<$xyr>>急促的心跳透过你的舌头传来。'
+	'盐味在你的口中扩散，你规律的吞吐让阵阵颤栗沿着<<$xyr>>的脊背蔓延。'
+	'感觉到<<$xyr>>即将射精的临近，又不想收拾残局，你加快了速度。'
+	'<<$npcdesc>>痉挛，咸涩的液体覆盖了你的舌头和上腭，你开始咽下自己努力的果实。'
+	'你定了定神，站起身来。突然<<$npcdesc>>凑近你，给了你一个热情的吻，然后退了回去。'
+	'脸上泛着红光，<<$xyr>>脸颊绯红，<<$xe>>说 "对……刚才……抱歉。"'
+	*nl
+	'你花了一点时间整理好自己，<<$npcdesc>>平复着<<$xyr>>的呼吸。'
+
+	gs 'arousal', 'bj', 10
+	gs 'cum_call', 'mouth_swallow', $npcID
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'nerdvana_kuni1':
+	minut += 2
+	blackmailQW[$npcID + '_kuni'] += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/shared/sex/kuni/fitting_room_kuni.jpg"></center>'
+	'你推<<$xem>>坐在小凳子上，然后跪下，让手短暂地游移过<<$xyr>>的双腿，然后把<<$xyr>>的短裤和内裤拉到一边。'
+	'你忽略了自己的不耐烦，开始慢慢地、慵懒地落下细碎的吻，一路沿着<<$xyr>>的大腿向上。你已经能听到<<$xyr>>的呼吸声变大，并感觉到<<$xyr>>双腿间的紧张，你调整姿势，准备正式开始进攻。'
+	'在亲吻、舔舐和偶尔的轻咬之间切换，你越发靠近<<$xyr>>湿润的缝隙。当你终于到达目标时，清晰的呻吟和全身的颤抖让你充满自豪感。'
+	'<<$Xyrc>>的湿液充满你的口腔，<<$xyr>>的味道扑鼻而来。当<<$xe>>开始失去控制时，你感觉到<<$npcdesc>>把手按在你的头上。'
+	'你专注于<<$xyr>>的阴蒂，清晰的喘息声刺激着你，当你感觉到<<$xyr>>即将高潮临近时，你加倍努力。'
+	'<<$npcdesc>>痉挛， <<$xyr>>的双腿压向你， <<$xyr>>的手指与你的头发纠缠在一起。然后<<$xe>>放开了你，重重地喘着气。'
+	'你定了定神，站起身来。突然<<$npcdesc>>凑近你，给了你一个热情的吻，然后退了回去。'
+	'脸上泛着红光，<<$xyr>>脸颊绯红，<<$xe>>说 "对……刚才……抱歉。"'
+	*nl
+	'你花了一点时间整理好自己，<<$npcdesc>>平复着<<$xyr>>的呼吸。'
+
+	gs 'arousal', 'cuni_give', 10
+	gs 'arousal', 'kiss', -1
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'nerdvana_cosplay_talk1_3':
+	minut += 2
+	blackmailQW['cosplay_stage'] = 2
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big<<$mid($npcID, 2)>>.jpg"></center>'
+	'<<$npcdesc>>走到柜台后面，开始在电脑上打字，过了一会儿<<$xe>>开口了。'
+	'"只有一位顾客买过那几套特定的角色扮演服装。"<<$Xec>>把显示器转过来让你看内容。'
+	'"看，他们是电话下单，并通过这个账户付款的。"他指着屏幕说。'
+	'你拿出手机，记下电话号码和账号：945-977-7397 和 5334 7262 3618 0390'
+	'离开之前，你迅速存下敲诈者的电话号码。'
+
+	$blackmailQW['nerdvana_phone_ID'] = $npcID
+	gs 'telefon', 'AddContact', $blackmailQW['nerdvana_phone_ID'], 'icon_na', 1
+	gs 'telefon', 'AddContact', 'Blackmailer', 'images/system/phone/icons/icon_blackmailer.png', 1
+
+	act '离开': gs 'blackmailer', 'return_to_nerdvana'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                 SMS                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'Add_SMS1':
+	if blackmailQW['stage'] = 3: blackmailQW['stage'] = 4
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	blackmailQW['smsday'] = daystart + 2
+	gs 'blackmailer', 'set_next_payment'
+	gs 'blackmailer', 'update_payment_calendar'
+	$blackmailQW['blackmail_image_chosen'] = $blackmailQW['init_flashimage']
+
+	$SMSTree['0'] = '你好<<$pcs_firstname>>!'
+
+		if motherKnowWhore = 0 and npc_rel['A29'] > 0:
+			$SMSTree['1'] = '如果你不想让你母亲看到这张图片，你就完全照我说的做'
+		elseif $start_type['loc'] = 'sg' and grupTipe ! 5:
+			$SMSTree['1'] = '如果你不想让你的朋友们看到这张图片，你就完全照我说的做'
+		else
+			$SMSTree['1'] = '如果你不想让全世界看到这张图片，你就完全照我说的做'
+		end
+
+				$SMSTree['2'] = '离开 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 在第四条公园长椅下面，我知道你知道是哪一条。'
+					$SMSTree['3'] = '你有两天时间'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMSText_builder', 'receive_img', $blackmailQW['blackmail_image_chosen']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'receive', $SMSTree['3']
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Add_SMS_reminder':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+
+	if blackmailQW['next_payment'] > 0:
+		if blackmailQW['escape'] = -1: blackmailQW['escape'] = 0
+
+		$SMSTree['0'] = '<<$pcs_firstname>>，别忘了，你要把 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 放在第四条公园长椅下面，否则你会后悔的'
+
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'receive', $SMSTree['0']
+			gs 'SMSText_builder', 'receive_img', $blackmailQW['blackmail_image_chosen']
+			gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+		gs 'SMStext_builder', 'end'
+	end
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Add_SMS_failure':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	blackmailQW['smsday'] = 0
+
+	if blackmailQW['next_payment'] > 0 or blackmailQW['stage'] = 7:
+		if blackmailQW['escape'] = -1: blackmailQW['escape'] = 0
+		blackmailQW['next_payment'] = 0
+		gs 'calendar', 'remove', 'blackmail_payment_deadline'
+
+		$SMSTree['0'] = '看来你很喜欢让别人知道你是荡妇'
+			$SMSTree['1'] = '还是你觉得我不敢真的做'
+				$SMSTree['2'] = '走着瞧'
+
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'receive', $SMSTree['0']
+			gs 'SMStext_builder', 'receive', $SMSTree['1']
+			gs 'SMStext_builder', 'receive', $SMSTree['2']
+			gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+		gs 'SMStext_builder', 'end'
+
+		if $blackmailQW['init_flashregion'] = 'city':
+			fame['city_sex'] += 2 * blackmailQW['total_material']
+		elseif $blackmailQW['init_flashregion'] = 'gad':
+			fame['gad_sex'] += 10 * blackmailQW['total_material']
+		else
+			fame['pav_sex'] += 5 * blackmailQW['total_material']
+		end
+		blackmailQW['stage'] = -1
+	end
+end
+
+
+if $ARGS[0] = 'Add_SMS_package1':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	blackmailQW['smsday'] = daystart + 2
+	blackmailQW['package_day'] = blackmailQW['smsday']
+	blackmailQW['package'] = 7
+	gs 'post_office', 'add_mail', 'city', "gs 'blackmailer', 'set_post_act'"
+
+	$SMSTree['0'] = '包裹已经到了圣彼得堡邮局'
+		$SMSTree['1'] = '在接下来的两天内取走，否则你知道会发生什么'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+end
+
+
+if $ARGS[0] = 'Add_SMS_outfit1':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+
+	blackmailQW['smsday'] = daystart + 2
+	blackmailQW['next_payment'] = 10 * rand(15, 25)
+	gs 'blackmailer', 'update_payment_calendar'
+
+	$SMSTree['0'] = '我们看到你取走了包裹，乖女孩'
+		$SMSTree['1'] = '从现在起，你每次送钱来都得穿着它，我们会给你减免 ' + $func('money', 'string_price', 1000)
+			$SMSTree['2'] = '你不会想惹我们生气的'
+				$SMSTree['3'] = '两天内把 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 放到公园里'
+
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'receive', $SMSTree['3']
+
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+end
+
+
+if $ARGS[0] = 'Add_SMS2':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+
+	blackmailQW['smsday'] = daystart + 4
+	blackmailQW['next_payment'] = 0
+	blackmailQW['cosplay_stage'] = 3
+	blackmailQW['toy_fund'] = 0
+
+
+	$SMSTree['0'] = '今天我们换个花样，看看你还是不是个乖女孩'
+		$SMSTree['1'] = '你有四天时间，在卧室里给我们发4张穿着整齐的自拍照'
+
+	gs 'SMSText_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+		gs 'SMStext_builder', 'send_selfie', '发送一张穿衣服的自拍', 'c', 'blackmailer', 'Add_SMS2_1', 0
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMSText_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!! ARGS[1] = selfie_number
+!! ARGS[2] = npc_code
+!! $ARGS[3] = image
+!! $ARGS[4] = location
+!! $ARGS[5] = state of dress
+!! ARGS[6] = self loc index
+!! ARGS[7] = selfie code
+if $ARGS[0] = 'Add_SMS2_1':
+
+	$SMSTree['a'] = '坏女孩，那张不是在你的卧室里拍的。'
+	$SMSTree['b'] = '坏女孩，那张你已经发过了。'
+	$SMSTree['c'] = '好女孩，还差<<3 - ARGS[1]>>张。'
+	$SMSTree['d'] = '好女孩！这也不难，对吧。'
+
+	gs 'SMSText_builder', 'start'
+		gs 'SMSText_builder', 'send_img', $ARGS[3]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 500
+
+		if $ARGS[4] ! 'bedroom':
+			gs 'SMStext_builder', 'receive', $SMSTree['a']
+		elseif $blackmailQW['catfish_pic_0'] = $ARGS[3] or $blackmailQW['catfish_pic_1'] = $ARGS[3] or $blackmailQW['catfish_pic_2'] = $ARGS[3]:
+			gs 'SMStext_builder', 'receive', $SMSTree['b']
+		else
+			if ARGS[1] < 3:
+				gs 'SMStext_builder', 'receive', $SMSTree['c']
+			else
+				gs 'SMStext_builder', 'receive', $SMSTree['d']
+			end
+			$blackmailQW['catfish_pic_<<ARGS[1]>>'] = $ARGS[3]
+			blackmailQW['total_material'] += 1
+			ARGS[1] += 1
+		end
+
+
+		if ARGS[1] < 4:
+			gs 'SMStext_builder', 'send_selfie', '发送一张穿衣服的自拍', 'c', 'blackmailer', 'Add_SMS2_1', ARGS[1]
+		else
+			blackmailQW['smsday'] = daystart + 4
+			blackmailQW['cosplay_stage'] = 4
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMSText_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Add_SMS2_reminder':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+
+	if blackmailQW['escape'] = -1: blackmailQW['escape'] = 0
+
+	$SMSTree['0'] = '<<$pcs_firstname>>别忘了，如果你今天结束前不把四张穿着整齐的照片发过来，你会后悔的。'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMSText_builder', 'receive_img', $blackmailQW['blackmail_image_chosen']
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Add_SMS3':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	blackmailQW['smsday'] = 0
+	blackmailQW['cosplay_stage'] = 5
+	gs 'telefon', 'SetInSMSSchedule', $blackmailQW['nerdvana_phone_ID'], "gs 'blackmailer', 'Add_SMS_Nerdvana'", "totminut > <<totminut + 60 + rand(0, 60)>>"
+
+	$SMSTree['0'] = '你以为你可以滥用我们的慷慨'
+		$SMSTree['1'] = '以为你可以利用书呆天堂的那个废物为你打探'
+			$SMSTree['2'] = '好吧你搞砸了！'
+				$SMSTree['3'] = '而且我们又多了一个玩具'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'receive', $SMSTree['3']
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'Add_SMS_Nerdvana':
+	gs 'npcStat', $blackmailQW['nerdvana_phone_ID'], 'i'
+
+	$SMSTree['0'] = '这是<<$pcs_firstname>>? '
+		$SMSTree['1'] = '是啊，你是谁？'
+
+	$SMSTree['2'] = '这是<<$npcdesc9>>，来自书呆天堂。'
+		$SMSTree['3'] = '你拍这张照片只是为了让人冒充我来骗我吗？'
+			$SMSTree['4'] = '毁了我的生活？'
+				$SMSTree['5'] = '不！'
+
+	$SMSTree['6'] = '我去那里是因为我被敲诈了'
+		$SMSTree['7'] = '操！！太对不起了<<$pcs_firstname>>。他也骗了我'
+			$SMSTree['8'] = '他用那张，还有其他一些，假冒成你。'
+				$SMSTree['9'] = '操！'
+					$SMSTree['10'] = '怎么回事'
+
+	$SMSTree['11'] = '几天前有一个自称是你的账号通过Assbook联系了我。'
+		$SMSTree['12'] = '我不太相信，网络钓鱼装骗并不少见，所以我要求证明。'
+			$SMSTree['13'] = '当我收到一些你的照片时，那些在网上找不到的照片。'
+				$SMSTree['14'] = '我以为你不会随便和朋友们分享的照片。'
+					$SMSTree['15'] = '我以为那是你'
+						$SMSTree['16'] = '哦不，他们做了什么？'
+
+	$SMSTree['17'] = '他做得够多了'
+		$SMSTree['18'] = '这会毁了我的生活'
+			$SMSTree['19'] = '这个人，他告诉我从现在起我得把服装寄给你'
+				$SMSTree['20'] = '下次他再下单，我得告诉你一声。'
+
+					if blackmailQW['escape'] < 1:
+						$SMSTree['21'] = '也许警察能帮忙？'
+					elseif blackmailQW['escape'] = 1:
+						$SMSTree['21'] = '我去过警察局了，但还没把我们查到的事告诉他们'
+					else
+						$SMSTree['21'] = '我去过警察局，把我们的发现告诉了他们'
+					end
+
+	$SMSTree['22'] = '先别慌，我们会挺过去的'
+		$SMSTree['23'] = '好的，如果你需要我做什么，你知道怎么联系我。'
+
+
+	if $ARGS[1] = '':
+		gs 'telefon', 'ClearInSMSSchedule', $npcID9
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'receive', $SMSTree['0']
+			gs 'SMStext_builder', 'add_reply', $SMSTree['1'], 'blackmailer', 'Add_SMS_Nerdvana', '1'
+			gs 'SMStext_builder', 'add_sms', $npcID9
+		gs 'SMStext_builder', 'end'
+
+	elseif $ARGS[1] = '1':
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'send', $SMSTree['1']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['2']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'telefon', 'AddContact', $npcID9, 'images/characters/shared/headshots_main/<<$mid($npcID9, 2)>>.jpg', 0
+			gs 'SMStext_builder', 'receive_img', $blackmailQW['catfish_pic_<<rand(0, 3)>>']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['3']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['4']
+			gs 'SMStext_builder', 'add_reply', $SMSTree['5'], 'blackmailer', 'Add_SMS_Nerdvana', '2'
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+		gs 'SMStext_builder', 'end'
+
+	elseif $ARGS[1] = '2':
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'send', $SMSTree['5']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'send', $SMSTree['6']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['7']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['8']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['9']
+			gs 'SMStext_builder', 'add_reply', $SMSTree['10'], 'blackmailer', 'Add_SMS_Nerdvana', '3'
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+		gs 'SMStext_builder', 'end'
+
+	elseif $ARGS[1] = '3':
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'send', $SMSTree['10']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['11']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['12']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['13']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['14']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['15']
+			gs 'SMStext_builder', 'add_reply', $SMSTree['16'], 'blackmailer', 'Add_SMS_Nerdvana', '4'
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+		gs 'SMStext_builder', 'end'
+
+	elseif $ARGS[1] = '4':
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'send', $SMSTree['16']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['17']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['18']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['19']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['20']
+			gs 'SMStext_builder', 'add_reply', $SMSTree['21'], 'blackmailer', 'Add_SMS_Nerdvana', '5'
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+		gs 'SMStext_builder', 'end'
+
+	elseif $ARGS[1] = '5':
+		gs 'SMStext_builder', 'start'
+			gs 'SMStext_builder', 'send', $SMSTree['21']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'send', $SMSTree['22']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+			wait 500
+			gs 'SMStext_builder', 'receive', $SMSTree['23']
+			gs 'SMStext_builder', 'show_sms', ARGS[2]
+		gs 'SMStext_builder', 'end'
+		gs 'blackmailer', 'sms_EOC'
+	end
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'sms_EOC':
+	gs 'SMStext_builder', 'start'
+		!! END OF CONTENT MESSAGE
+		gs 'SMStext_builder', 'receive', '<i>这是当前剧情线的结尾。</i>'
+		gs 'SMStext_builder', 'receive', '<i>感谢你体验敲诈者的剧情内容</i>'
+		gs 'SMStext_builder', 'receive', '<i>爱你的，安朱娜</i>'
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+end
+
+
+!!    -------- REPEATING --------    !!
+
+
+if $ARGS[0] = 'set_SMSTree':
+	$SMSTree['0'] = '你知道我们想要什么'
+		if motherKnowWhore = 0 and npc_rel['A29'] > 0:
+			$SMSTree['1'] = '如果你不想让你母亲看到这张图片，你就完全照我说的做'
+		elseif $start_type['loc'] = 'sg' and grupTipe ! 5:
+			$SMSTree['1'] = '如果你不想让你的朋友们看到这张图片，你就完全照我说的做'
+		else
+			$SMSTree['1'] = '如果你不想让全世界看到这张图片，你就完全照我说的做'
+		end
+
+			if blackmailQW['worn_costume'] = -1:
+				$SMSTree['2'] = '把 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 放在同一张公园长椅下面。我们加了 ' + $func('money', 'string_price', blackmailQW['next_payment']) + '，因为你上次是个坏女孩。'
+			elseif blackmailQW['worn_costume'] = 1:
+				$SMSTree['2'] = '你穿着那套衣服送我们的钱真是个乖女孩。这次把 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 放在同一张公园长椅下面'
+			else
+				$SMSTree['2'] = '把 ' + $func('money', 'string_price', blackmailQW['next_payment']) + ' 放在同一张公园长椅下面'
+			end
+
+					$SMSTree['3'] = '你有两天时间'
+						$SMSTree['x3'] = '别忘了穿上我们送的礼物'
+							if rand(0, 1) = 0:
+								$SMSTree['a4'] = '你为什么要这样对我？'
+							else
+								$SMSTree['a4'] = '你想从我这里得到什么？'
+							end
+							if blackmailQW['total_material'] <= 4:
+								if rand(0, 1) = 0:
+									$SMSTree['a4'] = '我到哪儿去弄那么多钱？'
+									$SMSTree['b4'] = '先生，我上哪儿弄那么多钱去？'
+								else
+									$SMSTree['a4'] = '多少钱你才肯罢休？'
+									$SMSTree['b4'] = '先生，多少钱你才肯罢休？'
+								end
+							else
+								if rand(0, 1) = 0:
+									$SMSTree['a4'] = '降低数额怎么样？'
+									$SMSTree['b4'] = '先生，降低数额怎么样？'
+								else
+									$SMSTree['a4'] = '我怎么做才能降低那个数额？'
+									$SMSTree['b4'] = '先生，我怎么做才能降低那个数额？'
+								end
+							end
+
+	$SMSTree['5'] = '把钱送过来就行'
+		$SMSTree['6'] = '否则'
+
+	$SMSTree['10a'] = '去当脱衣舞娘吧，这显然是你天生的命'
+		$SMSTree['11a'] = '这样如何。给我们发一张你胸部的照片，我们就减钱'
+
+	$SMSTree['10b'] = '像你这样的荡妇一样发一张裸照'
+		$SMSTree['11b'] = '或者你可以为我们做点特别的事'
+
+	$SMSTree['10c'] = '你要称呼我们为先生，所以我们再加 ' + $func('money', 'string_price', 1000) + '！'
+		$SMSTree['11c'] = '给我们发一张你胸部的照片，我们就减钱'
+
+	$SMSTree['10d'] = '好女孩'
+		$SMSTree['11d'] = '像你这样的荡妇一样发一张裸照'
+
+
+
+			$SMSTree['a12'] = '去你妈的'
+			$SMSTree['b12'] = '从你的相册里发一张（泳装或内衣）自拍'
+			$SMSTree['c12'] = '从你的相册里发一张（暴露）自拍'
+			$SMSTree['d12'] = '从你的相册里发一张自拍'
+			$SMSTree['e12'] = '什么？'
+			$SMSTree['f12'] = '是的，先生'
+
+
+
+
+
+	$SMSTree['a20'] = '我靠！我说的是你奶子的照片，不是这种无聊的垃圾'
+		$SMSTree['a21'] = '你最好再多带 ' + $func('money', 'string_price', 500) + '！'
+			$SMSTree['a22'] = '把 ' + $func('money', 'string_price', blackmailQW['next_payment'] + 500) + ' 丢在公园里，一边打飞机，否则！'
+
+	$SMSTree['ba20'] = '不错'
+		$SMSTree['ba21'] = '这大概值 ' + $func('money', 'string_price', 500)
+			$SMSTree['ba22'] = '别忘了把 ' + $func('money', 'string_price', blackmailQW['next_payment'] - 500) + ' 放到公园里'
+	$SMSTree['bb20'] = '可以，不过那张我们看过了'
+		$SMSTree['bb21'] = '我们会给你减免 ' + $func('money', 'string_price', 250)
+			$SMSTree['bb22'] = '别忘了把 ' + $func('money', 'string_price', blackmailQW['next_payment'] - 250) + ' 放到公园里'
+
+
+	$SMSTree['ca20'] = '哇！'
+		$SMSTree['ca21'] = '这大概值 ' + $func('money', 'string_price', 1000)
+			$SMSTree['ca22'] = '别忘了把 ' + $func('money', 'string_price', blackmailQW['next_payment'] - 1000) + ' 放到公园里'
+	$SMSTree['cb20'] = '那张我们看过了'
+		$SMSTree['cb21'] = '不过它还算完好，所以这大概值 ' + $func('money', 'string_price', 500)
+			$SMSTree['cb22'] = '别忘了把 ' + $func('money', 'string_price', blackmailQW['next_payment'] - 500) + ' 放到公园里'
+
+
+	$SMSTree['da20'] = '我靠！你真是个荡妇，不是吗'
+		$SMSTree['da21'] = '肯定值 ' + $func('money', 'string_price', 2000)
+			$SMSTree['da22'] = '现在你只需要把 ' + $func('money', 'string_price', blackmailQW['next_payment'] - 2000) + ' 放到公园里'
+	$SMSTree['db20'] = '你这个荡妇，我们永远要不够'
+		$SMSTree['db21'] = '但那个已经看过了，它只值 ' + $func('money', 'string_price', 1000)
+			$SMSTree['db22'] = '现在你只需要把 ' + $func('money', 'string_price', blackmailQW['next_payment'] - 1000) + ' 放到公园里'
+
+			$SMSTree['x22'] = '你这下都结清了'
+
+
+	$SMSTree['30'] = '我们会给你寄一个带说明的包裹，不过得花点时间'
+		$SMSTree['31'] = '这周的债我们就给你清了，别让我们后悔！'
+
+			$SMSTree['a32'] = '去你妈的'
+
+			$SMSTree['b32'] = 'ok'
+				$SMSTree['b33'] = '我们得纠正一下你的语气'
+					$SMSTree['b34'] = '从现在起你得叫我们先生'
+			$SMSTree['c32'] = '是的，先生'
+				$SMSTree['c33'] = '好女孩'
+					$SMSTree['c34'] = '以后都这么叫'
+end
+
+
+if $ARGS[0] = 'Add_SMS_repeat':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	blackmailQW['smsday'] = daystart + 2
+	if blackmailQW['escape'] = -1: blackmailQW['escape'] = 0
+	gs 'blackmailer', 'set_next_payment'
+	gs 'blackmailer', 'update_payment_calendar'
+	$blackmailQW['blackmail_image_chosen'] = $func('blackmailer', 'choose_blackmail_image')
+
+	gs 'blackmailer', 'set_SMSTree'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMSText_builder', 'receive_img', $blackmailQW['blackmail_image_chosen']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'receive', $SMSTree['3']
+		if blackmailQW['stage'] >= 8:
+			gs 'SMStext_builder', 'receive', $SMSTree['x3']
+		end
+
+		if blackmailQW['next_payment'] < 2000 and blackmailQW['total_payment'] < 5000:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a4'], 'blackmailer', 'sms_repeat_end1', $SMSTree['a4']
+		elseif blackmailQW['stage'] <= 5 or (blackmailQW['stage'] = 6 and (blackmailQW['next_payment'] < 3000 or pcs_inhib < 20)):
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a4'], 'blackmailer', 'sms_repeat_switch1', 'a', $SMSTree['a4']
+		elseif blackmailQW['stage'] <= 6:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a4'], 'blackmailer', 'sms_repeat_switch1', 'b', $SMSTree['a4']
+		else
+			gs 'SMStext_builder', 'add_reply', $SMSTree['a4'], 'blackmailer', 'sms_repeat_switch1', 'c', $SMSTree['a4']
+			gs 'SMStext_builder', 'add_reply', $SMSTree['b4'], 'blackmailer', 'sms_repeat_switch1', 'd', $SMSTree['b4']
+		end
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'sms_repeat_end1':
+	gs 'blackmailer', 'set_SMSTree'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $ARGS[1]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['5']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['6']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'sms_repeat_switch1':
+	if blackmailQW['stage'] = 5: blackmailQW['stage'] = 6
+	gs 'blackmailer', 'set_SMSTree'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $ARGS[2]
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['10' + $ARGS[1]]
+		if $ARGS[1] = 'c': blackmailQW['next_payment'] += 1000
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['11' + $ARGS[1]]
+
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a12'], 'blackmailer', 'sms_repeat_end1', $SMSTree['a12']
+		if blackmailQW['selfie_stage'] = 0:
+			gs 'SMStext_builder', 'send_selfie', $SMSTree['b12'], 'c;sw;u', 'blackmailer', 'sms_repeat_selfie1'
+		elseif blackmailQW['selfie_stage'] = 1:
+			gs 'SMStext_builder', 'send_selfie', $SMSTree['c12'], 'c;sw;u;ft;fa', 'blackmailer', 'sms_repeat_selfie1'
+		else
+			gs 'SMStext_builder', 'send_selfie', $SMSTree['d12'], 'c;sw;u;n;b;sh;ft;fa;fp', 'blackmailer', 'sms_repeat_selfie1'
+		end
+		if $ARGS[1] = 'b':
+			gs 'SMStext_builder', 'add_reply', $SMSTree['e12'], 'blackmailer', 'sms_repeat_first_favour', $SMSTree['e12']
+		end
+
+		gs 'SMStext_builder', 'show_sms', ARGS[3]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+!!  ARGS[1] = npc_code
+!! $ARGS[2] = image
+!! $ARGS[3] = location
+!! $ARGS[4] = state of dress
+!!  ARGS[5] = self loc index
+!!  ARGS[6] = selfie code
+if $ARGS[0] = 'sms_repeat_selfie1':
+	gs 'blackmailer', 'set_SMSTree'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send_img', $ARGS[2]
+		gs 'SMStext_builder', 'show_sms', ARGS[1]
+
+		wait 250
+
+		if $ARGS[4] = 'clothed':
+			blackmailQW['next_payment'] += 500
+			$temp_path = 'a'
+
+		elseif instr('bikini;underwear', $ARGS[4]) > 0:
+			gs 'blackmailer', 'add_blackmail_selfie', $ARGS[2], $ARGS[3], $ARGS[4], ARGS[5], ARGS[6]
+			if blackmailQW['selfie_stage'] = 0: blackmailQW['selfie_stage'] = 1
+			if blackmailQW['unique_selfie_sent'] = 0:
+				gs 'blackmailer', 'make_payment', 500, 'picture'
+				$temp_path = 'ba'
+			else
+				gs 'blackmailer', 'make_payment', 250, 'picture'
+				$temp_path = 'bb'
+			end
+
+		elseif instr('bath;shower;titflash;assflash', $ARGS[4]) > 0:
+			gs 'blackmailer', 'add_blackmail_selfie', $ARGS[2], $ARGS[3], $ARGS[4], ARGS[5], ARGS[6]
+			if blackmailQW['selfie_stage'] = 1: blackmailQW['selfie_stage'] = 2
+			if blackmailQW['unique_selfie_sent'] = 0:
+				gs 'blackmailer', 'make_payment', 1000, 'picture'
+				$temp_path = 'ca'
+			else
+				gs 'blackmailer', 'make_payment', 500, 'picture'
+				$temp_path = 'cb'
+			end
+
+
+		elseif instr('nude;pussyflash', $ARGS[4]) > 0:
+			gs 'blackmailer', 'add_blackmail_selfie', $ARGS[2], $ARGS[3], $ARGS[4], ARGS[5], ARGS[6]
+			if blackmailQW['selfie_stage'] = 2: blackmailQW['selfie_stage'] = 3
+			if blackmailQW['unique_selfie_sent'] = 0:
+				gs 'blackmailer', 'make_payment', 2000, 'picture'
+				$temp_path = 'da'
+			else
+				gs 'blackmailer', 'make_payment', 1000, 'picture'
+				$temp_path = 'db'
+			end
+		end
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$temp_path + '20']
+		gs 'SMStext_builder', 'show_sms', ARGS[1]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$temp_path + '21']
+		gs 'SMStext_builder', 'show_sms', ARGS[1]
+
+		wait 250
+
+		if blackmailQW['next_payment'] > 0:
+			gs 'SMStext_builder', 'receive', $SMSTree[$temp_path + '22']
+		else
+			blackmailQW['next_payment'] = 0
+			blackmailQW['smsday'] = 0
+			gs 'SMStext_builder', 'receive', $SMSTree['x22']
+		end
+		gs 'SMStext_builder', 'show_sms', ARGS[1]
+	gs 'SMStext_builder', 'end'
+
+	killvar 'temp_path'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'sms_repeat_first_favour':
+	gs 'blackmailer', 'set_SMSTree'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $ARGS[1]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['30']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree['31']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['a32'], 'blackmailer', 'sms_repeat_end1', $SMSTree['a32']
+		gs 'SMStext_builder', 'add_reply', $SMSTree['b32'], 'blackmailer', 'sms_repeat_setup_first_gift', 'b'
+		gs 'SMStext_builder', 'add_reply', $SMSTree['c32'], 'blackmailer', 'sms_repeat_setup_first_gift', 'c'
+
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'sms_repeat_setup_first_gift':
+	gs 'blackmailer', 'set_SMSTree'
+
+	if blackmailQW['stage'] < 7: blackmailQW['stage'] = 7
+	blackmailQW['smsday'] = daystart + 14
+	gs 'blackmailer', 'make_payment', blackmailQW['next_payment'], 'favour'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $SMSTree[$ARGS[1] + '32']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[1] + '33']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', $SMSTree[$ARGS[1] + '34']
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+end
+
+
+if $ARGS[0] = 'sms_repeat_switch2':
+	gs 'blackmailer', 'sms_repeat_EOC', $ARGS[1], ARGS[2]
+	exit
+
+	!{
+	gs 'blackmailer', 'set_SMSTree'
+	blackmailQW['next_payment'] = 0
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $ARGS[1]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		gs 'SMStext_builder', 'receive', 'Alright, wear your gift and '
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+	killvar 'SMSTree'
+	!}
+end
+
+
+!! END OF CONTENT MESSAGE
+if $ARGS[0] = 'sms_repeat_EOC':
+	blackmailQW['next_payment'] = 0
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'send', $ARGS[1]
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+
+		wait 250
+
+		!! END OF CONTENT MESSAGE
+		gs 'SMStext_builder', 'receive', '<i>此内容尚未完成。</i>'
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+		wait 250
+		gs 'SMStext_builder', 'receive', '<i>作为赠礼，你的债务将被清零！</i>'
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+		wait 250
+		gs 'SMStext_builder', 'receive', '<i>感谢你体验敲诈者的剧情内容</i>'
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+		wait 250
+		gs 'SMStext_builder', 'receive', '<i>爱你的，安朱娜</i>'
+		gs 'SMStext_builder', 'show_sms', ARGS[2]
+	gs 'SMStext_builder', 'end'
+end
+
+
+	!!    -------- PACKAGES --------    !!
+
+
+if $ARGS[0] = 'Add_SMS_package_repeat':
+	gs 'telefon', 'ClearInSMSSchedule', 'Blackmailer'
+	gs 'post_office', 'add_mail', 'city', "gs 'blackmailer', 'set_post_act'"
+	blackmailQW['package_day'] = daystart + 14
+
+	gs 'blackmailer', 'choose_package'
+	gs 'blackmailer', 'decrease_toy_fund', blackmailQW['package']
+
+	$SMSTree['0'] = '我们又给你寄了一个包裹。你可以去圣彼得堡邮局取。'
+		$SMSTree['1'] = '你可以在接下来的两周内去取。'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+
+		gs 'SMStext_builder', 'add_sms', 'Blackmailer'
+	gs 'SMStext_builder', 'end'
+end
+
+
+if $ARGS[0] = 'Add_SMS_package_repeat2':
+	gs 'npcStat', $blackmailQW['nerdvana_phone_ID'], 'i'
+	gs 'telefon', 'ClearInSMSSchedule', $npcID9
+	gs 'post_office', 'add_mail', 'city', "gs 'blackmailer', 'set_post_act'"
+	blackmailQW['package_day'] = daystart + 14
+
+	gs 'blackmailer', 'choose_package'
+	gs 'blackmailer', 'decrease_toy_fund', blackmailQW['package']
+
+	$SMSTree['0'] = '嘿<<$pcs_nickname>>，我是<<$npcdesc9>>，来自书呆天堂。'
+		$SMSTree['1'] = '我刚在圣彼得堡邮局给你放了一个包裹。'
+			$SMSTree['2'] = '它会在那里存放十四天。'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+		gs 'SMStext_builder', 'receive', $SMSTree['1']
+		gs 'SMStext_builder', 'receive', $SMSTree['2']
+		gs 'SMStext_builder', 'add_sms', $npcID9
+	gs 'SMStext_builder', 'end'
+end
+
+
+--- blackmailer ---------------------------------

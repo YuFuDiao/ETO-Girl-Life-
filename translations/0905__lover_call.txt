@@ -1,0 +1,998 @@
+# lover_call
+
+if $ARGS[0] = 'scheduler':
+	tempLCVars['i'] = 0
+	tempLCVars['maxi'] = arrsize('$lover')
+	if tempLCVars['maxi'] > 0:
+		:loverloop2
+			gs 'lover_call', 'set_base_schedule', $lover[tempLCVars['i']], (rand(0, 2) = 0)
+			tempLCVars['i'] += 1
+		if tempLCVars['i'] < tempLCVars['maxi']: jump 'loverloop2'
+	end
+	killvar 'tempLCVars'
+end
+
+
+if $ARGS[0] = 'set_base_schedule':
+	$tempLCVars2['ID'] = $ARGS[1]
+	tempLCVars2['type'] = ARGS[2]
+
+	if $mid($tempLCVars2['ID'], 1, 1) = 'B' and len($tempLCVars2['ID']) > 1 and isnum($mid($tempLCVars2['ID'], 2)):
+		if $npc_rel_type[$tempLCVars2['ID']] = 'dating' or $npc_rel_type[$tempLCVars2['ID']] = 'boyfriend' or $npc_rel_type[$tempLCVars2['ID']] = 'girlfriend':
+			$tempLCVars2['OutCode'] = "gt 'lover_call', 'callingTheLover', '<<$tempLCVars2['ID']>>'"
+			$tempLCVars2['OutSched'] = "npc_meetday['<<$tempLCVars2['ID']>>'] < <<daystart>> and hour >= 7 and hour < 20"
+			if tempLCVars2['type'] <> 0:
+				$tempLCVars2['InCode'] = "gs 'lover_call', 'lover', '<<$tempLCVars2['ID']>>'"
+				$tempLCVars2['InSched'] = "totminut > <<totminut + (9 - hour) * 24 + rand(0, 600) - minut>> and hour >= 7 and hour < 20"
+			else
+				$tempLCVars2['InCode'] = ""
+				$tempLCVars2['InSched'] = "0"
+			end
+			gs 'telefon', 'SetOutCallSchedule', $tempLCVars2['ID'], $tempLCVars2['OutCode'], $tempLCVars2['OutSched']
+			gs 'telefon', 'SetInCallSchedule', $tempLCVars2['ID'], $tempLCVars2['InCode'], $tempLCVars2['InSched']
+		end
+	end
+	killvar 'tempLCVars2'
+end
+
+
+if $ARGS[0] = 'telotkaz':
+	cla
+	minut += 10
+	'<<$ARGS[1]>>, "对不起，我现在很忙，下次再说吧。"'
+
+	act '挂断': gt 'lover_call', 'fin'
+end
+
+
+if $ARGS[0] = 'fin':
+	killvar 'call4Date'
+
+	gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'mobilaraz':
+	*clr & cla
+	gs 'din_bad'
+	$caller = $telsob
+	gs 'telefon', 'phone_balance'
+	gs 'telefon', 'phone_call_receive'
+	willAgree = (rand(0, 10) > 3)
+
+
+	'"是的，我在听。"听筒里传来一个声音。'
+
+	if month > 5 and temper > 20 and sunWeather = 1:
+		act '邀请去公园':
+			cla
+			'"我们去公园散散步吧。"'
+
+			if willAgree:
+				'<<$telsob>>, "一小时后公园见。"'
+
+				act '出发':
+					if $clothingworntype = 'nude':
+						gs 'outfit', 'wear_last_worn'
+					end
+					gt 'parksvid'
+				end
+			else
+				gs 'lover_call', 'telotkaz', $telsob
+			end
+		end
+	end
+
+	act '邀请去看电影':
+		cla
+		'"想去看电影吗？"'
+
+		if willAgree:
+			'<<$telsob>>, "一小时后电影院见。"'
+			act '前往': gt 'kinosvid'
+		else
+			gs 'lover_call', 'telotkaz', $telsob
+		end
+	end
+
+	act '邀请去台球厅':
+		cla
+		'"我们去打台球吧。"'
+
+		if willAgree:
+			'<<$telsob>>, "一小时后台球厅见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gt 'billsvid'
+			end
+		else
+			gs 'lover_call', 'telotkaz', $telsob
+		end
+	end
+
+	act '邀请去咖啡馆':
+		cla
+		'"我们去咖啡馆吧。"'
+
+		if willAgree:
+			'<<$telsob>>, "一小时后咖啡馆见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gt 'kafesvid'
+			end
+		else
+			gs 'lover_call', 'telotkaz', $telsob
+		end
+	end
+
+	act '邀请去赌场':
+		cla
+		'"我们去赌场吧。"'
+
+		if willAgree:
+			'<<$telsob>>, "一小时后赌场见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gt 'kazinosvid'
+			end
+		else
+			gs 'lover_call', 'telotkaz', $telsob
+		end
+	end
+
+	act '挂断': gt 'lover_call', 'fin'
+end
+
+
+if $ARGS[0] = 'init_call4Date_lover':
+	$call4Date["NPC"] = $ARGS[1]
+	gs 'npcStat', $call4Date["NPC"]
+	$call4Date["CallerName"] = $npc_usedname[$call4Date["NPC"]]
+
+	!! These variables are setup for certain downstream functions
+	$caller = $call4Date["CallerName"]
+	$callerid = $npc_pic[$call4Date["NPC"]]
+	$telsob = $caller
+end
+
+
+!! -----------------------------------------------------------------------------
+!! Support for Hardcoded Lovers (BF/GF)
+
+
+if $ARGS[0] = 'callingTheLover':
+	*clr & cla
+	menu_off = 1
+	gs 'din_bad'
+	gs 'stat'
+	gs 'lover_call', 'init_call4Date_lover', $ARGS[1]
+
+	gs 'telefon', 'phone_balance'
+	gs 'telefon', 'phone_call_receive'
+
+	if npc_gender[$ARGS[1]] = 1 or npc_gender[$ARGS[1]] = 2:
+		xgt 'lover_call', 'callingTheLover_f'
+	elseif npc_gender[$ARGS[1]] = 0 or npc_gender[$ARGS[1]] = 3:
+		xgt 'lover_call', 'callingTheLover_m'
+	end
+end
+
+
+if $ARGS[0] = 'callingTheLover_f':
+	call4Date["willAgree"] = (rand(0, 10) > 3)
+
+	'"是的，我在听。"听筒里传来一个声音。'
+
+	act '挂断': gt 'lover_call', 'fin'
+
+	act '我觉得我们该分手了……':
+		cla
+		'她听起来很受伤，但你坚持这是最好的选择。你们互相道别，分道扬镳。'
+		gs 'lover', 'remove_girlfriend', $call4Date["NPC"]
+
+		act '挂断': gt 'lover_call', 'fin'
+	end
+
+	if month > 5 and temper > 20 and sunWeather = 1:
+		act '邀请去公园':
+			cla
+			'"我们去公园散散步吧。"'
+
+			if no call4Date["willAgree"]:
+				gs 'lover_call', 'telotkaz', $telsob
+				exit
+			end
+
+			'<<$telsob>>, "一小时后公园见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gs 'npcStat', $call4Date["NPC"]
+				$telsob = $npcdesc
+				killvar 'call4Date'
+
+				npc_dates[$npcID] += 1
+				gt 'parksvid'
+			end
+		end
+	end
+
+	act '邀请去看电影':
+		cla
+		'"想去看电影吗？"'
+
+		if no call4Date["willAgree"]:
+			gs 'lover_call', 'telotkaz', $telsob
+			exit
+		end
+
+		'<<$telsob>>, "一小时后电影院见。"'
+		act '前往':
+			if $clothingworntype = 'nude':
+				gs 'outfit', 'wear_last_worn'
+			end
+			gs 'npcStat', $call4Date["NPC"]
+			$telsob = $npcdesc
+			killvar 'call4Date'
+
+			npc_dates[$npcID] += 1
+			gt 'kinosvid'
+		end
+	end
+
+	if $home['town'] = 'city':
+		act '邀请去台球厅':
+			cla
+			'"我们去打台球吧。"'
+
+			if no call4Date["willAgree"]:
+				gs 'lover_call', 'telotkaz', $telsob
+				exit
+			end
+
+			'<<$telsob>>, "一小时后台球厅见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gs 'npcStat', $call4Date["NPC"]
+				$telsob = $npcdesc
+				killvar 'call4Date'
+
+				npc_dates[$npcID] += 1
+				gt 'billsvid'
+			end
+		end
+	end
+
+	act '邀请去咖啡馆':
+		cla
+		'"我们去咖啡馆吧。"'
+
+		if no call4Date["willAgree"]:
+			gs 'lover_call', 'telotkaz', $telsob
+			exit
+		end
+
+		'<<$telsob>>, "一小时后咖啡馆见。"'
+
+		act '前往':
+			if $clothingworntype = 'nude':
+				gs 'outfit', 'wear_last_worn'
+			end
+			gs 'npcStat', $call4Date["NPC"]
+			$telsob = $npcdesc
+			killvar 'call4Date'
+
+			npc_dates[$npcID] += 1
+			gt 'kafesvid'
+		end
+	end
+
+	act '邀请去赌场':
+		cla
+		'"我们去赌场吧。"'
+
+		if no call4Date["willAgree"]:
+			gs 'lover_call', 'telotkaz', $telsob
+			exit
+		end
+
+		'<<$telsob>>, "一小时后赌场见。"'
+
+		act '前往':
+			if $clothingworntype = 'nude':
+				gs 'outfit', 'wear_last_worn'
+			end
+			gs 'npcStat', $call4Date["NPC"]
+			$telsob = $npcdesc
+			killvar 'call4Date'
+
+			npc_dates[$npcID] += 1
+			gt 'kazinosvid'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'callingTheLover_m':
+	call4Date["willAgree"] = (rand(0, 10) > 3)
+
+	'“是的，我在听，”扬声器里传来一个声音。'
+
+	act '挂断': gt 'lover_call', 'fin'
+
+	act '我觉得我们该分手了……':
+		cla
+		'他听起来很受伤，但你坚持这是最好的选择。你们互相道别，分道扬镳。'
+		gs 'lover', 'remove_boyfriend', $call4Date["NPC"]
+
+		act '挂断': gt 'lover_call', 'fin'
+	end
+
+	act '约会（新内容）':
+		cla
+		gs 'date_ev', 'phone_invite_start'
+	end
+	act '约会（旧内容）':
+		cla
+		if month > 5 and temper > 20 and sunWeather = 1:
+			act '邀请去公园':
+				cla
+				'"我们去公园散散步吧。"'
+
+				if no call4Date["willAgree"]:
+					gs 'lover_call', 'telotkaz', $telsob
+					exit
+				end
+
+				'<<$caller>>, "一小时后公园见。"'
+
+				act '前往':
+					if $clothingworntype = 'nude':
+						gs 'outfit', 'wear_last_worn'
+					end
+					gs 'npcStat', $call4Date["NPC"]
+					$telsob = $npcdesc
+					killvar 'call4Date'
+
+					npc_dates[$npcID] += 1
+					gt 'svidboy', 'parksvid'
+				end
+			end
+		end
+
+		act '邀请去看电影':
+			cla
+			'"想去看电影吗？"'
+
+			if no call4Date["willAgree"]:
+				gs 'lover_call', 'telotkaz', $telsob
+				exit
+			end
+
+			'<<$caller>>, "一小时后电影院见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gs 'npcStat', $call4Date["NPC"]
+				$telsob = $npcdesc
+				killvar 'call4Date'
+
+				npc_dates[$npcID] += 1
+				gt 'svidboy', 'kinosvid'
+			end
+		end
+
+		if $home['town'] = 'city':
+			act '邀请去台球厅':
+				cla
+				'"我们去打台球吧。"'
+
+				if no call4Date["willAgree"]:
+					gs 'lover_call', 'telotkaz', $telsob
+					exit
+				end
+
+				'<<$caller>>, "一小时后台球厅见。"'
+
+				act '前往':
+					if $clothingworntype = 'nude':
+						gs 'outfit', 'wear_last_worn'
+					end
+					gs 'npcStat', $call4Date["NPC"]
+					$telsob = $npcdesc
+					killvar 'call4Date'
+
+					npc_dates[$npcID] += 1
+					gt 'svidboy', 'billsvid'
+				end
+			end
+		end
+
+		act '邀请去咖啡馆':
+			cla
+			'"我们去咖啡馆吧。"'
+
+			if no call4Date["willAgree"]:
+				gs 'lover_call', 'telotkaz', $telsob
+				exit
+			end
+
+			'<<$caller>>, "一小时后咖啡馆见。"'
+
+			act '前往':
+				if $clothingworntype = 'nude':
+					gs 'outfit', 'wear_last_worn'
+				end
+				gs 'npcStat', $call4Date["NPC"]
+				$telsob = $npcdesc
+				killvar 'call4Date'
+
+				npc_dates[$npcID] += 1
+				gt 'svidboy', 'kafesvid'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'lover':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	gs 'lover_call', 'init_call4Date_lover', $ARGS[1]
+	ring = 0
+	call4Date['lover_days'] = daystart - npc_eventday[$call4Date["NPC"]]
+	gs 'stat'
+	gs 'telefon', 'phone_call_receive'
+	gs 'telefon', 'ClearInCallSchedule', $call4Date["NPC"]
+
+
+	if npc_gender[$ARGS[1]] = 0 or npc_gender[$ARGS[1]] = 3:
+		xgt 'lover_call', 'lover_m'
+	elseif npc_gender[$ARGS[1]] = 1 or npc_gender[$ARGS[1]] = 2:
+		xgt 'lover_call', 'lover_f'
+	end
+end
+
+
+if $ARGS[0] = 'lover_m':
+	$DateNickName[0] = '小可爱'
+	$DateNickName[1] = '亲爱的'
+	$DateNickName[2] = '甜心'
+	$DateNickName[3] = '宝贝'
+	$DateNickName[4] = '辣妹'
+	$DateNickName[5] = '<<$pcs_nickname>>'
+	$call4Date["SvetaName"] = $DateNickName[rand(0, arrsize('$DateNickName')-1)]
+	killvar 'DateNickName'
+
+	'嘿<<$call4Date["SvetaName"]>>，是我，<<$caller>>。最近怎么样？'
+
+	act '回复':
+		cla
+		'"还不错，你呢？"'
+		'<<$caller>>, "很好，但我有点想你，我们今天能见个面吗？"'
+
+
+		if knowpreg = 1 and pregtalk = 0:
+			if (pregChem / 24) > call4Date['lover_days']:
+				act '亲爱的，你很快就要当爸爸了':
+					cla
+					npc_rel[$call4Date["NPC"]] = 0
+					'"亲爱的，我怀了你的孩子。"'
+					'<<$caller>>, "我怎么可能搞出这种事？除非我有时间机器，回到我们认识之前把你干了，否则这肯定是别人的孩子，去找他说清楚。我不想再见到你，再见。"'
+
+					act '挂断': gt 'lover_call', 'fin'
+				end
+			else
+				act '告诉他，他要当爸爸了':
+					cla
+					pregtalk = 1
+					'"亲爱的，我怀了你的孩子。"'
+
+					if npc_gentle[$call4Date["NPC"]] = 1:
+
+						if npc_rel[$call4Date["NPC"]] < 85:
+							gs 'money', 'earn', 20000
+							'<<$caller>> "我还没准备好当爸爸。我给你钱去做人流。把孩子打掉。'
+
+							act '挂断': gt 'lover_call', 'fin'
+						else
+							npc_love[$call4Date["NPC"]] = 1
+
+							'<<$caller>>, "这太棒了！我们得庆祝一下！"'
+							'你开始谈论同居的事。 <<$caller>>告诉你他原则上并不反对，但首先他想让你见他的父母。'
+							'他警告你他的母亲非常苛刻和严格。 <<$caller>>说他爱他的母亲，不想让她难过。因此，你必须看起来漂亮，穿一条精品店的裙子，还要有整洁卷曲的头发和适度的妆容。'
+							'当你完全准备好后，<<$caller>>会带你去见他的父母。'
+
+							act '挂断': gt 'lover_call', 'fin'
+
+							act '今晚见面':
+								cla
+								'"今晚怎么样？"'
+								'<<$caller>>, "太好了！我什么时候来接你？"'
+
+								act '选个时间':
+									cla
+									npc_meetday[$call4Date['NPC']] = daystart
+									npc_meethour[$call4Date['NPC']] = input ("你想让他什么时候来接你？现在是<<func('time', 'get_time_string', hour, minut)>>。[只输入小时 0 - 20]")
+									if npc_meethour[$call4Date['NPC']] <= hour or npc_meethour[$call4Date['NPC']] > 23: npc_meethour[$call4Date['NPC']] = 20
+									'"<<temp_hour>>:00 怎么样？"'
+									'<<$caller>>, "好的<<$call4Date["SvetaName"]>>，在<<npc_meethour[$call4Date[''NPC'']]>>:00。"'
+
+									act '挂断': gt 'lover_call', 'fin'
+								end
+							end
+						end
+					elseif npc_rough[$call4Date["NPC"]] = 0:
+						gs 'money', 'earn', 20000
+						'<<$caller>> "我还没准备好当爸爸。我给你钱去做人流。"'
+
+						act '挂断': gt 'lover_call', 'fin'
+					else
+						pregtalk = 0
+						'<<$caller>>, "什么？你这婊子！有人干了你，现在你把这事赖到我头上。你被甩了。'
+						gs 'lover', 'remove_boyfriend', $call4Date["NPC"]
+
+						act '挂断': gt 'lover_call', 'fin'
+					end
+				end
+			end
+		elseif $job_status['city_cafe_waitress'] = 'employed' and func('jobs', 'is_work_day', 'city_cafe_waitress', daystart) = 1:
+			act '对不起，我今天要上班':
+				cla
+				'"抱歉，我今天要上班。"'
+				'<<$caller>>, "好的，我明天再打给你。"'
+
+				act '挂断': gt 'lover_call', 'fin'
+			end
+		end
+
+		act '我觉得我们该分手了……':
+			cla
+			'他听起来很受伤，但你坚持这是最好的选择。你们互相道别，分道扬镳。'
+			gs 'lover', 'remove_boyfriend', $call4Date["NPC"]
+
+			act '挂断': gt 'lover_call', 'fin'
+		end
+
+		act '今晚':
+			cla
+			gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(0, 1)
+			'"今晚怎么样？"'
+			act '选时间（新内容）':
+				cla
+				gs 'date_ev', 'npc_pick_date'
+			end
+			act '选时间（旧内容）':
+				cla
+				'<<$caller>>, "太好了！我什么时候来接你？"'
+
+				act '选个时间':
+					cla
+					npc_meetday[$call4Date['NPC']] = daystart
+					npc_meethour[$call4Date['NPC']] = input ("你想让他什么时候来接你？现在是<<func('time', 'get_time_string', hour, minut)>>。[只输入小时 0 - 20]")
+					if npc_meethour[$call4Date['NPC']] <= hour or npc_meethour[$call4Date['NPC']] > 23: npc_meethour[$call4Date['NPC']] = 20
+
+					'"<<npc_meethour[$call4Date[''NPC'']]>>:00 怎么样？。"'
+					'<<$caller>>, "好的<<$call4Date["SvetaName"]>>，在<<npc_meethour[$call4Date[''NPC'']]>>:00。"'
+
+					act '挂断': gt 'lover_call', 'fin'
+				end
+			end
+		end
+
+		act '也许明天':
+			cla
+			gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(-1, 0)
+			'"我今天很忙。明天再打吧。"'
+
+			if npc_rel[$call4Date["NPC"]] <= 0:
+				'<<$caller>>，你他妈在耍我吗，你知道吗。含我的鸡巴。'
+				gs 'lover', 'remove_boyfriend', $call4Date["NPC"]
+			else
+				'(<<$caller>>) - 好的，我明天再打。'
+			end
+
+			act '挂断': gt 'lover_call', 'fin'
+		end
+	end
+
+	act '挂断（结束关系）':
+		cla
+		gs 'lover', 'remove_boyfriend', $call4Date["NPC"]
+		gt 'lover_call', 'fin'
+	end
+end
+
+
+if $ARGS[0] = 'lover_f':
+	$DateNickName[0] = '小可爱'
+	$DateNickName[1] = '亲爱的'
+	$DateNickName[2] = '甜心'
+	$DateNickName[3] = '宝贝'
+	$DateNickName[4] = '辣妹'
+	$DateNickName[5] = '<<$pcs_nickname>>'
+	$call4Date["SvetaName"] = $DateNickName[rand(0, arrsize('$DateNickName')-1)]
+	killvar 'DateNickName'
+
+	'嘿<<$call4Date["SvetaName"]>>，是我，<<$caller>>。最近怎么样？'
+
+	act '回复':
+		cla
+		'"还不错，你呢？"'
+		'<<$caller>>, "很好，但我有点想你，我们今天能见个面吗？"'
+
+
+		act '今晚':
+			cla
+			gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(0, 1)
+			'"今晚怎么样？"'
+			'<<$caller>>, "太好了！我什么时候来接你？"'
+
+			act '选个时间':
+				cla
+				npc_meetday[$call4Date['NPC']] = daystart
+				npc_meethour[$call4Date['NPC']] = input ("你想让他什么时候来接你？现在是<<func('time', 'get_time_string', hour, minut)>>。[只输入小时 0 - 20]")
+				if npc_meethour[$call4Date['NPC']] <= hour or npc_meethour[$call4Date['NPC']] > 23: npc_meethour[$call4Date['NPC']] = 20
+
+				'"<<npc_meethour[$call4Date[''NPC'']]>>:00 怎么样？。"'
+				'<<$caller>>, "好的<<$call4Date["SvetaName"]>>，在<<npc_meethour[$call4Date[''NPC'']]>>:00。"'
+
+				act '挂断': gt 'lover_call', 'fin'
+			end
+		end
+
+		act '也许明天':
+			cla
+			gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(-1, 0)
+			'"我今天很忙。明天再打吧。"'
+
+			if npc_rel[$call4Date["NPC"]] <= 20:
+				'<<$caller>>, 你他妈的在逗我吗，你知道吗。滚开。'
+				gs 'lover', 'remove_girlfriend', $call4Date["NPC"]
+			else
+				'(<<$caller>>) - 好的，我明天再打。'
+			end
+			act '挂断': gt 'lover_call', 'fin'
+		end
+
+		act '我觉得我们该分手了……':
+			cla
+			'她听起来很受伤，但你坚持这是最好的选择。你们互相道别，分道扬镳。'
+			gs 'lover', 'remove_girlfriend', $call4Date["NPC"]
+
+			act '挂断': gt 'lover_call', 'fin'
+		end
+	end
+
+	act '挂断（结束关系）':
+		cla
+		gs 'lover', 'remove_girlfriend', $call4Date["NPC"]
+		gt 'lover_call', 'fin'
+	end
+end
+!! ---------------------- End of Lover support
+
+
+!! -----------------------------------EVENTS------------------------------------------
+!! Generic Calls for dates
+
+
+!!	ARGS[1] = contactlist index
+if $ARGS[0] = 'init_call4Date':
+	call4Date["ContactIndex"] = ARGS[1]
+	$call4Date["NPC"] = $contact[call4Date['ContactIndex']]
+	$call4Date["CallerName"] = $npc_nickname[$call4Date["NPC"]]
+
+	if npc_gender[$call4Date["NPC"]] = 0:
+		$call4Date["NPC-he"] = '他'
+		$call4Date["NPC-He"] = '他'
+		$call4Date["NPC-his"] = '他的'
+		$call4Date["NPC-His"] = '他'
+	else
+		$call4Date["NPC-he"] = '她'
+		$call4Date["NPC-He"] = '她'
+		$call4Date["NPC-his"] = '她的'
+		$call4Date["NPC-His"] = '她的'
+	end
+
+	!! These variables are setup for certain downstream functions
+	$caller = $call4Date["CallerName"]
+	$callerid = $contactIcon[call4Date["ContactIndex"]]
+end
+
+
+!! NPC Date
+!!	ARGS[1] = contactlist index
+!!	$ARGS[2] = Date Location
+if $ARGS[0] = 'NPCDate':
+	gs 'lover_call', 'init_call4Date', ARGS[1]
+	$call4Date["Location"] = $ARGS[2]
+
+	gs 'npcStat', $call4Date["NPC"]
+
+	gs 'mood', 'raise', 'tiny'
+	gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(1, 2)
+
+	$call4Date['leave'] = 'killvar ''call4Date'' & '
+	if npc_gender[$call4Date["NPC"]] = 0:
+		if $call4Date["Location"] = 'city_park':
+			$call4Date['leave'] += 'gt ''dateM'', ''datepark'' '
+		elseif $call4Date["Location"] = 'bar':
+			$call4Date['leave'] += 'gt ''dateM'', ''datebar'' '
+		elseif $call4Date["Location"] = 'movie':
+			$call4Date['leave'] += 'gt ''dateM'', ''datecinema'' '
+		elseif $call4Date["Location"] = 'cafe':
+			$call4Date['leave'] += 'gt ''dateM'', ''datecafe'' '
+		else
+			!! Saveguard
+			$call4Date['leave'] += 'gt ''dateM'', ''datepark'' '
+		end
+	else
+		if $call4Date["Location"] = 'city_park':
+			$call4Date['leave'] += 'gt ''dateF'', ''datepark'' '
+		elseif $call4Date["Location"] = 'bar':
+			$call4Date['leave'] += 'gt ''dateF'', ''datebar'' '
+		elseif $call4Date["Location"] = 'movie':
+			!! Not implemented yet
+			!! $call4Date['leave'] += 'gt ''dateF'', ''datecinema'' '
+		elseif $call4Date["Location"] = 'cafe':
+			!! Not implemented yet
+			!! $call4Date['leave'] += 'gt ''dateF'', ''datecafe'' '
+		else
+			!! Saveguard
+			$call4Date['leave'] += 'gt ''dateF'', ''datepark'' '
+		end
+	end
+	dynamic $call4Date['leave']
+end
+
+
+!! Sveta Calls the NPC
+!!	ARGS[1] = contactlist index
+if $ARGS[0] = 'SvetaCallsNPC':
+	*clr & cla
+	gs 'lover_call', 'init_call4Date', ARGS[1]
+
+	gs 'telefon', 'phone_balance'
+	gs 'telefon', 'phone_call_receive'
+
+	call4Date["willAgree"] = (rand(0, 10) > 3)
+	$call4Date['leave'] = 'killvar ''call4Date'' & '
+
+
+	'"是的，我在听。"听筒里传来一个声音。'
+
+	act '约见面':
+		cla
+		'"我们见个面吧。"'
+
+		act '继续':
+			$call4Date['leave'] += 'gt ''lover_call'', ''NPCCallsForDate'', <<call4Date["ContactIndex"]>>'
+			dynamic $call4Date['leave']
+		end
+	end
+
+	if month > 5 and temper > 20 and sunWeather = 1:
+		act '邀请去公园':
+			cla
+			'"我们去公园散散步吧。"'
+
+			if call4Date["willAgree"]:
+				'<<$call4Date["CallerName"]>>, "一小时后公园见。"'
+
+				act '前往':
+					$call4Date['leave'] += 'gt ''lover_call'', ''NPCDate'', <<call4Date["ContactIndex"]>>, ''city_park'' '
+					dynamic $call4Date['leave']
+				end
+			else
+				$call4Date['leave'] += 'gs ''lover_call'', ''telotkaz'', ''<<$call4Date["CallerName"]>>'' '
+				dynamic $call4Date['leave']
+			end
+		end
+	end
+
+	act '邀请去看电影':
+		cla
+		'"想去看电影吗？"'
+
+		if call4Date["willAgree"]:
+			'<<$call4Date["CallerName"]>>, "一小时后电影院见。"'
+
+			act '前往':
+				$call4Date['leave'] += 'gt ''lover_call'', ''NPCDate'', <<call4Date["ContactIndex"]>>, ''movie'' '
+				dynamic $call4Date['leave']
+			end
+		else
+			$call4Date['leave'] += 'gs ''lover_call'', ''telotkaz'', ''<<$call4Date["CallerName"]>>'' '
+			dynamic $call4Date['leave']
+		end
+	end
+
+	if $home['town'] = 'city':
+		act '邀请去酒吧':
+			cla
+			'"我们去酒吧吧。"'
+
+			if call4Date["willAgree"]:
+				'<<$call4Date["CallerName"]>>, "一小时后酒吧见。"'
+
+				act '前往':
+					$call4Date['leave'] += 'gt ''lover_call'', ''NPCDate'', <<call4Date["ContactIndex"]>>, ''bar'' '
+					dynamic $call4Date['leave']
+				end
+			else
+				$call4Date['leave'] += 'gs ''lover_call'', ''telotkaz'', ''<<$call4Date["CallerName"]>>'' '
+				dynamic $call4Date['leave']
+			end
+		end
+	end
+
+	act '邀请去咖啡馆':
+		cla
+		'"我们去咖啡馆吧。"'
+
+		if call4Date["willAgree"]:
+			'<<$call4Date["CallerName"]>>, "一小时后咖啡馆见。"'
+
+			act '前往':
+				$call4Date['leave'] += 'gt ''lover_call'', ''NPCDate'', <<call4Date["ContactIndex"]>>, ''cafe'' '
+				dynamic $call4Date['leave']
+			end
+		else
+			$call4Date['leave'] += 'gs ''lover_call'', ''telotkaz'', ''<<$call4Date["CallerName"]>>'' '
+			dynamic $call4Date['leave']
+		end
+	end
+
+	!! Willpower checks for resistance
+	if npc_rel[$call4Date["NPC"]] <= 50:
+		$call4Date["loverResist"] = 'easy'
+	elseif npc_rel[$call4Date["NPC"]] <= 65:
+		$call4Date["loverResist"] = 'medium'
+	else
+		$call4Date["loverResist"] = 'hard'
+	end
+
+
+	gs 'willpower', 'misc', 'self', $call4Date["loverResist"]
+	if pcs_willpwr < will_cost:
+		act '我觉得我们该分手了……' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '我觉得我们该分手了……' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+
+			'<<$call4Date["NPC-He"]>>听起来很难过，但你坚持这是最好的。你们互相道别后分道扬镳。'
+			gs 'telefon', 'DeleteContact', $call4Date["NPC"]
+
+			act '挂断': gt 'lover_call', 'fin'
+		end
+	end
+
+	act '挂断': gt 'lover_call', 'fin'
+end
+
+
+!! NPC Calls Sveta for a Date
+!!	ARGS[1] = $contact index number
+if $ARGS[0] = 'NPCCallsForDate':
+	*clr & cla
+	gs 'lover_call', 'init_call4Date', ARGS[1]
+
+	!! Pick a nickname that caller will use for Sveta
+	$DateNickName[0] = '小可爱'
+	$DateNickName[1] = '亲爱的'
+	$DateNickName[2] = '甜心'
+	$DateNickName[3] = '宝贝'
+	$DateNickName[4] = '辣妹'
+	$DateNickName[5] = '<<$pcs_nickname>>'
+	$call4Date['SvetaName'] = $DateNickName[rand(0, arrsize('$DateNickName')-1)]
+	killvar 'DateNickName'
+
+	$call4Date['leave'] = 'killvar ''call4Date'' & '
+
+
+	'嘿<<$call4Date["SvetaName"]>>，是我，<<$call4Date["CallerName"]>>。最近怎么样？'
+
+	act '回答':
+		cla
+		'"还不错，你呢？"'
+		'<<$call4Date["CallerName"]>>, "很好，但我有点想你，我们今天能见个面吗？"'
+		!! TODO: update to detect any job, not just cafe waitress
+		if $job_status['city_cafe_waitress'] = 'employed' and func('jobs', 'is_work_day', 'city_cafe_waitress', daystart) = 1:
+			act '对不起，我今天要上班':
+				cla
+				'"抱歉，我今天要上班。"'
+				'<<$call4Date["CallerName"]>>, "好的，我明天再打给你。"'
+
+				act '挂断': gt 'lover_call', 'fin'
+			end
+		end
+
+		act '今晚':
+			cla
+			gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(0, 1)
+			'"今晚怎么样？"'
+			'<<$call4Date["CallerName"]>>, "太好了！我什么时候来接你？"'
+
+			act '选个时间':
+				cla
+				npc_meetday[$call4Date['NPC']] = daystart
+				npc_meethour[$call4Date['NPC']] = input ("你想让他什么时候来接你？现在是<<func('time', 'get_time_string', hour, minut)>>。[只输入小时 0 - 20]")
+				if npc_meethour[$call4Date['NPC']] <= hour or npc_meethour[$call4Date['NPC']] > 23: npc_meethour[$call4Date['NPC']] = 20
+
+				'"<<npc_meethour[$call4Date[''NPC'']]>>:00 怎么样？。"'
+				'<<$call4Date["CallerName"]>>, "好的<<$call4Date["SvetaName"]>>，在<<npc_meethour[$call4Date[''NPC'']]>>:00。"'
+
+				act '挂断': gt 'lover_call', 'fin'
+			end
+		end
+
+		act '也许明天':
+			cla
+			gs 'npc_relationship', 'modify', $call4Date["NPC"], rand(-1, 0)
+			'"我今天很忙。明天再打吧。"'
+
+			if npc_rel[$call4Date["NPC"]] <= 20:
+				'<<$call4Date["CallerName"]>>，你他妈在耍我吗，你知道吗。含我的鸡巴。'
+				gs 'telefon', 'DeleteContact', $call4Date["NPC"]
+			else
+				'(<<$call4Date["CallerName"]>>) - 好的，我明天再打。'
+			end
+
+			act '挂断': gt 'lover_call', 'fin'
+		end
+
+		!! Willpower checks for resistance
+		if npc_rel[$call4Date["NPC"]] <= 50:
+			$call4Date["loverResist"] = 'easy'
+		elseif npc_rel[$call4Date["NPC"]] <= 65:
+			$call4Date["loverResist"] = 'medium'
+		else
+			$call4Date["loverResist"] = 'hard'
+		end
+		gs 'willpower', 'misc', 'self', $call4Date["loverResist"]
+
+		if pcs_willpwr < will_cost:
+			act '我觉得我们该分手了……' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '我觉得我们该分手了……' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'self'
+				gs 'stat'
+
+				'<<$call4Date["NPC-He"]>>听起来很难过，但你坚持这是最好的。你们互相道别后分道扬镳。'
+				gs 'telefon', 'DeleteContact', $call4Date["NPC"]
+
+				act '挂断': gt 'lover_call', 'fin'
+			end
+		end
+
+	end
+
+	act '挂断（结束关系）':
+		gs 'telefon', 'DeleteContact', $call4Date["NPC"]
+		gt 'lover_call', 'fin'
+	end
+end
+
+
+--- lover_call ---------------------------------

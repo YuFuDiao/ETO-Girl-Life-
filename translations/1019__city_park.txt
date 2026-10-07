@@ -1,0 +1,670 @@
+# city_park
+
+$location_type = 'public_outdoors'
+
+if $ARGS[0] = 'start':
+	CLOSE ALL
+	gs 'core_library', 'setloc', 'city_park', 'start'
+	$region = 'city'
+	$locclass = 'city_park'
+	menu_off = 0
+	if sound_settings['environment_off'] = 0:
+		if month >= 11 and month <= 12 or month >= 1 and month <= 3:
+			if hour >= 8 and hour <= 23: PLAY 'sound/street2.mp3', 30 & PLAY 'sound/zima.mp3', 30
+			if hour >= 0 and hour <= 7: PLAY 'sound/street_night.mp3', 30 & PLAY 'sound/zima.mp3', 30
+		else
+			if hour >= 8 and hour <= 23: PLAY 'sound/park.mp3', 30 & PLAY 'sound/street_leto.mp3', 30
+			if hour >= 0 and hour <= 7: PLAY 'sound/street_night.mp3', 30
+		end
+	end
+
+	$sexloc = 'city_park'
+	gs 'music_actions', 'clear_restrictions'
+
+	if WalkInsidePark = 0: WalkInsidePark = 1
+	*clr & cla
+	gs 'stat'
+	$func('wrap', 'header center b', '公园')
+	'<center><img <<$set_imgh>> src="images/locations/city/centralpark/park.jpg"></center>'
+	'中央公园非常大。沙土小径向四面八方延伸，每隔一段距离就能看到可以坐下休息的长椅。夏天，你会看到许多人在更开阔的地方打球、休闲或野餐，而冬天，你会遇到带着孩子从草坡上滑雪橇下来的家庭。'
+	'尽管公园看起来几乎像天堂一样，但一旦太阳落山，它就可能变得非常危险。'
+	*nl
+	'有一块指示牌指向市中心的大致方向。你估计步行到市中心大约需要35分钟。'
+	'第二块指示牌指向住宅区方向。如果要你猜的话，步行到住宅区大约需要20分钟。'
+	'第三块指示牌上写着城市工业区。你估计步行至少需要一个小时。'
+	*nl
+	if hour >= 10 and hour <= 22: '公园里的小咖啡馆还开着。你可以在那里坐下来吃点东西。'
+
+	if drugVars['city_drugden'] = 0: '那些<a href="exec: gt ''city_park'', ''junkies''">瘾君子</a>常常在咖啡馆附近闲逛。'
+
+	if hour >= 9 or hour <= 20:
+		'公园里有一个全年开放的<a href="exec:gt ''city_park'', ''luna''">游乐场</a>，你可以去逛逛。'
+	else
+		'公园里有一个全年开放的游乐场，但现在已经关门了。营业时间是 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 21, 0)+'。'
+	end
+
+	if func('car_funcs', 'is_here'):
+		'<a href="exec:gs ''carF'', ''start''">你的<<$car[''name'']>></a>就停在附近。'
+	end
+
+	if $pantyworntype = 'none' and PCloSkirt > 2 and hour > 6 and hour <= 20 and rand(0, 100) >= 80:
+		gs 'arousal', 'flash', -5
+		'一个男人从你身边走过，注意到你没穿内裤。'
+		'他朝你吹了声口哨。"亲爱的，你今天是不是忘了穿内衣了？"'
+		*nl
+		if pcs_inhib >= 35:
+			gs 'flash', 'butt', 'outdoors', 2, 2
+			gs 'mood', 'raise', 'tiny'
+			'"没有！"你回头喊道。"只是想起来不穿更好！"'
+			'你掀起裙子的后摆，朝他亮了一下屁股，然后继续走你的路，脚步还带着几分轻快。'
+		elseif pcs_inhib > 30:
+			inhib_exp += 1
+			'"不，就是不想穿，"你耸耸肩，继续赶路。'
+		else
+			gs 'mood', 'lower', 'tiny'
+			'你羞愧得满脸通红，尽可能快地走出他的视线。'
+		end
+	end
+
+	!! this leads to the old street walker content, blocked until it''s fixed up or moved into the new street walker content (julzor)
+	!! act 'Walk to the highway near the park (0:05)': minut += 5 & gt 'city_park', 'whore'
+	act '步行前往住宅区 (0:20)': minut += 20 & gt 'city_residential'
+	act '步行前往市中心 (0:35)': minut += 35 & gt 'city_center'
+	act '步行前往城市工业区 (1:00)': minut += 60 & gt 'city_industrial'
+
+	act '在公园里散步 (1:00)': gt 'park_walkeventsrnd'
+
+	gs 'treeCircEntry', 'CentralPark'
+
+	if hour >= 10 and hour <= 22:
+		act '在咖啡馆吃点东西': minut += 5 & gt 'ParkKafe', 'start'
+	end
+
+	if hour >= 20 or hour < 6 :
+		if $home['current'] = '' and tanwork = 0 and func('uniutil', 'student', 'not_enrolled'):
+			!! nowhere to live in city
+			'现在天色很暗，你附近也无处可去。也许你该试着在长椅上睡一觉？'
+		else
+			'现在天色很暗，你也不想走动了。也许你该试着在长椅上睡一觉？'
+		end
+		act '睡在长椅上': gt 'placer_sex', 'sleeping_park_bench'
+	end
+
+	act '坐在长椅上': gt 'placer_sex', 'sitting_park_bench'
+
+	if mc_inventory['joints'] > 0 and drugVars['weed_high'] = 0:
+		act '抽一支大麻烟':
+			minut += 10
+			gs 'drugs', 'joint'
+			gt $loc, $loc_arg
+		end
+	end
+
+	if pusher = 1 and hour >= 6 and hour <= 21:
+		'有个毒贩随意地坐在其中一张长椅上。他尽量让自己看起来不那么可疑。'
+
+		act '购买“苍白女士”，又名可卡因' + $func('money', 'get_cost_string', 360):
+			if func('money', 'can_afford', 360) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				minut += 10
+				temp_doses = input ("你想买多少剂？")
+
+				if func('money', 'can_afford', temp_doses * 360) <> 1 or temp_doses <= 0:
+					'"要么告诉我你想买多少，要么滚开！"'
+				else
+					gs 'money', 'pay', temp_doses * 360
+					mc_inventory['cocaine'] += temp_doses
+					'你迅速掏出钱包付了钱，希望没人看到你给他钱，他把货递给你。你可以安全地在家享用这些东西。'
+				end
+				killvar 'temp_doses'
+
+				act '若无其事地走开': gt 'city_park', 'start'
+			end
+		end
+	end
+
+	if hour >= 6 and hour <= 22 and parkrunday ! daystart:
+		if PSport = 0:
+			'如果你穿着运动服和运动鞋，就可以去公园里跑步。'
+		elseif pcs_stam < stammax / 5:
+			act '在公园里跑步 (1:00)': $func('wrap', 'neg', '<br>你太筋疲力尽了，做不了这个。在尝试跑步之前先恢复体力。')
+		elseif pcs_energy < 10:
+			act '在公园里跑步 (1:00)': $func('wrap', 'neg', '<br>你太饿了，无法面对去跑步。')
+		elseif pcs_hydra < 10:
+			act '在公园里跑步 (1:00)': $func('wrap', 'neg', '<br>你太渴了，实在没法去跑步。')
+		else
+			act '在公园里跑步 (1:00)': gt 'city_park', 'run'
+		end
+	end
+
+	gs 'music_actions', 'start'
+
+	if hour >= 21 or hour < 8:
+		!! Succubus active hunting, can only hunt successfully once a day, but can try until success
+		If succubusQW = 14 and suchuntday ! daystart:
+			act '外出狩猎（这可能会花很多时间）':
+				cla
+				menu_off = 1
+				minut += 40 + rand(0, 20) - 5 * succublvl
+				gs 'stat'
+
+				if rand(0, 7) - succublvl < 2:
+					suchunt = 1 & gt 'park_walkevents', '1'
+				else
+					gs 'mood', 'lower', 'tiny'
+					*nl
+					'运气不佳！搜寻了半个小时，你一个人都没找到。这么大一座城市，你本以为周围会有更多合适的猎物。你的需求还没有满足，也许还得再搜一次？'
+					act '继续': gt 'city_park', 'start'
+				end
+			end
+		end
+
+		if knowsfairy >= 1 and pcs_magik > 4:
+			act '寻找仙女的可能出没之处': fairylooking = 1 & gt 'park_walkeventsrnd'
+		end
+	end
+
+	gs 'kseniyaQW', 'events'
+	gs 'flash', 'park'
+	gs 'blackmailer', 'set_park_act'
+end
+
+
+if $ARGS[0] = 'luna':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_park', 'luna'
+	$locclass = 'city_park'
+	minut += 5
+	clr
+	gs 'stat'
+	$func('wrap', 'header center b', '游乐场')
+	'<center><img <<$set_imgh>> src="images/locations/city/centralpark/luna.jpg"></center>'
+	'游乐场坐落在公园的中心地带，吸引着全城各地的家庭、度假的人和恩爱的情侣。它是一个热门的聚会场所，也是一个能让你暂时忘却烦恼几个小时的地方。'
+	*nl
+	'营业时间是 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 21, 0)+''
+
+	if vladimirQW['stage'] = 0 and hour >= 9 and hour <= 20 and week > 5 and pcs_hotcat >= 6: '<a href="exec:gt ''vladimirQW_loc''">一个体格强壮的男人正隔着栅栏盯着你。</a>.'
+
+	act '回到公园': gt 'city_park', 'start'
+
+	if hour < 9 or hour >= 21:
+		'集市现在关闭了。它将于 '+func('time', 'get_time_string', 9, 0)+' 开放。'
+		exit
+	end
+
+	act '发传单赚钱 (1:00)':
+		*clr & cla
+		menu_off = 1
+		minut += 60
+		gs 'money', 'earn', 50
+		gs 'mood', 'lower', 'tiny'
+		'<center><img <<$set_imgh>> src="images/locations/shared/park/job_flyer.jpg"></center>'
+		'你花了一个小时在公园和游乐场里走来走去，跟随机遇到的游客搭话，试着把传单发给他们。你为你的辛劳得到了 ' + $func('money', 'string_profit', 50) + ' 的报酬。'
+
+		act '走开': gt 'city_park', 'luna'
+	end
+
+	act '买一份沙威玛' + $func('money', 'get_cost_string', 50):
+		if func('money', 'can_afford', 50) = 0:
+			$noMoney
+		else
+			*clr & cla
+			gs 'money', 'pay', 50
+			menu_off = 1
+			gs 'stat'
+			minut += 15
+			gs 'mood', 'raise', 'small'
+			gs 'food', 'light_snack_stats'
+			'<center><img <<$set_imgh>> src="images/locations/city/centralpark/luna1.jpg"></center>'
+			'你美滋滋地享用着沙威玛。'
+
+			act '走开': gt 'city_park', 'luna'
+		end
+	end
+
+	act '买一杯柠檬水' + $func('money', 'get_cost_string', 50):
+		if func('money', 'can_afford', 50) = 0:
+			$noMoney
+		else
+			*clr & cla
+			gs 'money', 'pay', 50
+			menu_off = 1
+			gs 'stat'
+			minut += 5
+			gs 'mood', 'raise', 'small'
+			gs 'beverage', 'juice_stats'
+			'<center><img <<$set_imgh>> src="images/locations/city/centralpark/luna1.jpg"></center>'
+			'你开心地喝下这杯清爽的柠檬水。'
+
+			act '走开': gt 'city_park', 'luna'
+		end
+	end
+
+	act '坐旋转木马' + $func('money', 'get_cost_string', 50):
+		if func('money', 'can_afford', 50) = 0:
+			$noMoney
+		else
+			*clr & cla
+			menu_off = 1
+			minut += 30
+			gs 'money', 'pay', 50
+			gs 'exp_gain', 'sprt', 2
+			gs 'mood', 'raise', 'tiny'
+			'<center><img <<$set_imgh>> src="images/locations/city/centralpark/karusel.jpg"></center>'
+			'你支付 ' + $func('money', 'string_price', 50) + ' 乘坐了旋转木马。'
+
+			act '走开': gt 'city_park', 'luna'
+		end
+	end
+
+	act '打靶' + $func('money', 'get_cost_string', 100):
+		if func('money', 'can_afford', 100) = 0:
+			$noMoney
+		else
+			*clr & cla
+			menu_off = 1
+			minut += 30
+			gs 'money', 'pay', 100
+			'<center><img <<$set_imgh>> src="images/locations/city/centralpark/tir.jpg"></center>'
+			'你支付 ' + $func('money', 'string_price', 100) + ' 购买十发子弹。如果你能命中全部十个靶子，就能赢得一只泰迪熊。'
+			act '射击':
+				cla
+				tirkoef = pcs_agil + pcs_shoot
+				tirmin = tirkoef * 20 / 100
+				tirand = rand(tirkoef - tirmin, tirkoef + tirmin)
+
+				if tirand >= 80:
+					mishka += 1
+					gs 'mood', 'raise', 'tiny'
+					'你命中了全部靶子。恭喜你，赢得了一只泰迪熊！'
+				elseif tirand >= 70:
+					'除了最后一个靶子，你全都命中了，这让你大为恼火。'
+				elseif tirand >= 60:
+					'你命中了八个靶子。'
+				elseif tirand >= 50:
+					'你命中了七个靶子。'
+				elseif tirand >= 40:
+					'你命中了六个靶子。'
+				elseif tirand >= 30:
+					'你只命中了一半的靶子。'
+				elseif tirand >= 25:
+					'你只命中了四个靶子。'
+				elseif tirand >= 20:
+					'你只命中了三个靶子。'
+				elseif tirand >= 15:
+					'你只命中了两个靶子。'
+				elseif tirand >= 10:
+					'你只命中了一个靶子。'
+				else
+					gs 'mood', 'lower', 'tiny'
+					'你一个靶子都没命中。'
+				end
+				killvar 'tirand'
+				gs 'exp_gain', 'shoot', 1
+
+				act '走开': gt 'city_park', 'luna'
+			end
+		end
+	end
+
+	act '测握力' + $func('money', 'get_cost_string', 20):
+		if func('money', 'can_afford', 20) = 0:
+			$noMoney
+		else
+			*clr & cla
+			menu_off = 1
+			'<center><img <<$set_imgh>> src="images/locations/city/centralpark/silomer.jpg"></center>'
+			'你支付 ' + $func('money', 'string_price', 20) + ' 来玩敲铃游戏。'
+
+			act '敲下去':
+				cla
+				minut += 25
+				gs 'money', 'pay', 20
+				stKo = pcs_stren * 20/100
+				damage = rand(pcs_stren - stKo, pcs_stren + stKo)
+
+				gs 'exercise', 'tier2', 5, 'stren'
+				'一个LED屏幕亮起，显示出你的分数： <<damage>>'
+				if damage > maxdamage:
+					maxdamage = damage & '恭喜！新的个人最佳纪录！'
+				else
+					'你使出全力挥动锤子，但这还不足以创下新的纪录。'
+				end
+
+				act '走开': gt 'city_park', 'luna'
+			end
+		end
+	end
+
+	act '老虎机': gt 'city_park', 'avtomat'
+end
+
+
+if $ARGS[0] = 'avtomat':
+	$location_type = 'event_outdoors'
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/centralpark/avtomat.jpg"></center>'
+	'游戏规则非常简单：把 ' + $func('money', 'string_price', 5) + ' 投进投币口并拉下操纵杆。运气好的话，你能赢得头奖 ' + $func('money', 'string_profit', 1000) + '。'
+
+	if hour <= 20:
+		act '投一枚硬币，拉下拉杆' + $func('money', 'get_cost_string', 5):
+			if func('money', 'can_afford', 5) = 0:
+				$noMoney
+			else
+				gt 'city_park', 'avtomat2'
+			end
+		end
+	end
+
+	act '离开老虎机': gt 'city_park', 'luna'
+end
+
+
+if $ARGS[0] = 'avtomat2':
+	$location_type = 'event_outdoors'
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'money', 'pay', 5
+	gs 'stat'
+	avtrand = rand(0, 100)
+
+	if avtrand = 100:
+		gs 'money', 'earn', 1000
+		'中大奖了！你赢得 ' + $func('money', 'string_profit', 1000) + '。'
+	elseif avtrand >= 95:
+		gs 'money', 'earn', 100
+		'你赢了 ' + $func('money', 'string_profit', 100) + '。'
+	elseif avtrand >= 85:
+		gs 'money', 'earn', 10
+		'你赢了 ' + $func('money', 'string_profit', 10) + '。'
+	elseif avtrand >= 75:
+		gs 'money', 'earn', 5
+		'你赢了 ' + $func('money', 'string_profit', 5) + '。'
+	else
+		'很遗憾，这次你什么都没赢到。'
+	end
+
+	act '再试一次运气': gt 'city_park', 'avtomat'
+end
+
+
+if $ARGS[0] = 'whore':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_park', 'whore'
+	$location_type = 'event_outdoors'
+	$locclass = 'city_park'
+	gs 'stat'
+	$func('wrap', 'header center b', '公园附近的道路')
+
+	if hour >= 16 and hour <= 23:
+		'<center><img <<$set_imgh>> src="images/locations/city/centralpark/park1.jpg"></center>'
+		'一些<a href="exec:gt ''prostitute'', ''start''">妓女</a>正站在路边。有些被路过的汽车接走。'
+	elseif hour >= 4 and hour < 16:
+		'<center><img <<$set_imgh>> src="images/locations/city/centralpark/glpark.jpg"></center>'
+		'汽车驶过，但一天中的这个时候也没什么可看的。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/centralpark/park1.jpg"></center>'
+		'汽车驶过，但一天中的这个时候也没什么可看的。'
+	end
+
+	act '回到公园 (0:05)': minut += 5 & gt 'city_park', 'start'
+
+	if pcs_inhib > 35:
+		act '露出你的胸部':
+			*clr & cla
+			menu_off = 0
+			inhib_exp += 2
+			gs 'flash', 'tits', 'outdoors', 5
+			gs 'stat'
+			act '回到公园': gt 'city_park', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'prost':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/centralpark/park2.jpg"></center>'
+	if whoreQW = 2:
+		'妓女们好奇地看着你。'
+	elseif whoreQW = 1:
+		'妓女们饶有兴趣地看着你。'
+		act '交谈':
+			cla
+			whoreQW = 2
+			'你走向一个妓女，问她这里的规矩是怎样的。'
+			'"如果你想在这里干活，就得穿得像妓女一样，还要化点妆。我们不归什么皮条客管，但我们得向斯黛拉和 皮科克 都"进贡"。"'
+			'"难道不能直接拒绝吗？"你问道。"必须交出你……呃，辛辛苦苦赚来的钱，这似乎不公平。"'
+			'那女人哼了一声。"对这种人你不能说"不"。要么乖乖交钱，要么就有你好看的。听到了吗？"'
+			'你只是点了点头，那女人便走开去寻找客人了。'
+			act '离开': gt 'city_park', 'prost'
+		end
+	else
+		'"嘿，你不是我们的人！你是斯黛拉的手下吗？让我把你的牙打掉之后，看你还怎么替她"收钱"！"'
+		gs 'npcgeneratec', 0, '嗑药的妓女', rand(15, 30)
+		gs 'boyStat', $npclastgenerated
+		act '反抗':
+			cla
+			minut += 15
+			gs 'fight', 'initFight'
+			gs 'fight_npcdata', 'prostitute'
+			gt 'fight', 'start'
+		end
+	end
+	if whoreQW > 1 and (PCloStyle = 4 or PCloProstitute = 1):
+		act '寻找客人 (0:15)':
+			*clr & cla
+			minut += 15
+			whrand = rand(0, 100)
+			if whrand <= 5:
+				'一辆黑色吉普车轰鸣着停到你面前，一个男人探出车窗。"嘿，荡妇，该给 皮科克 进贡了。过来！"'
+
+				act '给他钱' + $func('money', 'get_cost_string', 1000, 'cash'):
+					if func('money', 'can_afford', 1000, 'cash') = 0:
+						$noMoney
+					else
+						cla
+						gs 'money', 'pay', 1000, 'cash'
+						'你把钱递给那个男人，他数了数，然后点了点头。车窗重新摇上，吉普车像来时一样轰鸣着开走了。'
+
+						act '走开': gt 'city_park', 'prost'
+					end
+				end
+				act '反击':
+					cla
+					minut += 15
+					gs 'npcgeneratec', 0, '强盗', rand(18, 40)
+					gs 'boyStat', $npclastgenerated
+					gs 'fight', 'initFight'
+					gs 'fight_npcdata', 'bandit'
+					gt 'fight', 'start'
+				end
+			elseif whrand > 5 and whrand <= 60:
+				minut += 15
+				stat['bj'] += 1
+				guy += 1
+				gs 'money', 'earn', 500
+				gs 'arousal_funcs', 'stretch', 'oral', 1
+				gs 'npcgeneratec', 0, '客人', rand(15, 30)
+				gs 'boyStat', $npclastgenerated
+				gs 'cum_call', 'mouth_swallow', $npcID
+				gs 'dinSex', 'std_trigger_oral'
+				'<center><img <<$set_imgh>> src="images/locations/highway/sex/car.jpg"></center>'
+				'一辆车在你身边停下，坐在方向盘后面的男人问口交要多少钱。他同意了你的开价 ' + $func('money', 'string_profit', 500) + '，并为你打开副驾驶的车门。'
+				'你爬进车里，他已经脱下裤子，露出硬挺的鸡巴。言归正传，你俯下身，用嘴唇紧紧裹住他的阴茎，然后开始吮吸，一边用舌头挑逗他，一边尽量把他的鸡巴往深处含。'
+				*nl
+				'仅仅几秒钟后，客人突然呻吟起来，他的鸡巴在你嘴里抽动，把温热的精液射进了你的喉咙。'
+				'你吞下他的精液，他飞快地拉上裤子拉链，把你扔回人行道上，然后开车扬长而去。'
+
+				act '回到公园': gt 'city_park', 'prost'
+			elseif whrand > 60 and whrand <= 90:
+				minut += 15
+				'你沿着人行道走着，展示着自己的身材和魅力，但这完全是徒劳。没有人对你感兴趣。'
+
+				act '回到公园': gt 'city_park', 'prost'
+			else
+				'一个妓女朝你走来。"我看到你了，荡妇。如果你不想惹麻烦，就得向斯黛拉交钱。过来。"'
+
+				act '给她钱' + $func('money', 'get_cost_string', 500):
+					if func('money', 'can_afford', 500) = 0:
+						$noMoney
+					else
+						cla
+						gs 'money', 'pay', 500
+						'你把钱递给妓女，她数了数，然后点了点头，转身走开了。'
+
+						act '走开': gt 'city_park', 'prost'
+					end
+				end
+				act '反击':
+					cla
+					minut += 15
+					gs 'npcgeneratec', 0, '妓女', rand(15, 30)
+					gs 'boyStat', $npclastgenerated
+					gs 'fight', 'initFight'
+					gs 'fight_npcdata', 'prostitute'
+					gt 'fight', 'start'
+				end
+			end
+		end
+	end
+
+	act '走开': gt 'city_park', 'start'
+end
+
+
+if $ARGS[0] = 'rape1':
+	$location_type = 'event_outdoors'
+	*clr & cla
+	menu_off = 1
+	stat['rape_count'] += 1
+	gs 'npcgeneratec', 0, '强奸犯', rand(18, 40)
+	gs 'boyStat', $npclastgenerated
+	!! SUB += 3
+	'<center><img <<$set_imgh>> src="images/locations/city/centralpark/sex/rape.jpg"></center>'
+	'你突然被人打中头部，不知过了多久才在灌木丛中醒来，一个男人紧紧按着你。'
+	'你低头看向自己，意识到自己什么都没穿，但还没等你反应过来，男人就猛地把他的鸡巴捅进了你的小穴。'
+	gs 'arousal', 'vaginal', 5, 'rape'
+
+	act '试图反抗':
+		cla
+		gs 'arousal', 'vaginal', 15, 'rape', 'rough'
+		gs 'cum_call'
+		gs 'arousal', 'end'
+		gs 'money', 'set', 0, 'cash'
+		'你试着用尽一切可能的方法反抗他，但他只是抱得更紧，继续干你，毫不停歇。'
+		'过了一会儿，他开始呻吟，你感到他滚烫的精液流进你的小穴。当他拉上裤子、拿走你的钱离开时，你祈祷他没有让你怀孕。'
+
+		act '离开': gt 'city_park', 'start'
+	end
+
+	act '顺其自然':
+		*clr & cla
+		stat['anal'] += 1
+		!! SUB += 5
+		'<center><img <<$set_imgh>> src="images/locations/city/centralpark/sex/rapean.jpg"></center>'
+		'强奸犯很快就意识到你没有反抗。'
+		'"好姑娘！"他说着把你推成四肢着地的姿势，好让他从后面干你。'
+		'他掰开你的臀瓣，把鸡巴捅进你的屁股，疼得你叫出声来，但他捂住你的嘴，继续干着你的屁眼。'
+		gs 'arousal', 'anal', 15, 'rape'
+
+		act '继续':
+			*clr & cla
+			gs 'cum_call', 'mouth_swallow', $npcID, 0
+			gs 'cum_call', 'face', $npcID, 0
+			!! SUB += 5
+			gs 'arousal', 'bj', 15, 'rape'
+			gs 'arousal', 'end'
+			gs 'money', 'set', 0, 'cash'
+			'<center><img <<$set_imgh>> src="images/locations/city/centralpark/sex/cum.jpg"></center>'
+			'"给我口交，你就能因为没反抗而得到奖赏，姑娘，"他对你说。'
+			'你顺从地点了点头，然后跪起身来，把他的鸡巴含进嘴里。'
+			'没过多久，他就舒服地呻吟起来。"你最好把它全吞下去，荡妇！"'
+			'你突然尝到舌尖上他的精液，便一滴不剩地全部吞了下去。'
+			*nl
+			'完事之后，他站起来扣好裤子，然后拿走了你的钱。'
+			'"祝你今天愉快，荡妇，"他临走前咧嘴一笑说道。'
+			act '站起来离开': gt 'city_park', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'junkies':
+	*clr & cla
+	gs 'stat'
+	drugVars['city_drugden'] = 1
+	'瘾君子们用戒备的目光打量着你。他们大概以为你是警察。'
+	'"我们不卖毒品！去毒品屋，那儿有得是！"'
+
+	act '走开': gt 'city_park', 'start'
+end
+
+
+if $ARGS[0] = 'run':
+	*clr & cla
+	menu_off = 1
+	gs 'exercise', 'tier1', 60, 'run'
+	$func('wrap', 'header center b', '公园')
+	'<center><img <<$set_imgh>> src="images/locations/shared/park/parkbeg.jpg"></center>'
+	'你随意选择路线，来回奔跑。大约一个小时后，你上气不接下气，浑身大汗淋漓。'
+
+	if hour >= 20:
+		parkrand = rand(0, 10)
+
+		if parkrand >= 8:
+			'一个男人从树影中走出来，朝你跑来。你还没来得及反应，他就抓住了你，开始把你往灌木丛里拖。'
+			gs 'npcgeneratec', 0, '强奸犯', rand(18, 40)
+			gs 'boyStat', $npclastgenerated
+			act '战斗':
+				cla
+				gs 'fight', 'initFight'
+				gs 'fight_npcdata', 'rapist'
+				gt 'fight', 'start'
+			end
+			if succubusQW = 14:
+				!! Used if this was a random encounter instead of active hunting
+				Act '引诱他并进食（这可能会花很多时间）':
+					cla
+					'你一直等到他几乎把你拖进灌木丛，才转身扑向他。'
+					act '继续': gt 'succubus', 'RapistFight'
+				end
+			end
+			exit
+		end
+	end
+
+	act '完成你的跑步':
+		cla & *nl
+		'跑完步后你感觉棒极了。你有点出汗，但你的耐力得到了提升，甚至觉得自己还瘦了一点。'
+		act '继续': gt 'city_park', 'start'
+	end
+
+	if pcs_inhib >= 35 or (pcs_inhib >= 25 and trait_vars['exhibitionist'] > 0):
+		act '露出你的乳房':
+			*clr & cla
+			if rand(0, 1) = 0:
+				'<center><img <<$set_imgh>> src="images/locations/shared/park/flash'+rand(3, 4)+'.jpg"></center>'
+			else
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/park/flash'+rand(1, 2)+'.mp4"></video></center>'
+			end
+			'跑到一半，你掀起上衣，露出乳房。凉爽的空气拂过温热的皮肤，令你打了个寒颤，几乎立刻，你的乳头开始变硬，这是空气刺激与逐渐高涨的兴奋交织在一起的反应。'
+			*nl
+			gs 'park_walkevents', 'run_reactions'
+		end
+	end
+end
+
+
+--- city_park ---------------------------------

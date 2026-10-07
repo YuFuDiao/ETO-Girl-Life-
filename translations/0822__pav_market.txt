@@ -1,0 +1,322 @@
+# pav_market
+!! 2021/05/12
+
+if $ARGS[0] = '':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_market', ''
+	$region = 'pav'
+	$location_type = 'public_outdoors'
+	if sound_settings['environment_off'] = 0:
+		if month >= 11 or month < 4:
+			if hour >= 8:
+				PLAY 'sound/street2.mp3', 30 & PLAY 'sound/zima.mp3', 30
+			else
+				PLAY 'sound/street_night.mp3', 30 & PLAY 'sound/zima.mp3', 30
+			end
+		else
+			if hour >= 8:
+				PLAY 'sound/street2.mp3', 30 & PLAY 'sound/street_leto.mp3', 30
+			else
+				PLAY 'sound/street_night.mp3', 30
+			end
+		end
+	end
+	gs 'stat'
+
+	'<center><h2>巴甫洛夫斯克集市广场</h2></center>'
+	if month >= 11 or month < 4:
+		if hour >= 9 and hour < 17:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour < 19:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+		end
+	end
+	*nl
+	'巴甫洛夫斯克简朴的火车站就坐落在巴甫洛夫斯克集市广场附近。你可以从<a href="exec:minut += 3 & gt ''pav_train_hall''">火车站</a>进入中央大厅。沿着车站所在的街道继续走，就是<a href="exec:minut += 5 & gt ''gkafe''">鲍里斯拉夫的咖啡馆</a>' + iif($start_type['loc'] = 'sg', '，你妈妈在那里工作', '') + '。紧挨着车站的是<a href="exec:minut += 5 & gt ''pav_station'', ''station_outside''">巴甫洛夫斯克警察局</a>，在那里你能找到巴甫洛夫斯克最出色的警员。'
+	*nl
+	'在车站的另一侧是一个大广场，在那里你能找到一家<a href="exec:minut += 1 & gt ''pav_train_market'', ''start''">集市</a>，大多数日子都有营业。'
+	*nl
+	'一个相当破旧的<a href="exec: minut += 1 & gt ''pav_hotel''">旅馆</a>就在广场对面<<iif(job_hiring_step[''pav_hotel_maid''] > 0, ''; 经理总是在当地年轻女孩中物色女仆'', '''')>>. 由于当地妓女经常使用，大多数人宁愿住在大路旁的中档酒店。'
+
+	if func('car_funcs', 'is_here'):
+		'你的<a href="exec:gs ''carF'', ''start''"><<$car[''name'']>></a>停在火车站前的停车场上。'
+	end
+
+	if mother['kickedout_timer'] ! 0 and mother['kickedout_timer'] + 3 <= daystart and hour > 6 and hour <= 15 and cumloc[11] = 0:
+		gs 'mother_chats', 'reconciliation_talk'
+	exit
+	end
+
+	if prostitute['wl_block'] = 0 and prostitute['full_block'] = 0 and prostitute['gas_station'] = 1:
+		*nl
+		if func('money', 'can_afford', 75) = 1:
+			'公交总站位于火车站旁边。在这里你可以乘坐公交车前往<a href="exec:minut += 87 & gs ''money'', ''pay'', 75 & gt ''gas_station_gp_117'', ''outside''">M11公路上的加油站</a>.'
+		else
+			'公交总站位于火车站旁边。在这里你可以乘坐公交车前往 M11 公路上的加油站。可惜，你买不起车票。'
+		end
+	end
+
+	gs 'lover', 'lover_events'
+
+	if dimaRevChoice = 5 and dimaRevenge = 4 and dimaTrain = 0: gt 'dimaRevenge', dimaRevenge
+
+	if hour >= 8 and hour < 21 and monthKidalo ! month:
+		if kidaloa = 0:
+			if rand(0, 5) = 0 and func('money', 'can_afford', 5000) = 1:
+				gt 'pav_market', 'kidaloa'
+			end
+		end
+		if kidalob = 0:
+			if rand(0, 5) = 0 and func('money', 'can_afford', 1000, 'cash') = 1 and ($clothingworntype = 'moncheri_dress' or $clothingworntype = 'moncheri_gown' or $clothingworntype = 'fashionista_dress'):
+				gt 'pav_market', 'kidalob'
+			end
+		end
+	end
+
+	if $job_status['pav_hotel_maid'] = 'employed' and func('jobs', 'is_arrival_time', 'pav_hotel_maid'):
+		act '<b>开始你的女仆工作</b>': gt 'pav_hotel'
+	else
+		act '进入旅馆': minut += 1 & gt 'pav_hotel'
+	end
+
+	act '进入火车站 (0:03)': minut += 3 & gt 'pav_train_hall'
+	if transportVars['trainpass_day'] > daystart:
+		func('transport_functions', 'display_trainpass_time')
+		act '直接前往火车站站台': gt 'pav_train_hall', 'platform'
+	end
+	act '步行到公交站 (0:04)': minut += 4 & gt 'bus', 'pavstation'
+	act '步行到商业区 (0:10)': minut += 10 & gt 'pav_commercial'
+	act '步行到住宅区 (0:15)': minut += 15 & gt 'pav_residential'
+	act '步行到工业区 (0:15)': minut += 15 & gt 'pav_industrial'
+	act '步行到五八小区 (0:15)': minut += 15 & gt 'pav_complex', 'start'
+	act '步行到高速公路 (0:15)': minut += 15 & gt 'road', '20'
+	act '步行到普希金 (0:20)': minut += 20 & gt 'pushkin'
+
+	gs 'camera', 'check_location'
+
+	!! -- Random prostitution solicitation check ------------------------
+	gs 'prostitution_functions', 'check_solicitation_event'
+end
+
+
+if $ARGS[0] = 'kidaloa':
+	*clr & cla
+	menu_off = 1
+	monthKidalo = month
+	gs 'stat'
+	'<center><h4>巴甫洛夫斯克集市广场</h4></center>'
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+		end
+	end
+	'当你到达集市广场时，不可能不注意到一个女孩手持麦克风，一个男人扛着大摄像机跟在她身后。他们正径直朝你走来。女孩招手让你靠近，瞥了一眼拿摄像机的男人，对方朝她微微点了点头。'
+	'"你好！"她高兴地喊道。"我们正在为一档新的电视节目拍摄样片，节目内容是向随机陌生人赠送礼物并拍下他们的反应。节目叫 "俄罗斯的幸福"（Happiness in Russia），我们希望它能风靡全世界。我们选中你参加样片拍摄。恭喜！"'
+	'她从摄像师手中接过一个大箱子。箱子包装精美，还系着一个漂亮的蝴蝶结。'
+	'"这个箱子里装着一台全新的笔记本电脑！"她低声说。"打开的时候表现得惊讶一点就行！"'
+
+	act '说自己没时间':
+		*clr & cla
+		gs 'stat'
+		kidaloa = 1
+		'<center><h4>巴甫洛夫斯克集市广场</h4></center>'
+		if month >= 11 or month <= 3:
+			if hour >= 9 and hour <= 16:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+			end
+		else
+			if hour >= 7 and hour <= 18:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+			end
+		end
+		'尽管你确实不介意要一台新笔记本电脑，但你现在就是没有时间跟他们聊。你礼貌地婉拒，在他们来得及抗议之前就走开了。'
+		'几分钟后，你看到他们俩慌慌张张地跑过广场，一个男人打开箱子，却发现里面只有一块砖头。等他意识到自己被骗时，他们早已跑得没影了。'
+		'看来你躲过了一劫！'
+
+		act '回到车站': minut += 5 & gt 'pav_market'
+	end
+
+	act '哇，今天真是我的幸运日！':
+		*clr & cla
+		gs 'stat'
+		'<center><h4>巴甫洛夫斯克集市广场</h4></center>'
+		if month >= 11 or month <= 3:
+			if hour >= 9 and hour <= 16:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+			end
+		else
+			if hour >= 7 and hour <= 18:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+			end
+		end
+		'你高兴地从女孩手中接过箱子，男人开始拍摄。女孩举起麦克风，邀请你在上电视时向亲戚朋友送上问候，然后把麦克风对准了你。'
+		'你欣然接受邀请，热情地对着镜头向亲友们打招呼，真心希望没有漏掉任何人。随后，男人把摄像机转开了一秒钟。'
+		'"不幸的是，政府不会让我们白白送出物品，"那女孩说。"按照规定，我们的获奖者必须为礼品的价值缴纳增值税。就你而言，这笔费用是 ' + $func('money', 'string_price', 5000) + '。"'
+
+		act '支付增值税，看看你的新笔记本电脑':
+			*clr & cla
+			gs 'money', 'pay', 5000
+			kidaloa = 1
+			if pcs_mood > 5: pcs_mood = 5
+			gs 'stat'
+			'<center><h4>巴甫洛夫斯克集市广场</h4></center>'
+			if month >= 11 or month <= 3:
+				if hour >= 9 and hour <= 16:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+				end
+			else
+				if hour >= 7 and hour <= 18:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+				end
+			end
+			'你赶紧把钱交给他们，然后迫不及待地扯开蝴蝶结。当你终于撕掉包装纸打开箱子时，你发现……一块裹着旧报纸的砖头。'
+			'你抬起头，男人和女孩已经不见了踪影。你气愤地把箱子塞进垃圾桶，然后继续赶路。'
+
+			act '返回火车站': minut += 10 & gt 'pav_market'
+		end
+		act '说你现在付不起':
+			*clr & cla
+			gs 'stat'
+			'<center><h4>巴甫洛夫斯克集市广场</h4></center>'
+			if month >= 11 or month <= 3:
+				if hour >= 9 and hour <= 16:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+				end
+			else
+				if hour >= 7 and hour <= 18:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+				end
+			end
+			'你带着几分遗憾向那对男女道歉，解释说你付不起这笔增值税。'
+			'他们试图解释这可能是一生一次的机会，说你错过了一台免费的笔记本电脑，但你只能拒绝。你实在负担不起把钱花在笔记本电脑这种无聊的消费上，哪怕它真的很便宜。'
+			'他们很同情你，答应如果以后再来巴甫洛夫斯克拍下一集节目，一定会来找你。'
+
+			act '感谢他们然后离开': minut += 10 & gt 'pav_market'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'kidalob':
+	*clr & cla
+	menu_off = 1
+	monthKidalo = month
+	minut += 5
+	gs 'stat'
+	'<center><h4>巴甫洛夫斯克集市广场</h4></center>'
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_winter_night.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/pav_market_night.jpg"></center>'
+		end
+	end
+	'当你穿过广场走向车站时，你注意到两个衣着讲究的男人正盯着你。短暂考虑后，他们开始朝你走来，你隐约听到他们在说："哇，她正是我们需要的那种模特！她身上有种……克劳迪娅·席费尔的感觉，你觉得呢？"'
+	'你能看到另一个男人在他们走近你时点了点头，其中一个男人拦住了你。"打扰一下，小姐。我们正在城里开一家新的时装店，正在寻找一位模特来拍摄我们的广告。我们找了一整天合适的人选，然后……我想我们找到她了！"'
+	'第二个男人热情地点着头，第一个男人继续说道。"我们可以付给你 ' + $func('money', 'string_price', 10000) + '，请你为我们的服装系列拍摄一组大型写真。"'
+
+	act '不感兴趣':
+		cla
+		gs 'stat'
+		'"抱歉，不感兴趣，"你回答，然后在他们来得及抗议之前走开了。'
+		act '离开': gt 'pav_market'
+	end
+	act '同意':
+		*clr & cla
+		minut += 2
+		gs 'stat'
+		!! need image
+		'这两个人带你来到火车站后面，那个一直没跟你说话的男人掏出一台看起来很贵的相机，把它架在树旁的三脚架上。'
+		'第一个男人朝你走来。"拍摄将以自然背景进行。我们做过市场调研，确定风景如画的户外背景是我们广告活动迄今为止最理想的选择。只有一个问题……你的裙子完全不是我们想要的。你得换一下。"'
+		'那个男人打开他汽车的后备箱，递给你一条看起来很廉价的连衣裙。"你可以在车里换。"'
+		gs 'willpower', 'exhib', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '拒绝并离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝并离开' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				gt 'pav_market'
+			end
+		end
+		act '换上连衣裙':
+			*clr & cla
+			!! This will either add the sundress or simply set it to a certain damage level
+			minut += 10
+			gs 'clothing', 'dispose'
+			gs 'clothing', 'add_item', 'gm_dress', 52
+			gs 'clothing', 'wear', 'gm_dress', 52
+			$lastwornclothingtype = 'nude'
+			lastwornclothingnumber = 0
+			gs 'stat'
+			!! need image
+			'你迅速钻进车里，穿上男人给你的裙子。你隔着布料捏了捏自己<<$titsize_zh>>的乳房，稍微调整了一下裙子，让它在拍照时贴合胸部。'
+
+			act '摆好姿势拍照':
+				*clr & cla
+				kidalob = 1
+				minut += 5
+				gs 'stat'
+				!! need image
+				'你下了车，把东西留在车里，心想等换回自己的衣服时再拿更方便。'
+				'你走到相机对准的那棵树旁，那个一言不发的男人操作相机，而第一个男人指导你摆出各种姿势。'
+				'"很好，很好……现在转过身去背对镜头！"你照做了，相机咔咔响了几声。"太棒了。现在把头往后仰，闭上眼睛。"'
+				'你照做了，等着那现在已熟悉的快门声响起，但它始终没有响。'
+
+				act '问他们怎么这么久':
+					*clr & cla
+					gs 'money', 'set', 0, 'cash'
+					minut += 5
+					if pcs_mood > 50: pcs_mood = 50
+					gs 'stat'
+					!! need image
+					'你转过身去看他们为什么这么久，只看到他们的车疾驰而去，一溜烟拐过街角。这时你才意识到：你所有的东西都还在那辆车的后座上！'
+					'意识到自己刚被骗走了漂亮的裙子和所有的钱，你坐在一个树桩上，双手抱头坐了一两分钟，想着自己怎么会这么愚蠢。'
+
+					act '返回火车站': gt 'pav_market'
+				end
+			end
+		end
+	end
+end
+
+
+--- pav_market ---------------------------------

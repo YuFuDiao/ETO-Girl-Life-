@@ -1,0 +1,542 @@
+# uni_library
+!! march 18 2024
+!! This is the file containing the university library
+
+menu_off = 0
+
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	minut += 5
+	gs 'core_library', 'setloc', 'uni_library', 'start'
+	$sexloc = 'uni_library'
+	$location_type = 'public_indoors'
+	gs 'katja_meynold_schedule'
+	gs 'schedule', 'A23'
+	gs 'stat'
+
+	gs 'themes', 'indoors'
+
+	$func('wrap', 'header center b', '大学图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/library.jpg"></center>'
+	'这些中等规模的建筑中有一座是大学图书馆。它有三层楼高，摆满了书籍，四处散落着一些书桌供学生学习或休息，还有电脑工作站帮助学生完成学业。'
+
+	if locat['katja'] = 29:
+		'你看到 '+iif(katjaQW['know_katja_uni'] = 0 and ($start_type['loc'] ! 'sg' and $start_type['magic'] = 'tg'), '一个可爱的红发女孩', '<a href="exec:gt ''katja_uni'', ''library''">卡佳</a>')+' 坐在一张书桌前，面前放着一台笔记本电脑和一摞书。'
+	end
+
+	if locat['A144'] = 12:
+		'你看到你的老同学<a href="exec:gt ''uni_library'', ''anushka''">阿努什卡</a>坐在一张桌子旁学习书本。'
+	end
+
+	if locat['A23'] = 15:
+		'你看到 '+iif(AlbinaQW['know_albina_uni'] = 0 and ($start_type['loc'] ! 'sg' and $start_type['magic'] = 'tg'), '一个迷人的棕发女孩', '<a href="exec:gt ''uni_library'', ''albina''">阿尔比娜</a>')+' 正在书架上翻找书籍。'
+	end
+
+	if week <= 4 and hour >= 15 and hour < 17:
+		if meet_kendra = 1:
+			'你看到<a href="exec:gt ''uni_library'', ''kendra''">肯德拉</a>坐在一张桌子旁学习书本。'
+		else
+			'你看到一个漂亮的黑人<a href="exec:gt ''uni_library'', ''kendra''">女孩</a>坐在一张桌子旁学习书本。'
+		end
+	end
+
+	if yearstart > 1 and week <= 5 and hour >= 15 and hour < 17:
+		'你看到你的老同学<a href="exec:gt ''uni_library'', ''artem''">阿尔乔姆</a>坐在一张桌子旁学习书本。'
+	end
+
+	if $start_type['loc'] = 'sg' and yearstart > 1 and week > 5 and hour >= 12 and hour < 14:
+		if nataliaQW['library_day_check'] ! daystart:
+			nataliaQW['library_day_check'] = daystart
+			if rand(0, 3) = 0: nataliaQW['library_day'] = daystart
+		end
+		if nataliaQW['library_day'] = daystart:
+			'你看到你的老同学<a href="exec: gt ''natalia_pavlova'',''library''">娜塔莉亚·帕夫洛娃</a>.'
+		end
+	end
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		act '离开': minut += 5 & gt 'uni_grounds'
+		exit
+	end
+
+
+	act '读一本书': gt 'uni_library', 'read'
+	act '借一本书': gt 'uni_library', 'loan'
+
+	if university['enrolled_in_semester'] > university['semester_passed']:
+		act '学习': gt 'uni_library', 'study'
+	end
+
+	act '四处逛逛': gt 'uni_library', 'wander'
+	act '离开': minut += 2 & gt 'uni_grounds'
+end
+
+
+if $ARGS[0] = 'study':
+	minut += 5
+	$sexloc = 'uni_library'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '大学图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/study' + rand(1, 7) + '.jpg"></center>'
+	'你花了一些时间收集关于你课程的书籍，拿了一台图书馆的笔记本电脑，然后找了个安静的地方坐下。'
+
+	if university['semester_week'] > 0:
+		i = 0
+		:study_loop
+			if $class_list_institution[i] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+				if class['<<$class_list_institution[i]>>_<<$class_list_name[i]>>_optional_weekly_grade_gain'] < class['<<$class_list_institution[i]>>_<<$class_list_name[i]>>_optional_weekly_max']:
+					dynamic '	act ''学习<<$class_list_name[i]>>课程 (30 分钟）'': gt ''uni_library'', ''studying'', ''<<$class_list_institution[i]>>'', ''<<$class_list_name[i]>>'' '
+				else
+					*nl
+					'你这周不用再为你的<<$class_list_name[i]>>课程学习了。'
+				end
+			end
+			i += 1
+		if i < arrsize('class_list_institution'): jump 'study_loop'
+		killvar 'i'
+	elseif university['exam_week'] > 0:
+		i = 0
+		:exam_loop
+		if $class_list_institution[i] = 'uni_<<$university[''enrolled_in'']>>_semester_<<university[''enrolled_in_semester'']>>':
+			if func('uni_programs', 'exam', 'is_over', $class_list_name[i]) = 0:
+				dynamic '	act ''集中复习<<$class_list_name[i]>>考试 (30 分钟）'': gt ''uni_library'', ''studying_exam'', ''<<$class_list_institution[i]>>'',  ''<<$class_list_name[i]>>'' '
+			end
+		end
+
+		i += 1
+		if i < arrsize('class_list_institution'): jump 'exam_loop'
+		killvar 'i'
+	end
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		act '离开': minut += 5 & gt 'uni_grounds'
+		exit
+	end
+
+	act '四处逛逛': gt 'uni_library', 'wander'
+	act '返回入口': minut += 2 & gt 'uni_library', 'start'
+	act '离开': minut += 5 & gt 'uni_grounds'
+end
+
+
+if $ARGS[0] = 'studying':
+	minut += 30
+	gs 'grades', 'optional_activity_attribute', '<<$ARGS[1]>>', '<<$ARGS[2]>>', 'yes', min(pcs_intel+10, 100)
+	gs 'stat'
+
+	$func('wrap', 'header center b', '大学图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/study' + rand(1, 7) + '.jpg"></center>'
+
+	'你打开书本开始为你的<<$ARGS[2]>>课程学习。图书馆里大部分时间很安静，但你偶尔会听到一些声响，有些难以分辨，有些相当可疑。尽管如此，这里仍是学习的好环境，你还能看到许多其他学生也在学习。'
+	*nl
+	if dyneval ('RESULT = class[''<<$ARGS[1]>>_<<$ARGS[2]>>_optional_weekly_grade_gain'']') < dyneval ('RESULT = class[''<<$ARGS[1]>>_<<$ARGS[2]>>_optional_weekly_max'']'):
+		'你学习了半个小时，并意识到如果想完全理解这周的课程内容，你还需要学习更多。'
+	else
+		'你学习了半个小时，相信自己现在已经理解了本周所讲的一切内容。'
+	end
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		act '离开': minut += 5 & gt 'uni_grounds'
+		exit
+	end
+
+	act '继续学习': gt 'uni_library', 'study'
+	act '四处逛逛': gt 'uni_library', 'wander'
+	act '返回入口': minut += 2 & gt 'uni_library', 'start'
+	act '离开': minut += 5 & gt 'uni_grounds'
+end
+
+
+if $ARGS[0] = 'studying_exam':
+	$func('wrap', 'header center b', '大学图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/study' + rand(1, 7) + '.jpg"></center>'
+	!! Nerds like studying and so their mood improves a little. Everybody else gets in a worse mood by studying.
+	gs 'exp_gain', 'intel', rand(0, 1)
+	gs 'mood', 'raise', (trait_vars['academic']*5 -10)
+	minut += 30
+	'你打开书本开始为你的<<$ARGS[2]>>考试复习。图书馆里大部分时间很安静，但你偶尔会听到一些声响，有些难以分辨，有些相当可疑。尽管如此，这里仍是学习的好环境，你还能看到许多其他学生也在学习。'
+	if pcs_sleep < 5:
+		no_study = 1
+		'你太累了，不停地打瞌睡。在这种状态下你什么也学不进去。'
+	elseif pcs_sleep < 30:
+		study_mod -= 20
+		'你非常疲倦，很难保持眼睛睁开。'
+	end
+	if alko >= 6:
+		no_study = 1
+		'你醉得太厉害，眼睛都看不清书上的字。握笔也是问题。'
+	elseif alko >= 4:
+		study_mod -= 40
+		'你喝醉了，很难集中精力看书。当你翻看自己做的笔记时，发现很多都看不懂。'
+	elseif alko >= 2:
+		study_mod -= 20
+		'你有点微醺，但感觉学习进展顺利。然而，当你事后翻看笔记时，却发现很多内容毫无意义。'
+	end
+	if drugVars['mentats_dose'] > 0: study_mod += 30
+	If pcs_mood < 50:
+		study_mod -= 20
+		'你心情不好，这明显影响了你的学习。'
+	end
+	if drugVars['heroin_high'] > 0 or drugVars['weed_high'] > 0:
+		study_mod -= 40
+		'你嗑药嗑得飘飘然，很难集中精力学习。'
+	end
+	if drugVars['amphetamine_high'] > 0: study_mod += 20
+	if pcs_energy < 5:
+		study_mod -= 20
+		'你饿得不行，很难想食物以外的事情。'
+	elseif pcs_energy < 10:
+		study_mod -= 10
+		'你非常饥饿，这影响了你集中注意力的能力。'
+	elseif pcs_energy < 20:
+		study_mod -= 10
+		'你感到饥饿，思绪常常飘向食物，对你的表现产生负面影响。'
+	end
+	if pcs_horny > 90:
+		study_mod -= 10
+		'你欲火焚身，思绪经常飘向性爱，影响了你的学习能力。'
+	end
+	if pain['total'] > 90:
+		no_study = 1
+		'你疼得厉害，根本无法学习。'
+	elseif pain['total'] > 75:
+		study_mod -= 40
+		'你疼得厉害，很难集中精力学习。'
+	elseif pain['total'] > 60:
+		study_mod -= 20
+		'疼痛一直困扰着你，让你很难学习。'
+	end
+	*nl
+	study_mod = max(0, (rand(30 + study_mod, pcs_intel + study_mod) + 10)/33)
+	if no_study = 1:
+		'你试着学习了半个小时，但什么也没学进去。'
+	else
+		if study_mod = 0:
+			'你学习了半个小时，但觉得自己没什么进步。'
+		elseif study_mod = 1:
+			'你学习了半个小时，觉得自己有一点进步。'
+		elseif study_mod = 2:
+			'你学习了半个小时，觉得自己在为考试做准备方面进展良好。'
+		else
+			'你学习了半个小时，觉得自己进步很大。'
+		end
+		gs 'grades', 'grade_award', '<<$ARGS[1]>>', '<<$ARGS[2]>>', study_mod
+	end
+
+	gs 'stat'
+
+	killvar 'study_mod'
+	killvar 'nod_study'
+
+	act '离开': minut += 5 & gt 'uni_grounds'
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		exit
+	end
+
+	act '返回入口': minut += 2 & gt 'uni_library', 'start'
+	act '继续学习': gt 'uni_library', 'study'
+	act '四处逛逛': gt 'uni_library', 'wander'
+end
+
+
+if $ARGS[0] = 'wander':
+	minut += 15
+	$sexloc = 'uni_library'
+	gs 'stat'
+	$func('wrap', 'header center b', '大学图书馆')
+	temp = rand(1, 20)
+	if temp = 1:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/accident_panty_flash.jpg"></center>'
+		'你四处闲逛时，在一排书架间看到两个女孩。其中一个开始爬上书架去够一本够不到的书，她的短裙随着动作滑了上去，让每个看到的人都瞥见了她的内裤。你忍俊不禁，继续往前走。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 2:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/accident_pussy_flash.jpg"></center>'
+		'你四处闲逛时，在一排书架间看到一个女孩。她开始爬上书架去够一本够不到的书，她的短裙随着动作滑了上去，让每个看到的人都瞥见了她的私处。你忍俊不禁，继续往前走。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 3:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/asian_titflash.jpg"></center>'
+		'你四处闲逛时，在一排书架间停下，前面通向另一个小型学习区。你面前有几个男生坐在桌旁，正怂恿一个亚洲女孩掀起上衣。她一直拒绝，但你能看出她因他们的关注而变得兴奋起来。最后，她微微脸红，掀起上衣举着，露出自己结实的小乳房。男生们都咧嘴笑着，轻轻鼓掌，随后她拉下上衣，红着脸走开了。你好奇她是否后悔这么做，然后继续赶路。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 4:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/black_titflash.jpg"></center>'
+		'你四处闲逛时，在一排书架间停下，前面通向另一个小型学习区。你面前有几个男生坐在桌旁，正怂恿一个丰满的黑人女孩掀起上衣。她一直拒绝，但你能看出她因他们的关注而变得兴奋起来。几秒钟后，她终于向他们露出自己又大又垂的乳房。男生们都咧嘴笑着，轻轻鼓掌，随后她拉下上衣，回去继续学习。你好奇她是否后悔这么做，然后继续赶路。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 5:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/girl_sleeping.jpg"></center>'
+		'你四处闲逛时，看到一个女孩趴在其中一个工作台上，显然是在学习时睡着了。她轻轻地打着鼾，几个其他学生不时瞥过去，偷偷发笑。你摇了摇头，让那个女孩安静地睡去。'
+	elseif temp = 6:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/laying_in_row.jpg"></center>'
+		'你四处闲逛时，沿着一排书架走去，却发现一个女孩趴在过道中间看书。她抬头瞥了你一眼，又继续看书，不再理会你。你既不方便绕过去，又不想跨过她显得失礼——虽然她本来就很失礼——于是你干脆走到旁边一排，继续闲逛。'
+	elseif temp = 7:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/naked_run.jpg"></center>'
+		'你四处闲逛时，瞥见一个似乎是裸体的女孩在两排书架之间奔跑。你朝她跑进的那排看去，看到她在过道里继续跑着。你不知道她的衣服在哪里，也不知道她为什么这么做，但看她跑得那么快，你怀疑她并不享受这件事。她很快消失在另一排书架后面。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 8:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/naked_walk.jpg"></center>'
+		'当你转身走向一条过道时，几乎和一个赤身裸体站在那里的漂亮金发女孩迎面撞上。她只是朝你微笑，打了个招呼。你也回应了一下，她便像什么都没发生一样从你身边走过。你摇了摇头，继续赶路。几秒钟后，你遇到一个拿着女孩衣服、朝每条过道张望的男生。你只能猜他在找刚才你看到的那个裸体女孩，于是朝他指了你看到她的方向。他微笑着点点头，朝那个方向跑去。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 9:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/pussy_flash.jpg"></center>'
+		'你四处闲逛时，穿过其中一个小型学习区。你面前有几个男生坐在桌旁，正怂恿一个站在书架间入口处的女孩向他们露一下。她一直拒绝，但你能看出她因他们的关注而变得兴奋起来。最后，她掀起裙子，向他们露出修剪整齐的私处。其中一个男生短暂地大声欢呼了一声，但立刻被同伴打了一下，叫他安静。几个其他人朝男生们看过去，但那女孩已经把裙子放回原位，带着笑容走开了。你继续赶路时，好奇她是否后悔这么做。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 10:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/tit_flash.jpg"></center>'
+		'你四处闲逛时，穿过其中一个小型学习区。你面前有几个男生坐在桌旁，正怂恿一个站在书架间入口处的女孩向他们露一下。她一直拒绝，但你能看出她因他们的关注而变得兴奋起来。最后，她掀起上衣，向他们露出自己的乳房。其中一个男生短暂地大声欢呼了一声，但立刻被同伴打了一下，叫他安静。几个其他人朝男生们看过去，但那女孩已经把上衣放回原位，带着笑容走开了。你继续赶路时，好奇她是否后悔这么做。'
+		gs 'arousal', 'erotic_nudity', 3
+		gs 'stat'
+	elseif temp = 11:
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/events/sex/bj.jpg"></center>'
+		'你四处走动时，听到一些呻吟声，朝其中一排书架望去，看到一个男生坐在一个工作台前。过了一会儿你才注意到桌子下面有个女孩跪着，在他腿间上下摆动着头。你又看了几秒钟，被眼前的场景撩拨得有些兴奋，随后决定在被发现之前离开。'
+		gs 'arousal', 'erotic', 3
+		gs 'stat'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/library.jpg"></center>'
+		'你在图书馆里逛了一会儿，看着满架的书。你从几个同学身边经过，他们有的安静地学习，有的在阅读，有的只是翻看书架。你没有遇到什么有趣的事。'
+	end
+
+	act '离开': minut += 5 & gt 'uni_grounds'
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		exit
+	end
+
+	act '返回入口': minut += 2 & gt 'uni_library', 'start'
+	act '四处逛逛': gt 'uni_library', 'wander'
+end
+
+
+if $ARGS[0] = 'read':
+	gs 'core_library', 'setloc', 'uni_library', 'read'
+
+	$func('wrap', 'header center b', '大学图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/library.jpg"></center>'
+
+	act '离开': minut += 5 & gt 'uni_grounds'
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		exit
+	end
+
+	act '回去': gt 'uni_library', 'start'
+	gs 'library_functions', 'set_library_read_acts'
+end
+
+
+if $ARGS[0] = 'loan':
+	gs 'core_library', 'setloc', 'uni_library', 'loan'
+
+	$func('wrap', 'header center b', '大学图书馆')
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/library/library.jpg"></center>'
+
+	act '离开': minut += 5 & gt 'uni_grounds'
+
+	if (week >= 6 and hour = 23) or hour < 8:
+		'图书馆今晚要关门了。'
+		exit
+	end
+
+	act '回去': gt 'uni_library', 'start'
+	gs 'library_functions', 'set_loan_acts'
+end
+
+
+if $ARGS[0] = 'kendra':
+	menu_off = 1
+	gs 'npc_relationship', 'modify', 'A82', 'like'
+	gs 'exp_gain', 'chrsm', rand(1, 2)
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/locations/city/island/university/classroom/ebony_girl_talk.jpg"></center>'
+	'你走到她的桌前。'
+	if meet_kendra = 1:
+		if kendraQW['sub'] <= 0:
+			'你正要坐下，肯德拉瞪了你一眼。"想都别想，公主。我们不是朋友，我也不想跟你有任何关系。去别处坐。"'
+			'你环顾四周注意到几个其他学生在盯着你，于是你离开她并自己找了个座位。'
+		elseif kendraQW['sub'] <= 10:
+			if npc_rel['A82'] >= 60:
+				minut += 10
+				'你坐在肯德拉旁边。你跟她说话，她甚至让你插上几句话，但她多半把你当成宠物或头脑简单的人，常常对你发表居高临下的评论。'
+			elseif npc_rel['A82'] >= 20:
+				minut += 10
+				'你坐在肯德拉旁边，试着和她交谈，但每次你想插句话，她都会瞪你一眼，直到你闭嘴让她继续说。'
+			else
+				'你正要坐到肯德拉旁边，她朝你看了过来。"想都别想，公主。我们不是朋友。你不过是我的玩具，我想什么时候用、在哪儿用都行，但现在不是时候，去别处坐吧。"'
+				'你环顾四周，注意到几个其他学生在盯着你看，于是你从她身边走开。'
+			end
+		else
+			if npc_rel['A82'] >= 60:
+				minut += 10
+				'你坐在肯德拉旁边。你跟她说话，她甚至让你插上几句话，但她多半把你当成宠物或头脑简单的人，常常对你发表居高临下的评论。'
+			elseif npc_rel['A82'] >= 20:
+				minut += 10
+				'你坐在肯德拉旁边，试着和她交谈，但每次你想插句话，她都会瞪你一眼，直到你闭嘴让她继续说。'
+			else
+				'你正要坐到肯德拉旁边，她瞪了你一眼。"我们不是朋友。你不过是我随意使用和虐待的白人女奴婊子。在公共场合别来找我，<i>永远</i>别来。去别处坐吧。"'
+				'你环顾四周注意到几个其他学生在盯着你，于是你离开她并自己找了个座位。'
+			end
+		end
+		act '别管肯德拉': minut += 2 & gt 'uni_library', 'start'
+	else
+		if pcs_hotcat >= 5:
+			meet_kendra = 1
+			'这个黑人女孩身上有些东西让你很感兴趣，于是你决定坐到她旁边。"嗨，我是<<$pcs_nickname>>。"'
+			'她用打量一双想买鞋子的眼神看着你。"我是肯德拉，不过你可以叫我女主人，"她带着异域口音回答。"如果你愿意，我可以把你训练成我的奴隶之一。"'
+			'她的话让你吃了一惊。"奴隶？"'
+			'她笑了笑。"是的，我在这里有很多性奴，我可以训练你好好服侍我。如果你感兴趣，就来我的宿舍房间吧。在东宿舍楼八楼，808房间。"'
+			'然后她不再理你，让你在心里琢磨是否该去她的宿舍看看她说的是什么……'
+
+			act '别管肯德拉': minut += 2 & gt 'uni_library', 'start'
+		else
+			'这个黑人女孩身上有些东西让你很感兴趣，于是你决定坐到她旁边。"嗨，我是<<$pcs_nickname>>。"'
+			'"不。没兴趣。也许等你把……''这身''弄好之后，可以再来试试。"她懒洋洋地、漫不经心地挥手指了指你的全身。'
+			'她的话让你吃了一惊。"什么？"'
+			'她翻了个白眼，以为你震惊的沉默是愚蠢的表现。"走开吧。"'
+			'然后她不再理你，让你不禁琢磨，是不是她觉得你不够有吸引力，才懒得搭理你。也许你再漂亮一点，她就愿意跟你说话了吧？'
+			act '别管她': minut += 2 & gt 'uni_library', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'artem':
+	*clr & cla
+	menu_off = 1
+	gs 'npc_relationship', 'modify', 'A2', 'like'
+	gs 'exp_gain', 'chrsm', rand(1, 2)
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big2.jpg"></center>'
+	'你走到他的桌前。'
+	if npc_rel['A2'] >= 50:
+		artemQW['knows_dorm_room_number'] = 1
+		minut += 10
+		'你坐在阿尔乔姆旁边，聊了一会儿课程、同学、室友和日常生活。'
+		'"我不是有意无礼，但我真的需要把这个写完，"他带着一丝微笑说。"改天你来我的宿舍怎么样？到时候我们可以一起玩。我在209房间。"'
+		'你点点头，道了别，让他安静地学习。'
+	elseif npc_rel['A2'] >= 20:
+		minut += 5
+		'你坐在阿尔乔姆旁边，试着和他交谈，但基本上只是你一个人在说，而他则在努力学习。'
+		'"我很想聊天，但我真的需要学习。也许改天我们可以在咖啡馆之类的地方聊聊，但如果你不介意的话……"'
+		'他指了指自己的书，你心领神会，不再打扰他。'
+	else
+		'你坐在阿尔乔姆旁边，他只是看了你一眼。'
+		'"我很忙，需要学习，请你去别处坐吧。"'
+		'你叹了口气，站起来走开了。'
+	end
+
+	act '让他自己待着': minut += 2 & gt 'uni_library', 'start'
+end
+
+
+if $ARGS[0] = 'anushka':
+	menu_off = 1
+	gs 'npc_relationship', 'modify', 'A144', 'like'
+	gs 'exp_gain', 'chrsm', rand(1, 2)
+	minut += 5
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big144.jpg"></center>'
+	'你走到她的桌前。'
+
+	if npc_rel['A144'] >= 60:
+		anushkaCityQW['first_visit'] = 1
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big144.jpg"></center>'
+		'你坐下时和她互相打了招呼。阿努什卡看起来非常专注于学习，一开始还很有礼貌，但几分钟后她就不再回应了。'
+		'然后她转向你。"我不是有意无礼，但你能不能礼貌地滚开？"她脸上带着笑容，用调侃的语气问道。"不过说真的，我真的需要把这个做完。这是我为数不多必须待在图书馆的时候。如果你想玩，可以去咖啡洞找我，或者来我的公寓。"'
+		'她告诉了你她和乐队男孩们合住的公寓在哪里。听完之后，你心领神会，不再打扰她。'
+	elseif npc_rel['A144'] >= 20:
+		minut += 5
+		'你坐在阿努什卡旁边，试着和她交谈，但基本上只是你一个人在说，而她则在努力学习。'
+		'几分钟后，她转向你。"我没时间闲逛聊天。我得趁现在有点空闲把这学习搞定。如果你想聊天，改天来咖啡洞找我吧。那时候我有时有空。"'
+		'你心领神会，不再打扰她。'
+	else
+		'你坐在阿努什卡旁边，她看了你一眼。'
+		'"滚开。你没看到我很忙吗？"'
+		'你叹了口气，站起来走开了。'
+	end
+
+	act '别管她': minut += 2 & gt 'uni_library', 'start'
+end
+
+
+if $ARGS[0] = 'albina':
+	*clr & cla
+	menu_off = 1
+	gs 'npc_relationship', 'modify', 'A23', 'like'
+	minut += 2
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big23.jpg"></center>'
+	'你朝她走去，而她继续翻找着书架。'
+	if ($start_type = 'city_tg' or $start_type = 'uni_tg') and npc_rel['A23'] < 60:
+		'她伸手去够一本书时，你忍不住盯着她的屁股看，那身材曲线优美、结实匀称。'
+		'"上学时你就一直是个笨拙的失败者，但你现在格外古怪，<<$pcs_nickname>>……"'
+		'"呃……什么？"你回过神来，含糊地嘟囔道。'
+		'阿尔比娜翻了个白眼。"把你的舌头收回去，别像个变态失败者一样对着我的屁股流口水！"'
+		'你只是含糊地道了个歉，她从你身边挤过去，绕过拐角消失了。'
+	elseif npc_rel['A23'] >= 60 or AlbinaQW['Friends'] = 2:
+		'"嘿，<<$pcs_nickname>>，"她看到你时笑着说。'
+		'"怎么了？"你问道。'
+		'"只是拿几本书带回房间，"她回答。'
+		*nl
+		'"为什么不在这里学习呢？"你问道。'
+		'"我更喜欢在没有干扰的私密环境里学习。现在我很想聊天，但我得走了。"'
+		'你只是点了点头，她从你身边擦身而过。'
+		*nl
+		if AlbinaQW['dorm_invite'] = 0:
+			AlbinaQW['dorm_invite'] = 1
+			'"哦，还有最后一件事，"她停下来转身面对你说。"你居然还没来我的宿舍看过我，这太不可思议了！"'
+			if $start_type = 'city_tg' or $start_type = 'uni_tg':
+				'"真的吗？"你回答。"你想让我去你的房间？"'
+				'"当然啦！"她笑着说。"你身上有些不一样的东西，我想弄清楚到底是什么！七楼，707房间。别让我等太久！"'
+			else
+				'"那我什么时候过去把这件事补上呢？"你笑着问道。'
+				'"我大多数晚上都在家。七楼，707房间。别让我等太久！"'
+			end
+			temp_showtext = 0
+			temp_index = arrpos('$contact', 'A23')
+			if temp_index < 0:
+				gs 'telefon', 'AddContact', 'A23', 'images/characters/shared/headshots_main/23.jpg', 0
+				temp_showtext = 1
+			elseif contactAnon[temp_index] <> 0:
+				contactAnon[temp_index] = 0
+				temp_showtext = 1
+			end
+			if temp_showtext:
+				'她掏出手机。"这是我的号码，这样我们就可以互发短信了。"'
+				'你们互相把号码存进手机，才道别，然后她就走了。'
+			end
+
+			killvar 'temp_index'
+			killvar 'temp_showtext'
+		end
+	else
+		if fame['city_slut'] > 250 or fame['pav_slut'] > 250:
+			if npc_rel['A23'] >= 60:
+				'"你是来学习的，还是想找个鸡巴吸一吸？"她咧嘴笑着问道。'
+				'你只是微笑着摇摇头，对她的玩笑不置可否。'
+				'"我很想聊天，但我得走了，"她说。'
+				'你只是点了点头，她从你身边擦身而过，绕过拐角消失了。'
+			else
+				'"呃……"她厌恶地皱起眉头。"这个荡妇在到处找鸡巴榨取。滚开，去别处干那种破事，你这个浑身是病的精液垃圾桶！"'
+				'你赶紧转身走开，免得她闹出什么动静。'
+			end
+		else
+			'她几乎没注意到你的存在，继续翻找着书架，把你晾在一边。'
+		end
+	end
+	act '离开': gt 'uni_library', 'start'
+end
+
+--- uni_library ---------------------------------

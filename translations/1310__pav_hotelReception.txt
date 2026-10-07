@@ -1,0 +1,202 @@
+# pav_hotelReception
+
+
+if $ARGS[0] = '':
+	*clr & cla
+	$menu_loc = 'pav_hotelReception'
+	$menu_arg = ''
+	menu_off = 0
+	if hotelRoomDays['pav'] = 0 and hour > 11: HotelRoom['pav'] = 0
+	if hotelRoomDays['pav'] < 0: HotelRoom['pav'] = 0
+	gs 'stat'
+	'<center><h4>酒店前台</h4></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+	if pavHotelMaid = 0:
+		'前台还是那个可爱的深褐色头发女孩，和往常一样。你想知道她到底有没有休息过。'
+	else
+		'<<$receptionName>>又一次在前台值班。你想知道她到底有没有休息过。'
+	end
+
+	act '离开接待台': gt 'pav_hotel', 'skip_resepevent'
+
+	if job_hiring_step['pav_hotel_maid'] = 1:
+		act '询问女仆工作的事':
+			menu_off = 1
+			*clr & cla
+			job_hiring_step['pav_hotel_maid'] = 2
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+			'你走近前台，说："打扰一下……我听说你们经常需要女仆？我想来这里当女仆。"'
+			'她理解地点了点头，飞快地打量了一下你的身材："我们确实经常需要女仆，这是真的。我恨不得马上雇用你，但可惜这不由我说了算。你应该去找酒店经理赫尔曼 列昂尼多维奇。他通常在 '+func('time', 'get_time_string', 12, 0)+' 到 '+func('time', 'get_time_string', 14, 0)+' 之间待在办公室里。我打赌他会雇用你的！去见他的时候祝你好运！"'
+
+			act '离开接待台': gt 'pav_hotel', 'skip_resepevent'
+		end
+	end
+
+	if job_worked_count['pav_hotel_maid'] > 0:
+		act '领取你的工资':
+			cla
+			!! paycheck calculates, pays the player, and returns the amount
+			hotel_wage = func('jobs', 'paycheck', 'pav_hotel_maid')
+			'她迅速查了一下电脑，递给你<<$func(''money'', ''string_profit'', hotel_wage)>>，作为你在酒店工作所有班次的报酬，加上你可能拿到的小费。'
+			'你向她道谢，把钱放进钱包，然后离开了办公室。'
+			killvar 'hotel_wage'
+			!! Updated to require you to not be attending highschool and have a decent cleaning skill
+			if nichHotelReferral = 0 and pcs_cleaning >= 40 and (gschoolVars['school_diploma'] = 1 or gschoolVars['block'] = 1):
+				'"你干得很不错。你想过做全职女仆吗？我认识一个住在城里的人，正在找住家女仆。这份工作报酬也不错。"'
+				'她犹豫了一下。"我可以给你写封推荐信。没有推荐信，他是不会邀请你去面试的，但老板不会喜欢我把他的女仆介绍给别的雇主。所以我要求你付我 ' + $func('money', 'string_price', 5000) + ' 作为辛苦费。就把它当成一点小费用吧。告诉我你想不想要这份工作，有没有这笔钱。"'
+				nichHotelReferral = 1
+				act '谢谢她的提议': gt 'pav_hotel', 'skip_resepevent'
+			else
+				act '离开接待台': gt 'pav_hotel', 'skip_resepevent'
+			end
+		end
+	end
+
+	if proshotelopen = 1 and proshotelday <> daystart and hour > 6 and (hour < 12 or hour >= 20):
+		act '询问"孔雀"':
+			*clr & cla
+			menu_off = 1
+			if pavhotprosQW = 6:
+				pavhotprosQW = 7
+				PavlinQW = 1
+				prostitute['active'] = 1
+			end
+			gs 'stat'
+
+			if pavlevent = 1:
+				'你现在太害怕<<$npc_nickname[''A217'']>>了，不敢在私密场合见他。'
+				act '走开': gt 'pav_hotel', 'skip_resepevent'
+				exit
+			elseif pcs_makeup <= 1 or pcs_hairbsh < 1 or pcs_sweat > 26:
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+				'"<<$npc_nickname[''A217'']>>要求你保持干净、化好妆、头发整洁。我不能让你这副样子上去，"她说。'
+				act '走开': gt 'pav_hotel', 'skip_resepevent'
+				exit
+			else
+				'你走近<<$receptionName>>，询问 ''孔雀''。'
+				gt 'pavlin', 'pavgenpros'
+			end
+		end
+	end
+
+	if nichHotelReferral = 1:
+		act '询问住家女仆的工作':
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+			'你走近前台，微笑着问："关于你告诉我的那份工作……我想要你的推荐信。"'
+			'"太好了！"她回答。"你带了我的介绍费吗？"'
+
+			act '是' + $func('money', 'get_cost_string', 5000, 'cash'):
+				if func('money', 'can_afford', 5000, 'cash') = 0:
+					$noMoney
+				else
+					cla & *nl
+					gs 'money', 'pay', 5000, 'cash'
+					nichHotelReferral = 2
+					gs 'stat'
+					'你把钱递给她，她迅速把钱放进钱包，然后把推荐信递给你。推荐信写在酒店官方信纸上，还附有酒店经理的签名。信上说你是位有经验、品行端正、勤奋认真的女仆。'
+					'"别担心，签名是真的。老板会签我交给他的所有东西。"'
+					'她还递给你一张小卡片，上面写着市中心的一个地址。"下午晚些时候去那里，出示这封推荐信。你还必须穿女仆制服。如果没有的话，可以去 G&M 商店买一套。我还听说这个人是个完美主义者，所以你要确保自己各方面都体面得体。祝你好运！"'
+					act '谢谢她并离开': gt 'pav_hotel', 'skip_resepevent'
+				end
+			end
+
+			act '不':
+				cla & *nl
+				'"我没有，"你回答。'
+				'"太可惜了，"她耸耸肩。"恐怕你不付钱我就帮不了你。等你有钱了就回来找我吧。"'
+				act '离开接待台': gt 'pav_hotel', 'skip_resepevent'
+			end
+		end
+	end
+
+	act '租房间':
+		menu_off = 1
+		*clr & cla
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+		if pavHotelMaid = 0:
+			'柜台后面的女孩对你微笑着说："你好，小姐！你想租个房间吗？"'
+		else
+			'<<$receptionName>>对你微笑着说："你好，<<$pcs_nickname>>！你想租个房间吗？"'
+		end
+		if HotelRoom['pav'] > 0 and therapistQW['hotel_key'] <> 3:
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+			'她看了看电脑。"我看到你已经在这里订了房间。既然房间已经预订并付了款，想换成别的房间，就只能取消现有的预订。不提前通知就取消的话，房费是不退的。我建议你不要这样做，但如果你执意如此，也可以。"'
+			act '取消你的预订': HotelRoom['pav'] = 0 & gt 'pav_hotel'
+			act '不': gt 'pav_hotel'
+		elseif HotelRoom['pav'] = 0 and therapistQW['hotel_key'] <> 3:
+			act '是的':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/hotel/resep.girl0,'+rand(0, 10)+'.jpg"></center>'
+				'她开心地对你笑着说："太好了！我们现在有以下房型可供选择："'
+				'标准间 - <<$func(''money'', ''string_price'', 500)>>一晚'
+				'豪华间 - <<$func(''money'', ''string_price'', 1500)>>一晚'
+				*nl
+				act '标准间':
+					cla
+					hotelRoomDays['pav'] = input ("你想住多久？")
+					if hotelRoomDays['pav'] > 0 :
+						totalCost = hotelRoomDays['pav'] * 500
+						'"一间标准间住<<hotelRoomDays[''pav'']>>天，一共是<<$func(''money'', ''string_price'', totalCost)>>，"她说。'
+						gs 'pav_hotelReception', 'pay_the_room', 1
+					else
+						gt 'pav_hotel'
+					end
+				end
+
+				act '豪华房':
+					cla
+					hotelRoomDays['pav'] = input ("你想住多久？")
+					if hotelRoomDays['pav'] > 0 :
+						totalCost = hotelRoomDays['pav'] * 1500
+						'"一间豪华间住<<hotelRoomDays[''pav'']>>天，一共是<<$func(''money'', ''string_price'', totalCost)>>，"她说。'
+						gs 'pav_hotelReception', 'pay_the_room', 2
+					else
+						gt 'pav_hotel'
+					end
+				end
+
+				act '走开': gt 'pav_hotel'
+			end
+			act '不用了，谢谢': gt 'pav_hotel'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'pay_the_room':
+	hotel_room_id = ARGS[1]
+	if func('money', 'can_afford', totalCost) = 0:
+		act '你负担不起在酒店住那么久。':
+			killvar 'totalCost'
+			killvar 'hotel_room_id'
+			gt 'pav_hotel'
+		end
+	else
+		act '支付 (<<$func(''money'', ''string_price'', totalCost)>>)':
+			cla
+			gs 'money', 'pay', totalCost
+			HotelRoom['pav'] = hotel_room_id
+			hotelRoomDays['pav'] = daystart + hotelRoomDays['pav']
+			'你支付<<$func(''money'', ''string_price'', totalCost)>>作为房费。'
+			'她递给你房间钥匙作为回报。"谢谢' + iif(pavHotelMaid = 0, '小姐', $pcs_nickname) +'，希望你住得愉快！"'
+			act '走开': gt 'pav_hotel'
+			killvar 'totalCost'
+			killvar 'hotel_room_id'
+		end
+	end
+
+	act '改变主意':
+		killvar 'totalCost'
+		killvar 'hotel_room_id'
+		gt 'pav_hotel'
+	end
+end
+
+
+--- pav_hotelReception ---------------------------------

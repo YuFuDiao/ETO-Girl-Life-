@@ -1,0 +1,1339 @@
+# transport_functions
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               TRAINS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'buy_train_pass':
+	if daystart >= transportVars['trainpass_day']:
+		act '购买日票（1天）' + $func('money', 'get_cost_string', 250):
+			if func('money', 'can_afford', 250) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 250
+				transportVars['trainpass_day'] = daystart + 1
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买周票（7天）' + $func('money', 'get_cost_string', 1250):
+			if func('money', 'can_afford', 1250) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 1250
+				transportVars['trainpass_day'] = daystart + 7
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买月票（30天）' + $func('money', 'get_cost_string', 3750):
+			if func('money', 'can_afford', 3750) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 3750
+				transportVars['trainpass_day'] = daystart + 30
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买年票（365天）' + $func('money', 'get_cost_string', 32500):
+			if func('money', 'can_afford', 32500) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 32500
+				transportVars['trainpass_day'] = daystart + 365
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'buy_train_ticket':
+	if $ARGS[2] = 'pc':
+		if $ARGS[1] <> 'pavlovsk':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'pavlovsk',		'巴甫洛夫斯克'
+		if $ARGS[1] <> 'gadukino':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'gadukino',		'加杜基诺村'
+		if $ARGS[1] <> 'communal':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'communal',		'公共村'
+		if $ARGS[1] <> 'industrial':	gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'industrial',	'圣彼得堡市工业区'
+		if $ARGS[1] <> 'center':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'center',		'圣彼得堡市中心'
+	else
+		if $ARGS[1] <> 'center':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'center',		'圣彼得堡市中心'
+		if $ARGS[1] <> 'industrial':	gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'industrial',	'圣彼得堡市工业区'
+		if $ARGS[1] <> 'communal':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'communal',		'公共村'
+		if $ARGS[1] <> 'gadukino':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'gadukino',		'加杜基诺村'
+		if $ARGS[1] <> 'pavlovsk':		gs 'transport_functions', 'set_train_ticket', $ARGS[1],	'pavlovsk',		'巴甫洛夫斯克'
+	end
+	exit
+end
+
+
+!! $ARGS[1] = origin loc_arg
+!! $ARGS[2] = destination loc_arg
+!! $ARGS[3] = destination name
+if $ARGS[0] = 'set_train_ticket':
+	$temp_transportVars['origin'] = $ARGS[1]
+	$temp_transportVars['destination'] = $ARGS[2]
+	$temp_transportVars['name'] = $ARGS[3]
+	temp_transportVars['price'] = func('transport_functions', 'get_train_price', $temp_transportVars['origin'], $temp_transportVars['destination'])
+	$temp_transportVars['time'] = $func('transport_functions', 'display_train_timecost', $temp_transportVars['origin'], $temp_transportVars['destination'])
+
+	if func('transport_functions', 'get_train_waitcost', $temp_transportVars['origin'], $temp_transportVars['destination']) > 60:
+		dynamic "act '买票去<<$temp_transportVars['name']>> (<font color=""red""><<$temp_transportVars['time']>> - <<$func('money', 'string_price', temp_transportVars['price'])>></font>)': '<br><font color=""red"">前往<<$temp_transportVars['name']>>需要等待太久</font>'"
+	else
+		if func('money', 'can_afford', temp_transportVars['price']) = 0:
+			dynamic "act '买票去<<$temp_transportVars['name']>> (<font color=""red""><<$temp_transportVars['time']>> - <<$func('money', 'string_price', temp_transportVars['price'])>></font>)': '<br><font color=""red"">你没有足够的钱买去<<$temp_transportVars['name']>>的票</font>'"
+		else
+			dynamic "
+				act '买票去<<$temp_transportVars['name']>> (<<$temp_transportVars['time']>> - <<$func('money','string_price', temp_transportVars['price'])>>)':
+					cla
+					menu_off = 1
+					gs 'money', 'pay', <<temp_transportVars['price']>>
+					gt 'train', '<<$temp_transportVars['origin']>>_<<$temp_transportVars['destination']>>'
+				end
+			"
+		end
+	end
+	killvar 'temp_transportVars'
+	exit
+end
+
+
+!!	Time Table:
+!!		Train departs every 15 minutes (between 4:00 and 22:00), 30 minutes (between 22:00 and 01:00) and 60 minute (betweeen 01:00 and 04:00)
+!!		pavlovsk (07)	->	gadukino (22)	->	communal (32)	->	ind (42)		->	center
+!!		center (02)		->	ind (07)		->	communal (17)	->	gadukino (27)	->	pavlovsk
+
+
+if $ARGS[0] = 'set_train_wait_time':
+	if arrsize('ARGS') <= 2: ARGS[2] = daystart
+	if arrsize('ARGS') = 3: ARGS[3] = hour
+	if arrsize('ARGS') = 4: ARGS[4] = minut
+
+	transportVars['train_wait_pavlovsk'] = 0
+	transportVars['train_wait_center'] = 0
+
+
+	temp_transportVars['totminut'] = ARGS[3] * 60 + ARGS[4]
+
+	if $ARGS[1] <> 'pavlovsk':
+			!! Train departs every 15 minutes (between 4:00 and 22:00), 30 minutes (between 22:00 and 01:00) and 60 minute (betweeen 01:00 and 04:00)
+			!! center -> pavlovsk: 00:02
+		temp_transportVars['totminut_center'] = temp_transportVars['totminut'] - func('transport_functions', 'get_train_timecost', 'center', $ARGS[1])
+		if temp_transportVars['totminut_center'] >= 1320 or temp_transportVars['totminut_center'] < 60:
+			transportVars['train_wait_pavlovsk']	= (1442 - temp_transportVars['totminut_center']) mod 30
+		elseif temp_transportVars['totminut_center'] < 240:
+			transportVars['train_wait_pavlovsk']	= (1442 - temp_transportVars['totminut_center']) mod 60
+		else
+			transportVars['train_wait_pavlovsk']	= (1442 - temp_transportVars['totminut_center']) mod 15
+		end
+	end
+	if $ARGS[1] <> 'center':
+			!! Train departs every 15 minutes (between 4:00 and 22:00), 30 minutes (between 22:00 and 01:00) and 60 minute (betweeen 01:00 and 04:00)
+			!! pavlovsk -> center: 00:07
+		temp_transportVars['totminut_pavlovsk'] = temp_transportVars['totminut'] - func('transport_functions', 'get_train_timecost', 'pavlovsk', $ARGS[1])
+		if temp_transportVars['totminut_pavlovsk'] >= 1320 or temp_transportVars['totminut_pavlovsk'] < 60:
+			transportVars['train_wait_center'] = (1447 - temp_transportVars['totminut_pavlovsk']) mod 30
+		elseif temp_transportVars['totminut_pavlovsk'] < 240:
+			transportVars['train_wait_center'] = (1447 - temp_transportVars['totminut_pavlovsk']) mod 60
+		else
+			transportVars['train_wait_center'] = (1447 - temp_transportVars['totminut_pavlovsk']) mod 15
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'display_trainpass_time':
+	$result = '你的火车通票还剩<<transportVars[''trainpass_day''] - daystart>>天。'
+	exit
+end
+
+
+if $ARGS[0] = 'display_train_timecost':
+	$dtemp_transportVars['origin'] = $ARGS[1]
+	$dtemp_transportVars['destination'] = $ARGS[2]
+	dtemp_transportVars['minutes'] = func('transport_functions', 'get_train_timecost', $dtemp_transportVars['origin'], $dtemp_transportVars['destination'])
+	dtemp_transportVars['minutes'] += func('transport_functions', 'get_train_waitcost', $dtemp_transportVars['origin'], $dtemp_transportVars['destination'])
+
+	dtemp_transportVars['hours'] = dtemp_transportVars['minutes'] / 60
+	dtemp_transportVars['minutes'] = dtemp_transportVars['minutes'] mod 60
+	$result = "<<dtemp_transportVars['hours']>>:<<$mid($str(100 + dtemp_transportVars['minutes']), 2, 2)>>"
+	killvar 'dtemp_transportVars'
+	exit
+end
+
+
+if $ARGS[0] = 'display_train_schedule':
+	$temp_border[0] = '<td style="border-bottom:2px solid black"></td>'
+	$temp_border[1] = '<td style="border-bottom:2px solid black; border-right:2px solid black"></td>'
+	$temp_border[2] = '<td style="border-bottom:2px solid black; border-right:2px solid black; border-left:2px solid black"></td>'
+	$temp_border[3] = '<td style="border-bottom:1px solid black"></td>'
+	$temp_border[4] = '<td style="border-bottom:1px solid black; border-right:2px solid black; border-left:2px solid black"></td>'
+
+	if $ARGS[1] = 'pc':
+		$train_schedule = '<center><h2>巴甫洛夫斯克 - 圣彼得堡</h2></center>'
+		$train_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$train_schedule += '<tr><th></th><th></th><th>公共</th><th>圣彼得堡</th><th>圣彼得堡</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th></th><th></th><th>公共</th><th>圣彼得堡</th><th>圣彼得堡</th></tr>'
+		$train_schedule += '<tr><th style="border-right:2px solid black">巴甫洛夫斯克</th><th style="border-right:2px solid black">加杜基诺</th><th style="border-right:2px solid black">村庄</th><th style="border-right:2px solid black">工业</th><th>中心</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">巴甫洛夫斯克</th><th style="border-right:2px solid black">加杜基诺</th><th style="border-right:2px solid black">村庄</th><th style="border-right:2px solid black">工业</th><th>中心</th></tr>'
+		$train_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 0
+		:train_schedule_loop1
+			$th[1] = $mid(100 + th[0], 2, 2)
+			$th[2] = $mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 12
+			$th[4] = $mid(100 + th[3], 2, 2)
+			$th[5] = $mid(100 + th[3] + 1, 2, 2)
+
+			$train_schedule += '<tr>'
+			$train_schedule += '<td><<$th[1]>>:07</td><td><<$th[1]>>:22</td><td><<$th[1]>>:32</td><td><<$th[1]>>:42</td><td><<$th[1]>>:47</td>'
+			$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$train_schedule += '<td><<$th[4]>>:07</td><td><<$th[4]>>:22</td><td><<$th[4]>>:32</td><td><<$th[4]>>:42</td><td><<$th[4]>>:47</td>'
+			$train_schedule += '</tr>'
+
+			if th[0] >= 4 or th[3] <= 21:
+				$train_schedule += '<tr>'
+				if th[0] >= 4:
+					$train_schedule += '<td><<$th[1]>>:22</td><td><<$th[1]>>:37</td><td><<$th[1]>>:47</td><td><<$th[1]>>:57</td><td><<$th[2]>>:02</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				if th[3] <= 21:
+					$train_schedule += '<td><<$th[4]>>:22</td><td><<$th[4]>>:37</td><td><<$th[4]>>:47</td><td><<$th[4]>>:57</td><td><<$th[5]>>:02</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '</tr>'
+			end
+
+			$train_schedule += '<tr>'
+			if th[0] = 0 or th[0] >= 4:
+				$train_schedule += '<td><<$th[1]>>:37</td><td><<$th[1]>>:52</td><td><<$th[2]>>:02</td><td><<$th[2]>>:12</td><td><<$th[2]>>:17</td>'
+			else
+				$train_schedule += '<td colspan=5></td>'
+			end
+			$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$train_schedule += '<td><<$th[4]>>:37</td><td><<$th[4]>>:52</td><td><<$th[5]>>:02</td><td><<$th[5]>>:12</td><td><<$th[5]>>:17</td></tr>'
+
+			if th[0] >= 4 or th[3] <= 21:
+				$train_schedule += '<tr>'
+				if th[0] >= 4:
+					$train_schedule += '<td><<$th[1]>>:52</td><td><<$th[2]>>:07</td><td><<$th[2]>>:17</td><td><<$th[2]>>:27</td><td><<$th[2]>>:32</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				if th[3] <= 21:
+					$train_schedule += '<td><<$th[4]>>:52</td><td><<$th[5]>>:07</td><td><<$th[5]>>:17</td><td><<$th[5]>>:27</td><td><<$th[5]>>:32</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '</tr>'
+			end
+
+			$train_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 12: jump 'train_schedule_loop1'
+	else
+		$train_schedule = '<center><h2>圣彼得堡 - 巴甫洛夫斯克</h2></center>'
+		$train_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$train_schedule += '<tr><th>圣彼得堡</th><th>圣彼得堡</th><th>公共</th><th></th><th></th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th>圣彼得堡</th><th>圣彼得堡</th><th>公共</th><th></th><th></th></tr>'
+		$train_schedule += '<tr><th style="border-right:2px solid black">中心</th><th style="border-right:2px solid black">工业</th><th style="border-right:2px solid black">村庄</th><th style="border-right:2px solid black">加杜基诺</th><th>巴甫洛夫斯克</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">中心</th><th style="border-right:2px solid black">工业</th><th style="border-right:2px solid black">村庄</th><th style="border-right:2px solid black">加杜基诺</th><th>巴甫洛夫斯克</th></tr>'
+		$train_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 0
+		:train_schedule_loop2
+			$th[1] = $mid(100 + th[0], 2, 2)
+			$th[2] = $mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 12
+			$th[4] = $mid(100 + th[3], 2, 2)
+			$th[5] = $mid(100 + th[3] + 1, 2, 2)
+
+			$train_schedule += '<tr>'
+			$train_schedule += '<td><<$th[1]>>:02</td><td><<$th[1]>>:07</td><td><<$th[1]>>:17</td><td><<$th[1]>>:27</td><td><<$th[1]>>:42</td>'
+			$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$train_schedule += '<td><<$th[4]>>:02</td><td><<$th[4]>>:07</td><td><<$th[4]>>:17</td><td><<$th[4]>>:27</td><td><<$th[4]>>:42</td>'
+			$train_schedule += '</tr>'
+
+			if th[0] >= 4 or th[3] <= 21:
+				$train_schedule += '<tr>'
+				if th[0] >= 4:
+					$train_schedule += '<td><<$th[1]>>:17</td><td><<$th[1]>>:22</td><td><<$th[1]>>:32</td><td><<$th[1]>>:42</td><td><<$th[1]>>:57</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				if th[3] <= 21:
+					$train_schedule += '<td><<$th[4]>>:17</td><td><<$th[4]>>:22</td><td><<$th[4]>>:32</td><td><<$th[4]>>:42</td><td><<$th[4]>>:57</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '</tr>'
+			end
+
+			$train_schedule += '<tr>'
+			if th[0] = 0 or th[0] >= 4:
+				$train_schedule += '<td><<$th[1]>>:32</td><td><<$th[1]>>:37</td><td><<$th[1]>>:47</td><td><<$th[1]>>:57</td><td><<$th[2]>>:12</td>'
+			else
+				$train_schedule += '<td colspan=5></td>'
+			end
+			$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$train_schedule += '<td><<$th[4]>>:32</td><td><<$th[4]>>:37</td><td><<$th[4]>>:47</td><td><<$th[4]>>:57</td><td><<$th[5]>>:12</td></tr>'
+
+			if th[0] >= 4 or th[3] <= 21:
+				$train_schedule += '<tr>'
+				if th[0] >= 4:
+					$train_schedule += '<td><<$th[1]>>:47</td><td><<$th[1]>>:52</td><td><<$th[2]>>:02</td><td><<$th[2]>>:12</td><td><<$th[2]>>:27</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				if th[3] <= 21:
+					$train_schedule += '<td><<$th[4]>>:47</td><td><<$th[4]>>:52</td><td><<$th[5]>>:02</td><td><<$th[5]>>:12</td><td><<$th[5]>>:27</td>'
+				else
+					$train_schedule += '<td colspan=5></td>'
+				end
+				$train_schedule += '</tr>'
+			end
+
+			$train_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 12: jump 'train_schedule_loop2'
+	end
+	$train_schedule += '</table></center>'
+	*pl $train_schedule
+
+	killvar 'train_schedule'
+	killvar 'temp_border'
+	killvar 'th'
+	exit
+end
+
+
+if $ARGS[0] = 'get_train_price':
+	result = func('transport_functions', '_private_train_price', $ARGS[2]) - func('transport_functions', '_private_train_price', $ARGS[1])
+	if result < 0: result *= -1
+	result += 25
+	exit
+end
+
+
+if $ARGS[0] = '_private_train_price':
+	if $ARGS[1] = 'pavlovsk':
+		result = 0
+	elseif $ARGS[1] = 'gadukino':
+		result = 50
+	elseif $ARGS[1] = 'communal':
+		result = 75
+	elseif $ARGS[1] = 'industrial':
+		result = 100
+	elseif $ARGS[1] = 'center':
+		result = 125
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_train_timecost':
+	result = func('transport_functions', '_private_train_time', $ARGS[2]) - func('transport_functions', '_private_train_time', $ARGS[1])
+	if result < 0: result *= -1
+	exit
+end
+
+
+if $ARGS[0] = '_private_train_time':
+	if $ARGS[1] = 'pavlovsk':
+		result = 0
+	elseif $ARGS[1] = 'gadukino':
+		result = 15
+	elseif $ARGS[1] = 'communal':
+		result = 25
+	elseif $ARGS[1] = 'industrial':
+		result = 35
+	elseif $ARGS[1] = 'center':
+		result = 40
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_train_waitcost':
+	if func('transport_functions', '_private_train_time', $ARGS[2]) > func('transport_functions', '_private_train_time', $ARGS[1]):
+		result = transportVars['train_wait_center']
+	else
+		result = transportVars['train_wait_pavlovsk']
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               BUSSES                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'buy_bus_pass':
+	if daystart >= transportVars['buspass_day']:
+		act '购买公交日票（1天）' + $func('money', 'get_cost_string', 100):
+			if func('money', 'can_afford', 100) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 100
+				transportVars['buspass_day'] = daystart + 1
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买公交周票（7天）' + $func('money', 'get_cost_string', 500):
+			if func('money', 'can_afford', 500) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 500
+				transportVars['buspass_day'] = daystart + 7
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买公交月票（30天）' + $func('money', 'get_cost_string', 1500):
+			if func('money', 'can_afford', 1500) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 1500
+				transportVars['buspass_day'] = daystart + 30
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买公交年票（365天）' + $func('money', 'get_cost_string', 13000):
+			if func('money', 'can_afford', 13000) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 13000
+				transportVars['buspass_day'] = daystart + 365
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'buy_bus_ticket':
+	if $ARGS[2] = 'pg':
+		if $ARGS[1] <> 'community':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'community',	'巴甫洛夫斯克社区中心'
+		if $ARGS[1] <> 'pavstation':	gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'pavstation',	'巴甫洛夫斯克火车站'
+		if $ARGS[1] <> 'pushkin':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'pushkin',		'普希金老城'
+		if $ARGS[1] <> 'construction':	gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'construction',	'建筑工地'
+		if $ARGS[1] <> 'gadukino':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'gadukino',		'加杜基诺村'
+	elseif $ARGS[2] = 'gp':
+		if $ARGS[1] <> 'gadukino':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'gadukino',		'加杜基诺村'
+		if $ARGS[1] <> 'construction':	gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'construction',	'建筑工地'
+		if $ARGS[1] <> 'pushkin':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'pushkin',		'普希金老城'
+		if $ARGS[1] <> 'pavstation':	gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'pavstation',	'巴甫洛夫斯克火车站'
+		if $ARGS[1] <> 'community':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'community',	'巴甫洛夫斯克社区中心'
+	elseif $ARGS[2] = 'gs':
+		if $ARGS[1] <> 'gadukino':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'gadukino',		'加杜基诺村'
+		if $ARGS[1] <> 'communal':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'communal',		'公共村'
+		if $ARGS[1] <> 'graveyard':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'graveyard',	'墓地'
+		if $ARGS[1] <> 'suburbs':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'suburbs',		'圣彼得堡的昂贵郊区'
+	else
+		if $ARGS[1] <> 'suburbs':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'suburbs',		'圣彼得堡的昂贵郊区'
+		if $ARGS[1] <> 'graveyard':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'graveyard',	'墓地'
+		if $ARGS[1] <> 'communal':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'communal',		'公共村'
+		if $ARGS[1] <> 'gadukino':		gs 'transport_functions', 'set_bus_ticket', $ARGS[1],	'gadukino',		'加杜基诺村'
+	end
+	exit
+end
+
+
+!! $ARGS[1] = origin loc_arg
+!! $ARGS[2] = destination loc_arg
+!! $ARGS[3] = destination name
+if $ARGS[0] = 'set_bus_ticket':
+	$temp_transportVars['origin'] = $ARGS[1]
+	$temp_transportVars['destination'] = $ARGS[2]
+	$temp_transportVars['name'] = $ARGS[3]
+	temp_transportVars['price'] = func('transport_functions', 'get_bus_price', $temp_transportVars['origin'], $temp_transportVars['destination'])
+	$temp_transportVars['time'] = $func('transport_functions', 'display_bus_timecost', $temp_transportVars['origin'], $temp_transportVars['destination'])
+
+	if func('transport_functions', 'get_bus_waitcost', $temp_transportVars['origin'], $temp_transportVars['destination']) > 60:
+		dynamic "act '买票去<<$temp_transportVars['name']>> (<font color=""red""><<$temp_transportVars['time']>> - <<$func('money', 'string_price', temp_transportVars['price'])>></font>)': '<br><font color=""red"">前往<<$temp_transportVars['name']>>需要等待太久</font>'"
+	else
+		if func('money', 'can_afford', temp_transportVars['price']) = 0:
+			dynamic "act '买票去<<$temp_transportVars['name']>> (<font color=""red""><<$temp_transportVars['time']>> - <<$func('money', 'string_price', temp_transportVars['price'])>></font>)': '<br><font color=""red"">你没有足够的钱买去<<$temp_transportVars['name']>>的票</font>'"
+		else
+			dynamic "
+				act '买票去<<$temp_transportVars['name']>> (<<$temp_transportVars['time']>> - <<$func('money','string_price', temp_transportVars['price'])>>)':
+					cla
+					menu_off = 1
+					gs 'money', 'pay', <<temp_transportVars['price']>>
+					gt 'bus', '<<$temp_transportVars['origin']>>_<<$temp_transportVars['destination']>>'
+				end
+			"
+		end
+	end
+	killvar 'temp_transportVars'
+	exit
+end
+
+
+!!	Time Table:
+!!		Bus departs every 20 minutes
+!!		community (13)	->	pavstation (15)		->	pushkin (23)	->	construction (38)	->	gadukino
+!!		gadukino (13)	->	construction (38)	->	pushkin (53)	->	pavstation (01)		->	community
+!!		gadukino (15)	->	communal (35)		->	graveyard (45)	->	suburbs
+!!		suburbs (05)	->	graveyard (15)		->	communal (25)	->	gadukino
+
+
+if $ARGS[0] = 'set_bus_wait_time':
+	if arrsize('ARGS') <= 2: ARGS[2] = daystart
+	if arrsize('ARGS') = 3: ARGS[3] = hour
+	if arrsize('ARGS') = 4: ARGS[4] = minut
+
+	transportVars['bus_wait_pavlovsk'] = 0
+	transportVars['bus_wait_gadukino'] = 0
+	transportVars['bus_wait_suburbs'] = 0
+
+
+	temp_transportVars['totminut'] = ARGS[3] * 60 + ARGS[4]
+
+	if instr(';community;pavstation;pushkin;construction;gadukino;', ';'+$ARGS[1]+';'):
+		if $ARGS[1] <> 'gadukino':
+				!! community -> gadukino: 05:13 to 00:13
+			temp_transportVars['totminut_community'] = temp_transportVars['totminut'] - func('transport_functions', 'get_bus_timecost', 'communal', $ARGS[1])
+			if temp_transportVars['totminut_community'] > 13 and temp_transportVars['totminut_community'] < 313:
+				transportVars['bus_wait_gadukino'] = (1753 - temp_transportVars['totminut_community']) mod 1440
+			else
+				transportVars['bus_wait_gadukino'] = (1753 - temp_transportVars['totminut_community']) mod 20
+			end
+		end
+
+		if $ARGS[1] <> 'community':
+				!! gadukino -> community: 05:13 to 00:13
+			temp_transportVars['totminut_gadukino'] = temp_transportVars['totminut'] - func('transport_functions', 'get_bus_timecost', 'gadukino', $ARGS[1])
+			if temp_transportVars['totminut_gadukino'] > 13 and temp_transportVars['totminut_gadukino'] < 313:
+				transportVars['bus_wait_pavlovsk'] = (1753 - temp_transportVars['totminut_gadukino']) mod 1440
+			else
+				transportVars['bus_wait_pavlovsk'] = (1753 - temp_transportVars['totminut_gadukino']) mod 20
+			end
+		end
+	end
+
+	if instr(';gadukino;communal;graveyard;suburbs;', ';'+$ARGS[1]+';'):
+		if $ARGS[1] <> 'gadukino':
+				!! suburbs -> gadukino: 05:05 to 23:45
+			temp_transportVars['totminut_suburbs'] = temp_transportVars['totminut'] - func('transport_functions', 'get_bus_timecost', 'suburbs', $ARGS[1])
+			if temp_transportVars['totminut_suburbs'] > 1425 or temp_transportVars['totminut_suburbs'] < 305:
+				transportVars['bus_wait_gadukino'] = (1745 - temp_transportVars['totminut_suburbs']) mod 1440
+			else
+				transportVars['bus_wait_gadukino'] = (1745 - temp_transportVars['totminut_suburbs']) mod 20
+			end
+		end
+
+		if $ARGS[1] <> 'suburbs':
+				!! gadukino -> suburbs: 05:15 to 23:55
+			temp_transportVars['totminut_gadukino'] = temp_transportVars['totminut'] - func('transport_functions', 'get_bus_timecost', 'gadukino', $ARGS[1])
+			if temp_transportVars['totminut_gadukino'] > 1435 or temp_transportVars['totminut_gadukino'] < 315:
+				transportVars['bus_wait_suburbs'] = (1755 - temp_transportVars['totminut_gadukino']) mod 1440
+			else
+				transportVars['bus_wait_suburbs'] = (1755 - temp_transportVars['totminut_gadukino']) mod 20
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'display_buspass_time':
+	$result = '你的公交卡还剩 <<transportVars[''buspass_day''] - daystart>> 天。'
+	exit
+end
+
+
+if $ARGS[0] = 'display_bus_timecost':
+	$dtemp_transportVars['origin'] = $ARGS[1]
+	$dtemp_transportVars['destination'] = $ARGS[2]
+	dtemp_transportVars['minutes'] = func('transport_functions', 'get_bus_timecost', $dtemp_transportVars['origin'], $dtemp_transportVars['destination'])
+	dtemp_transportVars['minutes'] += func('transport_functions', 'get_bus_waitcost', $dtemp_transportVars['origin'], $dtemp_transportVars['destination'])
+
+	dtemp_transportVars['hours'] = dtemp_transportVars['minutes'] / 60
+	dtemp_transportVars['minutes'] = dtemp_transportVars['minutes'] mod 60
+	$result = "<<dtemp_transportVars['hours']>>:<<$mid($str(100 + dtemp_transportVars['minutes']), 2, 2)>>"
+	killvar 'dtemp_transportVars'
+	exit
+end
+
+
+if $ARGS[0] = 'display_bus_schedule':
+	$temp_border[0] = '<td style="border-bottom:2px solid black"></td>'
+	$temp_border[1] = '<td style="border-bottom:2px solid black; border-right:2px solid black"></td>'
+	$temp_border[2] = '<td style="border-bottom:2px solid black; border-right:2px solid black; border-left:2px solid black"></td>'
+	$temp_border[3] = '<td style="border-bottom:1px solid black"></td>'
+	$temp_border[4] = '<td style="border-bottom:1px solid black; border-right:2px solid black; border-left:2px solid black"></td>'
+
+	if $ARGS[1] = 'pg':
+		$bus_schedule = '<center><h2>巴甫洛夫斯克 - 加杜基诺</h2></center>'
+		$bus_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$bus_schedule += '<tr><th>巴甫洛夫斯克</th><th>巴甫洛夫斯克</th><th></th><th>建筑</th><th></th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th>巴甫洛夫斯克</th><th>巴甫洛夫斯克</th><th></th><th>建筑</th><th></th></tr>'
+		$bus_schedule += '<tr><th style="border-right:2px solid black">社区中心</th><th style="border-right:2px solid black">火车站</th><th style="border-right:2px solid black">普希金</th><th style="border-right:2px solid black">工地</th><th>加杜基诺</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">社区中心</th><th style="border-right:2px solid black">火车站</th><th style="border-right:2px solid black">普希金</th><th style="border-right:2px solid black">工地</th><th>加杜基诺</th></tr>'
+		$bus_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 4
+		:bus_schedule_loop1
+			$th[1] = $mid(100 + th[0], 2, 2)
+			$th[2] = $mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 10
+			$th[4] = $mid(100 + th[3] mod 24, 2, 2)
+			$th[5] = $mid(100 + (th[3] + 1) mod 24, 2, 2)
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:13</td><td><<$th[1]>>:15</td><td><<$th[1]>>:23</td><td><<$th[1]>>:38</td><td><<$th[2]>>:03</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$bus_schedule += '<td><<$th[4]>>:13</td><td><<$th[4]>>:15</td><td><<$th[4]>>:23</td><td><<$th[4]>>:38</td><td><<$th[5]>>:03</td>'
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:33</td><td><<$th[1]>>:35</td><td><<$th[1]>>:43</td><td><<$th[1]>>:58</td><td><<$th[2]>>:23</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:33</td><td><<$th[4]>>:35</td><td><<$th[4]>>:43</td><td><<$th[4]>>:58</td><td><<$th[5]>>:23</td>'
+			else
+				$bus_schedule += '<td colspan=5></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:53</td><td><<$th[1]>>:55</td><td><<$th[2]>>:03</td><td><<$th[2]>>:18</td><td><<$th[2]>>:43</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:53</td><td><<$th[4]>>:55</td><td><<$th[5]>>:03</td><td><<$th[5]>>:18</td><td><<$th[5]>>:43</td>'
+			else
+				$bus_schedule += '<td colspan=5></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 15: jump 'bus_schedule_loop1'
+	elseif $ARGS[1] = 'gp':
+		$bus_schedule = '<center><h2>加杜基诺 - 巴甫洛夫斯克</h2></center>'
+		$bus_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$bus_schedule += '<tr><th></th><th>建筑</th><th></th><th>巴甫洛夫斯克</th><th>巴甫洛夫斯克</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th></th><th>建筑</th><th></th><th>巴甫洛夫斯克</th><th>巴甫洛夫斯克</th></tr>'
+		$bus_schedule += '<tr><th style="border-right:2px solid black">加杜基诺</th><th style="border-right:2px solid black">工地</th><th style="border-right:2px solid black">普希金</th><th style="border-right:2px solid black">火车站</th><th>社区中心</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">加杜基诺</th><th style="border-right:2px solid black">工地</th><th style="border-right:2px solid black">普希金</th><th style="border-right:2px solid black">火车站</th><th>社区中心</th></tr>'
+		$bus_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 4
+		:bus_schedule_loop2
+			$th[1] = $mid(100 + th[0], 2, 2)
+			$th[2] = $mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 10
+			$th[4] = $mid(100 + th[3] mod 24, 2, 2)
+			$th[5] = $mid(100 + (th[3] + 1) mod 24, 2, 2)
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:13</td><td><<$th[1]>>:38</td><td><<$th[1]>>:53</td><td><<$th[2]>>:01</td><td><<$th[2]>>:03</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$bus_schedule += '<td><<$th[4]>>:13</td><td><<$th[4]>>:38</td><td><<$th[4]>>:53</td><td><<$th[5]>>:01</td><td><<$th[5]>>:03</td>'
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<tr><td><<$th[1]>>:33</td><td><<$th[1]>>:58</td><td><<$th[2]>>:13</td><td><<$th[2]>>:21</td><td><<$th[2]>>:23</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:33</td><td><<$th[4]>>:58</td><td><<$th[5]>>:13</td><td><<$th[5]>>:21</td><td><<$th[5]>>:23</td>'
+			else
+				$bus_schedule += '<td colspan=5></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:53</td><td><<$th[2]>>:18</td><td><<$th[2]>>:33</td><td><<$th[2]>>:41</td><td><<$th[2]>>:43</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:53</td><td><<$th[5]>>:18</td><td><<$th[5]>>:33</td><td><<$th[5]>>:41</td><td><<$th[5]>>:43</td>'
+			else
+				$bus_schedule += '<td colspan=5></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 15: jump 'bus_schedule_loop2'
+	elseif $ARGS[1] = 'gs':
+		$bus_schedule = '<center><h2>加杜基诺 - 郊区</h2></center>'
+		$bus_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$bus_schedule += '<tr><th></th><th>公共</th><th></th><th>圣彼得堡</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th></th><th>公共</th><th></th><th>圣彼得堡</th></tr>'
+		$bus_schedule += '<tr><th style="border-right:2px solid black">加杜基诺</th><th style="border-right:2px solid black">村庄</th><th style="border-right:2px solid black">墓地</th><th>郊区</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">加杜基诺</th><th style="border-right:2px solid black">村庄</th><th style="border-right:2px solid black">墓地</th><th>郊区</th></tr>'
+		$bus_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 4
+		:bus_schedule_loop3
+			$th[1] = mid(100 + th[0], 2, 2)
+			$th[2] = mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 10
+			$th[4] = mid(100 + th[3] mod 24, 2, 2)
+			$th[5] = mid(100 + (th[3] + 1) mod 24, 2, 2)
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:15</td><td><<$th[1]>>:35</td><td><<$th[1]>>:45</td><td><<$th[1]>>:55</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:15</td><td><<$th[4]>>:35</td><td><<$th[4]>>:45</td><td><<$th[4]>>:55</td>'
+			else
+				$bus_schedule += '<td colspan=4></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:35</td><td><<$th[1]>>:55</td><td><<$th[2]>>:05</td><td><<$th[2]>>:15</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:35</td><td><<$th[4]>>:55</td><td><<$th[5]>>:05</td><td><<$th[5]>>:15</td>'
+			else
+				$bus_schedule += '<td colspan=4></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:55</td><td><<$th[2]>>:15</td><td><<$th[2]>>:25</td><td><<$th[2]>>:35</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:55</td><td><<$th[5]>>:15</td><td><<$th[5]>>:25</td><td><<$th[5]>>:35</td>'
+			else
+				$bus_schedule += '<td colspan=4></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 15: jump 'bus_schedule_loop3'
+	else
+		$bus_schedule = '<center><h2>郊区 - 加杜基诺</h2></center>'
+		$bus_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$bus_schedule += '<tr><th>圣彼得堡</th><th></th><th>公共</th><th></th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th>圣彼得堡</th><th></th><th>公共</th><th></th></tr>'
+		$bus_schedule += '<tr><th style="border-right:2px solid black">郊区</th><th style="border-right:2px solid black">墓地</th><th style="border-right:2px solid black">村庄</th><th>加杜基诺</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">郊区</th><th style="border-right:2px solid black">墓地</th><th style="border-right:2px solid black">村庄</th><th>加杜基诺</th></tr>'
+		$bus_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 4
+		:bus_schedule_loop4
+			$th[1] = mid(100 + th, 2, 2)
+			$th[2] = mid(100 + th + 1, 2, 2)
+
+			th[3] = th[0] + 10
+			$th[4] = mid(100 + th[3] mod 24, 2, 2)
+			$th[5] = mid(100 + (th[3] + 1) mod 24, 2, 2)
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:05</td><td><<$th[1]>>:15</td><td><<$th[1]>>:25</td><td><<$th[1]>>:45</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:05</td><td><<$th[4]>>:15</td><td><<$th[4]>>:25</td><td><<$th[4]>>:45</td>'
+			else
+				$bus_schedule += '<td colspan=4></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:25</td><td><<$th[1]>>:35</td><td><<$th[1]>>:45</td><td><<$th[2]>>:05</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:25</td><td><<$th[4]>>:35</td><td><<$th[4]>>:45</td><td><<$th[5]>>:05</td>'
+			else
+				$bus_schedule += '<td colspan=4></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>'
+			$bus_schedule += '<td><<$th[1]>>:45</td><td><<$th[1]>>:55</td><td><<$th[2]>>:05</td><td><<$th[2]>>:25</td>'
+			$bus_schedule += '<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			if th[3] <= 23:
+				$bus_schedule += '<td><<$th[4]>>:45</td><td><<$th[4]>>:55</td><td><<$th[5]>>:05</td><td><<$th[5]>>:25</td>'
+			else
+				$bus_schedule += '<td colspan=4></td>'
+			end
+			$bus_schedule += '</tr>'
+
+			$bus_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 15: jump 'bus_schedule_loop4'
+	end
+	$bus_schedule += '</table></center>'
+	*pl $bus_schedule
+
+	killvar 'bus_schedule'
+	killvar 'temp_border'
+	killvar 'th'
+	exit
+end
+
+
+if $ARGS[0] = 'get_bus_price':
+	result = func('transport_functions', '_private_bus_price', $ARGS[2]) - func('transport_functions', '_private_bus_price', $ARGS[1])
+	if result < 0: result *= -1
+	result += 10
+	exit
+end
+
+
+if $ARGS[0] = '_private_bus_price':
+	if $ARGS[1] = 'community':
+		result = 0
+	elseif $ARGS[1] = 'pavstation':
+		result = 5
+	elseif $ARGS[1] = 'pushkin':
+		result = 15
+	elseif $ARGS[1] = 'construction':
+		result = 25
+	elseif $ARGS[1] = 'gadukino':
+		result = 35
+	elseif $ARGS[1] = 'communal':
+		result = 45
+	elseif $ARGS[1] = 'graveyard':
+		result = 55
+	elseif $ARGS[1] = 'suburbs':
+		result = 65
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_bus_timecost':
+	result = func('transport_functions', '_private_bus_time', $ARGS[2]) - func('transport_functions', '_private_bus_time', $ARGS[1])
+	if result < 0: result *= -1
+	exit
+end
+
+
+if $ARGS[0] = '_private_bus_time':
+	if $ARGS[1] = 'community':
+		result = 0
+	elseif $ARGS[1] = 'pavstation':
+		result = 2
+	elseif $ARGS[1] = 'pushkin':
+		result = 10
+	elseif $ARGS[1] = 'construction':
+		result = 25
+	elseif $ARGS[1] = 'gadukino':
+		result = 50
+	elseif $ARGS[1] = 'communal':
+		result = 70
+	elseif $ARGS[1] = 'graveyard':
+		result = 80
+	elseif $ARGS[1] = 'suburbs':
+		result = 90
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_bus_waitcost':
+	if func('transport_functions', '_private_bus_time', $ARGS[2]) > func('transport_functions', '_private_bus_time', $ARGS[1]):
+		if $ARGS[2] = 'suburbs' or $ARGS[2] = 'graveyard' or $ARGS[2] = 'communal':
+			result = transportVars['bus_wait_suburbs']
+		else
+			result = transportVars['bus_wait_gadukino']
+		end
+	else
+		if $ARGS[2] = 'graveyard' or $ARGS[2] = 'communal' or $ARGS[2] = 'gadukino':
+			result = transportVars['bus_wait_gadukino']
+		else
+			result = transportVars['bus_wait_pavlovsk']
+		end
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               METRO                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'buy_metro_pass':
+	if transportVars['metropass_day'] <= daystart:
+		act '购买地铁日票（1天）' + $func('money', 'get_cost_string', 50):
+			if func('money', 'can_afford', 50) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 50
+				transportVars['metropass_day'] = daystart + 1
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买地铁周票（7天）' + $func('money', 'get_cost_string', 250):
+			if func('money', 'can_afford', 250) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 250
+				transportVars['metropass_day'] = daystart + 7
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买地铁月票（30天）' + $func('money', 'get_cost_string', 750):
+			if func('money', 'can_afford', 750) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 750
+				transportVars['metropass_day'] = daystart + 30
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+
+		act '购买地铁年票（365天）' + $func('money', 'get_cost_string', 6500):
+			if func('money', 'can_afford', 6500) = 0:
+				$noMoney
+			else
+				cla
+				menu_off = 1
+				gs 'money', 'pay', 6500
+				transportVars['metropass_day'] = daystart + 365
+				gs 'stat'
+				act '返回': gt '<<$loc>>', '<<$loc_arg>>'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'buy_metro_ticket':
+	if $ARGS[2] = 'si':
+		if $ARGS[1] <> 'suburbs':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'suburbs',		'郊区'
+		if $ARGS[1] <> 'industrial':	gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'industrial',	'工业区'
+		if $ARGS[1] <> 'residential':	gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'residential',	'住宅区'
+		!! if $ARGS[1] <> 'artisan':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'artisan',		'Artisan area'
+		if $ARGS[1] <> 'center':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'center',		'市中心'
+		if $ARGS[1] <> 'island':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'island',		'大学区'
+	else
+		if $ARGS[1] <> 'island':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'island',		'大学区'
+		if $ARGS[1] <> 'center':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'center',		'市中心'
+		!! if $ARGS[1] <> 'artisan':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'artisan',		'Artisan area'
+		if $ARGS[1] <> 'residential':	gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'residential',	'住宅区'
+		if $ARGS[1] <> 'industrial':	gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'industrial',	'工业区'
+		if $ARGS[1] <> 'suburbs':		gs 'transport_functions', 'set_metro_ticket', $ARGS[1],	'suburbs',		'郊区'
+	end
+	exit
+end
+
+
+!! $ARGS[1] = origin loc_arg
+!! $ARGS[2] = destination loc_arg
+!! $ARGS[3] = destination name
+if $ARGS[0] = 'set_metro_ticket':
+	$temp_transportVars['origin'] = $ARGS[1]
+	$temp_transportVars['destination'] = $ARGS[2]
+	$temp_transportVars['name'] = $ARGS[3]
+	temp_transportVars['price'] = func('transport_functions', 'get_metro_price', $temp_transportVars['origin'], $temp_transportVars['destination'])
+	$temp_transportVars['time'] = $func('transport_functions', 'display_metro_timecost', $temp_transportVars['origin'], $temp_transportVars['destination'])
+
+	if func('transport_functions', 'get_metro_waitcost', $temp_transportVars['origin'], $temp_transportVars['destination']) > 60:
+		dynamic "act '买票去<<$temp_transportVars['name']>> (<font color=""red""><<$temp_transportVars['time']>> - <<$func('money', 'string_price', temp_transportVars['price'])>></font>)': '<br><font color=""red"">前往<<$temp_transportVars['name']>>需要等待太久</font>'"
+	else
+		if func('money', 'can_afford', temp_transportVars['price']) = 0:
+			dynamic "act '买票去<<$temp_transportVars['name']>> (<font color=""red""><<$temp_transportVars['time']>> - <<$func('money', 'string_price', temp_transportVars['price'])>></font>)': '<br><font color=""red"">你没有足够的钱买去<<$temp_transportVars['name']>>的票</font>'"
+		else
+			dynamic "
+				act '买票去<<$temp_transportVars['name']>> (<<$temp_transportVars['time']>> - <<$func('money','string_price', temp_transportVars['price'])>>)':
+					cla
+					menu_off = 1
+					gs 'money', 'pay', <<temp_transportVars['price']>>
+					gt 'metro', '<<$temp_transportVars['origin']>>_<<$temp_transportVars['destination']>>'
+				end
+			"
+		end
+	end
+	killvar 'temp_transportVars'
+	exit
+end
+
+
+!!	Time Table:
+!!		metro departs every 10 minutes (between 4:00 and 00:00)
+			!! Metros leave from city industrial starting from 04:00 and at the latest at 00:00
+!!		suburbs (01)	->	industrial (04)	->	residential (12)	->	artisan (17)		->	center (21)		->	island (26)
+!!		island (04)		->	center (09)		->	artisan (13)		->	residential (18)	->	industrial (26)	->	suburbs (29)
+
+
+if $ARGS[0] = 'set_metro_wait_time':
+	if arrsize('ARGS') <= 2: ARGS[2] = daystart
+	if arrsize('ARGS') = 3: ARGS[3] = hour
+	if arrsize('ARGS') = 4: ARGS[4] = minut
+
+	transportVars['metro_wait_suburbs'] = 0
+	transportVars['metro_wait_island'] = 0
+
+
+	temp_transportVars['totminut'] = ARGS[3] * 60 + ARGS[4]
+
+	!! The user is not in the suburbs
+	if $ARGS[1] <> 'suburbs':
+		!! island -> suburbs: 04:04 to 23:49
+		temp_transportVars['totminut_island'] = temp_transportVars['totminut'] - func('transport_functions', 'get_metro_timecost', 'island', $ARGS[1])
+		if temp_transportVars['totminut_island'] > 1429 or temp_transportVars['totminut_island'] <= 244:
+			transportVars['metro_wait_suburbs'] = (1684 - temp_transportVars['totminut_island']) mod 1440
+		else
+			transportVars['metro_wait_suburbs']	= (1684 - temp_transportVars['totminut_island']) mod 5
+		end
+	end
+
+	!! The user is not on the island
+	if $ARGS[1] <> 'island':
+		!! suburbs -> island: 04:01 to 23:46
+		temp_transportVars['totminut_suburbs'] = temp_transportVars['totminut'] - func('transport_functions', 'get_metro_timecost', 'suburbs', $ARGS[1])
+		if temp_transportVars['totminut_suburbs'] > 1426 or temp_transportVars['totminut_suburbs'] <= 241:
+			transportVars['metro_wait_island'] = (1681 - temp_transportVars['totminut_suburbs']) mod 1440
+		else
+			transportVars['metro_wait_island'] = (1681 - temp_transportVars['totminut_suburbs']) mod 5
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'display_metropass_time':
+	$result = '你的地铁通票还剩<<transportVars[''metropass_day''] - daystart>>天。'
+	exit
+end
+
+
+if $ARGS[0] = 'display_metro_timecost':
+	$dtemp_transportVars['origin'] = $ARGS[1]
+	$dtemp_transportVars['destination'] = $ARGS[2]
+	dtemp_transportVars['minutes'] = func('transport_functions', 'get_metro_timecost', $dtemp_transportVars['origin'], $dtemp_transportVars['destination'])
+	dtemp_transportVars['minutes'] += func('transport_functions', 'get_metro_waitcost', $dtemp_transportVars['origin'], $dtemp_transportVars['destination'])
+
+	dtemp_transportVars['hours'] = dtemp_transportVars['minutes'] / 60
+	dtemp_transportVars['minutes'] = dtemp_transportVars['minutes'] mod 60
+	$result = "<<dtemp_transportVars['hours']>>:<<$mid($str(100 + dtemp_transportVars['minutes']), 2, 2)>>"
+	killvar 'dtemp_transportVars'
+	exit
+end
+
+
+if $ARGS[0] = 'display_metro_schedule':
+	$temp_border[0] = '<td style="border-bottom:2px solid black"></td>'
+	$temp_border[1] = '<td style="border-bottom:2px solid black; border-right:2px solid black"></td>'
+	$temp_border[2] = '<td style="border-bottom:2px solid black; border-right:2px solid black; border-left:2px solid black"></td>'
+	$temp_border[3] = '<td style="border-bottom:1px solid black"></td>'
+	$temp_border[4] = '<td style="border-bottom:1px solid black; border-right:2px solid black; border-left:2px solid black"></td>'
+
+	if $ARGS[1] = 'si':
+		$metro_schedule = '<center><h2>郊区 - 大学</h2></center>'
+		$metro_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$metro_schedule += '<tr><th style="border-right:2px solid black">郊区</th><th style="border-right:2px solid black">工业</th><th style="border-right:2px solid black">住宅</th><th style="border-right:2px solid black">工匠</th><th style="border-right:2px solid black">中心</th><th>大学</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">郊区</th><th style="border-right:2px solid black">工业</th><th style="border-right:2px solid black">住宅</th><th style="border-right:2px solid black">工匠</th><th style="border-right:2px solid black">中心</th><th>大学</th></tr>'
+		$metro_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 4
+		:metro_schedule_loop1
+			$th[1] = $mid(100 + th[0], 2, 2)
+			$th[2] = $mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 10
+			$th[4] = $mid(100 + th[3], 2, 2)
+			$th[5] = $mid(100 + th[3] + 1, 2, 2)
+			if th[3] = 23: $th[5] = '00'
+
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:01</td><td><<$th[1]>>:04</td><td><<$th[1]>>:12</td><td><<$th[1]>>:17</td><td><<$th[1]>>:21</td><td><<$th[1]>>:26</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:01</td><td><<$th[4]>>:04</td><td><<$th[4]>>:12</td><td><<$th[4]>>:17</td><td><<$th[4]>>:21</td><td><<$th[4]>>:26</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:06</td><td><<$th[1]>>:09</td><td><<$th[1]>>:17</td><td><<$th[1]>>:22</td><td><<$th[1]>>:26</td><td><<$th[1]>>:31</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:06</td><td><<$th[4]>>:09</td><td><<$th[4]>>:17</td><td><<$th[4]>>:22</td><td><<$th[4]>>:26</td><td><<$th[4]>>:31</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:11</td><td><<$th[1]>>:14</td><td><<$th[1]>>:22</td><td><<$th[1]>>:27</td><td><<$th[1]>>:31</td><td><<$th[1]>>:36</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:11</td><td><<$th[4]>>:14</td><td><<$th[4]>>:22</td><td><<$th[4]>>:27</td><td><<$th[4]>>:31</td><td><<$th[4]>>:36</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:16</td><td><<$th[1]>>:19</td><td><<$th[1]>>:27</td><td><<$th[1]>>:32</td><td><<$th[1]>>:36</td><td><<$th[1]>>:41</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:16</td><td><<$th[4]>>:19</td><td><<$th[4]>>:27</td><td><<$th[4]>>:32</td><td><<$th[4]>>:36</td><td><<$th[4]>>:41</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:21</td><td><<$th[1]>>:24</td><td><<$th[1]>>:32</td><td><<$th[1]>>:37</td><td><<$th[1]>>:41</td><td><<$th[1]>>:46</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:21</td><td><<$th[4]>>:24</td><td><<$th[4]>>:32</td><td><<$th[4]>>:37</td><td><<$th[4]>>:41</td><td><<$th[4]>>:46</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:26</td><td><<$th[1]>>:29</td><td><<$th[1]>>:37</td><td><<$th[1]>>:42</td><td><<$th[1]>>:46</td><td><<$th[1]>>:51</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:26</td><td><<$th[4]>>:29</td><td><<$th[4]>>:37</td><td><<$th[4]>>:42</td><td><<$th[4]>>:46</td><td><<$th[4]>>:51</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:31</td><td><<$th[1]>>:34</td><td><<$th[1]>>:42</td><td><<$th[1]>>:47</td><td><<$th[1]>>:51</td><td><<$th[1]>>:56</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:31</td><td><<$th[4]>>:34</td><td><<$th[4]>>:42</td><td><<$th[4]>>:47</td><td><<$th[4]>>:51</td><td><<$th[4]>>:56</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:36</td><td><<$th[1]>>:39</td><td><<$th[1]>>:47</td><td><<$th[1]>>:52</td><td><<$th[1]>>:56</td><td><<$th[2]>>:01</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:36</td><td><<$th[4]>>:39</td><td><<$th[4]>>:47</td><td><<$th[4]>>:52</td><td><<$th[4]>>:56</td><td><<$th[5]>>:01</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:41</td><td><<$th[1]>>:44</td><td><<$th[1]>>:52</td><td><<$th[1]>>:57</td><td><<$th[2]>>:01</td><td><<$th[2]>>:06</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:41</td><td><<$th[4]>>:44</td><td><<$th[4]>>:52</td><td><<$th[4]>>:57</td><td><<$th[5]>>:01</td><td><<$th[5]>>:06</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:46</td><td><<$th[1]>>:49</td><td><<$th[1]>>:57</td><td><<$th[2]>>:02</td><td><<$th[2]>>:06</td><td><<$th[2]>>:11</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:46</td><td><<$th[4]>>:49</td><td><<$th[4]>>:57</td><td><<$th[5]>>:02</td><td><<$th[5]>>:06</td><td><<$th[5]>>:11</td>'
+			$metro_schedule +=	'</tr>'
+			if th[3] <> 23:
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:51</td><td><<$th[1]>>:54</td><td><<$th[2]>>:02</td><td><<$th[2]>>:07</td><td><<$th[2]>>:11</td><td><<$th[2]>>:16</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td><<$th[4]>>:51</td><td><<$th[4]>>:54</td><td><<$th[5]>>:02</td><td><<$th[5]>>:07</td><td><<$th[5]>>:11</td><td><<$th[5]>>:16</td>'
+				$metro_schedule +=	'</tr>'
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:56</td><td><<$th[1]>>:59</td><td><<$th[2]>>:07</td><td><<$th[2]>>:12</td><td><<$th[2]>>:16</td><td><<$th[2]>>:21</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td><<$th[4]>>:56</td><td><<$th[4]>>:59</td><td><<$th[5]>>:07</td><td><<$th[5]>>:12</td><td><<$th[5]>>:16</td><td><<$th[5]>>:21</td>'
+				$metro_schedule +=	'</tr>'
+			else
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:51</td><td><<$th[1]>>:54</td><td><<$th[2]>>:02</td><td><<$th[2]>>:07</td><td><<$th[2]>>:11</td><td><<$th[2]>>:16</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td colspan=6></td>'
+				$metro_schedule +=	'</tr>'
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:56</td><td><<$th[1]>>:59</td><td><<$th[2]>>:07</td><td><<$th[2]>>:12</td><td><<$th[2]>>:16</td><td><<$th[2]>>:21</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td colspan=6></td>'
+				$metro_schedule +=	'</tr>'
+			end
+
+			$metro_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 14: jump 'metro_schedule_loop1'
+	else
+		$metro_schedule = '<center><h2>大学 - 郊区</h2></center>'
+		$metro_schedule += '<br><center><table style="text-align:center" cellspacing="0" cellpadding="3">'
+		$metro_schedule += '<tr><th style="border-right:2px solid black">大学</th><th style="border-right:2px solid black">中心</th><th style="border-right:2px solid black">工匠</th><th style="border-right:2px solid black">住宅</th><th style="border-right:2px solid black">工业</th><th>郊区</th><th style="border-right:2px solid black; border-left:2px solid black"> </th><th style="border-right:2px solid black">大学</th><th style="border-right:2px solid black">中心</th><th style="border-right:2px solid black">工匠</th><th style="border-right:2px solid black">住宅</th><th style="border-right:2px solid black">工业</th><th>郊区</th></tr>'
+		$metro_schedule += '<tr>' + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + $temp_border[2] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[1] + $temp_border[0] + '</tr>'
+
+		th[0] = 4
+		:metro_schedule_loop2
+			$th[1] = $mid(100 + th[0], 2, 2)
+			$th[2] = $mid(100 + th[0] + 1, 2, 2)
+
+			th[3] = th[0] + 10
+			$th[4] = $mid(100 + th[3], 2, 2)
+			$th[5] = $mid(100 + th[3] + 1, 2, 2)
+			if th[3] = 23: $th[5] = '00'
+
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:04</td><td><<$th[1]>>:09</td><td><<$th[1]>>:13</td><td><<$th[1]>>:18</td><td><<$th[1]>>:26</td><td><<$th[1]>>:29</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:04</td><td><<$th[4]>>:09</td><td><<$th[4]>>:13</td><td><<$th[4]>>:18</td><td><<$th[4]>>:26</td><td><<$th[4]>>:29</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:09</td><td><<$th[1]>>:14</td><td><<$th[1]>>:18</td><td><<$th[1]>>:23</td><td><<$th[1]>>:31</td><td><<$th[1]>>:34</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:09</td><td><<$th[4]>>:14</td><td><<$th[4]>>:18</td><td><<$th[4]>>:23</td><td><<$th[4]>>:31</td><td><<$th[4]>>:34</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:14</td><td><<$th[1]>>:19</td><td><<$th[1]>>:23</td><td><<$th[1]>>:28</td><td><<$th[1]>>:36</td><td><<$th[1]>>:39</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:14</td><td><<$th[4]>>:19</td><td><<$th[4]>>:23</td><td><<$th[4]>>:28</td><td><<$th[4]>>:36</td><td><<$th[4]>>:39</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:19</td><td><<$th[1]>>:24</td><td><<$th[1]>>:28</td><td><<$th[1]>>:33</td><td><<$th[1]>>:41</td><td><<$th[1]>>:44</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:19</td><td><<$th[4]>>:24</td><td><<$th[4]>>:28</td><td><<$th[4]>>:33</td><td><<$th[4]>>:41</td><td><<$th[4]>>:44</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:24</td><td><<$th[1]>>:29</td><td><<$th[1]>>:33</td><td><<$th[1]>>:38</td><td><<$th[1]>>:46</td><td><<$th[1]>>:49</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:24</td><td><<$th[4]>>:29</td><td><<$th[4]>>:33</td><td><<$th[4]>>:38</td><td><<$th[4]>>:46</td><td><<$th[4]>>:49</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:29</td><td><<$th[1]>>:34</td><td><<$th[1]>>:38</td><td><<$th[1]>>:43</td><td><<$th[1]>>:51</td><td><<$th[1]>>:54</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:29</td><td><<$th[4]>>:34</td><td><<$th[4]>>:38</td><td><<$th[4]>>:43</td><td><<$th[4]>>:51</td><td><<$th[4]>>:54</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:34</td><td><<$th[1]>>:39</td><td><<$th[1]>>:43</td><td><<$th[1]>>:48</td><td><<$th[1]>>:56</td><td><<$th[1]>>:59</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:34</td><td><<$th[4]>>:39</td><td><<$th[4]>>:43</td><td><<$th[4]>>:48</td><td><<$th[4]>>:56</td><td><<$th[4]>>:59</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:39</td><td><<$th[1]>>:44</td><td><<$th[1]>>:48</td><td><<$th[1]>>:53</td><td><<$th[2]>>:01</td><td><<$th[2]>>:04</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:39</td><td><<$th[4]>>:44</td><td><<$th[4]>>:48</td><td><<$th[4]>>:53</td><td><<$th[5]>>:01</td><td><<$th[5]>>:04</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:44</td><td><<$th[1]>>:49</td><td><<$th[1]>>:53</td><td><<$th[1]>>:58</td><td><<$th[2]>>:06</td><td><<$th[2]>>:09</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:44</td><td><<$th[4]>>:49</td><td><<$th[4]>>:53</td><td><<$th[4]>>:58</td><td><<$th[5]>>:06</td><td><<$th[5]>>:09</td>'
+			$metro_schedule +=	'</tr>'
+			$metro_schedule +=	'<tr>'
+			$metro_schedule +=		'<td><<$th[1]>>:49</td><td><<$th[1]>>:54</td><td><<$th[1]>>:58</td><td><<$th[2]>>:03</td><td><<$th[2]>>:11</td><td><<$th[2]>>:14</td>'
+			$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+			$metro_schedule +=		'<td><<$th[4]>>:49</td><td><<$th[4]>>:54</td><td><<$th[4]>>:58</td><td><<$th[5]>>:03</td><td><<$th[5]>>:11</td><td><<$th[5]>>:14</td>'
+			$metro_schedule +=	'</tr>'
+			if th[3] <> 23:
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:54</td><td><<$th[1]>>:59</td><td><<$th[2]>>:03</td><td><<$th[2]>>:08</td><td><<$th[2]>>:16</td><td><<$th[2]>>:19</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td><<$th[4]>>:54</td><td><<$th[4]>>:59</td><td><<$th[5]>>:03</td><td><<$th[5]>>:08</td><td><<$th[5]>>:16</td><td><<$th[5]>>:19</td>'
+				$metro_schedule +=	'</tr>'
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:59</td><td><<$th[2]>>:04</td><td><<$th[2]>>:08</td><td><<$th[2]>>:13</td><td><<$th[2]>>:21</td><td><<$th[2]>>:24</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td><<$th[4]>>:59</td><td><<$th[5]>>:04</td><td><<$th[5]>>:08</td><td><<$th[5]>>:13</td><td><<$th[5]>>:21</td><td><<$th[5]>>:24</td>'
+				$metro_schedule +=	'</tr>'
+			else
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:54</td><td><<$th[1]>>:59</td><td><<$th[2]>>:03</td><td><<$th[2]>>:08</td><td><<$th[2]>>:16</td><td><<$th[2]>>:19</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td colspan=6></td>'
+				$metro_schedule +=	'</tr>'
+				$metro_schedule +=	'<tr>'
+				$metro_schedule +=		'<td><<$th[1]>>:59</td><td><<$th[2]>>:04</td><td><<$th[2]>>:08</td><td><<$th[2]>>:13</td><td><<$th[2]>>:21</td><td><<$th[2]>>:24</td>'
+				$metro_schedule +=		'<td style="border-right:2px solid black; border-left:2px solid black"> </td>'
+				$metro_schedule +=		'<td colspan=6></td>'
+				$metro_schedule +=	'</tr>'
+			end
+
+			$metro_schedule += '<tr>' + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[4] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + $temp_border[3] + '</tr>'
+
+			th[0] += 1
+		if th[0] < 14: jump 'metro_schedule_loop2'
+	end
+	$metro_schedule += '</table></center>'
+	*pl $metro_schedule
+
+	killvar 'metro_schedule'
+	killvar 'th'
+	exit
+end
+
+
+if $ARGS[0] = 'get_metro_price':
+	result = func('transport_functions', '_private_metro_price', $ARGS[2]) - func('transport_functions', '_private_metro_price', $ARGS[1])
+	if result < 0: result *= -1
+	result += 5
+	exit
+end
+
+
+if $ARGS[0] = '_private_metro_price':
+	if $ARGS[1] = 'suburbs':
+		result = 0
+	elseif $ARGS[1] = 'industrial':
+		result = 5
+	elseif $ARGS[1] = 'residential':
+		result = 10
+	elseif $ARGS[1] = 'artisan':
+		result = 15
+	elseif $ARGS[1] = 'center':
+		result = 20
+	elseif $ARGS[1] = 'island':
+		result = 25
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_metro_timecost':
+	result = func('transport_functions', '_private_metro_time', $ARGS[2]) - func('transport_functions', '_private_metro_time', $ARGS[1])
+	if result < 0: result *= -1
+	exit
+end
+
+
+if $ARGS[0] = '_private_metro_time':
+	if $ARGS[1] = 'suburbs':
+		result = 0
+	elseif $ARGS[1] = 'industrial':
+		result = 3
+	elseif $ARGS[1] = 'residential':
+		result = 11
+	elseif $ARGS[1] = 'artisan':
+		result = 16
+	elseif $ARGS[1] = 'center':
+		result = 20
+	elseif $ARGS[1] = 'island':
+		result = 25
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'get_metro_waitcost':
+	if func('transport_functions', '_private_metro_time', $ARGS[2]) > func('transport_functions', '_private_metro_time', $ARGS[1]):
+		result = transportVars['metro_wait_island']
+	else
+		result = transportVars['metro_wait_suburbs']
+	end
+	exit
+end
+
+
+--- transport_functions ---------------------------------

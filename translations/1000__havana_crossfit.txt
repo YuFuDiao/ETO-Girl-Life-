@@ -1,0 +1,167 @@
+# havana_crossfit
+menu_off = 0
+
+if $ARGS[0] = 'box':
+	gs 'core_library', 'setloc', 'havana_crossfit', 'box'
+	$sexloc = 'havana_crossfit'
+	$location_type = 'public_indoors'
+
+	act '离开': gt 'havana', 'dressing_room'
+
+	if crossfit_random_choice < daystart OR $todays_crossfit_wod = '':
+		gs 'havana_crossfit_funcs', 'setup_wod'
+		$todays_crossfit_wod = $crossfit_wods[rand(0, arrsize('$crossfit_wods') - 1)]
+		crossfit_random_choice = daystart
+	end
+
+	if $previous_record_holder ! '' and last_crossfit_workout < daystart:
+		gt 'havana_crossfit', 'girlmeet'
+	end
+
+	$func('wrap', 'header center b', '混合健身圣彼得堡北部')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/crossfit/start.jpg"></center>'
+	'这家CrossFit健身房看起来可能不怎么样，但据说它是该地区最好的健身房之一。'
+	'今天的锻炼内容是<<$todays_crossfit_wod>>。'
+	'它包括：'
+	gs 'havana_crossfit_funcs', $todays_crossfit_wod
+
+	if crossfit_first = 1:
+		act '查看个人纪录':
+			cla
+			menu_off = 1
+			gt 'havana_crossfit', 'view_records'
+		end
+	end
+
+	if pcs_stam < stammax / 5:
+		act '开始锻炼 ' + $func('wrap', 'v_neg', '（<<pcs_stam>>/<<stammax / 5>> 耐力）'): $func('wrap', 'neg', '<br>你太累了，做不了这项锻炼。在尝试这项锻炼之前，先恢复你的体力。')
+	elseif pcs_energy < 20:
+		act '开始锻炼 ' + $func('wrap', 'v_neg', '（<<pcs_energy>>/20 饥饿）'): $func('wrap', 'neg', '<br>你现在太饿了，无法做这项运动。')
+	elseif pcs_hydra < 20:
+		act '开始锻炼 ' + $func('wrap', 'v_neg', '（<<pcs_hydra>>/20 口渴）'): $func('wrap', 'neg', '<br>你现在觉得太渴而做不了这项锻炼。')
+	else
+		act '开始锻炼':
+			menu_off = 1
+			if last_crossfit_workout = daystart:
+				msg '<b><font color = red>你今天已经做过这项锻炼了。一天一次就够了。</font></b>'
+			else
+				*clr & cla
+				last_crossfit_workout = daystart
+				crossfit_first = 1
+				abonement -= 1
+				'你开始了这项锻炼。'
+				gs 'havana_crossfit_funcs', $todays_crossfit_wod
+				gs 'exercise', 'tier4', 20, 'stren', 'vital', 'agil'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/citycenter/gym/crossfit/<<$wod_video[$todays_crossfit_wod]>>.mp4"></video></center>'
+				current_wod_score = max(1, (100 - ((100 * pcs_health * (rand(40, 100) + pcs_sleep + pcs_vital + pcs_agil + pcs_stren))/ (healthmax * 500))))
+				cla
+				act '查看你的分数':
+					cla
+					$resultstring = func('havana_crossfit_funcs', 'recordstring', $todays_crossfit_wod, current_wod_score)
+					'你成功完成了锻炼<<$pcs_nickname>>，用时<<$resultstring>>'
+					if personal_wod_record[$todays_crossfit_wod] = 0:
+						personal_wod_record[$todays_crossfit_wod] = current_wod_score
+					elseif current_wod_score < personal_wod_record[$todays_crossfit_wod]:
+						'这是新的个人纪录！'
+						personal_wod_record[$todays_crossfit_wod] = current_wod_score
+					end
+					if box_wod_record[$todays_crossfit_wod] = 0:
+						box_wod_record[$todays_crossfit_wod] = current_wod_score
+						$box_wod_record_holder[$todays_crossfit_wod] = $pcs_nickname
+					elseif current_wod_score < box_wod_record[$todays_crossfit_wod]:
+						'不仅如此，这还是整个健身房的新最佳纪录！'
+						$prevrecordstring = func('havana_crossfit_funcs', 'recordstring', $todays_crossfit_wod, box_wod_record[$todays_crossfit_wod])
+						if $box_wod_record_holder[$todays_crossfit_wod] ! $pcs_nickname:
+							$previous_record_holder = $box_wod_record_holder[$todays_crossfit_wod]
+							'你击败了<<$previous_record_holder>>的纪录<<$prevrecordstring>>'
+						else
+							'你打破了自己的纪录<<$prevrecordstring>>'
+						end
+						killvar 'prevrecordstring'
+						box_wod_record[$todays_crossfit_wod] = current_wod_score
+						$box_wod_record_holder[$todays_crossfit_wod] = $pcs_nickname
+					end
+					killvar 'current_wod_score'
+					act '完成并前往更衣室': gt 'havana', 'dressing_room'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'view_records':
+	menu_off = 1
+	*clr & cla
+	gs 'havana_crossfit_funcs', 'update_box_records'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/gym/crossfit/records.jpg"></center>'
+	'你看着记录个人成绩的公告板。'
+
+	'<center><table border=1><tr><th>锻炼</th><th>个人最佳</th><th>健身房纪录（女子）</th><th>健身房纪录保持者</th></tr>'
+	record_table_counter = 0
+	:recordloop
+		$crossfit_wod = $crossfit_wods[record_table_counter]
+		'<tr><td><<$crossfit_wod>></td>'
+		'<td>' + func('havana_crossfit_funcs', 'recordstring', $crossfit_wod, personal_wod_record[$crossfit_wod]) + '</td>'
+		'<td>' + func('havana_crossfit_funcs', 'recordstring', $crossfit_wod, box_wod_record[$crossfit_wod]) + '</td>'
+		'<td><<$box_wod_record_holder[$crossfit_wod]>></td></tr>'
+		record_table_counter += 1
+	if record_table_counter < arrsize('$crossfit_wods'): jump 'recordloop'
+	'</table></center>'
+
+	killvar 'record_table_counter'
+	killvar 'crossfit_wod'
+	act '回去': gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'girlmeet':
+	menu_off = 1
+	!! generate a girlfriend
+	gs 'npcgeneratec', 1
+	gs 'npcStat', $npclastgenerated
+	$boydesc = $previous_record_holder
+	$npcClo = '运动服'
+	killvar 'previous_record_holder'
+	minut += 5
+	gs 'stat'
+	'当你走进CrossFit健身房时，你注意到一个<<$npcheight_pref>>的女孩，有着<<$npcbuild_pref>>的身材和<<$npchair>>的头发。她穿着<<$npcClo>>。'
+	'她微笑着向你打招呼。“嘿，我是<<$boydesc>>。我听说你打破了我的旧纪录。真是令人印象深刻！”'
+
+	act '感谢她':
+		cla
+		'“哦，谢谢你，”你回答。“你的成绩可不容易打破！”'
+		act '问她是否经常来这里':
+			cla
+			'“你经常来这家健身房吗？”你问道。'
+			'“是啊，”她回答。“我每周来两三次。其实我刚做完今天的锻炼。你想一起出去玩吗？”'
+			act '同意':
+				cla
+				'“当然，听起来很有趣，”你回答。'
+				'“太好了！”她回答。“你想做什么？”'
+				gs 'dateF', 'date_choice'
+			end
+			act '拒绝':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="<<$npc_pic[$boy]>>"></center>'
+				'“抱歉，我觉得自己好像在给你错误的暗示，但我不是故意的……”'
+				'<<$boydesc>>看着你，有点失望。“哦。好吧，你不能怪我想试一试。”'
+				'你们两人互相道别。'
+				act '返回': gt $loc, $loc_arg
+			end
+		end
+		act '说再见':
+			cla
+			'你看了看时间。“抱歉，我得走了！回头见！”'
+			act '离开': gt $loc, $loc_arg
+		end
+	end
+	act '假装你很忙':
+		cla
+		'你看了看时间，收拾好自己的东西，无视那个女孩。'
+		act '离开': gt $loc, $loc_arg
+	end
+end
+
+
+--- havana_crossfit ---------------------------------

@@ -1,0 +1,548 @@
+# flash
+!! 2020/10/16/Gwen
+!! 2024/03/25/Anjuna	- Rewrite of flash code
+!! 2024/07/23/Anjuna	- Added the option to enforce the
+
+!!	Centralised flashing location
+!!	For flashing events only, do not use for exposure leading to sex
+!!	To be used in the following format
+!!	gs 'flash', '[type]', '[location]', [time], [option]
+!!	Available options as follows
+!!	[type] - bra, panties, pantyrear, tits, butt, pussy, full
+!!	[location] - indoors, outdoors, secluded
+!!	[time] in minutes, default is 0
+!!	[option]
+!!		- Nothing or 0 will clear the screen and give a standard text and random picture. flashVars will be deleted
+!!		- 1 will only advance time and set the different variables but not clear the screen, generate text or picture. Optional events will NOT trigger.
+!!			- flashVars['image'] contains the generated image
+!!			- flashVars['text_before'] contains the generated text of the flash itself before the arousal call
+!!			- flashVars['text_after'] contains the generated text of the covering up, after the arousal call
+!!		- 2 will add the variables and advance time and set the random picture, but not clear screen or generate text. flashVars will be deleted.
+!!
+!!	You enforce the displayed text and image in the following way:
+!!		- $flash_image or $flash_video will set the image or video (if video is set, that will have priority)
+!!		- $flash_text[0] sets all of the flash itself, before the arousal call
+!!		- $flash_text[1] sets all of the covering up, after the arousal call
+
+!!	eg. gs 'flash', 'tits', 'outdoors', 15, 0
+!!	There is no continue action so you must add this as required
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            CAN FLASH                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+!! Checks whether the player is allowed to perform a flash of the given type.
+!! gs 'flash', 'can_flash', '[type]'
+!!	$ARGS[1] - type (bra, tits, panties, pantyrear, butt, butt_plug, pussy, full)
+!!				pass '' to check if any flash type is currently allowed
+!! Returns: 0 if not allowed, 1 if allowed freely, 2 if allowed after easy willpower check
+!!			3 if allowed after medium willpower check, 4 if allowed after hard will check.
+if $ARGS[0] = 'can_flash':
+	if PCloOnePiece = 1: jump 'flash_can_flash_end'
+	temp_threshold = pcs_inhib + trait_vars['exhibitionist'] * 10 + iif(trait_vars['exhibitionist'] = 3, 5, 0) + alko / 2
+	if $ARGS[1] = 'bra':
+		if $clothingworntype = 'nude' or $braworntype = 'none' or PCloCoverTop >= 4: jump 'flash_can_flash_end'
+		result = max(1, (35 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = 'pantyrear':
+		if $clothingworntype = 'nude' or $pantyworntype = 'none' or PCloCoverBack >= 4: jump 'flash_can_flash_end'
+		result = max(1, (40 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = 'panties':
+		if $clothingworntype = 'nude' or $pantyworntype = 'none' or PCloCoverFront >= 4: jump 'flash_can_flash_end'
+		result = max(1, (40 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = 'tits':
+		if ($clothingworntype = 'nude' and $braworntype = 'none') or PCloCoverTop >= 4: jump 'flash_can_flash_end'
+		result = max(1, (45 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = 'butt' or $ARGS[1] = 'butt_plug':
+		if ($clothingworntype = 'nude' and $pantyworntype = 'none') or PCloCoverBack >= 4: jump 'flash_can_flash_end'
+		result = max(1, (50 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = 'pussy':
+		if $clothingworntype = 'nude' or PCloCoverFront >= 4: jump 'flash_can_flash_end'
+		result = max(1, (55 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = 'full':
+		if func('flash', 'can_flash', 'tits') = 0 or func('flash', 'can_flash', 'butt') = 0 or func('flash', 'can_flash', 'pussy') = 0: jump 'flash_can_flash_end'
+		result = max(1, (65 - ((temp_threshold / 5) * 5)) / 5 + 1)
+	elseif $ARGS[1] = '' or $ARGS[1] = 'any':
+		if func('flash', 'can_flash', 'bra') or func('flash', 'can_flash', 'tits') or func('flash', 'can_flash', 'panties') or func('flash', 'can_flash', 'pantyrear') or func('flash', 'can_flash', 'butt') or func('flash', 'can_flash', 'pussy') or func('flash', 'can_flash', 'full'):
+			result = 1
+		end
+	else
+		msg '未知的暴露类型：' + $ARGS[1]
+	end
+	:flash_can_flash_end
+	if result > 4: result = 0
+	killvar 'temp_threshold'
+	exit
+end
+
+
+if $ARGS[0] = 'get_image':
+	flashVars['dress_ind_bra'] = 3
+	flashVars['dress_ind_tits'] = 12
+	flashVars['dress_ind_panty'] = 4
+	flashVars['dress_ind_pantyrear'] = 12
+	flashVars['dress_ind_pussy'] = 8
+	flashVars['dress_ind_pussy_hairy'] = 9
+	flashVars['dress_ind_butt'] = 7
+	flashVars['dress_ind_butt_plug'] = 0
+	flashVars['dress_ind_full'] = 5
+	flashVars['dress_ind_full_hairy'] = 7
+
+	flashVars['dress_out_bra'] = 4
+	flashVars['dress_out_tits'] = 20
+	flashVars['dress_out_panty'] = 18
+	flashVars['dress_out_pantyrear'] = 8
+	flashVars['dress_out_pussy'] = 19
+	flashVars['dress_out_pussy_hairy'] = 9
+	flashVars['dress_out_butt'] = 9
+	flashVars['dress_out_butt_plug'] = 8
+	flashVars['dress_out_full'] = 13
+	flashVars['dress_out_full_hairy'] = 11
+
+	flashVars['pants_ind_bra'] = 6
+	flashVars['pants_ind_tits'] = 19
+	flashVars['pants_ind_panty'] = 1
+	flashVars['pants_ind_pantyrear'] = 3
+	flashVars['pants_ind_pussy'] = 4
+	flashVars['pants_ind_pussy_hairy'] = 3
+	flashVars['pants_ind_butt'] = 6
+	flashVars['pants_ind_butt_plug'] = 0
+	flashVars['pants_ind_full'] = 1
+	flashVars['pants_ind_full_hairy'] = 1
+
+	flashVars['pants_out_bra'] = 5
+	flashVars['pants_out_tits'] = 19
+	flashVars['pants_out_panty'] = 6
+	flashVars['pants_out_pantyrear'] = 10
+	flashVars['pants_out_pussy'] = 11
+	flashVars['pants_out_pussy_hairy'] = 8
+	flashVars['pants_out_butt'] = 19
+	flashVars['pants_out_butt_plug'] = 6
+	flashVars['pants_out_full'] = 9
+	flashVars['pants_out_full_hairy'] = 6
+
+
+	$flashVars['image'] = 'images/pc/activities/flashing/'
+	$temp_id_text = ''
+
+	if PCloSkirt > 0:
+		$temp_id_text += 'dress_'
+		$flashVars['image'] += 'dress/'
+	else
+		$temp_id_text += 'pants_'
+		$flashVars['image'] += 'pants/'
+	end
+	if $ARGS[2] = 'inside' or $ARGS[2] = 'indoors':
+		$temp_id_text += 'ind_'
+		$flashVars['image'] += 'inside/'
+		if $ARGS[1] = 'butt_plug': $ARGS[1] = 'butt'
+	else
+		$temp_id_text += 'out_'
+		$flashVars['image'] += 'outside/'
+	end
+	$temp_id_text += $ARGS[1]
+	$flashVars['image'] += $ARGS[1]
+	$flashVars['image'] += '/'
+
+	if ($ARGS[1] = 'pussy' or $ARGS[1] = 'full') and pcs_pubes > 20:
+		$temp_id_text += '_hairy'
+		$flashVars['image'] += 'hairy'
+	end
+
+	flashVars['rand'] = rand(1, flashVars[$temp_id_text])
+	$flashVars['image'] += str(flashVars['rand']) + '.jpg'
+
+	killvar 'temp_id_text'
+end
+
+
+if $ARGS[0] = 'display_image':
+	if $flash_video ! '':
+		'<center><video autoplay loop <<$set_imgh>> src="<<$flash_video>>"></video></center>'
+	elseif $flash_image ! '':
+		'<center><img <<$set_imgh>> src="<<$flash_image>>"></center>'
+	end
+end
+
+
+!! $ARGS[1] = 'type' (bra)
+!! $ARGS[2] = 'location'
+!! $ARGS[3] = 'arousal type' (flashlite vs flash)
+!!  ARGS[4] = time
+!!  ARGS[5] = option
+if $ARGS[0] = 'generate_output':
+	if ARGS[5] < 1:
+		*clr
+		$flash_text[0] = $flashVars['text_before']
+		$flash_text[1] = $flashVars['text_after']
+	end
+
+	if ARGS[5] ! 1:
+		if $flash_image = '': $flash_image = $flashVars['image']
+		gs 'flash', 'display_image'
+	end
+
+	if $flash_text[0] ! '': *pl $flash_text[0]
+	gs 'arousal', $ARGS[3], ARGS[4], 'exhibitionism', $flash_arousal[0], $flash_arousal[1], $flash_arousal[2], $flash_arousal[3], $flash_arousal[4], $flash_arousal[5]
+	if ARGS[5] ! 1: gs 'flash', 'events', $ARGS[1], $ARGS[2], ARGS[4], ARGS[5]
+	if $flash_text[1] ! '': *pl $flash_text[1]
+
+	gs 'arousal', 'end'
+	gs 'flash', 'cleanup', ARGS[5]
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               TYPES                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! $ARGS[0] = 'type' (bra)
+!! $ARGS[1] = 'location'
+!!  ARGS[2] = time
+!!  ARGS[3] = option
+if $ARGS[0] = 'bra':
+	gs 'flash', 'exhibitionism', 1, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '你环顾四周看看附近有谁，然后你 ' + iif(PCloSkirt > 0, '拉下', '掀起') + ' 你的上衣，向世界露出穿着胸罩的乳房。大多数人没注意到，但有些人注意到了，有人微笑，有人皱眉或厌恶地摇头。'
+	$flashVars['text_after'] = '你' + iif(PCloSkirt > 0, '把上衣重新拉起来', '把上衣拉下来') + '，兴奋的快感沿着你的脊椎蔓延。'
+	gs 'flash', 'get_image', 'bra', $ARGS[1]
+	gs 'flash', 'generate_output', 'bra', $ARGS[1], 'flashlite', ARGS[2], ARGS[3]
+end
+
+
+if $ARGS[0] = 'tits':
+	gs 'flash', 'exhibitionism', 1, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '你环顾四周看看附近有谁，然后你 ' + iif(PCloSkirt > 0, '拉下', '掀起') + ' 你的上衣，向世界露出你的裸胸。大多数人没注意到，但有些人注意到了，有人微笑，有人皱眉或厌恶地摇头。'
+	$flashVars['text_after'] = '你' + iif(PCloSkirt > 0, '把上衣重新拉起来', '把上衣拉下来') + '，兴奋的快感沿着你的脊椎蔓延。'
+	gs 'flash', 'get_image', 'tits', $ARGS[1]
+	gs 'flash', 'generate_output', 'tits', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+end
+
+
+if $ARGS[0] = 'panties':
+	gs 'flash', 'exhibitionism', 2, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '你环顾四周看看附近有谁，然后你 ' + iif(PCloSkirt > 0, '掀起裙子的前摆', '拉下裤子的前部') + ' 来展示你的内裤。大多数人没注意到，但有些人注意到了，有人微笑，有人皱眉或厌恶地摇头。'
+	$flashVars['text_after'] = '你' + iif(PCloSkirt > 0, '把裙子放回原位', '把裤子重新拉上来') + '，兴奋的快感沿着你的脊椎蔓延。'
+	gs 'flash', 'get_image', 'panty', $ARGS[1]
+	gs 'flash', 'generate_output', 'panty', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+end
+
+
+if $ARGS[0] = 'pantyrear':
+	gs 'flash', 'exhibitionism', 2, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '你环顾四周看看附近有谁，然后你' + iif(PCloSkirt > 0, '撩起你的裙子', '拉下裤子的后部') + ' 来展示穿着内裤的屁股。大多数人没注意到，但有些人注意到了，有人微笑，有人皱眉或厌恶地摇头。'
+	$flashVars['text_after'] = '你' + iif(PCloSkirt > 0, '把裙子放回原位', '把裤子重新拉上来') + '，兴奋的快感沿着你的脊椎蔓延。'
+	gs 'flash', 'get_image', 'pantyrear', $ARGS[1]
+	gs 'flash', 'generate_output', 'pantyrear', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+end
+
+
+if $ARGS[0] = 'butt' or $ARGS[0] = 'butt_plug':
+	gs 'flash', 'exhibitionism', 2, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '你环顾四周看看附近有谁，然后你' + iif(PCloSkirt > 0, '撩起裙子的后摆', '拉下裤子的后部') + ' 来展示你的屁股。大多数人没注意到，但有些人注意到了，有人微笑，有人皱眉或厌恶地摇头。'
+	$flashVars['text_after'] = '你' + iif(PCloSkirt > 0, '把裙子放回原位', '把裤子重新拉上来') + '，兴奋的快感沿着你的脊椎蔓延。'
+
+	if analPlugIn = 1 or $ARGS[0] = 'butt_plug':
+		gs 'flash', 'get_image', 'butt_plug', $ARGS[1]
+		gs 'flash', 'generate_output', 'butt_plug', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+	else
+		gs 'flash', 'get_image', 'butt', $ARGS[1]
+		gs 'flash', 'generate_output', 'butt', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+	end
+end
+
+
+if $ARGS[0] = 'pussy':
+	gs 'flash', 'exhibitionism', 3, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '你环顾四周看看附近有谁，然后你' + iif(PCloSkirt > 0, '撩起裙子的前摆', '拉下裤子的前部') + ' 来展示你的小穴。大多数人没注意到，但有些人注意到了，有人微笑，有人皱眉或厌恶地摇头。'
+	$flashVars['text_after'] = '你' + iif(PCloSkirt > 0, '把裙子放回原位', '把裤子重新拉上来') + '，兴奋的快感沿着你的脊椎蔓延。'
+	gs 'flash', 'get_image', 'pussy', $ARGS[1]
+	gs 'flash', 'generate_output', 'pussy', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+end
+
+
+if $ARGS[0] = 'full':
+	gs 'flash', 'exhibitionism', 3, $ARGS[1], ARGS[2]
+
+	$flashVars['text_before'] = '确认周围没有孩子、也不是太热闹后，你' + iif(PCloSkirt > 0, '撩起裙子和上衣', '拉下裤子和掀起上衣') + ' 暴露你的阴部和胸部。大多数看到你的人都震惊了，但有些人钦佩地看着你。'
+	$flashVars['text_after'] = '你迅速重新遮好，享受着兴奋的战栗。'
+	gs 'flash', 'get_image', 'full', $ARGS[1]
+	gs 'flash', 'generate_output', 'full', $ARGS[1], 'flash', ARGS[2], ARGS[3]
+end
+
+!! For us only when Sveta chooses to flash
+!! 1 point for exposing breasts, 2 for ass and 3 for pussy. 4 for extreme nude situations
+
+
+!! ARGS[1] = severity
+!! $ARGS[2] = 'location'
+!!  ARGS[3] = time
+if $ARGS[0] = 'exhibitionism':
+	if $ARGS[1] = 'tits':
+		ARGS[1] = 1
+	elseif instr(';panties;pantyrear;butt;butt_plug', ';' + $ARGS[1] + ';'):
+		ARGS[1] = 2
+	elseif $ARGS[1] = 'pussy' or $ARGS[1] = 'full':
+		ARGS[1] = 3
+	end
+
+	if ARGS[1] < 1: ARGS[1] = 1
+	if ARGS[3] < 0: ARGS[3] = -ARGS[3]
+	if ARGS[3] = 0: ARGS[3] = 1
+
+	temp_rand[1] = 1 + ((ARGS[3] - 1) / 5)
+	temp_rand = rand(0, 59) / temp_rand[1]
+
+	if ARGS[1] = 1:
+		trait_vars['exhibitionist_exp'] += 1
+		if trait_vars['exhibitionist'] = 1: pcs_horny += 5
+		if trait_vars['exhibitionist'] = 2: pcs_horny += 10
+		if trait_vars['exhibitionist'] = 3: pcs_horny += 15
+
+		if temp_rand < 8: gs 'fame', $region, 'flash', 'tiny'
+	elseif ARGS[1] = 2:
+		trait_vars['exhibitionist_exp'] += 2
+		if trait_vars['exhibitionist'] = 1: pcs_horny += 10
+		if trait_vars['exhibitionist'] = 2: pcs_horny += 20
+		if trait_vars['exhibitionist'] = 3: pcs_horny += 30
+		if temp_rand < 4:
+			gs 'fame', $region, 'flash', 'small'
+		elseif temp_rand < 8:
+			gs 'fame', $region, 'flash', 'tiny'
+		end
+	elseif ARGS[1] = 3:
+		trait_vars['exhibitionist_exp'] += 3
+		if trait_vars['exhibitionist'] = 1: pcs_horny += 15
+		if trait_vars['exhibitionist'] = 2: pcs_horny += 25
+		if trait_vars['exhibitionist'] = 3: pcs_horny += 40
+		if temp_rand < 2:
+			gs 'fame', $region, 'flash', 'medium'
+		elseif temp_rand < 4:
+			gs 'fame', $region, 'flash', 'small'
+		elseif temp_rand < 8:
+			gs 'fame', $region, 'flash', 'tiny'
+		end
+	else
+		trait_vars['exhibitionist_exp'] += 4
+		if trait_vars['exhibitionist'] = 1: pcs_horny += 20
+		if trait_vars['exhibitionist'] = 2: pcs_horny += 40
+		if trait_vars['exhibitionist'] = 3: pcs_horny += 80
+		if temp_rand < 1:
+			gs 'fame', $region, 'flash', 'large'
+		elseif temp_rand < 2:
+			gs 'fame', $region, 'flash', 'medium'
+		elseif temp_rand < 4:
+			gs 'fame', $region, 'flash', 'small'
+		elseif temp_rand < 8:
+			gs 'fame', $region, 'flash', 'tiny'
+		end
+	end
+
+	killvar 'temp_rand'
+end
+
+
+if $ARGS[0] = 'cleanup':
+	if ARGS[1] ! 1: killvar 'flashVars'
+	killvar 'flash_image'
+	killvar 'flash_video'
+	killvar 'flash_text'
+	killvar 'flash_arousal'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! $ARGS[1] = type
+!! $ARGS[2] = location
+!!  ARGS[3] = time
+!!  ARGS[4] = option
+if $ARGS[0] = 'events':
+	gs 'blackmailer', 'init_check', $ARGS[1], $ARGS[2]
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              ACTIONS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'park_get_acts':
+	if func('flash', 'can_flash'):
+		act '在公园里露一下 (<<$func(''time'', ''get_time_string'', 0, 5)>>)':
+			act '回去': gt $loc, $loc_arg
+			gs 'flash', 'park_get_single_act', 'full', '全身'
+			gs 'flash', 'park_get_single_act', 'pussy', 'pussy'
+			gs 'flash', 'park_get_single_act', 'butt', 'butt'
+			gs 'flash', 'park_get_single_act', 'tits', 'tits'
+			gs 'flash', 'park_get_single_act', 'panties', '内裤正面'
+			gs 'flash', 'park_get_single_act', 'pantyrear', '内裤背面'
+			gs 'flash', 'park_get_single_act', 'bra', 'bra'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'park_get_single_act':
+	!! $ARGS[1]: type
+	!! $ARGS[2]: text after 'Flash your '
+	can_flash_res = func('flash', 'can_flash', $ARGS[1])
+	if can_flash_res = 1:
+		!! free
+		act '露出你的' + $ARGS[2]: gt 'flash', 'quick_park_flash', $ARGS[1]
+	elseif can_flash_res > 1:
+		if can_flash_res = 2:
+			gs 'willpower', 'exhib', 'self', 'easy'
+		elseif can_flash_res = 3:
+			gs 'willpower', 'exhib', 'self'
+		elseif can_flash_res = 4:
+			gs 'willpower', 'exhib', 'self', 'hard'
+		end
+		act '露出你的<<$ARGS[2]>>' + $func('willpower', 'get_willcost_string'):
+			if pcs_willpwr < will_cost:
+				$noWillpower
+			else
+				gs 'willpower', 'pay', 'self'
+				gs 'stat'
+				gt 'flash', 'quick_park_flash', $ARGS[1]
+			end
+		end
+	end
+	killvar 'can_flash_res'
+	exit
+end
+
+if $ARGS[0] = 'park_do_flash':
+	!! $ARGS[1] = type
+	!! flash_heat = tracker for heat mechanism, 0-90. Lowered by 2 in stat 15min loop
+	!! flash_heat_long = tracker for bad scenario heat. 0-100. lowered by 5 in cikl
+	if $ARGS[1] = 'bra' or $ARGS[1] = 'panties' or $ARGS[1] = 'pantyrear':
+		flash_heat += min(90, flash_heat + 8)
+	elseif $ARGS[1] = 'tits' or $ARGS[1] = 'butt':
+		flash_heat += min(90, flash_heat + 12)
+	elseif $ARGS[1] = 'pussy':
+		flash_heat += min(90, flash_heat + 16)
+	else
+		flash_heat += min(90, flash_heat + 20)
+	end
+	if rand(1, 100) < flash_heat:
+		!! Bad scenario
+		!! Possible scenarios: Negative comments, Groping / harrasing, Police, Single rapist, gang rape.
+		!! flash_heat_long drives severity: severity = (rand(1, 100) + flash_heat_long) / 2
+		!! This shifts the distribution from low-severity-likely at low heat to high-severity-likely at high heat.
+		!! Day: negative comments, groping, police,
+		!! Night: groping, police, single rapist, gang rape
+		!! low severity events increase flash_heat_long, high severity events lower it
+		flash_heat_long = min(100, flash_heat_long + 10)
+		temp_rand = (rand(1, 100) + flash_heat_long) / 2
+		if hour >= 22 or hour < 6:
+			if temp_rand <= 30:
+				flash_heat_long = min(100, flash_heat_long + 5)
+				gt 'flash', 'park_bad_scenario', 'grope'
+			elseif temp_rand <= 40:
+				flash_heat_long = max(0, flash_heat_long - 5)
+				gt 'flash', 'park_bad_scenario', 'police'
+			elseif temp_rand <= 75:
+				flash_heat_long = max(0, flash_heat_long - 10)
+				gt 'flash', 'park_bad_scenario', 'rapist'
+			else
+				flash_heat_long = max(0, flash_heat_long - 15)
+				gt 'flash', 'park_bad_scenario', 'gangrape'
+			end
+		else
+			if temp_rand <= 25:
+				flash_heat_long = min(100, flash_heat_long + 5)
+				gt 'flash', 'park_bad_scenario', 'comment'
+			elseif temp_rand <= 50:
+				flash_heat_long = min(100, flash_heat_long + 3)
+				gt 'flash', 'park_bad_scenario', 'grope'
+			elseif temp_rand <= 80:
+				flash_heat_long = max(0, flash_heat_long - 5)
+				gt 'flash', 'park_bad_scenario', 'police'
+			else
+				flash_heat_long = max(0, flash_heat_long - 10)
+				gt 'flash', 'park_bad_scenario', 'rapist'
+			end
+		end
+	else
+		!! Good scenario
+		gt 'flash', 'quick_park_flash', $ARGS[1]
+	end
+	exit
+end
+
+if $ARGS[0] = 'park_bad_scenario':
+	!! $ARGS[1] = scenario: 'comment', 'grope', 'police', 'rapist', 'gangrape'
+	if $ARGS[1] = 'comment':
+	elseif $ARGS[1] = 'grope':
+	elseif $ARGS[1] = 'police':
+	elseif $ARGS[1] = 'rapist':
+	elseif $ARGS[1] = 'gangrape':
+	end
+	killvar 'temp_rand'
+	exit
+end
+
+
+if $ARGS[0] = 'park':
+	if pcs_inhib >= 35 or (pcs_inhib >= 25 and trait_vars['exhibitionist'] > 0):
+		act '在公园里露一下':
+			cla
+			menu_off = 1
+			gs 'stat'
+			if trait_vars['exhibitionist'] > 0 and exhibitionQW = 0: gt 'kseniyaQW', 'event1', 1
+			gs 'flash', 'park_flash_options'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'park_flash_options':
+	act '回去': gt $loc, $loc_arg
+	act '露出你的胸部 (0:05)': gt 'flash', 'quick_park_flash', 'tits'
+	if trait_vars['exhibitionist'] >= 1:
+		act '露出你的屁股 (0:05)': gt 'flash', 'quick_park_flash', 'butt'
+	end
+	if trait_vars['exhibitionist'] >= 2:
+		act '露出你的小穴 (0:05)': gt 'flash', 'quick_park_flash', 'pussy'
+	end
+	if trait_vars['exhibitionist'] >= 3:
+		act '露出你的小穴和胸部 (0:05)': gt 'flash', 'quick_park_flash', 'full'
+	end
+end
+
+
+if $ARGS[0] = 'quick_park_flash':
+	if trait_vars['exhibitionist'] > 0 and exhibitionQW = 0: gt 'kseniyaQW', 'event1', 1
+
+	gs 'flash', $ARGS[1], 'outdoors', 5
+	gs 'stat'
+	gs 'flash', 'park_flash_options'
+end
+
+
+--- flash ---------------------------------

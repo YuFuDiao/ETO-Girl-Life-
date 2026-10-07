@@ -1,0 +1,426 @@
+# lover
+
+
+!! Daily checks, called from cikl
+if $ARGS[0] = 'cikl':
+	if $husID ! '':
+		if npc_rel[$husID] > 10: gs 'npc_relationship', 'modify', $husID, -15
+		if npc_rel[$husID] > 0 and spouseVars['drink'] ! 11: spouseVars['drink'] = rand(0, 10)
+		spouseVars['sexday'] = 0
+
+		if spouseVars['pervert_add'] > 5: npc_pervert[$husID] = 1
+		if spouseVars['gentle_add'] > 10: npc_gentle[$husID] = 1 & npc_rough[$husID] = 0
+
+		if npc_rel[$husID] <= 10:
+			gs 'lover_love', 'divorce'
+			$func('wrap', 'neg b', '你的丈夫已经提出离婚。')
+		end
+
+	end
+
+	if $wifID ! '':
+		if npc_rel[$wifID] > 10: gs 'npc_relationship', 'modify', $wifID, -15
+		if npc_rel[$wifID] > 0 and spouseVars['drink'] ! 11: spouseVars['drink'] = rand(0, 10)
+		spouseVars['sexday'] = 0
+
+		if spouseVars['pervert_add'] > 5: npc_pervert[$wifID] = 1
+		if spouseVars['gentle_add'] > 10: npc_gentle[$wifID] = 1 & npc_rough[$wifID] = 0
+
+		if npc_rel[$wifID] <= 10:
+			gs 'lover_love', 'divorce'
+			$func('wrap', 'neg b', '你的妻子已经提出离婚。')
+		end
+	end
+
+	!! ── Missed lover dates: apply penalty once per missed day ─────────
+	sd_cm['lover_max'] = arrsize('$lover')
+	if sd_cm['lover_max'] > 0:
+		sd_cm['li'] = 0
+		:cikl_lover_meet_loop
+			$sd_cm['npcid'] = $lover[sd_cm['li']]
+			if npc_meetday[$sd_cm['npcid']] > 0 and npc_meetday[$sd_cm['npcid']] < daystart:
+				gs 'npc_relationship', 'modify', $sd_cm['npcid'], -10
+				npc_meetday[$sd_cm['npcid']] = 0
+			end
+			sd_cm['li'] += 1
+		if sd_cm['li'] < sd_cm['lover_max']: jump 'cikl_lover_meet_loop'
+	end
+	exit
+end
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                     ADD / CHANGE RELATIONSHIP                      !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'add':
+	if mid($ARGS[1], 1, 1) = 'C':
+		gs 'npcpreservec', $ARGS[1]
+		gs 'npcStat', $npclastsaved
+	else
+		gs 'npcStat', $ARGS[1]
+	end
+
+	if arrpos('$lover', $npcID) < 0:
+		$lover[] = $npcID
+		gs 'telefon', 'AddContact', $npcID, $npc_icon[$npcID], 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'remove':
+	lover_index = arrpos('$lover', $ARGS[1])
+	if lover_index < 0:
+		killvar 'lover_index'
+		exit
+	end
+	if $npc_rel_type[$ARGS[1]] = 'husband' or $npc_rel_type[$ARGS[1]] = 'wife' or $npc_rel_type[$ARGS[1]] = 'dating' or $npc_rel_type[$ARGS[1]] = 'boyfriend' or  $npc_rel_type[$ARGS[1]] = 'girlfriend' or $npc_rel_type[$ARGS[1]] = 'fuckbuddy' or $npc_rel_type[$ARGS[1]] = 'sugar_daddy':
+		$npc_rel_type[$ARGS[1]] = 'ex-' + $npc_rel_type[$ARGS[1]]
+	end
+	if $mid($ARGS[1], 1, 1) = 'B' and len($ARGS[1]) > 1 and isnum($mid($ARGS[1], 2)):
+		gs 'telefon', 'ClearCallSchedule', $ARGS[1]
+		gs 'telefon', 'ClearSMSSchedule', $ARGS[1]
+		telefon_index = arrpos('$contact', $ARGS[1])
+		if telefon_index >= 0: contactAnon[telefon_index] = 1
+		killvar 'telefon_index'
+	end
+	killvar 'lover_index'
+	exit
+end
+
+
+if $ARGS[0] = 'add_dating':
+	!! dating is someone who you have not gone exclusive with, you are still in a "casual" relationship
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'dating': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	gs 'lover_call', 'set_base_schedule', $npcID
+	$npc_rel_type[$npcID] = 'dating'
+	stat['dating_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+
+elseif $ARGS[0] = 'add_boyfriend':
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'boyfriend': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	gs 'lover_call', 'set_base_schedule', $npcID
+	$npc_rel_type[$npcID] = 'boyfriend'
+	stat['boyfriends_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+
+elseif $ARGS[0] = 'add_girlfriend':
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'girlfriend': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	gs 'lover_call', 'set_base_schedule', $npcID
+	$npc_rel_type[$npcID] = 'girlfriend'
+	stat['girlfriends_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+
+elseif $ARGS[0] = 'add_fuckbuddy':
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'fuckbuddy': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	$npc_rel_type[$npcID] = 'fuckbuddy'
+	stat['fuckbuddies_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+
+elseif $ARGS[0] = 'add_sugar_daddy':
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'sugar_daddy': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	$npc_rel_type[$npcID] = 'sugar_daddy'
+	stat['sugardaddies_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+
+elseif $ARGS[0] = 'add_husband':
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'husband': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	$husID = $npcID
+	$npc_rel_type[$husID] = 'husband'
+	gs 'npc_relationship', 'set', $husID, 100
+	stat['husbands_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+
+elseif $ARGS[0] = 'add_wife':
+	gs 'lover', 'add', $ARGS[1]
+	if $npc_rel_type[$npcID] = 'wife': exit
+	if $npc_rel_type[$npcID] ! '': gs 'lover', 'change_<<$npc_rel_type[$npcID]>>', $npcID
+	$wifID = $npcID
+	$npc_rel_type[$wifID] = 'wife'
+	gs 'npc_relationship', 'set', $wifID, 100
+	stat['wifes_current'] += 1
+	stat['total_lovers_current'] += 1
+	exit
+end
+
+
+if $ARGS[0] = 'remove_boyfriend':
+	gs 'lover', 'remove', $ARGS[1]
+	gs 'lover', 'change_boyfriend'
+	stat['ex_boyfriends'] += 1
+	exit
+
+elseif $ARGS[0] = 'remove_girlfriend':
+	gs 'lover', 'remove', $ARGS[1]
+	gs 'lover', 'change_girlfriend'
+	stat['ex_girlfriends'] += 1
+	exit
+
+elseif $ARGS[0] = 'remove_fuckbuddy':
+	gs 'lover', 'remove', $ARGS[1]
+	gs 'lover', 'change_fuckbuddy'
+	stat['ex_fuckbuddies'] += 1
+	exit
+
+elseif $ARGS[0] = 'remove_sugar_daddy':
+	gs 'lover', 'remove', $ARGS[1]
+	gs 'lover', 'change_sugar_daddy'
+	stat['ex_sugardaddies'] += 1
+	exit
+
+elseif $ARGS[0] = 'remove_husband':
+	gs 'lover', 'remove', $husID
+	gs 'npc_relationship', 'set', $husID, 0
+	gs 'lover', 'change_husband'
+	stat['ex_husbands'] += 1
+	exit
+
+elseif $ARGS[0] = 'remove_wife':
+	gs 'lover', 'remove', $wifID
+	gs 'npc_relationship', 'set', $wifID, 0
+	gs 'lover', 'change_wife'
+	stat['ex_wifes'] += 1
+	exit
+end
+
+
+if $ARGS[0] = 'change_boyfriend':
+	stat['boyfriends_current'] -= 1
+	stat['total_lovers_current'] -= 1
+	exit
+
+elseif $ARGS[0] = 'change_girlfriend':
+	stat['girlfriends_current'] -= 1
+	stat['total_lovers_current'] -= 1
+	exit
+
+elseif $ARGS[0] = 'change_fuckbuddy':
+	stat['fuckbuddies_current'] -= 1
+	stat['total_lovers_current'] -= 1
+	exit
+
+elseif $ARGS[0] = 'change_sugar_daddy':
+	stat['sugardaddies_current'] -= 1
+	stat['total_lovers_current'] -= 1
+	exit
+
+elseif $ARGS[0] = 'change_husband':
+	killvar 'husID'
+	stat['husbands_current'] -= 1
+	stat['total_lovers_current'] -= 1
+	killvar 'spouseVars'
+	exit
+
+elseif $ARGS[0] = 'change_wife':
+	killvar 'wifID'
+	stat['wifes_current'] -= 1
+	stat['total_lovers_current'] -= 1
+	killvar 'spouseVars'
+	exit
+end
+
+
+!! $ARGS[1+]: npc_rel_types that you want to include
+if $ARGS[0] = 'draw_random_from':
+	if $ARGS[1] = 'all':
+		$result = $lover[rand(0, arrsize('$lover')-1)]
+		exit
+	end
+
+	lover_i = 0
+	lover_max_i = arrsize('$lover')
+	:draw_from_lover_loop
+		$lover_temp_npcID = $lover[lover_i]
+		if arrpos('$ARGS', $npc_rel_type[$lover_temp_npcID]) > 0:
+			$lover_temp_lovers[] = $lover_temp_npcID
+		end
+		lover_i += 1
+	if lover_i < lover_max_i: jump 'draw_from_lover_loop'
+
+	lover_temp_index = rand(0, arrsize('$lover_temp_npcID')-1)
+	$result = $lover_temp_lovers[lover_temp_index]
+
+	killvar 'lover_temp_npcID'
+	killvar 'lover_temp_lovers'
+	killvar 'lover_temp_index'
+	exit
+end
+
+
+if $ARGS[0] = 'clear_all':
+	!! CLEAR LOVERS
+	!! THIS IS A NUCLEAR OPTION!
+	temp_lover_index = 0
+	:clear_lovers_loop
+	if arrsize('$lover') > temp_lover_index:
+		if $npc_rel_type[$lover[temp_lover_index]] = 'boyfriend':
+			gs 'lover', 'remove_boyfriend', $lover[temp_lover_index]
+		elseif $npc_rel_type[$lover[temp_lover_index]] = 'girlfriend':
+			gs 'lover', 'remove_girlfriend', $lover[temp_lover_index]
+		elseif $npc_rel_type[$lover[temp_lover_index]] = 'fuckbuddy':
+			gs 'lover', 'remove_fuckbuddy', $lover[temp_lover_index]
+		elseif $npc_rel_type[$lover[temp_lover_index]] = 'sugar_daddy':
+			gs 'lover', 'remove_sugar_daddy', $lover[temp_lover_index]
+		elseif $npc_rel_type[$lover[temp_lover_index]] = 'husband':
+			gs 'lover_love', 'divorce'
+		elseif $npc_rel_type[$lover[temp_lover_index]] = 'wife':
+			gs 'lover_love', 'divorce'
+
+		end
+		temp_lover_index += 1
+		jump 'clear_lovers_loop'
+	end
+	killvar 'temp_lover_index'
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS = 'lover_events':
+	gs 'lover', 'generate_exception_links'
+
+	if arrsize('$lover') > 0:
+		temp_lover_i = 0
+		:loop_events
+			$temp_lover_id = $lover[temp_lover_i]
+			gs 'lover', 'generate_date_link', $temp_lover_id
+			gs 'lover', 'generate_home_link', $temp_lover_id
+			gs 'lover', 'generate_hotel_link', $temp_lover_id
+			gs 'lover', 'generate_old_date_link', $temp_lover_id
+			temp_lover_i += 1
+		if temp_lover_i < arrsize('$lover'): jump 'loop_events'
+		killvar 'temp_lover_i'
+		killvar 'temp_lover_id'
+	end
+	exit
+end
+
+
+!! $ARGS[1] = $npc_id
+if $ARGS[0] = 'generate_home_link':
+	if $npc_residence[$ARGS[1]] = $loc:
+		if instr(';fuckbuddy;sugar_daddy;boyfriend;girlfriend;husband;wife;dating;', ';<<$npc_rel_type[$ARGS[1]]>>;') > 0:
+			*nl
+			'<a href="exec: minut += 2 & gt ''sex_ev_start'', ''initiate_pre'', ''<<$ARGS[1]>>'', ''npc_home'' "><<$npc_firstname[$ARGS[1]]>>的</a>' + iif($npc_residence[$ARGS[1]] = 'uni_grounds', '宿舍', '公寓') + ' 就在附近。'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'generate_hotel_link':
+	if func('lover', 'is_hotel', $loc):
+		if $booty_call_hotel[$ARGS[1]] = $region and booty_call_invite[$ARGS[1]] = daystart:
+			!! Limited to fuckbuddies and sugar_daddies for now
+			if instr(';fuckbuddy;sugar_daddy;', ';<<$npc_rel_type[$ARGS[1]]>>;') > 0:
+				*nl
+				'<a href="exec: minut += 2 & gt ''sex_ev_start'', ''initiate_pre'', ''<<$ARGS[1]>>'', ''hotel'' "><<$npc_firstname[$ARGS[1]]>></a>订了一间酒店房间来见你。'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'generate_date_link':
+	if $npc_date_loc[$ARGS[1]] = $loc and daystart = npc_date_invite[$ARGS[1]]:
+		if hour < npc_date_meethour[$ARGS[1]]:
+			*nl
+			'你和<<$npc_firstname[$ARGS[1]]>>有一个约会，时间在<<func(''time'', ''get_time_string'', npc_date_meethour[$ARGS[1]], 0)>>。'
+		elseif hour = npc_date_meethour[$ARGS[1]]:
+			*nl
+			'<a href="exec: minut += 2 & gt ''date_ev'', ''initiate_pre'', ''<<$ARGS[1]>>'' "><<$npc_firstname[$ARGS[1]]>>正在等你</a>。'
+		else
+			*nl
+			$func('wrap', 'neg', '你错过了和<<$npc_firstname[$ARGS[1]]>> at <<func(''time'', ''get_time_string'', npc_date_meethour[$ARGS[1]], 0)>>.')
+			npc_date_invite[$ARGS[1]] = 0
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'generate_old_date_link':
+	if func('lover', 'check_home_loc_old_content'):
+		if daystart = npc_meetday[$ARGS[1]]:
+			if hour < npc_meethour[$ARGS[1]]:
+				'<b><<$npc_usedname[$ARGS[1]]>>会在<<$func(''homes_properties'', ''get_home_desc'')>>等你，时间在<<func(''time'', ''get_time_string'', npc_meethour[$ARGS[1]], 0)>>。</b>'
+			elseif hour = npc_meethour[$ARGS[1]]:
+				'<b><a href="exec: gt ''lover_meet'', ''start'', ''<<$ARGS[1]>>''"><<$npc_usedname[$ARGS[1]]>></a>正在<<$func(''homes_properties'', ''get_home_desc'')>>等你。</b>'
+			else
+				$func('wrap', 'neg b', '<<$npc_usedname[$ARGS[1]]>>在<<$func(''homes_properties'', ''get_home_desc'')>>旁等你，时间是<<func(''time'', ''get_time_string'', npc_meethour[$ARGS[1]], 0)>>。')
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'generate_exception_links':
+	if func('lover', 'check_home_loc_old_content'):
+		if daystart = vladimirQW['day'] and hour >= 16 and week = 6:
+			if vladimirQW['stage'] = 30:
+				'<a href="exec: gt ''vladimirQW_meet'', ''2''">有一辆奥迪停在<<$func(''homes_properties'', ''get_home_desc'')>>旁，你注意到弗拉基米尔正站在车边。</a>'
+			elseif vladimirQW['stage'] = 40:
+				'<a href="exec: gt ''vladimirQW_meet'', ''3''">有一辆奥迪停在<<$func(''homes_properties'', ''get_home_desc'')>>旁，你注意到弗拉基米尔正站在车边。</a>'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'check_home_loc_old_content':
+	result = 0
+	if $home['location'] = '':
+		if $loc = 'city_center': result = 1
+	elseif $home['location'] = 'pav_complex':
+		if $loc = 'pav_residential': result = 1
+	elseif $home['location'] = 'pavlovsk_hotel':
+		if $loc = 'pav_market': result = 1
+	elseif $home['current'] = 'old_town_apartment':
+		if $loc = 'pushkin_sq': result = 1
+	else
+		if $home['location'] = $loc: result = 1
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_hotel':
+	result = ($ARGS[1] = 'pav_hotel' or $ARGS[1] = 'city_hotel')
+	exit
+end
+
+
+--- lover ---------------------------------

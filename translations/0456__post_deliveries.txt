@@ -1,0 +1,1430 @@
+# post_deliveries
+
+!! variables used:
+!! post_vars['load']	= (0-2)	whether there is a little, medium or lots of mail to deliver. Affects how much time you have to do other things
+!! post_vars['round']	= (0-1)	used to set first and second round of events
+!! post_vars['qw_X']	= (0+)	sets quest X stage for events with after delivery stages
+!! post_vars['danger']	= (0-1)	whether the "dangerous streets" are used to save time. Enables encounters with bandits
+!! post_vars['bandit'] = (0-6), quest stages for the "bandits" story line
+!! post_vars['exhib'] = (0-4), how often you''ve shown your boobs during post_vars['bandit'] = 2
+!! post_vars['hj']	= how many times you''ve given the guys a handjob
+!! post_vars['bj']	= how many times you''ve given the guys a blowjob
+!! post_vars['late']	= (0-15), how often you come back to the post office after 15:15. You get fired if this counter hits 15
+!! post_vars['burn']	= (0-1), whether hoodlums tampered with your mail. Gets you fired if yes
+
+menu_off = 1
+
+if $ARGS[0] = 'start':
+	cla
+	gs 'jobs', 'clock', 'pav_mailgirl'
+	*nl
+	'他领你到了后面的房间，几个小包裹和信件已经装进了一只挎包里。'
+
+	!! 20% little to do, 40% normal, 40% heavy load
+	temp_rand = rand(1, 5)
+	post_vars['load'] = iif(temp_rand = 1, 0, iif(temp_rand <= 3, 1, 2))
+	killvar 'temp_rand'
+	minut += 60 - minut
+	minut += 30
+	gs 'stat'
+
+	if post_vars['load'] = 0:
+		'"今天邮件不多，小菜一碟！"他笑了笑。"别紧张。"'
+		'你拎起包，点了点头。确实轻得很！'
+	elseif post_vars['load'] = 1:
+		'"数量是不少，不过你肯定应付得来，"他说。"照平时的做法干就行，出不了事。"'
+		'你拿起包。是有点分量，但拎着还是相当轻。'
+	else
+		'"今天活儿堆成山了，希望你穿着跑鞋！"他咧嘴一笑。你看得出来，派给你这么多活他心里也有点过意不去，但还是盼着你按时送完。'
+		'你的包太重了，两只手都得用上。想赶在 ' + func('time', 'get_time_string', 15, 0) + ' 之前送到，就得抓紧点时间了！'
+	end
+	'你花了点时间为这趟派送做准备，核对地址、规划路线，然后中午前后离开邮局开始干活。'
+
+	act '开始巡逻':
+		*clr & cla
+		post_vars['round'] = 0
+
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+		'头半个小时很轻松，你在邮局附近几条街上穿行。越往市中心外走，你越忍不住看看包里剩下的东西，琢磨今天这趟该怎么送。'
+		if post_vars['load'] = 0:
+			minut += 25
+			'你的包感觉挺轻，里面剩下的东西也不多了。你完全来得及赶在 ' + func('time', 'get_time_string', 15, 0) + ' 之前回去，甚至还有时间歇歇脚！'
+		elseif post_vars['load'] = 1:
+			minut += 35
+			'你的包还挺满，你得一路快走才能按时回去。不过你觉得还没到非要在那些危险街区冒险的地步。'
+		else
+			minut += 45
+			'你的包还是很满，你意识到要是照着既定路线走，根本别想按时赶回去！'
+			'你可以只走安全的路线，但邮政局长可不喜欢你晚归。要不就赌一把，穿过那些容易惹麻烦的地段，指望能赶在 ' + func('time', 'get_time_string', 15, 0) + ' 之前把邮件全送完。'
+		end
+		gs 'stat'
+
+		act '走安全路线':
+			*clr & cla
+			minut += 15
+			gs 'stat'
+			post_vars['danger'] = 0
+
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+			'你决定照着既定路线走，继续送包里的邮件。'
+			if post_vars['load'] = 0:
+				'你的时间绰绰有余，就算慢慢送也来得及。'
+			elseif post_vars['load'] = 1:
+				'你觉得按既定路线走时间够用，能按时送完，于是就这么办了。你没空停下来做别的事，也没法跟人聊太久，不过会照预计那样在 ' + func('time', 'get_time_string', 15, 0) + ' 左右刚好送完。'
+			else
+				'又过了半小时，你又看了眼自己的包，发现还有一大堆没送！照这样下去，你根本别想按时送完。'
+			end
+			act '在你送信途中……': gt 'post_deliveries', 'pick_event'
+		end
+
+		gs 'willpower', 'misc', 'self'
+		if pcs_willpwr < will_cost:
+			act '走更危险的捷径抢时间' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '走更危险的捷径抢时间' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'self'
+				gs 'stat'
+				post_vars['danger'] = 1
+
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+				'为了早点送完，你决定去走邮政局长让你避开的那几条街。能坏到哪儿去呢？'
+				if post_vars['load'] = 0:
+					'你的包很快就见了底，你觉得再花个半小时左右就能送完。'
+				elseif post_vars['load'] = 1:
+					'照这个速度，只要不出什么岔子，送完还能剩下大约半小时……'
+				else
+					'又过了半小时，你又看了眼自己的包。还有不少没送，不过只要保持现在的速度，差不多能按时送完。'
+				end
+
+				act '在你送信途中……': gt 'post_deliveries', 'pick_event'
+			end
+		end
+	end
+	exit
+end
+
+
+!! Events 1-5 are longer, the rest are short and repeatable
+if $ARGS[0] = 'pick_event':
+	*clr & cla
+	if post_vars['round'] = 0:
+		temp_rand = rand(1, 26)
+	else
+		temp_rand = rand(6, 26)
+	end
+	if temp_rand = 1 and post_vars['qw_1'] = 0:
+		gs 'post_deliveries', '1'
+	elseif temp_rand = 2 and post_vars['qw_2'] = 0:
+		gs 'post_deliveries', '2'
+	elseif temp_rand = 3 and post_vars['qw_3'] = 0:
+		gs 'post_deliveries', '3'
+	elseif temp_rand = 4 and post_vars['qw_4'] = 0:
+		gs 'post_deliveries', '4'
+	elseif temp_rand > 5:
+		!! Event 5 still WIP, reroll for now
+		gs 'post_deliveries', $str(temp_rand)
+	else
+		gt 'post_deliveries', 'pick_event'
+	end
+	killvar 'temp_rand'
+	exit
+end
+
+
+if $ARGS[0] = 'resume':
+	*clr & cla
+	gs 'stat'
+
+	if post_vars['round'] = 1:
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+		'你把最后几件邮件送完了，一路没出什么值得一提的事。交出最后一个包裹后，你满意地朝自己点了点头。今天的活儿算是干完了。'
+		if hour < 15:
+			'你看了眼时间，发现离 ' + func('time', 'get_time_string', 15, 0) + ' 还早着呢。邮政局长肯定高兴！'
+		elseif hour = 15 and minut <= 15:
+			'你看了眼时间，现在大约 ' + func('time', 'get_time_string', 15, 0) + '。你刚好赶在不会挨骂的点上送完！呼……'
+		else
+			'你看了眼时间，发现早就过了 ' + func('time', 'get_time_string', 15, 0) + '。邮政局长怕是要不高兴了……'
+		end
+
+		act '返回邮局': gt 'post_deliveries', 'finishround'
+
+	else
+		post_vars['round'] = 1
+
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+		'你像先前那样一路送着邮件，包也慢慢轻了下去。'
+
+		if post_vars['danger'] = 0:
+			minut += 50 + post_vars['load'] * 20
+			gs 'stat'
+
+			'不知不觉，你手上就只剩几件邮件了。'
+
+			act '然后……': gt 'post_deliveries', 'pick_event'
+
+		else
+			minut += 35 + post_vars['load'] * 10
+			gs 'stat'
+
+			'你偶尔觉得眼角瞥见有人在跟着你，可一回头，又什么都没有……'
+
+			if rand(1, 3) = 1:
+				'走完最后一段不该走的街道时，你不禁松了口气。看来就算真有人跟着你，他们也打算放过你了。'
+
+				act '然后……': gt 'post_deliveries', 'pick_event'
+			else
+				*clr
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/shush.jpg"></center>'
+				'这几条不该走的街，你眼看就要走完了。就在还剩几件邮件的时候，你突然听到身后传来一个低沉的声音。'
+				if post_vars['bandit'] = 0:
+					'"你，小姑娘。过来！"'
+				else
+					'"我看你是回来找乐子了！我们可盯了你有一阵子……"'
+				end
+				'你还没来得及反应，两个男人就追上来堵住了你的去路。'
+
+				act '看看他们想要什么': gt 'post_deliveries', 'bandits'
+			end
+		end	
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'bandits':
+	if post_vars['bandit'] = 0:
+		cla & *nl
+		'"新来的吧？你们大多数人心里都清楚，除非想找乐子，不然哪儿会往这片凑！"他冲你咧嘴一笑，他的同伙则埋头翻着你的包。"有什么好东西没？"他问。'
+		'"哟，有人给尼古拉寄钱来了！"另一个笑了起来。"那混蛋还欠我 ' + func('money', 'format', 5000) + '！我还以为这辈子都见不着那笔钱了。看来他是把钱还我了……谢了，尼古拉！你个混蛋……"'
+		'他把钱揣进口袋，随手把信封一扔。'
+
+		act '告诉他们不能这么做':
+			cla & *nl
+			'“嘿，你不能这么做！把它还给我！”'
+			'两个男人笑了起来。“闭嘴。你要是想在我们的地盘上不被打扰，就该离我们远点！”他在你的送信单上签了名，冲你露出残忍的冷笑。“好了，你需要的签名拿到了。现在滚吧……除非你是来陪我们玩的？”'
+
+			act '问她们在聊什么':
+				cla & *nl
+				post_vars['bandit'] = 1
+				'“你说的「玩」是什么意思！？放开我！”你冲他喊道。'
+				'那男人加重了捏住你肩膀的力道。“闭嘴，听好了！我们和之前那个送信女孩有约定。她可是个迫不及待的小骚货！她甚至把它当成了一场游戏……如果她在派送时走了我们的街道，被我们逮到就得任我们摆布。既然你顶了她的位置，这规矩对你也一样。这次我们会对你手下留情，但既然你现在知道规矩了：要是我们再在这附近看见你，想保住这份工作，你最好准备好献身。听明白了吗？”'
+				'他根本没等你回答，就和同伴一起走开了，留下你一个人理清思绪。他们到底让那个女孩做了什么？！'
+				act '把包里剩下的信封送完': gt 'post_deliveries', 'resume'
+			end
+		end
+	else
+		cla & *nl
+		'“这么说……你知道规矩，却还是回来了。我猜那意味着你想玩？”他在你耳边得意地低声说，同时他的同伙又翻起了你的包。“我们找个安静点的地方，免得被人打扰。这边走。”'
+		'他把你的身体紧紧拉向他，你能清楚地感觉到他勃起的鸡巴顶在你的后腰上，他们要你做什么已经再明白不过了。'
+		'他们开始把你拖向一栋带围栏的建筑。到了那里，你意识到想从他们盘算的事里脱身可就难了……'
+		gs 'willpower', 'skill_base', 'run', 'resist', 'medium'
+		if pcs_willpwr < will_cost:
+			act '挣脱并逃跑' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '挣脱并逃跑' + $func('willpower', 'get_willcost_string'):
+				cla & *nl
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'你在脑中回想着那男人之前说过的话：只有抓到你了，他们才能玩弄你，所以逃跑是没问题的，对吧？'
+				'你飞快地抓起自己的包，试图从他们身边逃走。'
+
+				!! running check
+				runnerQW['bmi_penalty'] = 0
+				if pcs_mass['body'] > 30: runnerQW['bmi_penalty'] = ((pcs_mass['body'] - 25)/5)
+				runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+				randrun = rand(1, 6)
+				if runnerQW['result'] >= 23 and randrun >= 3:
+					'“嘿，回来！”那家伙喊道，但你逃跑显然让他们吃了一惊。'
+					'就算背着包，你的脚程也足够甩开他们。'
+					'确定甩掉他们之后，你才停下来喘口气。他们八成已经放弃追你了。'
+					'你暗自笑了。“干得不错嘛，白痴……”'
+					act '继续你的巡逻': gt 'post_deliveries', 'resume'
+				elseif runnerQW['result'] >= 23 and randrun = 1:
+					'你挣开他们撒腿就跑，可逃的时候包带挂在了围栏上。'
+					'一转眼那两个家伙就追了上来，死死抓住你，让你再也逃不掉。'
+					'“想得美，婊子！你差点就跑了……就差那么一点！”其中一人喘着粗气说。'
+					'他们把你从街上拖走，拽进两栋楼之间的小巷。他们抓得死死的，而且这两个家伙壮得根本打不过。看来你也没别的办法了……'
+					act '继续': gt 'post_deliveries', 'bandsex'
+				elseif runnerQW['result'] >= 23 and randrun = 2:
+					'你挣开他们撒腿就跑，却几乎立刻被一块没留神的松动石头绊倒。'
+					'一转眼那两个家伙就追了上来，你挣扎着想爬起来时，其中一人一膝盖顶在了你的肩胛骨之间。'
+					'“想得美，婊子！不过看来你还是我们的人了！”其中一人咧嘴笑道，对你摔得那么笨拙感到有些好笑。'
+					'他们把你从街上拽走，拖进两栋楼之间的小巷。他们抓得死死的，而且这两个家伙壮得根本打不过。看来你也没别的办法了……'
+					act '继续': gt 'post_deliveries', 'bandsex'
+				else
+					'“你他妈以为自己要去哪儿！？”他的同伙注意到你想把包从他手里拽走时吼道。最初跟你说话的那个家伙脸上挂着大大的笑容，牢牢抓住你的胳膊。'
+					'“哈！想得美，现在想跑已经太迟了！”他笑道，不知为何对你逃跑失败的样子颇为受用。'
+					'他们把你从街上拖走，一直拖进两栋楼之间的小巷。他们抓得死死的，而且这两个家伙壮得根本打不过。看来你也没别的办法了……'
+					act '继续': gt 'post_deliveries', 'bandsex'
+				end
+			end
+		end
+		act '别麻烦了':
+			cla & *nl
+			'他们看着就跑得飞快，而且壮得根本打不过。你默默认了命，由着他们把你带到楼后。'
+			act '在楼后……': gt 'post_deliveries', 'bandsex'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'bandsex':
+	cla & *nl
+	if post_vars['bandit'] = 1:
+		'那两个男人半拖半拽地把你弄到楼后时，你的心在胸口怦怦直跳。'
+		'到了那儿，话最多的那个男人咧嘴一笑。“就像我说的……我们和之前那个送信女孩有过约定。顺便说一句，我已经有一阵子没见到她了，只见到一个年纪更大的男人。你知道她在哪儿吗？”'
+		'你摇了摇头。“我甚至不知道她是谁！”'
+		'“可惜，我挺喜欢她的。不过没关系，”他耸耸肩。“现在有你了。总之，和她的约定是：作为自由通行的交换，她会……时不时地照顾我们一下，你懂我的意思，我想你懂的。”'
+		*nl
+		'空气冰冷地寂静了几秒，他才继续说。“我们从头开始吧。把你的奶子给我们看看。”'
+		'你迟疑地看着他，另一个人插话道。“来吧，姑娘。就给我们看看奶子，你就可以走了。除非你想丢掉工作……”'
+		'他从口袋里摸出一只打火机，点着后凑到一把信封跟前。你现在要是不做点什么，他就真把它们点了。'
+		gs 'willpower', 'exhib', 'self', 'hard'
+		if pcs_willpwr < will_cost:
+			act '同意' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '同意' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'self'
+				post_vars['bandit'] = 2
+				post_vars['exhib'] += 1
+				inhib_exp += rand(0, 3)
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postboobs1.jpg"></center>'
+				'“不，等等！”你脱口而出，连忙拦住他。“我照做就是了……”'
+				'“我就知道你会答应的！”他咧嘴笑道，熄灭了打火机但仍握在手里。“那就快点！我们可没一整天时间！”'
+				'你飞快地环顾四周，确认没有别人看见，然后把衣服拉开。当你想把衣服整理回去时，第一个家伙拍开了你的手。“别急！我们说你结束了你才算结束！”'
+				'在又一阵尴尬的沉默持续了十秒后，那个沉默寡言的家伙赞许地点了点头。“很不错。”'
+				gs 'arousal', 'flash', 5
+				gs 'stat'
+				'当你飞快地把身体遮好时，他的同伙和善地笑了笑，把包递还给你。“看吧？也没那么糟！”'
+				'你一把从他手里抢过包就走，以为他们这就算放过你了。可看他们眼里那股贪劲，你估摸着要是再被逮到，他们肯定不会只要这么点。'
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+		act '什么都不说':
+			*clr & cla
+			post_vars['burn'] = 1
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postburn.jpg"></center>'
+			'见你不吭声，他夸张地把信封往火苗里一送。几秒钟的功夫，你包里的东西就被火吞了个干净。'
+			'“你本来轻轻松松就能阻止这件事！只怪你太假正经了……”他残忍地咧嘴笑道。'
+			'他的同伙嘲讽地装作在信的余烬上烤火，大笑起来。“祝你找新工作顺利。现在滚吧！”'
+			'你拎起空包、垂头丧气地回到街上时才明白，他说得一点没错。你这回肯定要被开除了！'
+			act '返回邮局': gt 'post_deliveries', 'finishround'
+		end
+	elseif post_vars['bandit'] = 2:
+		'你跟着那两个男人又来到楼后，其中一人翻着你的包。'
+		'第一个拍了拍手，咧嘴一笑。“好了，姑娘。你知道我们想要什么。”'
+		act '再次露出你的奶子':
+			*clr & cla
+			post_vars['exhib'] += 1
+			inhib_exp += rand(1, 3)
+			if post_vars['exhib'] >=4: post_vars['bandit'] = 3
+			postboobsrand = rand(1, 4)
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postboobs<<postboobsrand>>.jpg"></center>'
+			'你耸耸肩，把衣服往两边一拉，由着那两个男人盯了一会儿。想想这样能省下多少时间，这点代价算不了什么！'
+			'那两个家伙盯着你，彼此低声耳语。“不，还不是时候……”你听到了这一句，但不确定他们在说什么。他们是在说你吗？'
+			gs 'arousal', 'flash', 5
+			gs 'stat'
+			'他们把包还给你，摆摆手把你打发走。看样子他们暂时是满足了。'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	elseif post_vars['bandit'] = 3:
+		'“脱光！”你一到楼后，其中一人就命令道。'
+		'“你是说……全部？”你一边飞快地露出胸部一边问。“我可以再给你们看我的奶子！看到了吗？！”'
+		'“全部！”他不耐烦地吼道，根本不理会你。“我想看看我们的新骚货长什么样……”'
+		'他的同伙只分了一半心思在你身上，一边翻着你的信件，想看看里头有没有什么好东西。'
+		'他在你包里没翻到中意的东西，就把目光落到了你身上。'
+		act '为他们脱光衣服':
+			*clr & cla
+			post_vars['bandit'] = 4
+			inhib_exp += rand(1, 6)
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/poststrip.jpg"></center>'
+			'你叹了口气，开始脱衣服，没一会儿就只剩鞋袜站在他们面前。'
+			'“你身材不错，姑娘。我迫不及待想好好熟悉一下！”其中一人咧嘴笑道。'
+			'“你嘴上的功夫怎么样？”另一个人揉着裆部，专注地问你。'
+			'“总会有机会的，”他的同伙笑道。“她今天做的已经够多了。”'
+			gs 'arousal', 'flash', 10
+			gs 'stat'
+
+			act '一笑而过，把衣服穿回去':
+				cla & *nl
+				'你耸耸肩一笑置之，趁那个话多的家伙还没变卦，飞快把衣服穿了回去。'
+				'“没关系，你很快就会有很多练习机会。之前那个送信女孩一开始烂得很，到最后却口交得像专业的一样！”那个令人毛骨悚然的家伙说。'
+				'他把包还给你，两人中较友善的那个得意地笑了笑。“就当这是你最后一次免费过关。你知道我们想要什么，所以要是再让我们在街上逮到你，你最好准备好让那张嘴干活！”'
+				'他们放你走了，可他们的话一直绕在你脑子里。不过这一趟派送你总算顺利跑完，没再出什么岔子。'
+
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+	elseif post_vars['bandit'] = 4:
+		'“你回来了。我猜是因为你想证明点什么？”那个流氓笑道，暗示着你们上次的谈话内容。'
+		'“你看着街上，我来试试她的本事。下次轮到你来，”他对同伙说，趁对方还没来得及反对，就把你带进了街上的一间公寓。'
+		'你的眼睛花了一分钟才适应黑暗；窗帘全都拉着，屋里唯一的光来自一台电视。'
+		*nl
+		'那男人三下两下脱光衣服，一屁股砸到床上，抓起了遥控器。你也把衣服脱了，觉得这正是他想要的。'
+		'“来吧，骚货。开始吸，”他命令你。他的鸡巴已经完全勃起，大得令人畏惧。'
+		'“可是……”你嘟囔道。'
+		'“你真以为我们会永远满足于匆匆看一眼你的奶子？”他尖锐地问，变得不耐烦起来。“你要是这么想，那可就比我想的还要天真。要是你想保住那份工作，我就要在十秒内感觉到那两片嘴唇含住我的鸡巴……”'
+		gs 'willpower', 'bj', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			act '乞求' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '乞求' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				gs 'willpower', 'pay', 'resist'
+				post_vars['bandit'] = 5
+				post_vars['hj'] += 1
+				gs 'boyStat', 'A104'
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/posthj1.jpg"></center>'
+				'“求你了，你不能逼我做这个！求你了……”你哀求道，打断了他的数数。“除了这个什么都行……”'
+				'那男人深深叹了口气。“反正你总得用某种方式让我射出来！好吧。这次就允许你用上手。不过你最好做得像样点！”'
+				*nl
+				'意识到这已经是你所能得到的最好条件，你在他面前跪下，开始给他手交。'
+				'“往上面吐点口水，姑娘。弄得又滑又顺，再表现得热情点！”他命令道，你赶紧照做。“对，就是这样……”'
+				'几分钟后，他呻吟起来。“我要射了！对着你的奶子撸出来！”'
+				'几秒后，一股股温热的精液喷溅在你双乳上。看到这家伙被伺候得如此满足，你心里竟泛起一丝得意。'
+				gs 'arousal', 'hj', 10, 'sub'
+				gs 'arousal', 'end'
+
+				act '找些纸巾把自己清理干净':
+					*clr & cla
+					post_vars['bandit'] = 6
+					post_vars['bj'] += 1
+					gs 'boyStat', 'A105'
+					'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postbj2.jpg"></center>'
+					'“你怎么还在这儿，姑娘？”另一个家伙看到你光着身子在公寓里晃来晃去地找纸巾时笑道。“你还想找更多鸡巴来吸吗？”'
+					'还没等你回答，他就抓住你的胳膊，强行把你拖到另一个房间。他懒得脱衣服，只是把鸡巴从裤子里掏出来，等着你把剩下的事做完。'
+					'"可我只给你的朋——"你想告诉他，但他一巴掌重重打在你脸上，打得你思绪全乱，只能乖乖注意他。'
+					'"把嘴张开，丫头！我不会再说第二遍！"他用威胁的语气说道。'
+					*nl
+					'你意识到他不会放你走，叹了口气，然后乖乖把嘴唇合在他的肉棒上。'
+					'他让你把整根鸡巴深深吞进喉咙好几次，彻底试探你的极限。他的鸡巴比他朋友的还大，你只能把嘴张到最大让他进入。'
+					'被不舒服地插喉咙几分钟后，他终于把精液射进你喉咙里，冲你咧嘴一笑。"你比上一个邮局婊子还棒！我已经开始期待下周了……"'
+					gs 'arousal', 'bj', 10, 'sub'
+					gs 'arousal', 'end'
+					gs 'cum_call', 'mouth_swallow', 'A105'
+					gs 'stat'
+					'你重新穿衣服时，无意间听到那两个家伙在说话。"她<i>干了什么</i>？！她只给我打了个手交！那婊子……她还在吗？"'
+					act '离开':
+						cla & *nl
+						'你赶紧找到自己的包，在他们再次找上你之前离开了公寓。要是再被他们抓住，谁都不可能满足于手交了……'
+						act '继续你的巡逻': gt 'post_deliveries', 'resume'
+					end
+				end
+				act '穿好衣服离开':
+					cla & *nl
+					'你迅速穿好衣服，无视身上那男人留下的精液。另一个家伙可能也会来找你！'
+					act '继续你的巡逻': gt 'post_deliveries', 'resume'
+				end
+			end
+		end
+		act '照他说的做':
+			*clr & cla
+			post_vars['bandit'] = 6
+			gs 'boyStat', 'A104'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postbj1.jpg"></center>'
+			'你跪在他面前，开始吸吮他的龟头。不到一分钟，你就感觉到几股苦涩的精液射进嘴里。他事先完全没提醒你，你被嘴里突然涌起的浓烈味道激得往后一缩。'
+			gs 'arousal', 'bj', 10, 'sub'
+			gs 'arousal', 'end'
+			gs 'cum_call', 'mouth', 'A104'
+			gs 'stat'
+			'"你天生就是干这个的！"他呻吟着，慢慢从高潮中缓过来。"又快又利索。不错！本来能更好，不过下次我们慢慢练。"'
+			'他摆摆手打发你走，注意力已经转到电视上。对他来说，你已经不存在了。'
+			'你迅速穿好衣服，从等在外面的另一个家伙手里拽回自己的包。他上下打量着你，眼神里满是不怀好意的猜疑。'
+			'你最好赶紧走，免得他也决定要分一杯羹……'
+
+			act '走开':
+				cla & *nl
+				gs 'stat'
+				'趁他还没来得及开口，你就快步离开了他，继续照常送信。尽管被耽搁了一阵，你反而比平时早了相当多完成，但嘴里那股腥涩的味道不断提醒你为此付出了什么。'
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+			act '问自己是不是也要给他口交':
+				*clr & cla
+				gs 'boyStat', 'A105'
+				'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postbj11.jpg"></center>'
+				'你觉得还是别惹他不高兴为好，于是停下脚步。"我也该帮你吗？"'
+				'"不用，但现在要了。跟我来，"他笑着说。'
+				'他根本不等你回答，抓住你的胳膊强行把你拖到另一个房间。他懒得脱衣服，只是把鸡巴从裤子里掏出来，等着你把剩下的事做完。'
+				'你乖乖把嘴唇合在他的肉棒上，他呻吟了一声，然后让你把整根鸡巴深深吞进喉咙好几次，彻底试探你的极限。他的鸡巴比他朋友的还大，你只能把嘴张到最大让他进入。'
+				'他把精液全射在你脸上，冲你咧嘴一笑。"你比上一个邮局婊子还饥渴！我们会跟你玩得很开心的……"'
+				gs 'arousal', 'bj', 10, 'sub'
+				gs 'arousal', 'end'
+				gs 'cum_call', 'face', 'A105'
+				gs 'stat'
+				'你重新穿衣服时，无意间听到那两个家伙在说话。"她也给你做了？！也许她比我们想的要享受得多？"'
+				act '继续你的巡逻':
+					cla & *nl
+					'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postgirl.jpg"></center>'
+					'你赶紧离开公寓，免得他们又来找你，然后顺利完成了这趟送信。之后你又碰到过那几个家伙几次，但除了说几句下流话，他们没再为难你。'
+
+					act '继续你的巡逻': gt 'post_deliveries', 'resume'
+				end
+			end
+		end
+	elseif post_vars['bandit'] = 5:
+		*clr & cla
+		post_vars['hj'] += 1
+		if post_vars['hj'] >= 5: post_vars['bandit'] = 6
+		posthjrand = rand(1, 5)
+		gs 'boyStat', 'A104'
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/posthj<<posthjrand>>.jpg"></center>'
+		'其中一个人领你进了公寓，你乖乖脱掉衣服，跪在他面前。'
+		'你努力装出点热情帮他手交，套弄之间不时用脸蹭蹭或舔舔他的鸡巴。'
+		'他很快就高潮了，你特意把他的鸡巴对准自己的奶子。不知怎的，精液溅在奶子上让你有种说不出的掌控感。'
+		gs 'arousal', 'hj', 10
+		gs 'arousal', 'end'
+		'你用纸巾迅速擦掉身上的精液，然后重新穿好衣服。'
+		if post_vars['hj'] >= 5:
+			'"你知道，我们已经拖得够久了。下次我要口交，行吗？"那家伙还沉浸在射精的快感里，呻吟着说。'
+			'你早就知道这一刻会来。"好……好吧……"你点点头，离开了公寓。'
+		end
+		'另一个家伙已经拿着你的包等在一边，放你上路。'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	else
+		*clr & cla
+		post_vars['bj'] += 1
+		if post_vars['bj'] <= 4:
+			postbjrand = rand(1, 4)
+		elseif post_vars['bj'] <= 7:
+			postbjrand = rand(1, 7)
+		else
+			postbjrand = rand(1, 10)
+		end
+		if post_vars['bj'] <= 4:
+			gs 'boyStat', 'A'+str(rand(104, 105))
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postbj<<postbjrand>>.jpg"></center>'
+			'在这些家伙决定这次谁拥有你之后，<<$boydesc>>领你进了公寓，你乖乖脱掉衣服，跪在他面前。'
+			'你尽职尽责地给这家伙口交，尽管你并不怎么情愿。你用舌头舔过他的龟头，再把嘴唇合上去，尽可能快地让他高潮。他没撑多久，几分钟内就射在了你嘴里。'
+			gs 'arousal', 'bj', 10
+			gs 'arousal', 'end'
+			gs 'cum_call', 'mouth', $boy
+			gs 'stat'
+		elseif post_vars['bj'] > 4 and post_vars['bj'] <= 7:
+			gs 'boyStat', 'A'+str(rand(104, 105))
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postbj<<postbjrand>>.jpg"></center>'
+			'在这些家伙决定这次谁拥有你之后，<<$boydesc>>领你进了公寓，你乖乖脱掉衣服，跪在他面前热情地为他口交，先舔他的蛋蛋挑逗他，再把他的鸡巴含进嘴里。他很快就高潮了，你想都没想就把他的精液吞了下去。'
+			gs 'arousal', 'bj', 10
+			gs 'arousal', 'end'
+			gs 'cum_call', 'mouth_swallow', $boy
+			gs 'stat'
+			'他躺在床上沉浸在高潮后的余韵里，你则重新穿好衣服继续送信，只有嘴里那股腥涩的精液味提醒你刚才做了什么。'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postbj<<postbjrand>>.jpg"></center>'
+			if postbjrand > 7:
+				'你冲那两个家伙咧嘴一笑。"别争了，伙计们！不如你们两个都跟我进来？"'
+				'他们简直不敢相信自己的耳朵，两人都跟你进了屋。你脱掉衣服，跪在他们中间。"来吧，男孩们！让我看看你们有多想要我！"你鼓励他们，两个家伙手忙脚乱地扒下裤子。'
+				'你轮流给他们两个口交，手上套弄着没含在嘴里的那根鸡巴。跟他们混了这么久，你已经知道他们喜欢什么，两人很快都射了出来。'
+				gs 'boyStat', 'A104'
+				gs 'arousal', 'bj', 5, 'dom'
+				gs 'cum_call', 'mouth', 'A104'
+				gs 'boyStat', 'A105'
+				gs 'arousal', 'bj', 5, 'dom'
+				gs 'cum_call', 'mouth', 'A105'
+				gs 'stat'
+				'"这就完了？！"你笑了起来，那两个家伙看起来还真有点对自己失望。'
+				'你冲他们眨眨眼，笑了。"没关系，我玩得挺开心！也许下次你们能撑久一点……"'
+			else
+				'你已经习惯伺候这些家伙，不再感到羞耻或犹豫。这只是工作的一部分。'
+				'趁他们还没决定谁跟你共度时光，你牵起其中一个的手，把他领进楼里。'
+				'你迅速脱光衣服跪了下来，然后去扯他的裤子。'
+				'"来吧，大男孩！"你咧嘴一笑。"帮我一把……你是想让我给你口交的，对吧？"'
+				*nl
+				'他被你的热情吓了一跳，默默让你把他的鸡巴从裤子里掏出来。'
+				'你立刻又撸又吸，想尽快让他射出来，好继续送信。'
+				'果然，他没撑多久。"就是这样！这就对了……"感觉到精液落在脸上时，你甜甜地冲他笑了。'
+				gs 'npcgeneratec', 0, '邮局里的男人', rand(18, 45)
+				gs 'boyStat', $npclastgenerated
+				gs 'arousal', 'bj', 10
+				gs 'cum_call', 'mouth', '邮局里的男人'
+				'你用手指迅速把精液抹进嘴里，然后在他面前夸张地一根根舔干净手指。他只能发出一声呻吟。'
+			end
+		end
+		'你迅速穿好衣服。既然你对他们的鸡巴越来越熟悉，这些家伙几乎占不了你多少时间了。'
+		'"再见，男孩们！下次见！"你冲他们咧嘴一笑。'
+		gs 'arousal', 'end'
+
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'finishround':
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postmaster.jpg"></center>'
+	if post_vars['burn'] = 1:
+		!! your mail got burnt
+		gs 'jobs', 'set_fired', 'pav_mailgirl'
+		'你两手空空地回到邮局，比应该回来的时间早得多。邮政局长一看你的脸色就知道出事了。'
+		'"出什么事了？你怎么这么早就回来了？"他相当担心地问。'
+		'"他们……他们把什么都烧了！有几个家伙拦住我，把所有信都烧了，纯粹为了找乐子！"你脱口而出。"我什么也做不了……"'
+		'最后那句是谎话，但他没必要知道他们想让你做什么。'
+		'他气愤地摇摇头。"我警告过你别走那几条街！我就知道会出事……该死，你让我别无选择。你被解雇了！"'
+	elseif hour = 14 and minut <= 30:
+		!! you''re back early
+		post_vars['late'] -= 1
+		'"哇，已经回来了？"邮政局长看到你这么早回来，问道。"我不知道你是怎么做到的，但继续保持！"'
+	elseif hour = 15:
+		!! you''re back late, you''re fired if it happens too often
+		post_vars['late'] += 3
+		if post_vars['late'] <= 3:
+			'"你迟到了。出什么事了？"你回到邮局时，邮政局长问道。'
+			'你耸耸肩。"路上耽搁了一会儿，但我把所有的信都送到了。看？"'
+			'看到你那张单子上所有签名都在该在的位置，他的怒气消了。'
+			'他宽厚地笑了笑。"嗯，这种事难免。活儿都干完了，干得不错。"'
+		elseif post_vars['late'] > 3 and post_vars['late'] < 12:
+			'"你又迟到了，"你回到邮局时，邮政局长说道。"至少把信都送到了吗？"'
+			'你点点头，他严厉的表情缓和了一些。"嗯……那好吧，"他还是有点不情愿地说。"不过人们按时收到邮件很重要。别养成习惯！"'
+		elseif post_vars['late'] >= 12 and post_vars['late'] < 15:
+			'"你又迟到了！"你走进邮局时，邮政局长嗤了一声，但你说信都送到了的话他根本听不进去。'
+			'"我不管！谁都知道邮件要在 ' + func('time', 'get_time_string', 15, 0) + '！之后也许你运气好，人们还在家，但你的好运长不了，"他说着，嘴里嘟囔着说你让邮政部门丢脸之类的话，声音随后提高。"我绝不容忍这种事！你再迟到一次，就滚蛋！听见没有？"'
+			'你知道争辩没用，只好点点头。'
+		else
+			gs 'jobs', 'set_fired', 'pav_mailgirl'
+			'"够了，<<$pcs_firstname>>！我警告过你很多次了，现在已经有人抱怨邮件送晚了，"邮政局长看到你又迟到了才进邮局，叹了口气。"你被解雇了。"'
+		end
+	else
+		!! you''re back at the normal time
+		if post_vars['late'] > 0: post_vars['late'] -= 1
+		'你按时回到邮局，包已经空了。'
+		'邮政局长看到你时笑了。"我想一切顺利吧？"'
+	end
+	*nl
+	!! possible responses to what happened during your round
+	if post_vars['qw_4'] = 1: post_vars['qw_4'] = 2 & '“一个签名缺失——哦，算了，是他啊，”当邮政局长注意到那个曾试图勒索你的变态的签名缺失时，干巴巴地说道。“不用解释。我希望你没听他的话吧？他对我们雇的每个女孩都来这一套。我已经向卡塔尔金警长报告过好几次了，但从来没什么结果。”'
+	if $job_status['pav_mailgirl'] = 'fired':
+		'“我最好还是让 阿列克谢 知道他得重新周六来上班了。我就知道不该信你！”他叹了口气，失望地摇着头走开了。看来你今天拿不到工钱了……'
+	else
+		gs 'jobs', 'paycheck', 'pav_mailgirl'
+		'你收到你的 ' + func('money', 'string_profit', 450) + ' 作为当天的工资。'
+	end
+	!! actions after your round is finished, default plus options if a long scene was triggered during your round
+	act '离开': gt 'pav_commercial'
+	if post_vars['qw_1'] = 2: act '回到那个已婚男人的家': gt 'post_events', '1'
+	if post_vars['qw_2'] = 2: act '回到热尼亚和阿尔谢尼的公寓': gt 'post_events', '2'
+	if post_vars['qw_3'] = 2: act '回到那个商人的家': gt 'post_events', '3'
+	exit
+end
+
+
+if $ARGS[0] = '1':
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postevent1-1.jpg"></center>'
+	'你走进一栋高档的公寓楼，通过对讲机告诉对方有他的包裹后，一个灰白头发的男人下了楼。'
+	'“太好了，今晚正好赶上！谢谢你！”他微笑着说。你照例让他签了字，正要转身离开，却突然感觉他的手搭在了你的肩上。'
+	'“呃，打扰一下，小姐……能请你帮个忙吗？”他问道。你能看出他很紧张。“是这样的……这是给我妻子的。我们的性生活一直挺乏味的，我希望能用这个给我们的关系注入一些新鲜感。这是我们的结婚纪念日礼物。”'
+	'他用手拍了拍包裹。“不过我不太确定尺码订对了没有！你看起来和她的身材差不多。你介……你介意试穿一下吗？”他紧张地结巴着。“要是弄错了，她会杀了我的！”'
+	gs 'willpower', 'exhib', 'resist', 'easy'
+	if pcs_willpwr < will_cost:
+		act '拒绝并继续你的回合' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拒绝并继续你的回合' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			cla & *nl
+			'“不行！要是你妻子知道别的女孩先穿过了那些衣服，她会怎么想？”你回答道。'
+			'那男人懒得再争辩，沮丧地关上了门，你则继续去送信。'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '问他包裹里是什么':
+		cla & *nl
+		post_vars['qw_1'] = 1
+		'“我不知道……也许吧。你给你妻子买了什么？”你问道。'
+		'他耸了耸肩。“是内衣。算是一种华丽的长睡裙吧。我也不知道，我觉得她会喜欢的。”'
+		'他看出你脸上的犹豫。“你可以在浴室里换，我不会看到任何不该看的东西！那件睡裙会把你遮得严严实实的！拜托，我是有家室的人！我只想让我妻子开心！”他急急忙忙地说。'
+		*nl
+		'在几秒明显的沉默之后，他恳求道。“求你了？我只需要看看合不合身。我真的需要这事顺利进行……我的婚姻可能就靠它了！我求你了！”'
+		gs 'willpower', 'exhib', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				cla & *nl
+				'“抱歉，不行。我真的不该这么做。我得走了！”你回答道。'
+				'那男人的肩膀垮了一些，他沮丧地关上门，你则继续去送信。'
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+		act '说你可以，但你还有工作要做':
+			cla & *nl
+			post_vars['qw_1'] = 2
+			'“那……听起来挺有意思，但我真的没时间，”你抱歉地说。“我还有邮件要送。”'
+			'他沉吟了几秒。“不如你送完这轮再回来？我妻子还要过几个小时才回家。好吗？”'
+			'“我会考虑的，可我现在真的得走了！”你说完便继续去送信。'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = '2':
+	post_vars['qw_2'] = 1
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postevent2-1.jpg"></center>'
+	'你走上楼梯去送信时，差点撞上一个喝醉的女孩。“嘿，小可爱！”她含糊不清地说着，朝你眨了眨眼。“什么风把你吹来了？”'
+	'“我，呃……我有一封给亚诺维奇先生的信？”你回答道。'
+	'“亚诺维奇先生现在可什么都没穿！”她笑着说。“他是我男朋友。把信给我就行，我保证他会收到。除非你想进来玩玩……？”'
+	act '坚持必须亲手交给他':
+		cla & *nl
+		'“抱歉，小姐，但我必须亲手交给他。这是规定，”你告诉她。'
+		'“随便你，我本来是想帮你个忙！”她嗤笑一声。“阿尔森！穿上裤子到门口来！”她朝楼上喊道。'
+		'没听到任何回应，她便招手让你跟着她进了公寓。你看到两个男人：其中一个一定是阿尔森，正抽着水烟；另一个在摆弄一台相机。两个人全都赤身裸体！'
+		*nl
+		'“阿尔森觉得让马克西姆在我们干的时候拍照会很有趣！他说我太辣了，不分享给全世界太可惜！他是不是最贴心的？”她冲你微笑。拿相机的男人漫不经心地朝你点了下头，又继续做他的事，而阿尔森则放下水烟站了起来。'
+		'“哟哟，这位辣妹是谁？她也要加入我们吗？”他问自己的女朋友。他看起来相当中意这个主意。'
+		'“也许吧！你觉得呢？想跟我们玩玩吗？”女孩咧嘴一笑，伸手搂住阿尔森的腰。“别担心马克西姆，他只是来拍照的。”'
+		gs 'willpower', 'sex', 'resist', 'easy'
+		if pcs_willpwr < will_cost:
+			act '拒绝并让他签字' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝并让他签字' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				cla & *nl
+				'“呃，不用了。我只需要你在这里签个名，好吗？”你一边说着，一边把写字板递给他。'
+				'阿尔森签收了信件，看着你时带着一丝失望。“你确定吗？我打赌热尼亚能教你一两招！你们俩看起来真的很合得来……”'
+				'他女朋友热切地点着头，冲你露出温暖的微笑。'
+				'“我相信她一定可以！”你笑了笑。“但我还有工作要做。”'
+				*nl
+				'你转过身朝门口走去时，热尼亚正热情地亲吻着她的男朋友。“别担心，宝贝。我会好好照顾你的！”她对他说。“马克西姆，你准备好了吗？”'
+				'你关上门前看到的最后一幕，是热尼亚在阿尔森面前跪了下去。'
+
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+		act '问他们能不能等你送完这轮':
+			cla & *nl
+			post_vars['qw_2'] = 2
+			'你抱歉地指了指自己的包。“现在不行。我还有几件要送！也许等我送完这轮再回来？”'
+			'女孩看着阿尔森笑了笑。“你觉得怎么样，宝贝？我可以先给你快速口交一下，等她回来我们再好好玩？好不好？我真的很喜欢她！”'
+			*nl
+			'阿尔森又把你上下打量了一遍。他讨厌等待，但确实希望你能加入。他重新坐回懒人沙发里，耸了耸肩。“行吧，我想可以，”他耸着肩又拿起了水烟。“那就开始吸吧。”'
+			'“等一下，宝贝！”她一边对阿尔森说，一边送你到门口，冲你露出坏坏的笑容。“这会非常棒的！我迫不及待想摸到你了……回头见！”'
+			'她在你嘴唇上快速亲了一下，然后关上了门。'
+
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = '3':
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postevent3-1.jpg"></center>'
+	'“什么？！”你按响一栋富裕社区公寓的门铃时，一个男人不耐烦地吼道。门打开后，你看到一个三十多岁、一副商人模样的男人。'
+	'“干嘛？你想要什么？”他耸了耸肩。他甚至毫不掩饰地把你从头到脚打量着，根本没怎么在意你在说什么。'
+	'“先生，我有个包裹给您！”你告诉他。“请在这里签名，好吗？先生？”'
+	'那男人看了看包裹，叹了口气。“我几个月前就订了！你们这些人真差劲……”'
+	*nl
+	'你正想告诉他这不是你的错，他就打断了你。“听着，我早就不操那个女孩了！她父母发现我的事之后就搬走了，还把她一起带走了。那么拼命地想保护他们的小丫头……”'
+	'他笑了笑，然后仔细打量着你。接着他脸上浮现出一抹令人毛骨悚然的笑容。“我说……让我问你一件事，小姑娘。你喜欢衣服吗？”'
+	'“你开玩笑吗？我当然喜欢衣服！”你耸了耸肩。“哪个女孩不喜欢？”'
+	'“那我有个提议给你！进来一会儿吧，”他咧嘴笑道。他让到一旁，招手让你进他的公寓。'
+	gs 'willpower', 'misc', 'resist', 'easy'
+	if pcs_willpwr < will_cost:
+		act '拿到他的签名就走' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拿到他的签名就走' + $func('willpower', 'get_willcost_string'):
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			cla & *nl
+			'这家伙真让人发毛！“呃……还是不了，先生。我只需要你在这里签个名，我好继续去送信……”'
+			'那男人得意地笑了笑，还是签了字。“你宁愿穷着，是吧？随你便。”'
+			'你还没来得及说任何话，他就砰地关上了门。'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '问他想要什么':
+		cla & *nl
+		post_vars['qw_3'] = 1
+		'“呃……为什么？”你问道。“你想要什么？”'
+		'他飞快地朝街上瞥了一眼，确认没人在偷听。“你说你喜欢衣服？我喜欢你这样可爱的小姑娘。你给我口交，箱子里不管是什么都归你。我保证你会想要箱子里的东西。而我想要你的嘴含住我的鸡巴。双赢。那么……有兴趣吗？”'
+		gs 'willpower', 'prostitution', 'resist', 'easy'
+		if pcs_willpwr < will_cost:
+			act '不感兴趣' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '不感兴趣' + $func('willpower', 'get_willcost_string'):
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				cla & *nl
+				'“先生，我不是那种女孩。我只需要你在这里签个名，我好继续去送信，”你回答道。'
+				'那男人得意地笑了笑，还是签了字。“随你便。”'
+				'你还没来得及说任何话，他就砰地关上了门。'
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+		act '问能不能下班后再回来':
+			cla & *nl
+			post_vars['qw_3'] = 2
+			'他说话的方式让这件事听起来有点诱人……不过你还有工作要做……'
+			'“我还有几件要送。等我送完再回来，可以吗？”你问道。'
+			'“你知道吗？行。这样我就能好好花时间陪你。但你要清楚：一旦你进了我家，你就要按我说的做。无条件地。我不想从你嘴里听到一个「不」或者「也许」，”他坚决地说。“我们成交吗？”'
+			'你感觉后背一阵发凉。'
+			gs 'willpower', 'prostitution', 'resist'
+			if pcs_willpwr < will_cost:
+				act '改变主意' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '改变主意' + $func('willpower', 'get_willcost_string'):
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					cla & *nl
+					'“哦。那我想我不会来了，先生。我只需要你在这里签个名，我好继续去送信。”'
+					'那男人冲你得意地笑了笑，不过还是在你指定的地方签了字，并把箱子从你手里拿了过去。“我们走着瞧。你们这些女孩都这么说，直到你们厌倦了现在这些薪水少得可怜的破工作，意识到自己本可以过得多舒服。要是你改了主意，就来找我——如果你有那个胆量的话……”'
+					'他朝你眨了眨眼，然后当着你的面砰地关上了门。'
+					act '继续你的巡逻': gt 'post_deliveries', 'resume'
+				end
+			end
+			act '说你会送完后再回来':
+				cla & *nl
+				'“成交。我送完就回来，”你回答道。“我大概会在 ' + func('time', 'get_time_string', 15, 0) + ' 左右忙完。”'
+				'“嘿……我迫不及待了。我感觉我们会成为好朋友的，”他咧嘴笑着在包裹单上签了字。“到时候见。”'
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = '4':
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postevent4-1.jpg"></center>'
+	'你按响门铃后，一个看上去相当猥琐的男人打开了门，身上只穿着一件浴袍。'
+	'他冲你咧嘴一笑。“我之前可没见过你来这儿送信……”'
+	*nl
+	'你还没来得及开口，他就敞开浴袍，露出半勃起的鸡巴。“如果你识相的话，我要你在十秒内用你的手摸上我的鸡巴，就像你之前的那些同事一样。除非你想让邮政局长收到投诉，说你派送途中拆开并损坏邮件？”'
+	'“你的邮件好着呢！”你大声说。'
+	'“哦，是吗？”他问。“这看起来还好吗！？”他在信封上撕开一道大口子，又握拳把信封揉皱。“因为在我看来这他妈一点都不好！”'
+	gs 'willpower', 'misc', 'self', 'hard'
+	if pcs_willpwr < will_cost:
+		act '你不在乎他是否举报你' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '你不在乎他是否举报你' + $func('willpower', 'get_willcost_string'):
+			cla & *nl
+			gs 'willpower', 'misc', 'self', 'hard'
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			'“我到这里的时候它还好好的！你看……签也好，不签也好，我无所谓。等他听说这件事，邮政局长会信我的话而不是你的！”你对他说，并看到他的底气动摇了一些。“如果<b>你</b>识相的话，就在事情闹大之前签了！”'
+			'男人很快恢复了姿态，嗤笑一声。“那我们就看看他信谁！除非你照我说的做，否则我他妈什么都不会签！而且我恰好认识邮政局长。他最讨厌的就是投诉。所以你想怎么样，姑娘？”'
+			'你又仔细打量了他一番，却看不出他是在虚张声势还是说真的。从你目前和邮政局长打交道的经历来看，你也拿不准他会信谁。不过他一直看起来像个讲道理的人。他肯定会信你的吧？'
+			gs 'willpower', 'hj', 'resist', 'easy'
+			if pcs_willpwr < will_cost:
+				act '坚持立场然后离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '坚持立场然后离开' + $func('willpower', 'get_willcost_string'):
+					cla & *nl
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+					post_vars['qw_4'] = 1
+					'你一句话也没再说，转身离开了他的公寓。但愿你对邮政局长会相信你的判断没错……'
+					act '继续你的巡逻': gt 'post_deliveries', 'resume'
+				end
+			end
+			act '退让并同意给他手交': gt 'post_events', '4'
+		end
+	end
+	gs 'willpower', 'hj', 'resist', 'easy'
+	if pcs_willpwr < will_cost:
+		act '从他身边逃跑' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '从他身边逃跑' + $func('willpower', 'get_willcost_string'):
+			cla & *nl
+			gs 'willpower', 'hj', 'resist', 'easy'
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			post_vars['qw_4'] = 1
+			'你一点都不喜欢事情这样发展！你觉得还是趁早离开他的公寓为好，于是冲向门口跑了出去。你一点都不信任他……谁知道他还会逼你做什么别的事？！'
+			'跑出几栋房子远后，你回头看了看，却发现以他当时那副打扮根本不可能追上来。'
+			'你深吸一口气，看了看手里的派送单，确认接下来要去哪里，同时努力把那个男人从脑子里赶出去。今天你的名单上会少一个签名，但只要你解释清楚发生了什么，邮政局长肯定会理解的吧？'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '求他不要这么做':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/sex/postevent4-2.jpg"></center>'
+		'“求求您，先生，我不想这么做！您知道这是不对的！您能不能就签个名放我走？”你哀求道，但他无视你的恳求，向你走近。'
+		'他的鸡巴现在已经完全勃起，顶端还渗出了一些前列腺液。他一定是靠欺负你来取乐！'
+		'“别害怕，姑娘！来吧，摸一摸它，就像你之前的那些同事一样，”他咧嘴笑着说。“只需要一分钟，然后你就可以带着完美的记录继续上路了。否则，我就只能让你被炒鱿鱼，然后指望下一个姑娘愿意为了保住工作付出代价……”'
+		gs 'willpower', 'hj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝并逃跑' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝并逃跑' + $func('willpower', 'get_willcost_string'):
+				cla & *nl
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				post_vars['qw_4'] = 1
+				'当他慢慢向你靠近时，你决定趁还来得及赶紧离开他的公寓逃走。谁知道他还会逼你做什么别的事！？'
+				'跑出几栋房子远后，你回头看了看，却发现以他当时那副打扮根本不可能追上来。你深吸一口气，看了看手里的派送单，确认接下来要去哪里。今天你的名单上会少一个签名，但邮政局长肯定会理解的吧？'
+				act '继续你的巡逻': gt 'post_deliveries', 'resume'
+			end
+		end
+		act '照他说的做，给他手交': gt 'post_events', '4'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '5':
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postevent5-1.jpg"></center>'
+	'你刚送完这一轮，正在返回邮局的路上，这时你遇到一群小伙子在旅舍外聊天。'
+	'你从他们身边走过时，其中一个人跟你打招呼。“不好意思？你好！我们不是本地人，只是来这儿过周末的。你愿意坐下来和我们聊一会儿吗？你看起来需要休息一下！”'
+	'另一个人插嘴道。“我们想请你给我们指指这儿有什么好玩的地方？我们订了住整个周末的房间，可除了宫殿，这地方看起来挺无聊的！”'
+	if post_vars['load'] = 0: '你飞快地瞥了一眼手机，发现自己还有一点空余时间。'
+	if post_vars['load'] = 1: '你飞快地瞥了一眼手机，发现自己大概能在 ' + func('time', 'get_time_string', 15, 0) + ' 回到邮局。不过你不能在这儿待太久……'
+	if post_vars['load'] = 2: '你飞快地瞥了一眼手机，发现自己已经落后于计划了。你大概该继续走了……'
+
+	if post_vars['load'] = 0:
+		gs 'willpower', 'misc', 'resist'
+	else
+		gs 'willpower', 'misc', 'resist', 'easy'
+	end
+	if pcs_willpwr < will_cost:
+		act '你没有时间' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '你没有时间' + $func('willpower', 'get_willcost_string'):
+			cla & *nl
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			'“抱歉了各位，我还有邮件要送！没时间聊天！”你说完就继续往前走。'
+			'你本来还担心他们会更纠缠，但他们没再烦你。'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '和他们聊一会儿':
+		*clr & cla
+		minut += 10
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/events/postevent5-2.jpg"></center>'
+		'“呃，好吧，我能挤出几分钟，”你说，小伙子们友好地冲你笑了笑，把你领进了楼里。'
+		'他们把你带到他们的房间，几个人都坐在双层床上。你对他们有了些了解，得知他们是来自 诺夫哥罗德 的游客，有人告诉他们巴甫洛夫斯克有很多好玩的事。'
+		'其中一个人离开房间，回来时端着一托盘啤酒。他也递给你一瓶。“我知道你还得回去上班，不过路上喝一瓶？”'
+
+		act '上班的时候不行':
+			cla & *nl
+			post_vars['qw_5'] = 1
+			'要是邮政局长哪怕有一丝怀疑你在上班时喝酒，他肯定会开除你！'
+			'“我真的不该喝。不过谢谢你的好意！”你回答，婉拒了那瓶啤酒。'
+			*nl
+			'小伙子们又和你聊了几分钟，你跟他们讲了讲在巴甫洛夫斯克停留期间可以做的事，但他们似乎对你提的任何建议都不太感兴趣。其中一个人随后非常隐蔽地对其他人摇了摇头。你大概本不该看到这一幕……'
+			'另一个人打断你。“嗯，认识你很高兴，但我们不该再耽误你工作了。你快下班了吗？也许你晚些时候可以带我们在城里转转？我们很想再和你多待一会儿！”'
+			'你把这当作离开的暗示，拿起你的包。“我会考虑的。再见，各位！”'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = '6':
+	gs 'stat'
+	'送信途中，你要走很多路。今天的路线特别糟糕；各个地址彼此之间似乎都隔得很远，而且感觉你的包也比平时重。你的双脚正乞求着让你休息一下……'
+
+	if post_vars['load'] = 0:
+		gs 'willpower', 'misc', 'resist'
+	else
+		gs 'willpower', 'misc', 'resist', 'easy'
+	end
+	if pcs_willpwr < will_cost:
+		act '没时间' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '没时间' + $func('willpower', 'get_willcost_string'):
+			cla & *nl
+			gs 'willpower', 'pay', 'resist'
+			gs 'pain', 3, 'feet', 'ache'
+			gs 'mood', 'lower', 'small'
+			gs 'stat'
+			'虽然你很想坐下来歇一分钟，但你觉得还是先把邮件送完比较好。等做完了就能放松了。'
+			'你无视酸痛的双脚，继续走向下一个地址，再下一个。你努力不让双脚拖慢脚步，但你越是无视那疼痛，它就越是加剧。'
+			'时间久了你也习惯了，但那种持续不断的隐痛在你继续派送的过程中慢慢消磨着你的心情。'
+			act '继续': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '休息五分钟':
+		cla & *nl
+		minut += 5
+!! decides whether a pet walks by while you rest
+		petrand = rand(1, 100)
+		if petrand <= 30:
+			gs 'mood', 'raise', 'tiny'
+			gs 'stat'
+			'你坐下来，花几分钟打量周围的景象，只是享受着看路人忙碌地过着自己的日子。当你起身继续派送时，感觉更放松、更有精力，准备好再次面对世界。'
+		elseif petrand <= 60:
+			*clr
+			gs 'mood', 'raise', 'small'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/petcat.jpg"></center>'
+			'你决定坐下来休息几分钟，让你酸痛的脚得到喘息。'
+			'一只灰猫好奇地看着你，见你还坐着，便走了过来。你花了几分钟抚摸这只满意地呼噜着的猫，当你起身继续派送时感觉更放松了。'
+		elseif petrand <= 90:
+			*clr
+			gs 'mood', 'raise', 'small'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/petdog.jpg"></center>'
+			'你决定坐下来休息几分钟，让你酸痛的脚得到喘息。'
+			'一对友好的夫妻遛着狗，愉快地和你聊了几分钟，你一边聊一边摸着狗。'
+			'当你起身继续派送时，感觉棒极了。'
+		else
+			*clr
+			gs 'mood', 'raise', 'large'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/catgirl.jpg"></center>'
+			'你决定坐下来休息几分钟，让你酸痛的脚得到喘息。'
+			'你刚坐下不久，一个戴着猫耳的可爱女孩路过！她开心地朝你挥手，然后走到你面前。'
+			*nl
+			'她原来是个非常开朗活泼的人，在你休息的时候热情地跟你聊些琐碎的事。'
+			'你们聊天时，她快活的性格感染了你，等到你们分开时你感觉棒极了。你脚步轻快地继续派送。'
+		end
+		act '继续你的派送': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '7':
+	pcs_horny += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/window.jpg"></center>'
+	'继续沿着派送路线往前走，你瞥见附近一扇窗户里有位女人，正满怀期待地望着街道。她全身赤裸！你琢磨着她在等谁……'
+
+	act '继续': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '8':
+	minut += 15
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/streets.jpg"></center>'
+	'又走过几排房子，又是一条街的邮件等着投递。你才走到这排建筑的一半，就听见线头绷裂的声音，邮包被猛地一扯。你回头一看，发现是钉子划开了你的包，还有散落在地上的那一堆信件。'
+	'你叹了口气，弯下腰花了几分钟把它们一一捡回来，硬塞进破了的包里。当你站起身继续派送时，你意识到自己现在得时刻留意别再弄丢东西。这肯定会拖慢你今天的进度！'
+
+	act '继续你的派送': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '9':
+	gs 'mood', 'lower', 'medium'
+	pcs_hairbsh = 0
+	if pcs_makeup > makeup['base']: pcs_makeup = 0
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/splashed.jpg"></center>'
+	'走过一家，又走过两家。这一排房子你送得顺风顺水，感觉没什么能拦得住你！'
+	'然而，一位司机似乎另有打算。你发誓他是故意冲着那摊积水去的，溅了你一身又脏又冷的水。'
+	'你或许能把湿透的T恤穿得挺好看，但这绝对给你的心情泼了盆冷水！'
+
+	act '继续': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '10':
+	gs 'stat'
+	if temper > 0: '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/angrydog.jpg"></center>'
+	if temper <= 0: '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/angrydogw.jpg"></center>'
+	'当你来到下一个地址时，你刚一伸手去够大门，就看见一条大狗龇着牙。你绝不可能去开那扇门！'
+	'你快速扫了一眼签名表，意识到这户人家你不能跳过。'
+	'等等，你刚才是不是看到屋里有人影在动？'
+	if pcs_intel > 60:
+		act '绕到房子后面':
+			cla & *nl
+			minut += 2
+			'你很快发现前院和后院并不相通，在数清了该去的是哪栋房子后，你试着绕到后面去。'
+			'屋主看到你突然出现在她家后院有点吃惊，但随即明白了。“哦，别在意Boomer！我知道他看着吓人，可他只是想玩而已！”'
+			'她为邮件签了名，好让你继续派送。你离开这条街时仍能听见那条狗愤怒的吠叫。不管那位女士怎么说，你都绝不会踏进那个院子！'
+
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '试着引起狗主人的注意':
+		minut += 5
+		gs 'stat'
+		cla & *nl
+		'过了好一阵子，屋里的人才终于明白你需要跟他们说话，几分钟后，一个女人带着歉意的微笑走了出来。'
+		'“真抱歉，他平时从来不这样的！他大概只是想去玩！”她说着，终于为邮件签了名。'
+		'你总算拿到了她的签名，不过那确实耽误了你几分钟……'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '11':
+	minut += 10
+	gs 'mood', 'lower', 'small'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/shops.jpg"></center>'
+	'你来到一排看上去相当破旧的店铺前，这里有一件小包裹要送。不知为何，海报上的门牌号跟地址上的号似乎对不上。'
+	'尽管你费尽力气，找到那个地方还是很艰难。店主们也帮不上什么忙，一发现你不是来买东西的，就只是耸耸肩、哼一声。'
+	'终于，你找到一段通往一间破旧办公室的楼梯。那男人看你的眼神像是没空理你。“你迟到了，”他嘟囔道。“这东西我一小时前就要用！赶紧走，别耽误我干活！”'
+	'你费了一番口舌，他才终于签了名让你离开，不过又抱怨了一遍你迟到多久。真是个混蛋……'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '12':
+	gs 'stat'
+	if (daystart-NatbelQW['pregday']) > 90 and NatbelQW['pregday'] > 0:
+		if (daystart-NatbelQW['pregday']) < 200:
+			'<center><img width="356" src="images/characters/pavlovsk/school/girl/natasha/16(2).jpg"></center>'
+		else
+			'<center><img width="356" src="images/characters/pavlovsk/school/girl/natasha/16(3).jpg"></center>'
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big16.jpg"></center>'
+	end
+	if NatbelQW['chrispaid'] >= 3:
+		'你的下一个地址很眼熟：是娜塔莎·别洛娃家，你的一个同学。看来你要给她带去坏消息了；寄给她母亲的不是一封，而是<i>两封</i>最后通牒！天哪，这家人到底欠了多少债？！'
+	else
+		'你的下一个地址很眼熟：是娜塔莎·别洛娃家，你的一个同学。看来你要给她带去坏消息了；不是一封，而是<i>两封</i>最后通牒！天哪，这姑娘到底欠了多少债？！'
+	end
+	'娜塔莎打开门，看到你时笑了笑。“嗨，<<$pcs_nickname>>！哦……哦，不会又来了吧！”'
+	'她的神色黯淡下来，眼里开始泛起泪花，一边在你的签名表上签名。随后她无力地朝你挥了挥手道别，为你看到她这副窘境而感到相当难堪。'
+
+	if NatbelQW['Debt'] > 0:
+		act '提醒她，她还欠你钱':
+			cla & *nl
+			'“我希望这不意味着你能赖掉欠我的钱？”你严厉地问她。'
+			'她咬着嘴唇摇了摇头。“我……我不会的，<<$pcs_nickname>>。我会想办法还你的。”'
+			'“很好，”你满意地点点头，离开了她的公寓。'
+			if NatbelQW['QWstage'] >= 5: '下楼时你露出邪恶的笑容，把她说的话在脑中一遍遍回放。“我会想办法还你的！”她这么说……你能想到好几种办法！至于她会不会喜欢，那就是另一回事了……'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '留下几分钟，试着安慰她':
+		cla & *nl
+		minut += 10
+		gs 'npc_relationship', 'modify', 'A16', 'adore'
+		gs 'stat'
+		'她现在看起来真的很需要一个朋友。'
+		'“娜塔莎，等等！”你说道，把脚伸进门缝，让她关不上门。'
+		'你走进她的公寓时，她已经没力气反对了；你扶着她的肩膀，和她聊了大约十分钟。'
+		'到最后，你又能看到她脸上浮起一丝淡淡的微笑。这也许没能让她的问题消失，但至少你让她感觉好了一点。'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '13':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big112.jpg"></center>'
+	'你的下一封信要送给一个你认识的人：是谢尔盖叔叔。你走上熟悉的楼梯来到三楼，按响门铃，果然几秒后他就开了门。'
+	'“嗨，<<$pcs_firstname>>！有什么我能帮你的吗？”他说着，露出自信的微笑。“哦，你现在开始送信了，对吧？”'
+	'你点点头，把邮件递给他换一个签名。随后他朝你挥挥手，慢慢关上了身后的门。'
+	if momslut >= 1:
+		'就在他要把门完全关上之前，你发誓你看到母亲只裹着一条浴巾从谢尔盖的公寓里走过！她的头发也乱糟糟的……'
+	else
+		'就在他要把门完全关上之前，你看到一个赤裸的女孩从谢尔盖的公寓里走过！不过你没看清她是谁……'
+	end
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '14':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big28.jpg"></center>'
+	'下一件包裹是送给……你的继父？你不知道他还订了东西！'
+	'“哦，嗨，<<$pcs_nickname>>！”他看见你时说。“你干嘛按门铃——哦哦哦！嘘！把它给我！”'
+	'他飞快地从你手里抢过包裹，藏到背后，这时你母亲走进了门厅。'
+	'“你在这儿干什么，<<$pcs_nickname>>？我以为你在上班？”她一边问，一边狐疑地上下打量你。'
+	'你的继父朝你投来一个哀求的微笑，希望你能替他圆场。他显然不想让你母亲知道这个包裹的事。'
+
+	act '告诉她你忘了东西':
+		cla & *nl
+		gs 'npc_relationship', 'modify', 'A28', 5
+		gs 'stat'
+		'“我忘了拿手机，”你笑着说。“我派送到这附近，就顺路回来拿一下。”'
+		'“你有时候真是丢三落四，<<$pcs_nickname>>！”她回了一句，转身回了厨房。'
+		'你的继父感激地朝你点点头，在签名表上签了字。“谢了，<<$pcs_nickname>>……”他低声说。“我不想让你母亲知道是我给她买的。我在等合适的时机给她一个惊喜。”'
+		'你会意地朝他点点头，转身离开。下楼时，你忍不住琢磨他到底给她买了什么。'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	act '告诉她你在送包裹':
+		cla & *nl
+		gs 'npc_relationship', 'modify', 'A28', -5
+		gs 'stat'
+		'“是啊，<<$npc_nickname[''A29'']>>。我刚刚在送一个包——”你说道，可你的继父迅速避开你母亲的视线，用手捂住了你的嘴。'
+		'“她忘带手机了！”他脱口而出，你听见母亲在门厅里笑了起来。'
+		'“我那个女儿有时候真是丢三落四！”她回了一句，接着你听见她走回了厨房。'
+		*nl
+		'“你怎么回事？！你母亲不知道我买了这个，因为我想给她一个惊喜！”你的继父低声抱怨，显然对你差点毁了他的惊喜很恼火。'
+		'他飞快地在签名表上签了字，砰地关上门。下楼时，你忍不住琢磨他到底买了什么。'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '15':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postdoor.jpg"></center>'
+	'下一个地址开门的是个长相相当吓人的家伙，那是某栋楼四楼的一套公寓。他一只眼睛上有一道疤，用不信任的眼神看着你。'
+	'“我有一件包裹要送给Y先生——”你刚开口，就被他打断了。'
+	'“有人跟踪你吗？”他尖声问道。“怎么样？”'
+	'你摇了摇头，他瞥了一眼走廊，又问了一遍。“你确定？好好想想！”'
+	*nl
+	'你回答得太慢，他一把从你手里抢过包裹，当场就拆开了。里面的东西让他露出了笑容，不过你看不到装的是什么。'
+	'“你没见过我！”他威胁地说。“要是有人问起，你什么都没看见，什么都没听见，谁也没见过！明白吗？！”'
+	'你只是点点头，他哼了一声。“很好。现在滚吧！”'
+	'他转过身时，你能清楚地看到他夹克里一把枪的轮廓。你绝对不想再招惹他，于是赶紧在签名表上伪造了一个签名，重新下楼去了。这件包裹肯定不会有投诉，但你忍不住琢磨他为什么这么疑神疑鬼。更确切地说：你刚才到底给他送了什么！'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '16':
+	gs 'mood', 'lower', 'large'
+	minut += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postclinic.jpg"></center>'
+	'下一个地址是巴甫洛夫斯克诊所。接待台后的女孩看了你一眼。“哦，邮件啊。那是给医生的。他在自己的办公室，右手第三扇门。你能帮我送过去吗？我现在有点忙。”'
+	'你耸耸肩，沿走廊走去，推开了她说他会在的那扇门。你僵住了……'
+	*nl
+	'你面前是两个人，躺在金属台面上。一男一女。都赤身裸体。而且明显已经死了。这肯定是搞错了！他们不可能指望你进这种地方来！'
+	'你正要退出房间，前台接待员气喘吁吁地沿着走廊冲了过来。“我说的是右边第二扇门！第二扇！真是太抱歉了！”'
+	'“呃，没、没关系……”你嘟囔道，心里仍然惊魂未定。'
+	act '让那女孩带你去医生办公室':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/doclaugh.jpg"></center>'
+		'“哦，她把你领错房间了？”当前台接待员解释你为什么脸色这么苍白时，医生笑了起来。“塔尼娅，你这可不太聪明啊！”'
+		'他没有多想就在你的表格上签了字，然后打发你离开。塔尼娅送你走出诊所时一路道歉，你的心还在怦怦直跳。'
+		'那些死人的画面会缠着你一段时间……'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '17':
+	minut += 5
+	pcs_horny += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/boundgirl.jpg"></center>'
+	'到了下一个地址，该由那个男人签字时，你的笔似乎没墨水了。'
+	'“呃。进来吧，”他哼了一声。“我应该在哪儿有支备用的笔，可以给你。”'
+	'你正要向他道谢，走进他的公寓时却被眼前的景象惊得一愣：一个几乎全裸的女孩躺在沙发上，手腕和脚踝被铐在一起。'
+	*nl
+	'“别在意她，”那男人得意地咧嘴一笑。“这蠢屄管不住自己的嘴，现在正挨罚呢。是不是啊，宝贝？”'
+	'那女孩一声不吭，只是用她那双蓝色的大眼睛看着你。你能看出她因被人看到这副样子而羞愧难当，但似乎并不痛苦。'
+	'“弟兄们马上就到。你就乖乖躺在这儿，漂亮一会儿吧！”他得意一笑，然后转回头对你说。“我发誓她是故意的！发骚的小婊子……总之，笔给你。你就留着吧。祝你今天愉快，小姐。”'
+	'他把你送出门，你离开时又飞快地瞥了那女孩一眼。你不禁琢磨，他到底给她准备了什么……'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '18':
+	minut += 5
+	pcs_horny += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/stonedgirl.jpg"></center>'
+	'还没走近那栋房子，你就已经能隐约闻到大麻味了。你敲了敲门，一个一丝不挂的女孩几乎立刻就开了门。'
+	'要是气味能砌成墙，你刚才就是被整整一面撞了个正着。那味道浓得根本没法忽视，熏得你眼睛都开始流泪。'
+	'“呃……你好。我，呃……我有你的邮件……”你一边揉掉眼里的泪水，一边盯着女孩赤裸的身体，结结巴巴地说。'
+	'她只是咧嘴一笑，似乎一点也没觉得被冒犯。“不用不好意思，甜心！尽情闻吧……想看多久就看多久。我没什么好藏的！尤其不会对你这么可爱的人藏……”'
+	*nl
+	'她又抽了一口烟，脸上带着撩人的笑容把烟雾吹开，同时摆出一个姿势，随手揉捏起自己的乳房。'
+	'“啧，你真没劲……”当你让她签了字好继续上路时，她嘲弄地哼道。“你确定不想进来待一会儿？你看起来压力挺大的。我打赌我能帮你放松放松……”'
+	'你客气地谢绝了邀请，转身继续送信。你发誓，光是在那栋房子旁边站了那么久，你就已经觉得有点腿软了！'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '19':
+	minut += 2
+	pcs_horny += 15
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/postcock.jpg"></center>'
+	'到了下一个地址，你还没来得及按门铃，门就自己开了。看清开门的人时，你忍不住多看了一眼：那男人一丝不挂，而真是个了不得的男人！他的身材简直像被精心雕琢过，堪称男人身体的极致，两腿之间还晃着一根巨大的半硬鸡巴。'
+	'他用力清了清嗓子，你这才猛然意识到自己一直在盯着他的鸡巴看！'
+	'“哇……我，呃……我有邮件……所以，呃……对！”你语无伦次，眼睛还是没法从他身上移开。'
+	*nl
+	'那男人笑了起来，从呆站着的你手里拿过写字板。“要我自己去你包里找我的邮件吗，还是……？”'
+	'你迅速回过神来，一边找出他的邮件一边低声道歉。'
+	'“谢谢！祝你今天愉快，小姐！”他友好地朝你点了点头，然后又把门关上了。'
+	'你把脸埋进双手里，深深叹了口气；那男人现在会怎么想你啊？！那绝对不是你最光彩的一刻……'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '20':
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/hugeman.jpg"></center>'
+	'你的下一个地址在城里一个非常破败的区域；你认识的很多人都拒绝来这儿，因为这里实在太危险了。'
+	'你到了那栋公寓楼，爬上楼梯。楼道里的灯坏了，你只能靠走廊尽头窗户透进来的光勉强看清路。更糟的是，几个身材魁梧的家伙挡住了你的去路。'
+	'你尽量从他们中间挤过去，努力不惹恼他们。'
+	'“打扰一下，小姐。你掉了这些，”你听到身后传来一个低沉的嗓音。其中一个男人用巨大的拳头捏着几个信封，朝你友善地笑了笑。你谢过他，继续朝目的地走去。'
+	act '继续':
+		*clr & cla
+		minut += 20
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/oldlady.jpg"></center>'
+		'你在走廊尽头找到了地址上的那户人家，一位老太太很快就开了门。'
+		'“你好啊，亲爱的！快进来，我刚泡了茶！”她咧着几乎没牙的嘴笑着说，完全没理会你手里的信封。“来呀，坐！终于有客人来了，真好……”她叹了口气，以她这把年纪少见的力气把你按进了椅子里。'
+		'她递给你的茶烫得厉害，于是你一边聊着琐事，一边试着看能不能喝了。'
+		*nl
+		'你在这儿纯属浪费时间，但老太太似乎很高兴有客人来，所以茶没喝完你也不敢起身。'
+		'“谢谢您，但我真的得走了！”看到她又准备给你倒一杯，你带着歉意笑了笑。'
+		'“你们年轻人总是忙忙碌碌的！”她开怀大笑，然后递给你一个小纸袋。“来，至少带点饼干！你看起来路上正需要点吃的！”'
+		*nl
+		'你走出大楼时，那几个魁梧的男人友好地朝你点了点头，祝你今天愉快。也许这片区域到底也没那么糟……而且那些饼干也真的很好吃！'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '21':
+	minut += 5
+	pcs_horny += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/girltail.jpg"></center>'
+	'“我有份快递要送给，呃……「热辣翘臀」？”门开时，你照着单子念出这个名字问道。这肯定不对吧……'
+	'“已经到啦！”女孩尖叫道。她不知为何穿着女仆装。“这太棒了！”她一把从你手里抢过包裹，冲进屋里，完全无视了你。'
+	'“小姐？您还得签字！小姐？！”你冲着她的背影喊道，却没有得到任何回应。你深深叹了口气，走进屋里。'
+	*nl
+	'你发现那女孩躺在床上，戴着一个连着尾巴的肛塞。她还在快感中喘息，多半是刚把它塞进去。她的小穴泛着水光，此刻她兴奋得不行。'
+	'“我的新尾巴！是不是超可爱？我现在好开心！主人也一定会很开心！你最棒了！”她又一次尖叫起来，高兴得忘乎所以。她光着的屁股来回摆动，看起来就像在朝你摇尾巴。'
+	'看到她的签名活像一只猫爪时，你一点也不觉得意外了。'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '22':
+	minut += 3
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/manorman.jpg"></center>'
+	'你的下一站是湖边的一栋豪华宅邸。车道很长，但因为需要有人签字，你不能就把邮件丢在路边的信箱里。'
+	'你正要开始这段长途跋涉，却惊讶地看见一个年轻男人利索地翻过了围墙。他全身上下只穿着一条内裤。'
+	'“你好啊，小姐！”他喘着气，却仍露出迷人的微笑。“能不能麻烦你告诉我，去……哪儿都行，只要不是这儿，最快的路怎么走？”'
+	*nl
+	'你听到一阵骚动，看见一个年长的男人气势汹汹地冲下车道，而一个年轻得多、身材极为惹火的女人用毛巾遮着赤裸的身体，在门口尖叫。你给这个陌生男人指了去火车站的路，他道了谢便飞快跑走了。'
+	'“那混蛋跑哪儿去了？！”年长的男人终于跑到你面前时吼道。“你，小姑娘！你看见他往哪儿去了吗？！”'
+	'你只是耸耸肩，把他的邮件递给他。他心不在焉地签了字，一边扫视着街道，一边回头瞪着那个你猜是他妻子的年轻女人。'
+	'你相当确定自己已经猜到了刚才发生了什么，但没时间深究。你丢下那男人，继续送信。'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '23':
+	pcs_horny += 10
+	if temper > 0: '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/voyeur.jpg"></center>'
+	if temper <= 0: '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/voyeurw.jpg"></center>'
+	gs 'stat'
+	'去往下一个地址的路上，你听到树丛后传来一阵咯咯笑声，便停下脚步。'
+	'你好奇发生了什么，拨开几根树枝，结果一眼就看到了一个女孩的屁股！她的长裤和内裤褪到了膝盖处，正得意地朝男朋友笑……直到她看见了你。'
+	'“呀啊！”她尖叫一声，飞快地把裤子提了起来。'
+	'你咯咯一笑，继续往前走，知道好戏已经结束了。你继续赶路时，还能听见那两人在拌嘴。'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '24':
+	pcs_horny += 5
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/mailbox.jpg"></center>'
+	'你走过城里那片高档住宅区时，看到了一个再奇怪不过的信箱！住在这儿的人一定很有钱，连信箱都这么讲究……'
+
+	act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	exit
+end
+
+
+if $ARGS[0] = '25':
+	pcs_horny += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/domme.jpg"></center>'
+	'你敲了好几次门，但没人应。不过你知道屋里有人——你能清楚地听到里面的动静。'
+	'就在你快要放弃时，门终于开了。开门的女人微微喘着气；头发有些凌乱，浑身是汗，但你首先注意到的是她的穿着：一身皮革，而且极其暴露！'
+	'你忍不住打量起她其余的装扮，这才注意到她身上戴着一根巨大的假阳具。她俏皮地用鞭子把它上下拨动。“嗯？你想要什么？”她用命令般的语气问道。'
+	'你没来得及马上回答，她便用力咳了一声。“我的眼睛在上面呢，姑娘！有话快说，我还有事要办！”'
+	'她瞪了你一眼，你觉得自己在她面前一点点缩了下去……'
+
+	act '道歉并把邮件交给她':
+		cla & *nl
+		'“我有个包裹要送给……玛德琳 女王？”你低声说。“就是你吧？对不起，我只是——”'
+		'“就是我，”她打断道。“来得正是时候！他之前得意得不行，觉得自己能受得住这个……这根会让他老实点的！”她咧嘴一笑，飞快地签收了包裹。“谢了，亲爱的。”'
+		'她说的该不会就是那根假阳具吧？从包裹的大小来看，它甚至比她此刻戴着的那根还要大！'
+		'她一边撕开盒子一边飞快地关上门。你还能隔着门听见她的声音。“我订的「黑色种马」刚到，宝贝！希望你准备好了！”'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+if $ARGS[0] = '26':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/postoffice/smallboy.jpg"></center>'
+	'送信途中，你突然感觉包被人轻轻拉了一下，身后传来一个轻柔的声音。“呃……打扰一下，小姐？”'
+	'你转过身，什么也没看到，直到低下头；那儿站着一个小男孩，手里拿着一张画了大大的粉色爱心的纸条。'
+	'“你是送信的吧？”他问道。你点了点头，他接着说。“能麻烦你把这封信送到吗？是给那边那个女孩的！”'
+	'他大致朝一个方向指了指，你看见街对面有个和他年纪相仿的女孩正和母亲一起走着。她们转过街角，消失在了视线里。'
+	if post_vars['load'] = 0:
+		gs 'willpower', 'misc', 'resist', 'hard'
+	else
+		gs 'willpower', 'misc', 'resist'
+	end
+	if pcs_willpwr < will_cost:
+		act '拒绝并说你赶时间' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拒绝并说你赶时间' + $func('willpower', 'get_willcost_string'):
+			cla
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			'"抱歉，孩子，可我没时间帮你送这封信。今天忙得很！"你耸耸肩，继续往前走。'
+			'男孩的肩膀耷拉下来，他难过地看着手里的那封信。'
+			act '继续你的巡逻': gt 'post_deliveries', 'resume'
+		end
+	end
+	act '替他送这封信':
+		*clr & cla
+		minut += 10
+		gs 'mood', 'raise', 'small'
+		gs 'money', 'earn', 100
+		gs 'stat'
+		if temper > 0: '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/smallgirl.jpg"></center>'
+		if temper <= 0: '<center><img <<$set_imgh>> src="images/locations/shared/postoffice/smallgirlw.jpg"></center>'
+		'"当然，先生！把信给我，我这就直接给她送去！"你对他说。'
+		'男孩满脸笑容地把信交给你。你快步朝刚才看到那女人和她女儿离开的方向走去。'
+		'你有一阵子跟丢了她们，但稍一寻找就又看到了她们。"打扰一下，小姐！我有封信要给您！"你朝她们喊道，并向她们走过去。'
+		'那位母亲惊讶地看着你，但你没等她开口就拦住了她。"不是给您的，是给她的！"你一边说，一边把信递给小女孩。'
+		*nl
+		'她得靠母亲帮忙才能读懂信上的内容，可当母亲告诉她这封信是谁写的时，她脸上绽开了大大的笑容。这也许花掉了你几分钟，但看到她由衷的快乐，那种感觉真是妙不可言！'
+		'你正要离开时，她母亲叫住了你，并给了你<<$func(''money'', ''string_profit'', 100)>>。"你这么做真好心！太谢谢你了，这让她开心了一整天！"'
+		act '继续你的巡逻': gt 'post_deliveries', 'resume'
+	end
+	exit
+end
+
+
+--- post_deliveries ---------------------------------

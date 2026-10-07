@@ -1,0 +1,356 @@
+# jobs_gigs
+
+!! Event / Gig System
+!! Originally part of emp_functions.qsrc, extracted to its own location
+!! Author: Hooded Silence (2023-02-12)
+!!
+!! v.01 - Initial code base
+!! v.02 - Event generator partially integrated
+!! v.03 - Job management system integrated
+!! v.04 - Start of event generation code integration
+!! v.05 - Date suffix modification
+!! v.06 - Extracted event system to jobs_gigs (employment section migrated to jobs)
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               EVENTS                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! --------------------- Event Generator
+
+!! Author - Hooded Silence
+!! Date created - 26 Aug 22
+!! Event Generator - filler content only for one off events or recurring work from NPCs
+!!
+!! v. 01 - Initial code base
+!! v. 02 - UI improvements and feature feedback
+!! V. 03 - Initial integration into mainline code
+!! v. 04 - Reworked by Anjuna
+
+!{
+	$temp_job_desc = '莱温格勒州的坦克和巴祖卡体验日'
+	$temp_journal_desc = '前往圣彼得堡工业区'
+	gs 'jobs_gigs', 'set_event', 1, 1, $temp_job_desc, $temp_journal_desc, 1
+	gs 'jobs_gigs', 'set_loc_code', 'city_industrial', '', "gt 'photography_work', 'evt_stage'"
+
+	!! Now set up the event wages
+	gs 'jobs_gigs', 'set_wage_scale', 1
+
+	!! set Day of Week for job to appear on
+	!! Set job duration of 2-4 hours
+	gs 'jobs_gigs', 'generate_event_schedule', '6', rand(4, 8) * 30
+
+	gs 'jobs_gigs', 'disp_evt1'
+!}
+
+if $ARGS[0] = 'set_event':
+	evt_transient['type'] = ARGS[1]
+	evt_transient['subtype'] = ARGS[2]
+	$evt_transient['desc'] = $ARGS[3]
+	$evt_transient['journal'] = $ARGS[4]
+	evt_transient['verbose'] = ARGS[5]
+end
+
+
+if $ARGS[0] = 'set_loc_code':
+	$evt_transient['loc'] = $ARGS[1]
+	$evt_transient['arg'] = $ARGS[2]
+	$evt_transient['code'] = $ARGS[3]
+end
+
+
+if $ARGS[0] = 'set_wage_scale':
+	!! calculate wages
+	!! Assume you''ll never earn less than 100 roubles
+	!! 0 for none, 1 - for a small payment (100-500), 2 - moderate payment (500-1000), 3 - large payment (1000-2000), 4 - huge payment (2000-4000)
+	!! 5 is for custom payments
+	if ARGS[1] = 0:
+		evt_transient['wage'] = 0
+	elseif ARGS[1] = 1:
+		evt_transient['wage'] = rand(2, 10) * 50
+	elseif ARGS[1] = 2:
+		evt_transient['wage'] = rand(10, 20) * 50
+	elseif ARGS[1] = 3:
+		evt_transient['wage'] = rand(20, 40) * 50
+	elseif ARGS[1] = 4:
+		evt_transient['wage'] = rand(40, 80) * 50
+	elseif ARGS[1] = 5:
+		evt_transient['wage'] = ARGS[2]
+	end
+end
+
+
+if $ARGS[0] = 'generate_event_schedule':
+	if $ARGS[1] ! '':							$evt_transient['week_string']	= $ARGS[1]	else $evt_transient['week_string']	= '1234567'
+	if ARGS[2] > 0 and ARGS[2] < 1440:			 evt_transient['duration']		= ARGS[2]	else  evt_transient['duration']		= rand(1, 8) * 60
+	if ARGS[3] >= daystart:						 evt_transient['search_day']	= ARGS[3]	else  evt_transient['search_day']	= daystart + 14
+	if ARGS[4] >= evt_transient['search_day']:	 evt_transient['search_limit']	= ARGS[4]	else  evt_transient['search_limit']	= evt_transient['search_day'] + 28
+	if ARGS[5] > 0 and ARGS[5] < 1440:			 evt_transient['start_time']	= ARGS[5]	else  evt_transient['start_time']	= rand(9, 20) * 60 + rand(0, 11) * 5
+
+	evt_transient['time_overshoot'] = evt_transient['duration'] + evt_transient['start_time'] - 1380
+	if evt_transient['time_overshoot'] > 0:
+		evt_transient['start_time'] -= (60 + evt_transient['time_overshoot'] / 5 * 5)
+	end
+
+	:find_open_date_loop
+		gs 'time', 'to_date', evt_transient['search_day']
+	if instr($evt_transient['week_string'], dateVars['week']) <= 0:
+		evt_transient['search_day'] += 1
+		if evt_transient['search_day'] <= evt_transient['search_limit']: jump 'find_open_date_loop'
+	else
+		evt_transient['event_daystart'] = evt_transient['search_day']
+		evt_transient['event_dow'] = dateVars['week']
+	end
+end
+
+
+if $ARGS[0] = 'save_evt_event':
+	!! Construct Array Table and clear transients when an event is created and accepted.
+	!! Create global variables for the current live event.
+	!! Use 0 to create hidden events, 1 to show in journal
+	evt_verbose[] = evt_transient['verbose']
+	!! Event job descriptor used in Journal
+	evt_event[] = evt_transient['type']
+	!! Additional job ID if required
+	evt_event_sub[] = evt_transient['subtype']
+	!! Day of Week used in Journal and content areas
+	evt_dow[] = evt_transient['event_dow']
+	!! Event Date to check against current date & used in Journal and content areas
+	evt_daystart[] = evt_transient['event_daystart']
+	!! Event start time to check against hour*60 + minut & used in Journal and content areas
+	evt_starttime[] = evt_transient['start_time']
+	!! How long the event is to last in minutes
+	evt_duration[] = evt_transient['duration']
+	!! How much wages, generated or manual using function
+	evt_wages[] = evt_transient['wage']
+	!! Journal location as reminder
+	$evt_journal[] = $evt_transient['journal']
+	!! The following are event location triggers to allow the content to appear in areas such as community center but host their content elsewhere such as Photography shop
+	!!	Event area triggers such as city_residential
+	$evt_loc[] = $evt_transient['loc']
+	$evt_loc_arg[] = $evt_transient['arg']
+	!! Content code
+	!!   Code to execute after pessing the act such as "gt 'photography_work', 'evt_stage'"
+	$evt_content_code[] = $evt_transient['code']
+	!! Journal and event description
+	$evt_desc[] = $evt_transient['desc']
+	if evt_transient['verbose'] = 1:
+		*clr & cla
+		'工作已接受，你目前有 ' + arrsize('evt_event') + ' 项工作分配给你。请查看你的日志了解更多信息。'
+		killvar 'evt_transient'
+		act '返回': gt 'jobs_gigs', 'evt_exit'
+	end
+end
+
+
+if $ARGS[0] = 'evt_exit' :
+	!! Placeholder, pending integration
+	gt $loc, $loc_arg
+end
+
+
+if $ARGS[0] = 'disp_evt':
+	if ARGS[1] = 1:
+		gs 'jobs_gigs', 'disp_evt1'
+
+	!! create table for all jobs:
+	elseif ARGS[1] = 2:
+		gs 'jobs_gigs', 'disp_evt2'
+
+	!! Display the location acts
+	elseif ARGS[1] = 3:
+		gs 'jobs_gigs', 'disp_evt3'
+	end
+end
+
+
+if $ARGS[0] = 'disp_evt1':
+	gs 'jobs_gigs', 'job_evt'
+
+	'我有份工作要给你，你想接受吗？'
+	*nl
+	gs 'time', 'to_date', evt_transient['event_daystart']
+	"活动时间：<<dateVars['year']>>年<<$dateVars['monthName']>><<dateVars['day']>><<$dateVars['suffix']>>日"
+	'工作：' + $evt_job[evt_transient['type']]
+	'报酬： ' + $func('money', 'format', evt_transient['wage'])
+
+	temp_disp_time = (evt_transient['start_time'] + 15) / 30 * 30
+	'时间： ' + $func('time', 'get_time_string', temp_disp_time / 60, temp_disp_time mod 60)
+	'时长： ' + evt_transient['duration'] / 60 + iif(evt_transient['duration'] < 120, ' 小时', ' 小时')
+	'地点：' + $evt_transient['journal']
+	'工作详情：' + $evt_transient['desc']
+	killvar 'temp_disp_time'
+	killvar 'dateVars'
+
+	act '接受工作' : gs 'jobs_gigs', 'save_evt_event'
+	act '拒绝这份工作':
+		killvar 'evt_transient'
+		gt 'jobs_gigs', 'evt_exit'
+	end
+end
+
+
+if $ARGS[0] = 'disp_evt2':
+	if arrsize('evt_event') > 0:
+		killvar 'evtbody'
+		gs 'jobs_gigs', 'job_evt'
+		job_idx = 0
+		*nl
+		:jmp_list_create
+			if evt_verbose[job_idx] = 1:
+				gs 'time', 'to_date', evt_daystart[job_idx]
+				$evtbody +=	'<tr>'
+				$evtbody +=		"<td><<$dateVars['year']>>年<<$dateVars['monthName']>><<dateVars['day']>><<$dateVars['suffix']>>日<<$dateVars['weekName']>></td>"
+				$evtbody +=		'<td><<$evt_job[evt_event[job_idx]]>></td>'
+				$evtbody +=		'<td>' + $func('money', 'format', evt_wages[job_idx]) + '</td>'
+								temp_disp_time = (evt_starttime[job_idx] + 15) / 30 * 30
+				$evtbody +=		'<td>' + $func('time', 'get_time_string', temp_disp_time / 60, temp_disp_time mod 60) + '</td>'
+				$evtbody +=		'<td>' + evt_duration[job_idx] / 60 + iif(evt_duration[job_idx] < 120, ' 小时', ' 小时') + '</td>'
+				$evtbody +=		'<td>' + $evt_journal[job_idx] + '</td>'
+				$evtbody +=		'<td><a href="exec: gs ''jobs_gigs'',''del_evt'', <<job_idx>>"><img src="images\system\icons\evt_del.png"></a></td>'
+				$evtbody +=	'</tr>'
+			end
+			job_idx += 1
+		if job_idx < arrsize('evt_event') : jump 'jmp_list_create'
+		killvar 'temp_disp_time'
+		killvar 'dateVars'
+
+		if $evtbody ! '':
+			'<center><h2>当前任务列表</h2></center>'
+			$evtheader = '<tr><th>日期</th><th>任务</th><th>报酬</th><th>时间</th><th>时长</th><th>位置</th><th>取消工作</th></tr>'
+			'<center><table width="90%" align="center" width="90%" cellspacing="5" cellpadding="5" valign="top"><<$evtheader>><<$evtbody>></table></center>'
+			killvar 'evtbody'
+			killvar 'evtheader'
+		else
+			'你还没有接受任何工作。'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'disp_evt3':
+	act_tracker = 0
+	:jmp_act_create
+		if daystart = evt_daystart[act_tracker]:
+			if $loc = $evt_loc[act_tracker] and $loc_arg = $evt_loc_arg[act_tracker]:
+				if hour * 60 + minut > evt_starttime[act_tracker] - 60 and hour * 60 + minut <= evt_starttime[act_tracker]:
+					gs 'jobs_gigs', 'set_event_act', act_tracker
+				end
+			end
+		end
+		act_tracker += 1
+	if act_tracker < arrsize('evt_event'): jump 'jmp_act_create'
+	killvar 'act_tracker'
+end
+
+
+if $ARGS[0] = 'set_event_act':
+	gs 'jobs_gigs', 'job_evt'
+	dynamic "
+		act '参加你的<<$evt_job[evt_event[ARGS[1]]]>>活动':
+			gs 'jobs_gigs', 'array_init', <<ARGS[1]>>
+			gs 'jobs_gigs', 'del_evt2', <<ARGS[1]>>
+			if ""<<$evt_content_code[ARGS[1]]>>"" ! '':
+				dynamic ""<<$evt_content_code[ARGS[1]]>>""
+			else
+				gt '<<$evt_loc[ARGS[1]]>>', '<<$evt_loc_arg[ARGS[1]]>>'
+			end
+		end
+	"
+end
+
+
+if $ARGS[0] = 'job_evt':
+	!! Jobs ID list
+	$evt_job[0] = '运动'
+	$evt_job[1] = '摄影'
+	$evt_job[2] = '模特'
+	$evt_job[3] = '音乐演出'
+	$evt_job[4] = '舞蹈演出'
+	$evt_job[5] = '芭蕾舞演出'
+	$evt_job[6] = '表演'
+end
+
+
+!! delete event after firing or cancelled
+if $ARGS[0] = 'del_evt':
+	!! Delete transients
+	!! delete event after firing or cancelled.
+	!! killvar 'arr_name', index
+	if ARGS[1] >= 0 and ARGS[1] < arrsize('evt_event'):
+		evt_idx = ARGS[1]
+		cla
+		'你即将删除这份工作： '
+		'删除： <<evt_event[evt_idx]>>'
+		'索引： <<evt_idx>>'
+		'描述： <<$evt_desc[evt_idx]>>'
+
+		Act '确认？':
+			cla
+			'你确定吗？'
+
+			act '删除':
+				cla
+				gs 'jobs_gigs', 'del_evt2', evt_idx
+				killvar 'evt_idx'
+
+				act '返回': gt 'journal_work', 'start'
+			end
+
+			act '取消': gt 'journal_work', 'start'
+		end
+	else
+		'<<evt_idx>> - 无效记录 - 请检查你的索引'
+	end
+end
+
+
+if $ARGS[0] = 'del_evt2':
+	killvar 'evt_verbose',			ARGS[1]
+	killvar 'evt_event',			ARGS[1]
+	killvar 'evt_event_sub',		ARGS[1]
+	killvar 'evt_dow',				ARGS[1]
+	killvar 'evt_daystart',			ARGS[1]
+	killvar 'evt_starttime',		ARGS[1]
+	killvar 'evt_duration',			ARGS[1]
+	killvar 'evt_wages',			ARGS[1]
+	killvar 'evt_journal',			ARGS[1]
+	killvar 'evt_loc',				ARGS[1]
+	killvar 'evt_loc_arg',			ARGS[1]
+	killvar 'evt_content_code',	ARGS[1]
+	killvar 'evt_desc',			ARGS[1]
+end
+
+
+if $ARGS[0] = 'array_init':
+	evtVars['verbose']			= evt_verbose[ARGS[1]]
+	evtVars['event']			= evt_event[ARGS[1]]
+	evtVars['event_sub']		= evt_event_sub[ARGS[1]]
+	evtVars['dow']				= evt_dow[ARGS[1]]
+	evtVars['starttime']		= evt_starttime[ARGS[1]]
+	evtVars['duration']			= evt_duration[ARGS[1]]
+	evtVars['wage']				= evt_wages[ARGS[1]]
+	$evtVars['journal']			= $evt_journal[ARGS[1]]
+	$evtVars['loc']				= $evt_loc[ARGS[1]]
+	$evtVars['loc_arg']			= $evt_loc_arg[ARGS[1]]
+	$evtVars['content_code']	= $evt_content_code[ARGS[1]]
+	$evtVars['desc']			= $evt_desc[ARGS[1]]
+end
+
+
+if $ARGS[0] = 'daily_event_check':
+	evt_chk = 0
+
+	job_idx = 0
+	:daily_event_check
+		if daystart = evt_daystart[job_idx]: evt_chk = 1
+		job_idx += 1
+	if evt_chk = 0 and job_idx < arrsize('evt_event') : jump 'daily_event_check'
+	killvar 'job_idx'
+end
+
+
+--- jobs_gigs ---------------------------------

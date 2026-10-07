@@ -1,0 +1,1659 @@
+# tatiana_lab
+!! 2021/04/01
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'tatiana_lab', 'start'
+	if $ARGS[1] <> 'no_time': minut += 5
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '梅尔科夫侦探事务所。')
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/lab/lab.jpg"></center>'
+
+	'梅尔科夫侦探事务所是塔季扬娜在圣彼得堡的实验室与生意的门面。需要时，它也为议会成员提供一处安全庇护所。你环顾房间，看到现代科学仪器与魔法器具乱七八糟地混在一起。墙上刻着奇怪的符文，它们有时会闪起奇异的内部光芒，让塔季扬娜短暂地瞥上一眼。'
+
+	if tatiana_spell_reminder < 14:		tatiana_spell_reminder = 14
+	if tatiana_succubus_reminder < 14:	tatiana_succubus_reminder = 14
+	if tatiana_mission_reminder < 14:	tatiana_mission_reminder = 14
+
+	if succubusflag = 1:
+		if sucbypass = 0:
+			if sucpcinfo < 2:
+				xgt 'tatiana_lab', 'suctraining'
+			elseif sucpcinfo >= 6 and sucskill < 3 and sctrainprep = 1:
+				xgt 'tatiana_lab', 'suctraining'
+			end
+		else
+			sucbypass = 0
+		end
+	end
+
+	act '离开': minut += 5 & gt 'city_center'
+!!	if tatina_missionday < daystart: gt 'tatiana_lab', 'missions'
+	act '与古斯塔夫训练': gt 'tatiana_lab', 'Gustav'
+	act '与塔季扬娜交谈': gt 'tatiana_lab', 'Tatiana'
+
+	if judosparday ! daystart:
+		act '对练（古斯塔夫，变种人 - 力量超过 9000）':
+			cla
+			judosparday = daystart
+			gs 'npcStat', 'A175'
+
+			gs 'fight', 'initFight'
+
+			gs 'fight_npcdata', 'gustav'
+
+			gt 'fight', 'start'
+		end
+	end
+
+	if tatianasparday ! daystart:
+		act '对练（塔季扬娜，法师 - 身体魔法）':
+			cla
+			tatianasparday = daystart
+			gs 'npcStat', 'A176'
+
+			gs 'fight', 'initFight'
+
+			gs 'fight_npcdata', 'tatiana'
+
+			gt 'fight', 'start'
+		end
+	end
+
+
+	!!! Has to be adjusted to match TatianaMissionQW value for latest mission (see 'tatiana_missions')
+	TatianaMissionTotal = 3
+
+	if tobiQW > 0 and TatianaMissionDay + 30 < daystart and TatianaMissionQW < TatianaMissionTotal:
+		'你有一种感觉，塔季扬娜可能想和你谈点什么事……'
+		act '问问塔季扬娜她想要什么': gt 'tatiana_lab', 'missions'
+	end
+end
+
+
+if $ARGS[0] = 'Gustav':
+	*clr & cla
+	menu_off = 0
+	minut += 5
+	gs 'core_library', 'setloc', 'tatiana_lab', 'Gustav'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '古斯塔夫')
+	'<center><img <<$set_imgh>> src="images/characters/city/jugo/jugopre.jpg"></center>'
+	'古斯塔夫坐在地板上，呆呆地望着虚空。'
+
+	act '离开': gt 'tatiana_lab', 'start'
+
+	if gustavday ! daystart and pcs_energy >= 20:
+		act '锻炼力量（1:00）': gs 'tatiana_lab', 'GustavDevelop', 'stren'
+		act '锻炼敏捷（1:00）': gs 'tatiana_lab', 'GustavDevelop', 'agil'
+		act '锻炼反应（1:00）': gs 'tatiana_lab', 'GustavDevelop', 'react'
+		act '锻炼耐力（1:00）': gs 'tatiana_lab', 'GustavDevelop', 'vital'
+	elseif gustavday ! daystart:
+		act '锻炼力量（1:00）': $func('wrap', 'neg', '<br>你觉得太饿做不了这个。')
+		act '锻炼敏捷（1:00）': $func('wrap', 'neg', '<br>你觉得太饿做不了这个。')
+		act '锻炼反应（1:00）': $func('wrap', 'neg', '<br>你觉得太饿做不了这个。')
+		act '锻炼耐力（1:00）': $func('wrap', 'neg', '<br>你觉得太饿做不了这个。')
+	end
+end
+
+
+if $ARGS[0] = 'GustavDevelop':
+	cla
+	gs 'exercise', 'tier2', 60, $ARGS[1]
+	gustavday = daystart
+	menu_off = 1
+	gs 'stat'
+
+	'你在古斯塔夫的指导下做锻炼。'
+
+	act '离开': gt 'tatiana_lab', 'Gustav'
+end
+
+
+if $ARGS[0] = 'BodyModActuate':
+	!! Does the actual modification
+	!!	 ARGS[1] = Mana cost
+	!!	 ARGS[2] = Time for change
+	!!	$ARGS[3] = property to set
+	!!	 ARGS[4] = value to set
+	!!	$ARGS[5] = Description of new val
+	!!	$ARGS[6] = Body part name
+	!!	$ARGS[7] = Body part for pain
+	!!	$ARGS[8] = extra code to run before
+	bodyModMana = ARGS[1]
+	bodyModTime = ARGS[2]
+	$bodyModStat = $ARGS[3]
+	bodyModVal = ARGS[4]
+	$bodyModDesc = $ARGS[5]
+	$bodyModType = $ARGS[6]
+	$bodyModPain = $ARGS[7]
+	$bodyModExtra = $ARGS[8]
+
+	if pcs_mana >= bodyModMana:
+		dynamic $bodyModExtra
+		dynamic "<<$bodyModStat>> = <<bodyModVal>>"
+		pcs_mana -= bodyModMana
+		gs 'arousal', 'flash', -30
+		minut += bodyModTime
+		pain[$bodyModPain] = 100
+		gs 'body', 'UpdateBodyMeasurement'
+		gs 'AppearanceSystem', 'UpdateBaseAppearance'
+		gs 'body', 'Update_Appearance'
+		gs 'body', 'UpdateBodyImage'
+		gs 'stat'
+		gt 'tatiana_lab', 'BodyModded', $bodyModType, $bodyModDesc
+	else
+		*pl '塔季扬娜说：“你的法力不足以做到这件事。先休息一下，我们之后可以再试。”'
+	end
+
+	killvar 'bodyModMana'
+	killvar 'bodyModTime'
+	killvar 'bodyModStat'
+	killvar 'bodyModVal'
+	killvar 'bodyModDesc'
+	killvar 'bodyModType'
+	killvar 'bodyModPain'
+	killvar 'bodyModExtra'
+end
+
+
+if $ARGS[0] = 'BodyModValues':
+	if $ARGS[1] = 'hair_color':
+		$bodyModType = '头发颜色'
+		bodyModMana = 500
+		bodyModTime = 60
+		$bodyModStat = 'pcs_haircol'
+		$bodyModPain = 'hair'
+		$bodyModExtra = 'nathcol = bodyModVal'
+		$bodyModDesc[0] = 'black'	& bodymodValue[0] = 0
+		$bodyModDesc[1] = 'brown'	& bodymodValue[1] = 1
+		$bodyModDesc[2] = 'red'		& bodymodValue[2] = 2
+		$bodyModDesc[3] = 'blonde'	& bodymodValue[3] = 3
+
+	elseif $ARGS[1] = 'hair_length':
+		$bodyModType = '头发长度'
+		bodyModMana = 200
+		bodyModTime = 120
+		$bodyModStat = 'pcs_hairlng'
+		$bodyModPain = 'hair'
+		$bodyModExtra = ''
+		$bodyModDesc[0] = '极短'	& bodymodValue[0] = 5
+		$bodyModDesc[1] = '精灵短发'		& bodymodValue[1] = 31
+		$bodyModDesc[2] = '中等'			& bodymodValue[2] = 81
+		$bodyModDesc[3] = '及肩'	& bodymodValue[3] = 161
+		$bodyModDesc[4] = '长'			& bodymodValue[4] = 261
+		$bodyModDesc[5] = '很长'		& bodymodValue[5] = 401
+		$bodyModDesc[6] = '极长'	& bodymodValue[6] = 601
+
+	elseif $ARGS[1] = 'eye_color':
+		$bodyModType = '眼睛颜色'
+		bodyModMana = 300
+		bodyModTime = 120
+		$bodyModStat = 'pcs_eyecol'
+		$bodyModPain = 'eye'
+		$bodyModExtra = ''
+		$bodyModDesc[0] = 'brown'	& bodymodValue[0] = 0
+		$bodyModDesc[1] = 'grey'	& bodymodValue[1] = 1
+		$bodyModDesc[2] = 'green'	& bodymodValue[2] = 2
+		$bodyModDesc[3] = 'blue'	& bodymodValue[3] = 3
+
+	elseif $ARGS[1] = 'eye_lashes':
+		$bodyModType = '睫毛'
+		bodyModMana = 100
+		bodyModTime = 30
+		$bodyModStat = 'pcs_lashes'
+		$bodyModPain = 'eye'
+		$bodyModExtra = ''
+		$bodyModDesc[0] = 'short'				& bodymodValue[0] = 0
+		$bodyModDesc[1] = 'average'				& bodymodValue[1] = 1
+		$bodyModDesc[2] = 'long'				& bodymodValue[2] = 2
+		$bodyModDesc[3] = 'lavish'				& bodymodValue[3] = 3
+		$bodyModDesc[4] = 'show-stealing'		& bodymodValue[4] = 4
+		$bodyModDesc[5] = 'long, jewel-dusted'	& bodymodValue[5] = 5
+
+	elseif $ARGS[1] = 'lip_size':
+		$bodyModType = '嘴唇大小'
+		bodyModMana = 300
+		bodyModTime = 120
+		$bodyModStat = 'pcs_lip'
+		$bodyModPain = 'lip'
+		$bodyModExtra = ''
+		$bodyModDesc[0] = 'thin'	& bodymodValue[0] = 0
+		$bodyModDesc[1] = 'normal'	& bodymodValue[1] = 1
+		$bodyModDesc[2] = 'plump'	& bodymodValue[2] = 2
+		$bodyModDesc[3] = 'pouty'	& bodymodValue[3] = 3
+		$bodyModDesc[4] = 'pillowy'	& bodymodValue[4] = 4
+
+	elseif $ARGS[1] = 'breast_size':
+		$bodyModType = '胸部尺寸'
+		bodyModMana = 1000
+		bodyModTime = 240
+		$bodyModStat = "bodyVars[''bust_magic'']"
+		$bodyModPain = 'breasts'
+		$bodyModExtra = ''
+		$bodyModDesc[0] = 'AA' & bodymodValue[0] = 3 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[1] = 'A' & bodymodValue[1] = 8 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[2] = 'B' & bodymodValue[2] = 13 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[3] = 'C' & bodymodValue[3] = 18 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[4] = 'D' & bodymodValue[4] = 23 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[5] = 'E' & bodymodValue[5] = 28 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[6] = 'F' & bodymodValue[6] = 33 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[7] = 'G' & bodymodValue[7] = 38 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[8] = 'H' & bodymodValue[8] = 43 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[9] = 'I' & bodymodValue[9] = 48 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[10] = 'J' & bodymodValue[10] = 53 - (pcs_cupsize - bodyVars['bust_magic'])
+		$bodyModDesc[11] = 'K' & bodymodValue[11] = 58 - (pcs_cupsize - bodyVars['bust_magic'])
+
+	elseif $ARGS[1] = 'skin':
+		$bodyModType = '皮肤'
+		bodyModMana = 1000
+		bodyModTime = 240
+		$bodyModStat = 'pcs_skin'
+		$bodyModPain = 'head'
+		$bodyModExtra = ''
+		$bodyModDesc[0] = 'clear' & bodymodValue[0] = 1000
+
+	elseif $ARGS[1] = 'virgin':
+		$bodyModType = '处女'
+		bodyModMana = 1000
+		bodyModTime = 120
+		$bodyModStat = 'pcs_vag'
+		$bodyModPain = 'vaginal'
+		$bodyModExtra = "tatiana[''virginity_restore''] = 1 & killvar ''virgin_stats''"
+		$bodyModDesc[0] = 'renewed' & bodymodValue[0] = 20
+
+	elseif $ARGS[1] = 'silicone':
+		$bodyModType = '胸部'
+		bodyModMana = 1000
+		bodyModTime = 240
+		$bodyModStat = 'fillimplant'
+		$bodyModPain = 'breasts'
+		$bodyModExtra = 'brSurTemp = 0 & stringimplant = 0'
+		$bodyModDesc[0] = '恢复自然' & bodymodValue[0] = 0
+	end
+
+end
+
+
+if $ARGS[0] = 'ListBuilder':
+	gs 'tatiana_lab', 'BodyModValues', $ARGS[1]
+
+	if arrsize('$bodyModDesc') > 0:
+		$ListStr = '<b><<$bodyModType>></b><br>'
+	else
+		$ListStr = ''
+	end
+
+	if arrsize('$bodyModDesc') > 0:
+		i = 0
+		:BodyModLoop
+			bodymodValueX = bodymodValue[i]
+			$bodyModDescX = $bodyModDesc[i]
+			$ListStr += "<a href=""EXEC:gs 'tatiana_lab', 'BodyModActuate', <<bodyModMana>>, <<bodyModTime>>, '<<$bodyModStat>>', <<bodymodValueX>>, '<<$bodyModDescX>>', '<<$bodyModType>>', '<<$bodyModPain>>', '<<$bodyModExtra>>'""><<$bodyModDescX>></a>"
+			i += 1
+			if i < arrsize('$bodyModDesc'):
+				$ListStr += '<br>'
+				jump 'BodyModLoop'
+			end
+	end
+
+	$result = $ListStr
+
+	killvar 'i'
+	killvar 'bodyModType'
+	killvar 'bodyModMana'
+	killvar 'bodyModTime'
+	killvar 'bodyModStat'
+	killvar 'bodyModPain'
+	killvar 'bodyModExtra'
+	killvar 'bodymodValue'
+	killvar 'bodymodValueX'
+	killvar 'bodyModDesc'
+	killvar 'bodyModDescX'
+	killvar 'ListStr'
+end
+
+
+if $ARGS[0] = 'BodyModded':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	!! Landing page for having Body Mod done.
+	!!  $ARGS[1] = Name of the attribute
+	!!  $ARGS[2] = new description of attribute
+
+	act '谢谢你': gt 'tatiana_lab', 'Tatiana'
+
+	"你感觉全身有些虚脱，还带着阵阵刺麻。你照了照镜子。"
+	"你的<<$ARGS[1]>>现在变成了<<$ARGS[2]>>。"
+	"""谢谢塔季扬娜！"""
+
+end
+
+
+if $ARGS[0] = 'Tatiana':
+	*clr & cla
+	menu_off = 0
+	minut += 5
+	gs 'core_library', 'setloc', 'tatiana_lab', 'Tatiana'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '塔蒂亚娜')
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+	'塔季扬娜总是在研究些什么。'
+
+	if succubusflag = 1:
+		if tatisucsex > 0 and sucinfoday ! 0 and sucinfoday <= daystart:
+			menu_off = 1
+			gs 'stat'
+			'“嘿，<<$pcs_nickname>>！'
+			'“我又打听到了一些关于魅魔的消息！”'
+			if sucpcinfo = 4 and succublvl >= 2:
+				'“我从一个法师熟人那里听来的，他居然在澳大利亚的悉尼，他给我透露了一些更详细的细节。”'
+				sucpcinfo = 5
+				sucinfoday = daystart + 10 + rand(0, 7)
+				act '让她告诉你': gt 'succubus', 'tatianaask', 1
+				exit
+			elseif sucpcinfo = 5:
+				'“我从一位老朋友那里听说的，她现在住在摩洛哥，也有一个魅魔做情人。她说她们在一起相处了一段时间后，发现靠她的帮助，她的魅魔情人学会了一些新东西。”'
+				sucpcinfo = 6
+				sucinfoday = daystart + 17 + rand(0, 7)
+				act '让她告诉你': gt 'succubus', 'tatianaask', 2
+				exit
+			elseif sucpcinfo = 6:
+				'“我从一个熟人那里得到消息。他住在美利坚的拉斯维加斯，据说那里是北美的魅魔之都，他给我带来了两条情报。”'
+				sucpcinfo = 7
+!!				The +9000000 is so I can easily reset it when the next Skill upadtes are ready.
+				sucinfoday = daystart + 9000000
+				act '让她告诉你': gt 'succubus', 'tatianaask', 3
+				exit
+			end
+		end
+
+		if tatisucsex ! 0 and tatisucsexask ! daystart: act '问问她想不想做爱': tatianasucsexask = daystart & gt 'tatiana_lab', 'Tatianasucsexask'
+
+		if sucpcinfo >= 4: act '向她打听魅魔的事': gt 'tatiana_lab', 'Tatianasuctalk'
+	end
+
+	act '离开': gt 'tatiana_lab', 'start'
+
+	if cheatVars['tatiana_apprnc_change'] = 0:
+		act '请求帮忙改善你的外貌':
+			cla
+			'“塔季扬娜，我对自己的身体形象很苦恼。我很不开心，希望你能帮帮我。”'
+			*nl
+			'“这可以做得到，但我得动用你的魔力。施放法术会消耗你的一些法力。”'
+			'“而且，这会很疼。魔法会强行把你的血肉塑造成新的形状。”'
+
+			$HairColorTab	= func('tatiana_lab', 'ListBuilder', 'hair_color')
+			$HairLengthTab	= func('tatiana_lab', 'ListBuilder', 'hair_length')
+			$EyeColorTab	= func('tatiana_lab', 'ListBuilder', 'eye_color')
+			$EyeLashTab		= func('tatiana_lab', 'ListBuilder', 'eye_lashes')
+			$LipTab			= func('tatiana_lab', 'ListBuilder', 'lip_size')
+			$BreastTab		= func('tatiana_lab', 'ListBuilder', 'breast_size')
+
+			$SkinTab		= func('tatiana_lab', 'ListBuilder', 'skin')
+			$VirginTab		= func('tatiana_lab', 'ListBuilder', 'virgin')
+			$SiliconeTab	= func('tatiana_lab', 'ListBuilder', 'silicone')
+
+			$SpellListStr = "<center>
+				<table CELLPADDING = '5'>
+					<tr>
+						<td VALIGN='top'><<$SkinTab>></td>
+						<td VALIGN='top'><<$VirginTab>></td>
+						<td VALIGN='top'><<$SiliconeTab>></td>
+					</tr>
+					<tr>
+						<td VALIGN='top'><<$HairColorTab>></td>
+						<td VALIGN='top'><<$EyeColorTab>></td>
+						<td VALIGN='top'><<$BreastTab>></td>
+					</tr>
+					<tr>
+						<td VALIGN='top'><<$HairLengthTab>></td>
+						<td VALIGN='top'><<$EyeLashTab>></td>
+						<td VALIGN='top'><<$LipTab>></td>
+					</tr>
+				</table>
+			</center>"
+
+			*pl func('cleanHTML', $SpellListStr)
+
+			killvar 'HairColorTab'
+			killvar 'HairLengthTab'
+			killvar 'EyeColorTab'
+			killvar 'EyeLashTab'
+			killvar 'LipTab'
+			killvar 'BreastTab'
+			killvar 'SkinTab'
+			killvar 'VirginTab'
+			killvar 'SiliconeTab'
+			killvar 'SpellListStr'
+
+			act '不，不，我改变主意了。谢谢。': gt 'tatiana_lab', 'Tatiana'
+
+
+			act '将你的身体恢复原状':
+				cla
+				'“塔季扬娜，我对自己的身体形象很苦恼。我很不开心，希望你能帮帮我。”'
+				'“这可以做得到，但我得动用你的魔力。施放重置法术会消耗 40 点法力。'
+				'这会减少多余的脂肪、身体部位的增生以及过高的硅胶含量，让你更接近原本的身形。'
+				'你想试试这个法术吗？'
+
+				act '不，不，我改变主意了。谢谢。': gt 'tatiana_lab', 'Tatiana'
+
+				if pcs_mana >= 40:
+					act '听起来不错，来吧！':
+						*clr
+						cla
+						minut += 30
+						dounspell = 1
+						dounsplkil = 2
+						gs 'body', 'hardreset'
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/characters/city/tatiana/magiclook.jpg"></center>'
+						'塔季扬娜放下眼镜，深深地凝视着你的双眼。你感觉时间仿佛不再流逝，整个人都漂浮了起来。'
+						'似乎没过多久你就回过神来，但实验室墙上的大钟告诉你，已经过去了 30 分钟。'
+						'你的身体正如塔季扬娜所说的那样发生了很大变化，她已经忙着检查有没有出什么差错。'
+						act '继续': gt 'tatiana_lab', 'Tatiana'
+					end
+				end
+			end
+		end
+	end
+
+	if BurgerQW['IlyQWTatianaHelp'] = 1 and poverKAR = 0 and softKAR = 0:
+		act '向塔季扬娜求助对付伊万':
+			cla
+			menu_off = 1
+			gs 'stat'
+			'你说明了情况，请求塔季扬娜帮忙。塔季扬娜若有所思地说：“听起来并没有什么能证明伊万有罪的物证，所以你需要一份口供。我觉得可以把他抓起来审问。或者，你我可以试试更狡猾的办法，让他自己说出真相。无论用哪种方式，你都得把全过程录下来。”'
+
+			act '武力解决':
+				cls
+				poverKAR = 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+				'你决定用武力逼伊万承认自己做过的事。塔季扬娜让你去伊万的公寓。在那里你会见到古斯塔夫，他会帮忙解决问题。她强调你要盯紧他，以防他情绪失控。据说他一失控就会变成怪物。'
+
+				act '离开': gt 'tatiana_lab', 'Tatiana'
+			end
+
+			act '骗他上钩':
+				cls
+				softKAR = 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+				'你决定用计骗伊万承认自己做过的事。塔季扬娜让你去伊万的公寓，她会在那里和你会合。'
+
+				act '离开': gt 'tatiana_lab', 'Tatiana'
+			end
+		end
+	elseif poverKAR = 2:
+		act '就袭击伊万公寓的事去找塔季扬娜谈谈':
+			cla
+			menu_off = 1
+			poverKAR = 3
+			gs 'stat'
+
+			'你来找塔季扬娜，她叹了口气。“是啊，你失败了。古斯塔夫脑袋里挨的那颗子弹让他的力量提升到了下一个层次，几乎刀枪不入，却失去了理智。所以他才没能控制住自己，在你拿到口供之前就杀了伊万。也有好的一面。比如警方认为那只是一起瓦斯爆炸，所以你大概不用担心会有什么调查。但如果你不想进监狱，现在就得把这笔债还上。”'
+
+			act '离开': gt 'tatiana_lab', 'Tatiana'
+		end
+	end
+
+	if Tatianaday ! daystart:
+		act '锻炼你的智力（1:00）':
+			cla
+			menu_off = 1
+			gs 'exp_gain', 'intel', rand(3, 6)
+			minut += 60
+			Tatianaday = daystart
+			gs 'stat'
+
+			'你和塔季扬娜一起学习，锻炼自己的智力。'
+
+			act '离开': gt 'tatiana_lab', 'Tatiana'
+		end
+
+		act '锻炼你的内在精神（1:00）':
+			cla
+			menu_off = 1
+			gs 'exp_gain', 'sprt', rand(3, 6)
+			minut += 60
+			Tatianaday = daystart
+			gs 'stat'
+
+			'你和塔季扬娜一起冥想，提升自己的灵性。'
+
+			act '离开': gt 'tatiana_lab', 'Tatiana'
+		end
+	end
+
+	gs 'spellList', 'teacherActions', '$basicSpells', 'tatiana_lab', 'Tatiana'
+	gs 'spellList', 'teacherActions', '$healSpells', 'tatiana_lab', 'Tatiana'
+
+	if tat_lesson_number <= 8 and pcs_mana >= 1000:
+		act '你还能教我别的法术吗？（1:00）': gt 'tatiana_lab', 'teach'
+	end
+
+	if pcs_magik >= 5 and spellavtoklon = 0:
+		act '学习技法准备（1:00）':
+			cla
+			menu_off = 1
+			minut += 60
+			spellavtoklon = 1
+			gs 'stat'
+
+			'你学会了预备分身技巧。这项技巧让你在进入战斗时已经创造出三个分身。'
+
+			act '离开': gt 'tatiana_lab', 'Tatiana'
+		end
+	end
+
+	if pcs_magik >= 6 and spellbefshild = 0:
+		act '学习预护盾技巧（1:00）':
+			cla
+			menu_off = 1
+			minut += 60
+			spellbefshild = 1
+			gs 'stat'
+
+			'你学会了预护盾技巧。这项技巧让你进入战斗时有一层魔法护盾保护你免受物理攻击。'
+
+			act '离开': gt 'tatiana_lab', 'Tatiana'
+		end
+	end
+!!	Succubus specific skill training.
+	if succubusflag = 1:
+		if sucpcinfo >= 4 and sucskill < 1:
+			act '学习感知你的魅魔能量（可能需要一些时间）':
+				cla
+				menu_off = 1
+				minut += 30
+				sucskill = 1
+				gs 'stat'
+				'你和塔季扬娜在轻度联结中冥想30分钟，她向你展示如何判断自己的魅魔能量水平。'
+				'你睁开眼睛，看着坐在你对面的塔季扬娜。'
+				'她满脸通红，呼吸急促，乳头清晰地透出衬衫。'
+				if 1 + (succublvl * 2) + tatisucsex < 20 and rand(0, 100) < 90:
+					'片刻之后，她抖了抖身子，让自己镇定下来，然后说道：“好了，就是这样！”'
+					'然后她站起来，继续学习。'
+					act '完成': gt 'tatiana_lab', 'Tatiana'
+				else
+					xgt 'tatiana_lab', 'suctrainsex'
+				end
+			end
+		elseif sucpcinfo >= 5 and sucskill < 2:
+			act '学习扩充你的能量储备（可能需要一些时间）':
+				cla
+				menu_off = 1
+				minut += 5
+				'你进入冥想状态，与塔季扬娜建立联结。'
+				if succhungry > -2:
+					gs 'stat'
+					'几分钟后，你感到塔季扬娜中断了联结，说道：“<<$pcs_nickname>>，在进行这项训练之前，你需要积累<i>两</i>天的储备。”'
+					'然后她站起来，继续学习。'
+					act '完成': gt 'tatiana_lab', 'Tatiana'
+					exit
+				end
+				minut += 55
+				gs 'stat'
+				sucskill = 2
+				'塔季扬娜向你展示如何构建一个储能容器，在你身体消耗能量之前先把多余的能量吸入其中。'
+				'你完成之后，塔季扬娜再次显露出明显的性奋迹象，她说道：“你知道的，触碰你的力量真是一种非常、<i>非常</i>强烈的体验！”'
+				'然后她闭上眼睛，明显在努力让自己镇定下来。'
+				if tatisucsex >= 20 or rand(1, 100) < 95:
+					'过了好一会儿，她镇定下来，睁开眼睛，对你笑了笑，说道：“看吧，我就知道我能做到！”'
+					'然后她站起来，继续学习。'
+					act '完成': gt 'tatiana_lab', 'Tatiana'
+				else
+					'然后她猛地睁开眼睛，你感到情欲突然涌遍联系！'
+					xgt 'tatiana_lab', 'suctrainsex'
+				end
+			end
+		elseif sucpcinfo >= 6 and sucskill < 3:
+			if sctrainprep = 0:
+				act '向她询问准备工作和训练事宜' + $func('money', 'get_cost_string', 5000):
+					if func('money', 'can_afford', 5000) = 0:
+						$noMoney
+					else
+						cla
+						menu_off = 1
+						minut += 15
+						gs 'stat'
+						'你问她训练和准备工作都包含些什么。'
+						'她花了一些时间解释你在“仪式”中需要做的事的技术细节，然后说道，'
+						'"准备工作需要7天，我需要<<$func(''money'', ''string_price'', 3000)>>来改造我的一台设备，从附近那些成人场所抽取免费的性爱能量；另外还需要<<$func(''money'', ''string_price'', 2000)>>来制作我们需要的几种药剂，其中一种会暂时把我变成一个性爱能量“电池”，其余的则是为了让我们在举行仪式时不伤到自己。'
+						'"一旦我开始，你有2天时间让我中止，在那之后我就已经开始积蓄能量了。我们自己停不下来，而过早做爱可能会要了我们的命，所以我会设起一道屏障把你挡在外面，直到7天过去；除非你有3天的储备和100单位的储存能量，否则我不会让它放你进来。'
+						'"一旦我积蓄到满格，我最多只能维持一天，之后就必须把它释放出来。“电池”药剂本身以及制作它的材料都无法久存，所以在我开始之后中止，或者没能按时到场， <<$func(''money'', ''string_price'', 2000)>>就白白浪费了。'
+						'"那么，你想让我开始做准备吗？"'
+						act '是':
+							cla
+							minut += 45
+							gs 'money', 'pay', 5000
+							sctrainprep = 1
+							tatisucsexday = daystart + 7
+							gs 'stat'
+							'"好，我这就开始！下个<<$weekName>>带着3天的储备和100单位的储存能量到这儿来。"'
+							if tatisucsex > 0:
+								'然后她把你拉近，飞快地吻了一下，又说：“现在出去吧，我可不能让你分我的心！”'
+							else
+								'然后她出其不意地在你脸颊上亲了一下，又说：“现在出去吧，我可不能让你分我的心！”'
+							end
+							act '离开':
+								minut += 5
+								gt 'city_center'
+							end
+						end
+						act '还不是时候': gt 'tatiana_lab', 'Tatiana'
+					end
+				end
+			elseif sctrainprep = -1:
+				act '请她重新做准备' + $func('money', 'get_cost_string', 2000):
+					if func('money', 'can_afford', 2000) = 0:
+						$noMoney
+					else
+						cla
+						menu_off = 1
+						gs 'stat'
+						'你确定吗？之前说过的条件依然适用：2天内可以中止、那道屏障、3天的储备和100单位的储存能量，等我完全充满后要8到10小时……又要白白浪费<<$func(''money'', ''string_price'', 2000)>>。你<i>真的</i>确定吗？'
+						act '是':
+							cla
+							gs 'money', 'pay', 2000
+							sctrainprep = 1
+							tatisucsexday = daystart + 7
+							'"好，我这就开始！下个<<$weekName>>带着3天的储备和100单位的储存能量到这儿来。"'
+							'"现在出去吧，我可不能让你分我的心！"'
+							act '离开':
+								minut += 5
+								gt 'city_center'
+							end
+						end
+						act '还不是时候': gt 'tatiana_lab', 'Tatiana'
+					end
+				end
+			end
+		elseif sucpcinfo >= 7 and sucskill < 4 and mc_inventory['dildo_gigantic'] = 1 and sucexcess >= 100:
+			act '向塔季扬娜询问适应训练':
+				cla
+				menu_off = 1
+				gs 'stat'
+
+				'塔季扬娜问道：“你准备好进行适应训练了吗？”'
+				act '是的，我准备好了。（可能需要很长时间）':
+					*clr & cla
+					minut += 120
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/shared/sex/mast/dildo.jpg"></center>'
+					'她一边带你走向沙发，一边向你详细说明你需要做的每一步。'
+					'到了那里，你脱衣服时，她也跟着脱！看到你的表情，她说：“怎么了？要是我们谁滑了一下，我可不想撕破自己的衣服。”'
+					'你在沙发上安顿好，然后把一根巨大的假阳具塞进小穴。抽插了一会儿之后，在塔季扬娜轻度联结的引导下，你换到后穴继续。你在那里弄了一阵子，又换了回来。就这样持续了将近两个小时，你专注得只高潮了两次，之后你感到身体终于有了应有的反应。快速测试一下，你就完成了。'
+					sucskill = 4
+					sucexcess -= 100
+					act '继续':
+						pcs_horny = 0
+						'当你快结束时，你注意到塔季扬娜闭着眼睛，明显在努力让自己镇定下来。'
+						if tatisucsexday < daystart or rand(1, 100) > 95:
+							'然后她猛地睁开眼睛，你感到情欲突然涌遍联系！'
+							xgt 'tatiana_lab', 'suctrainsex'
+						else
+							cla
+							'过了好一会儿，她镇定下来，睁开眼睛，对你笑了笑，说道：“看吧，我就知道我能做到！”'
+							'然后她站起来，继续学习。'
+							act '完成': gt 'tatiana_lab', 'Tatiana'
+						end
+					end
+				end
+				act '尚未': gt 'tatiana_lab', 'Tatiana'
+			end
+		end
+	end
+	if AlexandriaQW <=2 and pfilmNO = 1:
+		act '告诉塔季扬娜你无法完成阿佛洛狄忒的活儿。':
+			cla
+			menu_off = 1
+			minut += 5
+			AlexandriaQW = 3
+			gs 'stat'
+
+			'“塔季扬娜，我遇到麻烦了。我好像被列入了黑名单，进不了阿佛洛狄忒大楼。”'
+			'她歪了歪头，似乎在思考这个问题，但看起来她对这个发现并不太担心。'
+			'“嗯，这让活儿变得有点麻烦了，<<$pcs_nickname>>。看来那诅咒只在营业时间生效，所以趁夜里溜进去是行不通的。”'
+			'“所以……我得在白天溜回去？”'
+			'塔季扬娜只是哼了一声。“别担心，<<$pcs_nickname>>，这种事情我有古斯塔夫来处理。不，我在想一个<i>替代方案。</i>”她看了你一眼，让你打了个寒颤，然后继续说道：“我知道一个办法帮你潜入那个地方，好让你去找那件东西。等时机合适时，去阿佛洛狄忒大楼给我打个电话。但记住，只能趁它营业的时候。”'
+			'说完，塔季扬娜转身继续她的学业，让你自便。'
+			act '继续': gt 'tatiana_lab', 'Tatiana'
+		end
+	end
+	if AlexandriaQW =4 or AlexandriaQW =5:
+		act '告诉塔季扬娜关于阿佛洛狄忒的活儿。':
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/city/alexandria/photo.jpg"></center>'
+			'是时候把你在阿佛洛狄忒的经历告诉塔季扬娜了。你走到她身边，开始讲述一切，从你在那家事务所周围打探说起，一直讲到你怎么遇到她的替身。当你讲到遇见阿列克谢的部分时，塔季扬娜快步走向一个柜子，拿出一张旧照片给你看。那张黑白照片上是一个全副武装的阿列克谢。'
+			'“<<$pcs_nickname>>，你确定你见过这个女人吗？金发？强势？个子高？”'
+			'“是的，我很确定。这很糟吗？”'
+			'塔季扬娜捏了捏鼻梁，叹了口气。“是啊，<<$pcs_nickname>>，确实很糟。阿列克谢……嗯，也就是亚历山德拉，她曾是议会成员，大概也是世界上最强大的电系巫师之一。还记得力量护符本不该落到女人手里吗？她一直在寻找能获得它的形态，街头巷尾的传言说那次追寻让她的魔法变得<i>古怪</i>，而那头漂亮的金发只是一次惊吓的结果。”'
+			'“所以……很糟？”'
+			'“你根本想象不到，<<$pcs_nickname>>。”塔季扬娜叹了口气。“听着，我们说的是一个<i>延续了几个世纪</i>的思维模式，它向往那个把非魔法儿童当作食物来补充能量还很时髦的年代。听我一句劝，躺下休息，让莱因霍尔德来处理这件事吧。”'
+			minut += 5
+			gs 'stat'
+
+			act '“好吧，塔季扬娜，那我从这活儿里能得到什么？”':
+				*clr & cla
+				'<center><table><tr><td><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></td><td><img <<$set_imgh>> src="images/characters/city/jugo/jugopre.jpg"></tr></td></table></center>'
+				'塔季扬娜对你露出一丝半笑，你明白她不会为阿佛洛狄忒这活儿付你钱。'
+				if AlexandriaQW =4:
+					gs 'money', 'earn', 5000
+					'然而就在那时，令所有人意外的是，古斯塔夫悄悄来到你身边，抓住你的手，把一卷钞票放在上面。“拿着吧，<<$pcs_nickname>>。你成功打败了塔季扬娜的替身，要不是有亚历克斯，那卷胶片本该在这里。”'
+					if pfilmNO = 1:
+						'古斯塔夫只是站在那里，盯着目瞪口呆的塔季扬娜，她顿了一下，只是耸了耸肩。“好吧，古斯塔夫，别说得我好像很小气似的……天哪……”'
+					else
+						'古斯塔夫只是站在那里，盯着目瞪口呆的塔季扬娜，她顿了一下，只是耸了耸肩。“好吧，古斯塔夫，别说得我好像很小气似的……天哪。我本来还打算替她说服事务所里的一些人，但现在……好吧，算了，<<$pcs_nickname>>，我还是会去做的。”'
+						gs 'fame', 'city', 'modelling', 10
+					end
+				else
+					'“<<$pcs_nickname>>，你没能把胶片带给我。相反，它落到了一个强大魔法师手里，她可能正打算用它来对付我们。”'
+					if pfilmNO = 1:
+						'你张嘴想要争辩这不是你的错，但看一眼塔季扬娜的表情你就知道她已经下定决心了……操！'
+					else
+						gs 'fame', 'city', 'modelling', 10
+						'你张嘴想要争辩这不是你的错，但还没等你说出口，塔季扬娜就安慰地抬起双手。'
+						'“别担心，<<$pcs_nickname>>，你不会空手离开的。我会替你去说服事务所里的一些人。这对你的模特生涯有好处。”'
+					end
+				end
+				AlexandriaQW = 6
+				minut += 5
+				gs 'stat'
+				*nl
+				'塔季扬娜回去干她的活，你还没来得及再问什么，古斯塔夫就抓住你的胳膊把你带走。'
+				'走在路上时，他把一张便利贴塞进你手里。“拿着这个，<<$pcs_nickname>>。现在你可以去见亚历克斯了。”'
+				'“什么？怎么做到的？为什么？”你问道，有点摸不着头脑。'
+				'沉默片刻后，这个变种人耸了耸肩。“我擅长找人。我知道有个强大的巫师在圣彼得堡安了家，听到你说的话之后，我就把线索拼到一起了。其余的很复杂。我想亚历克斯只是想谈谈。跟议会作对不在任何人的计划里，既然现在莱因霍尔德也掺和进来了，你遇到危险的可能性就小多了。”'
+				'你看着那张便利贴。上面潦草地写着去郊外某处的路线。要到那里，你必须坐地铁。附近就有一个车站，但你要去和亚历克斯见面吗？'
+
+				act '继续': gt 'tatiana_lab', 'Tatiana'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'teach':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	if tatiana_teach_escalation = 0:
+		'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex-machines.jpg"></center>'
+		'突然兴奋起来的塔季扬娜抓住你的手，把你拉向隔壁一个半隐蔽的房间。里面像是某种工坊兼储藏室，架子上塞着箱子、工具和各种奇形怪状的东西，而这份整齐很快就被打乱了——塔季扬娜开始把各种东西丢到一张床上，床上放着一台尚未完工、原本安安静静的机器。'
+		'“好了，<<$pcs_nickname>>，简单回顾一下。”然后她挑了几件工具，盘腿坐在床上，双手伸向那台机器。“护符让你充满了法力，使你变得像一块活电池。这种法力会在你高潮时释放出来，强化你的魔法力量。都清楚了吗？”'
+		'她停下来看你是否听懂了她的解释，当你示意她继续时，塔季扬娜又接着敲打那台可怜的<i>不知道什么玩意儿</i>。'
+		'“<<$pcs_nickname>>，还记得我请你帮我做调查吗？嗯，在你第一次……呃……能量涌动时，你没有吸收掉所有的能量，剩下的那些烧毁了我留下来监视你的魔法绊线，又一路回到我这里，拍了我漂亮的屁股一下。说白了，我想要那些剩余的能量！为此，我们要用上这个！”'
+		' <i>机器</i>现在完工了。它看起来像某种……马鞍状的性爱机器？塔季扬娜没有停下，又从阴暗的角落里拿出几件类似的……装着假阳具的电动工具，那里有几个箱子敞开着，上面潦草地写着<i>操逼机器</i>。'
+
+		act '什么鬼？':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/city/tatiana/talisman.jpg"></center>'
+			'“我猜你想要点解释，对吧？第一：它们是干净的，我还没来得及享用；第二：如果你也想要，去红灯区的假阳具城看看；第三：不，不是我买的，古斯塔夫说它们是<i>战利品</i>，但没细说。第四：接住这个！”'
+			'塔季扬娜朝你扔来一个小巧的绿色物件，你毫不费力地接住了。那是一块陶片，它让你的手一阵发麻，并唤起了一段记忆……是力量护符。这是它的一部分。'
+			'“好了，<<$pcs_nickname>>，我想让你这么做。挑一个你最喜欢的，用上它，我会施放这个改良过的性爱仪式。原本的仪式是让一对伴侣共享法力，但我的版本会用性爱机器代替伴侣，所以当你高潮、身体被法力淹没时，本该流向伴侣的那部分多余法力会被这块碎片吸收。有什么问题吗？”'
+			'“呃，有好几个。为什么这么麻烦？我是说……你就不能直接从我身上取，而非要用那玩意儿吗？”'
+			'“可以说是，也可以说不是，<<$pcs_nickname>>。取用你储存的法力其实不难，但涌动的那部分呢？它们会把我烧成焦炭，所以我才需要那块碎片。它不知怎么保留了一些法力电池的特性，让这个小仪式能把多余的能量引导进去供日后使用。就这么说定了，你得到一些魔法训练，我得到一些不错的法力。那么，你准备好爽一把了吗？”'
+
+			act '“我想这次还是算了”': tatiana_teach_escalation += 1 & gt 'tatiana_lab', 'start'
+
+			act '“那就试试吧”': gt 'tatiana_lab', 'teach_strip'
+		end
+	else
+		gt 'tatiana_lab', 'teach_strip'
+	end
+end
+
+
+if $ARGS[0] = 'teach_strip':
+	*clr & cla
+	if tat_lesson_number = 0: tat_lesson_number = 1
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/trainstation/bimbo.strip6.mp4"></video></center>'
+	if pcs_inhib < 35:
+		'在塔季扬娜若无其事地帮你脱衣、准备进行这场本质上属于魔法脱衣秀的表演时，你扭捏着，脸也红了。仅仅因为她似乎完全专注于魔法仪式，而唯一可能偷看的男人不但不在房间里，而且对你们两人要做的事也毫无兴趣，你才得以挣扎着去履行与塔季扬娜的约定。'
+
+	else
+		'在塔季扬娜的帮助下，你很快脱下衣服，耐心地等待她专注于魔法仪式。你甚至还参与了一些性感的闲聊，想看看古斯塔夫会不会偷看，但他似乎对你们两人要做的事毫无兴趣。几分钟过去，让魔法在房间里凝聚之后，你准备好履行与塔季扬娜的约定了。'
+	end
+
+	!! NOTE - This action will determine the fucking machine event that initiates the chain.
+	!! NOTE 2 - This action will be repeated every time Sveta asks to learn more spells, but the "act" must be restricted to Sveta''s current fucking machine level.
+
+	if stat['think_virgin'] = 1 or tatiana_teach_escalation <= 2:
+		act '那个像马鞍的（不插入）': gt 'tatiana_lab', 'saddle'
+	end
+	if tatiana_teach_escalation <= 4:
+		act '其中一台带假阳具的电动工具（肛交）': gt 'tatiana_lab', 'teach_dildo_anal'
+		act '其中一台带假阳具的电动工具（阴道）': gt 'tatiana_lab', 'teach_dildo_vag'
+	end
+	act '为什么只选一个？（????)': gt 'tatiana_lab', 'teach_full'
+	act '"我想这次还是算了"': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'saddle':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/riding.jpg"></center>'
+
+	if pcs_horny > 50:
+		'当你走近那台马鞍性爱机时，你能看到塔季扬娜脸上玩味的笑容，而你脸颊的潮红和胸口的起伏毫无疑问地表明，你的小穴正因为情欲而湿润。也许那是一种暴露癖的倾向，或者是别的什么，但你很确定，你做这件事并不只是为了再上一节塔季扬娜的课。'
+
+	else
+		'当你走近那台马鞍性爱机时，塔季扬娜专注于仪式，没有看你，递给你一瓶KY润滑剂，你把它涂在小穴上，清凉的液体让你全身一阵战栗，你专心应对眼前的任务。'
+	end
+
+	'终于，你鼓起勇气，把一些润滑剂抹在骑乘机上那些小小的假阳具状凸起上，然后小心翼翼地蹲上去。只过了几秒钟，那些橡胶棱纹就滑进了你的阴道。一种橡胶般黏腻的感觉蔓延在你的外阴唇和内阴唇之间，抚弄着你的阴蒂，却没有完全插入。'
+	'在这感觉中你轻轻叹了口气，伸手去拿控制器，片刻之后，随着一声轻柔的“嗡嗡”声，机器启动了，一下就把你的整个小穴都刺激了起来。你闭上眼睛，轻柔的呻吟从嘴里溢出。'
+	'你勉强才稳住身子待在机器上方。你汗湿的双手抓住控制器，把它推向更高的功率，震动不断增强，你的声音与机器的声响争相在房间里合唱。'
+	'终于，当你的魔法高潮触发时，控制器从你紧握的手指间滑落，夺走了你的呼吸和自制力，一波又一波被魔法强化的快感在你体内脉动。'
+
+	$orgasm_or = 'yes'
+	gs 'arousal', 'vaginal_vibe', 30, 'no_orgasm_msg', 'self'
+	gs 'arousal', 'end'
+
+	act '上课时间到了':
+		if stat['think_virgin'] = 1 or tatiana_teach_escalation < 2:
+			if func('pcs_has_attr', 'sex_virgin') = 0: tatiana_teach_escalation += 1
+			gt 'tatiana_lab', 'lesson<<tat_lesson_number>>'
+		else
+			gt 'tatiana_lab', 'Escalation1'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Escalation1':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/tatiana.jpg"></center>'
+	'你在床上伸了个懒腰，沉浸在魔法的余韵中，等着塔季扬娜讲解她的课程，但这一次她似乎心不在焉，在房间两侧来回踱步，用魔法检查着那块陶器碎片。她甚至摇了摇它，仿佛想听到什么。'
+	'"塔季扬娜，出什么问题了吗？"'
+	'她看着你，目光陷入沉思。“是的，<<$pcs_nickname>>。我不确定为什么，但仪式没能排走多余的法力。这让情况变得复杂了。”'
+	'“那么……”你开口问道，朝你身旁的机器示意，“我们还要继续用这些吗？”'
+	'塔季扬娜不再看向你这边，目光重新聚焦在那块碎片上，一丝微笑爬上她的脸庞。'
+	'“别担心，我的学生，你的角色还没结束，我们只需要提高标准。那么，你选哪件工具？”'
+	'说着，塔季扬娜开始把那些看起来像电动工具的机器推向你。'
+
+	act '"我想这次还是算了"': gt 'tatiana_lab', 'start'
+
+	act '其中一台带假阳具的电动工具（肛交）': gt 'tatiana_lab', 'teach_dildo_anal'
+
+	act '其中一台带假阳具的电动工具（阴道）': gt 'tatiana_lab', 'teach_dildo_vag'
+
+	act '为什么只选一个？（????)': gt 'tatiana_lab', 'teach_dildo_vag', 'teach_full'
+end
+
+
+if $ARGS[0] = 'teach_dildo_anal':
+	if tatiana_teach_escalation < 2: tatiana_teach_escalation = 2
+	gs 'npcStat', 'D3'
+	gs 'arousal', 'auto_lube', 'anal', 'self'
+	$orgasm_or = 'yes'
+	gs 'arousal', 'anal_dildo', 30, 'self'
+	gs 'arousal', 'end'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/ass.jpg"></center>'
+	if func('pcs_has_attr', 'sex_anal_virgin'):
+		'你拿起一瓶KY润滑剂，怯生生地看着那台活塞驱动的性爱机器，它似乎平静地等待着你的处女肛门，你问自己为什么要这么做。你就这么渴望魔法知识吗？'
+		'你鼓起勇气，把一些润滑剂抹在手指上，然后给假阳具涂上润滑，接着不适地叹了口气，把两根手指伸进你紧窄的屁眼，这种感觉并没能让那从未被开拓过的穴口放松下来。'
+		'然后你跪下来，抓住那根爆菊器，慢慢把它推进你处女的屁股里，与身体对侵入的本能抗拒作斗争，感觉你的肛门因这种感觉而紧缩，这让你大声呻吟起来。'
+
+	elseif pcs_ass < 15:
+		'你拿起一瓶KY润滑剂，看着那台活塞驱动的性爱机器，它似乎平静地等待着你的肛门。你把一些润滑剂抹在手指上，给假阳具涂上润滑，然后叹了口气，把两根手指伸进你的屁眼，这感觉让穴口稍微放松了一些。'
+		'然后你跪下来，抓住爆菊器，一边尽量放松你的穴口，一边把它推进屁股里，感觉肌肉包裹着那种触感，这种强行侵入的感觉让你呻吟起来。'
+
+	else
+		'你拿起一瓶KY润滑剂，看着那台活塞驱动的性爱机器，它似乎带着情欲平静地等待着你那被用过无数次的肛门，你问自己做这件事是为了魔法知识，还是只因为你<i>想要</i>到……'
+		'你迅速把一些润滑剂抹在手指上，给假阳具涂上润滑，然后愉悦地呻吟一声，把两根手指伸进你的屁眼，按摩着你的肠道，那种感觉让你情欲高涨地呻吟起来。'
+		'然后你跪下来，抓住爆菊器，把它推进屁股里，你的肠道欢迎着它，那种仿佛填满了你灵魂中某个未知<i>空洞</i>的感觉让你的心跳急剧加速。'
+	end
+
+	'电动工具牢牢插在你的屁股里，现在只剩一件事可做。你抓住控制器，启动这台操人的机器。随着一声机械的“嗡嗡”声，装置开始猛击你的肠道，让你在呻吟和闷哼之间咬紧牙关。'
+	'你把黏糊糊的手伸到两腿之间，开始玩弄你的小穴，你的阴蒂随着电动假阳具的节奏跳动，让你喘不过气。在仪式的影响下，你不断增长的情欲冲击着你的魔法核心。'
+	'终于，在一次魔法爆发中，一阵高潮般的极乐涌过你的身体，让你在性机器的猛攻下瘫软，而法力开始在房间中流动。'
+
+	act '上课时间到了':
+		if tatiana_teach_escalation < 4:
+			tatiana_teach_escalation += 1
+			gt 'tatiana_lab', 'lesson<<tat_lesson_number>>'
+		else
+			gt 'tatiana_lab', 'Escalation2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'teach_dildo_vag':
+	if tatiana_teach_escalation < 2: tatiana_teach_escalation = 2
+	gs 'npcStat', 'D3'
+	gs 'arousal', 'auto_lube', 'vag', 'self'
+	$orgasm_or = 'yes'
+	gs 'arousal', 'vaginal_dildo', 30, 'self'
+	gs 'arousal', 'end'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/vag.jpg"></center>'
+	if func('pcs_has_attr', 'sex_virgin'):
+		'你拿起一瓶KY润滑剂，怯生生地看着那台活塞驱动的性爱机器，它似乎平静地等待着你处女的小穴。你问自己为什么要这么做。你就这么渴望魔法知识吗？'
+		'你鼓起勇气，把一些润滑剂抹在手指上，给假阳具涂上润滑，然后因那种触感而战栗，开始抚摸你的阴唇，两根羞怯的手指把润滑剂涂抹进那从未被开拓过的穴口。'
+		'然后你跪下来，抓住那根破处器，把它推进你处女的阴道。你的处女膜被撕裂时有一丝几乎察觉不到的刺痛，这种感觉让你呻吟起来。'
+
+	elseif pcs_vag < 15:
+		'你拿起一瓶KY润滑剂，看着那台活塞驱动的性爱机器，它似乎平静地等待着你的小穴。你把一些润滑剂抹在手指上，给假阳具涂上润滑，然后叹了口气，开始抚摸你的阴唇，两根手指把润滑剂涂抹进你的小穴。'
+		'然后你跪下来，抓住破处器，一边尽量放松一边把它推进你的小穴，感觉肌肉在假阳具的尺寸下逐渐让步，这种感觉让你呻吟起来。'
+
+	else
+		'你拿起一瓶KY润滑剂，看着那台活塞驱动的性爱机器，它似乎带着情欲平静地等待着你那被用过无数次的小穴。你问自己做这件事是为了魔法知识，还是因为你<i>想要</i>到……'
+		'你把一些润滑剂抹在手指上，给假阳具涂上润滑，然后愉悦地叹了口气，开始抚摸你的阴唇，两根手指把润滑剂涂抹进你的小穴，按摩着你的阴道，那种感觉让你情欲高涨地呻吟起来。'
+		'然后你跪下来，抓住破处器，把它深深推进你的小穴，你的小穴欢迎着它，那种仿佛填满了你灵魂中某个未知<i>空洞</i>的感觉让你的心跳急剧加速。'
+	end
+
+	'电动工具牢牢插在你的小穴里，现在只剩一件事可做。你抓住控制器，启动这台操人的机器。随着一声机械的“嗡嗡”声，装置开始猛击你的小穴，让你在呻吟和闷哼之间咬紧牙关。'
+	'你把黏糊糊的手伸到两腿之间，开始玩弄你跳动的阴蒂，试图跟上电动假阳具的节奏，让你喘不过气。在仪式的影响下，你不断增长的情欲冲击着你的魔法核心。'
+	'终于，在一次魔法爆发中，一阵高潮般的极乐涌过你的身体，让你在性机器的猛攻下瘫软，而法力开始在房间中流动。'
+
+	act '上课时间到了':
+		if tatiana_teach_escalation < 4:
+			tatiana_teach_escalation += 1
+			gt 'tatiana_lab', 'lesson<<tat_lesson_number>>'
+		else
+			gt 'tatiana_lab', 'Escalation2'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Escalation2':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/tatiana.jpg"></center>'
+	'你满足地叹了口气，法力从你的核心被释放出来，流遍你的全身，一种欢欣鼓舞的感觉充满你的脑海，你的魔法力量被推到了极限之外。'
+	'“呃……有意思。”塔季扬娜咕哝道，把你从遐想中拉了回来。她盘腿坐在地上，无视你的存在，注意力完全集中在那块护符碎片上。'
+	'"让我猜猜。没成功？"'
+	'她看了你一会儿，然后重新陷入她的魔法沉思，接着若有所思地躺到地上，又坐起来，朝你的方向打了个响指。'
+	'“不，<<$pcs_nickname>>，其实它运作得完美极了，<i>太<i>完美了。看来法力的涌入重新激活了非女性限制，所以这块漂亮的小垃圾把我锁在了里面那美妙的法力之外。”'
+	'她一跃而起，把所有操人的机器都抓过来，放在你够得着的地方。'
+	'“幸运的是，我们可以用感官过载来打破那个限制，所以……准备好献上你一生中最精彩的表演了吗？”'
+	'你看着微笑的塔季扬娜、护符和那些性爱机器，心里渐渐明白，塔季扬娜是想让你把它们<i>全部</i>用上。'
+
+	act '"我想这次还是算了"': gt 'tatiana_lab', 'start'
+	act '演出必须继续': gt 'tatiana_lab', 'teach_full'
+end
+
+
+if $ARGS[0] = 'teach_full':
+	if tatiana_teach_escalation < 4: tatiana_teach_escalation = 4
+	gs 'arousal', 'auto_lube', 'anal', 'self'
+	gs 'stat'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/f1.jpg"></center>'
+	'你俯身趴在一张瑜伽垫上等待着，塔季扬娜戴上一副外科手套，发出“啪”的一声，你转过头看向她微笑的脸，她开始把KY润滑剂抹在一根通上电的、一英尺长的假阳具上。她是在挑逗你，还是在吓唬你？然后她停下来，转向你的屁股。'
+	'塔季扬娜经验丰富的双手开始轻柔却毫不犹豫地把一根沾满润滑的手指伸进你的肛门。你叹了口气，不是因为快感，而是因为按摩开始时的放松，那紧守的穴口被撑开。'
+	'"好了，<<$pcs_nickname>>，让乐趣开始吧！"'
+
+	if func('pcs_has_attr', 'sex_anal_virgin'):
+		'当塔季扬娜把某个橡胶般黏腻的东西顶在你最肮脏的部位时，你的呼吸一滞。你本能地绷紧身体，咬紧牙关喘息着，她毫不留情地把假阳具推过那守卫森严的入口，与自然规律对抗，那东西填满你的肠道，让你发出不适的闷哼。'
+		'"好了，<<$pcs_nickname>>，你可以看了！"'
+		'你转过头，看到那根半埋着的假阳具从你已经不再处女的屁眼里伸出来，你的肠道搏动着想要排出这个不舒服的入侵者，让你诡异地清楚意识到那东西埋在何处。然后你僵住了，因为塔季扬娜露出邪恶的坏笑，开始抚摸另一根电动假阳具。'
+
+	elseif pcs_ass < 15:
+		'当塔季扬娜把某个橡胶般黏腻的东西顶在你最肮脏的部位时，你的呼吸一滞。你试图放松肌肉，让假阳具顺利推进你的肛门，但它太大了，接下来的几分钟变成你和塔季扬娜之间的挣扎，她努力在不伤到你肠道的情况下把性玩具埋进去。'
+		'"好了，<<$pcs_nickname>>，你可以看了！"'
+		'你转过头，看到那根半埋着的假阳具从你的屁眼里伸出来，你松了一口气，你的肠道似乎没受太多痛苦就接受了这个入侵者。然后你僵住了，因为塔季扬娜露出邪恶的坏笑，开始抚摸另一根电动假阳具。'
+
+	else
+		'你对塔季扬娜的滑稽举动翻了个白眼，忐忑地等待即将到来的插入。某个橡胶般黏腻的东西顶在你最肮脏的部位，让你满足地呻吟起来。假阳具毫不留情地推过入口，进入你欢迎它的肠道，一种完整的感觉蔓延你的全身。'
+		'"好了，<<$pcs_nickname>>，你可以看了！"'
+		'你转过头，看到那根半埋着的假阳具从你的屁眼里伸出来，你肠道的搏动送来阵阵快感的战栗，让你等待通电的时间变得缓慢。然而，塔季扬娜露出邪恶的坏笑，开始抚摸另一根电动假阳具。'
+	end
+
+	act '继续':
+		gs 'arousal', 'auto_lube', 'vag', 'self'
+		gs 'stat'
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/f2.jpg"></center>'
+		'由于那根大橡胶玩意儿牢牢塞在你的屁眼里，你动弹不得，只能眼看着塔季扬娜开始给另一根电动假阳具抹上润滑撸动。一想到那东西的尺寸将要进入你的小穴，你不禁脊背发凉。'
+		'你正在琢磨这件事，有什么东西拂过你小穴的阴唇。幸运的是，那不是橡胶怪物，而是塔季扬娜的手指，她开始把润滑剂涂满你的小穴，愉悦的波浪涌上你的身体，让呻吟从你喉咙里溢出，把你的注意力从即将到来的猛攻中拉走。'
+
+		if func('pcs_has_attr', 'sex_virgin'):
+			'她把那根合成阳具顶在你紧窄却非常黏滑的私处上，那种穿刺感突破你因屁股里另一根乳胶入侵者而挤压变窄的肠道，让你咬紧牙关。'
+			'当塔季扬娜毫不留情地把那根阳具仿制品推进你的小穴时，你的处女膜被撕裂，只有一丝几乎察觉不到的刺痛，让你在呻吟、闷哼和短促的呼吸之间把头抵在垫子上，直到她停下来。'
+
+		elseif pcs_vag < 15:
+			'她把那根合成阳具顶在你紧窄却非常黏滑的私处上，假阳具穿过你顺从的阴唇时让你愉悦地呻吟起来。可惜，这性玩具巨大的围度在你撑开阴道娇嫩的壁肉时让你皱眉咬牙。'
+			'汗水流过你的额头，塔季扬娜毫不留情地把那根阳具仿制品推进你的阴道，让你在呻吟、闷哼和短促的呼吸之间把头抵在垫子上，直到她停下来。'
+
+		else
+			'"哦，拜托，塔季扬娜！你还在等什么？！"'
+			'对塔季扬娜的吝啬有些不满，你把手伸到两腿之间，掰开你的阴唇，她明白了你的意思，不再在那根合成阳具上浪费时间，把它顶在你湿滑黏腻的私处上。'
+			'"好！"你咬着牙呻吟道，她毫不留情地把那根阳具仿制品推进你的阴道，让你在呻吟、闷哼和短促的呼吸之间把头抵在垫子上，直到她停下来。'
+		end
+
+		act '继续':
+			gs 'npcStat', 'D3'
+			$orgasm_or = 'yes'
+			gs 'arousal', 'vaginal_dildo', 30, 'self'
+			gs 'arousal', 'anal_dildo', -30, 'self'
+			gs 'arousal', 'dildo_suck', -30, 'self'
+			gs 'arousal', 'end'
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/f3.jpg"></center>'
+			if pcs_throat = 0:
+				'又是一声响亮的“啪”，塔季扬娜扔掉那副手套，跪在你身旁。她一只手抓住你的后脑，另一只手把最后一根电动假阳具引向你的嘴，推过你的嘴唇。'
+				'你试着把那根大得令人痛苦的假阳具吞进嘴里，但它顶到你的喉咙时，你开始咳嗽，塔季扬娜便把那根破颚器抽了出来。'
+				'"放轻松，<<$pcs_nickname>>！就……玩玩它。深喉这种事还是留给<i>专业人士</i>吧。"'
+				'她把假阳具举在你面前并打开开关。当你试着舔那根柱身时，它开始轻轻拍打你的脸，但这只是分散注意力，塔季扬娜把那些操人机器的控制器推到你面前，带着恶魔般的微笑，把它们全部打开。'
+
+			elseif pcs_throat < 15:
+				'随着又是一声“啪”，塔季扬娜扔掉那副手套，跪在你身旁。她一只手抓住你的后脑，另一只手把最后一根电动假阳具引向你的嘴，推过你的嘴唇。'
+				'你试着把那根大得令人痛苦的假阳具吞进嘴里，但这是一场折磨，那根破颚器不断触发你的呕吐反射，即便如此，你还是勉强连着做了一串吸吮和舔弄。“放轻松，<<$pcs_nickname>>！就……玩玩它。我还没打开开关呢！”'
+				'然后，她带着恶意的吝啬打开了开关，你开始挣扎着吸吮那根活过来的性玩具，它在你的嘴里活塞般进出，但这只是分散注意力，塔季扬娜把那些操人机器的控制器推到你面前，带着恶魔般的微笑，把它们全部打开。'
+
+			else
+				'又是一声响亮的“啪”，塔季扬娜扔掉那副手套，跪在你身旁。她一只手抓住你的后脑，另一只手把最后一根电动假阳具引向你的嘴，推过你的嘴唇。'
+				'你轻松地把那根大假阳具吞进嘴里，让塔季扬娜挑了挑眉。“放轻松，<<$pcs_nickname>>！就……玩玩它。这不是比赛。”'
+				'然后，假阳具牢牢留在你嘴里，她打开开关，它开始在你喉咙里活塞般抽动，但这只是分散注意力，塔季扬娜把那些操人机器的控制器推到你面前，带着恶魔般的微笑，把它们全部打开。'
+			end
+
+			'随着一连串机械声响，那些活塞驱动的假阳具开始猛击你的肠道，让你在欢愉与痛苦中呻吟闷哼，塔季扬娜仔细调整功率设置，以最大化快感、最小化疼痛。当你的身体试图适应这持续的猛攻时，那些感觉……极其强烈。'
+			'随着你的穴被猛击，你的情欲一点点增长，塔季扬娜的魔法迅速汇入你的法力，让你的神经燃烧起来，引发<i>世俗</i>性爱无法比拟的强烈感受，让你的心神失去焦点，同时某种温暖的东西在你的核心中滋长。'
+			'终于，一场性高潮让你愉悦地尖叫起来，你的魔法核心释放出法力，让它流经你的神经，引发一波又一波高潮般的极乐，让你瘫倒在垫子上，喘作一团。'
+
+			act '上课时间到了': gt 'tatiana_lab', 'lesson<<tat_lesson_number>>'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'lesson1':
+	*clr & cla
+	tat_lesson_number += 1
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'当你喘匀气时，塔季扬娜有点晕乎乎地倒在你身旁。'
+	'"好了，接下来是一堂关于法术和技巧究竟是什么的冗长课程！让我想想……议会里的老家伙们喜欢说，它们是巫师的盔甲、工具和武器。是靠着在发霉的图书馆里多年学习才成形的意志行为！是啊，对于一个五岁小孩都能即兴发挥的东西来说，真是够诗意的。"'
+	'她停顿了片刻，带着痴痴的笑容摆弄着护符碎片，然后继续说。'
+	'"不管老一辈想让你相信什么，法术不过是一些助记把戏，用词语、手势以及所有那些装点我们技艺的老套行头，来<i>以某种方式</i>集中我们的心神，<i>以某种方式</i>引导魔力，用来<i>以某种方式</i>欺骗宇宙。技巧是可以<i>以某种方式</i>训练到超越一切仪式、化为本能的，但记住，我的学生，超越一切方法论，真正重要的是我们的意志、激情和重塑世界的动力。"'
+	'你花了几分钟消化塔季扬娜的信息。“所以，你是说我可以……嗯……只要许愿就能做到任何事？”塔季扬娜回你一个心照不宣的微笑。'
+	'"没错！当然，我承认这并不像单纯许个愿那么简单。我们巫师花了数千年完善一套方法论，以法术的形式简化这个过程，但充其量，那也只是<i>如果你这样做，就会发生这种事</i>的情况。你的意志力才是施法背后真正的驱动力，你很快就会发现在把仪式用于训练之外，最基本的效应可以像条件反射一样施展，而随着你力量和经验的增长，更强大的魔法也会变得更容易。现在，到了有趣的部分！"'
+
+	act '继续':
+		*clr & cla
+		gs 'spellList', 'addAvailableSpells', 'basicSpells'
+		gs 'spellList', 'addAvailableSpells', 'healSpells'
+		'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+		'塔季扬娜一跃而起，开始慢慢地做出一连串复杂的手势，伴随着一些古怪的词语，很快，翻滚的雾气开始从她指间落下，迅速遮蔽了房间里的视线。'
+		'"挺吓人的，对吧？这是雾气术，<<$pcs_nickname>>，最古老也最简单的法术之一。高等希德族的最爱，他们在远古时代用它为领地营造那种<i>超凡脱俗</i>的景致。如今——多亏了帷幕——它已被弃用，但在战斗中用来快速粗暴地分散注意力还是很有用的。"'
+		'塔季扬娜解除法术，做了个手势让你跟她去实验室，她打开本生灯，把手伸到上面，任由火焰烧灼她手部的皮肤，烧焦血肉的气味在实验室里飘散。'
+		'"印象深刻吧，<<$pcs_nickname>>？这叫做……疼痛阻断！是的，听起来毫无创意，但你会发现大多数法术的名字都相当简单。不过除了这点小花絮，这个法术是现存最有用的法术之一，因为它除了能实际阻断所有痛觉之外，还能<i>在不消除触觉或让你昏昏沉沉的情况下</i>做到。不幸的是，它不能用于战斗中来消除全身性休克，但你不能什么都想要……<i>暂时</i>。"'
+		'说完这些，塔季扬娜终于收回她已经被烧到见骨的手，集中精神。血肉迅速在她手周围重新生长。'
+		'"怎么治愈伤口？那是下一课的内容，<<$pcs_nickname>>。"'
+		act '课程结束': gt 'tatiana_lab', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'lesson2':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'塔季扬娜用手指把玩着护符碎片，似乎已经准备好给你上下一课，她一刻也没耽搁，向你演示了几种新的魔法手势，让第二个塔季扬娜浮现出来。'
+	'“漂亮的小把戏，对吧<<$pcs_nickname>>？现在看看这个！”'
+	'这对开心的搭档接着跳了一段整齐的舞步，然后其中一个弹了下你的鼻尖就消失了。那是幻觉吗？除了魔法的轻微酥麻，你什么都没感应到。'
+	'“这是一个叫分身的战斗幻术。它会复制你的动作，但只会待在你身边几米之内。运气好的话，它能替你挨下本该打在你身上的那一击。现在是好玩的部分了！”'
+	'塔季扬娜从架子上拿起一把刀，毫不犹豫、也毫无痛感地在手掌上划出一道深深的口子。鲜血开始从伤口涌出，随后塔季扬娜把另一只手覆上去，伤口迅速愈合，血也突然止住。'
+	'“嗒哒！这就是治疗伤口法术，也是全世界魔法师的心头好！关于它如何运用你的变形法源来重塑你的生物模板，我打算跳过不讲，至少等你有了十五年学徒经验之后再说。这是<i>普通</i>治疗法术中最基础的一个，和大多数法术一样有着限制。你不能在战斗中使用它，也不能用在其他生物身上。它的效力有些有限，因为它是用来治疗擦伤和表皮伤口的，就是那种去看趟医生就能处理好的小伤，但只要有足够的法力，你可以反复使用它，从真正严重的伤势中恢复过来。不过，它治不了长期损伤、疾病或<i>外表</i>上的改变。除此之外，嗯……最好还是自己多做点实验，去了解所有的细节。今天就到这里。这一课到此结束。”'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'lesson3':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'在你的<i>表演</i>中，满脸通红的塔季扬娜看着你，嘴唇颤抖着，似乎努力想说些什么。这很奇怪，因为塔季扬娜从来不会受你的<i>表演</i>影响。也许你打破了她的抵抗力？看来是这样，因为她的手移向你的下巴。她抚摸着你的同时低声细语，突然你的肌肉不听使唤地动了起来。'
+	'“这都是你的错，<<$pcs_nickname>>！那么多闪亮的法力！那么美丽的……你！我不会让莱因霍尔德、议会或任何其他人碰你！你只属于我一个人，我知道！我知道你最终会像我爱你一样爱上我！”'
+	'你站在那里，力气被抽干，塔季扬娜俯身要吻你，却又退了回去，她突然进入的<i>跟踪痴迷模式</i>被抛到脑后，你身上的迟钝感也随之消散。'
+	'“搞什么鬼，塔季扬娜？！你为什么要那样做？？！”'
+	'她回答你的问题时，语气又变得严肃起来。“那是在演示弱小又不受重视的眩晕，你新的战斗法术，也让你看看不入流的性变态，或者<i>你</i>，在对手中招时能干出什么事来。窥探过黑暗面的这一小角之后，我要教你下一个治疗法术——高级治疗伤口。请原谅我不做示范，因为这个法术即便有着和治疗伤口相同的限制，也强大到足以让你从一些小小的魔法伤害中恢复到最佳状态，比如……魔法火球造成的全身三度烧伤。今天就到这里，不过我想下次会教你更专业的治疗法术。”'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'lesson4':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'塔季扬娜没有浪费任何时间，立刻开始施放迷雾，工坊里随即充满了丝丝缕缕的薄雾。'
+	'“这个，<<$pcs_nickname>>，就是疾风。它是古老迷雾的搭档，也是那些把靠我小窝太近的孩子吓跑的阴冷怪风的成因。除此之外，它在如今这个时代的主要用途是在战斗中驱散迷雾，因为它除了吹动树叶之外没什么威力。”'
+	'她说着，一阵轻柔的风从这位红发女巫身上扩散开来，薄雾随之消散。'
+	'“好了，<<$pcs_nickname>>，这样我们终于结束了迷雾/疾风这一对，可以开始更有趣的东西了，比如有用的……嗒哒！治疗疾病！这是历来最受欢迎的治疗技艺中的另一个重要部分。这个法术能帮你清除大多数常见疾病，甚至还能起到低级别止痛药的作用，但它也有标准的<i>普通</i>治疗法术的限制，比如只能在战斗之外使用。另外还要提醒一句，这不是一张免去医院的通行证。它对性病或流感之类的东西挺管用，但和治疗伤口一样，它只能处理去当地诊所就能轻松解决的毛病。”'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'lesson5':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'塔季扬娜没等你缓过神来，就把一个文件夹塞进你手里。里面是几份写满某个法术魔法理论的复印件，还附有展示手势的照片和一张 DVD。'
+	'“要是那些老家伙看到这种<i>不敬</i>之举，准会大喊大叫，不过，嘿，他们又不在这儿！那些资料能帮你学会更高级的多重分身法术。它没什么神秘的。这是个战斗法术，能创造出四个你的分身，它们会复制你的动作，一被触碰就会消失，并替你挡下本该打在你身上的攻击。”'
+	'你翻看那些资料，不得不承认这呈现方式确实有点不对劲。不过塔季扬娜似乎并不在意，继续说着。'
+	'“<<$pcs_nickname>>，我们已经到了我再也教不了你其他东西的地步，不过这个小法术会很棒。它叫治疗，是你的第一个、大概也是最后一个战斗治疗法术。没错，当有人想杀你的时候，你可以治疗自己的——而且只能是自己的——伤口！不过别得意忘形。这个法术比治疗伤口消耗的法力少，但它并不能取代那个法术，所以如果你不处在生死关头，就选后者。'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'lesson6':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'塔季扬娜没有理会正在恢复的你，开始在架子上翻找，直到拿起一把螺丝刀回到你身边。她跪下来，把左手伸到地板上，猛地把螺丝刀砸下去。只听一声脆响，你感到一阵微弱的法力爆开，工具没能伤到她，但塔季扬娜铁了心继续下手，又试了两次之后，螺丝刀终于刺穿了那只不听话的手。'
+	'“好了，<<$pcs_nickname>>，我厌倦了只讲解不演示，这样我还能顺便示范两个法术。第一个是能量护盾，一个战斗法术，也是其他一切都失败时你的最后一道防线。可惜它有两个缺点——第一：它是一次性的，也就是说它在吸收伤害的过程中会逐渐失效；第二：它设计用来抵挡低强度攻击，比如拳头和偶尔出现的冷兵器，但威力更大的东西会直接把它撕碎。所以别拿它去挡子弹。”'
+	'你看着塔季扬娜拔出螺丝刀，留下一个丑陋的伤口，血涌到地板上，随即又止住，伤口开始缓缓愈合。'
+	'“这是我打算教你的最后一个治疗法术，<<$pcs_nickname>>。它叫再生，会在两小时内持续治疗你，法力消耗和治疗差不多。它的治疗效果有些随机，比治疗伤口更好，但用时间换取了紧迫性。除此之外，它也有标准的限制：属于不能在战斗中使用的个人法术。这就是<i>普通</i>治疗法术的极限了。再往上，大多数都属于专业治疗技艺或我的身体改造术。”'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'lesson7':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'在你上一次<i>脱衣表演</i>之后，塔季扬娜给了你一个旧皮面文件夹，里面是新法术的说明。吸引你注意的是那一系列精心手抄的笔记，它们散发着微弱的魔法光晕。甚至还带着一丝淡淡的……大丽花香味？'
+	'“是啊，我知道，<<$pcs_nickname>>……挺漂亮吧。我们那些长辈闲着没事就爱干这种事。他们似乎不知道印刷机已经发明了，不过我们继续你的训练吧。”'
+	'“这些笔记展示的是你新的战斗法术——加速。想躲子弹，或者以超音速奔跑？抱歉，别做梦了。那种魔法是存在的，但它高度专业、代价高昂，而且会打破帷幕所维持的掩饰。这个法术确实能把你的反应速度提升到人类极限，如果你肯花时间训练，还能超越极限，但它没有夸张到让你能徒手接住子弹。至少在没有极大运气和一些用于闪避的魔法防护时不行。”'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'lesson8':
+	*clr & cla
+	tat_lesson_number += 1
+	gs 'spellList', 'addAvailableSpells', 'basicSpells'
+	gs 'spellList', 'addAvailableSpells', 'healSpells'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/Tatianalesson.jpg"></center>'
+	'塔季扬娜看起来有些不对劲，目光遥远，在你从上次的<i>骑乘</i>中缓过来时想着什么事。你只好大声咳嗽，才把她从遐想中拉回来，让她注意到你赤裸跪着的身影。'
+	'“嗯？抱歉，<<$pcs_nickname>>。我只是……你知道的，在想怎么继续榨取你的法力，不过……我想起自己还有一样叫<i>道德</i>的小东西，还有一个约定要遵守……该死！”'
+	'她随即夸张地叹了口气，微笑着转向你。'
+	'“好了，<<$pcs_nickname>>，这是最后一课了。我没有资格再教你更多魔法，因为身体改造术里的那些法术对你这样的新手来说实在太高级了。也许以后我会教你，但不是现在。那么，我的最后一课该教什么好呢？”'
+	'塔季扬娜随后递给你一个笔记本，里面是大量关于……你的生物魔法资料？全都写得精确而清晰，还有关于你潜力的理论和推测，其中还提到一个叫……狂暴之怒的新法术？'
+	'“如果你想知道的话，<<$pcs_nickname>>，那是我正在写的、关于你的本质和那个法术的论文的一角。嗯，它是一个<i>普通</i>战斗法术，能在两小时内把你的敏捷、力量和耐力提升到人类极限，经过训练还能超越极限。你必须明白，这个名字并非用词不当，而你是少数几个使用它还能保持理智的幸运儿之一。所以，就是这样！”'
+	act '课程结束': gt 'tatiana_lab', 'start'
+end
+
+
+if $ARGS[0] = 'Tatianasuctalk':
+	cla
+	clr
+	*clr
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '塔蒂亚娜')
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+	if sucpcinfo < 2:
+		minut += 15
+		*p '你们俩在沙发上坐定后，塔季扬娜转向你说：“好吧，告诉我发生了什么。”'
+		'接下来的 15 分钟里，你向她讲述了那个仙女、那个奇怪的梦，'
+		if succubusQW < 11:
+			'以及那天晚上你释放出的能量。'
+		elseif succubusQW = 11:
+			'那天晚上你释放出的能量，还有你做完爱后那种感觉。'
+		else
+			'那天晚上你释放出的能量，你做完爱后那种感觉，还有你差点被强奸时的反应。'
+		end
+		''
+		'她想了一会儿，然后说：“嗯，我有几个想法，但既然我能直接用魔法检查你，瞎猜也没意义。”'
+		'她跳起来说：“脱掉衣服，躺到沙发上。”'
+		sucpcinfo = 2
+		act '脱衣服躺下': gt 'succubus', 'tatianaask'
+		exit
+	end
+
+	if tatisucsex = 0 and tatisucsexask ! daystart: act '问问塔季扬娜是否想试试魅魔性爱': tatisucsexask = daystart & gt 'tatiana_lab', 'Tatianasucsexask'
+
+	act '让她重复一遍她所知道的关于魅魔的事': gt 'succubus', 'tatianaask'
+
+	act '问她是否学到了关于魅魔的新东西':
+		cla
+!!		Nothing after info level 6 here, because Tatiana will tell the PC automatically
+		if sucinfoday ! 0 and sucinfoday <= daystart:
+			if sucpcinfo = 4 and succublvl >= 2:
+				'“其实，我打听到了一些关于魅魔的新消息。”'
+				'“我是从一个法师线人那里听说的，他居然在澳大利亚的悉尼，他透露了一些更详细的细节。”'
+				sucpcinfo = 5
+				sucinfoday = daystart + 10 + rand(0, 7)
+				act '让她告诉你': gt 'succubus', 'tatianaask', 1
+			elseif sucpcinfo = 5:
+				'“其实，我打听到了一些关于魅魔的新消息。”'
+				'“我是从一位老朋友那里听说的，她现在住在摩洛哥，而且真的有个魅魔当情人。她说她们在一起一段时间之后发现，在她的帮助下，她的魅魔情人学会了一些新东西。”'
+				sucpcinfo = 6
+				sucinfoday = daystart + 10 + rand(0, 7)
+				act '让她告诉你': gt 'succubus', 'tatianaask', 2
+			else
+				'不，我没有。'
+				act '继续': gt 'tatiana_lab', 'Tatianasuctalk'
+			end
+		else
+			'不，我没有。'
+			act '继续': gt 'tatiana_lab', 'Tatianasuctalk'
+		end
+	end
+
+	act '换个话题': gt 'tatiana_lab', 'Tatiana'
+
+end
+
+
+if $ARGS[0] = 'Tatianasucsexask':
+	cla
+	clr
+	*clr
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '塔蒂亚娜')
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+	if tatisucsex = 0:
+		if TatianaSex = 1:
+			'你给了塔季扬娜一个自认为是“来嘛”的微笑，问道：'
+			'“那么，你想试试魅魔性爱吗？”'
+		else
+			'你害羞地冲塔季扬娜笑了笑，问道：'
+			'“你想试试魅魔性爱吗？”'
+		end
+	else
+		'你冲塔季扬娜灿烂一笑，问道：'
+		'嘿，塔季扬娜，想不想来点魅魔性爱？'
+	end
+	act '她回答道：':
+		cla
+		if tatisucsex = 0:
+			'她瞪大眼睛看着你，然后说：'
+			if succublvl + TatianaSex < rand(0, 6):
+				'“抱歉，<<$pcs_firstname>>，我现在实在没时间。”'
+				act '换别的事情做': gt 'tatiana_lab', 'Tatiana'
+			else
+				'“我很乐意！”，她笑得合不拢嘴。'
+				'她把你领到沙发边，你们俩都脱光了衣服。'
+				act '继续': gt 'succubus', 'tatianasex'
+			end
+		else
+			if tatisucsexday <= daystart:
+				if 1 + (succublvl * 2) + tatisucsex < rand(1, 20):
+					'“抱歉，<<$pcs_nickname>>，我现在实在没时间。”'
+					act '换别的事情做': gt 'tatiana_lab', 'Tatiana'
+				else
+					'她冲你露出“来嘛”的微笑，说：“我很乐意，<<$pcs_nickname>>！”'
+					'你们俩一边脱衣服一边走向沙发。'
+					'到了那里，你们面对面坐下，她满怀期待地看着你。'
+					act '继续': gt 'succubus', 'tatianasex'
+				end
+			else
+				if tatisucsexday - daystart > 1:
+					$scsextmp = '天'
+				else
+					$scsextmp = 'day'
+				end
+				'她带着悲伤的微笑看着你，说：'
+				'“抱歉，<<$pcs_nickname>>，我至少还需要<<tatisucsexday - daystart>> <<$scsextmp>>。”'
+				killvar 'scsextmp'
+				act '换别的事情做': gt 'tatiana_lab', 'Tatiana'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Tatianasexreject':
+	cla
+	clr
+	*clr
+	gs 'stat'
+	$func('wrap', 'header center b', '塔蒂亚娜')
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+	if scpopt = 2:
+		'抱歉，塔季扬娜，我现在实在没时间。'
+		scpopt = 0
+		killvar 'sclocrt' & killvar 'scargrt'
+	end
+	act '完成': gt 'tatiana_lab', 'Tatiana'
+end
+
+
+if $ARGS[0] = 'suctrainsex':
+	'她突然扑向你，开始亲吻你！你惊讶得一时反应不过来，还没等你做什么，她已经在轻咬你的耳朵，低声说：“放开它……”'
+	gs 'npcStat', 'A176'
+	gs 'arousal', 'kiss', 5, 'lesbian', 'sub'
+	gs 'arousal', 'end'
+
+	if pcs_horny >= 100:
+		'这股突如其来的感觉把你惊到了，一股强烈的高潮猛地席卷全身，让你忍不住叫出声，同时它沿着连结涌向塔季扬娜，也让她达到了强烈的高潮！'
+		'接着，你感觉自己的控制力开始滑落……'
+		$orgasm_or = 'yes'
+		gs 'stat'
+
+		act '继续': gt 'succubus', 'tatianasex'
+	else
+		scfwon = 2
+		scpopt = 1
+		$sclocrt = 'tatiana_lab'
+		$scargrt = 'Tatianasexreject'
+		'你只有片刻时间做决定：是屈服，让<<$sucself1>>释放出来，还是将它压制住？'
+		act '继续': gt 'succubus', 'tatianasex'
+	end
+end
+
+
+if $ARGS[0] = 'suctraining':
+	if sucpcinfo < 2:
+		*clr & cla
+		menu_off = 1
+		gs 'stat'
+		$func('wrap', 'header center b', '塔蒂亚娜')
+		'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+		'你一走进她的实验室，塔季扬娜就猛地抬起头，快步朝你走来。'
+		'她盯着你看了好几秒，然后质问道：“你到底出了什么事！？！？”'
+		'你刚要回答，她抬起手说：“等等，过来坐到沙发上告诉我。”'
+		'她转身离开你，朝沙发走去。'
+
+		act '跟着她': gt 'tatiana_lab', 'Tatianasuctalk'
+		exit
+	elseif sucpcinfo >= 6 and sucskill < 3 and sctrainprep = 1:
+		if tatisucsexday > daystart and tatisucsexday - 5 >= daystart:
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			$func('wrap', 'header center b', '塔蒂亚娜')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+			'你试图进入塔季扬娜的实验室，但一道隐形屏障挡住了你。塔季扬娜显然听到了你的动静，她快步跑过来问道：“怎么了？我们需要取消吗？”'
+			act '是的，我需要取消':
+				cla
+				'"你确定吗？"'
+				act '是的，我确定':
+					cla
+					if tatisucsexday = daystart + 7:
+						!! this looks like a potential bug. if this isn''t the first time you''re preparing
+						!! then you should only get 2000 back and sctrainprep should be set back to -1 here.
+						!! fixing this likely requires another sctrainprep value besides -1, 0, and 1
+						sctrainprep = 0
+						gs 'money', 'earn', 5000
+						'"还好，我还没买任何东西。"她把<<$func(''money'', ''string_profit'', 5000)>>递还给你，然后回去继续她的研究。'
+					else
+						minut += 3
+						sctrainprep = -1
+						'"好吧，我这就把「电池」药水倒掉。"'
+						'说完，她走到自己的工作台前，把几个烧杯里的东西倒进一个桶里，桶里随即迸发出魔法的光芒。'
+					end
+					act '继续': gt 'tatiana_lab', 'start'
+				end
+				act '不，算了，你继续准备吧':
+					cla
+					'她轻轻摇了摇头，说：“那你出去吧，我可不能让你分散我的注意力！”'
+					act '离开': gt 'city_center'
+				end
+			end
+			act '不……':
+				cla
+				'你说：“不，我只是想见见你。”'
+				'她回答：“你嘴真甜，但我不能让你分散我的注意力，等<<tatisucsexday - daystart>>天后再充满能量回来吧！”'
+				act '离开':
+					minut += 3
+					gt 'city_center'
+				end
+			end
+			exit
+		elseif tatisucsexday > daystart and tatisucsexday - 5 < daystart:
+			if tatisucsexday - daystart > 1:
+				$scsextmp = '天'
+			else
+				$scsextmp = 'day'
+			end
+			'你试图进入塔季扬娜的实验室，但一道隐形屏障挡住了你。塔季扬娜显然听到了你的动静，她在实验室另一头喊道：“我已经喝下第一瓶药水了，所以不能靠近你，等<<tatisucsexday - daystart>> <<$scsextmp>>后再充满能量回来吧！”'
+			killvar 'scsextmp'
+			act '离开':
+				minut += 3
+				gt 'city_center'
+			end
+			exit
+		elseif tatisucsexday = daystart or tatisucsexday = daystart - 1:
+			*clr & cla
+			menu_off = 1
+			gs 'stat'
+			$func('wrap', 'header center b', '塔蒂亚娜')
+			'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+			'你一走进实验室，塔季扬娜就猛地抬起头，在你走向屏障时死死地盯着你。'
+			if sucexcess >= 100 and succhungry < -2:
+				minut += 10
+				'当你穿过屏障时，塔季扬娜仿佛瞬间移动到你面前，开始亲吻你。'
+				'然后她开始把你往工作台那边拉，一边在亲吻的间隙说：“谢天谢地（吻）你（吻）总算（吻）来了（吻）而且（吻）准备好了（吻）！你（吻）绝对（吻）想不到（吻）带着（吻）这么多（吻）性（吻）能量（吻）让我（吻）有多<i><b>饥渴</b></i>（吻）！”'
+!!				Maybe add arousal call here
+				'她突然转身背对你，你这才发现自己已经走到了她的工作台前。她从台面上抓起两个小瓶子，拔掉两个瓶塞，把其中一瓶递给你，说：“喝掉这个。”然后自己把另一瓶一饮而尽。'
+				'尝起来像草莓糖浆。'
+				'这一次，当塔季扬娜扑向你时你早有准备，你一边继续亲吻，一边领着她走向沙发，同时她脱掉了你们两人的衣服，你感觉到大量储存的能量被释放进你的身体。'
+				'到了沙发那儿，你们面对面坐下。她带着炽热的欲望看着你，说：“来吧！”'
+				act '继续': gt 'succubus', 'tatianasex'
+				exit
+			elseif sucexcess < 100 and succhungry > -2 and tatisucsexday = daystart:
+				'她接着说：“该死！你的储备能量<i>或</i>储存能量都不够！快跑去公园找几个劫匪什么的，明天再回到这里来！”'
+			elseif succhungry > -2 and tatisucsexday = daystart:
+				'她接着说，该死！你的储备能量不够！快跑去公园找几个劫匪什么的，明天再回到这里来！'
+			elseif succhungry > -2 and tatisucsexday = daystart - 1:
+				'她接着说：“该死！你的储备能量不够，而且也没时间让你慢慢积累了。”她叹了口气，又说：“你走吧，我需要安全地把这些能量释放掉。”'
+				sctrainprep = -1
+			else
+				'她接着说：“该死！你的储存能量不够！快跑去公园找几个劫匪什么的，然后再回到这里来！”'
+			end
+			act '离开': minut += 5 & gt 'city_center'
+			exit
+		else
+			'你到实验室时屏障已经撤下，塔季扬娜在房间另一头喊道：“你来晚了，我不得不把那些能量释放掉，我们得重新开始了。”'
+			sctrainprep = -1
+			act '继续': gt 'tatiana_lab', 'start'
+			exit
+		end
+	end
+!!	This is oops handling
+	sucbypass = 1
+	gt 'tatiana_lab', 'start', 'no_time'
+end
+
+
+if $ARGS[0] = 'missions':
+	*clr & cla
+	$func('wrap', 'header center b', '塔蒂亚娜')
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+	temp_rand = rand(1, 3)
+	if TatianaMissionQW = 0:
+		TatianaMissionQW = 1
+		TatianaMissionDay = daystart
+		minut += 15
+		gs 'stat'
+		'塔季扬娜总是埋头翻着那堆文件，当她注意到你时便抬起头来。“<<$pcs_firstname>>，你可算来了！我一直在等你。我们得谈谈。”'
+		'“谈什么？”'
+		'“嗯，你已经花了一些时间适应自己的新处境，也消化了莱因霍尔德和我告诉你的一切，所以，”她笑了笑，“是时候开始你真正的训练了。”'
+		'你感到一阵兴奋涌遍全身，脑海中浮现出从手中射出火球、劈开大海的画面。“太好了！”你喊道，“我早就准备好了。”'
+		'塔季扬娜大概猜到了你在想什么，因为她轻笑一声安抚道：“这可不意味着我们会教你超级强大的法术。至少现在还不会。”她让这些话停留了一会儿；你对她的计划的热情，方才还形象地搏动挺立着，等她继续说下去时已经萎缩疲软了。“这部分训练是最重要的：你要真正把自己的技能、感知和知识付诸实践。”'
+		'最后那句话再次勾起了你的兴趣。“付诸实践？你是说为议会执行任务之类的？”'
+		'“嗯，议会主要负责的是大场面的活儿，那可比你现在能应付的要大得多。不过从长远来看，是的。”她的语气带上了一丝讥讽。“一旦莱因霍尔德觉得你准备好了，我敢肯定他会突然插进来，把你在我的帮助下取得的所有进步都算作他的功劳，然后用一堆危险的冒险把你淹没。那老混蛋就是这样。”塔季扬娜看出你疑惑地看着她，咧嘴一笑摇了摇头，表示这全是善意的玩笑。'
+		act '什么样的任务？':
+			*clr & cla
+			'“那么，”你努力想象着会遇到什么，“这些任务会是什么样的？”'
+			'“没什么危险的，”塔季扬娜安慰你，“至少在你还在学习基础的时候不会。”她走到一堆文件夹前，举起其中一个。“多半是查清楚为什么某人的狗长了两条尾巴，或者，”她又举起另一个文件夹，“调查人们听到从自家地窖里传来的怪声。”'
+			'你茫然地看了她几秒钟，期待塔季扬娜会笑出声来，再次说明她刚才那番话只是开玩笑，但她没有。“那……听起来就像——”'
+			'“胡说八道？”她好心地替你说完。'
+			'“阴谋论的鬼话、鬼故事之类的吧。”你选择这样说。'
+			'塔季扬娜理解地点点头。“是啊，确实像。但记住，普通人看不出魔法的真面目。”'
+			'“对，”你想起来了，“小绿人和骚灵。”'
+			'塔季扬娜见你引用她的话，微笑着点点头。“而且其中一些事确实是魔法造成的：那条长着两条尾巴的狗曾被我们中的一员拿来做实验，所以它几乎浑身都充满了魔法。至于那些声音……”她的笑容变得淫荡起来，“那不过是几个租客避开窥探的目光，定期又大声地偷情取乐罢了。”'
+			act '我们为什么要做这些？':
+				*clr & cla
+				'一想到这个，你觉得脸有点发烫。不过有件事让你很困扰。“但是……我们为什么要调查这些？我是说，听起来确实挺有意思的，但背后有什么原因吗？”'
+				'塔季扬娜耸耸肩。“嗯，你<i>可以</i>去弄几本古籍，把自己锁进象牙塔里，花上半个世纪读魔法书，就像议会里大多数老家伙那样。<b>或者</b>，”她张开双臂，一只手示意她那堆文件和书，另一只手指向出口，“你也可以只学些基础，然后像我一样出去亲身体验魔法。”'
+				'你难以置信地盯着那一堆堆的纸——那可是你一辈子读过的所有东西的好几倍！“这些就是基础？！”'
+				'“没错，”她笑道，“如果你真想弄懂魔法是如何运作的，以及它为什么有时这样、有时那样，你就得读些书。相信我，要是能绕开这一步，我早就找到了。但魔法能让阅读变得更容易、更快捷，而且非常非常值得。一旦你掌握了宇宙所蕴含的能量，你能做到的事简直不可思议。而我才刚刚触及皮毛。”'
+				'“你说的''宇宙的能量''是什么意思？我记得你说过魔法只存在于活物之中，比如植物和动物。”'
+				'“我说过吗？”她若有所思，但又耸了耸肩。“嗯，这有点复杂，简单来说：当科学家提到''暗物质''和''暗能量''时，实际上他们是在试图解释这个位面以及其他所有位面中的魔法，比如恶魔，以及存在于他们''维度''——或者不管你管那叫什么——之中的魔法。不过，”她挥了挥手，像是在赶走一只讨厌的苍蝇，“你现在不用操心这些。等到时候，莱因霍尔德会给你更详细的解释——见鬼，考虑到他是你的导师，我已经解释得太多了……现在，我们走吧！”'
+				'说完，塔季扬娜再次转身朝出口走去，招手示意你跟上。'
+				'“去哪儿？”你问。'
+				'“去见识魔法！”她神秘地回答。'
+				act '去见识魔法（？）': gt 'tatiana_missions', 'intro'
+			end
+		end
+	elseif temp_rand = 1:
+		!! Text could use improvement, maybe mission specific text?
+		gs 'stat'
+		'“嘿<<$pcs_firstname>>，想不想来一场魔法冒险？”塔季扬娜咧嘴笑着问。'
+		act '总是': gt 'tatiana_missions', 'start'
+		act '现在不行': gt 'tatiana_lab', 'start'
+	elseif temp_rand = 2:
+		gs 'stat'
+		'“你好，<<$pcs_nickname>>，很高兴你来了。”塔季扬娜对你微笑。“你觉得怎么样？准备好执行任务了吗？”'
+		act '当然，我们开始吧': gt 'tatiana_missions', 'start'
+		act '现在不行': gt 'tatiana_lab', 'start'
+	else
+		gs 'stat'
+		'“你好，<<$pcs_nickname>>。”塔季扬娜期待地看着你。“你想去做一次调查吗？”'
+		act '乐意之至': gt 'tatiana_missions', 'start'
+		act '现在不行': gt 'tatiana_lab', 'start'
+	end
+
+!! if TatianaMissionQW = 5: gt 'tatiana_missions', 'special'
+!!	act 'Mission 1': gt 'tatiana_missions', '1'
+!! etc. Maybe give them names so you know what you''re doing. Selecting them goes to in depth description and refuse/accept
+
+
+!!! Lore for possible consequences of exposing (many) normal people to powerful magic:
+!!
+!!		'Tatiana lays both folders back where they belong and her expression turns serious. "Remember how I told you that magic has a natural tendency to stay hidden? Well, there''s a limit to that tendency, a threshold beyond which either the magic cannot stay hidden anymore or at which the normal person cannot explain what they''re seeing with some non-magical phenomenon, we''re not sure which - in other words, humans have a breaking point, and when they are pushed beyond that, most of them realize how the world really is… and lose their minds."'
+!!		'"Could that have happened to me?" You shiver at the thought.'
+!!		'"Honestly, I have no idea," Tatiana admits, "but the power you have absorbed since then is huge, even if you can''t really use it to its full potential, and that may have very well driven most regular mages insane, so we''re moving in unknown territory here."'
+!!		'You nod solemnly, suddenly very appreciative of the mental health and stability you always took for granted. "So, you investigate anything that might have magical causes to prevent people from going crazy?"'
+!!		'"It''s even bigger than that, <<$pcs_firstname>>. We know that this threshold exists. Every mage witnesses it sooner or later." She stops, momentarily lost in thought, but quickly recovers. "We have a theory that, if too many people are exposed to too much magic at once, it might break the illusion for everybody; you know, like a nuclear bomb goes off when you reach a critical mass."'
+!!		'"Which would then drive everybody insane," you conclude.'
+!!		'"Maybe not everybody," she corrects, "but many of them. And those that wouldn''t go insane, well, who knows what they''d do? Go on witch hunts? Try to kill all succubi and fae? Attempt to harness the magic of the universe? It would destroy the world as we know it, that''s for sure."'
+!!		'You agree with her - with how much had been flung at you when all this began, you were pretty close to hysteria too, if you''re completely honest with yourself.'
+end
+
+
+if $ARGS[0] = 'stage_SMS':
+	if $start_type['magic'] = 'nomagic': exit
+
+	if tatiana_spell_reminder > 0: tatiana_spell_reminder -= 1
+	if tatiana_succubus_reminder > 0: tatiana_succubus_reminder -= 1
+	if tatiana_mission_reminder > 0: tatiana_mission_reminder -= 1
+	if tatiana_spell_reminder ! 0 and tatiana_succubus_reminder ! 0 and tatiana_mission_reminder ! 0:
+		exit
+	end
+
+	result = func('tatiana_lab', 'SMS_conditions')
+	if result > 0:
+		if arrpos('$contact', 'A176') < 0: gs 'telefon', 'AddContact', 'A176', 'icon_na', 1
+		gs 'telefon', 'SetInSMSSchedule', 'A176', "gs 'tatiana_lab', 'Add SMS', <<result>>", "totminut > <<totminut + (13 - hour) * 60 + rand(20, 100) - minut>>"
+	end
+end
+
+
+if $ARGS[0] = 'SMS_conditions':
+	if tatiana_spell_reminder = 0:
+		if pcs_magik >= 6 and spellavtoklon = 0 and spellbefshild = 0:
+			result = 3
+		elseif pcs_magik >= 6 and spellbefshild = 0:
+			result = 2
+		elseif pcs_magik >= 5 and spellavtoklon = 0:
+			result = 1
+		end
+	end
+	if tatiana_succubus_reminder = 0:
+		if succubusflag = 1 and sucbypass = 0:
+			if sucpcinfo < 2:
+				result += 10
+			elseif sucpcinfo >= 6 and sucskill < 3 and sctrainprep = 1:
+				result += 20
+			elseif tatisucsex > 0 and sucinfoday ! 0 and sucinfoday <= daystart:
+				result += 30
+			end
+		end
+	end
+	if tatiana_mission_reminder = 0:
+		if TatianaMissionQW > 1 and tobiQW > 0 and TatianaMissionDay + 30 < daystart and TatianaMissionQW < TatianaMissionTotal:
+			result += 100
+		end
+	end
+end
+
+
+if $ARGS[0] = 'Add SMS':
+	gs 'telefon', 'ClearInSMSSchedule', 'A176'
+	$SMSTree['0'] = '我是塔季扬娜，我需要你来一趟实验室'
+		$SMSTree['a1'] = '有一个法术我想你会想学'
+		$SMSTree['a2'] = '有一些法术我想你会想学'
+		$SMSTree['b'] = '我们应该谈谈你的魅魔问题'
+		$SMSTree['c'] = '我有一个任务交给你'
+
+	$SMSTree['q'] = '把塔蒂亚娜添加到联系人'
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'receive', $SMSTree['0']
+
+		if ARGS[1] mod 10 = 3:
+			gs 'SMStext_builder', 'receive', $SMSTree['a2']
+			tatiana_spell_reminder = 21
+		elseif ARGS[1] mod 10 > 0:
+			gs 'SMStext_builder', 'receive', $SMSTree['a1']
+			tatiana_spell_reminder = 21
+		end
+		if ARGS[1] / 10 mod 10 > 0:
+			gs 'SMStext_builder', 'receive', $SMSTree['b']
+			tatiana_succubus_reminder = 21
+		end
+		if ARGS[1] / 100 mod 10 > 0:
+			gs 'SMStext_builder', 'receive', $SMSTree['c']
+			tatiana_mission_reminder = 21
+		end
+
+
+		!! replies
+		if contactAnon[arrpos('$contact', 'A176')] = 1:
+			gs 'SMStext_builder', 'add_reply', $SMSTree['q'], 'tatiana_lab', 'add_contact'
+		end
+
+		gs 'SMStext_builder', 'add_sms', 'A176'
+	gs 'SMStext_builder', 'end'
+
+	if ARGS[1] mod 10 > 0: tatiana_spell_reminder = 21
+	if ARGS[1] / 10 mod 10 > 0: tatiana_succubus_reminder = 21
+	if ARGS[1] / 100 mod 10 > 0: tatiana_mission_reminder = 21
+end
+
+
+if $ARGS[0] = 'add_contact':
+	if contactAnon[arrpos('$contact', 'A176')] = 1:
+		gs 'telefon', 'AddContact', 'A176', 'images/characters/city/tatiana/magiclook.jpg', 0
+	end
+
+	gs 'SMStext_builder', 'start'
+		gs 'SMStext_builder', 'show_sms', ARGS[1]
+	gs 'SMStext_builder', 'end'
+end
+
+
+--- tatiana_lab ---------------------------------

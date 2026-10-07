@@ -1,0 +1,1021 @@
+# gschool_grounds
+!! 2022/09/29 - Alaratt
+
+
+!! Outside school building
+if $ARGS[0] = 'main':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gschool_grounds', 'main'
+	$location_type = 'public_outdoors'
+	*clr & cla
+	gs 'vicky_meynold_schedule'
+	gs 'katja_meynold_schedule'
+	gs 'igor_schedule'
+	gs 'stat'
+	$func('wrap', 'header center b', '校外')
+	if month >= 11 or month <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/building/schoolwinter.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/building/gschool.jpg"></center>'
+	end
+	'巴甫洛夫斯克就这么一所学校，本地孩子都在这儿念书。学校旁边是运动场和教师停车场，再过去是一片大树林。'
+	'树林后面藏着<a href="exec: minut += 1 & gt ''pav_old_school'', ''old_school''">旧校舍</a>。新校舍建成后本来要翻修了当高级课教室，结果预算一砍项目就黄了，如今这栋旧楼空在那儿没人管，学生逃课和放学后闲逛都爱往这儿钻。'
+
+	if mother['kickedout_timer'] ! 0 and mother['kickedout_timer'] + 3 <= daystart and (hour = 6 or (hour > 13 and hour <= 15)) and cumloc[11] = 0 and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0:
+		gs 'mother_chats', 'reconciliation_talk'
+		exit
+	end
+
+	if ((hour = 6 and minut >= 30) or (hour >= 7 and hour < 18)) and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and kanikuli = 0 and suspended['on'] ! 1:
+		'学校开放时，你可以去体育馆旁的<a href="exec: minut += 1 & gt ''gschool_grounds'', ''change_room''">更衣室</a>换身衣服。'
+	end
+
+	if day = nyp_day and month = 12 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0:
+		if hour >= 14 and hour < 17:
+			'男生女生都聚在学校附近。今天人人都想露脸，穿上了自己最好的衣服。'
+			'"嘿<<$pcs_nickname>>，你到底来不来新年聚会？"有人朝你喊。"你还没交<<$func(''money'', ''string_price'', 1000)>>的入场费呢！"'
+
+			act '去参加派对' + $func('money', 'get_cost_string', 1000):
+				if func('money', 'can_afford', 1000) = 0:
+					$noMoney
+				else
+					gs 'money', 'pay', 1000 & gt 'nyp_school', 'start'
+				end
+			end
+		end
+	end
+
+	if InvitationToDimkaNYparty = 1 and day = 31 and day = nyp_day:
+		act '跟着季姆卡去他家的聚会':
+			killvar 'InvitationToDimkaNYparty'
+			minut += 30
+			gt 'sny', '3'
+		end
+	end
+
+	if hour = 14 and week < 6 and kanikuli = 0:
+		if NikoDate_Day ! daystart:
+			if week = 1 and NikoIntro = 0:
+				gt 'NikoEv', 'Intro'
+			elseif NikoVolkovQW = 5 and NikoEv = 6 and NikoDate = 0:
+				gt 'NikoDates', 'after_school'
+			elseif NikoVolkovQW = 5 and NikoEv = 8 and NikoDate = 0:
+				gt 'NikoDates', 'after_school2'
+			!! TODO: Reenable when content added
+			!! elseif NikoVolkovQW = 10 and NikoEv = 22:
+			!! 	gt 'NikoEv2', 'Recovery'
+			end
+		end
+	end
+
+	if week < 6 and hour = 14 and kanikuli = 0 and afterschool_day ! daystart and suspended['on'] ! 1 and gschoolVars['school_diploma'] = 0 and gschoolVars['block'] = 0:
+		afterschool_day = daystart
+		if rand(0, 3) = 0:
+			$eventtype = 'after_school'
+			gt 'gschool_events', 'break_events'
+		else
+			gt 'gschool_events', 'afterschool_events'
+		end
+	end
+
+	!! Cheerleading tryouts if Sveta decided to attend
+	if gschoolVars['school_diploma'] = 0 and kanikuli = 0 and cheerleaders_on = 1 and hour = 14 and suspended['on'] ! 1 and npc_pregtalk['A23'] = 0:
+		if cheerleadingQW['quest_stage'] = 1:
+			if pregtime < 90: gt 'gschool_cheerleading', 'tryouts'
+		elseif cheerleadingQW['day'] ! daystart and cheerleadingQW['quest_stage'] > 1:
+			!! A football game is played once every 2nd Friday and the cheerleaders perform out on the field.
+			if week = 5 and (cheerleadingQW['quest_stage'] >= 3 or cheerleadingQW['backup_game'] = 1):
+				gt 'gschool_cheerleading', 'afterschool_game'
+			!! Sveta attends training after school every Tuesday and Thursday.
+			else
+				gt 'gschool_cheerleading', 'afterschool_practice'
+			end
+		end
+	end
+
+	if hour <= 8 and kanikuli = 6:
+		'今天是毕业日！今晚还有学校的毕业舞会。'
+
+		act '去参加毕业典礼':
+			*clr & cla
+			menu_off = 1
+			hour = 10
+			minut = 0
+			gschoolVars['school_diploma'] = 1
+			kanikuli = 7
+			gs 'stat'
+
+			if func('homes_properties', 'has_access', 'parents_home'):
+				'你们年级的人全聚在礼堂里。老师们站在台子上，台前是几排椅子，你和同学坐在上面。一些家长和兄弟姐妹坐在后排。你转过头，看见你的<<$npc_nickname[''A29'']>>和科尔卡就坐在他们中间。'
+			else
+				'你们年级的人全聚在礼堂里。老师们站在台子上，台前是几排椅子，你和同学坐在上面。一些家长和兄弟姐妹坐在后排。你家里人一个都没来。'
+			end
+
+			'校长按字母顺序挨个念同学的名字，最后才轮到你。'
+
+			if class['school_grade_average'] >= 90:
+				'你走到讲台前，校长跟你握了握手。'
+				'"我想表彰今年的最佳学生，"她宣布。"这位<<$pcs_lastname>>小姐功课极好，我觉得这值得表扬。"'
+				'她带头鼓起掌来，礼堂里很快掌声一片。'
+				if func('homes_properties', 'has_access', 'parents_home'): '你回到座位时，看见你的<<$npc_nickname[''A29'']>>正一脸骄傲地笑着。'
+			elseif class['school_grade_average'] >= 70:
+				'你走到讲台前，校长跟你握了握手，然后把毕业文凭递给你。'
+				'"干得好，<<$pcs_lastname>>小姐！"她说完，你就回座位去了。'
+			else
+				'你走向讲台，校长在给你毕业文凭之前握了握你的手。'
+				'然后你回到了自己的座位。'
+			end
+
+			act '返回城镇': minut += 2 & gt 'pav_residential'
+
+			act '去参加毕业舞会':
+				*clr & cla
+				minut += 540
+				gs 'food', 'fast_food_stats'
+				gs 'beverage', 'vodka_stats', rand(2, 3)
+				gs 'outfit', 'strip_all'
+				'典礼结束后，大家都在毕业舞会上喝得烂醉。醒来时你口干舌燥，呼吸间还能尝到和闻到酒味，头痛也随之而来。环顾四周，你发现自己身处镇中心某处，全身赤裸，头发里卡着树枝和树叶。你发现衣服不见了，不禁有些惊慌。'
+				'你找不到自己的衣服，只好用手遮挡身体，沿着光线昏暗的地方走回家。你拼命回忆，但只能想起一些模糊的片段——你和一群同学在镇中心的喷泉里裸泳。'
+
+				act '回家': gs 'homes_properties', 'go_straight_home'
+			end
+		end
+		exit
+	end
+
+	if gschoolVars['school_diploma'] = -1 and week < 6 and hour >= 6 and hour < 14:
+		act '领取毕业文凭':
+			*clr & cla
+			menu_off = 1
+			minut += 20
+			gschoolVars['school_diploma'] = 1
+			kanikuli = 7
+			gs 'stat'
+			if class['school_grade_average'] >= 70:
+				'校长把毕业文凭递给你。'
+				'"干得好，<<$pcs_lastname>>小姐！祝你前程似锦！"她握着你的手说。'
+			else
+				'校长把毕业文凭递给你。'
+				'"祝你前程似锦，"她握着你的手说。'
+			end
+
+			act '返回城镇': minut += 2 & gt 'pav_residential'
+		end
+	end
+
+
+!!	act 'Go to the principal''s office': gt
+
+	if week < 6 and hour >= 6 and hour < 14 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and kanikuli = 0 and gschoolVars['block'] = 0 and suspended['on'] <> 1:
+		if gschoolVars['last_attendance'] <> daystart:
+			if PCloStyle2 <> 4 and cheatVars['school_clothing'] = 0:
+				'不穿校服，学校不让你上任何课。'
+			elseif hour = 6:
+				if minut < 30:
+					'现在上学还太早了。'
+				else
+					if NikoEv = 10: gt 'NikoWhore', 'Walk Of Shame'
+					act '等上课': gt 'gschool_grounds', 'building'
+				end
+			elseif hour = 7:
+				if NikoEv = 10: gt 'NikoWhore', 'Walk Of Shame'
+				if minut <= 45:
+					act '<b>去上课</b>': gt 'gschool_grounds', 'building'
+				else
+					'你上学迟到了！要么赶紧跑去上课，要么干脆翘掉，等第二节课再去。'
+					act '<b>赶去上课</b>': gt 'gschool_grounds', 'building'
+					act '翘课':
+						*clr & cla
+						menu_off = 1
+						$func('wrap', 'header center b', '学校走廊')
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/building/gschool_hall0<<rand(0,2)>>.jpg"></center>'
+						'今天早上你不想把课全上完，就朝洗手间走去。'
+						act '去女生洗手间': gt 'gschool_girls_bathroom', 'start'
+						act '去男生洗手间': gt 'gschool_boys_bathroom', 'start'
+					end
+				end
+			elseif hour = 8:
+				if NikoEv = 10: gt 'NikoWhore', 'Walk Of Shame'
+				'你错过了第一节课。但愿没人注意到。'
+				act '<b>赶去上课</b>':	demerit += 10 & gt 'gschool_grounds', 'building'
+			else
+				'这个点再去学校已经太晚了。你今天被记了缺勤。'
+			end
+		end
+	end
+
+	gs 'camera', 'check_location'
+
+	act '返回城镇': minut += 2 & gt 'pav_residential'
+
+	act '去运动场': minut += 1 & gt 'gschool_grounds', 'sports'
+
+	if mc_inventory['joints'] > 0 and drugVars['weed_high'] = 0:
+		act '在学校大楼后面抽根大麻烟':
+			minut += 10
+			gs 'drugs', 'joint'
+			gt $loc, $loc_arg
+		end
+	end
+
+	if week = 6 and hour = 8 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and detention_set = 1 and gschoolVars['block'] = 0: act '去留堂': gt 'gschool_detention', 'start'
+
+	if christinaQW['pre_fight'] = 1 and week < 6 and hour = 14 and kanikuli = 0:
+		act '攻击克里斯蒂娜':
+			gt 'Zvereva_events', 'KristinaFight'
+		end
+	end
+
+	if suspended['on'] ! 1 and kanikuli = 0:
+		if week < 6 and hour = 14 and dimaRevenge = 5 and dimaRevChoice = 0:
+			gt 'dimaRevenge', dimaRevenge
+		elseif week < 6 and hour = 14 and dimaRevenge = 4 and dimaRevChoice = 1:
+			gt 'dimaRevenge', dimaRevenge
+		elseif week < 6 and hour = 7 and dimaRevenge = 5 and dimaRevChoice = 1:
+			gt 'dimaRevenge', 5, 'before'
+		elseif week < 6 and hour = 7 and dimaRevenge = 6 and dimaRevChoice = 1:
+			gt 'dimaRevenge', 6, 'before'
+		elseif week < 6 and hour = 14 and dimaRevenge = 7 and dimaRevChoice = 1:
+			gt 'dimaRevenge', dimaRevenge
+		elseif week < 6 and hour = 7 and dimaRevenge = 4 and dimaRevChoice = 2:
+			gt 'dimaRevenge', dimaRevenge, 'day4jockbefore'
+		elseif week < 6 and hour = 7 and dimaRevenge = 5 and dimaRevChoice = 2:
+			gt 'dimaRevenge', dimaRevenge, 'day5jockbefore'
+		elseif week < 6 and hour = 14 and dimaRevenge = 6 and dimaRevChoice = 2:
+			gt 'dimaRevenge', 5, 'day5jockafter'
+		!! elseif week < 6 and hour = 11 and dimaRevenge = 4 and dimaRevChoice = 3:
+		!!	gt 'gschool_lessons', 'short_break'
+		elseif week < 6 and hour = 7 and dimaRevenge = 5 and dimaRevChoice = 3:
+			gt 'dimaRevenge', dimaRevenge
+		elseif week < 6 and hour = 14 and dimaRevenge = 4 and dimaRevChoice = 4:
+			gt 'dimaRevenge', dimaRevenge, 'after'
+		elseif week < 6 and hour = 7 and dimaRevenge = 5 and dimaRevChoice = 4:
+			gt 'dimaRevenge', dimaRevenge,	'before'
+		elseif week < 6 and hour = 14 and dimaRevenge = 6 and dimaRevChoice = 4:
+			gt 'dimaRevenge', 5, 'after'
+		elseif week < 6 and hour = 7 and dimaRevenge = 7 and dimaRevChoice = 4 and dimaRevengedaystart >= daystart:
+			gt 'dimaRevenge', 6
+		elseif week < 6 and hour = 7 and dimaRevenge = 5 and dimaRevChoice = 5:
+			gt 'dimaRevenge', dimaRevenge, 'before'
+		elseif week < 6 and hour = 7 and dimaRevenge = 4 and dimaRevChoice = 5:
+			gt 'dimaRevenge', 5
+		elseif week < 6 and hour = 7 and dimaRevenge = 4 and dimaRevChoice = 6:
+			gt 'dimaRevenge', dimaRevenge
+		end
+	end
+
+	act '去旧校舍': gt 'pav_old_school', 'old_school'
+
+	if hour >= 14 and fame['pav_slut'] >= 250 and SchoolGossip > 0 and afterschoolday ! daystart: gt 'gschool_sex', 'suck'
+
+	if hour = 14 and week < 6 and kanikuli = 0 and gschoolVars['school_diploma'] = 0:
+
+		if ivan_afterschool = 1: act '放学后见伊万': gt 'gschool_sex', 'afterschool'
+
+		if cfg_vars['tablemap'] = 0:
+			if anushkaQW['first_visit'] = 0 and meet_after_school = 1: '<a href="exec: gt ''anushka'', ''meet_after_school''">阿努什卡</a>正靠在学校门前的一棵树上。'
+			if radomirQW['first_visit'] = 0 and radomirQW['meet_after_school'] = 1: '<a href="exec: gt ''radapt'', ''meet_after_school''">拉多米尔</a>正靠在学校门前的一棵树上。'
+			if LariskaQW['story'] >= 5 and cheerleaders_on = 0: '你看到<a href="exec:minut += 1 & gt ''LariskaGo''">拉丽斯卡</a>不耐烦地在院子里来回踱步，好像在等什么人。'
+			if christinaQW['subpath'] >= 4 and cheerleaders_on = 0: '<a href="exec:minut += 1 & gt ''Zvereva_house_events'', ''Chris_walk_home''">克里斯蒂娜·兹韦列娃</a>正穿过学校院子，看起来很不高兴。'
+			if juliaQW['study_unlocked'] >= 1: '<a href="exec:minut += 1 & gt ''JuliaMilHome'', ''julia_go''">Julia</a>正坐在院子里看书。'
+			if NatbelQW['QWstage'] > 0 and NatbelQW['blocked'] <> 1: '<a href="exec:minut += 1 & gt ''natbelEv'', ''natbel_go''">Natasha</a>正站在一个角落里。'
+			if artemLernQW >= 1 and artemVitokQW ! 2 and artemQW['artemblok'] = 0 and artemQW['artlie'] ! 2 and artemQW['artembrokenheart'] ! 1: '<a href="exec:minut += 15 & gt ''artem_events'', ''start''">Artem</a>正在学校入口附近等你。'
+			if katjaQW['afterschool_hangout_day'] ! daystart and katjaQW['QWstage'] >= 1 and locat['katja'] = 6: '<a href="exec:minut += 15 & gt ''katjaEv''">卡佳</a>正穿过学校院子，准备回家。'
+			if DimaBeHomeOnce = 1 and DimaRudeBlock = 0:
+				'<a href="exec:minut += 15 & gt ''dimaEv'', ''after_school''">迪姆卡</a>正陷入沉思，他靠在一根灯柱上。'
+			elseif DimaRudeQW > 0 and dimarudeday ! daystart and DimaRudeBlock = 0:
+				if rand(0, 4) = 0: gt 'dimaEv', 'after_school'
+				'<a href="exec:minut += 15 & gt ''dimaEv'', ''after_school''">迪姆卡</a>正陷入沉思，他靠在一根灯柱上。'
+			end
+			if (IgorQW['history'] = 1 or IgorQW['Lover'] > 0) and IgorQW['daystart'] ! daystart and IgorQW['block'] = 0 and locat['igor'] = 6: '<a href="exec:minut += 15 & IgorQW[''daystart''] = daystart & gt ''igorhome'', ''entrance''">伊戈尔</a>正在院子里跟几个朋友聊天。'
+			if fedorKozlovQW >= 10 and kotovVSkozlov = 1:
+				'你看见<a href="exec: gt ''FedorEv'', ''Strela Chat''">费奥多尔</a>独自坐在校园的一个角落里。'
+			elseif fedorKozlovQW >= 10 and fedorkozqw = 2 and FedorLuv < -4:
+				'你看见<a href="exec: gt ''FedorEv2'', ''Fedor Breakup''">费奥多尔</a>独自站着，脸上带着心事。'
+			elseif fedorKozlovQW >= 10:
+				'你看见<a href="exec: gt ''FedorEv'', ''Start''">费奥多尔</a>独自站着，背包挎在胳膊上。'
+			end
+			if NikoVolkovQW >= 5 and NikoDate = 1 and NikoNextDate_day <= daystart or NikoEv = 11:
+				'你看见<a href="exec:gt ''NikoEv'', ''niko_dates''">尼古拉·沃尔科夫</a>在学校外面抽烟。'
+			elseif NikoVolkovQW >= 10 and NikoEv >= 17 and NikoEv <= 20 and NikoDate_Day ! daystart:
+				'<a href="exec:gt ''NikoEv2'', ''Events''">尼古拉</a>正在学校外面抽烟。'
+			end
+		else
+			!! display friends in table if switch is on.
+			st_count = 0 & $show_table = ''
+			if anushkaQW['first_visit'] = 0 and meet_after_school = 1: gs 'show_table', '<a href="exec: gt ''anushka'', ''meet_after_school''">阿努什卡·康斯坦丁诺夫</a>', '5'
+			if radomirQW['first_visit'] = 0 and radomirQW['meet_after_school'] = 1: gs 'show_table', '<a href="exec: gt ''radapt'', ''meet_after_school''">拉多米尔</a>', '5'
+			if LariskaQW['story'] >= 5 and cheerleaders_on = 0: gs 'show_table', '<a href="exec:minut += 1 & gt ''LariskaGo''">拉丽斯卡·格鲁兹杰夫</a>', '5'
+			if christinaQW['subpath'] >= 4 and cheerleaders_on = 0: gs 'show_table', '<a href="exec:minut += 1 & gt ''Zvereva_house_events'', ''Chris_walk_home''">克里斯蒂娜·兹韦列娃</a>', '5'
+			if juliaQW['study_unlocked'] >= 1: gs 'show_table', '<a href="exec:minut += 1 & gt ''JuliaMilHome'', ''julia_go''">尤利娅·米洛娃</a>', '5'
+			if NatbelQW['QWstage'] > 0: gs 'show_table', '<a href="exec:minut += 1 & gt ''natbelEv'', ''natbel_go''">娜塔莎·贝洛娃</a>', '5'
+			if artemLernQW >= 1 and artemVitokQW ! 2 and artemQW['artemblok'] = 0 and artemQW['artlie'] ! 2 and artemQW['artembrokenheart'] ! 1: gs 'show_table', '<a href="exec:minut += 15 & gt ''artem_events'', ''start''">阿尔乔姆·切博塔廖夫</a>', '5'
+			if katjaQW['afterschool_hangout_day'] ! daystart and katjaQW['QWstage'] >= 1 and locat['katja'] = 6: gs 'show_table', '<a href="exec:minut += 15 & gt ''katjaEv''">卡佳·梅诺尔德</a>', '5'
+			if DimaBeHomeOnce = 1 and DimaRudeBlock = 0:
+				gs 'show_table', '<a href="exec:minut += 15 & gt ''dimaHome'', ''home''">季姆卡·诺索夫</a>', '5'
+			elseif DimaRudeQW > 0 and dimarudeday ! daystart and DimaRudeBlock = 0:
+				if rand(0, 4) = 0: gt 'dimaEv', 'after_school'
+				gs 'show_table', '<a href="exec:minut += 15 & gt ''dimaEv'', ''after_school''">季姆卡·诺索夫</a>', '5'
+			end
+			if (IgorQW['history'] = 1 or IgorQW['Lover'] > 0) and IgorQW['daystart'] ! daystart and IgorQW['block'] = 0 and locat['igor'] = 6: gs 'show_table', '<a href="exec:minut += 15 & IgorQW[''daystart''] = daystart & gt ''igorhome'', ''entrance''">伊戈尔·克鲁格洛夫</a>', '5'
+			if fedorKozlovQW >= 10 and kotovVSkozlov = 1:
+				gs 'show_table', '<a href="exec: gt ''FedorEv'', ''Strela Chat''">费奥多尔</a>', '5'
+			elseif fedorKozlovQW >= 10 and fedorkozqw = 2 and FedorLuv < -4:
+				gs 'show_table', '<a href="exec: gt ''FedorEv2'', ''Fedor Breakup''">费奥多尔</a>', '5'
+			elseif fedorKozlovQW >= 10:
+				gs 'show_table', '<a href="exec: gt ''FedorEv'', ''Start''">费奥多尔</a>', '5'
+			end
+			if NikoVolkovQW = 5 and NikoDate = 1 and NikoNextDate_day <= daystart or NikoEv = 11:
+				gs 'show_table', '<a href="exec: gt ''NikoEv'', ''niko_dates''">尼古拉</a>', '5'
+			elseif NikoVolkovQW = 10 and NikoEv >= 17 and NikoEv <= 20 and NikoDate_Day ! daystart:
+				gs 'show_table', '<a href="exec: gt ''NikoEv2'', ''Events''">尼古拉</a>', '5'
+			end
+			if st_count > 0:
+				'在学校操场附近，你看到： '
+				'<table BORDER=1><<$show_table>></tr></table>'
+			end
+		end
+		if AlbinaQW['albride'] = 0 and AlbinaQW['RideDaystart'] <= daystart and AlbinaQW['Chernov'] > 0 and cheerleaders_on = 0:
+			'<a href="exec:minut += 15 & gt ''albina_starlets_aftermath''">阿尔宾娜</a>正站在学校附近停放的一辆汽车旁边。'
+		end
+
+		!! meynold`s events
+		if hour = 14 and vicky_afterschool ! daystart: gs 'mey_vika_events', 'near_school'
+		if mey_vika['mey_vika_qw'] = 35 or mey_vika['mey_vika_qw'] = 36 and minut < 45:
+			act '和塔玛拉一起学习':
+				if mey_vika['mey_vika_qw'] = 36: gt 'mey_tamara_events', 'rebuke'
+				gt 'mey_tamara_events', 'learning0'
+			end
+		end
+	end
+
+	if strelaDay ! daystart and strelaQW = 1 and hour = 14:
+		*clr & cla
+		'一辆三菱帕杰罗和一辆宝马开到校门口，几个穿皮夹克和运动服的壮汉下了车。他们是来找维泰克、丹和瓦西里的。你看着他们说着什么，但离得太远，听不清内容。'
+		'接着你注意到费奥多尔从学校里出来，脸又肿又青，冲你挥了挥手。"<<$pcs_nickname>>！过来，你给我当证人！"'
+
+		act '去看看他需要什么': gt 'strela'
+	end
+end
+
+
+!! Outside school sports field
+if $ARGS[0] = 'sports':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gschool_grounds', 'sports'
+	$location_type = 'public_outdoors'
+	*clr & cla
+	gs 'Zvereva_schedule'
+	gs 'stat'
+	if month > 3 and month < 11:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/field.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/fieldwinter.jpg"></center>'
+	end
+	'学校附近有个足球场，外面绕着一圈大跑道。学生们上课前后常来球场和跑道上活动。'
+
+	if week = 5 and hour >= 16 and hour <= 18: '你路过运动场时，听见球场上那帮小孩子又是欢呼又是喊叫。走近一看，你看到 '+iif(socialchg['tLazar_day'] ! daystart, '<a href="exec: gt ''gschool_socialchg1'', ''tLazar''">Lazar</a>', '拉扎尔')+' 正在足球场上显摆球技。'
+
+	if (week = 1 or week = 3) and hour >= 16 and hour <= 18: '你朝那条几乎算不上跑道的跑道看去，注意到 '+iif(socialchg['tSvyatoslav_day'] ! daystart, '<a href="exec: gt ''gschool_socialchg1'', ''tSvyatoslav''">Svyatoslav</a>', '斯维亚托斯拉夫')+' 正在足球场边练冲刺。'
+
+	act '离开运动场': minut += 1 & gt 'gschool_grounds', 'main'
+
+	if PSport = 0:
+		'你要是穿着运动服和运动鞋，可以在这儿跑一跑。'
+	else
+		if pcs_stam < stammax / 5:
+			act '去跑步 (1:00)': $func('wrap', 'neg', '<br>你太累了，跑不动。先把体力养回来再跑。')
+		elseif pcs_energy < 5:
+			act '去跑步 (1:00)': $func('wrap', 'neg', '<br>你饿得实在迈不开腿去跑步。')
+		elseif pcs_hydra < 5:
+			act '去跑步 (1:00)': $func('wrap', 'neg', '<br>你渴得实在没法去跑步。')
+		else
+			act '去跑步 (1:00)':
+				*clr & cla
+				menu_off = 1
+				gs 'exercise', 'tier1', 60, 'run'
+				if month >= 3 and month <= 9:
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/runsummer.jpg"></center>'
+				else
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/runwinter.jpg"></center>'
+				end
+				'你在跑道上跑了一个小时。'
+
+				act '继续': gt 'gschool_grounds', 'sports'
+			end
+		end
+	end
+
+	if hour >= 9 and hour < 18 and $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] = 0 and kanikuli = 0: '学校开放时，你可以去体育馆旁的<a href="exec: minut += 1 & gt ''gschool_grounds'', ''change_room''">更衣室</a>换身衣服。'
+
+	if week = 6 and runnerQW['pav_racetype'] = 2 and hour = 10 and gschoolVars['block'] = 0:
+		*nl
+		'你们学校和附近其他学校的体育生都聚到学校旁的田径跑道上。人人都在为跑步比赛做准备。'
+		if PSport:
+			act '参加400米短跑比赛': gt 'gschool_grounds', 'SchoolRun2'
+		else
+			'你得穿运动服才能参加。'
+		end
+	end
+
+	if week = 6 and runnerQW['pav_racetype'] = 1 and hour = 10 and gschoolVars['block'] = 0:
+		*nl
+		'你们学校和附近其他学校的体育生都聚到学校旁的田径跑道上。人人都在为跑步比赛做准备。'
+
+		if PSport:
+			act '参加400米短跑比赛': gt 'gschool_grounds', 'SchoolRun'
+		else
+			'你得穿运动服才能参加。'
+		end
+	end
+
+	!! Giving football preference, since there''s no indoor option for it.
+	if temper >= 15 and sunWeather = 1 and hour > 8 and hour < 12 and week = 6 and fbpickupDay + 14 <= daystart and bbpickupDay ! daystart:
+		*nl
+		'你路过运动场时，注意到那帮体育生大多聚在<a href="exec: gt ''fbgameout'', ''start''">足球场</a>。'
+	elseif temper >= 15 and sunWeather = 1 and hour > 8 and hour < 12 and week = 6 and bbpickupDay + 14 <= daystart and fbpickupDay ! daystart:
+		*nl
+		'你路过运动场时，注意到那帮体育生大多聚在<a href="exec: gt ''bbgameout'', ''start''">篮球场</a>。'
+	end
+
+	gs 'brother', 'bro_school_field'
+	if locat['Christina'] = 16: '克里斯蒂娜和莉娜也在这儿，正为马上要开始的比赛压腿。'
+end
+
+
+!! School building
+if $ARGS[0] = 'building':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gschool_grounds', 'building'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	if therapistFuckedPussyScene = 1:
+		gt 'therapist', 'therapistFucked'
+	end
+
+	$func('wrap', 'header center b', '在校内')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/building/gschool_hall0<<rand(0,2)>>.jpg"></center>'
+	'学校大楼的走廊刷着一层廉价绿漆，你觉得那玩意儿没准有毒。预算砍出来的结果。'
+	act '继续':
+		if hour = 8: late = 1
+		gs 'stat'
+		gschoolVars['attendance_count'] += 1
+		gs 'Zvereva_events', 'cikl'
+		if christinaQW['set_bully'] = 0:
+			!! this should happen the first time Sveta enters school in a game and never again
+			gt 'Zvereva_events', 'christina_bu_1'
+		else
+			if rand(0, 1) = 0 or hour > 7:
+				gt 'gschool_lessons', 'morning'
+			else
+				if rand(0, 3) = 0:
+					gt 'gschool_events', 'teacher_greet'
+				else
+					$eventtype = 'before_school'
+					gt 'gschool_events', 'break_events'
+				end
+			end
+		end
+	end
+	act '返回城镇': minut += 2 & gt 'pav_residential'
+	if dimaRevenge = 1:
+		menu_off = 1
+		'今天走进学校时你心情很好。但当迪姆卡在去教室的路上拦住你时，好心情一扫而空。'
+		'"我知道你干了什么，贱人。你不会真以为我查不出是你清空了我硬盘吧？"'
+		'你还没来得及否认，他继续说道："我根本不需要那盘录像带就能毁掉你的生活。你就等着瞧吧。很快全校都会知道你是个什么样的婊子。"'
+		'他的话让你心生恐惧，你继续朝教室走去。'
+	end
+
+	if starlets_missed = 1:
+		menu_off = 1
+		starlets_missed = 0
+		starlet_practice_skipped += 1
+		if starlet_practice_skipped = 1:
+			gs 'npc_relationship', 'modify', 'A23', -10
+			'你沿着走廊走着，看到一脸不爽的阿尔比娜在等你，她双臂交叉，怒视着你。"你他妈刚才去哪了<<$pcs_nickname>>？！别他妈跟我撒谎！"'
+			'"对不起，阿尔比娜。我……家里有点事要处理，没来得及告诉你……"你怯生生地回答道。'
+			'她看起来并不完全相信。"行吧……如果你在乎自己在队里的位置，下次训练就准时到。没有借口。"'
+			'你对她点点头，她在离开前拍了拍你的肩膀。看起来你这次很轻松地摆脱了。'
+		elseif starlet_practice_skipped = 2:
+			gs 'npc_relationship', 'modify', 'A23', -20
+			'你注意到阿尔比娜愤怒地看着你沿着走廊向她走去，当你走到她面前时，她把你拖到一边。'
+			'"又<i>翘掉</i>训练，<<$pcs_nickname>>？！我以为告诉过你要准时到那里<b>没有借口</b>？！我不在乎你有什么悲惨的故事为自己辩解。你要么全心投入队伍，要么就滚蛋。这是你最后一次警告<<$pcs_nickname>>，别他妈试探我的底线！"'
+			'你还没来得及说话，她就气冲冲地走了。如果你们不再惹她生气，也许对你们两个都好？'
+		else
+			AlbinaQW['StarletsJoined'] = -1
+			gs 'calendar', 'pack', 'remove', 'starlets'
+			gs 'npc_relationship', 'set', 'A23', 10
+			'你正沿着走廊走着，突然看到怒气冲冲的阿尔比娜径直朝你走来，你一下子僵住了。你还没来得及反应，她就抓住你的衬衫，狠狠把你撞向储物柜，走廊里顿时安静下来，所有人都看着你。'
+			'阿尔比娜直直地盯着你的眼睛。"你这是在故意羞辱我吗，你他妈个贱人？！我给过你最后一次机会，你却把它甩回我脸上？！"她凑到你面前，攥得更紧了。"你和 新星 玩完了。如果我<i>再</i>看到你出现在我们附近，你就祈祷我心情好吧，贱人！"'
+			'她放开你，气愤地冲走，把其他学生推开。你镇定下来，继续走你的路，试图无视那些目光。'
+		end
+	end
+
+	if (week = 1 or week = 3 or week = 5) and (christinaQW['fight'] = -1 or christinaQW['submit'] = 1) and christinaQW['subpath'] < 3:
+		menu_off = 1
+		if christinaQW['fight'] = -1:
+			'克里斯蒂娜朝你走来。"挨揍的滋味缓过来了吗？至少你现在明白自己的位置了。我很期待今天体育课之后！"'
+			'"体、体育课之后会发生什么？"你怯生生地问。'
+			'没有回答，她只是对你得意地笑了笑，然后走开了。'
+		else
+			'克里斯蒂娜朝你走来。"你好啊，小宠物。我很期待今天体育课之后！"'
+			'"体、体育课之后会怎么样？"你怯生生地问。'
+			'她没答话，只是冲你得意地一笑，走开了。'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'SchoolRun':
+	$location_type = 'event_outdoors'
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	gs 'stat'
+	'你觉得有机会赢，就报了名。你三两下换上跑步装备回到跑道上。男生先比，你一边准备一边看着。不出所料，伊万赢了。男生比完，轮到女生。'
+
+	act '去起点':
+		*clr & cla
+		runnerQW['pav_racetype'] = 0
+		runnerQW['races_ran'] += 1
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/begsor.jpg"></center>'
+		'接下来是女子400米。你脱下外套走到起跑线，在心里给自己打气。'
+		wait 725
+		'各就各位…'
+		wait 725
+		'预备…'
+		wait 725
+		'跑！'
+		wait 725
+
+		runnerQW['bmi_penalty'] = 0
+		if pcs_bmi > 25:
+			runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+		elseif pcs_bmi < 20:
+			runnerQW['bmi_penalty'] = ((20 - pcs_bmi)*(20-pcs_bmi))
+		end
+		runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+
+		act '跑': gs 'gschool_grounds', 'SchoolRun_result'
+		gs 'willpower', 'skill_base', 'run', 'self', 'hard'
+		if pcs_willpwr < will_cost:
+			act '全力以赴' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '全力以赴' + $func('willpower', 'get_willcost_string'):
+				runnerQW['result'] += 10
+				gs 'willpower', 'pay', 'self'
+				gs 'gschool_grounds', 'SchoolRun_result'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'SchoolRun_result':
+	cla
+	if runnerQW['result'] < 10:
+		grupvalue[2] -= 2
+		'你几乎是硬撑到终点的。名次都不用看；你早就知道自己垫底，而且差得不少。'
+	elseif runnerQW['result'] < 15:
+		grupvalue[2] -= 1
+		'你拼命想跟上别的女孩，最后还是垫底。'
+	elseif runnerQW['result'] < 20:
+		'你拼了命跑，也才落个倒数第二。'
+	elseif runnerQW['result'] < 25:
+		'你拼了命跑，也才拿了个第六。'
+	elseif runnerQW['result'] < 30:
+		grupvalue[2] += 1
+		'你拼了命跑，也才拿了个第五。'
+	elseif runnerQW['result'] < 35:
+		grupvalue[2] += 1
+		'你拼了命跑，也才拿了个第四。'
+	elseif runnerQW['result'] < 45:
+		grupvalue[2] += 2
+		'你拼了命跑，拿到第三。你们学校的体育老师帕夫洛维奇先生向你道贺。'
+	elseif runnerQW['result'] < 50:
+		grupvalue[2] += 3
+		'你拼了命跑，拿到第二。你们学校的体育老师帕夫洛维奇先生夸你成绩不错。'
+	else
+		runnerQW['pav_wins1'] += 1
+		grupvalue[2] += 5
+		'你拼了命跑，第一个冲过终点。你们学校的体育老师帕夫洛维奇先生祝贺你赢了比赛，你高举双臂，得意地绕场走着。'
+	end
+
+	gs 'exercise', 'tier2', 30, 'run'
+
+	if runnerQW['pav_wins1'] = 3 and runnerQW['pav_stage'] = 0:
+		runnerQW['pav_stage'] = 1
+		if runnerQW['prof_stage'] < 1:
+			'你已经三度赢下学校跑步比赛，你们学校的体育老师帕夫洛维奇先生宣布，你的成绩没有白费。他笑着把跑步项目的三级体育奖杯颁给你，你自豪地接过，拿给大家看。'
+			runnerQW['prof_stage'] = 1
+		else
+			'你已经三度赢下学校跑步比赛，你们学校的体育老师帕夫洛维奇先生笑着把一座地方比赛奖杯颁给你，你自豪地接过，拿给大家看。'
+		end
+	end
+
+	gs 'stat'
+	if runnerQW['result'] >= 50:
+		act '继续': gt 'gschool_grounds', 'Family extension'
+	else
+		act '返回城镇': gt 'gschool_grounds', 'main'
+	end
+end
+
+
+if $ARGS[0] = 'SchoolRun2':
+	$location_type = 'event_outdoors'
+	*clr & cla
+	menu_off = 1
+	minut += 30
+	gs 'stat'
+	'你觉得有机会赢，就报了名。'
+	'你三两下换上跑步装备回到跑道上。男生先比，你一边准备一边看着。不出所料，伊万赢了。'
+	'男生比完，轮到女生。'
+
+	if christinaQW['fight'] = 1 or christinaQW['blackmail'] = 2:
+		if runnerQW['pav_wins2'] = 0:
+			'你在起跑线找到莉娜，她脸上挂着笑。看见你，她挥了挥手。'
+			'"好运，<<$pcs_nickname>>！"她高兴地喊道。'
+		elseif runnerQW['pav_wins2'] = 1:
+			'你在起跑线找到莉娜，她脸上挂着笑。看见你，她挥了挥手。'
+			'"这次我要赢你，<<$pcs_nickname>>！"她说。'
+		elseif runnerQW['pav_wins2'] = 2:
+			'你在起跑线找到莉娜，她脸上挂着笑。看见你，她挥了挥手。'
+			'"你别想第三次赢我，<<$pcs_nickname>>！"'
+		end
+	else
+		if runnerQW['pav_wins2'] = 0:
+			'你看见克里斯蒂娜在起跑线上做准备。'
+			'她只嗤笑了一声。"你永远赢不了我！"'
+		elseif runnerQW['pav_wins2'] = 1:
+			'你看见克里斯蒂娜在起跑线上做准备。'
+			'她气冲冲地看着你。"你赢过我一次，别想有第二次！"'
+		elseif runnerQW['pav_wins2'] = 2:
+			'你看见克里斯蒂娜在起跑线上做准备。'
+			'她满眼恨意地看着你。"又是你？这回你完蛋了，贱人！我说的！"'
+		end
+	end
+
+	act '去起点':
+		*clr & cla
+		runnerQW['races_ran'] += 1
+		runnerQW['pav_racetype'] = 0
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/begsor.jpg"></center>'
+		'接下来是女子400米。你脱下外套走到起跑线，在心里给自己打气。'
+		wait 725
+		'各就各位…'
+		wait 725
+		'预备…'
+		wait 725
+		'跑！'
+		wait 725
+
+		runnerQW['bmi_penalty'] = 0
+		if pcs_bmi > 25:
+			runnerQW['bmi_penalty'] = ((pcs_bmi - 25)*4)
+		elseif pcs_bmi < 18:
+			runnerQW['bmi_penalty'] = ((25 - pcs_bmi)*6)
+		end
+		runnerQW['result'] = pcs_run - runnerQW['bmi_penalty']
+
+		act '跑': gs 'gschool_grounds', 'SchoolRun2_result'
+		gs 'willpower', 'skill_base', 'run', 'self', 'hard'
+		if pcs_willpwr < will_cost:
+			act '全力以赴' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '全力以赴' + $func('willpower', 'get_willcost_string'):
+				runnerQW['result'] += 10
+				gs 'willpower', 'pay', 'self'
+				gs 'gschool_grounds', 'SchoolRun2_result'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'SchoolRun2_result':
+	cla
+	if runnerQW['result'] < 10:
+		grupvalue[2] -= 2
+		'你几乎是硬撑到终点的。名次都不用看；你早就知道自己垫底，而且差得不少。'
+	elseif runnerQW['result'] < 15:
+		grupvalue[2] -= 1
+		'你拼命想跟上别的女孩，最后还是垫底。'
+	elseif runnerQW['result'] < 20:
+		'你拼了命跑，也才落个倒数第二。'
+	elseif runnerQW['result'] < 25:
+		'你拼了命跑，也才拿了个第六。'
+	elseif runnerQW['result'] < 30:
+		grupvalue[2] += 1
+		'你拼了命跑，也才拿了个第五。'
+	elseif runnerQW['result'] < 35:
+		grupvalue[2] += 1
+		'你拼了命跑，也才拿了个第四。'
+	elseif runnerQW['result'] < 40:
+		grupvalue[2] += 2
+		'你拼了命跑，拿到第三。你们学校的体育老师帕夫洛维奇先生向你道贺。'
+	elseif runnerQW['result'] < 50:
+		grupvalue[2] += 3
+		'你拼了命跑，拿到第二。你们学校的体育老师帕夫洛维奇先生夸你成绩不错。'
+	else
+		runnerQW['pav_wins2'] += 1
+		grupvalue[2] += 5
+		'你拼了命跑，第一个冲过终点。你们学校的体育老师帕夫洛维奇先生又祝贺你赢了比赛，你高举双臂，得意地绕场走着。'
+	end
+
+	gs 'exercise', 'tier2', 30, 'run'
+
+	if runnerQW['pav_wins2'] = 3 and runnerQW['pav_stage'] = 1:
+		runnerQW['pav_stage'] = 2
+		if runnerQW['prof_stage'] < 2:
+			'你又三度赢下比赛，帕夫洛维奇先生把跑步项目的二级体育奖杯颁给你。'
+			runnerQW['prof_stage'] = 2
+		else
+			'你又三度赢下比赛，帕夫洛维奇先生又颁给你一座奖杯。'
+		end
+		if christinaQW['fight'] = 1 or christinaQW['blackmail'] = 2:
+			gs 'npc_relationship', 'modify', 'A19', 5
+			'莉娜站在终点线旁，气喘吁吁。尽管你又赢了她，她还是朝你灿烂一笑，算是道贺。'
+		else
+			'克里斯蒂娜站在旁边瞪着你，双手攥成拳头。她明白自己赢不了你，气得浑身发抖。'
+		end
+	elseif runnerQW['pav_wins2'] = 2 and runnerQW['result'] >= 130:
+		if christinaQW['fight'] = 1 or christinaQW['blackmail'] = 2:
+			gs 'npc_relationship', 'modify', 'A19', 'love'
+			'莉娜站在终点线旁，气喘吁吁。尽管你第二次赢了她，她还是朝你露出灿烂的微笑表示祝贺。'
+		else
+			gs 'npc_relationship', 'modify', 'A18', 'loathe'
+			'克里斯蒂娜在终点线旁喘着粗气。她没能超过你，又一次屈居第二。她避开你的目光，不想和你对视。'
+		end
+	elseif runnerQW['pav_wins2'] = 1 and runnerQW['result'] >= 130:
+		if christinaQW['fight'] = 1 or christinaQW['blackmail'] = 2:
+			gs 'npc_relationship', 'modify', 'A19', 'love'
+			'莉娜站在终点线旁，气喘吁吁。尽管你赢了她，她还是朝你露出灿烂的微笑表示祝贺。'
+		else
+			gs 'npc_relationship', 'modify', 'A18', 'loathe'
+			'克里斯蒂娜在终点线旁喘着粗气。她没能超过你，又一次屈居第二。你只是朝她咧嘴一笑，继续你的胜利巡场。'
+			'"你他妈个贱人！"她从牙缝里挤出这句话。'
+		end
+	end
+
+	gs 'stat'
+	if runnerQW['result'] > 50:
+		act '继续': gt 'gschool_grounds', 'Family extension'
+	else
+		act '离开': gt 'gschool_grounds', 'main'
+	end
+end
+
+
+if $ARGS[0] = 'change_room':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gschool_grounds', 'change_room'
+	$location_type = 'bathroom'
+	$locclass = 'locker'
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/gym/locker/lockerroom.jpg"></center>'
+
+	act '离开':
+		if $clothingworntype = 'nude':
+			msg '<b><font color = red>你得先穿好衣服！</font></b>'
+			gt 'gschool_grounds', 'change_room'
+		else
+			minut += 1
+			gt 'gschool_grounds', 'main'
+		end
+	end
+
+	act '去运动场':
+		if $clothingworntype = 'nude':
+			msg '<b><font color = red>你得先穿好衣服！</font></b>'
+			gt 'gschool_grounds', 'change_room'
+		else
+			minut += 1
+			gt 'gschool_grounds', 'sports'
+		end
+	end
+	*nl
+	'更衣室通过学校体育馆进入，并且一直不锁门直到 '+func('time', 'get_time_string', 18, 30)+' 每天供在课外时间使用运动场进行训练和活动的学生使用。房间寒冷潮湿，摆满了储物柜、长椅，没别的东西。你可以<a href="exec: gt ''wardrobe'', ''start''">更换衣服</a>在这儿的储物柜旁' + iif(pcs_piercings['total'] > 0, ', 而且<a href="exec: gt ''piercing_management'', ''main''">管理你的穿孔</a>', '') + '。'
+	*nl
+
+	if (hour = 18 and minut >= 30) or hour > 18:
+		'学校夜间要关门了，你得在被锁在里面之前离开。'
+		exit
+	end
+
+	act '更换衣服':
+		cla
+		gt 'wardrobe', 'start'
+	end
+
+	gs 'wardrobe', 'default_clothing_options'
+
+	gs 'din_van', 'publicpan', 'no_prost'
+	act '照镜子': gt 'mirror', 'start'
+	if pcs_hairbsh < 1: act '梳头发': gt 'mirror', 'brush'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	if mc_inventory['shampoo'] > 0:
+		gs 'din_van', 'shower'
+	else
+		$func('wrap', 'neg', '你的洗发水用完了，得再买一些才能洗澡。')
+	end
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'pblc_pee'
+end
+
+
+if $ARGS[0] = 'Family extension':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/school_run.jpg"></center>'
+	if $home['current'] = 'parents_home':
+		if npc_rel['A34'] > 50:
+			'你听到有人喊你的名字，转身看到科尔卡。"<<$pcs_nickname>>……<<$pcs_nickname>>你赢了！"科尔卡咧着嘴大笑着朝你跑来。他冲到你面前，紧紧抱住了你。'
+			'"嘿，我最喜欢的弟弟近来可好？谢谢你来看比赛，我都不知道你知道我要参赛。"'
+			'他咧嘴一笑。"你以为我没发现你在学校放假时跑那几圈、去社区中心训练吗？你总是穿着运动装备、带着那个水壶出门，显然不只是去见朋友！"'
+		else
+			'你听到有人喊你的名字，转身发现是科尔卡。"<<$pcs_nickname>>，你赢了！"'
+			'"嘿，科尔卡，我都不知道你知道我要参赛。"'
+			'"<<$npc_nickname[''A29'']>>让我留意你在做什么，因为你总是穿着运动装备、带着那个水壶出门，所以我去问了教练。"'
+		end
+		minut += 4
+		gs 'stat'
+		act '继续':
+			*clr & cla
+			menu_off = 1
+			'这时，你看到你的<<$npc_nickname[''A29'']>>和继父走了过来。'
+			if npc_rel['A29'] > 50:
+				'你的<<$npc_nickname[''A29'']>>走过来给了你一个拥抱。"我知道我们之间有过分歧，但我只想要你好。我为你感到骄傲。你怎么不早点说？"'
+
+				if npc_rel['A33'] > 50:
+					'你看到安雅跟在科尔卡身后走了过来。"好样的！干得漂亮。你该在咱们每晚聊天的时候告诉我的，"她说着给了你一个拥抱。'
+				else
+					'你看到安雅跟在科尔卡身后走了过来。"干得漂亮，<<$pcs_nickname>>。你怎么不早点说？这样我们也能更了解彼此？"'
+					'"你总是在看书，我不想打扰你……对不起。"'
+					'"嘿，别放在心上。我说了干得漂亮，不过我也想知道你最近怎么样，所以别担心会打扰我。"'
+					'"好吧。我会试试的，"你一边说一边给了她一个拥抱。'
+				end
+
+				'你的继父这时也加入了谈话。"来吧<<$pcs_nickname>>，去洗个澡换身衣服，我们在外面等你。我们全家一起出去吃晚饭庆祝一下。"'
+				'"你们不用这样！我知道家里钱不宽裕，而且你们抽空来支持我，我已经很开心了。这对我来说意义重大。"'
+				'"不，我坚持。我和你的<<$npc_nickname[''A29'']>>商量过了，她也同意。我们难得有机会做这样的事，而且我们都觉得一家人好好聚聚对大家都有好处。"'
+				minut += 4
+				gs 'stat'
+
+				act '去洗个澡':
+					*clr & cla
+					gs 'din_van', 'showerdin'
+					if deodorant_on = 1: gs 'sweat', 'remove_deo' & '你的除臭剂在淋浴时被冲掉了。'
+					pcs_hairbsh = 1
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+					'洗完澡换好衣服后，你出来和家人打了招呼。'
+					minut += 10
+					gs 'stat'
+
+					act '去餐厅':
+						gs 'mood', 'raise', 'tiny'
+						gs 'beverage', 'wine_stats'
+						gs 'food', 'medium_meal_stats'
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/restaurant_family.jpg"></center>'
+						'在当地这家德尔帕尔科（Del Parco）餐厅，你们一家花了几个小时享用美食，家人鼓励你继续努力、不断进步，同时强调他们为你迄今取得的成绩感到非常骄傲。'
+						'你的继父点了一些葡萄酒，虽然你的<<$npc_nickname[''A29'']>>不赞同地看了他一眼，他还是给你倒了一杯，让你为胜利干杯。'
+						'这顿愉快的晚餐和宝贵的家庭时光结束后，你再次感谢他们的好意，然后一家人紧紧拥抱，一起回了家。'
+						minut += 90
+						gs 'stat'
+
+						act '回家': minut += 4 & pavhome_enter = 1 & gt 'homes_properties', 'go_home'
+					end
+				end
+			else
+				'"<<$pcs_nickname>>，你赢了！干得漂亮！"你的<<$npc_nickname[''A29'']>>一边走过来一边喊道。'
+				'"谢谢。也谢谢你们来看比赛。"'
+				'"我知道我们之间有分歧，但我一直没有停止关心你。我总看到你穿着运动装备、带着水壶出门，想知道你在做什么，就让科尔卡看到你时告诉我一声，"她回答道。'
+				'你一时不知该说什么，你的<<$npc_nickname[''A29'']>>接着说："他说他看见你在学校放假时去跑道跑步、去社区中心训练，所以我去问了教练。总之我为你感到非常骄傲！你怎么不早点说？"'
+				'见你没有回答，你的<<$npc_nickname[''A29'']>>接着说："来吧，去洗个澡换身衣服，我在外面等你。"'
+				'安雅和科尔卡友好地朝你挥了挥手，然后离开了。'
+				minut += 4
+				gs 'stat'
+
+				act '去洗个澡':
+					*clr & cla
+					gs 'din_van', 'showerdin'
+					if deodorant_on = 1: gs 'sweat', 'remove_deo' & '你的除臭剂在淋浴时被冲掉了。'
+					pcs_hairbsh = 1
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+					'洗完澡换好衣服后，你出来迎接你的母亲。"谢谢你能来。这对我来说意义重大。"'
+					'"我当然会来，<<$pcs_nickname>>！我只想你好，我为你骄傲。来吧，我们出去吃点东西。我觉得我们得好好谈谈。"'
+					'"不用了，<<$npc_nickname[''A29'']>>。你来我就很高兴了。"'
+					'"没关系的。我想看看我们能不能重归于好。"'
+					minut += 10
+					gs 'stat'
+
+					act '去咖啡馆':
+						gs 'mood', 'raise', 'small'
+						gs 'food', 'fast_food_stats'
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/sveta_mum_restaurant.jpg"></center>'
+						if npc_QW['A29'] > 0:
+							if npc_QW['A29'] = 1: npc_QW['A29'] = 2
+							'在车站咖啡馆，你母亲挑选了一个远离主区域的角落位置，好让你们能私下聊天。'
+							'你们起初聊了些家常，期间她再次祝贺你获胜，并解释说她想让你过得更好，愿意尽一切可能帮助你，但你也需要向她迈出一步。'
+							'你起初不知道该如何回应，但最终还是用非常低微颤抖的声音开了口。"我也想那样，可你为什么仅仅因为我发生过性行为就对我这么苛刻？"'
+							'你的情绪开始涌上心头，你继续说道："没错，我是发生过性行为，但这不代表我就是坏人！你又凭什么立刻把我当成婊子！？你怀安雅的时候才16岁！比我还小！"'
+							*nl
+							'你母亲叹了口气，一滴泪水开始顺着她的脸颊滑落。"我知道。也许我确实严厉了点，但我不想你重蹈我的覆辙。我希望你有机会上大学，为自己创造更好的生活。"'
+							'你母亲承认自己可能有些严厉，并向你道了歉。你告诉她你会尽力学习，也向她保证你会做好防护措施。'
+							*nl
+							'你母亲站起来，走过来拥抱你。"谢谢你<<$pcs_nickname>>，这就是我想要的。我也会试着更支持你。只是如果你有什么烦恼，请一定要跟我说。"'
+							'吃完饭、聊完天后，你们俩都感到如释重负，情绪上有些疲惫，但也更开心了。'
+						else
+							'在车站咖啡馆，你母亲挑选了一个远离主区域的角落位置，好让你们能私下聊天。'
+							'你们起初聊了些家常，期间她再次祝贺你获胜，并解释说她想让你过得更好，愿意尽一切可能帮助你，但她不希望你在外面待到太晚，因为你可能会惹上麻烦。她还说希望你能上大学，为自己创造更好的生活。'
+							'虽然她仍把你当小孩看待让你有点恼火，但你确实感激她的关心。"我知道<<$npc_nickname[''A29'']>>，很抱歉我回来得晚一点你就担心，但你知道迪斯科舞会几点结束，也知道除非我比朋友们先走，否则我绝不可能在午夜前到家。要是我得早早回家睡觉，他们会笑话我的！"'
+							'你母亲想了想。"好吧，我可以接受。我也知道你快18岁了，但这阻止不了我担心。也许我是习惯了用对安雅的方式，对你严厉了点，但我说过，我只想你好。你能不能至少在这件事上向我迈出一步，也在学校好好努力？"'
+							'你不知道该怎么回应，叹了口气。"好吧<<$npc_nickname[''A29'']>>，我会试试的。只是有时候你管得有点太严了。"'
+							'你母亲接着说："好吧，我们试着让我们的关系回到正轨吧。请向我保证你也会在学校好好努力。还有，无论如何请记住，如果你有什么烦恼，随时都可以跟我说。请记住我爱你，只想你好。"'
+							'这是很久以来你第一次觉得和母亲如此亲近，于是你站起来给了她一个拥抱。"谢谢你<<$npc_nickname[''A29'']>>。很高兴我们能通过这次谈话化解隔阂。我也爱你，有我的<<$npc_nickname[''A29'']>>回来真好。"'
+							'她也回抱住你，你们在更轻松的气氛中吃完了饭。之后，你们俩都如释重负，情绪上有些疲惫，但也更开心了。'
+						end
+						gs 'npc_relationship', 'set', 'A29', 50
+						minut += 60
+						gs 'stat'
+
+						act '回家': minut += 4 & pavhome_enter = 1 & gt 'homes_properties', 'go_home'
+					end
+				end
+			end
+		end
+	else
+		if npc_rel['A33'] > 50:
+			'你听到姐姐喊你的名字，四下张望。'
+			'"嘿<<$pcs_nickname>>，好样的，干得漂亮！"她走过来给了你一个拥抱。"这值得庆祝一下。咱们去喝几杯啤酒吧！你以后总有机会消耗掉的。"'
+			'"谢谢你来看比赛，姐。这对我来说意义重大。"'
+			'"我怎么会错过这个机会，还有可能和我妹妹小小庆祝一下呢？"'
+			'"好啊，没问题。我赞成。我先去洗个澡换身衣服。"'
+			'"行，别太慢，不然我可就丢下你自己走了！"'
+			minut += 4
+			gs 'stat'
+
+			act '去洗个澡':
+				*clr & cla
+				menu_off = 1
+				gs 'din_van', 'showerdin'
+				if deodorant_on = 1: gs 'sweat', 'remove_deo' & '你的除臭剂在淋浴时被冲掉了。'
+				pcs_hairbsh = 1
+				minut += 30
+				gs 'stat'
+				'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+				'几分钟后，你洗完澡换好衣服重新出现，然后朝车站咖啡馆走去。'
+
+				act '和安雅喝一杯':
+					*clr & cla
+					gs 'beverage', 'beer_stats', 4
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/school/grounds/Sis_drink.jpg"></center>'
+					'接下来的几个小时里，你们俩喝了几瓶啤酒，聊着近况。感到头晕目眩、有些微醺的你们离开了咖啡馆，互相拥抱，并约定以后经常见面聊天。你知道周五晚上可以在社区中心见到安雅。'
+					minut += 100
+					gs 'stat'
+
+					act '回家': minut += 4 & gt 'homes_properties', 'go_home'
+				end
+			end
+		else
+			if stat['boyfriends_current'] > 0 or stat['girlfriends_current']:
+				$temp_npcID = func('lover', 'draw_random_from', 'boyfrined', 'girlfriend')
+				gs 'npcStat', $temp_npcID
+				killvar 'temp_npcid'
+
+				'你听到<<$npcdesc>>喊着你的名字，慢跑过去迎接他们。你们俩拥抱在一起，互相亲吻了脸颊。'
+				'"嘿，亲爱的，干得漂亮。"'
+				'"谢谢。也谢谢你来看比赛，这对我意义重大。"'
+				'"当然，我会来支持你的。现在去洗漱收拾一下吧，我们出去，我请客，你选地方。"'
+				'你们俩又依偎了一会儿，然后你走进更衣室去洗澡换衣服。'
+				minut += 4
+				act '去洗澡':
+					*clr & cla
+					gs 'din_van', 'showerdin'
+					if deodorant_on = 1: gs 'sweat', 'remove_deo' & '你的除臭剂在淋浴时被冲掉了。'
+					pcs_hairbsh = 1
+					'<center><video autoplay loop <<$set_imgh>> src="images/shared/home/bathroom/dush.mp4"></video></center>'
+					'重新加入<<$npcdesc>>, 你们俩热烈地拥抱在一起，因为大多数人已经离开了。'
+					'<<$npcdesc>>然后说："再次恭喜你<<$pcs_nickname>>，不过我还有件急事要办。回头见。"'
+					minut += 10
+					gs 'stat'
+					act '回家': minut += 4 & gt 'homes_properties', 'go_home'
+
+				end
+			end
+			minut += 4
+			gs 'stat'
+
+			act '回家': minut += 4 & gt 'homes_properties', 'go_home'
+		end
+	end
+end
+
+
+--- gschool_grounds ---------------------------------

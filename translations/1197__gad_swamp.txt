@@ -1,0 +1,176 @@
+# gad_swamp
+
+if $ARGS[0] = 'start':
+	gs 'core_library', 'setloc', 'gad_swamp', 'start'
+	$location_type = 'secluded'
+	menu_off = 0
+
+	CLOSE ALL
+	gs 'gadukino_event', 'sound'
+	gs 'stat'
+
+	'<center><h4>沼泽</h4></center>'
+	if month >= 4 and month <= 10:
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/' + iif(DayStage < 4, 'swamp.jpg', 'swamp_night.jpg') + '"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/' + iif(DayStage < 4, 'swamp_winter.jpg', 'swamp_winter_night.jpg') + '"></center>'
+	end
+	*nl
+	'你来到了村子另一头树林边上的沼泽。'
+	'除非你身体强健或对森林很熟悉，否则在这一带走动可能会很危险。'
+
+	act '返回森林 (0:15)': minut += 15 & gt 'gad_forest', 'forest_center'
+
+	if hunterVars['cabin'] = 1:
+		'你可以看到通往空地的小路，那里有猎人的小屋。'
+		act '走向猎人的小屋 (0:15)':
+			!! daytime chance to get stuck in swamp - use bike to get there 100% of the time
+			if DayStage < 4:
+				if rand(0, 9) = 0:
+					gt 'gad_swamp_yard', 'start'
+				else
+					swamp_stuck = 0
+					gt 'gad_swamp', 'stuck', 'swamp'
+				end
+			!! nighttime chased by wolves - Sveta probably should not be roaming the forest at this time
+			else
+				gt 'gad_forest_lost', 'wolves', 'swamp'
+			end
+		end
+	end
+
+end
+
+
+if $ARGS[0] = 'stuck':
+	!! if player is skilled at forest or very agile or strong then don''t get stuck in swamp at all
+	if pcs_bushcraft < 80 and pcs_agil < 70 and pcs_stren < 70:
+		gs 'core_library', 'setloc', 'gad_swamp', 'stuck'
+		$location_type = 'secluded'
+		menu_off = 0
+
+		CLOSE ALL
+		gs 'gadukino_event', 'sound'
+		gs 'stat'
+
+		'<center><h4>沼泽</h4></center>'
+		if $clothingworntype ! 'nude' and PCloSkirt = 0:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp1.jpg"></center>'
+		elseif $clothingworntype ! 'nude' and PCloSkirt > 0:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_ski1.jpg"></center>'
+		elseif $clothingworntype = 'nude':
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_nude0.' + rand(4, 5) + '.jpg"></center>'
+		end
+		*nl
+		'当你穿过沼泽时，你感觉每走一步都开始陷入泥中。'
+		'你知道自己离目的地已经很近了，但你不确定自己能否撑到那里。'
+
+		act '挣扎':
+			*clr & cla
+			swamp_stuck += 1
+			minut += 15
+			gs 'sweat', 'add', 15
+			gs 'stat'
+			if swamp_stuck mod 3 = 0:
+				swamp_check = pcs_stren + pcs_agil + pcs_bushcraft
+				swamprand = rand(0, 225)
+			elseif swamp_stuck mod 2 = 0:
+				swamp_check = pcs_stren + pcs_agil
+				swamprand = rand(0, 150)
+			else
+				swamp_check = pcs_stren
+				swamprand = rand(0, 75)
+			end
+
+			if swamp_stuck = 10:
+				gs 'gameover', 'check', 10
+				msg '<font color=red><b>你本该死在这沼泽里，但作弊模式让你活着。</b></font>'
+			end
+
+			if swamp_check > swamprand:
+				'<center><h4>沼泽</h4></center>'
+				if $clothingworntype ! 'nude' and PCloSkirt = 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp.jpg"></center>'
+				elseif $clothingworntype ! 'nude' and PCloSkirt > 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_ski.jpg"></center>'
+				elseif $clothingworntype = 'nude':
+					swamprand = rand(0, 3)
+					if swamprand = 0:
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_nude0..jpg"></center>'
+					else
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_nude0.' + rand(1, 3) + '.jpg"></center>'
+					end
+				end
+				*nl
+				'你的努力没有白费，你开始感到泥沼的束缚松动了。接着，你又鼓起一股力气，挣脱了出来，如释重负地叹了口气。'
+
+				act '成功！': gt 'gad_swamp_yard', 'start'
+			else
+				'<center><h4>沼泽</h4></center>'
+				if $clothingworntype ! 'nude' and PCloSkirt = 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp1.jpg"></center>'
+				elseif $clothingworntype ! 'nude' and PCloSkirt > 0:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_ski1.jpg"></center>'
+				elseif $clothingworntype = 'nude':
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/goswamp_nude0.' + rand(4, 5) + '.jpg"></center>'
+				end
+				*nl
+				'你的努力毫无用处。泥沼的束缚感觉和之前一样紧。事实上，你感觉自己陷得更深了。'
+
+				act '失败': gt 'gad_swamp', 'stuck'
+			end
+		end
+		if month >= 4 and month <= 10:
+			act '大声呼救':
+				*clr & cla
+				minut += 15
+				if ((hour >= 8 and hour < 12) or (hour >= 14 and hour < 18)):
+					swamprand = rand(1, 4)
+				elseif (hour >= 7 and hour < 23):
+					swamprand = rand(1, 5)
+				else
+					swamprand = rand(1, 6)
+				end
+				'<center><h4>沼泽</h4></center>'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/gadforestlosthelp.jpg"></center>'
+				*nl
+				'你不认为自己有足够的力量挣脱泥沼，于是决定最好的办法就是大声呼救。希望你现在离猎人的小屋足够近，他们能听到你的声音。'
+
+				if swamprand = 1:
+					act '成功！':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/handshelp.jpg"></center>'
+						*nl '你听到男人们说话的声音，于是喊得更响。声音越来越近，最后，你感到有力的手抓住了你，把你拖到了坚实的地面上。'
+						gs 'stat'
+
+						act '放松': gt 'gad_swamp_yard', 'start'
+					end
+				else
+					*nl '你朝着空旷处大声呼喊，但回应你的只有呼啸的风声和蟋蟀的鸣叫声。'
+					gs 'stat'
+
+					act '失败': gt 'gad_swamp', 'stuck'
+				end
+			end
+		end
+	else
+		'<center><h4>沼泽</h4></center>'
+		if month >= 4 and month <= 10:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/' + iif(DayStage < 4, 'gadforestlostswamp.jpg', 'gadforestlostswamp_night.jpg') + '"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/' + iif(DayStage < 4, 'gadforestlostswamp_winter.jpg', 'gadforestlostswamp_winter_night.jpg') + '"></center>'
+		end
+		*nl
+		if $ARGS[1] = 'forest_edge':
+			minut += 60
+			'在森林里走了一个小时后，你终于看到了前方猎人的小屋。'
+		elseif $ARGS[1] = 'swamp':
+			minut += 15
+			'在沼泽里走了几分钟后，你终于看到了前方猎人的小屋。'
+		end
+		gs 'stat'
+		act '继续': gt 'gad_swamp_yard', 'start'
+	end
+end
+
+--- gad_swamp ---------------------------------

@@ -1,0 +1,649 @@
+# fertility
+
+!! ------------------------------------------------------------------------------------------------------------
+!!	Birth control
+!! ------------------------------------------------------------------------------------------------------------
+!!	Birth Control Management variables
+!!
+!!	tabletkimm		: The modifier for the current mood of the MC.
+!!	tabletkiap		: Autopill factor affecting the liklihood you took your pill as you should have
+!!	tabletkipt		: Pill Dicipline Take increase
+!!	tabletkipi		: Pill Dicipline Dont take increase
+!!	tabletkipd		: Current MC Pill Dicipline
+!!	tabletkichday	: Current day that the Birth Control is being evaluated for
+!!	tabletkicheck	: If the birth control from shot (2) or pill (1)
+!!	mc_inventory['contraceptive_pill']	: How many packages of Birth Control Pills there are
+!!	tabletkiold		: Total number packages of expired pills
+!!	tabletkifake	: Total number packages of fake/counterfeit pills
+!!	tabletkirej		: Total number packages of factory rejected pills
+!!	tabletkifert	: Total number packages of subsituted fertility pills
+!!	trait_vars['fertility_bc_conditioning']	: 0–50 counter; rises +1 per fertility pill taken, decays -2/day missed, -4/day on real BC
+!!	tabletkisug		: Total number packages of sugar pills
+!!	pillsleft		: Total number packages of pills in current package
+!!	tabletkishot	: The flag for being on the Birth Control shot.
+!!	pillcon			: The number for the current birth control chemical level.
+!!	pilldays		: The number of consecutive days (you believe) you have taken your pill
+
+if $ARGS[0] = 'auto_pill':
+	if daystart <= tabletkichday: exit
+
+	tabletkichday = daystart
+
+	tabletkipd += tabletkipi
+	tabletkipi = 0
+	tabletkipt = 0
+
+	if tabletkicheck = 1:
+		$temp_img = '<img height = <<stat_cfg[''icon_height'']>> src="images/system/icons/status/bc_pill.png"><br>'
+		if mc_inventory['contraceptive_pill'] = 0 and pillsleft[ptype] = 0:
+			gs 'notification', 'add', '<<$temp_img>>你的避孕药吃完了。'
+			tabletkipi = -5
+			jump 'auto_pill_break_goto'
+		elseif mc_inventory['contraceptive_pill'] = 0 and pillsleft[ptype] = 28:
+			gs 'notification', 'add', '<<$temp_img>>你刚打开了最后一盒避孕药。你需要再买一些。'
+		elseif mc_inventory['contraceptive_pill'] = 0 and pillsleft[ptype] <= 5:
+			gs 'notification', 'add', '<<$temp_img>>你的避孕药快吃完了，只剩几片了。'
+		end
+
+		birth_control['using_bc'] = 3
+
+		tabletkimm = (100 * (pcs_willpwr / willpowermax)) + pcs_mood
+		if pcs_sleep < 10:
+			tabletkimm -= (100 - (pcs_sleep * 10))
+		end
+		if pcs_willpwr < willpowermax / 4:
+			tabletkimm = tabletkimm / 4
+		elseif pcs_mood < 10:
+			tabletkimm = tabletkimm / 2
+		end
+		tabletkiap = tabletkimm
+		tabletkiap += (pcs_intel * 4) + (pcs_sprt * 2) + (age * 3)
+		tabletkiap -= ((kid * 30) + (abort * 2) - (tabletkipd * ((60 - age) / 10)))
+		temprand = rand(0, (200 + (tabletkimm - ((100 - pcs_sprt) * 3))))
+		tabletkiap += temprand
+		if tabletkiap < 300:
+			if tabletkipd > -10:
+				if pcs_willpwr < willpowermax / 4:
+					!! msg 'You stare at your package of birth control pills, you know you should take one but you can''t quite work up enough effort to care.'
+					gs 'notification', 'add', '<<$temp_img>>你盯着那盒避孕药，你知道自己该吃一片，但实在提不起劲去在意。'
+				elseif pcs_mood < 10:
+					!! msg 'You stare at your package of birth control pills, but you don''t open it.'
+					gs 'notification', 'add', '<<$temp_img>>你盯着那盒避孕药，却没有打开它。'
+				elseif pcs_sleep < 10:
+					!! msg 'You fumble with your birth control pills, trying to get a pill out. You finally give up too tired to manage it.'
+					gs 'notification', 'add', '<<$temp_img>>你笨手笨脚地摆弄避孕药，想把药片取出来。你最终放弃了，太累了，实在做不到。'
+				else
+					!! msg 'You just realized you forgot to take your birth control pill today.'
+					gs 'notification', 'add', '<<$temp_img>>你刚刚意识到今天忘了吃避孕药。'
+				end
+			end
+			tabletkipt = 2
+			tabletkipi = -4
+		else
+			if tabletkiap < 350:
+				temprand = rand(0, 5)
+			else
+				temprand = rand(0, 1000)
+			end
+			if temprand = 0:
+				temprand = rand(0, 1)
+				if temprand = 0:
+					gs 'din_bad', 'takepill'
+					tabletkipt = -2
+					tabletkipi = 1
+				else
+					tabletkipt = 3
+					tabletkipi = -3
+				end
+
+				if tabletkipd > -10:
+					gs 'notification', 'add', '<<$temp_img>>你发现自己拿着那瓶避孕药，却想不起来今天到底吃没吃。'
+				end
+				if tabletkipd > 0:
+					if rand(0, 9) = 0:
+						if tabletkipt < 0:
+							gs 'notification', 'add', '<<$temp_img>>你觉得你今天还没吃药。'
+						else
+							pilldaychk = daystart
+							gs 'notification', 'add', '<<$temp_img>>你觉得你今天已经吃过药了。'
+						end
+					else
+						if tabletkipt > 0:
+							gs 'notification', 'add', '<<$temp_img>>你觉得你今天还没吃药。'
+						else
+							pilldaychk = daystart
+							gs 'notification', 'add', '<<$temp_img>>你觉得你今天已经吃过药了。'
+						end
+					end
+				end
+			else
+				gs 'notification', 'add', '<<$temp_img>>你服下了今天的避孕药。'
+				pilldaychk = daystart
+				gs 'din_bad', 'takepill'
+				if rand(0, 7) = 0 and tabletkiday >= (daystart - 1): tabletkipd += 1
+				tabletkiday = daystart
+				tabletkipt = 0
+				tabletkipi = 0
+			end
+		end
+	end
+
+	if birth_control['using_bc'] > 0:
+		if pilldaychk = daystart:
+			pilldays += 1
+			birth_control['using_bc'] = 3
+		else
+			pilldays -= 1
+			if placebopart <= 0: birth_control['using_bc'] -= 1
+		end
+	end
+
+	if pilldays > 18: pilldays = 18
+	if pilldays < 0: pilldays = 0
+	if birth_control['using_bc'] < 0: pilldays = 0
+
+	if tabletkiday < daystart - 5: birth_control['using_bc'] = 0
+
+	if birth_control['think_safe'] = 1:
+		stat['forgot_bc_pill'] = 0
+	elseif pilldaychk < daystart - 1 and pilldaychk > daystart - 5 and pillcon2 > 0:
+	!!	stat['forgot_birth_control_pill'] = 1
+		stat['forget_bc_count'] += 1
+	end
+
+	gs 'fertility', 'birth_control_status_update'
+	:auto_pill_break_goto
+	killvar 'temp_img'
+end
+
+
+if $ARGS[0] = 'daily_update':
+	!! daily pillcon decrease
+	if tabletkishot <= 0: pillcon -= 1000 & pillcon2 -= 1000
+	if pillcon < 0:	pillcon = 0
+	if pillcon2 < 0: pillcon2 = 0
+
+	!! update pill discipline for manual pill takers
+	if tabletkicheck = 0:
+		if tabletkiday >= (daystart - 1) and tabletkipt = 0 and rand(0, 7) = 0: tabletkipt = 1
+		if pillcon > 0 and tabletkipi = 0 and rand(0, 3) = 0 and (tabletkiday + 15) > daystart = 0: tabletkipi = -1
+	end
+
+	!! check if the pill today should be placebo
+	!! when conditions are correct Sveta will take the placebo part of her birth control pills to keep periods
+	if lutH > (lutH_max - 75) and birth_control['placebo_skip'] = 0:
+		placebopart = 1
+	else
+		placebopart = 0
+	end
+
+	!! ----- processing BC Shot -----
+	if tabletkicheck = 2:
+		if tabletkishot ! 0:
+			!! cycle = 1
+			mesec = 0
+			if rand(0, 1000) = 1000:
+				EggRH = rand(20, 80)
+			else
+				EggRH = 0
+			end
+			focH = EggRH
+		end
+		if tabletkishot <= 0:
+			pillcon -= 29000
+			pillcon2 -= 29000
+			if tabletkishot < 0: tabletkishot = 0
+		end
+		if shotdays < 2:
+			tabletkicheck = 0
+			msg '你的避孕针不再保护你了。'
+		elseif shotdays < 10:
+			msg '你的避孕针已过期，需要更新。调节你生育周期的化学物质正在逐渐失效。'
+		elseif shotdays > 10 and shotdays < 14:
+			msg '你很快就要打避孕针了，如果不去打，你可能会怀孕。'
+		elseif shotdays = 10:
+			msg '你的避孕针明天就需要更新了。'
+		end
+	end
+	!! dropped the decrement out of the above if-statement so that players on pill would still run out of BC shot
+	!! as in for example the case of the therapist forcing you on the pill while you already had the shot.
+	if tabletkishot > 0: tabletkishot -= 1
+	if shotdays > 0: shotdays -= 1
+
+	!! ----- processing BC spell -----
+	!! birth_control['implant_status']
+	!! 0: No implant
+	!! 3: Implant (more than 30 days left)
+	!! 2: Implant (less than 30 days left)
+	!! 1: Empty implant
+	if $spellTarget['birth_control'] = 'self':
+		pillcon = 40000
+		pillcon2 = 40000
+		spellTime['birth_control'] -= 1
+		if spellTime['birth_control'] > 0 and spellTime['birth_control'] < 30:
+			birth_control['implant_status'] = 2
+			msg '你的避孕法术只能持续<<spellTime[''birth_control'']>>天' + iif(spellTime['birth_control'] = 1, '。', '。')
+		elseif spellTime['birth_control'] < 1:
+			$spellTarget['birth_control'] = ''
+			pillcon = 0
+			pillcon2 = 0
+			msg '你的避孕法术已经结束。如果你不想怀孕，就需要重新施放。'
+		end
+	!! ----- processing BC implant -----
+	elseif birth_control['implant_status'] > 1:
+		pcs_skin += rand(0, 1)
+
+		pillcon += ((pillcon + 15000) / 25) + 4000
+		if pillcon > 40000: pillcon = 40000
+
+		pillcon2 += ((pillcon2 + 15000) / 25) + 4000
+		if pillcon2 > 40000: pillcon2 = 40000
+
+		birth_control['implant_timer'] -= 1
+		if (birth_control['implant_timer'] - 1090) > 0:
+			gs 'pain', '<<(birth_control[''implant_timer''] - 1090)*2>>', 'armL', 'ache'
+		elseif birth_control['implant_timer'] > 0 and birth_control['implant_timer'] < 30:
+			birth_control['implant_status'] = 2
+			'你的避孕植入物只能再维持<<birth_control[''implant_timer'']>> ' + iif(birth_control['implant_timer'] = 1, '天。', '天。')
+		elseif birth_control['implant_timer'] < 0:
+			birth_control['implant_status'] = 1
+			msg '你应该更换或取出你的避孕埋植剂。'
+		end
+	elseif birth_control['implant_status'] = 1:
+		msg '你应该更换或取出你的避孕埋植剂。'
+	end
+
+	!! ----- cycle tracking, tracks last 60 days -----
+	$MenCal[] = $str(cycle)
+	if arrsize('$MenCal') = 60: killvar 'MenCal', 0
+
+	gs 'fertility', 'birth_control_status_update'
+end
+
+
+if $ARGS[0] = 'birth_control_status_update':
+	birth_control['old_pillcon'] = pillcon
+	birth_control['old_pillcon2'] = pillcon2
+
+	if pillcon > 26000:
+		birth_control['safe'] = 1
+	elseif placebopart <= 0:
+		birth_control['safe'] = 0
+	end
+
+	if pillcon2 > 26000:
+		if tabletkishot > 0 and $birth_control['type'] ! 'shot':
+			$birth_control['type'] = 'shot'
+		elseif $birth_control['type'] ! 'pill':
+			$birth_control['type'] = 'pill'
+		end
+		birth_control['think_safe'] = 1
+	elseif placebopart <= 0:
+		birth_control['think_safe'] = 0
+		$birth_control['type'] = 'none'
+	end
+end
+
+
+if $ARGS[0] = 'cum_arrcheat':
+!! npc_pregtalk[] 0/1: Does character A# know that you are currently pregnant
+!! pcs_pregtalk 0/1: Has PC been told she is pregnant
+
+	*clr & cla
+	'<center><h2>作弊菜单 - OOX 调试</h2></center>'
+	if cycle = 0:
+		$cycletemp[1] = '处于月经期，还有<<mesec>>小时'
+	elseif cycle = 1:
+		$cycletemp[1] = '处于卵泡期，排卵激素水平为<<EggRH>>，距离排卵大约还有<<focH_max - focH>>小时'
+	elseif cycle = 2:
+		$cycletemp[1] = '正在排卵，大约还有<<Ovulate>>小时进入黄体期，并且<<EggRH>>剩余排卵激素。你有<<UnfertEgg>>个未受精卵和<<FertEgg>>个未植入的受精卵。自排卵开始已经过了<<ferteggage>>小时'
+	elseif cycle = 3:
+		$cycletemp[1] = '处于黄体期，有<<BabyEmbryo>>个胎儿和<<FertEgg>>个未植入的受精卵。你身体目前的怀孕化学水平为<<pregChem>>。自你排卵以来已经过了<<ferteggage>>小时。距离月经或正式怀孕大约还有<<lutH_max - lutH>>小时'
+	elseif cycle = 4:
+		$cycletemp[1] = '处于产后恢复期。你大约还有<<RecovH>>小时，之后卵泡期开始'
+	elseif cycle = 5:
+		$cycletemp[1] = '的怀孕程度。你身体目前的怀孕化学水平为<<pregChem>>。你体内有<<BabyEmbryo>>个宝宝在成长'
+	elseif cycle = 6:
+		$cycletemp[1] = '处于更年期'
+	else
+		$cycletemp[1] = '未知的值'
+	end
+
+	if steriletu < 0:
+		$cycletemp[2] = '. 你做过输卵管结扎手术'
+	else
+		$cycletemp[2] = ''
+	end
+	if lactation['active'] > 0:
+		$cycletemp[3] = '. 你正在泌乳。你当前有<<lactation[''breastmv'']/1000>>毫升储存的母乳，容量为<<lactation[''breastmm'']/1000>>毫升'
+	else
+		$cycletemp[3] = ''
+	end
+	if tabletkicheck = 2:
+		$cycletemp[4] = '. 你目前受到避孕针的保护。药效还有<<tabletkishot>>天'
+	elseif tabletkicheck = 1:
+		if tabletkiday = daystart:
+			$cycletemp[6] = '. 你今天已经服用了避孕药'
+		else
+			$cycletemp[6] = '. 你今天还没有服用避孕药'
+		end
+		$cycletemp[4] = '. 你会自动服用避孕药。你当前的服药纪律为<<tabletkipd>><<$cycletemp[6]>>. <<tabletkipt>>将被加到你的服药纪律中（如果你现在吃药），并且<<tabletkipi>>将被加到你的服药纪律中（如果你不进行额外行动）。你当前有<<pillcon>>单位的避孕化学物质在你的体内，尽管你认为实际上是<<pillcon2>>.'
+	elseif pillcon2 > 0:
+		$cycletemp[4] = '. 你当前有<<pillcon>>单位的避孕化学物质在你的体内，但你认为实际上是<<pillcon2>>.'
+	else
+		$cycletemp[4] = ''
+	end
+
+	if pilldays > 0:
+		$cycletemp[8] = '你相信自己已经连续服用了避孕药<<pilldays>>天。'
+	else
+		$cycletemp[8] = ''
+	end
+
+	'你目前<<$cycletemp[1]>><<$cycletemp[2]>><<$cycletemp[4]>> <<$cycletemp[8]>>你的子宫损伤为<<sterilewb>>并且你的卵巢损伤为<<sterileov>><<$cycletemp[2]>>. 你曾被射在身上或体内<<stat[''cum_count'']>>次。'
+
+	cycletemp_cnt = arrsize('$wombpotfath')
+	if cycletemp_cnt > 0:
+		cycletemp = 0
+		'潜在父亲列表（共<<cycletemp_cnt>>人）：'
+		:cumcpfloop
+		if $wombpotfath[cycletemp] ! 'unknown':
+			$cycletemp[5] = $npc_usedname[$wombpotfath[cycletemp]]
+		else
+			$cycletemp[5] = ''
+		end
+		'父亲<<cycletemp>>: <<$wombpotfath[cycletemp]>> - <<$cycletemp[5]>>'
+		cycletemp += 1
+		if cycletemp < arrsize('$wombpotfath'): jump 'cumcpfloop'
+	else
+		'没有列出的潜在父亲。'
+	end
+
+	cycletemp_cnt = arrsize('$cumarrnam')
+	if cycletemp_cnt > 0:
+		cycletemp = 0
+		'你子宫里的精液（共<<cycletemp_cnt>>份）：'
+		'<table border=1><tr><th>索引</th><th>ID</th><th>所有者</th><th>潜在效力</th><th>当前效力</th><th>获取方式</th><th>避孕类型</th><th>年龄（小时）</th><th>知晓</th></tr>'
+		:cumcswloop
+		if cumarrdel[cycletemp] = 0:
+			$cycletemp[2] = '阴道性交'
+		elseif cumarrdel[cycletemp] = 1:
+			$cycletemp[2] = '来自溅到阴道上的精液'
+		elseif cumarrdel[cycletemp] = 2:
+			$cycletemp[2] = '来自肛门区域'
+		elseif cumarrdel[cycletemp] = 3:
+			$cycletemp[2] = '来自衣服上的精液'
+		elseif cumarrdel[cycletemp] = 4:
+			$cycletemp[2] = '来自手指上的精液'
+		elseif cumarrdel[cycletemp] = 5:
+			$cycletemp[2] = '来自湿巾上的精液'
+		else
+			$cycletemp[2] = '定义不当'
+		end
+		if cumarrcon[cycletemp] = 0:
+			$cycletemp[3] = '未使用避孕措施'
+		elseif cumarrcon[cycletemp] = 1:
+			$cycletemp[3] = '你谎称服用了避孕药'
+		elseif cumarrcon[cycletemp] = 2:
+			$cycletemp[3] = iif(birth_control['implant_status'] > 1, '你有避孕植入物', '你服用了避孕药')
+		elseif cumarrcon[cycletemp] = 3:
+			$cycletemp[3] = '你使用了安全套'
+		elseif cumarrcon[cycletemp] = 4:
+			$cycletemp[3] = '安全套破了'
+		elseif cumarrcon[cycletemp] = 5:
+			$cycletemp[3] = '安全套在你体内脱落了'
+		elseif cumarrcon[cycletemp] = 6:
+			$cycletemp[3] = '安全套被别人破坏了'
+		elseif cumarrcon[cycletemp] = 7:
+			$cycletemp[3] = '你破坏了安全套'
+		elseif cumarrcon[cycletemp] = 8:
+			$cycletemp[3] = '前列腺液中含有精子'
+		elseif cumarrcon[cycletemp] = 9:
+			$cycletemp[3] = '先前性行为残留的精液被推入阴道'
+		else
+			$cycletemp[3] = '定义不当'
+		end
+		$cycletemp[5] = $npc_usedname[$cumarrnam[cycletemp]]
+		!! 'Index number: <<cycletemp>>. Sperm ID: <<cumarrcnt[cycletemp]>>. Sperm Owner: <<$cumarrnam[cycletemp]>>. Sperm Potential Potency: <<cumarrppt[cycletemp]>> Sperm Current Potency: <<cumarrcpt[cycletemp]>>. Sperm Method of Acquisition: <<$cycletemp[2]>>. Sperm Contraception Type: <<$cycletemp[3]>>. Sperm Age in Hours: <<Cumarrage[cycletemp]>>. If you know who did it (0 means no): <<cumarrkno[cycletemp]>>.'
+		*P '<tr><td><<cycletemp>></td><td><<cumarrcnt[cycletemp]>></td><td><<$cumarrnam[cycletemp]>> - <<$cycletemp[5]>></td><td><<cumarrppt[cycletemp]>>精子</td><td><<cumarrcpt[cycletemp]>>精子</td><td><<$cycletemp[2]>></td><td><<$cycletemp[3]>></td><td><<Cumarrage[cycletemp]>></td><td><<cumarrkno[cycletemp]>></td></tr>'
+		cycletemp += 1
+		if cycletemp < arrsize('$cumarrnam'):
+			jump 'cumcswloop'
+		else
+			'</table>'
+		end
+	else
+		'你的子宫中没有记录到精子。'
+	end
+
+
+	cycletemp_cnt = arrsize('sparrvol')
+	if cycletemp_cnt > 0:
+		cycletemp = 0
+		'溅上的精液（共<<cycletemp_cnt>>份）：'
+		'<table border=1><tr><th>索引</th><th>ID</th><th>精子所有者</th><th>潜在效力</th><th>年龄（小时）</th><th>知晓</th><th>体积（毫升）</th><th>位置</th><th>扩散值</th></tr>'
+		:cumcsbloop
+		cycletemp_vol = sparrvol[cycletemp] / 10
+		if sparrloc[cycletemp] = 0:
+			$cycletemp[3] = '在你的阴道里'
+		elseif sparrloc[cycletemp] = 1:
+			$cycletemp[3] = '在你的阴唇上'
+		elseif sparrloc[cycletemp] = 2:
+			$cycletemp[3] = '在你盖住阴道的内裤上'
+		elseif sparrloc[cycletemp] = 3:
+			$cycletemp[3] = '在你的肛门里'
+		elseif sparrloc[cycletemp] = 4:
+			$cycletemp[3] = '在你的屁股上'
+		elseif sparrloc[cycletemp] = 5:
+			$cycletemp[3] = '在你盖住屁股的内裤上'
+		elseif sparrloc[cycletemp] = 6:
+			$cycletemp[3] = '在腹股沟处的衣服上'
+		elseif sparrloc[cycletemp] = 7:
+			$cycletemp[3] = '在你的衣服上'
+		elseif sparrloc[cycletemp] = 8:
+			$cycletemp[3] = '仰卧'
+		elseif sparrloc[cycletemp] = 9:
+			$cycletemp[3] = '在你的腿上'
+		elseif sparrloc[cycletemp] = 10:
+			$cycletemp[3] = '在你的手臂上'
+		elseif sparrloc[cycletemp] = 11:
+			$cycletemp[3] = '射在脸上'
+		elseif sparrloc[cycletemp] = 12:
+			$cycletemp[3] = '在你的嘴里'
+		elseif sparrloc[cycletemp] = 13:
+			$cycletemp[3] = '在你的手上'
+		elseif sparrloc[cycletemp] = 14:
+			$cycletemp[3] = '在你的肚子上'
+		elseif sparrloc[cycletemp] = 15:
+			$cycletemp[3] = '在你的乳房上'
+		elseif sparrloc[cycletemp] = 16:
+			$cycletemp[3] = '在你的头发上'
+		elseif sparrloc[cycletemp] = 17:
+			$cycletemp[3] = '在阴道内的避孕套里'
+		else
+			$cycletemp[3] = '定义不当'
+		end
+		$cycletemp[5] = $npc_usedname[$sparrnam[cycletemp]]
+		!! 'Index number: <<cycletemp>>. Spatter Sperm ID: <<sparrcnt[cycletemp]>>. Spatter Sperm Owner: <<$sparrnam[cycletemp]>>. Spatter Potential Potency: <<sparrppt[cycletemp]>> Spatter Age in Hours: <<sparrage[cycletemp]>>. If you know who did it (0 means no): <<sparridt[cycletemp]>>. Spatter Volume: <<cycletemp_vol>> Milliliters. Spatter Location: <<$cycletemp[3]>>. Spatter Spread Value: <<sparrslc[cycletemp]>>.'
+		*P '<tr><td><<cycletemp>></td><td><<sparrcnt[cycletemp]>></td><td><<$sparrnam[cycletemp]>> - <<$cycletemp[5]>></td><td><<sparrppt[cycletemp]>></td><td><<sparrage[cycletemp]>></td><td><<sparridt[cycletemp]>></td><td><<cycletemp_vol>></td><td><<$cycletemp[3]>></td><td><<sparrslc[cycletemp]>></td></tr>'
+		cycletemp += 1
+		if cycletemp < arrsize('sparrvol'):
+			jump 'cumcsbloop'
+		else
+			'</table>'
+		end
+	else
+		'没有记录到精子飞溅。'
+	end
+
+	cycletemp_cnt = arrsize('$ChildFath')
+	if cycletemp_cnt > 0:
+		cycletemp = 0
+		if $wombthfath ! 'unknown': '当前父亲被设定为你所认为的子宫内孩子的父亲：<<$wombthfath>>'
+		'宝宝和孩子（共<<cycletemp_cnt>>个）：'
+		'<table border=1><tr><th>索引</th><th>名字</th><th>年龄</th><th>出生（月/日/年）</th><th>性爱</th><th>怀孕类型</th><th>生物学父亲</th><th>疑似父亲</th><th>眼睛颜色</th><th>头发颜色</th><th>类型</th><th>避孕类型</th></tr>'
+		:cumcbcloop
+		if polkid[cycletemp] = 0:
+			$cycletemp[2] = '女'
+		else
+			$cycletemp[2] = 'M'
+		end
+		if babyptype[cycletemp] = 0:
+			$cycletemp[3] = '受精卵'
+		elseif babyptype[cycletemp] = 1:
+			$cycletemp[3] = '健康着床'
+		elseif babyptype[cycletemp] = 2:
+			$cycletemp[3] = '宫外孕'
+		elseif babyptype[cycletemp] = 3:
+			$cycletemp[3] = '臀位'
+		elseif babyptype[cycletemp] = 40:
+			$cycletemp[3] = '因酒精/吸烟/其他药物而受损的胎儿'
+		elseif babyptype[cycletemp] = 45:
+			$cycletemp[3] = '因其他原因受损的胎儿'
+		elseif babyptype[cycletemp] = 50:
+			$cycletemp[3] = '严重受损的胎儿'
+		elseif babyptype[cycletemp] = 100:
+			$cycletemp[3] = '胎儿死亡'
+		elseif babyptype[cycletemp] = 105:
+			$cycletemp[3] = '胎儿死亡，不会自行清除'
+		else
+			$cycletemp[3] = '未标记的怀孕类型'
+		end
+		if ChildConType[cycletemp] = 0:
+			$cycletemp[4] = '未使用避孕措施'
+		elseif ChildConType[cycletemp] = 1:
+			$cycletemp[4] = '你谎称服用了避孕药'
+		elseif ChildConType[cycletemp] = 2:
+			$cycletemp[4] = '你服用了避孕药'
+		elseif ChildConType[cycletemp] = 3:
+			$cycletemp[4] = '你使用了安全套'
+		elseif ChildConType[cycletemp] = 4:
+			$cycletemp[4] = '安全套破了'
+		elseif ChildConType[cycletemp] = 5:
+			$cycletemp[4] = '安全套在你体内脱落了'
+		elseif ChildConType[cycletemp] = 6:
+			$cycletemp[4] = '安全套被别人破坏了'
+		elseif ChildConType[cycletemp] = 7:
+			$cycletemp[4] = '你破坏了安全套'
+		else
+			$cycletemp[4] = '定义不当'
+		end
+		$cycletemp[5] = $npc_usedname[$ChildFath[cycletemp]]
+		if $npc_usedname[$ChildThFath[cycletemp]] ! '':
+			$cycletemp[7] = $npc_usedname[$ChildThFath[cycletemp]]
+		else
+			$cycletemp[7] = $ChildThFath[cycletemp]
+		end
+		!! 'Index number: <<cycletemp>>. Name of the kid: <<$kidname[cycletemp]>>. Age of the kid: <<kidage[cycletemp]>>. Born(M/D/Y): <<monthkid[cycletemp]>> / <<daykid[cycletemp]>> / <<yearkid[cycletemp]>>. Sex: <<$cycletemp[2]>>. Pregnancy Type: <<$cycletemp[3]>>. Biological Father: <<$ChildFath[cycletemp]>>. Believed Father: <<$ChildThFath[cycletemp]>>. Child Eye Color: <<eyeskid[cycletemp]>>. Child Hair Color: <<hairkid[cycletemp]>>. Child Type: <<$childtype[cycletemp]>>. Child Contraceptive Type: <<$cycletemp[4]>>'
+		*P '<tr><td><<cycletemp>></td><td><<$kidname[cycletemp]>></td><td><<kidage[cycletemp]>></td><td><<monthkid[cycletemp]>> / <<daykid[cycletemp]>> / <<yearkid[cycletemp]>></td><td><<$cycletemp[2]>></td><td><<$cycletemp[3]>></td><td><<$ChildFath[cycletemp]>> - <<$cycletemp[5]>></td><td><<$ChildThFath[cycletemp]>> - <<$cycletemp[7]>></td><td><<eyeskid[cycletemp]>></td><td><<hairkid[cycletemp]>></td><td><<$childtype[cycletemp]>></td><td><<$cycletemp[4]>></td></tr>'
+		cycletemp += 1
+		if cycletemp < arrsize('$ChildFath'):
+			jump 'cumcbcloop'
+		else
+			'</table>'
+		end
+	else
+		'没有记录到怀孕。'
+	end
+	killvar 'cycletemp'
+	killvar 'cycletemp_cnt'
+	killvar 'cycletemp_vol'
+	act '返回作弊索引': gt 'cheatmenu_din', 'index'
+end
+
+
+
+!! ------------------------------------------------------------------------------------------------------------
+!!  FORCE PREGNANCY HELPER (parameterized)
+!! ------------------------------------------------------------------------------------------------------------
+!! Usage examples:
+!!   gs 'fertility', 'force_preg_by', 'A12'                 <> known NPC father (must be male)
+!!   gs 'fertility', 'force_preg_by', 'unknown', 'John'     <> unknown father name
+!!   gs 'fertility', 'force_preg_by', '', 'Random guy'      <> '' is treated as unknown
+!!
+!! ARGS:
+!!   $ARGS[1] = father id (e.g. 'A12') OR 'unknown' OR ''
+!!   $ARGS[2] = father display name for unknown fathers (optional, defaults to 'unknown')
+!!
+!! If a known NPC is supplied and npc_gender is not male (0), it will show an error message and exit.
+!!
+!! Force pregnancy and set father (known NPC A1-999 or unknown name)
+!! Usage:
+!!   gs 'fertility', 'force_preg_by', 'A12'                <> known NPC father (must be male)
+!!   gs 'fertility', 'force_preg_by', 'unknown', 'John'    <> unknown father name
+!!
+!!	Dont run the function if PC already pregnant
+
+
+if $ARGS[0] = 'force_preg_by':
+	if preg = 1: exit
+	if func('npc', 'is_npcID', $ARGS[1]) = 0: exit
+	if $npc_usedname[$ARGS[1]] = '': exit
+	if npc_gender[$ARGS[1]] <> 0:
+		if npc_spermpot[$ARGS[1]] <= 0:
+			msg '错误：无法让主角怀孕。父亲 "' + $ARGS[1] + '" 既不是男性也不具备生育能力。'
+			exit
+		end
+	end
+
+	$fp_fathid = $ARGS[1]
+	$fp_fathname = $ARGS[2]
+	if $fp_fathname = '': $fp_fathname = $npc_usedname[$fp_fathid]
+
+	!! Determine father strings + validate gender for known NPC fathers
+	$fp_bio = $fp_fathid
+	$fp_bel = $fp_fathid
+	$fp_show = $fp_fathname
+	$wombthfath = $fp_show
+
+	!! Reset non-preg cycle hormones (mirrors cheat menu style)
+	mesec = 0
+	focH = 0
+	EggRH = 0
+	Ovulate = 0
+	UnfertEgg = 0
+	lutH = 0
+	RecovH = 0
+
+	!! Seed pregnancy state (conceived "now")
+	preg = 1
+	cycle = 5
+	lastovulation = daystart
+	if pregChem <= 150: pregChem = 150
+
+	!! Add unborn child entry + father linkage (same arrays used by normal fertilization)
+	babyembryo += 1
+	if fertegg > 0:
+		fertegg -= 1
+	else
+		nextBaby = arrsize('$ChildFath')
+		Temppolkid = rand(0, 1)
+		polkid[nextBaby] = Temppolkid
+		$kidname[nextBaby] = 'unborn'
+		kidage[nextBaby] = 0
+		daykid[nextBaby] = 0
+		monthkid[nextBaby] = 0
+		yearkid[nextBaby] = 0
+		babyptype[nextBaby] = 0
+
+		$ChildFath[nextBaby] = $fp_bio
+		$ChildThFath[nextBaby] = $fp_bel
+
+		hairkid[nextBaby] = rand(0, 3)
+		eyeskid[nextBaby] = rand(0, 3)
+		ChildConType[nextBaby] = 0
+		babyptype[nextBaby] = 1
+	end
+
+	gs 'din_bad', 'd_cycreport_upduedate'
+
+	killvar 'fp_fathid'
+	killvar 'fp_fathname'
+	killvar 'fp_bio'
+	killvar 'fp_bel'
+	killvar 'fp_show'
+	killvar 'dateVars'
+end
+
+
+--- fertility ---------------------------------

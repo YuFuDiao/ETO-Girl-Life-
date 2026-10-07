@@ -1,0 +1,649 @@
+# random_events
+!{
+	To add new events, copy the following block, modify as needed, and insert it next to the other events:
+	!! ── Event Name ──────────────────────────────────────────────
+	if <conditions>:
+		$rand_events_temp['loc']	= '<location_file>'
+		$rand_events_temp['name']	= '<event_name>'
+		rand_events_temp['freq']	= <frequency_value>
+		rand_events_temp['cooldown'] = <cooldown_value>
+		gs 'random_events', 'register'
+	end
+
+	- <conditions> are the conditions that must be met for the event to be considered.
+	- <location_file> is the file where the event''s code is located (without the .qsrc extension).
+	- <rand_events_temp['name']> is the specific event to trigger within that file [via if $ARGS[0] = '<rand_events_temp['name']>'].
+	- rand_events_temp['freq'] is the relative chance of the event occurring; higher values increase likelihood.
+	An event with a frequency of 30 is ten times more likely to occur than one with a frequency of 3.
+	- rand_events_temp['cooldown'] is the cooldown period in hours before the event can occur again.
+
+	Events can occur once every 2 hours.
+
+	- Eva
+!}
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                       Register New Events                           ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $ARGS[0] = 'register':
+	!! Check cooldown
+	if rand_events_list_last[$rand_events_temp['loc'] + '_' + $rand_events_temp['name']] + rand_events_temp['cooldown'] * 60 > totminut: exit
+
+	temp_freq = max(0, rand_events_temp['freq'])
+	if temp_freq = 0: exit
+
+	rand_events_total_weight += temp_freq
+	rand_events_cumweight[] = rand_events_total_weight
+	$rand_events_list_locs[] = $rand_events_temp['loc']
+	$rand_events_list_name[] = $rand_events_temp['name']
+
+	killvar 'temp_freq'
+	killvar 'rand_events_temp'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                    Display Feature Updates popup                    ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if update_report_last < update_report_new: gt 'feature_updates', 'show', $loc
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                               Setup                                 ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+killvar 'rand_events_list_locs'
+killvar 'rand_events_list_name'
+killvar 'rand_events_cumweight'
+killvar 'rand_events_total_weight'
+
+if $loc = 'city_residential':
+	$streetev_title = '<center><b>居民区</b></center>'
+	$rand_events_area = 'city'
+elseif $loc = 'city_center':
+	$streetev_title = '<center><b>市中心</b></center>'
+	$rand_events_area = 'city'
+elseif $loc = 'city_industrial':
+	$streetev_title = '<center><b>城市工业区</b></center>'
+	$rand_events_area = 'city'
+elseif $loc = 'city_island':
+	$streetev_title = '<center><b>岛屿</b></center>'
+	$rand_events_area = 'city'
+elseif $loc = 'pav_residential':
+	$streetev_title = '<center><b>巴甫洛夫斯克居民区</b></center>'
+	$rand_events_area = 'pav'
+elseif $loc = 'pav_commercial':
+	$streetev_title = '<center><b>巴甫洛夫斯克主街</b></center>'
+	$rand_events_area = 'pav'
+elseif $loc = 'pav_industrial':
+	$streetev_title = '<center><b>巴甫洛夫斯克工业区</b></center>'
+	$rand_events_area = 'pav'
+elseif $loc = 'pushkin_center':
+	$streetev_title = '<center><b>普希金市中心</b></center>'
+	$rand_events_area = 'pushkin'
+elseif $loc = 'pushkin_square':
+	$streetev_title = '<center><b>奥赫洛普科夫广场</b></center>'
+	$rand_events_area = 'pushkin'
+else
+	$streetev_title = '<center><b>黑暗之中</b></center>'
+	$rand_events_area = 'unknown'
+end
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                        Mandatory Events                             ║
+!! ║        Checked regardless of general cooldown or probability        ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+!! ── Failed Celeb Blackmail ──────────────────────────────────────
+if shantpopala > 0:
+	rand_events_must_happen		= 1
+	$rand_events_temp['loc']	= 'street_events_' + $iif($rand_events_area = 'city', 'city', 'general')
+	$rand_events_temp['name']	= 'failed_celeb_blackmail'
+	rand_events_temp['freq']	= 100
+	rand_events_temp['cooldown']= 12
+	gs 'random_events', 'register'
+end
+
+!! ── Taras Kidnapping ────────────────────────────────────────────
+!! Locked until expanded
+if nichGalaTarasPlan >= 110 and nichGalaTarasPlan < 120 and rand(1, 2) = 1 and nichDebug = 1:
+	rand_events_must_happen		= 1
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'nich_taras_abduct'
+	rand_events_temp['freq']	= 100
+	gs 'random_events', 'register'
+end
+
+!! ── Debt payoff ─────────────────────────────────────────────────
+if workDolgDay <= 0 and workDolg > 0:
+	rand_events_must_happen		= 1
+	$rand_events_temp['loc']	= 'street_events_home'
+	$rand_events_temp['name']	= 'minor_debt_payoff'
+	rand_events_temp['freq']	= 100
+	gs 'random_events', 'register'
+end
+
+!! ── Didn''t deliver disk ────────────────────────────────────────
+if workDiskAtkPlayer = 1:
+	rand_events_must_happen		= 1
+	$rand_events_temp['loc']	= 'street_events_home'
+	$rand_events_temp['name']	= 'minor_didnt_deliver_disk'
+	rand_events_temp['freq']	= 100
+	gs 'random_events', 'register'
+end
+
+!! ── Tatiana unlock magic ────────────────────────────────────────
+if pcs_magik >= 1 and mainQW = 0 and $start_type['loc'] = 'city':
+	rand_events_must_happen		= 1
+	$rand_events_temp['loc']	= 'street_events_home'
+	$rand_events_temp['name']	= 'minor_tatiana_unlock_magic'
+	rand_events_temp['freq']	= 100
+	gs 'random_events', 'register'
+end
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                               Guards                                ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if rand_events_must_happen = 0 and (rand_events_last + 120 > totminut or rand(1, 100) > 15): exit
+killvar 'rand_events_must_happen'
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                            Major Events                             ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+!! ── Random Rape ─────────────────────────────────────────────────
+if cheatVars['random_rapists'] <> 1 and DayStage >= 4:
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'random_rape'
+	rand_events_temp['freq']	= 2
+	!! Nude
+	if $clothingworntype = 'nude':
+		rand_events_temp['freq'] *= 12
+	else
+		!! Increased freq based on clothing inhibition
+		rand_events_temp['freq'] *= max(1, ((PCloInhibit * 3) / 2) / 10)
+	end
+	!! Exposed front
+	if PCloCoverFront >= 3 and PCloPanties = 0 and $pantyworntype = 'none':
+		rand_events_temp['freq'] = (rand_events_temp['freq'] * 3) / 2
+	end
+	!! Exposed top
+	if PCloCoverTop >= 3  and $braworntype = 'none':
+		rand_events_temp['freq'] = (rand_events_temp['freq'] * 3) / 2
+	end
+	!! Bimbo clothes
+	if PCloBimbo = 1:
+		rand_events_temp['freq'] = (rand_events_temp['freq'] * 3) / 2
+	end
+	!! Decreased freq in town location
+	if $loc = 'pav_residential' or $loc = 'pav_commercial':
+		rand_events_temp['freq'] /= 2
+	end
+	!! Doubled freq when drunk
+	if alko >= 6:
+		rand_events_temp['freq'] *= 2
+	end
+
+	!! Doubled freq late at night
+	if DayStage = 5:
+		rand_events_temp['freq'] *= 2
+	end
+
+	if cheatVars['random_rapists'] = 2 and rand_events_temp['freq'] > 0: 
+		rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+		rand_events_temp['cooldown'] = 24 * 14
+	elseif cheatVars['random_rapists'] = 3: 
+		rand_events_temp['freq'] = rand_events_temp['freq'] * 2
+		rand_events_temp['cooldown'] = 24 * 6
+	elseif cheatVars['random_rapists'] = 4: 
+		rand_events_temp['freq'] = rand_events_temp['freq'] * 3
+		rand_events_temp['cooldown'] = 24 * 3
+	else
+		rand_events_temp['cooldown'] = 24 * 10
+	end
+	gs 'random_events', 'register'
+end
+
+!! ── Random Robbery ──────────────────────────────────────────────
+if cheatVars['random_robbers'] <> 1 and bag = 1 and daystart >= 10 and DayStage >= 4:
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'random_robbery'
+	!! Set base frequency based on location
+	if $loc = 'city_industrial' or $loc = 'pav_industrial':
+		rand_events_temp['freq'] = 3
+	elseif $loc = 'city_center' or $loc = 'pav_commercial' or $loc = 'city_island':
+		rand_events_temp['freq'] = 0
+	else
+		rand_events_temp['freq'] = 1
+	end
+	!! Increase frequency later at night
+	if DayStage = 5:
+		rand_events_temp['freq'] *= 2
+	end
+	!! Increase frequency based on Purse type
+	if $currentpursetype = 'fashionista':
+		rand_events_temp['freq'] = ((rand_events_temp['freq'] + 1) * 3) / 2
+	elseif $currentpursetype = 'moncheri':
+		rand_events_temp['freq'] = (rand_events_temp['freq'] + 1) * 2
+	end
+	!! Adjust frequency based on Clothing quality
+	if PCloQuality = 1:
+		rand_events_temp['freq'] /= 2
+	elseif PCloQuality = 6:
+		rand_events_temp['freq'] *= 2
+	elseif PCloQuality = 7:
+		rand_events_temp['freq'] *= 3
+	end
+	!! Less frequent if PC looks strong
+	if pcs_stren >= 70: rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+
+	if cheatVars['random_robbers'] = 2 and rand_events_temp['freq'] > 0: 
+		rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+		rand_events_temp['cooldown'] = 24 * 14
+	elseif cheatVars['random_robbers'] = 3: 
+		rand_events_temp['freq'] = rand_events_temp['freq'] * 2
+		rand_events_temp['cooldown'] = 24 * 6
+	elseif cheatVars['random_robbers'] = 4: 
+		rand_events_temp['freq'] = rand_events_temp['freq'] * 3
+		rand_events_temp['cooldown'] = 24 * 3
+	else
+		rand_events_temp['cooldown'] = 24 * 10
+	end
+	gs 'random_events', 'register'
+end
+
+!! ── Random Purse Snatching ──────────────────────────────────────
+if cheatVars['random_snatchers'] <> 1 and bag = 1 and daystart >= 10 and DayStage < 4:
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'random_snatching'
+	!! Set base frequency based on location
+	if $loc = 'city_industrial' or $loc = 'pav_industrial':
+		rand_events_temp['freq'] = 0
+	elseif $loc = 'city_center' or $loc = 'pav_commercial' or $loc = 'city_island':
+		rand_events_temp['freq'] = 3
+	else
+		rand_events_temp['freq'] = 1
+	end
+	!! Increase frequency based on Purse type
+	if $currentpursetype = 'fashionista':
+		rand_events_temp['freq'] = ((rand_events_temp['freq'] + 1) * 3) / 2
+	elseif $currentpursetype = 'moncheri':
+		rand_events_temp['freq'] = (rand_events_temp['freq'] + 1) * 2
+	end
+	!! Adjust frequency based on Clothing quality
+	if PCloQuality = 5:
+		rand_events_temp['freq'] = (rand_events_temp['freq'] * 3) / 2
+	elseif PCloQuality = 6:
+		rand_events_temp['freq'] *= 2
+	elseif PCloQuality = 7:
+		rand_events_temp['freq'] *= 3
+	end
+	!! Less frequent before the evening
+	if DayStage < 3: rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+	!! Less frequent if PC looks strong
+	if pcs_stren >= 70: rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+
+	if cheatVars['random_snatchers'] = 2 and rand_events_temp['freq'] > 0: 
+		rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+		rand_events_temp['cooldown'] = 24 * 14
+	elseif cheatVars['random_snatchers'] = 3: 
+		rand_events_temp['freq'] = rand_events_temp['freq'] * 2
+		rand_events_temp['cooldown'] = 24 * 6
+	elseif cheatVars['random_snatchers'] = 4: 
+		rand_events_temp['freq'] = rand_events_temp['freq'] * 3
+		rand_events_temp['cooldown'] = 24 * 3
+	else
+		rand_events_temp['cooldown'] = 24 * 10
+	end
+	gs 'random_events', 'register'
+end
+
+!! ── Meet Mistress ───────────────────────────────────────────────
+if lesbiday + 21 <= daystart and lesbiQW >= 11 and (DayStage <= 4 and month >= 3 and month <> 12) and $pantyworntype ! 'none':
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'mistmeet'
+	if $loc = 'city_center' or $loc = 'pav_commercial' or $loc = 'city_island':
+		rand_events_temp['freq'] = 10
+	elseif $loc = 'city_residential' or $loc = 'pav_residential':
+		rand_events_temp['freq'] = 7
+	elseif $loc = 'city_industrial' or $loc = 'pav_industrial':
+		rand_events_temp['freq'] = 2
+	end
+	gs 'random_events', 'register'
+end
+
+!! ── Random lover ────────────────────────────────────────────────
+if (weatherFall < 60 or sunWeather = 1) and cheatVars['random_lovers'] <> 1:
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'random_lover'
+	rand_events_temp['freq']	= 5
+	if $loc = 'city_center' or $loc = 'pav_commercial' or $loc = 'city_island':
+		rand_events_temp['freq'] *= 3
+	elseif $loc = 'city_industrial' or $loc = 'pav_industrial':
+		rand_events_temp['freq'] /= 3
+	end
+	if pcs_hotcat >= 6:
+		rand_events_temp['freq'] *= (pcs_hotcat - 4)
+	elseif pcs_hotcat <= 3:
+		rand_events_temp['freq'] /= (5 - pcs_hotcat)
+	end
+	if PCloQuality <= 2:
+		rand_events_temp['freq'] /= 4 - PCloQuality
+	elseif PCloQuality >= 6:
+		rand_events_temp['freq'] *= 2
+	end
+	rand_events_temp['freq'] *= max(1, (PCloInhibit / 10) - 2)
+
+	if cheatVars['random_lovers'] = 2 and rand_events_temp['freq'] > 0:
+		rand_events_temp['freq'] = max(1, rand_events_temp['freq'] / 2)
+	elseif cheatVars['random_lovers'] = 3:
+		rand_events_temp['freq'] *= 2
+	elseif cheatVars['random_lovers'] = 4:
+		rand_events_temp['freq'] *= 3
+	end
+	rand_events_temp['cooldown'] = 1
+	gs 'random_events', 'register'
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                        Minor General Events                         ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if DayStage <= 3:
+	!! Daytime events
+	if sunWeather = 1 and weatherFall < 60:
+		!! Good weather events
+
+		!! ── Man playing guitar ──────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_guitar_man'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Girl playing guitar ─────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_guitar_girl'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Man playing violin ──────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_violin_man'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Girl playing violin ─────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_violin_girl'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Man drawing portraits ───────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_portraits'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Naked woman ─────────────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_naked_woman'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Motorcycle naked ────────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_motorcycle_naked'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Girl Split ──────────────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_girl_split'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Girl flashing ───────────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_girl_flashing'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+		
+		!! ── Handing out flyers ──────────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_handout_flyers'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+
+		!! ── Girls gossiping about PC ────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_girls_gossiping'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	else
+		!! Bad weather events
+
+		!! ── Woman in coat flashing ──────────────────────────────
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_woman_flashing'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Hetero Couple making out ────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_hetero_couple'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Lesbian Couple making out ───────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_lesbian_couple'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Guys fighting ───────────────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_guys_fighting'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Girls fighting ──────────────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_girls_fighting'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Woman in window ─────────────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_woman_window'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Girl Beggar ─────────────────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_girl_beggar'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Man unconscious ─────────────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_unconscious'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+
+	!! ── Clothes grabbed ─────────────────────────────────────────
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_clothes_grabbed'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+else
+	!! Nighttime events
+
+	!! ── Teens drinking beer ─────────────────────────────────────
+	if sunWeather = 1 and weatherFall < 60:
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'minor_boys_beer'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Divorce Party ───────────────────────────────────────────
+	if $loc <> 'pav_industrial' and $loc <> 'city_industrial' and divorce_party < 2 and pcs_hotcat > 4:
+		$rand_events_temp['loc']	= 'street_events_general'
+		$rand_events_temp['name']	= 'divorce_party'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+end
+
+
+!! ── Groped 1 ────────────────────────────────────────────────────
+if sunWeather = 1 or weatherFall < 60:
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_groping_1'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+end
+
+!! ── Groped 2 ────────────────────────────────────────────────────
+if (PCloSkirt > 0 and PCloOnePiece = 1) and (hour >= 10 or hour < 2):
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_groping_2'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+end
+
+!! ── Wind blowing skirt ──────────────────────────────────────────
+if weatherFall >= 30 and hour >= 5:
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_wind_skirt'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+end
+
+!! ── No bra ──────────────────────────────────────────────────────
+if ($braworntype = 'none' and PCloThinness >= 4) and (hour >= 7 or hour <= 3):
+	$rand_events_temp['loc']	= 'street_events_general'
+	$rand_events_temp['name']	= 'minor_no_bra'
+	rand_events_temp['freq']	= 2
+	gs 'random_events', 'register'
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                          Minor City Events                          ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $rand_events_area = 'city':
+	!! ── Girl Beggar 2 ───────────────────────────────────────────
+	if hour >= 7 and hour <= 21:
+		$rand_events_temp['loc']	= 'street_events_city'
+		$rand_events_temp['name']	= 'minor_girl_beggar_2'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Homeless men ────────────────────────────────────────────
+	if month >= 11 or month <= 3:
+		$rand_events_temp['loc']	= 'street_events_city'
+		$rand_events_temp['name']	= 'minor_homeless_men'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Old couple ──────────────────────────────────────────────
+	if (month >= 11 or month <= 3) and hour >= 6 and hour < 18:
+		$rand_events_temp['loc']	= 'street_events_city'
+		$rand_events_temp['name']	= 'minor_old_couple'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Gay couple ──────────────────────────────────────────────
+	if hour >= 8 or hour < 2:
+		$rand_events_temp['loc']	= 'street_events_city'
+		$rand_events_temp['name']	= 'minor_gay_couple'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Fame Events ─────────────────────────────────────────────
+	if (weatherFall < 60 or sunWeather = 1) and fame['event_day'] <> daystart and hour >= 9 and hour <= 21 and $loc = 'city_center':
+		$rand_events_temp['loc']	= 'street_events_city'
+		$rand_events_temp['name']	= 'fame_events'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                     Minor Pav / Pushkin Events                      ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $rand_events_area = 'pav' or $rand_events_area = 'pushkin':
+	!! ── Prostitutes ─────────────────────────────────────────────
+	if hour >= 12 or hour <= 3:
+		$rand_events_temp['loc']	= 'street_events_pav'
+		$rand_events_temp['name']	= 'minor_prostitutes'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Naked hawker ────────────────────────────────────────────
+	if (month >= 11 or month <= 3) and hour >= 8 and hour <= 17:
+		$rand_events_temp['loc']	= 'street_events_pav'
+		$rand_events_temp['name']	= 'minor_naked_hawker'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Improvised market ───────────────────────────────────────
+	if sunWeather = 1 and weatherFall < 60 and hour >= 8 and hour <= 17:
+		$rand_events_temp['loc']	= 'street_events_pav'
+		$rand_events_temp['name']	= 'minor_improvised_market'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+end
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                       Minor Pav-only Events                         ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if $rand_events_area = 'pav':
+	!! ── Older Women Shaming PC ──────────────────────────────────
+	if sunWeather = 1 and weatherFall < 60 and $pantyworntype = 'none' and PCloSkirt > 2 and hour > 6 and hour <= 20:
+		$rand_events_temp['loc']	= 'street_events_pav'
+		$rand_events_temp['name']	= 'minor_older_women_shaming'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+
+	!! ── Fame Events ─────────────────────────────────────────────
+	if (weatherFall < 60 or sunWeather = 1) and fame['event_day'] <> daystart and hour >= 9 and hour <= 21 and $loc = 'pav_commercial':
+		$rand_events_temp['loc']	= 'street_events_pav'
+		$rand_events_temp['name']	= 'fame_events'
+		rand_events_temp['freq']	= 2
+		gs 'random_events', 'register'
+	end
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                        Pick Event and Run it                        ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+if arrsize('rand_events_list_name') = 0: exit
+temp = rand(1, rand_events_total_weight)
+temp_i = 0
+:rand_events_pick_loop
+if temp > rand_events_cumweight[temp_i]:
+	temp_i += 1
+	jump 'rand_events_pick_loop'
+end
+$temp[1] = $rand_events_list_locs[temp_i]
+$temp[2] = $rand_events_list_name[temp_i]
+killvar 'temp_i'
+rand_events_last = totminut
+rand_events_list_last[$temp[1] + '_' + $temp[2]] = totminut
+gt $temp[1], $temp[2]
+
+
+--- random_events ---------------------------------

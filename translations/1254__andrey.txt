@@ -1,0 +1,674 @@
+# andrey
+
+if $ARGS[0] = '':
+	menu_off = 1
+	'<b><center><font size="4">经理安德鲁·M·索布利亚金</font></center></b>'
+	if $job_status['city_pussycats_clerk'] = 'fired':
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+		*nl
+		'你敲了敲索布利亚金先生办公室的门，他看到你进来，表情沉了下来。"你来干什么，"他皱着眉头质问道。'
+	end
+
+	if hour >= 20 or (week > 5 and hour >= 16):
+		msg '<center>安德鲁·M·索布利亚金道别后离开了。他的工作日已经结束。</center>'
+		gt 'shop_pussycats', 'start'
+	end
+
+	!! v4: Route to appropriate handler based on job status
+	if $job_status['city_pussycats_clerk'] = 'employed' and job_booking_debt['city_pussycats_clerk'] >= 3:
+		!! Debt threshold reached — confrontation scene (player is still employed)
+		gs 'andrey', 'punish'
+	elseif $job_status['city_pussycats_clerk'] = 'fired':
+		!! Returning after being fired through the scene — beg for job back
+		gs 'andrey', 'beg'
+	elseif $job_status['city_pussycats_clerk'] = 'terminated':
+		gs 'andrey', 'reapply'
+	elseif $job_status['city_pussycats_clerk'] = '':
+		gs 'andrey', 'apply'
+	elseif $job_status['city_pussycats_clerk'] = 'employed':
+		gs 'andrey', 'regular'
+	end
+end
+
+
+if $ARGS[0] = 'apply':
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+	*nl
+	'你敲了敲门，门里有人应道："进来吧。"进门后，你看到的是一张苦瓜脸的老人，正坐在桌前看文件。他看到你，表情沉了下来。"没想到一个老头在经营给少女卖衣服的店铺？"他咕哝道。你还没来得及说一个字，他似乎也毫不在意。"是啊，这种事我见多了……"他低声补充道，然后叹了口气，重新看向文件。"你有什么事？"'
+
+	act '离开': gt 'shop_pussycats', 'start'
+	act '提起招聘启事':
+		minut += 5
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+		*nl
+		'他翻着文件，几乎没看你一眼。"哦对，我都忘了……嗯，这个职位还空着。店里需要多一个帮手，而且得是个女孩……年轻的女孩，"他说着，突然放下文件，用责备的眼神看着你。"在你说那些性别平等的屁话之前，我要告诉你，之前有个男店员，他只想着钻进女顾客的裤子里，而不是她们的腰包。我可不想再给自己添麻烦……<i>但愿吧</i>。"'
+		*nl
+		'你一时语塞。这和你想象的面试完全不一样，但你的沉默并没有引起注意，店长继续说下去。"时薪是<<$func(''money'', ''string_profit'', 205)>>，可以吧？相信我，没人会抢着来这儿上班，但别以为这样你就能偷懒。旷工三次，你就被开除……没有二话。我有两个兼职岗位，一个从 '+func('time', 'get_time_string', 16, 0)+' 到 '+func('time', 'get_time_string', 20, 0)+' 周一至周五或周末班在 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 15, 0)+'。"'
+		*nl
+		'他似乎找到了要找的东西——雇佣文件。"要在这里上班，你得签这些。"他把文件递到你面前，"那么，你有兴趣吗？"'
+
+		act '不接受这份工作': gt 'shop_pussycats', 'start'
+
+		!! v4: Each schedule is gated independently — one may conflict while the other is free
+		if $job_status['city_pussycats_clerk'] = '' and func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 0) = 1:
+			act '接受工作日晚班':
+				cla
+				!! v4: Employ on schedule 0 (evening weekdays)
+				gs 'jobs', 'set_employed', 'city_pussycats_clerk'
+				minut += 5
+				*nl
+				'你觉得条件合适，毫不犹豫地签了文件。'
+				'你在青年服装店''猫咪俱乐部''找到了一份工作。你的第一个工作日是周一 '+func('time', 'get_time_string', 15, 0)+'。'
+				act '继续': gt 'shop_pussycats', 'start'
+			end
+		end
+		if $job_status['city_pussycats_clerk'] = '' and func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 1) = 1:
+			act '接受周末班':
+				cla
+				!! v4: Employ on schedule 0 then switch to schedule 1 (weekend)
+				gs 'jobs', 'set_employed', 'city_pussycats_clerk'
+				gs 'jobs', 'change_schedule', 'city_pussycats_clerk', 1
+				minut += 5
+				*nl
+				'你觉得条件合适，毫不犹豫地签了文件。'
+				'你在青年服装店''猫咪俱乐部''找到了一份工作。你的第一个工作日是周六 '+func('time', 'get_time_string', 9, 0)+'。'
+				act '继续': gt 'shop_pussycats', 'start'
+			end
+		end
+!!		if $job_status['city_pussycats_clerk'] = '' and func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 2) = 1:
+!!			act 'Take the full time job':
+!!				cla
+!!				!! v4: Employ on schedule 0 then switch to schedule 2 (full-time weekday)
+!!				gs 'jobs', 'set_employed', 'city_pussycats_clerk'
+!!				gs 'jobs', 'change_schedule', 'city_pussycats_clerk', 2
+!!				minut += 5
+!!				*nl
+!!				'You find the conditions suitable and without batting an eye you sign the documents.'
+!!				'You got a job in the youth clothing store ''Pussy-Cats''. Your first workday is on Monday at '+func('time', 'get_time_string', 9, 0)+'.'
+!!				act 'Continue': gt 'shop_pussycats', 'start'
+!!			end
+!!		end
+
+		!! v4: Inform the player if schedules are blocked by existing commitments
+		if $job_status['city_pussycats_clerk'] = '':
+			temp_sched0_ok = func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 0)
+			temp_sched1_ok = func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 1)
+			if temp_sched0_ok = 0 and temp_sched1_ok = 0:
+				*nl
+				$func('wrap', 'neg', '不幸的是，两个班次都与您现有的日程冲突。')
+			elseif temp_sched0_ok = 0:
+				*nl
+				'<font color="gray">工作日晚间班次与您现有的日程冲突。</font>'
+			elseif temp_sched1_ok = 0:
+				*nl
+				'<font color="gray">周末班次与您现有的日程冲突。</font>'
+			end
+			killvar 'temp_sched0_ok'
+			killvar 'temp_sched1_ok'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'regular':
+	*clr & cla
+	menu_off = 1
+	'<b><center><font size="4">经理安德鲁·M·索布利亚金</font></center></b>'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+	*nl
+	'你敲了敲门，索布利亚金先生让你进来。平时他总是在看报纸，可这次他只是坐在那里，脸上表情怪怪的，就好像你吓到了他似的。'
+
+	!! v4: Check if paycheck is owed — worked_count > 0 means hours logged this pay period
+	if job_worked_count['city_pussycats_clerk'] > 0:
+		!! v4: Check for unacknowledged misses
+		if job_booking_debt['city_pussycats_clerk'] = 0:
+			'"来领工资的吧，"他很快问道，你点了点头。他示意你走近些，你照做了。他在抽屉里翻找你的钱。等待的时候，你瞥见他的电脑屏幕上有一张裸体女人的图片。他一定以为从你的位置看不到屏幕。"给你，"索布利亚金先生说着递出一个装着钱的白信封。'
+		elseif job_miss_acknowledged['city_pussycats_clerk'] = job_missed_total['city_pussycats_clerk'] and job_booking_debt['city_pussycats_clerk'] > 0:
+			'"来领工资的吧，"他很快问道，你点了点头。他示意你走近些，你照做了。他在抽屉里翻找你的钱。等待的时候，你瞥见他的电脑屏幕上有一张裸体女人的图片。他一定以为从你的位置看不到屏幕。"给你，"索布利亚金先生说着递出一个装着钱的白信封。'
+			'"你已经旷工<<job_booking_debt[''city_pussycats_clerk'']>> '+iif(job_booking_debt['city_pussycats_clerk'] = 1, '', '')+'次了，"他提醒你。"别养成这种习惯。旷工三次的话，我就开除你。'
+		else
+			job_miss_acknowledged['city_pussycats_clerk'] = job_missed_total['city_pussycats_clerk']
+			'他看到是你时，目光严厉。"你旷工了。还记得我跟你说过关于旷工的事吗？"'
+			'你点点头。"我记得。对不起。"'
+			'他轻哼一声，摇了摇头。"下次你可别再忘了。这是你的工资。"他示意你走近些，你照做了。他在抽屉里翻找你的钱。等待的时候，你瞥见他的电脑屏幕上有一张裸体女人的图片。他一定以为从你的位置看不到屏幕。"给你，"索布利亚金先生说着递出一个装着你的钱的白信封。'
+		end
+
+		act '拿起信封离开':
+			minut += 15
+			!! v4: paycheck adds money internally and returns the amount
+			temp_pay = func('jobs', 'paycheck', 'city_pussycats_clerk')
+			msg '<center>你得到了报酬<<$func(''money'', ''string_profit'', temp_pay)>></center>'
+			'经理数出<<$func(''money'', ''string_profit'', temp_pay)>>并把钱递给你。这件事办完后，他又转回去盯着电脑显示器了。'
+			killvar 'temp_pay'
+			gt 'shop_pussycats', 'start'
+		end
+	else
+		act '离开': gt 'shop_pussycats', 'start'
+	end
+
+	!! v4: Option to switch schedule (only between evening weekday and weekend)
+	!! Only show if the target schedule doesn''t conflict with calendar
+	if $job_active_schedule['city_pussycats_clerk'] = '0':
+		$temp_switch_label = '要求换到周末班'
+		temp_switch_to = 1
+	else
+		$temp_switch_label = '要求换到晚班'
+		temp_switch_to = 0
+	end
+	if func('jobs', 'check_employment_possible', 'city_pussycats_clerk', temp_switch_to) = 1:
+		act '<<$temp_switch_label>>':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+			*nl
+			'"索布利亚金先生，我想问问能不能换个班次？"'
+			'他考虑了一会儿。"可以，我能安排。不过得先把你目前的工资结清。"'
+			!! v4: Pay out current earnings before switching
+			temp_pay = func('jobs', 'paycheck', 'city_pussycats_clerk')
+			if temp_pay > 0:
+				msg '<center>你得到了报酬<b><<temp_pay>></b> <b>₽</b>，用于当前班次。</center>'
+				'"这是你到目前为止应得的，"他说着递给你一个信封。'
+			end
+			!! v4: Switch to the other schedule
+			gs 'jobs', 'change_schedule', 'city_pussycats_clerk', temp_switch_to
+			if temp_switch_to = 1:
+				'"好了，你现在是周末班了。从周六 ' + $func('time', 'get_time_string', 9, 0)+' 开始。"'
+			else
+				'"好了，你回到晚班了。从周一 ' + $func('time', 'get_time_string', 15, 0)+' 开始。"'
+			end
+			killvar 'temp_pay'
+			killvar 'temp_switch_label'
+			killvar 'temp_switch_to'
+			act '继续': gt 'shop_pussycats', 'start'
+		end
+	else
+		'<font color="gray">你想提出换班，但另一个班次和你现有的安排冲突。</font>'
+	end
+	killvar 'temp_switch_label'
+	killvar 'temp_switch_to'
+
+	act '辞职':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+		*nl
+		'"我想辞职，"你走到他的办公桌前说道。'
+		'索布利亚金先生一脸困惑地看着你。"你确定吗？我是说……如果你认真要辞，我现在就可以办妥一切手续。"他挠了挠头，开始翻出需要的文件，但又顿了一下。"为什么这么突然？"'
+		act '改变主意':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+			*nl
+			'"其实，我想再考虑考虑……"你一边往门口退一边说。"抱歉打扰你了，索布利亚金先生。"'
+			'他摇了摇头。"没关系，不过要是没别的事，我现在很忙。"'
+			act '离开': gt 'shop_pussycats', 'start'
+		end
+		act '坚持辞职':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+			*nl
+			'"这件事我已经下定决心了，"你坚定地说。'
+			'"好好好，"索布利亚金先生说着开始填写几份表格，然后递给你签字。'
+			!! v4: Pay out any remaining earnings
+			temp_pay = func('jobs', 'paycheck', 'city_pussycats_clerk')
+			if temp_pay > 0:
+				msg '<center>你得到了报酬<<$func(''money'', ''string_profit'', temp_pay)>></center>'
+				'索布利亚金先生数着<<$func(''money'', ''string_profit'', temp_pay)>>并递到你手上。'
+			end
+			killvar 'temp_pay'
+			!! v4: Terminate employment (good terms)
+			gs 'jobs', 'set_terminated', 'city_pussycats_clerk'
+			act '离开': gt 'shop_pussycats', 'start'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'punish':
+	menu_off = 1
+	pussycats_fired_count += 1
+	if pussycats_fired_count = 1:
+	!! this happens the first time Sveta misses three days and is fired
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+		*nl
+		'"哟，看看是谁今天终于肯拖着身子来上班了，"索布利亚金先生在店门口迎接你时，表情拧成一个怒容，大声说道。"我知道来上班对你来说很难，但你能不能赏我个脸，来我办公室一趟，"他冷冷地说。你叹了口气，跟着他走进办公室，他关上了门。"我不是告诉过你，旷工三天就会被开除吗！规矩面前没有例外，丫头。"'
+		act '同意并接受被解雇':
+			*clr & cla
+			char_honest += 5
+			bonus_mood -= 50
+			minut += 15
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+			*nl
+			'"你说得对。我旷工太多次了，"你叹了口气。索布利亚金先生从抽屉里拿出一份文件，开始填写空白栏。几分钟后，他递给你几张纸，你默默签了字。'
+			msg '你不再在这家商店工作了。'
+			!! v4: Pay out any remaining earnings
+			temp_pay = func('jobs', 'paycheck', 'city_pussycats_clerk')
+			if temp_pay > 0:
+				'你剩余的班次将获得报酬<<$func(''money'', ''string_profit'', temp_pay)>>'
+				'索布利亚金先生数着<<$func(''money'', ''string_profit'', temp_pay)>>并递到你手上。'
+			end
+			killvar 'temp_pay'
+			!! v4: Fire the player (bad terms)
+			gs 'jobs', 'set_fired', 'city_pussycats_clerk'
+			act '离开':
+				minut += 2
+				gt 'shop_pussycats', 'start'
+			end
+		end
+		act '求他保住工作':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/pc/reactions/tears1.jpg"></center>'
+			'"求求你了，我不能丢掉这份工作！我真的需要钱。求你别开除我！我保证会好好干，"说着说着，泪水开始顺着你的脸颊滑落。'
+			*nl
+			'索布利亚金先生对你嗤之以鼻，显然不会被几滴眼泪轻易打动。他沉默地看着你，深色的眼睛慢慢扫过你的身体，舔了舔嘴唇。"听着，我不是坏人，"他说着从椅子上站起来，走到门口。"我愿意再给你一次机会，但你需要<i>向我证明</i>这份工作对你到底有多重要……"他隔着裤子托了托自己的蛋，轻轻捏了一下。'
+			*nl
+			'"或者你可以走人，丢掉这份工作。选择权在你，但你的选择只有这两个。"他为你打开门，如果你不接受他的提议，就可以离开并失去工作。'
+			gs 'willpower', 'bj', 'resist'
+			if pcs_willpwr < will_cost:
+				act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '离开' + $func('willpower', 'get_willcost_string'):
+					!! v4: Fire the player (bad terms)
+					func('jobs', 'paycheck', 'city_pussycats_clerk')
+					gs 'jobs', 'set_fired', 'city_pussycats_clerk'
+					minut += 2
+					gs 'willpower', 'bj', 'resist'
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+
+					gt 'shop_pussycats', 'start'
+				end
+			end
+			act '接受他的提议': gt 'andrey', 'fired1'
+		end
+	!! this happens if Sveta misses 3 days of work but kept her job already once by sucking his dick.
+	elseif pussycats_fired_count <= 5:
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+		*nl
+		'"哟，看看是谁今天终于肯拖着身子来上班了，"索布利亚金先生在店门口迎接你时，表情拧成一个怒容，大声说道。"我知道来上班对你来说很难，但你能不能赏我个脸，来我办公室一趟，"他冷冷地说。你叹了口气，跟着他走进办公室，他关上了门。他点了点头，像是在对你说话，又像是在自言自语。他靠在桌边，托着胯部对你微笑。"那么，想保住工作的话，你知道规矩。"'
+		gs 'willpower', 'bj', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝并被解雇' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝并被解雇' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				char_honest += 5
+				bonus_mood -= 50
+				minut += 15
+				gs 'willpower', 'bj', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+				*nl
+				'"你说得对，我已经决定了，我不会再为了保住工作而做那种事了。"索布利亚金先生对你皱起眉头，但还是把阴茎收了回去。他从抽屉里拿出一份文件，开始填写空白栏。几分钟后，他递给你几张纸，你默默签了字。'
+				msg '你不再在这家商店工作了。'
+				!! v4: Pay out any remaining earnings
+				temp_pay = func('jobs', 'paycheck', 'city_pussycats_clerk')
+				if temp_pay > 0:
+					'你剩余的班次将获得报酬<<$func(''money'', ''string_profit'', temp_pay)>>'
+					'索布利亚金先生数着<<$func(''money'', ''string_profit'', temp_pay)>>并递到你手上。'
+				end
+				killvar 'temp_pay'
+				!! v4: Fire the player (bad terms)
+				gs 'jobs', 'set_fired', 'city_pussycats_clerk'
+				act '离开':
+					minut += 2
+					gt 'shop_pussycats', 'start'
+				end
+			end
+		end
+		act '同意': gt 'andrey', 'fired1'
+	!! this happens if Sveta misses 3 days of work but kept her job by sucking his dick 5 times, so this would trigger on the 6th time and each time after.
+	else
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+		*nl
+		'"哟，看看是谁今天终于肯拖着身子来上班了，"索布利亚金先生在店门口迎接你时，表情拧成一个怒容，大声说道。"我知道来上班对你来说很难，但你能不能赏我个脸，来我办公室一趟，"他冷冷地说。你叹了口气，跟着他走进办公室，他关上了门。"你旷工太多次了，其他员工都注意到了。我需要你付出更多来证明你配得上这份工作。"'
+		*nl
+		'他靠在桌边，托着胯部对你微笑。"你可以先吸我的阴茎，然后弯下腰，让我操你的屁股。这是你向我证明你还配保住这份工作的唯一方式，明白吗？不然的话，你不过是个懒惰的小鬼。我不需要这样的人给我干活。"'
+		!! this happens the first time Sveta is asked to let him fuck her ass
+		if pussycats_fired_count = 6:
+			*nl
+			'"这不公平！你知道我有多需要这份工作，就让我像往常一样给你口交吧，"你试图说服索布利亚金先生，让他不用你做那种事也保住你的工作。'
+			'"听着，我这是在帮你。我完全有权因为你旷工而开除你，但我不是坏人。我看得出来你真的很想要这份工作，"他说着从椅子上站起来。"我愿意帮你，但你需要向我证明你到底有多想要这份工作。"'
+		end
+		gs 'willpower', 'anal', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				char_honest += 5
+				bonus_mood -= 50
+				minut += 15
+				gs 'willpower', 'anal', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+				*nl
+				'"你说得对，我旷工太多次了，但我不会再' + iif(pussycats_fired_count = 6, '', '')+'为了保住工作做那种事了。"索布利亚金先生对你皱起眉头，但把阴茎收了回去，从抽屉里拿出一份文件开始填写空白栏。几分钟后，他递给你几张纸，你一言不发地签了字。'
+				msg '你不再在这家商店工作了。'
+				!! v4: Pay out any remaining earnings
+				temp_pay = func('jobs', 'paycheck', 'city_pussycats_clerk')
+				if temp_pay > 0:
+					'你剩余的班次将获得报酬<<$func(''money'', ''string_profit'', temp_pay)>>'
+					'索布利亚金先生数出<<$func(''money'', ''string_profit'', temp_pay)>>并递到你手上。'
+				end
+				!! v4: Fire the player (bad terms)
+				gs 'jobs', 'set_fired', 'city_pussycats_clerk'
+				killvar 'temp_pay'
+				act '离开':
+					minut += 2
+					gt 'shop_pussycats', 'start'
+				end
+			end
+		end
+		act '同意': gt 'andrey', 'fired2'
+	end
+
+end
+
+
+if $ARGS[0] = 'beg':
+	menu_off = 1
+	act '求他把工作还给你':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+		*nl
+		'"我凭什么要那样做，"索布利亚金先生轻蔑地问。'
+		'"求求你了！你要我做什么都行。我真的很需要这份工作！"你竭尽全力试图说服他。'
+		'"什么都行？哈！好吧，我知道你能做什么，"经理喊道，目光开始在你全身游走。"你可以先吸我的阴茎，然后弯下腰，让我把阴茎插进你的屁股。这是你向我证明你是个勤奋员工的方式，明白吗？不然的话，你不过是另一个懒惰的小鬼，我可不需要这样的人给我干活。"'
+		!! if it is possible Sveta never let the manager fuck her ass previous times she had this job
+		if pussycats_fired_count <= 6:
+			*nl
+			!! if it is possible Sveta never even gave the manager a blowjob previously
+			if pussycats_fired_count <= 1:
+				'"这不公平！你知道我有多需要这份工作，就让我给你口交或者做点别的吧。"你试图说服索布利亚金先生，让他不用你做那种事也把工作还给你。'
+			else
+				'"这不公平！你知道我有多需要这份工作，就让我像往常一样给你口交吧。"你试图说服索布利亚金先生，让他不用你做那种事也把工作还给你。'
+			end
+			'"听着，我这是在帮你。我完全有权不重新雇用旷工的人，但我不是坏人。我看得出来你真的很想要这份工作，"他说着从椅子上站起来。"所以我愿意帮你，但你需要向我证明你到底有多想要这份工作。"'
+		end
+		gs 'willpower', 'anal', 'resist'
+		if pcs_willpwr < will_cost:
+			act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+				*nl
+				if pussycats_fired_count <= 6:
+					'你试图消化刚才听到的话，脸立刻涨得通红。"你想让我给你口交……然后还要肛交？"你不明白他到底在想什么。"我绝对不可能做那种事！"'
+				else
+					'"我知道，以前在你那儿上班时我让你做过那种事，"你对他说，"但我不会再做那种事了。'
+				end
+				'"行，那门就在那儿，"索布利亚金先生厉声说，显然对你的回答很不满。'
+				act '离开': gt 'shop_pussycats', 'start'
+			end
+		end
+		act '同意': gt 'andrey', 'rehired'
+	end
+	act '离开': gt 'shop_pussycats', 'start'
+end
+
+
+if $ARGS[0] = 'reapply':
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+	*nl
+	'索布利亚金先生不介意让你回来，毕竟你们当初是在相当友好的气氛下结束的。'
+	act '接受原来的职位':
+		cla
+		minut += 15
+		*nl
+		'"我们一直在等你回来！"索布利亚金先生递给你几份表格让你填写。"我甚至跟男装部的瓦列拉说你会回来呢！"'
+		'你填好表格，交还给经理。'
+		if func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 0) = 1:
+			act '接受工作日的班次':
+				!! v4: Clean up stale data then re-employ on schedule 0 (evening weekdays)
+				gs 'jobs', 'cleanup_job', 'city_pussycats_clerk'
+				gs 'jobs', 'set_employed', 'city_pussycats_clerk'
+				minut += 5
+				'你在青年服装店''猫咪俱乐部''找到了一份工作。你的第一个工作日是周一 '+func('time', 'get_time_string', 15, 0)+'。'
+				gt 'shop_pussycats', 'start'
+			end
+		end
+		if func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 1) = 1:
+			act '接受周末的班次':
+				!! v4: Clean up stale data then re-employ on schedule 1 (weekend)
+				gs 'jobs', 'cleanup_job', 'city_pussycats_clerk'
+				gs 'jobs', 'set_employed', 'city_pussycats_clerk'
+				gs 'jobs', 'change_schedule', 'city_pussycats_clerk', 1
+				minut += 5
+				'你在青年服装店''猫咪俱乐部''找到了一份工作。你的第一个工作日是周六 '+func('time', 'get_time_string', 9, 0)+'。'
+				gt 'shop_pussycats', 'start'
+			end
+		end
+
+		!! v4: Inform the player if schedules are blocked by existing commitments
+		temp_sched0_ok = func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 0)
+		temp_sched1_ok = func('jobs', 'check_employment_possible', 'city_pussycats_clerk', 1)
+		if temp_sched0_ok = 0 and temp_sched1_ok = 0:
+			*nl
+			$func('wrap', 'neg', '不幸的是，两个班次都与您现有的日程冲突。')
+		elseif temp_sched0_ok = 0:
+			*nl
+			'<font color="gray">工作日晚间班次与您现有的日程冲突。</font>'
+		elseif temp_sched1_ok = 0:
+			*nl
+			'<font color="gray">周末班次与您现有的日程冲突。</font>'
+		end
+		killvar 'temp_sched0_ok'
+		killvar 'temp_sched1_ok'
+
+		act '离开': gt 'shop_pussycats', 'start'
+	end
+	act '离开': gt 'shop_pussycats', 'start'
+end
+
+
+if $ARGS[0] = 'fired1':
+	*clr & cla
+	menu_off = 1
+	if sobulaginsex = 0: sobulaginsex = 1 & guy += 1
+	gs 'boyStat', 'A101'
+	gs 'cum_call', 'mouth_swallow', $boy, 1
+	!! v4: Player kept job via BJ — reset debt (player was never fired, still employed)
+	job_booking_debt['city_pussycats_clerk'] = 0
+	job_miss_acknowledged['city_pussycats_clerk'] = job_missed_total['city_pussycats_clerk']
+	!! v4: Add bonus as compensation for the "favor"
+	gs 'jobs', 'bonus_pay', 'city_pussycats_clerk', 410
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+	'你艰难地咽了口唾沫，点了点头。"如果这样能保住我的工作……我答应。"'
+	*nl
+	'索布利亚金先生笑了。"乖女孩。店里能有你这么勤奋的员工，我很高兴，"他几乎是带着嘲弄的语气说。他把手伸到你的脸颊，捧起你的脸，带着得意的笑容端详着。"跪下，"他命令道，手突然移到你的头顶，把你按向他的胯部。'
+	act '跪下':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/bj1.jpg"></center>'
+		'你跪下来，发现他已经拉开裤链，掏出阴茎，开始抚摸他那根<<dick>> cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>的阴茎。它在你小手里显得硕大无比，你试探性地撸了几下，然后张开嘴。你先是轻轻舔舐龟头，然后顺着整个茎身上下舔。'
+		gs 'arousal', 'bj', 3, 'sub'
+		gs 'stat'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/bj2.jpg"></center>'
+			'几分钟后，你把他的阴茎含进嘴里，开始前后摆动头部，舌头不停地在他茎头上打转。你感觉到他的阴茎在你的嘴和舌头的抚弄下变大变硬。你把他的裤子褪到膝盖处，好更方便地吸他的阴茎。'
+			gs 'arousal', 'bj', 5, 'sub'
+			gs 'stat'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/bj3.jpg"></center>'
+				'你很快找到了节奏，闭上眼睛，开始有点享受起来。索布利亚金先生的呼吸变得急促，你听到他发出愉悦的呻吟。最后，他把手放在你的脑后，开始强迫你深喉，让你忍不住作呕。'
+				gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+				gs 'pain', 2, 'throat', 'stretch'
+				gs 'stat'
+				act '继续':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/bj4.jpg"></center>'
+					'他让你的头埋在他阴茎上那么久，你的喉咙开始有点发麻。你听到他开始粗喘。"我要射了，"他喊道，同时把手从你头上移开，整个人向后靠去。你拔出来，发出一声"啵"的声响，然后立刻开始用手给他撸。'
+					gs 'arousal', 'hj', 3, 'sub'
+					gs 'stat'
+					act '完成':
+						*clr & cla
+						gs 'cum_call', 'mouth', 'A101', 1
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/bj5.jpg"></center>'
+						'他开始更大声地粗喘。"张开嘴，伸出舌头。"你照他说的做了，他接管了手活。突然，他开始把滚烫的精液一股股射进你的嘴里和舌头上。过了一会儿，他的阴茎停止抽搐和喷射。他松开阴茎，任由它开始变软。"现在咽下去。"你照做，把精液全部吞了下去。'
+						*nl
+						'"你做得很好，<<$pcs_nickname>>！你已经向我证明了你是个多么勤奋的员工，也证明了你是多么想得到这份工作，所以我再给你一次机会。"他拉上裤链时，你抬头看到他正低头对你微笑。"今天你已经做得够多了，想回家的话就可以走了。只要别再旷工就行！"说完这些话，他走出办公室，留你一个人整理自己。'
+						gs 'arousal', 'end'
+						act '离开': gt 'shop_pussycats', 'start'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'fired2':
+	menu_off = 1
+	!! v4: Player kept job via sexual favor — reset debt (player was never fired, still employed)
+	job_booking_debt['city_pussycats_clerk'] = 0
+	job_miss_acknowledged['city_pussycats_clerk'] = job_missed_total['city_pussycats_clerk']
+	*clr & cla
+	gs 'boyStat', 'A101'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+	*nl
+	'你深吸一口气，点了点头。"好吧……我照做。"你看到索布利亚金先生笑了，他把手放在你的头顶，把你按到膝盖跪地。'
+	act '跪下':
+		*clr & cla
+		gs 'boyStat', 'A101'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired1.jpg"></center>'
+		'你跪下来，发现他已经解开裤子，掏出阴茎，开始抚摸他的<<dick>> cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>阴茎。它在你小手里显得巨大，你试着撸了几下，然后张开嘴。你开始轻轻舔舐龟头，然后开始吮吸。'
+		gs 'arousal', 'bj', 3, 'sub'
+		gs 'stat'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired2.jpg"></center>'
+			'几分钟后，你把他的阴茎放进嘴里，开始前后移动头部，舌头不停地在他的茎头上打转。你感觉到他的阴茎在你的嘴和舌头的抚摸下变大变硬。'
+			'你很快找到节奏，闭上眼睛，开始有点享受。索布利亚金先生的呼吸加快，你听到他发出愉悦的呻吟。最后，他把手放在你的脑后，开始强迫你深喉，让你作呕。'
+			gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+			gs 'pain', 2, 'throat', 'stretch'
+			gs 'stat'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired3.jpg"></center>'
+				'"我改主意了，我等不及了。我现在就想要你的屁股。之后你可以用嘴帮我把阴茎舔干净，"他得意地笑着，你被他那眼神看得胃里一阵翻腾。他的手开始在你身上游走，隔着上衣揉捏按摩你的胸部，同时把你转过去，让你的背和屁股对着他。他把你往前推，让你趴在他的办公桌上。他迅速脱掉碍事的衣服，直到你的光屁股暴露在他面前。'
+				*nl
+				'他重重地打了你的屁股几下，疼得你直抽气。"对，不乖的小姑娘就该打屁股，而你一直是个非常不乖的女孩。"他淫笑着，又狠狠拍了一下你光裸的屁股。做完这些，他掰开你的臀瓣，把阴茎对准你的肛门猛顶。他甚至都没往你的屁眼上吐口唾沫。唯一的润滑就是残留在他阴茎上的一点你的口水。'
+				gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+				gs 'arousal', 'anal', -5, 'sub', 'maso'
+				gs 'pain', 3, 'asschecks', 'slap'
+				gs 'stat'
+				act '做好准备':
+					*clr & cla
+					gs 'boyStat', 'A101'
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired4.jpg"></center>'
+					'随着一次猛烈的挺进，他把他的<<dick>> cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>阴茎深深插入你体内。突然的强力疼痛让你大叫并试图扭动逃脱，但你的臀部被压在桌子边缘，他的手牢牢按住。他很快将他的阴茎整根插入你的屁股，你越是哭喊抗拒，他似乎越喜欢。他操你的时候，伸手拉下你的上衣，露出你的胸部。'
+					gs 'arousal', 'anal', 5, 'sub', 'maso', 'rough'
+					gs 'pain', 7, 'asshole', 'stretch'
+					gs 'stat'
+					act '继续':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired5.jpg"></center>'
+						'他很快就进入了猛烈冲撞的节奏。你疼得眼泪直流，紧紧抓住桌子努力忍耐。你的屁眼已经像着火一样疼，但他丝毫没有松懈。他只是不停地猛干你的小屁眼，让你只盼着他快点结束。'
+						gs 'arousal', 'anal', 5, 'sub', 'maso', 'rough'
+						gs 'pain', 7, 'asshole', 'stretch'
+						gs 'stat'
+						act '完成':
+							*clr & cla
+							gs 'cum_call', 'mouth', 'A101', 1
+							gs 'cum_call', 'breasts', 'A101', 1
+							gs 'cum_call', 'face', 'A101', 1
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired6.jpg"></center>'
+							'他开始更大声地粗喘，最后终于把阴茎从你的屁股里拔了出来，你如释重负地叹了口气。他后退一步。"跪下来，把我伺候完。"你转过身，照他说的做。你把他的阴茎含进嘴里吸吮起来。你尽量不去想它刚才在什么地方，但至少疼痛停止了。突然，他把阴茎从你嘴里拔出，开始把滚烫的精液一股股射满你的脸和胸部。过了一会儿，他的阴茎停止抽搐，不再向你喷射精液。他松开阴茎，任由它开始变软。'
+							*nl
+							'"你做得很好，<<$pcs_nickname>>！你已经向我证明了你是多么想得到这份工作，所以我再给你一次机会。"他拉上裤链时，你抬头看到他正低头对你微笑。"今天你已经做得够多了，想回家的话就可以走了。只要别再旷工就行！"'
+							*nl
+							'你慢慢站起来因为你的肛门疼得<i>要命</i>，几乎感觉像是有人给它点了火。你开始朝门口走去，但他拦住了你。"嘿，我给了你一次机会，你不觉得该谢谢我吗？"他得意地笑着问。'
+							'"非常感谢，"你竭力挤出一丝微笑说道。'
+							gs 'arousal', 'end'
+							act '离开': gt 'shop_pussycats', 'start'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'rehired':
+	menu_off = 1
+	!! v4: Re-employ after being fired (via beg path)
+	gs 'jobs', 'cleanup_job', 'city_pussycats_clerk'
+	gs 'jobs', 'set_employed', 'city_pussycats_clerk'
+	*clr & cla
+	gs 'boyStat', 'A101'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/fired.jpg"></center>'
+	*nl
+	'你深吸一口气，点了点头。"好吧……我照做。"你看到索布利亚金先生笑了，他把手放在你的头顶，把你按到膝盖跪地。'
+	act '跪下':
+		*clr & cla
+		gs 'boyStat', 'A101'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired1.jpg"></center>'
+		'你跪下来，发现他已经解开裤子，掏出阴茎，开始抚摸他的<<dick>> cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>阴茎。它在你小手里显得巨大，你试着撸了几下，然后张开嘴。你开始轻轻舔舐龟头，然后开始吮吸。'
+		gs 'arousal', 'bj', 3, 'sub'
+		gs 'stat'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired2.jpg"></center>'
+			'几分钟后，你把他的阴茎放进嘴里，开始前后移动头部，舌头不停地在他的茎头上打转。你感觉到他的阴茎在你的嘴和舌头的抚摸下变大变硬。'
+			'你很快找到节奏，闭上眼睛，开始有点享受。索布利亚金先生的呼吸加快，你听到他发出愉悦的呻吟。最后，他把手放在你的脑后，开始强迫你深喉，让你作呕。'
+			gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+			gs 'pain', 2, 'throat', 'stretch'
+			gs 'stat'
+			act '继续':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired3.jpg"></center>'
+				'"我改主意了，我等不及了。我现在就想要你的屁股。之后你可以用嘴帮我把阴茎舔干净，"他得意地笑着，你被他那眼神看得胃里一阵翻腾。他的手开始在你身上游走，隔着上衣揉捏按摩你的胸部，同时把你转过去，让你的背和屁股对着他。他把你往前推，让你趴在他的办公桌上。他迅速脱掉碍事的衣服，直到你的光屁股暴露在他面前。'
+				*nl
+				'他重重地打了你的屁股几下，疼得你直抽气。"对，不乖的小姑娘就该打屁股，而你一直是个非常不乖的女孩。"他淫笑着，又狠狠拍了一下你光裸的屁股。做完这些，他掰开你的臀瓣，把阴茎对准你的肛门猛顶。他甚至都没往你的屁眼上吐口唾沫。唯一的润滑就是残留在他阴茎上的一点你的口水。'
+				gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+				gs 'arousal', 'anal', -5, 'sub', 'maso'
+				gs 'pain', 3, 'asschecks', 'slap'
+				gs 'stat'
+				act '做好准备':
+					*clr & cla
+					gs 'boyStat', 'A101'
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired4.jpg"></center>'
+					'随着一次猛烈的挺进，他把他的<<dick>> cm <<iif($dick_girth=''skinny'',''极细'',iif($dick_girth=''slim'',''偏细'',iif($dick_girth=''well proportioned'',''标准'',iif($dick_girth=''thicker than average'',''偏粗'',iif($dick_girth=''thick'',''粗'',iif($dick_girth=''massive'',''巨大'',iif($dick_girth=''monstrous'',''骇人'',$dick_girth)))))))>>阴茎深深插入你体内。突然的强力疼痛让你大叫并试图扭动逃脱，但你的臀部被压在桌子边缘，他的手牢牢按住。他很快将他的阴茎整根插入你的屁股，你越是哭喊抗拒，他似乎越喜欢。他操你的时候，伸手拉下你的上衣，露出你的胸部。'
+					gs 'arousal', 'anal', 5, 'sub', 'maso', 'rough'
+					gs 'pain', 7, 'asshole', 'stretch'
+					gs 'stat'
+					act '继续':
+						*clr & cla
+						'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired5.jpg"></center>'
+						'他很快就进入了猛烈冲撞的节奏。你疼得眼泪直流，紧紧抓住桌子努力忍耐。你的屁眼已经像着火一样疼，但他丝毫没有松懈。他只是不停地猛干你的小屁眼，让你只盼着他快点结束。'
+						gs 'arousal', 'anal', 5, 'sub', 'maso', 'rough'
+						gs 'pain', 7, 'asshole', 'stretch'
+						gs 'stat'
+						act '完成':
+							*clr & cla
+							gs 'cum_call', 'mouth', 'A101', 1
+							gs 'cum_call', 'breasts', 'A101', 1
+							gs 'cum_call', 'face', 'A101', 1
+							'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/fired6.jpg"></center>'
+							'他开始更大声地粗喘，最后终于把阴茎从你的屁股里拔了出来，你如释重负地叹了口气。他后退一步。"跪下来，把我伺候完。"你转过身，照他说的做。你把他的阴茎含进嘴里吸吮起来。你尽量不去想它刚才在什么地方，但至少疼痛停止了。突然，他把阴茎从你嘴里拔出，开始把滚烫的精液一股股射满你的脸和胸部。过了一会儿，他的阴茎停止抽搐，不再向你喷射精液。他松开阴茎，任由它开始变软。'
+							*nl
+							'"你做得很好，<<$pcs_nickname>>！你已经向我证明了你是多么想得到这份工作，所以我再给你一次机会。"他拉上裤链时，你抬头看到他正低头对你微笑。"今天你已经做得够多了，想回家的话就可以走了。只要别再旷工就行！"'
+							*nl
+							'你慢慢站起来因为你的肛门疼得<i>要命</i>，几乎感觉像是有人给它点了火。你开始朝门口走去，但他拦住了你。"嘿，我给了你一次机会，你不觉得该谢谢我吗？"他得意地笑着问。'
+							'"非常感谢，"你竭尽全力保持脸上的微笑说道。'
+							gs 'arousal', 'end'
+							act '离开': gt 'shop_pussycats', 'start'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+--- andrey ---------------------------------

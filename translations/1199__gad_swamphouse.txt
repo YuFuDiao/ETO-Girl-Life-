@@ -1,0 +1,1840 @@
+# gad_swamphouse
+!! 2021/05/02
+
+gs 'hunter_ambient', 'schedule'
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'gad_swamphouse', 'start'
+	$location_type = 'public_indoors'
+	frost = 0
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	if hour = 5: stovefire = 0
+	huntslutsexrand = rand(1, 3)
+	temp_sh = rand(1, 5)
+	clothesAtLocation = func('clothing', 'lost_clothes_here', 'gad_swamphouse')
+
+	'<center><h4>小屋</h4></center>'
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swampizba.jpg"></center>'
+	*nl
+	'一间简陋的狩猎小屋。里面是个低矮的房间。'
+	'你看到一张<a href="exec: gt ''bed'', ''start''">沙发</a>，可以躺下睡一觉。'
+	if bucket > 0:
+		'角落里的一只<a href="exec: gs ''gad_swamphouse'', ''bucket'' ">水桶</a>里装满了从泉眼打来的水。'
+	else
+		'角落里放着一只空桶。得从泉眼打水把它灌满。'
+	end
+	'你看到一个旧<a href="exec: gs ''gad_swamphouse'', ''washstand'' ">洗手台</a>，能用来洗手洗脸。旁边有个用得很旧的<a href="exec: gs ''gad_swamphouse'', ''tub''">浴盆</a>，可以拿来洗澡。'
+	'另一个角落里有个小<a href="exec: gs ''gad_swamphouse'', ''stove''">炉子</a>。用泉水和一些蘑菇或肉，能煮点东西吃，也能烧水，好在浴盆里洗澡。'
+	if stovefire = 0:
+		*nl
+		'小屋里感觉 '+iif(temper < 15, '挺冷的。也许该在那台旧炉子上生点火。', '挺暖和的，虽然炉火并没生起来。')+''
+	elseif stovefire > 0:
+		*nl
+		'小屋里感觉 '+iif(temper > 15, '极其', '相当')+' 暖烘烘的，旧炉子里的火烧得正旺。'
+	end
+	'炉子旁边摞着一堆旧<a href="exec: gs ''gad_swamphouse'', ''stackmagazines''">杂志</a>，多半是拿来引火的。'
+	!! TODO: fix this showing after dare, Sveta accepting Igors request or with hessian
+	if clothesAtLocation = 1: '你的衣服就放在架子上。'
+
+	if hunterVars['were_met'] = 1:
+		if hunterVars['inside'] = 1:
+			if hunterVars['drink'] = 1:
+				'你看到<a href="exec: gs ''gad_swamphouse'', ''hunterstable''">猎人</a>围坐在桌边聊天。'
+			elseif hunterVars['sleep'] = 1:
+				'猎人们正在长沙发上睡觉。'
+			elseif hunterVars['breakfast'] = 1 or hunterVars['lunch'] = 1 or hunterVars['dinner'] = 1:
+				' <a href="exec: gs ''gad_swamphouse'', ''hunterstable''">猎人</a>围坐在桌边。'
+			else
+				'你看到<a href="exec: gs ''gad_swamphouse'', ''huntersrelax''">猎人</a>在小屋里闲待着。'
+			end
+		end
+	else
+		if hunterVars['inside'] = 1:
+			if hunterVars['drink'] = 1:
+				'你能看到三个猎人在小屋里晃悠。'
+			elseif hunterVars['sleep'] = 1:
+				'你能看到三个猎人在长沙发上睡觉。'
+			elseif hunterVars['breakfast'] = 1 or hunterVars['lunch'] = 1 or hunterVars['dinner'] = 1:
+				'你能看到三个猎人围在桌边聊天。'
+			else
+				'你能看到三个猎人在桌边歇着聊天。'
+			end
+		else
+			'这会儿这里一个人也没有'
+		end
+	end
+
+
+	act '出去': minut += 1 & hunterVars['refuse'] = 0 & gt 'gad_swamp_yard', 'start'
+
+
+
+	!! re-arrange it, there should be no logic error now by illume
+	if $clothingworntype ! 'nude' and clothesAtLocation = 0:
+		!! have cloth, or rag on
+		act '脱衣服':
+			if (hunterVars['KnowSlut'] > 0 or (pcs_inhib >= 25 or trait_vars['exhibitionist'] < 1) and hunterVars['inside'] = 1) or hunterVars['outside'] = 1:
+				*clr & cla
+				minut += 5
+				if $clothingworntype ! 'nude':
+					gs 'clothing', 'strip', 'gad_swamphouse'
+				end
+				gs 'underwear', 'remove'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphouseundress.jpg"></center>'
+				''+iif(temper > 23, '感觉到小屋里很热，', '你觉得需要脱光衣服，于是')+' 你开始脱掉衣服。'
+				act '返回': gt 'gad_swamphouse', 'start'
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/noundress.jpg"></center>'
+				''+iif(temper > 23, '尽管很热，', '尽管你需要脱光衣服，')+' 你还是太害羞了，不敢脱。要是有人突然进来怎么办？'
+				act '返回': gt 'gad_swamphouse', 'start'
+			end
+		end
+	end
+	if clothesAtLocation = 1 and swamp_clothes = 0:
+		!! clothes are ready
+		if $clothingworntype = 'nude':
+			act '穿好衣服':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swampdvornude1.jpg"</center>'
+				*nl
+				'你重新穿上衣服。'
+				gs 'underwear', 'wear'
+				gs 'clothing', 'recover_lost_clothes', 'gad_swamphouse', 1
+				gs 'stat'
+				act '返回': gt 'gad_swamphouse', 'start'
+			end
+		else
+			act '捡起你的衣服':
+				*clr & cla
+				gs 'clothing', 'recover_lost_clothes', 'gad_swamphouse'
+				'你捡起了你的衣服。'
+				act '返回': gt 'gad_swamphouse', 'start'
+			end
+		end
+	elseif swamp_clothes = 1:
+		if $clothingworntype = 'nude':
+			act '穿上麻袋':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/tkan_cloth.jpg"></center>'
+				*nl
+				'你用麻袋裹住了自己'
+				gs 'clothing', 'recover_lost_clothes', 'gad_swamphouse'
+				gs 'clothing', 'gad_swamp_clothes', 1
+				gs 'stat'
+				act '返回': gt 'gad_swamphouse', 'start'
+			end
+		end
+	end
+
+	if pcs_horny >= 50 and $clothingworntype = 'nude' and (hunterVars['inside'] = 0 or hunterVars['KnowSlut'] > 0 or (pcs_inhib >= 25 or trait_vars['exhibitionist'] > 1)):
+		act '自慰':
+			gt 'selfplay', 'start'
+		end
+	end
+
+	if ($clothingworntype = 'nude' and swamp_clothes = 0 and clothesAtLocation = 0) or swamp_enema = 0:
+		act '找些衣服穿':
+			cla
+			*clr
+			minut += 10
+			if swamp_enema = 0:
+				swamp_enema = 1
+				mc_inventory['enema_kit'] = 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/enema.jpg"></center>'
+				'你找自己的衣服，却只翻出一支灌肠注射器……"这东西怎么会在这儿？"你心里嘀咕。'
+				act '继续': gt 'gad_swamphouse', 'start'
+			else
+				gs 'clothing', 'gad_swamp_clothes', 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphouse_tkancloth.jpg"></center>'
+				'你找到了一块麻布……"好吧，至少也算有点东西，"你说。'
+				act '返回。': gt 'gad_swamphouse', 'start'
+			end
+		end
+	end
+
+	if stovefire = 0 or (meat_stew = 0 and raw_meat > 0) or (mushroom_soup = 0 and boletus > 0): act '使用摇摇晃晃的炉子': gt 'gad_swamphouse', 'stove'
+	if pcs_energy < 80: act '找点东西吃': gs 'gad_swamphouse', 'food'
+	if bucket > 0 and pcs_hydra < 80: act '喝点水': gt 'gad_swamphouse', 'bucket'
+	if bucket > 0 and pcs_hairbsh = 0: act '使用洗脸盆': gt 'gad_swamphouse', 'washstand'
+	if hotwater = 1 and $clothingworntype = 'nude' and pcs_sweat > 19: act '在旧浴盆里洗澡': gt 'gad_swamphouse', 'tub'
+	if dirty_swamphouse > 25: act '打扫小屋': hunterVars['slut'] -= 1 & gt 'gad_swamphouse', 'dirty_swamphouse'
+
+	act '在长沙发上休息': gt 'bed', 'start'
+	!! sex with Igor
+	if hunterVars['IgorLove'] > 0 and hour > 8 and hour < 19 and hunterVars['IgorQW'] >= 10 and temp_sh = 1 and hunterVars['Igorsex'] = 0:
+		*clr & cla
+		hunterVars['Igorsex'] += rand(12, 36)
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterlove1.4.jpg"></center>'
+		'一进小屋你就看到了伊戈尔。他笑着走过来，抓住你的手，给了你一个热吻。'
+		'"<<$pcs_nickname>>，我想要你，"他低声说。'
+		gs 'arousal', 'kiss', 5
+		gs 'stat'
+		act '同意':
+			*clr & cla
+			minut += 5
+			hunterVars['IgorQW'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterflirt2.'+rand(4, 6)+'.jpg"></center>'
+			'你笑着直视伊戈尔的眼睛，该说的都写在眼里了。他二话不说，牵起你的手，领着你……'
+			act '和伊戈尔一起走': gt 'hunterLoveSex', 'Igor'
+		end
+		act '拒绝':
+			*clr & cla
+			minut += 5
+			hunterVars['IgorQW'] -= 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/pc/reactions/speak_to_the_hand.jpg"></center>'
+			'"对不起，伊戈尔。我没那个心情，"你避开他的目光说。伊戈尔失望地走了……'
+			act '走开': gt 'gad_swamphouse', 'start'
+		end
+	end
+	!! sex with Sergei
+	if hunterVars['SergeiLove'] > 0 and pcs_horny <= 60 and hunterVars['SergeiQw'] >= 10 and temp_sh = 1 and hunterVars['Sergeisex'] = 0 and hour > 8 and hour < 19:
+		*clr & cla
+		hunterVars['Sergeisex'] += rand(9, 30)
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterlove1.4.jpg"></center>'
+		'一进小屋你就看到了谢尔盖。他笑着走过来，抓住你的手，给了你一个热吻。'
+		'"<<$pcs_nickname>>，我想要你，"他低声说。'
+		gs 'arousal', 'kiss', 5
+		gs 'stat'
+		act '同意':
+			*clr & cla
+			minut += 5
+			hunterVars['SergeiQw'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterflirt2.'+rand(4, 6)+'.jpg"></center>'
+			'你笑着直视谢尔盖的眼睛，该说的都写在眼里了。他二话不说，牵起你的手，领着你……'
+			act '和谢尔盖一起走': gt 'hunterLoveSex', 'Sergei'
+		end
+		act '拒绝':
+			*clr & cla
+			minut += 5
+			hunterVars['SergeiQw'] -= 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/pc/reactions/speak_to_the_hand.jpg"></center>'
+			'"对不起，谢尔盖。我没那个心情，"你避开他的目光说。谢尔盖失望地走了……'
+			act '走开': gt 'gad_swamphouse', 'start'
+		end
+	end
+	!! sex with Andrew
+	if hunterVars['AndreiLove'] > 0 and pcs_horny <= 60 and hunterVars['AndreiQw'] >= 10 and temp_sh = 1 and hunterVars['Andreisex'] = 0 and hour > 8 and hour < 19:
+		*clr & cla
+		hunterVars['Andreisex'] += rand(6, 24)
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterlove1.4.jpg"></center>'
+		'一进小屋你就看到了安德烈。他笑着走过来，抓住你的手，给了你一个热吻。'
+		'"<<$pcs_nickname>>，我想要你，"他低声说。'
+		gs 'arousal', 'kiss', 5
+		gs 'stat'
+		act '同意':
+			*clr & cla
+			minut += 5
+			hunterVars['AndreiQw'] += 1
+			pcs_horny += 5
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterhands.jpg"></center>'
+			'你笑着直视安德烈的眼睛，该说的都写在眼里了。他二话不说，牵起你的手，领着你……'
+			act '和安德烈一起走': gt 'hunterLoveSex', 'Andrei'
+		end
+		act '拒绝':
+			*clr & cla
+			minut += 5
+			hunterVars['AndreiQw'] -= 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/pc/reactions/speak_to_the_hand.jpg"></center>'
+			'"对不起，安德烈。我没那个心情，"你避开他的目光说。安德烈失望地走了……'
+			act '走开': gt 'gad_swamphouse', 'start'
+		end
+	end
+	!! trio of HS, Andrei and Sergei, if love
+	if hunterVars['inside'] = 1 and doublehunterlove = 1 and hour >= 8 and hour < 20 and (hunterVars['Andreisex'] = 0 or hunterVars['Sergeisex'] = 0):
+		*clr & cla
+		minut += 5
+		hunterVars['Andreisex'] += rand(6, 24)
+		hunterVars['Sergeisex'] += rand(9, 30)
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterswork1.2.jpg"></center>'
+		'你看到安德烈在小屋里和谢尔盖说话。'
+		'"进来吧，<<$pcs_nickname>>。该把婚事给圆了，"安德烈打趣道。"希望你愿意照我们说的做。'
+		if klismaday ! daystart: '"对不起，我还不知道自己准备好了没有……"你说。"我没能按你说的把自己弄干净。这次能不能算了？'
+		if klismaday ! daystart: '行，也行，<<$pcs_nickname>>……"安德烈说，"不过你人都来了，没打扮好我们也不在乎。但下次别想再糊弄我们。我们记性好得很。"'
+		'"离这儿不远有片灌木丛。把她带到那儿去，谁也找不到咱们。要不要叫上伊戈尔？"谢尔盖说。"别管伊戈尔，他赶过来太费时间。"'
+
+		act '跟着他们走':
+			*clr & cla
+			minut += 5
+			hunterVars['AndreiQw'] += 1
+			hunterVars['SergeiQw'] += 1
+			pcs_horny += 5
+			doublelovesex = 1
+			hunterVars['slut'] += 1
+			temphunt = 1
+			if klismaday ! daystart: hunterVars['slut'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/doublehanterlove.jpg"></center>'
+			'男人们牵着你的手，把你带出小屋。你当然清楚他们打的什么主意，却并不介意。'
+			act '继续': gt 'huntersex', 'doublelovesex'
+		end
+		act '拒绝':
+			*clr & cla
+			minut += 5
+			hunterVars['AndreiQw'] -= 1
+			hunterVars['SergeiQw'] -= 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/pc/reactions/speak_to_the_hand.jpg"></center>'
+			'"不，我拒绝。这种事我不想掺和，"你说完，毫不犹豫地转身走开。'
+			act '走开': gt 'gad_swamphouse', 'start'
+		end
+	end
+	!! hunters are invited to the table
+	if hunterVars['drink'] = 1 and hunterVars['inside'] = 1 and hunterVars['KnowSlut'] = 0 and hunterVars['refuse'] = 0 and hunterVars['drinking'] ! daystart:
+		*clr & cla
+		minut += 1
+		temp_sh = rand(1, 4)
+		hunterVars['drinking'] = daystart
+		gs 'stat'
+
+		if temp_sh = 1:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+			'你走进小屋，注意到猎人们都喝醉了。'
+			'"哟，看看谁来了。<<$pcs_nickname>>，过来一起喝一杯！"他们招呼你进去。'
+
+			act '到桌边加入他们': gs 'gad_swamphouse', 'hunterstable'
+			act '礼貌地拒绝': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+		end
+		if temp_sh = 2:
+			hunterVars['AndreiQw'] += 1
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+			'你走进小屋，注意到猎人们都喝醉了。'
+			'哦，<<$pcs_nickname>>，过来一起喝一杯！"安德烈说。'
+
+			act '到桌边加入他们': gs 'gad_swamphouse', 'hunterstable'
+			act '礼貌地拒绝': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+		end
+		if temp_sh = 3:
+			hunterVars['SergeiQw'] += 1
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big174.jpg"></center>'
+			'你走进小屋，注意到猎人们都喝醉了。'
+			'哦，<<$pcs_nickname>>，过来一起喝一杯！"谢尔盖看到你进来，说道。'
+
+			act '到桌边加入他们': gs 'gad_swamphouse', 'hunterstable'
+			act '礼貌地拒绝': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+		end
+		if temp_sh = 4:
+			hunterVars['IgorQW'] += 1
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big173.jpg"></center>'
+			'你走进小屋，注意到猎人们都喝醉了。'
+			'哦，<<$pcs_nickname>>，过来一起喝一杯！"伊戈尔喊道，没理会别人在聊什么。'
+
+			act '到桌边加入他们': gs 'gad_swamphouse', 'hunterstable'
+			act '礼貌地拒绝': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+		end
+	elseif (hunterVars['breakfast'] = 1 or hunterVars['lunch'] = 1) and hunterVars['breakfastday'] ! daystart:
+		*clr & cla
+		hunterVars['breakfastday'] = daystart
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+		'你走进小屋，发现猎人们已经备好了 '+iif(hunterVars['breakfast'] = 1, '早餐。', '午餐。')+'。'
+		'"哦，<<$pcs_nickname>>，你来得正是时候，来跟我们一起吃吧！"'
+
+		act '到桌边加入他们': gs 'gad_swamphouse', 'hunterstable'
+		act '礼貌地拒绝': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+	end
+
+	!! sex if GG whore
+	if hunterVars['inside'] = 1 and hunterVars['Rape'] = 5 and huntslutsexrand = 1 and huntslutsex = 0 and hour >= 7 and hour < 23:
+		*clr & cla
+		minut += 5
+		temphunt = rand(1, 3)
+		!! the choice of who will fuck GG
+		sluthomesex = 1
+		gs 'stat'
+
+		if temphunt = 1: '<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+		if temphunt = 2: '<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big174.jpg"></center>'
+		if temphunt = 3: '<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big173.jpg"></center>'
+		if temphunt = 1: '你走进小屋，撞上了安德烈。"过来，<<$pcs_nickname>>，"他喊道，没再多说一句就把你扔到了床上。'
+		if temphunt = 2: '你走进小屋，撞上了谢尔盖。看到你，他朝你走来，说："<<$pcs_nickname>>，我身上有个痒处只有你能帮我挠。"'
+		if temphunt = 3: '你走进小屋，撞上了伊戈尔。他笑着说："<<$pcs_nickname>>，我得把袋子清空。帮帮我……"'
+		if pcs_horny < 40: ' 你顺从地照做了，知道他想干什么。'
+		if pcs_horny >= 40 and pcs_horny < 70: '"来抓我啊……"你只说出这一句，就张开了双腿。'
+		if pcs_horny >= 70: '"我早就盼着这事发生了，"你心想，感觉湿透的小穴在欲望中尖叫。你扑到他身上，占据了主动，让他惊愕于谁更想要。'
+
+		act '跟他走': gt 'huntersex', 'sluthomesex'
+	end
+end
+
+
+if $ARGS[0] = 'stove':
+	*clr & cla
+	$loc = 'gad_swamphouse'
+	$loc_arg = 'stove'
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/stove.jpg"></center>'
+	*nl
+	'一台勉强能用的木炉，居然还能凑合干活。你可以一次烧热 5 升水，或者煮锅蘑菇汤，炖个肉。'
+
+	act '走开': gt 'gad_swamphouse', 'start'
+
+	if firewood >= 5 and stovefire = 0:
+		act '生炉子':
+			cla
+			*nl
+			'你用一些劈好的木柴、干树枝和细枝把炉子点着了。'
+
+			firewood -= 5
+			stovefire = 1
+			minut += 5
+
+			act '继续': gt 'gad_swamphouse', 'stove'
+		end
+	elseif firewood < 5 and stovefire = 0:
+		*nl
+		'柴箱里的柴不够生火。你得出门去找点。'
+	end
+
+	if bucket > 0 and boletus > 0 and mushroom_soup = 0 and stovefire = 1:
+		act '煮些蘑菇汤 (0:30)': gs 'hunter_favors', 'mushroom_soup'
+	end
+
+	if bucket > 0 and raw_meat > 0 and meat_stew = 0 and stovefire = 1:
+		act '炖些肉 (1:00)': gs 'hunter_favors', 'meat_stew'
+	end
+	if bucket >= 5 and hotwater = 0 and stovefire = 1:
+		act '把水加热 (0:30)':
+			cla
+			*clr
+			minut += 30
+			bucket -= 5
+			hotwater = 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hotwater.jpg"></center>'
+			*nl
+			'水已经烧热了，你可以在浴盆里泡澡了。'
+
+			act '继续': gt 'gad_swamphouse', 'stove'
+		end
+	end
+	act '找点东西吃': gs 'gad_swamphouse', 'food'
+end
+
+
+if $ARGS[0] = 'food':
+	cla
+	act '完成': gt 'gad_swamphouse', 'start'
+	act '吃肉干和什锦干果': gt 'food', 'jerky'
+	if meat_stew > 0:
+		act '吃炖肉':
+			gs 'food', 'meat_stew'
+			meat_stew -= 1
+			*nl
+			if meat_stew > 0:
+				'有<<meat_stew>> '+iif(meat_stew > 1, '份', '份')+' 炖肉留在锅里'
+			else
+				'你吃完了最后一点炖肉，锅空了。'
+			end
+		end
+	end
+	if mushroom_soup > 0:
+		act '喝蘑菇汤':
+			gs 'food', 'mush_soup'
+			mushroom_soup -= 1
+			if mushroom_soup > 0:
+				'有<<mushroom_soup>> '+iif(mushroom_soup > 1, '份', '份')+' 汤留在锅里'
+			else
+				'你喝完了最后一点汤，锅空了。'
+			end
+			gs 'stat'
+		end
+	end
+	if bilberry > 0:
+		act '吃浆果': gt 'food', 'bilberry'
+	end
+end
+
+
+if $ARGS[0] = 'bucket':
+	cla
+	*clr
+	menu_off = 1
+	if bucket > 10: bucket = 10
+	minut += 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/vedro2.jpg"></center>'
+	*nl
+	if bucket > 0:
+	'墙边有一桶水。大约还剩<<bucket>> ' + iif(bucket = 1, '升', '升') + ' 水。'
+		act '喝水':
+			cla
+			minut += 5
+			cumspclnt = 2
+			gs 'cum_cleanup'
+			pcs_breath = 0
+			bucket -= 1
+			gs 'stat'
+			if pcs_hydra >= 100:
+				'你不渴了。所以不用再喝水。'
+			else
+				gs 'beverage', 'water_stats'
+				'你从桶里喝了一口，解了渴。'
+			end
+			act '继续': gt 'gad_swamphouse', 'start'
+		end
+	else
+		'桶里没水了。你该去外面的小溪边打点水回来。'
+	end
+	act '走开': gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'washstand':
+	*clr & cla
+	gs 'core_library', 'setloc', 'gad_swamphouse', 'washstand'
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	act '走开': gt 'gad_swamphouse', 'start'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/washstand.jpg"></center>'
+	*nl
+	'一个旧洗脸架。需要的话可以用盆洗一洗。盆上搁着一面擦得发亮却已生锈的旧金属镜子，你可以用它来 ' +iif(pcs_hairbsh < 1, '<a href="exec:gt ''mirror'',''brush''">梳理</a>', '梳理') + ' 你的头发。'
+
+	if bucket > 0:
+		!! use current by illume
+		gs 'din_van', 'basin'
+	end
+	if hunterVars['outside'] = 1: gs 'lact_bp', 'massage'
+	gs 'home_events', 'bathroom'
+end
+
+
+if $ARGS[0] = 'tub':
+	*clr & cla
+	$loc = 'gad_swamphouse'
+	$loc_arg = 'tub'
+	minut += 1
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/basin.jpg"></center>'
+	*nl
+	'一个旧浴盆，你可以用它来洗澡。比去泉眼那儿暖和多了！你只需要先烧些热水，然后脱掉衣服。'
+	*nl
+	if lashair ! 1: '如果你实在没办法了，你会在架子上找到几把用得破旧的 '+iif(mc_inventory['razor'] < 1, '<a href="exec: mc_inventory[''razor''] += 5 & gt ''gad_swamphouse'', ''tub''">razors</a>', 'razors')+'，你可以用它们刮毛。 '+iif(mc_inventory['razor'] > 0, '<a href="exec:gs ''din_van'', ''shave_options''">剃毛选项</a>', '')+''
+	gs 'din_van', 'brit'
+	if swamp_enema = 1: *nl & '你在架子上发现了一支灌肠注射器。'
+	if $clothingworntype = 'nude' and klismaday ! daystart and swamp_enema = 1 and hunterVars['inside'] = 0:
+		gs 'din_van', 'enema'
+	end
+
+	if hotwater = 1 and ($clothingworntype = 'nude' or PSwim = 1):
+		act '在浴盆里洗澡 (0:30)':
+			cla
+			*clr
+			noshampoo = 1
+			gs 'din_van', 'showerdin'
+			face_write = 0
+			body_write = 0
+			lubonus = 0
+			gs 'mood', 'raise', 'tiny'
+			minut += 30
+			hotwater = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/basinswim.jpg"></center>'
+			*nl
+			'你把浴盆装满温水，脱掉衣服，爬了进去。好好清洗浸泡一番后，你觉得整个人都焕然一新。'
+
+			act '继续': gt 'gad_swamphouse', 'tub'
+		end
+	end
+	act '走开': gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'clothes_read_magazines':
+	if $clothingworntype ! 'nude': '<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/readmagazines.jpg"></center>'
+	if $clothingworntype = 'nude' and $pantyworntype ! 'none': '<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/readmagazines_tanga.jpg"></center>'
+	if $clothingworntype = 'nude' and $pantyworntype = 'none': '<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/readmagazines_nude.jpg"></center>'
+end
+
+
+if $ARGS[0] = 'stackmagazines':
+	*clr & cla
+	menu_off = 1
+	minut += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/stackmagazines.jpg"></center>'
+	*nl
+	'一摞各种各样的杂志，其中甚至有一本印着"有趣"图片的。'
+
+	act '读科学期刊 (1:00)':
+		*clr & cla
+		menu_off = 1
+		gs 'library_functions', 'read_book'
+		gs 'exp_gain', 'intel', 4
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+
+		gs 'gad_swamphouse', 'clothes_read_magazines'
+		'你决定翻翻那本科学期刊，想弄懂里面那些高深的东西。'
+
+		act '继续': gs 'gad_swamphouse', 'stackmagazines'
+	end
+	act '读文学杂志 (1:00)':
+		*clr & cla
+		menu_off = 1
+		gs 'library_functions', 'read_book'
+		gs 'exp_gain', 'intel', 4
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+
+		gs 'gad_swamphouse', 'clothes_read_magazines'
+		'你翻开那本文学杂志……可惜实在无聊透顶。读着读着，你好几次差点睡过去。'
+
+		act '继续': gs 'gad_swamphouse', 'stackmagazines'
+	end
+	act '阅读娱乐杂志 (1:00)':
+		*clr & cla
+		menu_off = 1
+		gs 'library_functions', 'read_book'
+		gs 'exp_gain', 'sprt', 4
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+
+		gs 'gad_swamphouse', 'clothes_read_magazines'
+		'你翻着娱乐杂志，一头扎进富人和名人的世界。'
+
+		act '继续': gs 'gad_swamphouse', 'stackmagazines'
+	end
+	act '阅读色情杂志 (1:00)':
+		*clr & cla
+		menu_off = 1
+		gs 'library_functions', 'read_book', 'porn'
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+
+		if $clothingworntype ! 'nude':
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/readpornomag.jpg"></center>'
+		elseif $pantyworntype ! 'none':
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/readpornomag_tanga.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/readpornomag_nude.jpg"></center>'
+		end
+
+		*nl
+		'你翻着色情杂志，读着里面的故事，看着图片，突然意识到自己已经开始抚摸自己了。'
+
+		gs 'arousal', 'porn', -60
+		gs 'arousal', 'end'
+
+		act '继续': gs 'gad_swamphouse', 'stackmagazines'
+	end
+	act '走开': gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'hunterstableBJ':
+	cla
+	*clr
+	minut += 1
+	hunterVars['tableBJ'] = 1
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable2.jpg"></center>'
+	*nl
+	'你看到一个猎人坐在桌边。觉得两人可以找点乐子，你冲他坏坏地一笑。没一会儿，你就钻到了桌子底下……'
+
+	if hunterVars['tableBJA'] = 0:
+		act '给安德烈口交':
+			*clr & cla
+			gs 'boyStat', 'A172'
+			hunterVars['tableBJA'] = 1
+			if hunterandreisex = 0: hunterandreisex = 1 & guy += 1
+			temp_sh = rand(1, 2)
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablebj1.'+rand(1, 5)+'.jpg"></center>'
+			*nl
+			'你在桌下找了个舒服的位置，把头伸到他的双腿之间，开始吸吮他的鸡巴……'
+			'安德烈的鸡巴很快就硬得像石头，没过多久，你就能在嘴里尝到前液的味道……'
+
+			gs 'arousal', 'bj', 5, 'sub'
+			gs 'stat'
+
+			if temp_sh = 1:
+				act '继续吮吸':
+					*clr & cla
+					minut += 1
+					gs 'cum_call', 'face', $boy, 1
+					if $clothingworntype = 'nude': gs 'cum_call', 'stomach', $boy, 1
+					if $clothingworntype ! 'nude': gs 'cum_call', 'clothes_hidden', $boy, 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablecum1.'+rand(1, 5)+'.jpg"></center>'
+					*nl
+					'安德烈没撑过一两分钟。然后他的大腿绷紧，精液开始喷射出来，好几次打在你脸上。'
+					'等他完事后，你尽力把安德烈清理干净，然后把他的鸡巴塞回裤子里，帮他拉上拉链。'
+
+					gs 'arousal', 'end'
+
+					act '继续': gs 'gad_swamphouse', 'hunterstableBJ'
+				end
+			else
+				act '继续吮吸':
+					*clr & cla
+					minut += 1
+					gs 'cum_call', 'mouth_swallow', $boy, 1
+					hunterVars['tableBJA'] = 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablebj1.'+rand(1, 5)+'.jpg"></center>'
+					*nl
+					'你能感觉到安德烈的鸡巴绷紧了，随时要爆发。然后你听到一声闷哼，还没来得及反应，安德烈就把温热的精液射进了你嘴里……'
+					gs 'arousal', 'end'
+
+					act '继续': gs 'gad_swamphouse', 'hunterstableBJ'
+				end
+			end
+		end
+	end
+	if hunterVars['tableBJS'] = 0:
+		act '给谢尔盖口交':
+			*clr & cla
+			gs 'boyStat', 'A174'
+			hunterVars['tableBJS'] = 1
+			if huntersergeisex = 0: huntersergeisex = 1 & guy += 1
+			temp_sh = rand(1, 2)
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablebj1.'+rand(1, 5)+'.jpg"></center>'
+			*nl
+			'你在桌下找了个舒服的位置，把头伸到他的双腿之间，开始吸吮他的鸡巴……'
+			'谢尔盖的鸡巴很快就硬得像石头，没过多久，你就能在嘴里尝到前液的味道……'
+
+			gs 'arousal', 'bj', 5, 'sub'
+			gs 'stat'
+
+			if temp_sh = 1:
+				act '继续吮吸':
+					*clr & cla
+					minut += 1
+					gs 'cum_call', 'face', $boy, 1
+					if $clothingworntype = 'nude': gs 'cum_call', 'stomach', $boy, 1
+					if $clothingworntype ! 'nude': gs 'cum_call', 'clothes_hidden', $boy, 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablecum1.'+rand(1, 5)+'.jpg"></center>'
+					*nl
+					'谢尔盖没撑过一两分钟。然后他的大腿绷紧，精液开始喷射出来，好几次打在你脸上。'
+					'等他完事后，你尽力把谢尔盖清理干净，然后把他的鸡巴塞回裤子里，帮他拉上拉链。'
+					gs 'arousal', 'end'
+					act '继续': gs 'gad_swamphouse', 'hunterstableBJ'
+				end
+			else
+				act '继续吮吸':
+					*clr & cla
+					minut += 1
+					gs 'cum_call', 'mouth_swallow', $boy, 1
+					hunterVars['tableBJS'] = 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablebj1.'+rand(1, 5)+'.jpg"></center>'
+					*nl
+					'你能感觉到谢尔盖的鸡巴绷紧了，随时要爆发。然后，你终于听到一声闷哼，还没来得及反应，谢尔盖就把温热的精液射进了你嘴里……'
+					gs 'arousal', 'end'
+
+					act '继续': gs 'gad_swamphouse', 'hunterstableBJ'
+				end
+			end
+		end
+	end
+	if hunterVars['tableBJI'] = 0:
+		act '给伊戈尔口交':
+			*clr & cla
+			gs 'boyStat', 'A173'
+			hunterVars['tableBJI'] = 1
+			if hunterigorsex = 0: hunterigorsex = 1 & guy += 1
+			temp_sh = rand(1, 5)
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablebj1.'+rand(1, 5)+'.jpg"></center>'
+			*nl
+			'你在桌下找了个舒服的位置，把头伸到他的双腿之间，开始吸吮他的鸡巴……'
+			'伊戈尔的鸡巴很快就硬得像石头，没过多久，你就能在嘴里尝到前液的味道……'
+
+			gs 'arousal', 'bj', 5, 'sub'
+			gs 'stat'
+
+			if temp_sh = 1:
+				act '继续吮吸':
+					*clr & cla
+					minut += 1
+					gs 'cum_call', 'face', $boy, 1
+					if $clothingworntype = 'nude': gs 'cum_call', 'stomach', $boy, 1
+					if $clothingworntype ! 'nude': gs 'cum_call', 'clothes_hidden', $boy, 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablecum1.'+rand(1, 5)+'.jpg"></center>'
+					*nl
+					'伊戈尔没撑过一两分钟。之后他的大腿绷紧，精液开始喷射出来，好几次打在你脸上。'
+					'等他完事后，你尽力把伊戈尔清理干净，然后把他的鸡巴塞回裤子里，帮他拉上拉链。'
+					gs 'arousal', 'end'
+					act '继续': gs 'gad_swamphouse', 'hunterstableBJ'
+				end
+			else
+				act '继续吮吸':
+					*clr & cla
+					minut += 1
+					gs 'cum_call', 'mouth_swallow', $boy, 1
+					hunterVars['tableBJI'] = 1
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hanterstablebj1.'+rand(1, 5)+'.jpg"></center>'
+					*nl
+					'你能感觉到伊戈尔的鸡巴绷紧了，随时要爆发。然后，你终于听到一声闷哼，还没来得及反应，伊戈尔就把温热的精液射进了你嘴里……'
+					gs 'arousal', 'end'
+
+					act '继续': gs 'gad_swamphouse', 'hunterstableBJ'
+				end
+			end
+		end
+	end
+	if hunterVars['tableBJA'] = 1 and hunterVars['tableBJS'] = 1 and hunterVars['tableBJI'] = 1: act '从桌子底下钻出来': edahot = 1 & gs 'gad_swamphouse', 'hunterstable'
+
+end
+
+
+if $ARGS[0] = 'hunterstable_end':
+!! it is an empty event, however here it should be some action when hunters finished their meal and left the table
+	gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'hunterstable':
+	*clr & cla
+	gs 'hunter_ambient', 'schedule'
+	if hunterVars['available'] = 0 or hunterVars['inside'] = 0: gt 'gad_swamphouse', 'hunterstable_end'
+
+
+	menu_off = 1
+	minut += 1
+	smokertemp = rand(1, 3)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+	*nl
+
+	if hunterVars['drink'] = 1:
+		act '喝伏特加 (0:15)':
+			*clr & cla
+			gs 'beverage', 'vodka_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/kuh/vodka'+rand(0, 2)+'.jpg"></center>'
+			*nl
+			'你干了一小杯伏特加。男人们看着你喝完后扭曲的表情，哈哈大笑。'
+
+			act '继续': gs 'gad_swamphouse', 'hunterstable'
+		end
+		act '喝啤酒 (0:15)':
+			*clr & cla
+			gs 'beverage', 'beer_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/kuh/beer2.jpg"></center>'
+			*nl
+			'你拿起一瓶啤酒，打开后开始喝。'
+
+			act '继续': gs 'gad_swamphouse', 'hunterstable'
+		end
+		act '吃点东西 (0:15)':
+			gs 'food', 'snack'
+			*clr & cla
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/snack1.'+rand(1, 2)+'.jpg"></center>'
+			*nl
+			'你抓了点东西吃，免得醉得太快。'
+			act '继续': gs 'gad_swamphouse', 'hunterstable'
+		end
+		act '聊天 (0:30)':
+			*clr & cla
+			minut += 30
+			if hunterVars['AndreiQw'] < 10: hunterVars['AndreiQw'] += 1
+			if hunterVars['IgorQW'] < 10: hunterVars['IgorQW'] += 1
+			if hunterVars['SergeiQw'] < 10: hunterVars['SergeiQw'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+			*nl
+			'你和男人们什么都聊……你努力想跟上他们的黑话，偶尔还是接不上，大家就一起笑。'
+
+			act '继续': gs 'gad_swamphouse', 'hunterstable'
+		end
+		act '从桌边走开': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+		if alko > 3 and alko < 8 and smokertemp = 1:
+			*clr & cla
+			temp_sh = rand(1, 4)
+			gs 'stat'
+
+			if temp_sh = 1:
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hantersmoker1.jpg"></center>'
+				*nl
+				'男人们问你要不要出去抽根烟。'
+
+				act '同意':
+					*clr & cla
+					minut += 15
+
+					if hunterVars['KnowSlut'] = 0: hunterVars['AndreiQw'] += 1
+					if hunterVars['KnowSlut'] = 0: hunterVars['IgorQW'] += 1
+					if hunterVars['KnowSlut'] = 0: hunterVars['SergeiQw'] += 1
+					gs 'drugs', 'smoke', 1
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hantersmoker2.jpg"></center>'
+					*nl
+					'你跟着他们出去，他们递给你一支烟，你点上抽了起来……'
+
+					act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+				end
+				act '拒绝': gs 'gad_swamphouse', 'hunterstable'
+			end
+			if temp_sh = 2:
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+				*nl
+				'安德烈递给你一支烟。'
+
+				if hunterVars['AndreiQw'] < 15 and hunterVars['KnowSlut'] = 0 or hunterVars['AndreiLove'] = 1:
+					act '同意':
+						*clr & cla
+						minut += 15
+						hunterVars['AndreiQw'] += 1
+						gs 'drugs', 'smoke', 1
+
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hantersmoker2.jpg"></center>'
+						*nl
+						'你们俩走到外面，安德烈递给你一支烟。然后你们聊起了彼此的感情。'
+
+						act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+					end
+				end
+				if hunterVars['AndreiQw'] >= 15 and hunterVars['AndreiLove'] = 0 and hunterVars['KnowSlut'] = 0:
+					if smokbj = 0:
+						act '同意':
+							*clr & cla
+							minut += 15
+							hunterVars['AndreiQw'] += 1
+							gs 'drugs', 'smoke', 1
+
+							'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+							*nl
+							'你跟着安德烈出去。他递给你一支烟，你们接着聊。然后安德烈突然盯着你的眼睛说："<<$pcs_nickname>>，你能帮我个忙吗？"'
+							'"当然，安德烈，我很乐意，"你回答。"要我帮什么？"你有点不安地问。'
+							'"你也知道，<<$pcs_nickname>>，我离婚很久了，"安德烈开口道，"可跟每个正常男人一样，我有时候总得释放一下压力。嗯，你懂我的意思……"'
+							'他这么直白，你听得一愣。'
+							'"这样吧，<<$pcs_nickname>>，你要是能时不时帮我一把，我会非常感激，"安德烈接着说。'
+							'你听得难以置信。他显然不是在开玩笑。不过看安德烈的表情，他是认真的。'
+							'"这事我不会告诉任何人，放心，没人会知道，"他赶紧补了一句。"那么，<<$pcs_nickname>>，你说呢？'
+
+							act '同意':
+								*clr & cla
+								minut += 10
+								pcs_horny += 10
+								hunterVars['slut'] += 2
+								smokbj = 1
+								hunterVars['AndreiQw'] += 1
+								gs 'stat'
+
+								'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/thinks'+rand(1, 2)+'.jpg"></center>'
+								*nl
+								'听完他的话后，你开始认真考虑他的提议。当然，帮朋友一把是好事，但你感觉他另有图谋。'
+								'"好吧，安德烈，仔细考虑之后，我会帮你的。你想让我怎么帮你？"你问。'
+								'"该死，<<$pcs_nickname>>，我就知道你会答应，"他回答。"嗯，我不介意时不时来一次口交。对我来说这就够了。"'
+								'"回小屋去，钻到桌子底下，别让人注意到，"他一边从长凳上站起来一边补充道。'
+
+								act '走吧': gs 'gad_swamphouse', 'huntersmokBJ'
+							end
+
+							if alko < 6:
+								act '拒绝':
+									*clr & cla
+									minut += 10
+									hunterVars['slut'] -= 1
+									hunterVars['AndreiQw'] += 1
+									gs 'stat'
+
+									'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/thinks'+rand(1, 2)+'.jpg"></center>'
+									*nl
+									'听完他的话，你认真琢磨起这个提议。帮朋友一把当然好，可你感觉他另有图谋。'
+									'"不，安德烈，对不起，我拒绝，"你回答。"你怎么会觉得我会答应这种事？'
+									'你从长凳上站起来，快步回到小屋。'
+
+									act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+								end
+							end
+						end
+					else
+						act '同意':
+							*clr & cla
+							minut += 10
+							pcs_horny += 5
+							hunterVars['slut'] += 1
+							hunterVars['AndreiQw'] += 1
+							gs 'stat'
+
+							'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+							*nl
+							'你出去抽烟，安德烈跟在后面，张口就说："别抽什么烟了，<<$pcs_nickname>>。回去钻到桌子底下。我现在太需要你了……'
+
+							act '走吧': gs 'gad_swamphouse', 'huntersmokBJ'
+							if alko < 6:
+								act '拒绝':
+									*clr & cla
+									minut += 10
+									hunterVars['slut'] -= 1
+									hunterVars['AndreiQw'] -= 50
+									gs 'stat'
+
+									'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/thinks'+rand(1, 2)+'.jpg"></center>'
+									*nl
+									'"你知道吗，安德烈，我改主意了。当然，我很乐意帮助有需要的朋友，但我不是那种只为你取乐而存在的妓女。"'
+									'你从长凳上站起来，快速回到小屋。'
+
+									act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+								end
+							end
+						end
+					end
+				end
+				if hunterVars['KnowSlut'] = 1:
+					act '同意':
+						*clr & cla
+						minut += 10
+						pcs_horny += 5
+						gs 'stat'
+
+						'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big172.jpg"></center>'
+						*nl
+						'你出去抽烟，安德烈跟在后面，张口就说："管他什么烟，<<$pcs_nickname>>，我得释放一下压力。"'
+
+						act '走吧': gs 'gad_swamphouse', 'huntersmokBJ'
+					end
+				end
+				act '拒绝': gs 'gad_swamphouse', 'hunterstable'
+			end
+			if temp_sh = 3:
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big174.jpg"></center>'
+				*nl
+				'谢尔盖递给你一支烟。'
+
+				act '同意':
+					*clr & cla
+					minut += 15
+					if hunterVars['KnowSlut'] = 0: hunterVars['SergeiQw'] += 1
+					gs 'drugs', 'smoke', 1
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hantersmoker2.jpg"></center>'
+					*nl
+					'你跟着谢尔盖走到外面。他递给你一支烟，你们继续聊天。'
+
+					act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+				end
+				act '拒绝': gs 'gad_swamphouse', 'hunterstable'
+			end
+			if temp_sh = 4:
+				*clr & cla
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big173.jpg"></center>'
+				*nl
+				'伊戈尔递给你一支烟。'
+
+				act '同意':
+					*clr & cla
+					minut += 15
+					if hunterVars['KnowSlut'] = 0: hunterVars['IgorQW'] += 1
+					gs 'drugs', 'smoke', 1
+
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hantersmoker2.jpg"></center>'
+					*nl
+					'你跟着伊戈尔走到外面。他递给你一支烟，你们继续聊天。'
+
+					act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+				end
+				act '拒绝': gs 'gad_swamphouse', 'hunterstable'
+			end
+		end
+		if alko >= 8 and hunterVars['KnowSlut'] = 0:
+			*clr & cla
+			temp_sh = rand(1, 6)
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousedrunkgirl.jpg"></center>'
+			*nl
+			'你醉得厉害，舌头都打结了，眼前天旋地转……'
+
+			if hunterVars['slut'] <= 20:
+				if temp_sh = 1:
+					act '昏倒':
+						*clr & cla
+						minut += 1
+						if hunterVars['IgorLove'] <= 1: hunterVars['slut'] += 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousedrunkgirl2.jpg"></center>'
+						*nl
+						'你直接昏睡过去，就趴在桌边……'
+
+						act '起床':
+							*clr & cla
+							gs 'mood', 'lower', 'large'
+							sleepVars['no_health'] = 1
+							pcs_health -= 15
+							gs 'sleep_simple', 'forced', 180
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel1.jpg"></center>'
+							*nl
+							'三小时后，你半夜醒了过来。头有点痛，昨天的事只记得个大概。'
+
+							act '继续': gt 'gad_swamphouse', 'start'
+						end
+					end
+				end
+				if temp_sh = 2:
+					act '昏倒':
+						*clr & cla
+						minut += 3
+						if hunterVars['IgorLove'] <= 1: hunterVars['slut'] += 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep7.jpg"></center>'
+						*nl
+						'你想走到床边，可还没到就一头栽在地板上昏睡过去……'
+
+						act '起床':
+							*clr & cla
+							gs 'mood', 'lower', 'large'
+							sleepVars['no_health'] = 1
+							pcs_health -= 20
+							gs 'sleep_simple', 'forced', 240
+
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel4.jpg"></center>'
+							*nl
+							'四小时后，你半夜醒来。头有点痛，昨天的事只记得个大概。'
+
+							act '继续': gt 'gad_swamphouse', 'start'
+						end
+					end
+				end
+				if temp_sh = 3:
+					act '昏倒':
+						*clr & cla
+						minut += 5
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep4.jpg"></center>'
+						*nl
+						'你不知怎么摸到了沙发，衣服都没脱就昏睡过去……'
+
+						act '起床':
+							*clr & cla
+							gs 'mood', 'lower', 'large'
+							sleepVars['no_health'] = 1
+							pcs_health -= 10
+							gs 'sleep_simple', 'forced', 360
+
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel2.jpg"></center>'
+							*nl
+							'你睡了6个小时，醒来时头几乎抬不起来。头痛得厉害，昨天的事只剩模糊的影子。'
+
+							act '继续': gt 'gad_swamphouse', 'start'
+						end
+					end
+				end
+				if temp_sh > 3:
+					act '从桌边走开':
+						*clr & cla
+						minut += 1
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pjanaja5.jpg"></center>'
+						*nl
+						'喝醉的男人们要你给他们跳舞。安德烈放起音乐，你醉醺醺地在桌边晃了起来……'
+						inhib_exp += rand(0, 1)
+						if hunterVars['slut'] < 5:
+							act '停止跳舞':
+								*clr & cla
+								minut += 5
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep11.jpg"></center>'
+								*nl
+								'你站着，才发觉自己该睡了。可男人们一看你倒在沙发上睡着，顿时都很扫兴。'
+
+								act '起床':
+									*clr & cla
+									gs 'mood', 'lower', 'large'
+									sleepVars['no_health'] = 1
+									pcs_health -= 5
+									gs 'sleep_simple', 'forced', 480
+
+									'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel2.jpg"></center>'
+									*nl
+									'你睡了八个小时，醒来时几乎爬不起来。头痛得厉害，昨天的事只剩个大概。'
+
+									act '继续': gt 'gad_swamphouse', 'start'
+								end
+							end
+						end
+						if hunterVars['slut'] >= 5:
+							act '跳舞':
+								*clr & cla
+								minut += 10
+								pcs_horny += rand(5, 10)
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance1.'+rand(1, 2)+'.jpg"></center>'
+								*nl
+								'你站在桌旁，开始表演一种类似节奏舞蹈的东西。男人们开始鼓掌。'
+								inhib_exp += rand(0, 1)
+								if hunterVars['slut'] >= 10:
+									act '继续跳舞':
+										*clr & cla
+										minut += 10
+										pcs_horny += rand(5, 10)
+										hunterVars['slut'] += 1
+										if hunterVars['IgorLove'] > 0: hunterVars['IgorQW'] -= 1
+										if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+										if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+										gs 'stat'
+										'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance2.'+rand(1, 2)+'.jpg"></center>'
+										*nl
+										'一时冲动之下，在男人们为你欢呼时，你脱掉了上衣，身上只穿着胸罩…'
+										inhib_exp += rand(0, 1)
+										if hunterVars['slut'] >= 15:
+											act '继续跳舞':
+												*clr & cla
+												minut += 10
+												pcs_horny += rand(5, 10)
+												hunterVars['slut'] += 1
+												if hunterVars['IgorLove'] > 0: hunterVars['IgorQW'] -= 1
+												if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+												if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+												gs 'stat'
+												'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance3.jpg"></center>'
+												*nl
+												'男人们继续为你加油，你继续脱着衣服，直到只剩下内衣……'
+												inhib_exp += rand(0, 1)
+												act '昏倒':
+													*clr & cla
+													minut += 1
+													gs 'stat'
+													'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep10.jpg"></center>'
+													*nl
+													'你显然高估了自己身体的承受能力，跳了一会儿舞后，你就昏倒在地板上，让男人们相当紧张……'
+
+													act '起床':
+														*clr & cla
+														gs 'mood', 'lower', 'large'
+														sleepVars['no_health'] = 1
+														pcs_health -= 5
+														gs 'sleep_simple', 'forced', 240
+
+														'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel4.jpg"></center>'
+														*nl
+														'你睡了四个小时，半夜醒来，几乎无法从地板上站起来。你头痛欲裂，对昨天只隐约记得。'
+
+														act '继续': gt 'gad_swamphouse', 'start'
+													end
+												end
+											end
+										else
+											act '昏倒':
+												*clr & cla
+												minut += 5
+												gs 'stat'
+												'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep11.jpg"></center>'
+												*nl
+												'跳了一会儿舞后，你的双腿再也撑不住了，于是你决定去睡觉，这让男人们很失望。'
+
+												act '起床':
+													*clr & cla
+													gs 'mood', 'lower', 'large'
+													sleepVars['no_health'] = 1
+													pcs_health -= 15
+													gs 'sleep_simple', 'forced', 360
+
+													'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel2.jpg"></center>'
+													*nl
+													'你睡了6个小时，醒来时几乎下不了床。你头痛不已，模模糊糊记得昨天的事。'
+
+													act '继续': gt 'gad_swamphouse', 'start'
+												end
+											end
+										end
+									end
+								else
+									act '昏倒':
+										*clr & cla
+										minut += 5
+										gs 'stat'
+										'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep11.jpg"></center>'
+										*nl
+										'跳了一会儿舞后，你的双腿再也跟不上节奏了，于是你决定去睡觉，这让男人们很失望。'
+
+										act '起床':
+											*clr & cla
+											gs 'mood', 'lower', 'large'
+											sleepVars['no_health'] = 1
+											pcs_health -= 15
+											gs 'sleep_simple', 'forced', 360
+
+											'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel2.jpg"></center>'
+											*nl
+											'你睡了6个小时，醒来时几乎下不了床。你头痛不已，模模糊糊记得昨天的事。'
+
+											act '继续': gt 'gad_swamphouse', 'start'
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+			if hunterVars['slut'] > 20:
+				act '移开桌子':
+					*clr & cla
+					minut += 1
+					inhib_exp += rand(0, 1)
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pjanaja5.jpg"></center>'
+					*nl
+					'醉醺醺的男人们让你为他们跳舞。安德烈打开音乐，你醉醺醺地在桌旁开始摇摆……'
+
+					act '跳舞':
+						*clr & cla
+						minut += 10
+						pcs_horny += rand(5, 10)
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance1.'+rand(1, 2)+'.jpg"></center>'
+						*nl
+						'你站在桌旁，开始表演一种类似节奏舞蹈的东西。男人们开始鼓掌。'
+						inhib_exp += rand(0, 1)
+						act '继续跳舞':
+							*clr & cla
+							minut += 10
+							pcs_horny += rand(5, 10)
+							hunterVars['slut'] += 1
+							if hunterVars['IgorLove'] > 0: hunterVars['IgorQW'] -= 1
+							if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+							if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance2.'+rand(1, 2)+'.jpg"></center>'
+							*nl
+							'一时冲动之下，在男人们为你欢呼时，你脱掉了上衣，身上只穿着胸罩…'
+							inhib_exp += rand(0, 1)
+							act '继续跳舞':
+								*clr & cla
+								minut += 10
+								pcs_horny += rand(5, 10)
+								hunterVars['slut'] += 1
+								inhib_exp += rand(0, 1)
+								if hunterVars['IgorLove'] > 0: hunterVars['IgorQW'] -= 1
+								if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+								if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance3.jpg"></center>'
+								*nl
+								'男人们继续为你加油，你继续脱着衣服，直到只剩下内衣……'
+
+								act '继续跳舞':
+									*clr & cla
+									temp_sh = rand(1, 2)
+									hunterVars['slut'] += 1
+									inhib_exp += rand(0, 1)
+									if hunterVars['IgorLove'] > 0: hunterVars['IgorQW'] -= 1
+									if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+									if hunterVars['SergeiLove'] > 0: hunterVars['SergeiQw'] -= 1
+									gs 'stat'
+									'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance4.jpg"></center>'
+									*nl
+									'你脱下胸罩，把它扔在桌子上。男人们为你欢呼，你就在他们面前亮出了乳房。'
+									gs 'arousal', 'flash', 10
+									gs 'stat'
+									if temp_sh = 1:
+										act '昏倒':
+											*clr & cla
+											minut += 1
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep17.jpg"></center>'
+											*nl
+											'你显然高估了自己的身体能力，跳了一会儿舞后，你就昏倒在地板上，让男人们相当紧张…'
+
+											act '起床':
+												*clr & cla
+												gs 'mood', 'lower', 'large'
+												sleepVars['no_health'] = 1
+												pcs_health -= 20
+												gs 'sleep_simple', 'forced', 240
+
+												'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel3.jpg"></center>'
+												*nl
+												'你睡了四个小时，半夜醒来，几乎无法从地板上站起来。你头痛欲裂，对昨天只隐约记得。'
+
+												act '继续': gt 'gad_swamphouse', 'start'
+											end
+										end
+									else
+										act '继续跳舞':
+											*clr & cla
+											minut += 10
+											pcs_horny += rand(5, 10)
+											inhib_exp += rand(0, 1)
+											huntdancesex = 1
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance5.jpg"></center>'
+											*nl
+											'你继续跳舞，脱得更彻底。从男人们兴奋的表情来看，你确实让他们兴奋了。'
+
+											act '继续': gt 'huntersex', 'sexafterstrip3'
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		if alko >= 8 and hunterVars['KnowSlut'] > 0:
+			*clr & cla
+			temp_sh = rand(1, 6)
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousedrunkgirl1.jpg"></center>'
+			*nl
+			'你真的喝醉了，说话大着舌头，一切都天旋地转…'
+
+			if temp_sh = 1:
+				act '昏倒':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousedrunkgirl2.jpg"></center>'
+					*nl
+					'你昏了过去，就在桌旁睡着了……'
+
+					act '起床':
+						*clr & cla
+						gs 'mood', 'lower', 'large'
+						sleepVars['no_health'] = 1
+						pcs_health -= 15
+						gs 'sleep_simple', 'forced', 180
+
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel1.jpg"></center>'
+						*nl
+						'三小时后，你在半夜醒来。你有点头痛，隐隐约约记得昨天的事。'
+
+						act '继续': gt 'gad_swamphouse', 'start'
+					end
+				end
+			end
+			if temp_sh = 2:
+				act '昏倒':
+					*clr & cla
+					minut += 3
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep7.jpg"></center>'
+					*nl
+					'你试图走到床边，但还没到就昏倒在地板上了……'
+
+					act '起床':
+						*clr & cla
+						gs 'mood', 'lower', 'large'
+						sleepVars['no_health'] = 1
+						pcs_health -= 20
+						gs 'sleep_simple', 'forced', 240
+
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel4.jpg"></center>'
+						*nl
+						'四小时后，你在半夜醒来。你有点头痛，隐隐约约记得昨天的事。'
+
+						act '继续': gt 'gad_swamphouse', 'start'
+					end
+				end
+			end
+			if temp_sh = 3:
+				act '昏倒':
+					*clr & cla
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep4.jpg"></center>'
+					*nl
+					'你不知怎么走到了沙发边，衣服都没脱就昏睡过去……'
+
+					act '起床':
+						*clr & cla
+						gs 'mood', 'lower', 'large'
+						sleepVars['no_health'] = 1
+						pcs_health -= 10
+						gs 'sleep_simple', 'forced', 360
+
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel2.jpg"></center>'
+						*nl
+						'你睡了6个小时，醒来时几乎无法从枕头上抬起头。你头痛不已，模模糊糊记得昨天的事。'
+
+						act '继续': gt 'gad_swamphouse', 'start'
+					end
+				end
+			end
+			if temp_sh > 3:
+				act '从桌边走开':
+					*clr & cla
+					minut += 1
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pjanaja5.jpg"></center>'
+					*nl
+					'醉醺醺的男人们让你为他们跳舞。安德烈打开音乐，你醉醺醺地在桌旁开始摇摆……'
+
+					act '跳舞':
+						*clr & cla
+						minut += 10
+						pcs_horny += rand(5, 10)
+						inhib_exp += rand(0, 1)
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance1.'+rand(1, 2)+'.jpg"></center>'
+						*nl
+						'你站在桌旁，开始表演一种类似节奏舞蹈的东西。男人们开始鼓掌。'
+
+						act '继续跳舞':
+							*clr & cla
+							minut += 10
+							pcs_horny += rand(5, 10)
+							inhib_exp += rand(0, 1)
+							gs 'stat'
+							'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance2.'+rand(1, 2)+'.jpg"></center>'
+							*nl
+							'一时冲动之下，在男人们为你欢呼时，你脱掉了上衣，身上只穿着胸罩…'
+
+							act '继续跳舞':
+								*clr & cla
+								minut += 10
+								pcs_horny += rand(5, 10)
+								inhib_exp += rand(0, 1)
+								gs 'stat'
+								'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance3.jpg"></center>'
+								*nl
+								'男人们继续为你加油，你继续脱着衣服，直到只剩下内衣……'
+
+								act '继续跳舞':
+									*clr & cla
+									temp_sh = rand(1, 2)
+									gs 'stat'
+									'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance4.jpg"></center>'
+									*nl
+									'你脱下胸罩，把它扔在桌子上。男人们为你欢呼，你就在他们面前亮出了乳房。'
+									gs 'arousal', 'flash', 10
+									gs 'stat'
+									if temp_sh = 1:
+										act '昏倒':
+											*clr & cla
+											minut += 1
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/sleep17.jpg"></center>'
+											*nl
+											'你显然高估了自己的身体能力，跳了一会儿舞后，你就昏倒在地板上，让男人们相当紧张…'
+
+											act '起床':
+												*clr & cla
+												gs 'mood', 'lower', 'large'
+												sleepVars['no_health'] = 1
+												pcs_health -= 20
+												gs 'sleep_simple', 'forced', 240
+
+												'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/apartment/shulginhome/bigroom/drunk_ev/pohmel3.jpg"></center>'
+												*nl
+												'你睡了四个小时，半夜醒来，几乎无法从地板上站起来。你头痛欲裂，对昨天只隐约记得。'
+
+												act '继续': gt 'gad_swamphouse', 'start'
+											end
+										end
+									else
+										act '继续跳舞':
+											*clr & cla
+											minut += 10
+											pcs_horny += rand(5, 10)
+											huntdancesex = 3
+											gs 'stat'
+											'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dance5.jpg"></center>'
+											*nl
+											'你继续跳舞，脱得更彻底。从男人们兴奋的表情来看，你确实让他们兴奋了。'
+
+											act '继续': gt 'huntersex', 'sexafterstrip1'
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	elseif hunterVars['lunch'] = 1 or hunterVars['breakfast'] = 1 or hunterVars['dinner'] = 1:
+		act '吃顿饭（0:15)':
+			*clr & cla
+			minut += 15
+			gs 'food', 'medium_meal_stats'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/snack1.'+rand(1, 2)+'.jpg"></center>'
+			*nl
+			'你坐下来，和猎人们一起吃了点东西。'
+			act '继续': gs 'gad_swamphouse', 'hunterstable'
+		end
+		act '聊天（0:30)':
+			*clr & cla
+			minut += 30
+			if hunterVars['AndreiQw'] < 10: hunterVars['AndreiQw'] += 1
+			if hunterVars['IgorQW'] < 10: hunterVars['IgorQW'] += 1
+			if hunterVars['SergeiQw'] < 10: hunterVars['SergeiQw'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+			*nl
+			'你开始和男人们聊些琐事…'
+
+			act '继续': gt 'gad_swamphouse', 'hunterstable'
+		end
+		act '从桌边走开': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+	else
+		act '聊天（0:30)':
+			*clr & cla
+			minut += 30
+			if hunterVars['AndreiQw'] < 10: hunterVars['AndreiQw'] += 1
+			if hunterVars['IgorQW'] < 10: hunterVars['IgorQW'] += 1
+			if hunterVars['SergeiQw'] < 10: hunterVars['SergeiQw'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+			*nl
+			'你开始和男人们聊些琐事…'
+
+			act '继续': gt 'gad_swamphouse', 'hunterstable'
+		end
+		act '从桌边走开': hunterVars['refuse'] = 1 & gt 'gad_swamphouse', 'start'
+	end
+	if hunterVars['KnowSlut'] > 0 and hunterVars['tableBJ'] = 0:
+		if hunterVars['drink'] = 0:
+			*clr & cla
+			minut += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+			*nl
+			'你在桌边坐下，想和男人们一起吃饭，但还没来得及开始，就听到…'
+			'"别急，<<$pcs_nickname>>，"安德烈笑着说。"你要明白，只有捕鼠夹里的奶酪才是免费的。"'
+			'"想和我们一起吃饭？那你得干点活，"他嘲弄地咧嘴一笑，指了指桌子底下。'
+
+			act '爬到桌子底下': gs 'gad_swamphouse', 'hunterstableBJ'
+			act '拒绝': gt 'gad_swamphouse', 'start'
+		else
+			*clr & cla
+			minut += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+			*nl
+			'男人们注意到了你，都开始咧嘴笑了起来……'
+			'"来得正好！我们的<<$pcs_nickname>>来了。过来，和我们一起坐下吧，"安德烈说。'
+
+			act '坐在桌旁': hunterVars['tableBJ'] = 1 & gs 'gad_swamphouse', 'hunterstable'
+		end
+	end
+	if ($clothingworntype = 'nude' and arrsize('sparrvol') > 0) or cumloc[11] = 1:
+		!! face, or naked + visable body cum. may need to fix? by illume
+		*clr & cla
+		minut += 1
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hanterstable.jpg"></center>'
+		*nl
+		'你在桌边坐下，想和男人们一起吃饭，但还没来得及开始，就听到…'
+		'"该死，<<$pcs_nickname>>，我知道你喜欢我们留在你脸上的艺术作品，但你要和我们坐在一起，就得先洗一洗。'
+
+		act '走吧': gt 'gad_swamphouse', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'huntersrelax':
+	*clr & cla
+	minut += 1
+	menu_off = 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/hantersrelax1.'+rand(1, 8)+'.jpg"></center>'
+	*nl
+	'你看到猎人们在小屋里各忙各的。'
+
+	act '和安德烈交谈': gt 'andreihunter'
+	act '和谢尔盖交谈': gt 'sergeihunter'
+	act '和伊戈尔交谈': gt 'igorhunter'
+	act '走开': gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'huntersmokBJ':
+	*clr & cla
+	menu_off = 1
+	gs 'boyStat', 'A172'
+	if hunterandreisex = 0: hunterandreisex = 1 & guy += 1
+	temp_sh = rand(1, 2)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hantersmokbj1.'+rand(1, 3)+'.jpg"></center>'
+	*nl
+	if hunterVars['smokeBJ'] = 0: '你舒服地跪好，开始吮吸他的鸡巴……'
+	if hunterVars['smokeBJ'] = 1: '安德烈没有射出来，于是你继续吮吸……'
+	gs 'arousal', 'bj', 5, 'sub'
+	gs 'stat'
+
+	if temp_sh = 1: act '继续吸吮': hunterVars['smokeBJ'] = 1 & gs 'gad_swamphouse', 'huntersmokBJ'
+	if temp_sh = 2:
+		act '继续吮吸':
+			*clr & cla
+			minut += 1
+			gs 'cum_call', 'mouth_swallow', $boy, 1
+			hunterVars['smokeBJ'] = 0
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/hunter/hantersmokcum.jpg"></center>'
+			*nl
+			'你注意到安德烈的大腿绷紧了，他快到高潮了……终于，他低吼一声，把精液射了你一脸。'
+			'"你在这方面真的很在行，<<$pcs_nickname>>，"安德烈满意地说。"你是最完美的解压方式。'
+			'你清理了一下自己，然后和安德烈一起走回小屋。'
+
+			gs 'arousal', 'end'
+			act '回到桌边': gs 'gad_swamphouse', 'hunterstable'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'dirty_swamphouse':
+	cla
+	*clr
+	menu_off = 1
+	if dirty_swamphouse < 10: minut += 60 & gs 'sweat', 'add', 10
+	if dirty_swamphouse < 20: minut += 120 & gs 'sweat', 'add', 20
+	if dirty_swamphouse >= 20: minut += 180 & gs 'sweat', 'add', 30
+	if hunterVars['AndreiQw'] < 15: hunterVars['AndreiQw'] += 1
+	if hunterVars['IgorQW'] < 15: hunterVars['IgorQW'] += 1
+	if hunterVars['SergeiQw'] < 15: hunterVars['SergeiQw'] += 1
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/dirty_swamphouse.jpg"></center>'
+	*nl
+	'来到小屋，你发现这里变得相当脏。"我得想办法处理一下，"你想。于是你拿起扫帚和抹布，开始打扫。'
+	'过了一会儿，你打扫完毕，把所有东西都归回原位。最后，你对自己相当满意。'
+
+	act '继续': dirty_swamphouse = 0 & gt 'gad_swamphouse', 'start'
+end
+
+
+if $ARGS[0] = 'get_dressed':
+	!! if GG naked and hunters in the hut
+	temp_sh = rand(1, 3)
+	gs 'stat'
+	if hunterVars['KnowSlut'] > 0:
+		if huntslutsex = 0:
+			*clr & cla
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousenude1.jpg"></center>'
+			*nl
+			'看到你赤身裸体，男人们很快就兴奋起来……'
+			'"过来，<<$pcs_nickname>>，到我们这儿来，"其中一个男人朝你喊道。'
+
+			act '继续': hunterVars['sexnude'] = 1 & gt 'huntersex', 'huntersexnude'
+		else
+			*clr & cla
+			hunterVars['knowday'] = daystart
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousenude1.jpg"></center>'
+			*nl
+			'看到你赤身裸体，男人们只是摇了摇头……'
+			'"听着，<<$pcs_nickname>>，如果你想勾引我们，得想点别的办法，"其中一个男人说。'
+
+			act '继续': gt $loc, $loc_arg
+		end
+	else
+		*clr & cla
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousenude.jpg"></center>'
+		*nl
+		'你听到猎人们就在附近。你赶紧用手遮住自己的私处……'
+
+		if clothesAtLocation = 1:
+			act '穿好衣服':
+				*clr & cla
+				minut += 5
+				gs 'underwear', 'wear'
+				gs 'clothing', 'recover_lost_clothes', 'gad_swamphouse', 1
+				!! tkan_cloth = 0
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swampdvornude1.jpg"></center>'
+				*nl
+				'你四下张望，寻找自己的衣服。看到衣服后，你冲过去把它们抓起来。'
+				act '继续': gt $loc, $loc_arg
+			end
+		else
+			act '遮住自己':
+				*clr & cla
+				minut += 5
+				gs 'clothing', 'gad_swamp_clothes', 1
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/tkan_cloth.jpg"></center>'
+				*nl
+				'你四下张望，寻找自己的衣服，但怎么也找不到。于是你躲到一块麻布后面……总比什么都没有强。'
+				act '继续': gt $loc, $loc_arg
+			end
+		end
+		act '保持裸体':
+			*clr & cla
+			hunterVars['slut'] += 1
+			hunterVars['knowday'] = daystart
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/hunters/swamphousenude1.jpg"></center>'
+			*nl
+			'你深吸一口气，决定撇开紧张，就这样保持原样。遇到猎人们时，他们忍不住了。他们开始盯着你最私密的部位。'
+			'"该死，<<$pcs_nickname>>，你看起来太棒了。我真想对你做点什么……"有些亢奋的安德烈说。'
+			act '继续': gt $loc, $loc_arg
+		end
+	end
+end
+
+
+--- gad_swamphouse ---------------------------------

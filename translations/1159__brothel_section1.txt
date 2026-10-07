@@ -1,0 +1,1929 @@
+# brothel_section1
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              Helpers                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+menu_off = 1
+brothel_vars['orgasm_meter'] = min(100, brothel_vars['orgasm_meter'])
+brothel_vars['rage_meter'] = min(100, brothel_vars['rage_meter'])
+
+if $ARGS[0] = 'print_stats':
+	'<h3>游戏室</h3>'
+	'<b>高潮计量表：<<brothel_vars[''orgasm_meter'']>> / 100</b>'
+	'<b>愤怒计量表：<<brothel_vars[''rage_meter'']>> / 100</b>'
+	exit
+end
+
+
+if $ARGS[0] = 'section1_pref_update':
+	!! Updates fetish exp/pref and adjusts mood incrementally during sessions.
+	!! $ARGS[1] = primary fetish type: 'maso', 'bound', 'humiliation', 'sub'
+	!! Always add base sub + prostitution exp for being in a session.
+	gs 'fetish', 'add_exp', 'sub'
+	gs 'fetish', 'add_exp', 'prostitution'
+	if $ARGS[1] = 'maso':
+		gs 'fetish', 'add_exp', 'maso'
+		!! Mood: established preferences affect enjoyment
+		if fetishes['maso_pref'] > 20:
+			gs 'mood', 'raise', 'tiny'
+		elseif fetishes['maso_pref'] < -20:
+			gs 'mood', 'lower', 'tiny'
+		end
+		!! Pref drift: pain-based development path.
+		!! Moderate pain is an open window: confirmed haters drift negative, everyone
+		!! else drifts positive or negative depending on current arousal.
+		!! High pain reinforces existing attitude in either direction.
+		if pain['total'] >= 10:
+			if pain['total'] <= 45:
+				if rand(1, 10) = 1:
+					if fetishes['maso_pref'] < -25:
+						gs 'fetish', 'add_pref', 'maso', -1
+					elseif rand(1, 100) <= min(pcs_horny, 100):
+						gs 'fetish', 'add_pref', 'maso', 1
+					else
+						gs 'fetish', 'add_pref', 'maso', -1
+					end
+				end
+			elseif fetishes['maso_pref'] >= 15:
+				if rand(1, 8) = 1: gs 'fetish', 'add_pref', 'maso', 1
+			else
+				if rand(1, 8) = 1: gs 'fetish', 'add_pref', 'maso', -1
+			end
+		end
+	elseif $ARGS[1] = 'bound':
+		gs 'fetish', 'add_exp', 'bound'
+		if fetishes['bound_pref'] > 20:
+			gs 'mood', 'raise', 'tiny'
+		elseif fetishes['bound_pref'] < -20:
+			gs 'mood', 'lower', 'tiny'
+		end
+		!! Pref drift: reinforce established direction; arousal-biased random at neutral
+		if rand(1, 10) = 1:
+			if fetishes['bound_pref'] > 15:
+				gs 'fetish', 'add_pref', 'bound', 1
+			elseif fetishes['bound_pref'] < -15:
+				gs 'fetish', 'add_pref', 'bound', -1
+			elseif rand(1, 100) <= min(pcs_horny, 100):
+				gs 'fetish', 'add_pref', 'bound', 1
+			else
+				gs 'fetish', 'add_pref', 'bound', -1
+			end
+		end
+	elseif $ARGS[1] = 'humiliation':
+		gs 'fetish', 'add_exp', 'humiliation'
+		if fetishes['humiliation_pref'] > 20:
+			gs 'mood', 'raise', 'tiny'
+		elseif fetishes['humiliation_pref'] < -20:
+			gs 'mood', 'lower', 'tiny'
+		end
+		!! Pref drift: reinforce established direction; arousal-biased random at neutral
+		if rand(1, 10) = 1:
+			if fetishes['humiliation_pref'] > 15:
+				gs 'fetish', 'add_pref', 'humiliation', 1
+			elseif fetishes['humiliation_pref'] < -15:
+				gs 'fetish', 'add_pref', 'humiliation', -1
+			elseif rand(1, 100) <= min(pcs_horny, 100):
+				gs 'fetish', 'add_pref', 'humiliation', 1
+			else
+				gs 'fetish', 'add_pref', 'humiliation', -1
+			end
+		end
+	elseif $ARGS[1] = 'sub':
+		gs 'fetish', 'add_exp', 'sub'
+		if fetishes['sub_pref'] > 20:
+			gs 'mood', 'raise', 'tiny'
+		elseif fetishes['sub_pref'] < -20:
+			gs 'mood', 'lower', 'tiny'
+		end
+		!! Pref drift: reinforce established direction; arousal-biased random at neutral
+		if rand(1, 10) = 1:
+			if fetishes['sub_pref'] > 15:
+				gs 'fetish', 'add_pref', 'sub', 1
+			elseif fetishes['sub_pref'] < -15:
+				gs 'fetish', 'add_pref', 'sub', -1
+			elseif rand(1, 100) <= min(pcs_horny, 100):
+				gs 'fetish', 'add_pref', 'sub', 1
+			else
+				gs 'fetish', 'add_pref', 'sub', -1
+			end
+		end
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                Cage                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_cage':
+	'<h3>妓院大堂</h3>'
+	'<h5>奴隶笼</h5>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/slaveincage.jpg"></center>'
+	'你爬进其中一个小笼子。门关上时咔哒一声，自己锁上了。'
+	'你被锁在笼子里，像只动物一样。栏杆摸起来冰冷，纹丝不动，更加重了那种无助感。'
+	*nl
+	act '等待客人': gt 'brothel_section1', 'section1_cage_client'
+	act '试着让人放你出去':
+		if rand(0, 2) = 0:
+			gt 'brothel_section1', 'section1_cage_leave'
+		else
+			i = rand(0, 2)
+			if i = 0:
+				'接待员示意你等着，然后回头继续看他的屏幕。你开始怀疑他是否会帮你。'
+				brothel_vars['receptionist_annoy'] += 1
+			elseif i = 1:
+				'接待员无视你，突然显得忙于一些文书工作。只在以为你不会注意时才瞥你一眼。'
+				brothel_vars['receptionist_annoy'] += 1
+			else
+				'另一个赤身裸体的女孩走过来，“抱歉，要是我帮你，我只会惹上麻烦。”她耸耸肩。“我敢肯定，主人中的一个很快就会放你出去。”她眨了眨眼。'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'section1_cage_leave':
+	brothelCredit -= 2
+	'<h3>妓院大堂</h3>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/slaveincage.jpg"></center>'
+	if brothel_vars['receptionist_annoy'] < 4:
+		'接待员走到你所在的奴隶笼前。“出什么事了？”'
+		'他从外面打开自锁装置，让你爬出来。'
+		$func('wrap', 'pos', '"只有客人才会把你从这个笼子里弄出去。别再让我过来一趟。"')
+		brothel_vars['receptionist_annoy'] += 2
+		act '找个借口离开': gt 'brothel', 'brothel_dressingroom'
+	else
+		brothel_vars['receptionist_annoy'] = 0
+		'接待员走过来打开笼子，却揪着你的头发把你拽出来。“得有人教教你，别去烦比你地位高的人。”'
+		'他把你按在笼子上，痛苦地揪着你的头发，开始反复打你的屁股。'
+		gs 'pain', 6, 'asscheeks', 'slap'
+		gs 'pain', 5, 'hair', 'bind'
+		gs 'stat'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/brothel/caressface.jpg"></center>'
+			gs 'pain', 5, 'neck', 'choke'
+			'然后他把你拉起来，推到墙上，“现在去做你该做的事，然后我要看到你回到里面，做个乖女孩。”'
+			act '点点头，逃进女孩们的房间': gt 'brothel', 'brothel_dressingroom'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'section1_force_work':
+	'<h3>妓院大堂</h3>'
+	'<h5>奴隶笼：被迫工作</h5>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/slaveincage.jpg"></center>'
+	$func('wrap', 'pos', '"一次又一次地逃跑，婊子？要是你下不了决心，也许让你受点训练会有帮助。"')
+	if $clothingworntype ! 'nude':
+		'说着，接待员抓住你，扒光你的衣服，然后把你锁进笼子里。'
+		gs 'clothing', 'strip'
+		gs 'underwear', 'remove'
+		gs 'stat'
+	elseif $pantyworntype ! 'none':
+		'说着，接待员抓住你，扯掉你的内裤，然后把你锁进笼子里。'
+		gs 'underwear', 'remove'
+		gs 'stat'
+	else
+		'说着，接待员抓住你，然后把你锁进笼子里。'
+	end
+	$func('wrap', 'pos', '"待在那儿，迟早有人会教训你。希望你学会负起责任。"')
+	!! Should be replaced in time with a special training event
+	brothelCredit = 0
+	act '等待客人': gt 'brothel_section1', 'section1_cage_client'
+end
+
+
+if $ARGS[0] = 'section1_cage_client':
+	gs 'jobs', 'clock_in', 'highway_brothel_prostitute'
+	hadOwnanalPlugIn = analPlugIn
+	gs 'npcgeneratec', 0, '客人', '', '', 1
+	gs 'npcStat', $npclastgenerated
+	brothel_vars['orgasm_meter'] = 0
+	brothel_vars['electro_counter'] = 0
+	brothel_vars['like'] = 0
+	brothel_vars['did_whip'] = 0
+	brothel_vars['did_cane'] = 0
+	brothel_vars['did_pinch'] = 0
+	brothel_vars['did_punch'] = 0
+	brothel_vars['did_tied_1'] = 0
+	brothel_vars['did_tied_2'] = 0
+	brothel_vars['did_tied_3'] = 0
+	brothel_vars['did_tied_4'] = 0
+	brothel_vars['did_tied_5'] = 0
+	brothel_vars['did_tied_6'] = 0
+	brothel_vars['did_tied_7'] = 0
+	analplay = 0
+
+	'<h3>妓院大堂</h3>'
+	'<h5>奴隶笼：有顾客来了</h5>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/slaveincageclient.jpg"></center>'
+	if rand(0, 1) = 0:
+		brothel_vars['rage_meter'] = rand(25, 40)
+		'一个顾客来到你的笼子前，一言不发。'
+		'他打开笼子，粗暴地抓住你的项圈，系上一条牵引绳，把你领到其中一间游戏室。'
+	else
+		if age < 18:
+			brothel_vars['rage_meter'] = rand(10, 25)
+			$func('wrap', 'neg', '"啊，看来我的宠物已经各就各位了。"')
+			'他用饥饿的目光隔着栏杆扫视你。'
+			$func('wrap', 'neg', '"嗯，她看起来很年轻，正合我的要求。你多大了，奴隶？"')
+			$func('wrap', 'bimbo', '"我…我 18 岁了，主人。"')
+			$func('wrap', 'neg', '"不，告诉我你的真实年龄，姑娘。"')
+			$func('wrap', 'bimbo', '"嗯……我<<age>>岁了，主人。"')
+			$func('wrap', 'neg', '"很好，非常好。现在我们走吧。"')
+		else
+			brothel_vars['rage_meter'] = 50
+			$func('wrap', 'neg', '"啊，看来我的宠物已经各就各位了。"')
+			'他用饥饿的目光隔着栏杆扫视你。'
+			$func('wrap', 'neg', '"嗯，她看起来没我期望的那么年轻。你多大了，奴隶？"')
+			$func('wrap', 'bimbo', '"我…我<<age>>岁了，主人。"')
+			'他脸色发白，显然很恼火。'
+			$func('wrap', 'bimbo', '"一群蠢货。我告诉了他们我要什么，他们却给我送来这个。你惨了，荡妇，你会尝到他们失职的代价。"')
+			$func('wrap', 'neg', '"走吧，你这具会走路的洞！"')
+		end
+	end
+
+	act '被带出笼子': gt 'brothel_section1', 'section1_start'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               Start                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_start':
+	*clr & cla
+	'<h3>游戏室</h3>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/playroom.jpg"></center>'
+	'这个房间是为你能想到的各种变态行为设计的。厚实的墙壁说明它是隔音的，墙上涂着光滑的涂层，大概是为了方便清洗。'
+	'房间相当宽敞，每个角落都有不同的束缚装置。在已经锁上的门旁边，放着一个大箱子，里面不知道装着什么样的器具。'
+	'唯一把你与外界连接起来的，是房间各个角落的摄像头，警惕地记录着这里发生的一切。'
+	if brothel_vars['rage_meter'] <= 100:
+		$func('wrap', 'neg', '"那么今天我们要做点什么呢，我的小受虐狂？"')
+		act '保持安静，等待接下来发生的事': gs 'brothel_section1', 'section1_pick', 0
+		act '建议一个动作':
+			cla
+			'你决定建议你的主人应该对你做什么。你问他： ' + $func('wrap', 'neg', '“主人，请……”')
+			act '..我需要充充电': gs 'brothel_section1', 'section1_pick', 1
+			act '..我一直是个坏女孩，我应该受到惩罚': gs 'brothel_section1', 'section1_pick', 2
+			act '..就把我绑起来，用我的洞': gs 'brothel_section1', 'section1_pick', 3
+			!! act '..let''s just have sex and see where it leads': gs 'brothel_section1', 'section1_pick', 4
+			!! act '..I''m so tight, I need some exercise': gs 'brothel_section1', 'section1_pick', 5
+			act '重新考虑，保持安静': gs 'brothel_section1', 'section1_pick', 0
+		end
+	else
+		'主人一言不发，把你领到一个装置前……'
+		act '继续': gs 'brothel_section1', 'section1_pick', 0
+	end
+end
+
+
+if $ARGS[0] = 'section1_pick':
+	*clr & cla
+	stage = 1
+	brothel_vars['master_decision'] = 0
+	if ARGS[1] <> 0 and rand(0, 60) > brothel_vars['rage_meter']:
+		brothel_vars['master_decision'] = ARGS[1]
+	else
+		!! TODO: 4, 5 disabled for now
+		brothel_vars['master_decision'] = rand(1, 3)
+	end
+	if ARGS[1] <> 0:
+		if brothel_vars['master_decision'] = ARGS[1]:
+			if brothel_vars['rage_meter'] <= 25:
+				'<center><img <<$set_imgh>> src="images/shared/sex/dom/kotovsub.jpg"></center>'
+				$func('wrap', 'neg', '如你所愿，荡妇。我们就按你的方式来。')
+			elseif brothel_vars['rage_meter'] <= 50:
+				'<center><img <<$set_imgh>> src="images/shared/sex/dom/kotovsub.jpg"></center>'
+				$func('wrap', 'neg', '原来你喜欢这么玩，荡妇？行，我们就这么办。我会让你的哭喊更动听。')
+			else
+				brothel_vars['rage_meter'] += 10
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/slapface1.mp4"></video></center>'
+				$func('wrap', 'neg', '你以为你能对我发号施令，荡妇？好，就给你想要的。看你到时候后不后悔！')
+			end
+		else
+			if brothel_vars['rage_meter'] <= 25:
+				brothel_vars['rage_meter'] += 5
+				'<center><img <<$set_imgh>> src="images/shared/sex/dom/kotovsub.jpg"></center>'
+				'顾客皱起了眉。'
+				$func('wrap', 'neg', '不是个坏主意，荡妇。但我有一个更好的。')
+			else
+				brothel_vars['rage_meter'] += 10
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/city/residential/sauna/sex/slapface1.mp4"></video></center>'
+				$func('wrap', 'neg', '你以为你能对我发号施令，荡妇？我要对你做什么，由*我*说了算。')
+			end
+		end
+	end
+
+	if brothel_vars['master_decision'] = 1:
+		!! '<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/placeholder.mp4"></video></center>'
+		'客户把小型电击装置放在房间中央的桌子上。 ' + $func('wrap', 'neg', '这应该很快就会让你焕发健康的光彩，荡妇。')
+		act '开始本次课程': gt 'brothel_section1', 'section1_electro_main'
+	elseif brothel_vars['master_decision'] = 2:
+		!! '<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/placeholder.mp4"></video></center>'
+		'客户从架子上抓起一个装满小工具的盒子，并拿出几根木棍。 ' + $func('wrap', 'neg', '让我们把你的奶子弄漂亮些，小玩具。')
+		act '开始本次课程': gt 'brothel_section1', 'section1_tits_main'
+	elseif brothel_vars['master_decision'] = 3:
+		!! '<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/placeholder.mp4"></video></center>'
+		'客户从架子上抓起一个装满小工具的盒子，盒子里挂着几根绳子。 ' + $func('wrap', 'neg', '像你这样的荡妇，被好好绑起来后会顺从得多。你不觉得吗，奴隶？')
+		act '开始本次课程': gt 'brothel_section1', 'section1_tied_main'
+	elseif brothel_vars['master_decision'] = 4:
+		!! '<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/placeholder.mp4"></video></center>'
+		$func('wrap', 'neg', '我们慢慢来，小婊子。不管怎样，我都会玩得开心。') + ' 客户宣布，同时脱着自己的衣服。'
+		act '开始本次课程': gt 'brothel_section1', 'section1_play_sex'
+	elseif brothel_vars['master_decision'] = 5:
+		!! '<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/placeholder.mp4"></video></center>'
+		$func('wrap', 'neg', '你不觉得你该对客户的需求更敞开一些吗，尤其是干你这一行的，婊子？') + ' 此时，客户递过来一个巨大的假阳具。 ' + $func('wrap', 'neg', '让我帮你处理这个，荡妇。')
+		act '开始本次课程': gt 'brothel_section1', 'section1_play_stretch'
+	end
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                              Electro                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_electro_main':
+	!! too much rage or orgasm - client is too aroused and masturbates to your face, finishing the session
+	if brothel_vars['rage_meter'] >= 100:
+		xgt 'brothel_section1', 'section1_end_main', 'section1_end_rage'
+	end
+
+	!! too much pain - Sveta pushes out the anal plug by accident
+	if (pain['total'] > 50 and analPlugIn = 1):
+		if rand(1, 100) <= 25:
+			gs 'brothel_section1', 'section1_electro_push_plug'
+		end
+	end
+
+	if analPlugIn = 0 and rand (1, 100) <= 30 and analplay = 1:
+		gs 'brothel_section1', 'section1_electro_buttplug'
+	end
+
+	analplay = 1
+
+	if brothel_vars['orgasm_meter'] >= 100:
+		*clr
+		$func('wrap', 'neg', '那么我的小灯泡，准备好进入下一步了吗？')
+		brothel_vars['rand_fin'] = rand (1, 4)
+		if brothel_vars['rand_fin'] = 1:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_behind_anal'
+		elseif brothel_vars['rand_fin'] = 2:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_behind_vaginal'
+		elseif brothel_vars['rand_fin'] = 3:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_mouth'
+		elseif brothel_vars['rand_fin'] = 4:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_face'
+		end
+	end
+
+	if ARGS[1] = 0:
+		gt 'brothel_section1', 'section1_electro_asshigh'
+	elseif ARGS[1] = 1:
+		if analPlugIn = 0:
+			gt 'brothel_section1', 'section1_electro_buttplug', 2
+		else
+			gt 'brothel_section1', 'section1_electro_main', 2
+		end
+	elseif ARGS[1] = 2:
+		gt 'brothel_section1', 'section1_electro_electrodes'
+	elseif ARGS[1] = 3:
+		temp_say = rand (1, 3)
+		if temp_say = 1:
+			$func('wrap', 'neg', '"闪闪发光吧，我的小荡妇！"')
+		elseif temp_say = 2:
+			$func('wrap', 'neg', '"尖叫吧，贱货！"')
+		elseif temp_say = 3:
+			$func('wrap', 'neg', '"哈哈哈哈哈！！！！"')
+		end
+		killvar 'temp_say'
+		'说完这话，顾客打开了电源。'
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/togglepowerbutton.jpg"></center>'
+		act '继续': gt 'brothel_section1' , 'section1_electro_electrocute'
+	elseif ARGS[1] = 4:
+		if brothel_vars['like'] = 1:
+			$func('wrap', 'neg', '对！你这种荡妇需要感受的就是这个！')
+			$func('wrap', 'neg', '但我觉得你还没受够……')
+		elseif brothel_vars['like'] = 0:
+			$func('wrap', 'neg', '什么！？我听不清你说话！我想我还是把这开关调到更高的档位，稳妥一点！')
+			$func('wrap', 'bimbo', '不，求你了，什么都行就是别那样！求求你了！')
+		end
+		gt 'brothel_section1', 'section1_electro_main', 5
+	elseif ARGS[1] = 5:
+		gt 'brothel_section1' , 'section1_electro_electrocute_more'
+	elseif ARGS[1] = 6:
+		gt 'brothel_section1', 'section1_electro_main', 7
+	elseif ARGS[1] >= 7:
+		gt 'brothel_section1', 'section1_electro_electrocute_max'
+	end
+end
+
+
+if $ARGS[0] = 'section1_electro_asshigh':
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 2, 'legR', 'bind'
+	gs 'pain', 2, 'legL', 'bind'
+	gs 'pain', 2, 'wrists', 'bind'
+	gs 'pain', 2, 'thighs', 'bind'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'bound'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/asshigh.mp4"></video></center>'
+	'你被绑着，趴在那里。主人把你的屁股高高抬起，迫使你摆出一个尴尬的姿势，两个洞都暴露在外，同时把你捆得动弹不得。'
+
+	act '继续': gt 'brothel_section1', 'section1_electro_main', 1
+end
+
+
+if $ARGS[0] = 'section1_electro_like':
+	brothel_vars['like'] = 1
+	brothel_vars['orgasm_meter'] += 20
+	gs 'fetish', 'add_pref', 'maso', 1
+end
+
+
+if $ARGS[0] = 'section1_electro_dislike':
+	brothel_vars['like'] = 0
+	brothel_vars['rage_meter'] += 15
+	gs 'fetish', 'add_pref', 'maso', -1
+end
+
+
+if $ARGS[0] = 'section1_electro_buttplug':
+	minut += 2
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'anal_dildo', 2, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 5, 'asshole', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	analPlugIn = 1
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/buttplug.mp4"></video></center>'
+	$func('wrap', 'bimbo', '（我到底卷进了什么事……）') + ' 你开始犹豫，但这些念头还未成形，一阵剧痛打断了你：'
+	$func('wrap', 'bimbo', '"嗷呜！" 把它拿出来！把它拿出来呜呜呜，求你了！"')
+	'无视你的哀求，主人半自言自语，显然乐在其中 ' + $func('wrap', 'neg', '“刚刚好，真是个惊喜！看起来还挺粗的！”')
+	'你只能猜测发生了什么，因为你看不到背后的情况，但你感到一个冰冷的、可能是金属的塞子进入你的肛门。'
+
+	if ARGS[1] = 0:
+		act '继续': exit
+	else
+		act '继续': gt 'brothel_section1', 'section1_electro_main', 2
+	end
+end
+
+
+if $ARGS[0] = 'section1_electro_push_plug':
+	minut += 1
+	gs 'brothel_section1', 'print_stats'
+	analPlugIn = 0
+	analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+	gs 'pain', 6, 'asshole', 'cramp'
+	gs 'stat'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pushplugout.mp4"></video></center>'
+	'你无法承受所有的疼痛，肌肉剧烈痉挛收缩，让肛塞像树上的苹果一样掉了出来。'
+
+	if rand(1, 100) <= 20:
+		act '继续': gs 'brothel_section1', 'section1_electro_rod'
+	else
+		act '继续': gs 'brothel_section1', 'section1_electro_replug'
+	end
+end
+
+
+if $ARGS[0] = 'section1_electro_rod':
+	minut += 5
+	brothel_vars['rage_meter'] += 5
+	gs 'pain', 9, 'asshole', 'shock'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	gs 'brothel_section1', 'print_stats'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/shockanus.mp4"></video></center>'
+	'你刚才的举动显然惹恼了顾客。'
+	'他拿起一根长长的杆子： ' + $func('wrap', 'neg', '“他妈的那个按钮在哪儿！”')
+	'一阵战栗顺着你的脊背窜过，很快你就明白为什么了！他把杆子按在你的肛门上，电击你敏感的肉洞！'
+	$func('wrap', 'bimbo', '"啊————————！"') + ' 泪水因痛苦与恐惧顺着你的脸颊流下……'
+	$func('wrap', 'neg', '"别再犯了，荡妇！否则这东西会有一半插进你的肛门！"')
+
+	act '继续': gs 'brothel_section1', 'section1_electro_replug'
+end
+
+
+if $ARGS[0] = 'section1_electro_replug':
+	minut += 2
+	brothel_vars['rage_meter'] += 5
+	gs 'pain', 6, 'asshole', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'anal_dildo', 2, 'bound', 'sub', 'prostitution', 'humiliation'
+	analPlugIn = 1
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/buttplug.mp4"></video></center>'
+	$func('wrap', 'neg', '"怎么了，荡妇？再也受不了被塞着了吗？太糟了，插进去了！"')
+	$func('wrap', 'bimbo', '"嗷呜！求你了！求你了，不要！"')
+	'金属肛塞再次碰到你的肛门，却被粗暴地推了进去，让你的疼痛更加剧烈。'
+
+	act '继续': exit
+end
+
+
+if $ARGS[0] = 'section1_electro_electrodes':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 5, 'bound', 'sub', 'prostitution', 'humiliation'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/electrodesass.jpg"></center>'
+	'你感到一阵微微的凉意，仿佛有什么湿漉漉的东西被放在你的私处和周围。'
+	'这种感觉几秒钟后就消失了，只留下有东西粘在你下身的感觉。'
+
+	act '继续': gt 'brothel_section1', 'section1_electro_main', 3
+end
+
+
+if $ARGS[0] = 'section1_electro_electrocute':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	gs 'pain', 4, 'asscheeks', 'shock'
+	gs 'pain', 5, 'labia', 'shock'
+	gs 'pain', 3, 'thighs', 'shock'
+	gs 'arousal', 'anal', 5, 'sub', 'rough', 'maso', 'bound'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/electrocuteass.mp4"></video></center>'
+	'电流穿过你敏感的部位，你的身体颤抖着、痉挛着。'
+	$func('wrap', 'bimbo', '"啊——！好痛！"')
+	$func('wrap', 'neg', '"这就是重点，荡妇！你喜欢吗？现在告诉我！"')
+
+	act '告诉他你讨厌这样，想让他停下':
+		gs 'brothel_section1', 'section1_electro_dislike'
+		gt 'brothel_section1', 'section1_electro_main', 4
+	end
+	act '告诉他你喜欢这样':
+		gs 'brothel_section1', 'section1_electro_like'
+		gt 'brothel_section1', 'section1_electro_main', 4
+	end
+end
+
+
+if $ARGS[0] = 'section1_electro_electrocute_more':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'anal', 5, 'sub', 'rough', 'maso', 'bound'
+	gs 'pain', 6, 'asscheeks', 'shock'
+	gs 'pain', 5, 'thighs', 'shock'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/electrocuteassmore.mp4"></video></center>'
+	'电流调到了高档，穿过你敏感的部位，你的身体颤抖痉挛，被逼到了极限。'
+	'你感觉自己的皮肤仿佛要脱落，肛门随时都会撕裂。'
+	$func('wrap', 'bimbo', '"嗷呜！好痛！快住手！"')
+	$func('wrap', 'neg', '"你早该在刚开始的时候就屈服，蠢荡妇。现在你喜欢吗？"')
+
+	act '告诉他你讨厌这样，想让他停下':
+		gs 'brothel_section1', 'section1_electro_dislike'
+		gt 'brothel_section1', 'section1_electro_main', 6
+	end
+	act '告诉他你喜欢这样':
+		gs 'brothel_section1', 'section1_electro_like'
+		gt 'brothel_section1', 'section1_electro_main', 6
+	end
+end
+
+
+if $ARGS[0] = 'section1_electro_electrocute_max':
+	minut += 5
+	gs 'arousal', 'anal', 5, 'sub', 'rough', 'maso', 'bound'
+	gs 'pain', 7 + brothel_vars['electro_counter'], 'asscheeks', 'shock'
+	gs 'pain', 6 + brothel_vars['electro_counter'], 'labia', 'shock'
+	gs 'pain', 5 + brothel_vars['electro_counter'], 'vaginal', 'shock'
+	gs 'pain', 4 + brothel_vars['electro_counter'], 'asshole', 'shock'
+	gs 'pain', 6 + brothel_vars['electro_counter'], 'thighs', 'shock'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	gs 'brothel_section1', 'print_stats'
+	brothel_vars['electro_counter'] += 1
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/electrocuteassmax.mp4"></video></center>'
+	'电流调到了最高档，穿过你敏感的部位并蔓延到全身，你的身体颤抖痉挛，远远超出你想象的可能。'
+	'你感觉自己的皮肤仿佛要翻过来，肛门要和肚子一起炸开。'
+	$func('wrap', 'bimbo', '"啊——！啊啊啊啊——！！！"') + ' 你除了尖叫什么也做不了……'
+	$func('wrap', 'neg', '"这才叫我心目中的烧烤派对！"')
+
+	act '哭着说你讨厌这样，让他停下来':
+		gs 'brothel_section1', 'section1_electro_dislike'
+		gt 'brothel_section1', 'section1_electro_main', 7
+	end
+	act '哭着说你喜欢':
+		gs 'brothel_section1', 'section1_electro_like'
+		gt 'brothel_section1', 'section1_electro_main', 7
+	end
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                Tits                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_tits_main':
+	analplay = 0
+
+	if brothel_vars['orgasm_meter'] = 100:
+		*clr
+		$func('wrap', 'neg', '那么我这对会走路的受虐奶子，准备好下一步了吗？')
+		brothel_vars['rand_fin'] = rand (1, 4)
+		if brothel_vars['rand_fin'] = 1:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_behind_anal'
+		elseif brothel_vars['rand_fin'] = 2:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_behind_vaginal'
+		elseif brothel_vars['rand_fin'] = 3:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_mouth'
+		elseif brothel_vars['rand_fin'] = 4:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_face'
+		end
+	end
+
+	if ARGS[1] = 0:
+		gt 'brothel_section1', 'section1_tits_hang_neck'
+	elseif ARGS[1] = 1:
+		brothel_vars['rand_tits_kind'] = rand(1, 4)
+		!! 75% chance to re-roll when this action has already been done this session
+		if (brothel_vars['rand_tits_kind'] = 1 and brothel_vars['did_whip'] = 1) or (brothel_vars['rand_tits_kind'] = 2 and brothel_vars['did_cane'] = 1) or (brothel_vars['rand_tits_kind'] = 3 and brothel_vars['did_pinch'] = 1) or (brothel_vars['rand_tits_kind'] = 4 and brothel_vars['did_punch'] = 1):
+			if rand(1, 4) > 1:
+				brothel_vars['rand_tits_kind'] = rand(1, 4)
+			end
+		end
+		if brothel_vars['rand_tits_kind'] = 1:
+			if brothel_vars['did_whip'] = 0:  gt 'brothel_section1', 'section1_tits_whip'
+		elseif brothel_vars['rand_tits_kind'] = 2:
+			if brothel_vars['did_cane'] = 0: gt 'brothel_section1', 'section1_tits_cane'
+		elseif brothel_vars['rand_tits_kind'] = 3:
+			if brothel_vars['did_pinch'] = 0: gt 'brothel_section1', 'section1_tits_pinch'
+		elseif brothel_vars['rand_tits_kind'] = 4:
+			if brothel_vars['did_punch'] = 0: gt 'brothel_section1', 'section1_tits_punch'
+		end
+		gt 'brothel_section1', 'section1_tits_main', 2
+	elseif ARGS[1] = 2:
+		gt 'brothel_section1', 'section1_tits_pull_nipples'
+	elseif ARGS[1] = 3:
+		gt 'brothel_section1', 'section1_tits_bind'
+	elseif ARGS[1] = 4:
+		gt 'brothel_section1', 'section1_tits_pinch_bound'
+	elseif ARGS[1] = 5:
+		gt 'brothel_section1', 'section1_tits_hang_tits'
+	elseif ARGS[1] = 6:
+		if rand (1, 99) <= 60:
+			gt 'brothel_section1', 'section1_tits_nails_needles'
+		else
+			brothel_vars['orgasm_meter'] = 100
+			gt 'brothel_section1', 'section1_tits_main', 7
+		end
+	end
+end
+
+
+if $ARGS[0] = 'section1_tits_hang_neck':
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 2, 'neck', 'choke'
+	gs 'pain', 3, 'wrists', 'bind'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'bound'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/hangbyneck.jpg"></center>'
+	'他先把你的双手绑在背后。'
+	'你站在那里，对他接下来要对你做什么越来越紧张……'
+	'顾客拿来另一根绳子，把它系在天花板上早已准备好的挂钩上。'
+	'让你恐惧的是，他把绳子绕在你的脖子上，好像要把你吊起来一样！'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 1
+end
+
+
+if $ARGS[0] = 'section1_tits_whip':
+	brothel_vars['did_whip'] = 1
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 5, 'breasts', 'spank'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/whiptits.mp4"></video></center>'
+	'你双手被绑着吊在那里，只能看着顾客拿起鞭子，反复抽打你娇嫩的奶子……'
+	$func('wrap', 'bimbo', '"嗷！嗷！不要啊！嗷嗷！别……再……来了……求你了……嗷……"') + ' 每一次抽插，你都试图求他停下来，但这似乎反而让他更加兴奋。'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 1
+end
+
+
+if $ARGS[0] = 'section1_tits_cane':
+	brothel_vars['did_cane'] = 1
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 5, 'breasts', 'spank'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/canetits.mp4"></video></center>'
+	'你双手被绑着吊在那里，只能看着顾客拿起一根木杖，反复抽打你娇嫩的奶子……'
+	$func('wrap', 'bimbo', '"嗷！嗷！不要啊！嗷嗷！别……再……来了……求你了……嗷……"') + ' 每一次抽插，你都试图求他停下来，但这似乎反而让他更加兴奋。'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 1
+end
+
+
+if $ARGS[0] = 'section1_tits_pinch':
+	brothel_vars['did_pinch'] = 1
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 5, 'nipples', 'pinch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pinchtits.mp4"></video></center>'
+	'你双手被绑着吊在那里，只能看着顾客拿起几根木夹，夹住你敏感的乳头和乳晕。'
+	'一开始只是不舒服，但对你奶子的一次次夹击让每一次都更难受……'
+	$func('wrap', 'bimbo', '"啊！啊！不要！好痛啊！"') + ' 每被掐一下，你都试图求他停下来，但这似乎反而让他更加兴奋。'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 1
+end
+
+
+if $ARGS[0] = 'section1_tits_punch':
+	brothel_vars['did_punch'] = 1
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 6, 'breasts', 'hit'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/punchtits.mp4"></video></center>'
+	'你双手被绑着吊在那里，只能看着顾客握紧他那结实、雄壮的拳头。'
+	'你娇嫩的奶子对他来说不过是沙袋，仿佛这是一场拳击训练！'
+	$func('wrap', 'bimbo', '"啊！啊！不要！好痛啊！"') + ' 每被揍一拳，你都试图求他停下来，但这似乎反而让他更加兴奋。'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 1
+end
+
+
+if $ARGS[0] = 'section1_tits_pull_nipples':
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 7, 'nipples', 'stretch'
+	gs 'pain', 4, 'breasts', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pullnipples.mp4"></video></center>'
+	'顾客拿了一段绳子，系在你的乳头上。'
+	'两根绳子刚系好，他就用力拉扯，好像要把你的乳头扯下来一样！'
+	$func('wrap', 'bimbo', '"啊————！！！"') + ' 你既惊讶又疼痛地倒吸一口气，努力忍受持续的拉扯。'
+	$func('wrap', 'neg', '"不错！你觉得这会让你的乳头变长吗，荡妇？还是它们又会缩回去？我们看看！"')
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 3
+end
+
+
+if $ARGS[0] = 'section1_tits_bind':
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 7, 'breasts', 'stretch'
+	gs 'pain', 3, 'chest', 'bind'
+	gs 'pain', 3, 'ribs', 'bind'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'bound'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/bindtits.jpg"></center>'
+	'顾客拿出一根绳子，开始把它绑到你的胸口上。'
+	'一开始你不知道他想干什么，但当他用绳子缠住你的乳房时，你就心里有数了。'
+	'他把绳子紧紧勒在你的奶子上，让它们变得更加敏感，而且每分钟都变得更紫。'
+	$func('wrap', 'bimbo', '"别这么紧，主人，求你了！"')
+	$func('wrap', 'neg', '"闭嘴，荡妇！"') + ' 他显然想让你受苦……'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 4
+end
+
+
+if $ARGS[0] = 'section1_tits_pinch_bound':
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 7, 'breasts', 'stretch'
+	gs 'pain', 6, 'nipples', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pinchboundtits.mp4"></video></center>'
+	'你的奶子已经被绳子勒得紧紧的，但顾客想要再给它们加点苦头。'
+	'他用手指捏住你的乳头，把它们尽可能往外拉。'
+	'你的奶子已经胀得仿佛随时都会爆开，而顾客试图掐住乳头的动作让你感到极其难受！'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 5
+end
+
+
+if $ARGS[0] = 'section1_tits_hang_tits':
+	minut += 10
+	gs 'brothel_section1', 'print_stats'
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 8, 'breasts', 'stretch'
+	gs 'pain', 6, 'chest', 'stretch'
+	gs 'pain', 6, 'ribs', 'bind'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/hangbytits.mp4"></video></center>'
+	'顾客又拿了一根绳子，通过天花板上的滑轮绑到你已经被捆住的奶子上。'
+	'当他把你乳房上的绳子与头顶的滑轮连接起来时，你开始发抖……'
+	$func('wrap', 'bimbo', '"不，主人，你不是认真的吧！！你会把它们扯掉的！这违反规定，住手！') + ' 你拼命想躲开即将发生的事。'
+	$func('wrap', 'neg', '"不，这不违反规定。它们不会被扯掉，你等着看！"') + ' 说着这些话，他开始拉起绳子，只用你的奶子把你从地面吊起来。'
+	$func('wrap', 'bimbo', '"啊啊啊————！') + ' 你更多地是出于恐惧而非真正的疼痛而尖叫，你慢慢意识到……'
+
+	act '继续': gt 'brothel_section1', 'section1_tits_main', 6
+end
+
+
+if $ARGS[0] = 'section1_tits_nails_needles':
+	minut += 20
+	gs 'brothel_section1', 'print_stats'
+
+	if ARGS[1] = 0:
+		'客户明显比自己预想的还要兴奋：' + $func('wrap', 'neg', '“我这儿带着这些漂亮的钉子和针……”')
+		$func('wrap', 'bimbo', '"搞什么……？"')
+		$func('wrap', 'neg', '"……而且我觉得你那对乳头正渴望着它们呢！"')
+		$func('wrap', 'bimbo', '"你不是认真的吧！这确实违反规定，放我出去！"')
+		$func('wrap', 'neg', '"只要你同意就不算违反。那么你选哪个？"')
+		act '不可能，你绝不会那么做': gt 'brothel_section1', 'section1_tits_nails_needles', 1
+
+	elseif ARGS[1] = 1:
+		caneFeetCount = 0
+		$func('wrap', 'neg', '"给你加一笔奖金能让你改主意吗？"')
+		$func('wrap', 'bimbo', '"什……什么奖金？"')
+		$func('wrap', 'neg', '"啊，就说<<$func(''money'', ''string_profit'', 1000)>>怎么样？"')
+		act '说你愿意做': gt 'brothel_section1', 'section1_tits_nails_needles', 2
+		act '说你愿意为<<$func(''money'', ''string_profit'', 2000)>>做': gt 'brothel_section1', 'section1_tits_nails_needles', 3
+		act '不可能，你绝不会那么做': gt 'brothel_section1', 'section1_tits_nails_needles', 10
+
+	elseif ARGS[1] = 2:
+		$func('wrap', 'neg', '"婊子就是婊子，我明白了。现在我们开始吧！"')
+		gs 'jobs', 'bonus_pay', 'highway_brothel_prostitute', 1000
+		act '继续': gt 'brothel_section1', 'section1_tits_nails_needles', 4
+
+	elseif ARGS[1] = 3:
+		if rand(1, 100) <= 33:
+			$func('wrap', 'neg', '"我同意，贱货！给你两倍的钱，也让你的奶子受两倍的痛！现在我们开始吧！')
+			gs 'jobs', 'bonus_pay', 'highway_brothel_prostitute', 2000
+			act '继续': gt 'brothel_section1', 'section1_tits_nails_needles', 4
+		else
+			$func('wrap', 'neg', '"什么？你以为我是谁，荡妇？拉皮条的吗？"')
+			$func('wrap', 'bimbo', '"我……不！我不是那个意思……"')
+			$func('wrap', 'neg', '"闭嘴，奴隶！你要免费答应，就现在！"')
+			act '继续': gt 'brothel_section1', 'section1_tits_nails_needles', 10
+		end
+
+	elseif ARGS[1] = 4:
+		gs 'pain', 8, 'nipples', 'pierce'
+		gs 'pain', 7, 'breasts', 'pierce'
+		gs 'stat'
+		gs 'brothel_section1', 'section1_pref_update', 'maso'
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/needlesintits.mp4"></video></center>'
+		*nl
+		'他拿出一个装着一套大小不一的针的袋子。看他携带的袋子那么讲究，显然他不是第一次对女孩做这种事……'
+		'他一根一根地把针从袋子里取出来，慢慢刺进你的乳晕。'
+		'疼得就像在诊所抽血一样，但更糟，因为在诊所他们可不会从你的乳头里抽血！'
+		'当你以为已经结束的时候，他又取出一根针，针杆比其他针都长……'
+		$func('wrap', 'neg', '"那么，你觉得这一个该放哪儿？"')
+		'没等你回答，他就把它扎进了你的乳头正中央！'
+		$func('wrap', 'bimbo', '"啊————————"')
+		'如果这还不够，他还把针来回抽动……'
+		$func('wrap', 'bimbo', '"求求了，别来了……别再来了……"')
+		'他退后一步，看着自己的杰作，还有你那可怜的奶子。'
+		$func('wrap', 'neg', '"好，不来了。不再用针了。现在上钉子！"')
+		gs 'piercing_management', 'pierce'
+		act '继续': gt 'brothel_section1', 'section1_tits_nails_needles', 5
+
+	elseif ARGS[1] = 5:
+		gs 'pain', 9, 'breasts', 'pierce'
+		gs 'pain', 9, 'nails', 'pierce'
+		gs 'pain', 6, 'chest', 'pierce'
+		gs 'pain', 5, 'hair', 'stretch'
+		gs 'stat'
+		gs 'brothel_section1', 'section1_pref_update', 'maso'
+		*nl
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/nailtits.mp4"></video></center>'
+		*nl
+		'他把针拔了出来，动作很快，完全不在乎这带来的额外痛苦。'
+		'他把你放下来，让你躺在一块木板上，奶子贴着木板。'
+		'他手里的锤子和钉子把你吓得更厉害了。'
+		$func('wrap', 'bimbo', '"天哪……我想清楚了！我不同意这个！把你的钱拿回去，现在放了我！"')
+		$func('wrap', 'neg', '"太迟了，贱货！一旦你答应就没有回头路！都录在镜头里了，记得吗？好好享受吧！"')
+		$func('wrap', 'bimbo', '"啊————————"')
+		'他把钉子抵到你奶子上，开始把它们钉进木板。'
+		act '忍受': gt 'brothel_section1', 'section1_tits_nails_needles', 6
+
+	elseif ARGS[1] = 6:
+		gs 'pain', 9, 'breasts', 'pierce'
+		gs 'stat'
+		gs 'brothel_section1', 'section1_pref_update', 'maso'
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/nailedbytitstotheground.jpg"></center>'
+		'这场戏结束时，你躺在木地板上，乳头被钉在上面，身体靠头发吊着，几乎快要失去意识。'
+		$func('wrap', 'neg', '"那么荡妇，你觉得怎么样？"')
+		$func('wrap', 'bimbo', '"呃…我…主人…"')
+		$func('wrap', 'neg', '"你知道吗？我根本不在乎。其实我倒希望这对你来说很糟糕。你活该，这么下贱的婊子。"')
+		*nl
+		$func('wrap', 'neg', '"现在求我操你！"')
+		act '求他操你': brothel_vars['orgasm_meter'] = 100 & gt 'brothel_section1', 'section1_tits_main', 7
+
+	elseif ARGS[1] = 10:
+		if caneFeetCount >= 3:
+			gt 'brothel_section1', 'section1_tits_nails_needles', 20
+		elseif caneFeetCount = 0:
+			caneFeetCount += 1
+			gs 'pain', 6, 'feet', 'spank'
+			gs 'stat'
+			gs 'brothel_section1', 'section1_pref_update', 'maso'
+
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/canefeet.mp4"></video></center>'
+			$func('wrap', 'neg', '"我觉得你需要更多动力，荡妇。"')
+			'说着，他抓住你的脚，开始抽打你敏感的脚，每一下都加快速度！'
+			$func('wrap', 'bimbo', '"啊！啊！啊！啊！啊！"')
+			$func('wrap', 'neg', '"那么奴隶，你现在怎么说？要我继续这样，还是你接受我的提议？"')
+			act '说你同意': gt 'brothel_section1', 'section1_tits_nails_needles', 4
+			act '说你仍然不同意': gt 'brothel_section1', 'section1_tits_nails_needles', 10
+		else
+			caneFeetCount += 1
+			gs 'pain', 8, 'feet', 'spank'
+			gs 'pain', 6, 'ankles', 'spank'
+			gs 'pain', 5, 'legR', 'spank'
+			gs 'pain', 5, 'legL', 'spank'
+			gs 'stat'
+			gs 'brothel_section1', 'section1_pref_update', 'maso'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/canefeet.mp4"></video></center>'
+			$func('wrap', 'neg', '"想想吧，荡妇！想想你现在可怜的脚！"')
+			$func('wrap', 'bimbo', '"啊！啊！啊！啊！啊！"')
+			$func('wrap', 'neg', '"那么奴隶，你现在怎么说？要我继续这样，还是你接受我的提议？"')
+			act '说你同意': gt 'brothel_section1', 'section1_tits_nails_needles', 4
+			act '说你仍然不同意': gt 'brothel_section1', 'section1_tits_nails_needles', 10
+		end
+
+	elseif ARGS[1] = 20:
+		'他显然被你的拒绝惹火了。'
+		$func('wrap', 'neg', '"该死的贱货！那就让我至少用我能用的方式惩罚你！"')
+		brothel_vars['orgasm_meter'] = 100
+		act '继续': gt 'brothel_section1', 'section1_tits_main', 7
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                Tied                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_tied_main':
+
+	!! too much rage or orgasm - client is too aroused and masturbates to your face, finishing the session
+	if brothel_vars['rage_meter'] >= 100:
+		xgt 'brothel_section1', 'section1_end_main', 'section1_end_rage'
+	end
+
+	analplay = 0
+
+	if brothel_vars['orgasm_meter'] = 100:
+		*clr
+		'他终于让你达到了高潮，准备射出他的精液！'
+		brothel_vars['rand_fin'] = rand (1, 4)
+		if brothel_vars['rand_fin'] = 1:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_front_anal'
+		elseif brothel_vars['rand_fin'] = 2:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_front_vaginal'
+		elseif brothel_vars['rand_fin'] = 3:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_mouth'
+		elseif brothel_vars['rand_fin'] = 4:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_face'
+		end
+	end
+
+	if ARGS[1] = 0:
+		gt 'brothel_section1', 'section1_tied_lie_back'
+	elseif ARGS[1] = 1:
+		gt 'brothel_section1', 'section1_tied_on_back'
+	elseif ARGS[1] = 2:
+		action = rand(1, 7)
+		!! 75% chance to re-roll when this action has already been done this session
+		if brothel_vars['did_tied_' + action] = 1 and rand(1, 4) > 1:
+			action = rand(1, 7)
+		end
+		brothel_vars['did_tied_' + action] = 1
+		if action = 1:
+			gt 'brothel_section1', 'section1_tied_mouth'
+		elseif action = 2:
+			gt 'brothel_section1', 'section1_tied_anal'
+		elseif action = 3:
+			gt 'brothel_section1', 'section1_tied_vaginal'
+		elseif action = 4:
+			gt 'brothel_section1', 'section1_tied_tease'
+		elseif action = 5:
+			gt 'brothel_section1', 'section1_tied_analfisting'
+		elseif action = 6:
+			gt 'brothel_section1', 'section1_tied_vibrate'
+		elseif action = 7:
+			gt 'brothel_section1', 'section1_tied_whip'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'section1_tied_lie_back':
+	minut += 5
+	gs 'pain', 3, 'neck', 'choke'
+	gs 'brothel_section1', 'print_stats'
+	gs 'brothel_section1', 'section1_pref_update', 'sub'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/onbackkneeshigh.jpg"></center>'
+	*nl
+	'那个客人伸手抓住你的脖子，强行把你带到一张床边。'
+	'你知道接下来会发生什么……他把你扔在柔软的枕头上：' + $func('wrap', 'neg', '“仰面躺下，把膝盖尽量往头边靠！”')
+	'你照做了……'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 1
+end
+
+
+if $ARGS[0] = 'section1_tied_on_back':
+	minut += 10
+	brothel_vars['orgasm_meter'] += 5
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/tiedonbackkneeshigh.jpg"></center>'
+	*nl
+	'他拿来一些绳子和木棍。 ' + $func('wrap', 'bimbo', '（他要这些东西干什么？）')
+	'很快你就知道了——是为了你的奶子！不是把你绑起来，那种你早就料到了，而是用木棍把你的嫩奶子固定住，逼着它们越胀越满……'
+	'你最后被绑得严严实实，只能盯着他，期待接下来会发生什么……'
+	gs 'pain', 6, 'breasts', 'stretch'
+	gs 'pain', 4, 'LegR', 'bind'
+	gs 'pain', 4, 'LegL', 'bind'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'bound'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_mouth':
+	minut += 10
+	brothel_vars['orgasm_meter'] += 25
+	brothel_vars['rage_meter'] += 5
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_mouth.mp4"></video></center>'
+	*nl
+	'你仍然仰面被绑着，双手和膝盖捆在一起，两个穴口都暴露着。'
+	'顾客朝你伸出手来，低头看着你的胯部。'
+	$func('wrap', 'neg', '"那么你选哪个，荡妇？"')
+	$func('wrap', 'bimbo', '"呃……操我的小穴？还是肛门？"')
+	$func('wrap', 'neg', '"确实是操，但两个都不是。张开嘴！"')
+	'你别无选择，只能照他说的做，为他的粗大鸡巴张开双唇。'
+	'你被呛得喘不过气，口水到处都是，但看他的样子，除非你窒息或是他射出来，否则他是不会停的！'
+
+	gs 'arousal', 'bj', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	gs 'pain', 5, 'throat', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'humiliation'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_anal':
+	minut += 10
+	brothel_vars['orgasm_meter'] += 25
+	brothel_vars['rage_meter'] += 5
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_anal.mp4"></video></center>'
+	*nl
+	'你仍然仰面被绑着，双手和膝盖捆在一起，两个穴口都暴露着。'
+	'顾客朝你伸出手来，低头看着你的胯部。'
+	$func('wrap', 'neg', '"那么你选哪个，荡妇？"')
+	'你还没来得及想好怎么回应这个直白的问题，他就把鸡巴捅进了你的……肛门！'
+	$func('wrap', 'bimbo', '"啊——！"')
+	$func('wrap', 'neg', '"没想到会这么快进来吧？"')
+	'但你又一次无法回答，因为他开始如此快速而深入地抽插，你根本无法发出任何声音。'
+	'你只能无助地忍受他给你带来的猛烈操弄……'
+	'这还不够，他还不时拍打你的乳房，让整个过程更加绝望。'
+
+	gs 'arousal', 'anal', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	gs 'pain', 6, 'asshole', 'stretch'
+	gs 'pain', 4, 'breasts', 'slap'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'sub'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_vaginal':
+	minut += 10
+	brothel_vars['orgasm_meter'] += 25
+	brothel_vars['rage_meter'] += 5
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_vaginal.mp4"></video></center>'
+	*nl
+	'你仍然仰面被绑着，双手和膝盖捆在一起，两个穴口都暴露着。'
+	'顾客朝你伸出手来，低头看着你的胯部。'
+	$func('wrap', 'neg', '"那么你选哪个，荡妇？"')
+	'你还没来得及想好怎么回应这个直白的问题，他就把鸡巴捅进了你的……小穴！'
+	$func('wrap', 'bimbo', '"啊——！"')
+	$func('wrap', 'neg', '"没想到会这么快进来吧？"')
+	'但你又一次无法回答，因为他开始如此快速而深入地抽插，你根本无法发出任何声音。'
+	'你只能无助地忍受他给你带来的猛烈操弄……'
+	'这还不够，他还不时拍打你的乳房，让整个过程更加绝望。'
+	gs 'pain', 6, 'vaginal', 'stretch'
+	gs 'pain', 4, 'breasts', 'slap'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'sub'
+
+	gs 'arousal', 'vaginal', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_tease':
+	minut += 10
+	brothel_vars['orgasm_meter'] += 5
+	brothel_vars['rage_meter'] += 5
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_tease.mp4"></video></center>'
+	*nl
+	'顾客绕着你转，摸遍你全身，仿佛在寻找什么。'
+	'他先从探索你的两个洞开始，把唇瓣拉开，探进里面。'
+	'然后他拧着你的乳头转来转去，等着你发出不舒服的声音。'
+	'过了一会儿，他似乎做完了，看起来对自己的探索挺满意。'
+	'你注意到他（还穿着的）裤子上鼓起一大块。'
+
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	gs 'pain', 4, 'nipples', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'humiliation'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_analfisting':
+	minut += 15
+	brothel_vars['rage_meter'] += 10
+	brothel_vars['orgasm_meter'] += 10
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_analfisting.mp4"></video></center>'
+	*nl
+	$func('wrap', 'neg', '"你的屁股里能塞进最长的鸡巴是多长，荡妇？"')
+	$func('wrap', 'bimbo', '"我……我不知道，主人，我从来没量过。"')
+	$func('wrap', 'neg', '"那我们就得量一量了，我说！"')
+	'他拿起一大瓶润滑剂，挤了一些在手上。'
+	$func('wrap', 'bimbo', '"不，求你了，这塞不进我身体里！"')
+	$func('wrap', 'neg', '"你不试试怎么知道，蠢货？"')
+	'他立刻把几根手指插进你的肛门，让你的腹部一阵痉挛。'
+	'但他没有停下，一根接一根地把所有手指都插进去，连大拇指也不例外。'
+	'你痛苦而惊恐地尖叫着，但他推得更深，直到整只手终于滑进你体内。'
+	$func('wrap', 'neg', '"现在看看我们能推进到多深！"')
+	'他把手推得更深，现在几乎整个手肘都捅进了你的肠子里！'
+	'他来回转动拳头，让你纤细的肚子鼓了起来！'
+	gs 'arousal', 'anal_fist', 15, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	gs 'pain', 7, 'asshole', 'stretch'
+	gs 'pain', 4, 'tummy', 'cramp'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_vibrate':
+	minut += 15
+	brothel_vars['orgasm_meter'] += 10
+	brothel_vars['rage_meter'] += 10
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_vibrate.mp4"></video></center>'
+	*nl
+	$func('wrap', 'neg', '"你的小穴敏感吗，姑娘？"')
+	$func('wrap', 'bimbo', '"我……我觉得是普通程度的敏感，主人。"')
+	$func('wrap', 'neg', '"这之后，它就彻底不普通了，哈哈！"')
+	'说这话时他的脸变得阴沉——你感到背上一阵不舒服的寒颤。'
+	'你的恐惧几秒后就成真了——他拿出一个巨大的震动器！'
+	'他把震动器的顶端直接按在你露出来的小穴唇瓣上，把它们分开，好直接顶到你的阴蒂。'
+	'然后他慢慢伸手去按那个写着大大的红色 ON 的按钮。'
+	gs 'pain', 6, 'clitoris', 'stretch'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	!! TODO: fix this overwrite
+	$orgasm_or = '接下来的刺激对你来说太强烈了，逼得你在痛苦和放声尖叫中达到了高潮！'
+	$orgasm_or = 'yes'
+	gs 'arousal', 'vaginal_vibe', 15, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+if $ARGS[0] = 'section1_tied_whip':
+	minut += 10
+	brothel_vars['rage_meter'] += 20
+	brothel_vars['orgasm_meter'] += 5
+	gs 'arousal', 'foreplay', 10, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'arousal', 'end'
+	gs 'pain', 6, 'labia', 'spank'
+	gs 'pain', 2, 'tummy', 'spank'
+	gs 'pain', 4, 'clitoris', 'spank'
+	gs 'pain', 4, 'pubic', 'spank'
+	gs 'stat'
+	gs 'brothel_section1', 'section1_pref_update', 'maso'
+	gs 'brothel_section1', 'print_stats'
+
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_whip.mp4"></video></center>'
+	*nl
+	$func('wrap', 'neg', '"你的小穴敏感吗，姑娘？"')
+	$func('wrap', 'bimbo', '"我……我觉得是普通程度的敏感，主人。"')
+	$func('wrap', 'neg', '"这之后，它就彻底不普通了，哈哈！"')
+	'说这话时他的脸变得阴沉——你感到背上一阵不舒服的寒颤。'
+	'你的恐惧几秒后就成真了——他拿出一条鞭子！'
+	'他把鞭子的顶端直接按在你露出来的小穴唇瓣上，欣赏着你脸上惊恐的表情。'
+	'接着他突然开始惩罚你年轻身体最敏感的部位，毫不留情。'
+
+	act '继续': gt 'brothel_section1', 'section1_tied_main', 2
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                Else                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!{
+if $ARGS[0] = 'section1_play_stretch':
+	analplay = 0
+
+	if brothel_vars['orgasm_meter'] = 100:
+		*clr
+		$func('wrap', 'neg', 'Now that''s what a proper fucktoy looks like! Now let''s see what I will do with you.')
+		brothel_vars['rand_fin'] = rand (1, 2)
+		if brothel_vars['rand_fin'] = 1:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_behind_vaginal'
+		elseif brothel_vars['rand_fin'] = 2:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_behind_anal'
+		end
+	end
+
+	if stage = 1:
+		stage += 1
+		gt 'brothel_section1', 'section1_lieOnBack_stretch'
+	elseif stage = 2:
+		stage += 1
+		gt 'brothel_section1', 'section1_dildoVag'
+	elseif stage = 3:
+		stage += 1
+		gt 'brothel_section1', 'section1_dildoAss'
+	elseif stage = 4:
+		stage += 1
+		gt 'brothel_section1', 'section1_buttplug_stretch'
+	elseif stage = 5:
+		stage += 1
+		gt 'brothel_section1', 'section1_vagfisting'
+	elseif stage = 6:
+		stage += 1
+		gt 'brothel_section1', 'section1_analfisting'
+	elseif stage = 7:
+		!!Crash here, needs fixing
+		gt 'brothel_section1', 'section1_finishStretching'
+	end
+end
+
+
+if $ARGS[0] = 'section1_lieOnBack_stretch':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/onbackkneeshigh.jpg"></center>'
+	*nl
+	'那个客人伸手抓住你的脖子，强行把你带到一张床边。'
+	'你知道接下来会发生什么……他把你扔在柔软的枕头上：' + $func('wrap', 'neg', '"Lie on your back and put your knees as close to your head as you can!"')
+	'你照做了……'
+	act '继续': gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_dildoVag':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	'顾客从桌上抓起那根假鸡巴，连给你做准备的意思都没有，就把它塞进你的小穴。'
+	$func('wrap', 'bimbo', '"Aahhhh! Please, use at least some lube!"')
+	$func('wrap', 'neg', '"You wish! Lube is only for good girls, so if you want some, earn it. For now you get to enjoy it as nature intended."')
+	if pcs_horny > 50:
+		'幸好你至少还有点湿，这提供了足够的润滑，让疼痛稍微轻一些。'
+	else
+		'不幸的是你两腿之间还是完全干的，这只会让痛得更厉害。'
+	end
+	gs 'arousal', 'vaginal', 10, 'sub', 'rough', 'maso'
+	gs 'pain', 5, 'vagina', 'stretch'
+	gs 'stat'
+
+	act '继续': gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_dildoAss':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	$func('wrap', 'neg', '"Since your pussy looks so much better now, I should really give your ass some attention."')
+	if agape > 2:
+		$func('wrap', 'neg', '"Of course a whore like you knows how to take it up the ass, but you''re missing a proper gape to show it off."')
+	else
+		$func('wrap', 'neg', '"You''re pretty tight back there, little slave, but trust me. In no time you''re loose and gaping, as a slut like you should be."')
+	end
+	'他把假鸡巴从你的小穴里拔出来，连再润滑一次都没有，就直接塞进你的屁股。'
+	$func('wrap', 'bimbo', '"Stop! Please! It hurts!"')
+	$func('wrap', 'neg', '"Enjoy it while it lasts, slut. Soon you will be too loose to feel much down there."')
+	gs 'arousal', 'anal', 10, 'sub', 'rough', 'maso'
+	gs 'pain', 5, 'asshole', 'stretch'
+	gs 'stat'
+
+	act '继续': gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_buttplug_stretch':
+	minut += 2
+	gs 'pain', 7, 'asshole', 'stretch'
+	gs 'brothel_section1', 'print_stats'
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/buttplug.mp4"></video></center>'
+	$func('wrap', 'bimbo', '(What in the world have I gotten into…)') + '你开始犹豫不决，但还没等这些想法形成，一阵尖锐的疼痛打断了你：'
+	$func('wrap', 'bimbo', '"Owwchhh!" Take it out! Take it ouuuut PLEASE!"')
+	'无视你的哀求，主人半自言自语地说，显然很享受' + $func('wrap', 'neg', '"It fits just nice, what a surprise! It looked quite thick!"') + '"'
+	'你只能猜测发生了什么，因为你看不到背后的情况，但你感到一个冰冷的、可能是金属的塞子进入你的肛门。'
+	gs 'arousal', 'anal_dildo', 2, 'bound', 'sub', 'prostitution', 'humiliation'
+	analPlugIn = 1
+	act '继续': gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_vagfisting':
+	minut += 5
+	analPlugIn = 0
+	analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	$func('wrap', 'neg', '"We''re getting somewhere, little whore. Now you''re only missing the proper gape to please. Do you want me to help you out? Ask me for it, nicely."')
+	$func('wrap', 'bimbo', '"Please, Master, help me open my holes for you."')
+	$func('wrap', 'neg', '"Pah, good enough. Get ready, slave."')
+	'说着，他把润滑液挤到手上，然后把手一直插进你的小穴，直到手腕。你咬紧牙关，希望这突如其来的疼痛能快点消退。'
+	'他大力地搅弄你的小穴，拳头的轮廓在你腹部鼓起一块。直到他对自己的成果满意了，才从你体内抽出手。'
+	gs 'arousal', 'vaginal', 10, 'sub', 'rough', 'maso'
+	gs 'pain', 6, 'vagina', 'stretch'
+	gs 'pain', 4, 'tummy', 'cramp'
+	gs 'stat'
+
+	act '继续': gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_analfisting':
+	minut += 15
+	brothel_vars['rage_meter'] += 10
+	brothel_vars['orgasm_meter'] += 10
+	gs 'brothel_section1', 'print_stats'
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/tied_analfisting.mp4"></video></center>'
+	*nl
+	$func('wrap', 'neg', '"What''s the longest dick you are able to take inside your ass, slut?"')
+	$func('wrap', 'bimbo', '"I… I don''t know master, I have never measured any."')
+	$func('wrap', 'neg', '"Then we need to take the measurements, I''d say!"')
+	'他拿起一大瓶润滑剂，挤了一些在手上。'
+	$func('wrap', 'bimbo', '"No please, this won''t fit inside me!"')
+	$func('wrap', 'neg', '"How can you know if you didn''t try, dumb cunt?"')
+	'他立刻把几根手指插进你的肛门，让你的腹部一阵痉挛。'
+	'但他没有停下，一根接一根地把所有手指都插进去，连大拇指也不例外。'
+	'你痛苦而惊恐地尖叫着，但他推得更深，直到整只手终于滑进你体内。'
+	$func('wrap', 'neg', '"Now let us see how far can we get!"')
+	'他把手推得更深，现在几乎整个手肘都捅进了你的肠子里！'
+	'他来回转动拳头，让你纤细的肚子鼓了起来！'
+	gs 'arousal', 'anal_fist', 15, 'bound', 'sub', 'prostitution', 'humiliation'
+	gs 'pain', 7, 'asshole', 'stretch'
+	gs 'pain', 4, 'tummy', 'cramp'
+	gs 'stat'
+	act '继续': gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_finishStretching':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	$func('wrap', 'neg', '"Let''s see if all this work has paid off. Show me your holes, slave."')
+	'你把自己的洞展示出来，他仔细地检查了一番。'
+	$func('wrap', 'neg', '"Perfect, a gape as expected from a slut like you. Can you feel the air rushing into them?"')
+	'接着他把手指插进你的小穴和屁股里，咧嘴笑了。'
+	$func('wrap', 'neg', '"Nice and loose. We will have so much fun, slave."')
+	act '继续': brothel_vars['orgasm_meter'] = 100 & gt 'brothel_section1', 'section1_play_stretch'
+end
+
+
+if $ARGS[0] = 'section1_play_sex':
+	if brothel_vars['orgasm_meter'] = 100:
+		*clr
+		'经过漫长的一场操干，顾客终于快要高潮了。'
+		brothel_vars['rand_fin'] = rand (1, 4)
+		if brothel_vars['rand_fin'] = 1:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_front_anal'
+		elseif brothel_vars['rand_fin'] = 2:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_front_vaginal'
+		elseif brothel_vars['rand_fin'] = 3:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_mouth'
+		elseif brothel_vars['rand_fin'] = 4:
+			xgt 'brothel_section1', 'section1_end_main', 'section1_end_face'
+		end
+	end
+
+	actionRand = rand (1, 6)
+	if actionRand = 1:
+		gt 'brothel_section1', 'section1_blowjob'
+	elseif actionRand = 2:
+		gt 'brothel_section1', 'section1_deepthroath'
+	elseif actionRand = 3:
+		gt 'brothel_section1', 'section1_skullfuck'
+	elseif actionRand = 4:
+		gt 'brothel_section1', 'section1_fingering'
+	elseif actionRand = 5:
+		gt 'brothel_section1', 'section1_vag_fuck'
+	elseif actionRand = 6:
+		gt 'brothel_section1', 'section1_ass_fuck'
+	end
+end
+
+
+if $ARGS[0] = 'section1_blowjob':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	act '继续': gt 'brothel_section1', 'section1_play_sex'
+end
+
+
+if $ARGS[0] = 'section1_deepthroath':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	act '继续': gt 'brothel_section1', 'section1_play_sex'
+end
+
+
+if $ARGS[0] = 'section1_skullfuck':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	act '继续': gt 'brothel_section1', 'section1_play_sex'
+end
+
+
+if $ARGS[0] = 'section1_fingering':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	act '继续': gt 'brothel_section1', 'section1_play_sex'
+end
+
+
+if $ARGS[0] = 'section1_vag_fuck':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	act '继续': gt 'brothel_section1', 'section1_play_sex'
+end
+
+
+if $ARGS[0] = 'section1_ass_fuck':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	'<center><img <<$set_imgh>> src="images/locations/shared/brothel/placeholder.jpg"></center>'
+	act '继续': gt 'brothel_section1', 'section1_play_sex'
+end
+
+!}
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                End                                 !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'section1_end_main':
+	if $ARGS[1] = 'section1_end_rage':
+		gt 'brothel_section1', 'section1_end_rage'
+	elseif $ARGS[1] = 'section1_end_behind_vaginal':
+		gt 'brothel_section1', 'section1_end_behind_vaginal'
+	elseif $ARGS[1] = 'section1_end_behind_anal':
+		gt 'brothel_section1', 'section1_end_behind_anal'
+	elseif $ARGS[1] = 'section1_end_front_vaginal':
+		gt 'brothel_section1', 'section1_end_front_vaginal'
+	elseif $ARGS[1] = 'section1_end_front_anal':
+		gt 'brothel_section1', 'section1_end_front_anal'
+	elseif $ARGS[1] = 'section1_end_mouth':
+		gt 'brothel_section1', 'section1_end_mouth'
+	elseif $ARGS[1] = 'section1_end_face':
+		gt 'brothel_section1', 'section1_end_face'
+	end
+end
+
+
+if $ARGS[0] = 'section1_end_rage':
+	minut += 5
+	gs 'brothel_section1', 'print_stats'
+	gs 'stat'
+
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/masturbateinface.mp4"></video></center>'
+	'顾客被你身上遭受的暴行刺激得太过兴奋。他握住自己的鸡巴，就在你面前开始自慰。'
+	'被绑住的你别无选择，只能眼睁睁看着他那黏糊糊的鸡巴在他疯狂的套弄下变成深红色。'
+	'终于，几分钟后，一大股黏稠的精液洒满你的脸。它钻进你嘴里，甚至把你的眼皮粘在了一起。'
+
+	gs 'cum_call', 'face', '主人'
+	act '继续': gt 'brothel_section1', 'section1_end'
+end
+
+
+if $ARGS[0] = 'section1_end_behind_vaginal':
+	minut += 15
+	gs 'arousal', 'vaginal', 15, 'bound', 'sub', 'prostitution', 'humiliation', 'rough'
+	'<h3>游戏室</h3>'
+	*nl
+
+	if ARGS[1] = 0:
+		if analPlugIn = 1:
+			'<center><img <<$set_imgh>> src="images/locations/shared/brothel/spreadasswithplugfrombehind.jpg"></center>'
+		else
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/spreadassfrombehind.mp4"></video></center>'
+		end
+		'顾客现在把玩具都丢在一旁，走到你身后。你看不见他，只能猜测他在你光裸的屁股后面做什么。'
+		'他把手放在你的两瓣屁股上，将它们掰得开开的，好更清楚地看你两个洞……'
+		'你开始发抖，因为你知道接下来会发生什么……'
+		act '继续': gt 'brothel_section1', 'section1_end_behind_vaginal', 1
+
+	elseif ARGS[1] = 1:
+		!! pls not in anus
+		if rand(0, 1) = 0:
+			if analPlugIn = 1:
+				'<center><img <<$set_imgh>> src="images/locations/shared/brothel/insertvaginalwithplugfrombehind.jpg"></center>'
+				'你的小穴和屁眼都过于暴露……你对自己说：' + $func('wrap', 'bimbo', '（至少他不会插进我的肛门……塞子已经在那里了……）')
+				'就在那一刻，客户刺入你的小穴，把肉棒捅到了根部！'
+			else
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/insertvaginalfrombehind.mp4"></video></center>'
+				'你的小穴和屁眼都过于暴露……你对自己说：' + $func('wrap', 'bimbo', '（哦，求你了，千万别插进我可怜的肛门！）')
+				'就在那一刻，客户刺入你的小穴，把肉棒捅到了根部！'
+			end
+
+		!! pls not in pussy
+		else
+			if analPlugIn = 1:
+				'<center><img <<$set_imgh>> src="images/locations/shared/brothel/insertvaginalwithplugfrombehind.jpg"></center>'
+				'你的小穴和屁眼都暴露无遗……你对自己说：' + $func('wrap', 'bimbo', '（求你了，千万别插进我酸痛的小穴！）')
+				'就在那一刻，客户把阴茎插入你娇嫩的小穴……一插到底！'
+				'先前插入的肛塞还留在原位，摩擦着你阴道和肠道之间那层薄薄的壁，让疼痛更加剧烈。'
+				'顾客似乎毫不在意，反而把小穴操得更深……'
+				$func('wrap', 'bimbo', '"啊————！求你了不要，不要，把它拿出去！主人，求你了！"')
+				'就在你说话的同时，顾客的阴茎又狠狠一顶，将塞子顶了出去，塞子从你被绑的双腿之间滑落。'
+				analPlugIn = 0
+				analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+				gs 'pain', 4, 'pussy', 'stretch'
+				gs 'stat'
+			else
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/insertvaginalfrombehind.mp4"></video></center>'
+				'你的小穴和屁眼都暴露无遗……你对自己说：' + $func('wrap', 'bimbo', '（求你了，千万别插进我酸痛的小穴！）')
+				'就在那一刻，客户把阴茎插入你娇嫩的小穴……一插到底！'
+			end
+		end
+		act '继续': gt 'brothel_section1', 'section1_end_behind_vaginal', 2
+
+	elseif ARGS[1] = 2:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckvaginalfrombehind.mp4"></video></center>'
+		$func('wrap', 'neg', '"现在，婊子，我要狠狠地、深深地骑你！"')
+		'说着这些话，顾客加快了节奏，粗暴、凶狠、非常非常深地操着你可怜的小穴……'
+		act '忍耐': gt 'brothel_section1', 'section1_end_behind_vaginal', 3
+
+	elseif ARGS[1] = 3:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/cuminpussyfrombehind.mp4"></video></center>'
+		'似乎是过了漫长的时间，客户看起来快要高潮了。'
+		$func('wrap', 'bimbo', '"是的，主人，请用你的精液填满我！"') + ' 你用最后的力气喊道，想让他尽快射出来。'
+		'这话奏效了，你的话语让他更加兴奋，最后他把所有肮脏的种子都灌进你阴道深处……'
+		$func('wrap', 'bimbo', '（呕…我觉得它都流到子宫里了！真恶心！）')
+		if knowpreg = 0 and thinkpreg = 0 and pillcon2 < 1000:
+			*nl
+			'你越来越恐惧，意识到自己没打避孕针，也想不起上次吃避孕药是什么时候。'
+		end
+		gs 'cum_call', '', '主人'
+		act '继续': gt 'brothel_section1', 'section1_end'
+	end
+end
+
+
+if $ARGS[0] = 'section1_end_behind_anal':
+	minut += 15
+	gs 'arousal', 'anal', 15, 'bound', 'sub', 'prostitution', 'humiliation', 'rough'
+	'<h3>游戏室</h3>'
+	*nl
+
+	if ARGS[1] = 0:
+		if analPlugIn = 1:
+			'<center><img <<$set_imgh>> src="images/locations/shared/brothel/spreadasswithplugfrombehind.jpg"></center>'
+		else
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/spreadassfrombehind.mp4"></video></center>'
+		end
+		'顾客现在把玩具都丢在一旁，走到你身后。你看不见他，只能猜测他在你光裸的屁股后面做什么。'
+		'他把手放在你的两瓣屁股上，将它们掰开，好更清楚地看你两个洞……'
+		'你开始发抖，因为你知道接下来会发生什么……'
+		act '继续': gt 'brothel_section1', 'section1_end_behind_anal', 1
+
+	elseif ARGS[1] = 1:
+		!! pls not in anus
+		if rand (0, 1) = 0:
+			if analPlugIn = 1:
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckanalwithplugfrombehind.mp4"></video></center>'
+				'你的小穴和屁眼都过于暴露……你对自己说：' + $func('wrap', 'bimbo', '（至少他不会插进我的肛门……塞子已经在那里了……）')
+				'但仿佛你把心里的想法说出了声，就在那一刻，顾客把一根温热、坚硬的肉棒直直插进你的屁股……整根没入！'
+				$func('wrap', 'bimbo', '"啊————！求你了不要，不要，把它拿出去！主人，求你了！"')
+				'就在你说话的同时，顾客的阴茎又狠狠一顶，将塞子顶了出去，塞子从你被绑的双腿之间滑落。'
+				'顾客似乎毫不在意，还用他的阳具把你的肛门撑得更大……又或者他是故意的！'
+				analPlugIn = 0
+				analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+				gs 'pain', 4, 'anus', 'stretch'
+				gs 'stat'
+			else
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckanalfrombehind2.mp4"></video></center>'
+				'你的小穴和屁眼都过于暴露……你对自己说：' + $func('wrap', 'bimbo', '（哦，求你了，千万别插进我可怜的肛门！）')
+				'但仿佛你把心里的想法说出了声，就在那一刻，顾客把一根温热坚硬的肉棒直直插进你的屁股……整根没入！'
+				$func('wrap', 'bimbo', '"啊————！求你了不要把它拿出去！主人，求你别弄我的屁股！"')
+			end
+
+		!! pls not in pussy
+		else
+			if analPlugIn = 1:
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckanalwithplugfrombehind.mp4"></video></center>'
+				'你的小穴和屁眼都暴露无遗……你对自己说：' + $func('wrap', 'bimbo', '（求你了，千万别插进我酸痛的小穴！）')
+				'讽刺的是，当客户把温暖坚硬的肉棒插进你的肛门而不是小穴时，你反而松了一口气。'
+				'但你完全忘了那个早已插在你体内的东西！'
+				'由于先前插入的肛塞还在原位……在你的屁股里，疼痛更加剧烈了！'
+				'顾客似乎对此毫不在意，他用阴茎把你的肛门撑得更开……'
+				$func('wrap', 'bimbo', '"啊————！求你了不要，不要，把它拿出去！主人，求你了！"')
+				'就在你说话的同时，顾客的阴茎又狠狠一顶，将塞子顶了出去，塞子从你被绑的双腿之间滑落。'
+				analPlugIn = 0
+				analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+				gs 'pain', 7, 'anus', 'stretch'
+				gs 'stat'
+			else
+				'你的小穴和屁眼都暴露无遗……你对自己说：' + $func('wrap', 'bimbo', '（求你别把它插进我酸痛的小穴里！）')
+				'讽刺的是，当客户把温暖坚硬的肉棒插进你的肛门而不是小穴时，你反而松了一口气。'
+				'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckanalfrombehind.mp4"></video></center>'
+			end
+		end
+		act '继续': gt 'brothel_section1', 'section1_end_behind_anal', 2
+
+	elseif ARGS[1] = 2:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckanalfrombehind.mp4"></video></center>'
+		$func('wrap', 'neg', '"现在，婊子，我要狠狠地、深深地骑你！"')
+		'说着，顾客加快了节奏，猛烈、粗暴、又深又狠地操着你可怜的肛门……'
+		act '忍耐': gt 'brothel_section1', 'section1_end_behind_anal', 3
+
+	elseif ARGS[1] = 3:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/cuminassfrombehind.mp4"></video></center>'
+		'似乎是过了漫长的时间，客户看起来快要高潮了。'
+		$func('wrap', 'bimbo', '"是的，主人，请用你的精液填满我！"') + ' 你用最后的力气喊道，想让他尽快射出来。'
+		'你的话反而让他更加兴奋，最后他把所有肮脏的精液深深射入你的肠子里… ' + $func('wrap', 'bimbo', '（终于……）')
+		gs 'cum_call', 'anus', '主人'
+		act '继续': gt 'brothel_section1', 'section1_end'
+	end
+end
+
+
+if $ARGS[0] = 'section1_end_front_vaginal':
+	minut += 5
+	gs 'arousal', 'vaginal', 5, 'bound', 'sub', 'prostitution', 'humiliation', 'rough'
+	gs 'pain', 3, 'cervix', 'ache'
+	gs 'stat'
+	'<h3>游戏室</h3>'
+
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/cummissionaryvaginal.mp4"></video></center>'
+	*nl
+
+	'你仍然仰面被绑着，终于盼着这一切结束。'
+	'顾客加快了节奏，伴随着一声呻吟，射进了你的阴道，把他滚烫的精液释放进你的小穴，甚至一直抵到你的子宫颈……'
+	if knowpreg = 0 and thinkpreg = 0 and pillcon2 < 1000:
+		*nl
+		'你越来越恐惧，意识到自己没打避孕针，也想不起上次吃避孕药是什么时候。'
+	end
+	gs 'cum_call', '', '主人'
+	act '继续': gt 'brothel_section1', 'section1_end'
+end
+
+
+if $ARGS[0] = 'section1_end_front_anal':
+	minut += 5
+	gs 'arousal', 'anal', 5, 'bound', 'sub', 'prostitution', 'humiliation', 'rough'
+	gs 'pain', 2, 'anus', 'stretch'
+	gs 'stat'
+	'<h3>游戏室</h3>'
+
+	*nl
+	'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/cummissionaryanal.mp4"></video></center>'
+	*nl
+
+	'你仍然仰面被绑着，终于盼着这一切结束。'
+	'顾客加快了节奏，伴随着一声呻吟，射进了你的肛门，把他滚烫的精液释放在你的肠子里。'
+	gs 'cum_call', 'anus', '主人'
+	act '继续': gt 'brothel_section1', 'section1_end'
+end
+
+
+if $ARGS[0] = 'section1_end_mouth':
+	minut += 5
+	gs 'arousal', 'bj', 5, 'bound', 'sub', 'prostitution', 'humiliation', 'rough'
+	gs 'pain', 4, 'throat', 'stretch'
+	gs 'stat'
+	'<h3>游戏室</h3>'
+	*nl
+
+	if ARGS[1] = 0:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/caressface.jpg"></center>'
+		'客户现在抛下所有玩具，朝你走来。'
+		'他开始抚摸你的脸……你动弹不得，只能一动不动，忍受他的触碰……'
+		'你开始发抖，因为你知道接下来会发生什么……'
+		act '继续': gt 'brothel_section1', 'section1_end_mouth', 1
+
+	elseif ARGS[1] = 1:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckfacetied.mp4"></video></center>'
+		'正如你所担心的，客人把鸡巴插进你嘴里：' + $func('wrap', 'bimbo', '“现在让我们用用这个多嘴的洞！”')
+		'你连反应或呻吟都做不到，被他的肉棒堵住，呛得口水四溢……'
+		act '继续': gt 'brothel_section1', 'section1_end_mouth', 2
+
+	elseif ARGS[1] = 2:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/cuminmouth.mp4"></video></center>'
+		'他的速度越来越快，鸡巴里涌起高潮。'
+		'他精液的温热触感让你吃了一惊……'
+		'大部分精液直接射进你的喉咙，一直流到你的肚子里，其余的则顺着你的嘴和他的鸡巴流了出来……'
+		gs 'cum_call', 'mouth', '主人'
+		act '继续': gt 'brothel_section1', 'section1_end'
+	end
+end
+
+
+if $ARGS[0] = 'section1_end_face':
+	minut += 15
+	gs 'arousal', 'bj', 15, 'bound', 'sub', 'prostitution', 'humiliation', 'rough'
+	'<h3>游戏室</h3>'
+	*nl
+
+	if ARGS[1] = 0:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/caressface.jpg"></center>'
+		'客户现在抛下所有玩具，朝你走来。'
+		'他开始抚摸你的脸……你动弹不得，只能一动不动，忍受他的触碰……'
+		'你开始发抖，因为你知道接下来会发生什么……'
+		act '继续': gt 'brothel_section1', 'section1_end_face', 1
+
+	elseif ARGS[1] = 1:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/fuckfacetied.mp4"></video></center>'
+		'正如你所担心的，客人把鸡巴插进你嘴里：' + $func('wrap', 'bimbo', '“现在让我们用用这个多嘴的洞！”')
+		'你连反应或呻吟都做不到，被他的肉棒堵住，呛得口水四溢……'
+		act '继续': gt 'brothel_section1', 'section1_end_face', 2
+
+	elseif ARGS[1] = 2:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/cumonface.mp4"></video></center>'
+		'他的速度越来越快，鸡巴里涌起高潮。'
+		'当他的精液洒满你整张脸时，那温热的触感让你吃了一惊。'
+		'黏稠的白色液体流进你的眼睛和鼻子，沿着你的嘴边缓缓滴落……'
+		gs 'cum_call', 'face', '主人'
+		act '继续': gt 'brothel_section1', 'section1_end'
+	end
+end
+
+
+if $ARGS[0] = 'section1_end':
+	minut += 10
+	gs 'jobs', 'clock_out', 'highway_brothel_prostitute'
+	gs 'stat'
+	'<h3>游戏室</h3>'
+	*nl
+
+	if ARGS[1] = 0:
+		gs 'pain', 2, 'asscheeks', 'slap'
+		gs 'fetish', 'add_exp', 'prostitution'
+		!! Disposition impact: working here when you hate submission or pain wears you down over time
+		if fetishes['sub_pref'] < -30 or fetishes['maso_pref'] < -30:
+			gs 'mood', 'lower_disposition', 'tiny'
+		end
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/sessionend.jpg"></center>'
+		'看来你已经完成了自己的使命。顾客很满意，他的需求得到了满足。'
+		'他开始收拾自己带进房间的那几样东西，完全无视你不适的呻吟和哀求。就好像你已经不存在了一样。'
+		'他最后一丝还意识到你存在的表示，就是粗暴而响亮地拍了你的屁股一下。之后他离开了房间，在你身后关上了门，把你留在整场过程中那副可怜的姿态和别扭的姿势里。'
+		*nl
+		$func('wrap', 'bimbo', '"求求你们，谁来把我弄出去！"')
+		*nl
+		'几分钟的挣扎之后，接待员终于走进了游戏室。'
+		act '让他放开你': gt 'brothel_section1', 'section1_end', 1
+
+	elseif ARGS[1] = 1:
+		'接待员绕着你打转，显然很享受你被绑着的那副敞开姿势。'
+		if analPlugIn = 1 and rand(1, 100) <= 30:
+			'然后他注意到了那个还好好插在你肛门里的肛塞。他大声窃笑，却一句话也没说……这可不太妙……'
+			'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pullplugfromass.mp4"></video></center>'
+			'他用力一拔，把肛塞从你的肛门里扯了出来，让你早已被蹂躏的肛门又添了一份疼痛！'
+			$func('wrap', 'bimbo', '"好痛——！你这蠢货，你连钱都没付！"')
+			analPlugIn = 0
+			analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+			gs 'pain', 5, 'asshole', 'stretch'
+			gs 'stat'
+			act '对他大喊，让他解开你': gt 'brothel_section1', 'section1_end', 2
+		else
+			'<center><img <<$set_imgh>> src="images/locations/shared/brothel/receptionistgaze.jpg"></center>'
+			'你能从他脸上读出明显的厌恶。你宁愿不去猜他对你是怎么想的……他目光落在你赤裸身体上的感觉，让你比原本更加恐惧……'
+			act '求他终于把你解开': gt 'brothel_section1', 'section1_end', 2
+		end
+
+	elseif ARGS[1] = 2:
+		'<center><img <<$set_imgh>> src="images/locations/shared/brothel/receptionistslaverelease.jpg"></center>'
+		'终于，他朝你伸出手，开始解开绳结，放开了你。'
+		if analPlugIn = 1:
+			act '站起来': gt 'brothel_section1', 'section1_end', 3
+		else
+			gs 'arousal', 'end'
+			act '离开': gt 'brothel', 'brothel_dressingroom'
+		end
+
+	elseif ARGS[1] = 3:
+		'当你试着站起身时，突然意识到那个巨大的肛塞还深深插在你的肛门里……'
+		$func('wrap', 'bimbo', '（我得把它拿出来…）')
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/shared/brothel/pullplugfromassyourself.mp4"></video></center>'
+		$func('wrap', 'bimbo', '哎哟…哎哟…哎哟哟！') + '伴随着一声响亮的湿"啵"声，塞子终于被挤了出来！'
+		analPlugIn = 0
+		analPlugOut = hadOwnanalPlugIn & killvar 'hadOwnanalPlugIn'
+		gs 'pain', 5, 'asshole', 'stretch'
+		gs 'stat'
+		gs 'arousal', 'end'
+		act '扔掉它然后离开': gt 'brothel', 'brothel_dressingroom'
+	end
+end
+
+
+--- brothel_section1 ---------------------------------

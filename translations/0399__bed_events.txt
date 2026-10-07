@@ -1,0 +1,558 @@
+# bed_events
+menu_off = 1
+
+!! Bed events trigger after going to lie down on the bed, but before actually lying down in bed (and getting to choose to sleep, get out, read a book, etc)
+!!
+!! Moved here from bed.
+!! When done, move to bed2
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                           Event handlers                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'start' or $ARGS[0] = '':
+	menu_off = 1
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+
+	if sleepVars['events_active'] = 1:
+		sleepVars['events_done'] = 0
+
+		if (hour > 22 or hour < 3) and rand(0, 50) = 0 and houserab = 1 and houserabday ! daystart and pcs_sleep < 50 and $loc = 'nichBedroomServant':
+			$sleep_events[] = 'gs ''bed_events'', ''rab'' '
+		end
+		if (hour > 22 or hour < 3) and rand(0, 200) = 0 and instr('bedr;bedr2x;korr;korr2x', $loc) > 0 and $husID = '' and $wifID = '':
+			$sleep_events[] = 'gs ''bed_events'', ''vor'' '
+		end
+
+		xgt 'bed_events', 'mod_sleepevents'
+	end
+
+	gt 'bed_events', 'continue'
+end
+
+
+if $ARGS[0] = 'mod_sleepevents':
+	!! This location is here to allow mods to hook into the system.
+	!! Either check for: if $ARGS[0] = 'bed_events' and $ARGS[1] = 'mod_sleepevents'
+	!!
+	!! You can add events as: $sleep_events[] = 'gs ''mod_loc'' ''mod_args0'' '
+	!! A random event will be chosen from amongst the added ones.
+	!! If an event MUST trigger (due to quest timing), add it tp $sleep_events_priority[] = 'gs ''mod_loc'' ''mod_args0'' '
+	!!
+	!! If the event does not break the sleep cycle (merely interrupts it) it needs to end with gs 'bed_events', 'event_end'
+	!! If the event removed Sveta from her location (aka her sleep is cut short and/or she leaves her bed), you must call gs 'bed_events', 'exit' before exiting the location
+	!!     Example: Act: 'Leave': gs 'bed_events', 'exit' & gt $new_loc, $new_log_arg
+	!!
+	!! This is to cleanup all necessary variables.
+	!!
+	!! DO NOT DIRECTLY GOTO/GOSUB OUTOF THIS LOCATION. ALWAYS ADD IT TO THE QUEUEs!!!!
+	!! IT WILL ALMOST CERTIANLY END BADLY WHEN MORE THAN 1 MOD IS INVOLVED.
+
+	gs 'mod_system', 'sleep', 'bed_events', 'mod_sleepevents'
+	xgt 'bed_events', 'event_handler'
+end
+
+
+if $ARGS[0] = 'event_handler':
+	if sleepVars['events_done'] < 1:
+		if arrsize('$sleep_events_priority') > 0:
+			gt 'bed_events', 'event_handler2', 'priority'
+		elseif arrsize('$sleep_events') > 0:
+			gt 'bed_events', 'event_handler2'
+		end
+	end
+
+	xgt 'bed_events', 'continue'
+end
+
+
+if $ARGS[0] = 'event_handler2':
+	sleepVars['events_done'] += 1
+
+	if $ARGS[1] = 'priority':
+		temp_slev_id = rand(0, arrsize('$sleep_events_priority')-1)
+		$temp_sleep_event_chosen = $sleep_events_priority[temp_slev_id]
+		killvar 'sleep_events_priority', temp_slev_id
+	else
+		temp_slev_id = rand(0, arrsize('$sleep_events')-1)
+		$temp_sleep_event_chosen = $sleep_events[temp_slev_id]
+		killvar 'sleep_events', temp_slev_id
+	end
+
+	killvar 'temp_slev_id'
+	dynamic $temp_sleep_event_chosen
+
+	xgt 'bed_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'event_end':
+
+!!	if arrsize('$sleep_events_priority') > 0:
+!!		gt 'bed_events', 'event_handler2', 'priority'
+!!	end
+
+	xgt 'bed_events', 'event_handler'
+end
+
+
+if $ARGS[0] = 'exit':
+	sleepVars['events_done'] = 0
+	sleepVars['stat_display'] = 0
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+	killvar 'temp_slev_id'
+	killvar 'temp_sleep_event_chosen'
+	inSleep = 0
+end
+
+
+if $ARGS[0] = 'continue':
+	sleepVars['events_done'] = 0
+	sleepVars['stat_display'] = 0
+	killvar 'sleep_events'
+	killvar 'sleep_events_priority'
+	killvar 'temp_slev_id'
+	killvar 'temp_sleep_event_chosen'
+
+	xgt 'bed2', 'start'
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                               Events                               !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'rab':
+	gt 'bed_events', 'rab2'
+end
+
+
+if $ARGS[0] = 'vor':
+	gt 'bed_events', 'vor2'
+end
+
+
+if $ARGS[0] = 'rab2':
+	!! TODO check arousal usage
+	menu_off = 1
+	minut += 120
+	houserabday = daystart
+
+	'<center><img <<$set_imgh>> src="images/characters/city/nicholas/sex/r0.jpg"></center>'
+	'你一上床，女主人就走进房间。"怎么，我的小母狗要睡觉了？"她在门口厉声问道。'
+	'"是的……"你温顺地回答。'
+	'"是的，谁？"她继续追问。'
+	'"是的，女主人……"你回答着坐到床上。她已经喝醉了，连站都站不稳，直接从瓶子里喝着葡萄酒，洒了不少在地板上。'
+	'"这还差不多，不过今天你必须受到惩罚。"她撩起裙子，露出假阳具束带。"吮吸它。"她命令道。'
+
+	act '吮吸它':
+		*clr & cla
+
+		if analPlugIn = 1: analPlugIn = 0 & analPlugOut = 1
+		if pcs_makeup ! 1 and cosmetic_tattoo = 0: pcs_makeup = 0
+
+		'<center><img <<$set_imgh>> src="images/characters/city/nicholas/sex/r1.jpg"></center>'
+		'你把假阳具含进嘴里，没什么热情地开始为她口交。女主人虽然醉了，却注意到你没有用心，开始顺着你的动作挺动，把假阳具顶得更深，让你干呕起来。'
+		'"噢，该死的倔母狗！躺到床上去。快点儿。"她用力把你推倒在床上。'
+
+		gs 'arousal', 'bj', 5, 'sub', 'lesbian'
+		gs 'stat'
+
+		act '躺下':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/city/nicholas/sex/r2.jpg"></center>'
+			'你躺到床上，她爬上来跪在你的脸上方。她让你张开嘴，用力把假阳具塞了进去。你想躲开，但她的双手死死按住你的头。她继续蹂躏你的嘴，几乎不给你喘气的机会，越顶越深，最后一直插进你的喉咙，完全切断了你的呼吸。当你开始失去意识时，她终于把它抽了出来，让你侧过身去，喘息着、抽着鼻子。'
+			'"现在该惩罚了。站起来，母狗！"她命令道。'
+
+			gs 'arousal', 'bj', 5, 'sub', 'lesbian', 'rough'
+			gs 'stat'
+
+			act '站起来':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/city/nicholas/sex/r3.jpg"></center>'
+				'你跪趴在床上。"你湿了。"她说着，用假阳具把你的唾液抹到你的屁股上，"你需要的是惩罚，而不是快感。把屁股分开。"'
+				'你伸手向后，试图放松屁股，但还没来得及放松，疼痛就刺穿你的身体——她强行把假阳具插进你的肛门，没给你的屁股适应的时间就开始疯狂地操你。你双手和牙齿紧紧抓住毯子，泪水夺眶而出，呜咽着，但她依然继续。渐渐累了，她放慢了节奏。"怎么样，疼吗？"她问道。'
+				'"是的女主人，非常疼！"你含着泪喘息道。'
+				'"那好，让我们看看这个感觉如何。"她说着，开始把瓶子里的葡萄酒倒在假阳具和你的屁股上。'
+				'"谢谢你，女主人！"你说着，而她又开始加快节奏。酒在你的皮肤上开始变干，疼得你放声尖叫。仿佛过了一个世纪，她终于精疲力竭，取下假阳具，一言不发地离开了房间。你瘫倒在床上，沉沉睡去。'
+
+				gs 'arousal', 'anal_strap', 5, 'sub', 'lesbian', 'rough'
+				gs 'arousal', 'end'
+
+				act '睡眠': gs 'bed_events', 'event_end'
+			end
+		end
+	end
+
+	gs 'willpower', 'sex', 'resist', 'medium'
+	if pcs_willpwr < will_cost:
+		act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拒绝' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			houserab = 2
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/characters/city/nicholas/sex/r4.jpg"></center>'
+			'"不！"你回答。'
+			'"你现在就给我吮，不然你会非常不好过！"她断言道。'
+			'"不！"你再次回答。'
+			'"好吧，这是你自找的！"她尖叫着挥出一拳，想打你。你轻松躲开这一拳，一脚踢在她的肚子上。'
+			'"贱人！"她呻吟着弯下腰。你已经受够了，跳下床，双手抓住她的头，用膝盖撞向她的脸。'
+			'她撞进角落里，但你并没有冷静下来。想起她肮脏的靴子和运动鞋的味道，你冲到她面前，开始把一只运动鞋往她嘴里塞。'
+			*nl
+			'当你再也塞不进去时，你把运动鞋扔到一边，抓住她的头发把她甩到床上。'
+			'你跳上床，跨坐在她脸上，把阴部贴到她的嘴上。"吃了我吧，贱人！"你大喊着，她试图把你推开。'
+			'但她的头被你的大腿紧紧夹住，你继续叫喊着。很快你感到她的舌头贴在你的阴部上，开始摆动腰肢，在她的脸上研磨，并不断加快节奏。'
+			'她没有反抗，还想把舌头伸进你的阴部。你开始享受她的顺从，想到自己主导的行为，你变得更加兴奋。'
+			'你甚至想到了她的假阳具可以怎么用，正享受着这个念头时，你达到了高潮。你把阴部在她的脸上蹭着结束了，让她的整张脸都沾满了你的汁液。'
+			*nl
+			'她悄悄下了床，整理好衣服离开了房间。"畜生。"你应该小心点；谁知道她会怎么报复你。'
+
+			$orgasm_or = 'yes'
+			gs 'arousal', 'cuni', 20, 'dom', 'rough'
+			gs 'arousal', 'end'
+
+			act '呼吸': gs 'bed_events', 'event_end'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'vor2':
+	menu_off = 1
+	if rex['owned'] = 0:
+		'你正躺在床上，听到走廊里有动静。你决定起身查看，走到门口时，你看到两个蒙面男人。'
+		act '尖叫': gt 'bed_events', 'vor3'
+
+	else
+		if dog_bravery = 0:
+			dog_bravery = rand(1, 100)
+		end
+
+		if dog_bravery < 50:
+			'你正躺在床上，听到走廊里有动静。你决定起身查看，走到门口时看到两个蒙面男人。<<$rex[''name'']>>在角落里瑟瑟发抖。'
+			act '尖叫': gt 'bed_events', 'vor3'
+		else
+			minut += 10
+			'你正躺在床上，突然听到走廊里传来一阵骚动。你起身去查看，赶到时看到<<$rex[''name'']>>正把两个蒙面男人追到门外。你能听到他们跑下楼梯时大声咒骂。'
+			'你呼唤你的狗的名字，它从楼梯口走了回来，看起来很平静。'
+
+			act '拥抱他':
+				delact $selact
+				'你跪下拥抱<<$rex[''name'']>>，想到如果它不在这里会发生什么，你的心怦怦直跳。'
+			end
+
+			act '检查门锁':
+				cla
+				'你检查了门锁，看起来完好无损。你不确定是自己进来时忘了锁门，还是锁被撬开了。也许你应该再装一把锁……'
+				act '锁上门':
+					gs 'bed_events', 'exit'
+					gt 'korr'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'vor3':
+	menu_off = 1
+	minut += 60
+	'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/sex/g0.jpg"></center>'
+	'你还没来得及张嘴尖叫，一把刀就已经架在了你的喉咙上。"敢叫我就割了你，贱人！"其中一人嘶哑地说。'
+	'他们绑起你的双手，一个人去搜查你的公寓，另一个人看守你。他坐下来打量着你，然后开始用刀在你的身上划过。'
+	'"害怕了？"他问道。你觉得保持沉默更好，什么也不说，看着地板。"这么说你<i>确实</i>害怕了……"'
+	'他开始在你身上乱摸，你想躲开，但刀又回到了你的喉咙上。"别动，否则刀可能会滑。致命地……"他嘶哑地说着，继续在你身上摸来摸去。'
+	'另一个闯入者终于回来了。"该离开这儿了。"他说。"除非我们先给这块多汁的小点心一点甜头尝尝。"他补充道，在你身边坐下。'
+
+	if pcs_apprnc < 120:
+		'"堵住她的嘴。"其中一人命令道，另一人没有争辩，拿起你的一些衣服塞进你的嘴里。"如果接下来半小时你想离开，你就死定了。"他说完，两人离开了。'
+		'你连半小时都没等就开始挣扎着想要挣脱。幸运的是，他们确实不太会打结，你很快就挣脱了。'
+
+		act '检查损失': gt 'bed_events', 'vorend'
+
+	else
+		guy += 2
+		stat['rape_count'] += 1
+		'"嘿，甜心小脸蛋。直觉告诉我你喜欢挨操。"第一个人说。'
+
+		act '恳求':
+			*clr & cla
+			gs 'npcgeneratec', 0, '强奸犯 1', rand(18, 40), 0, 1
+			gs 'npcStat', $npclastgenerated
+
+			gs 'npcgeneratec', 0, '强奸犯 2', rand(18, 40), 0, 1
+			gs 'npcStat', $npclastgenerated, 1
+
+			'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/sex/g1.jpg"></center>'
+			'你被恐惧击中。"跪下，张开嘴，婊子。如果我们感觉到一丝牙齿，我就把你的喉咙从耳朵这边割到那边！"第二个人说着掏出了他的鸡巴。'
+			'你开始向他们求饶，但他们只是把你按跪下来，他把鸡巴抵在你的嘴唇上。你不情愿地张开嘴，他的鸡巴滑进了你的嘴里。'
+			'他双手抓紧你的头，开始操你的脸，随后他们开始轮流上你。'
+			'"让她跪趴好。"其中一人最终命令道。'
+
+			gs 'arousal', 'bj', 15, $npcID[0], 'rough', 'sub', 'group', 'bound'
+			gs 'stat'
+
+			act '站起来':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/sex/g2.jpg"></center>'
+				'你站起来弯下腰，其中一人站到你身后，把鸡巴插进你的阴部。'
+				'"张开嘴！"第二个家伙咆哮着，把鸡巴插进你的嘴里。他们继续从两边强奸你，然后解开你的双手，从你身上下来。"让我们看看她双手自由时能做些什么。"其中一人说道。'
+
+				$orgasm_or = 'yes'
+				gs 'arousal', 'bj', 15, $npcID[0], 'rough', 'sub', 'group', 'bound'
+				gs 'arousal', 'vaginal', -15, $npcID[1], 'rough', 'sub', 'group', 'bound'
+				gs 'stat'
+
+				act '继续':
+					picrand = 38
+					gs 'bed_events', 'exit'
+					xgt 'sexdvoe', 'var'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'vorend':
+	*clr & cla
+	menu_off = 1
+	if remsitr = 0: '<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/sitr.jpg"></center>'
+	if remsitr = 1: '<center><img <<$set_imgh>> src="images/locations/city/residential/apartment/sitr2.jpg"></center>'
+
+	'庆幸这一切终于结束了，你检查公寓看丢了什么东西。'
+
+	if stolmoney > 0:
+		'他们从你客厅的桌子上拿走了<<$func(''money'', ''format'', stolmoney)>>。'
+		stolmoney = 0
+	end
+
+	if money > 0:
+		'他们拿走了你身上的<<$func(''money'', ''format'', money)>>。'
+		gs 'money', 'set', 0, 'cash'
+	end
+
+	if mc_inventory['tech_computer'] = 1:
+		'他们拿走了你的电脑。'
+		mc_inventory['tech_computer'] = 0
+	end
+
+	gs 'stat'
+	act '完成': gs 'bed_events', 'event_end'
+end
+
+
+!! NEVER CALLED?
+if $ARGS[0] = 'mast':
+	menu_off = 1
+	if pcs_inhib < 30: inhib_exp += rand(1, 3)
+	gs 'mood', 'raise', 'small'
+	gs 'arousal_funcs', 'stretch', 'vaginal'
+
+	if $husID = '' or instr('bedr;bedr2x;korr;korr2x', $loc) <= 0 or spouseVars['drink'] = 10:
+		gs 'bed_events', 'exit'
+		gt 'selfplay', 'start'
+	else
+		if mc_inventory['dildo_small'] = 0:
+			if week < 6 and hour < 16:
+				gs 'bed_events', 'exit'
+				gt 'selfplay', 'start'
+			else
+				'你觉得体内需要点什么，心想丈夫会是更好的选择。'
+				gs 'bed_events', 'event_end'
+			end
+		else
+			if week < 6 and hour < 16:
+				gt 'bed_events', 'mast1'
+			else
+				gt 'bed_events', 'mast2'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mast1':
+	gs 'npcStat', 'D1'
+	'<center><video autoplay loop <<$set_imgh>> src="images/shared/sex/mast/mastr.mp4"></video></center>'
+	'再也无法控制自己，你立刻伸手去拿你的假阳具以便最终满足你的淫欲。你毫不耽搁地将假阳具的吸盘底座固定到地板上然后慢慢坐下。'
+	'当你感到粗大的顶端撑开你的阴唇时，一阵战栗顺着你的脊椎流下，很快整根阳具开始深深滑入你的穴内。一声低沉的呻吟在它终于顶进你体内时响彻房间，让你如登天堂又坠回人间。'
+	'挪动双腿找到更舒服的姿势后，你开始摆动臀部并在上面颠动，随着不断加大力度和加快节奏，呻吟声越来越大。很快你就将屁股狠狠砸在冰冷的地板上，只用了几分钟就达到高潮，脚趾紧蜷，美妙的感觉传遍全身。'
+	'你很快便抽搐在假阳具上，汁液顺着它的长度滴落，浸湿了你身下的地板。你深吸几口气，脸上露出微笑。这正是你需要的！'
+	$orgasm_or = 'custom'
+	gs 'arousal', 'vaginal_dildo', 10, 'masturbate', 'no_orgasm_msg'
+	gs 'arousal', 'end'
+
+	act '呼吸': gs 'bed_events', 'event_end'
+end
+
+
+if $ARGS[0] = 'mast2':
+	gs 'npcStat', $husID
+	'<center><img <<$set_imgh>> src="images/characters/city/husband/sex/m21.jpg"></center>'
+	'你弯下腰，开始用假阳具操自己的阴部。'
+	gs 'arousal', 'vaginal_dildo', 15, 'D1'
+	gs 'stat'
+
+	if hour >= 23 or hour < 7:
+		'<<$boydesc>>看着你，有点目瞪口呆。'
+	else
+		'你正渐入佳境时，<<$boydesc>>走进了房间。'
+	end
+	if npc_gentle[$boy] = 1:
+		'"你在做什么？"他问道。'
+		'"对不起亲爱的，但我真的很需要，而且你一直很忙。"你没有停下，回答道。'
+		'"你多久做一次这种事？"他问道。'
+		'"经常，有时还插进屁股里。你想看看吗？"你问道。'
+
+		if npc_pervert[$boy] = 0:
+			gs 'npc_relationship', 'modify', $boy, -1
+			'"我会在门外等你结束。"他说完离开了。你继续快速地满足自己，很快就结束了。'
+			$orgasm_or = 'yes'
+			gs 'arousal', 'clit_finger', 5, 'masturbate'
+			gs 'arousal', 'end'
+
+			act '完成': gs 'bed_events', 'event_end'
+
+		else
+			'"哦。我不知道……"他结结巴巴地说。'
+			'"来吧。"你鼓励他。'
+
+			act '给他看':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/city/husband/sex/m22.jpg"></center>'
+				'你把按摩棒从阴道里抽出来，朝丈夫眨了眨眼，然后把它插进自己的肛门。<<$boydesc>>目不转睛地看着假阳具消失在你的屁股里。'
+				'你看到他的裤子鼓了起来。"还想要别的什么吗，亲爱的？"你微笑着问道。'
+				'"我能加入吗？"他有点不好意思地问道。'
+				gs 'arousal', 'anal_dildo', 5, 'masturbate'
+				gs 'stat'
+
+				act '邀请':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/characters/city/husband/sex/m23.jpg"></center>'
+					'<<$boydesc>>掏出鸡巴开始自慰。这和你预料的不一样，你开始自慰时，有点难过他没有来操你。'
+					'你看着丈夫自慰，他也看着你，脸上满是快感，直到你尖叫着趴在桌子上，体验了一次高潮。'
+					'<<$boydesc>>还在自慰，看着你摊在桌子上，然后你把假阳具从屁股里拔出来，一边看着他的眼睛一边舔它。'
+					'这一幕让他立刻射了一地，随后你走过去亲吻他的嘴唇。他热情地回吻你。'
+					gs 'arousal', 'anal_dildo', 5, 'masturbate'
+					$orgasm_or = 'custom'
+					gs 'arousal', 'end'
+
+					act '完成': gs 'bed_events', 'event_end'
+				end
+			end
+		end
+
+	elseif npc_rough[$boy] = 0:
+		'"你是想告诉我，我不够满足你吗？"他问道。'
+		'"对不起亲爱的，但我真的很需要，而且你一直很忙。"你没有停下，回答道。'
+		'"那好吧，既然你知道我会看着，就全都表演给我看吧。"他说。'
+		'"想看看我也插进屁股里做吗？"你提议道。'
+
+		if npc_pervert[$boy] = 0:
+			gs 'npc_relationship', 'modify', $boy, 1
+			spouseVars['pervert_add'] += 1
+			'"不，我觉得这就够了。"他说着坐到椅子上开始看你。你继续快速地满足自己，很快就当着他的面结束了。'
+			$orgasm_or = 'yes'
+			gs 'arousal', 'clit_finger', 5, 'masturbate'
+			gs 'arousal', 'end'
+			'<<$boydesc>>站起来，开玩笑似的鼓起掌来。"精彩！再来一个？"他笑着。'
+			'"为了这么可爱的观众，什么都行，不过先来个中场休息。"你笑着说，<<$boydesc>>扶你从桌子上下来。'
+
+			act '完成': gs 'bed_events', 'event_end'
+
+		else
+			gs 'npc_relationship', 'modify', $boy, 1
+			'"那好吧，我想你最好表演给我看。"他说。'
+			'"如你所愿。"你回答。'
+
+			act '显示':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/city/husband/sex/m22.jpg"></center>'
+				'你把按摩棒从阴道里抽出来，朝丈夫眨了眨眼，然后把它插进自己的肛门。<<$boydesc>>目不转睛地看着你来回抽插屁股里的假阳具。'
+				'你看到他的裤子鼓了起来。"还想要别的什么吗，亲爱的？"你微笑着问道。'
+				'"我不只是想要什么，我要做点什么！"他回答道，解开裤子，把鸡巴送到你的嘴边。'
+				gs 'arousal', 'anal_dildo', 5
+				gs 'stat'
+
+				act '给他口交':
+					*clr & cla
+					'<center><img <<$set_imgh>> src="images/characters/city/husband/sex/m24.jpg"></center>'
+					'你把他疲软的阴茎含进嘴里开始吮吸，同时继续把假阳具插进自己的屁股。'
+					'当他的鸡巴终于硬了，<<$boydesc>>阻止了你。"现在我要操这个洞。"'
+					gs 'arousal', 'clit_finger', 5
+					gs 'arousal', 'bj', -5
+					gs 'stat'
+
+					act '被人操屁股':
+						picrand = 89
+						gs 'bed_events', 'exit'
+						gt 'sex', 'anal'
+					end
+				end
+			end
+		end
+	else
+		'"洞里痒了？"他问道。'
+		'"对不起亲爱的，但我真的很需要，而且你一直很忙。"你没有停下，回答道。'
+
+		if npc_pervert[$boy] = 0:
+			gs 'npc_relationship', 'modify', $boy, 1
+			spouseVars['pervert_add'] += 1
+			'"你早该说一声。现在张开嘴。"他说着掏出鸡巴，用力插进你的嘴里。'
+			'他抓着你的头发操你的嘴，让你不要停止自慰，直到他玩腻了你的嘴。"受够这橡胶玩意儿了！我要操你。"'
+			gs 'arousal', 'vaginal_dildo', 10
+			gs 'arousal', 'bj', -10
+			gs 'stat'
+
+			act '张开你的双腿 ':
+				picrand = 89
+				gs 'bed_events', 'exit'
+				gt 'sex', 'vag'
+			end
+
+		else
+			gs 'npc_relationship', 'modify', $boy, 1
+			'"你要把这个愚蠢的玩具插进你的阴道、屁股和嘴里。我想让你干多久，你就得干多久。"他说着坐下来观看。'
+			'你迅速而顺从地照做。'
+			gs 'arousal', 'vaginal_dildo', 5
+			gs 'arousal', 'anal_dildo', -5
+			gs 'stat'
+
+			act '献上你的嘴':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/city/husband/sex/m24.jpg"></center>'
+				'你还在用假阳具插着自己的阴道和屁股，同时向<<$boydesc>>献上你的嘴。他起身走到你面前。'
+				'你含住他疲软的阴茎开始吮吸，直到他的鸡巴终于硬起来，他阻止了你。"现在我要操你的屁股。"'
+				gs 'arousal', 'vaginal_dildo', 5
+				gs 'arousal', 'anal_dildo', 5
+				gs 'arousal', 'bj', -10
+				gs 'stat'
+
+				act '献出你的屁股':
+					picrand = 89
+					gs 'bed_events', 'exit'
+					gt 'sex', 'anal'
+				end
+			end
+		end
+	end
+end
+
+
+--- bed_events ---------------------------------

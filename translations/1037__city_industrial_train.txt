@@ -1,0 +1,137 @@
+# city_industrial_train
+!! 2021/05/06
+
+if $ARGS[0] = 'outside':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_industrial_train', 'outside'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	'<center><b>火车站</b></center>'
+	if month >= 11 or month <= 3:
+		if hour >= 9 and hour <= 16:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/pavtrainstation_winter_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/pavtrainstation_winter_night.jpg"></center>'
+		end
+	else
+		if hour >= 7 and hour <= 18:
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/pavtrainstation_day.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/pavtrainstation_night.jpg"></center>'
+		end
+	end
+
+	if func('car_funcs', 'is_here'):
+		'在停车场里有一个<a href="exec:gs ''carF'', ''start''">你的<<$car[''name'']>></a>.'
+	end
+
+	'有一条小路通向远方，朝向<a href="exec:minut += 60 & gt ''city_lake'', ''start''">湖泊</a>.'
+
+	act '步行前往城市工业区': minut += 15 & gt 'city_industrial'
+	act '步行去湖边': minut += 60 & gt 'city_lake', 'start'
+	act '进入车站大楼': minut += 2 & gt 'city_industrial_train', 'inside'
+end
+
+
+if $ARGS[0] = 'inside':
+	*clr & cla
+	CLOSE ALL
+	if sound_settings['environment_off'] = 0: PLAY 'sound/vokzal.mp3', 30
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_industrial_train', 'inside'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '火车站')
+	$func('wrap', 'header center b', '工业中心')
+	'<center><img <<$set_imgh>> src="images/locations/shared/train/vokzalholle.jpg" ></center>'
+	'工业中心这座古老的大车站是一栋令人印象深刻的建筑。它人来人往，有许多商店和酒吧，还有所有的站台和列车。'
+	*nl
+
+	act '离开车站 (0:02)': minut += 2 & gt 'city_industrial_train', 'outside'
+	act '去洗手间 (0:01)': minut += 1 & gt 'city_industrial_train', 'toilet'
+
+	act '查看火车时刻表':
+		*clr & cla
+		'<center><h1>火车时刻表</h1></center>'
+		gs 'transport_functions', 'display_train_schedule'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_train_schedule', 'pc'
+		act '别再盯着日程表了': gt 'city_industrial_train', 'inside'
+	end
+
+	if daystart >= transportVars['trainpass_day']:
+		act '去售票处': gt 'city_industrial_train', 'ticket'
+	else
+		$func('transport_functions', 'display_trainpass_time')
+		act '乘列车前往圣彼得堡市中心 (<<func(''transport_functions'', ''display_train_timecost'', ''industrial'', ''center'')>>)': gt 'train', 'industrial_center'
+		act '乘列车前往集体农庄老月台 (<<func(''transport_functions'', ''display_train_timecost'', ''industrial'', ''communal'')>>)': gt 'train', 'industrial_communal'
+		act '坐火车去加杜基诺村 (<<func(''transport_functions'', ''display_train_timecost'', ''industrial'', ''gadukino'')>>)': gt 'train', 'industrial_gadukino'
+		act '乘列车前往巴甫洛夫斯克 (<<func(''transport_functions'', ''display_train_timecost'', ''industrial'', ''pavlovsk'')>>)': gt 'train', 'industrial_pavlovsk'
+	end
+end
+
+
+if $ARGS[0] = 'ticket':
+	if daystart < transportVars['trainpass_day']: gt 'city_industrial_train', 'inside'
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_industrial_train', 'ticket'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '火车站')
+	$func('wrap', 'header center b', '工业中心')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/trainstation/ticketoffice.jpg"></center>'
+	'工业区火车站的售票处。'
+	*nl
+
+	gs 'transport_functions', 'set_train_wait_time', 'industrial'
+	'下一班开往市中心的火车 ' + iif(transportVars['train_wait_center'] = 0, '正在离开！', '将在<<transportVars[''train_wait_center'']>>分钟后离开。')
+	'下一班开往巴甫洛夫斯克方向的火车 ' + iif(transportVars['train_wait_pavlovsk'] = 0, '正在离开！', '将在<<transportVars[''train_wait_pavlovsk'']>>分钟后离开。')
+
+	act '离开售票处 (0:01)': minut += 1 & gt 'city_industrial_train', 'inside'
+
+	act '查看火车时刻表':
+		*clr & cla
+		'<center><h1>火车时刻表</h1></center>'
+		gs 'transport_functions', 'display_train_schedule'
+		*nl
+		*nl
+		gs 'transport_functions', 'display_train_schedule', 'pc'
+		act '别再盯着日程表了': gt 'city_industrial_train', 'ticket'
+	end
+
+	gs 'transport_functions', 'buy_train_ticket', 'industrial'
+	gs 'transport_functions', 'buy_train_pass'
+end
+
+
+if $ARGS[0] = 'toilet':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'city_industrial_train', 'toilet'
+	$location_type = 'bathroom'
+	$locclass = 'restroom'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	'<center><img <<$set_imgh>> src="images/locations/shared/bathroom/publictoilet.jpg"></center>'
+
+	act '回到车站': minut += 1 & gt 'city_industrial_train', 'inside'
+
+	act '照镜子': gt 'mirror', 'start'
+	if pcs_hairbsh < 1: act '梳理头发': gt 'mirror', 'brush'
+
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	gs 'din_van', 'publicpan'
+end
+
+killvar 'temp_transportVars'
+
+
+--- city_industrial_train ---------------------------------

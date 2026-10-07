@@ -1,0 +1,178 @@
+# cum_call
+
+!{$ARGS[0] is for the location and should be set for all but vaginal:
+'labia' - 'pantyfront' - 'anus' - 'butt' - 'pantyrear' - 'clothes_hidden' - 'clothes' - 'back' - 'legs'
+'arms' - 'face' - 'mouth' - 'hands' - 'stomach' - 'breasts' - 'hair' - 'internalcondom' - 'precum' - 'mouth_swallow'
+	'precum' - is for whenever Sveta has unprotected vaginal sex. It will automatically set the volume to 1.
+	'mouth_swallow' does the same as mouth but increments swallow for the cum eater trait
+	'feet' redirects to 'legs'
+	'anal' redirects to 'anus' (prevents further errors)
+$ARGS[1] is for the name of the sexual partner
+ARGS[2] is a for knowing the partner. Defaults to 0. If this is not set to 1 the status window message will mention "some guy" instead of his name.
+	0 - unknown sex partner (his name may be known, but she never saw him before, and likely won't ever again, or she won't remember it)
+	1 - sex partner is known for MC (classmate, neighbor, someone she knew beforehand)
+	2 - MC is unaware of the act (like unconscious sex)
+ARGS[3] is contraception, if left blank it will use the default, if you want to force a particular type:
+	1 - he thought you were on the pill but you weren''t.
+	2 - you are on the Pill
+	3 - Condom. Condoms can still fail via the code in cum_manage with noprotect=1.
+	4 - the Condom Broke. This is mostly used to check if cum_manage resulted in a broken condom.
+	5 - the Condom Slipped off. Like 4, this is mostly to check if the contraception of 3 had a failure. But both 4 and 5 can be specified if you want to write an event where it fails no matter what.
+	6 - the condom was Sabotaged but the main character shouldn''t know that
+	7 - the Condom was Sabotaged by the main character.
+$ARGS[3] is the $npcCondom variable (set in npcStat) as an alternative way to set contraception. Is translated to ARGS[3]
+	'none'				- npc is not using a condom. Will translate to 1 (if not on the pill) or 2 (if you are)
+	'sabotage'			- npc is using a sabotaged condom. Will translate to 7
+	'sabotaged_other'	- npc is using a sabotaged condom. Will translate to 6
+	'broken'			- npc is using a broken condom. Will translate to 4
+	'normal'			- npc is using a normal condom. Translates to 3
+	'extra_thin'		- npc is using a thin condom. Translates to 3
+	'ribbed'			- npc is using a ribbed condom. Translates to 3
+ARGS[4] is for changing the potency, -1 for unable to impregnate, default is 10,000
+	NOTE volume is ignored for pregnancy risk if this or npc_spermpot[] for the partner is set
+ARGS[5] is volume, default is 40 (4ml)
+For a simple call you only need the first 3, ie:
+gs 'cum_call', 'anus', 'Kolka', 1 - for a known partner
+gs 'cum_call', 'anus' - for an unknown partner named "unknown", or
+gs 'cum_call', 'anus', 'plumber' - for an unknown partner named "plumber" !}
+
+
+$cumboy = $boy
+$cumnpc = $npcID
+$cumCon = $npcCondom
+
+!! This check if the name passed is not in the new MGX format
+if $ARGS[1] = '' or isnum(mid($ARGS[1], 2)) = 0:
+	if ARGS[2] ! 1:
+		gs 'npcgeneratec', 0, $ARGS[1], rand(18, 60), 0, 1
+		$ARGS[1] = $npclastgenerated
+	else
+		tempnpcid = arrpos('$npc_usedname', $ARGS[1])
+		if tempnpcid > 0:
+			$ARGS[1] = 'A<<tempnpcid>>'
+			'<br><b><font color="teal">开发者警告：旧名称 cum_call 需要从<<$ARGS[1]>>升级到 A<<tempnpcid>></font></b>'
+		else
+			msg 'cum_call 代码中出现错误。请联系开发者，告知您收到此消息之前正在进行的操作，以便修复错误。错误类型：cum_call 的值不正确。名称<<$ARGS[1]>>'
+			$ARGS[1] = 'D1'
+		end
+		killvar 'tempnpcid'
+	end
+end
+gs 'npcStat', $ARGS[1], 0, $ARGS[3]
+
+
+sexpartkno = iif(npc_love[$npcID] > 0, 1, 0)
+if ARGS[2] = 1:
+	sexpartkno = 1
+elseif ARGS[2] = 2:
+	sexunaware = 1
+end
+
+
+if $ARGS[3] = '':
+	sexcontra = max(0, min(ARGS[3], 7), sexcontra)
+else
+	if $ARGS[3] = 'none':
+		if pillcon2 > 1000:
+			sexcontra = 2
+		else
+			sexcontra = 1
+		end
+	elseif $ARGS[3] = 'sabotaged':
+		sexcontra = 7
+	elseif $ARGS[3] = 'sabotaged_other':
+		sexcontra = 6
+	elseif $ARGS[3] = 'slipped':
+		sexcontra = 5
+	elseif $ARGS[3] = 'broken':
+		sexcontra = 4
+	else
+		!! normal, extra_thin, ribbed
+		sexcontra = 3
+	end
+end
+
+sexspecpot = iif(ARGS[4] > 0, ARGS[4], npcSpermPot)
+sexvolume = iif(ARGS[5] > 0, ARGS[5], max(0, npcSpermVol))
+
+if $ARGS[0] = 'precum':
+	!! This is to check for pregnancy and stds from precum. It is added for readability when it is used in the code.
+	!! It will result in a vaginal cum_call with potency of 1/40th of what it would be for a normal call.
+
+	sexspecpot /= 40
+	sexvolume = 1
+	spafinloc = 0
+	cumprecheck = 1
+else
+	if arrpos('$ARGS', 'labia') >= 0:
+		spafinloc = 1
+	elseif arrpos('$ARGS', 'pantyfront') >= 0:
+		spafinloc = 2
+	elseif arrpos('$ARGS', 'anus') >= 0:
+		spafinloc = 3
+	elseif arrpos('$ARGS', 'anal') >= 0:
+		spafinloc = 3
+		stat['cum_anal_ml'] += sexvolume
+	elseif arrpos('$ARGS', 'butt') >= 0:
+		spafinloc = 4
+	elseif arrpos('$ARGS', 'pantyrear') >= 0:
+		spafinloc = 5
+	elseif arrpos('$ARGS', 'clothes_hidden') >= 0:
+		spafinloc = 6
+	elseif arrpos('$ARGS', 'clothes') >= 0:
+		spafinloc = 7
+	elseif arrpos('$ARGS', 'back') >= 0:
+		spafinloc = 8
+	elseif arrpos('$ARGS', 'legs') >= 0:
+		spafinloc = 9
+	elseif arrpos('$ARGS', 'feet') >= 0:
+		spafinloc = 9
+	elseif arrpos('$ARGS', 'arms') >= 0:
+		spafinloc = 10
+	elseif arrpos('$ARGS', 'face') >= 0:
+		spafinloc = 11
+	elseif arrpos('$ARGS', 'mouth') >= 0:
+		spafinloc = 12
+	elseif arrpos('$ARGS', 'mouth_swallow') >= 0:
+		stat['swallow'] += 1
+		if ARGS[2] = 2: stat['swallow_unaware'] += 1
+		stat['cum_swallowed_ml'] += sexvolume
+		gs 'beverage', 'semen_stats', sexvolume
+		spafinloc = 12  & !! semen_stats calls stat which resets spafinloc; so this needs to be set after
+		cum_semen_applied = 1
+	elseif arrpos('$ARGS', 'hands') >= 0:
+		spafinloc = 13
+	elseif arrpos('$ARGS', 'stomach') >= 0:
+		spafinloc = 14
+	elseif arrpos('$ARGS', 'breasts') >= 0:
+		spafinloc = 15
+	elseif arrpos('$ARGS', 'hair') >= 0:
+		spafinloc = 16
+	elseif arrpos('$ARGS', 'internalcondom') >= 0:
+		spafinloc = 17
+	else
+		spafinloc = max(0, min(ARGS[0], 17))
+		!! Vagina and default
+	end
+end
+
+
+!{'boy <<$npcdesc>> loc <<spafinloc>> contra <<sexcontra>> vol <<sexvolume>> ppt <<sexspecpot>> know <<sexpartkno>> unaware <<sexunaware>> cumboy <<$cumnpcID>>' !}
+
+gs 'cum_manage'
+
+
+	!! Cleanup
+
+if $cumnpc ! '':
+	gs 'npcStat', $cumnpc, 0, $cumCon
+elseif $cumboy ! '':
+	gs 'npcStat', $cumboy, 0, $cumCon
+end
+killvar 'cumboy'
+killvar 'cumnpc'
+killvar 'cumCon'
+killvar 'sexcontra'
+
+
+--- cum_call ---------------------------------

@@ -1,0 +1,643 @@
+# pushkin_ballet_class
+!! Date Created: 17th Sept, 2022
+!! Version: .01 - initial release
+!! Version: .02 - Bug fixes, npc migration, balance tweaks and implementation of assessment system. New appearance checker to assist in achieving grades.
+!! Author Hooded Silence
+!!
+!! Ballet Summer School - Lessons and day schedule
+!!
+!! Classes start 0800 and finish at 1700
+!! 0800 - 0900 - Stretches / Pilates - unknown instructor
+!! 0900 - 1100 - Group barre work and pose - Biserka Ananiashvili
+!! 1100 - 1200 - Make up theory and practice unknown instructor
+!! 1200 - 1300 - Lunch
+!! 1300 - 1600 - Pas de Deux and solo barre and movement practice - Biserka Ananiashvili
+!! 1600 - 1700 - Ballet and musical theory - Sofia Solovyova
+!!
+!! Variables
+!!
+!! ballet_day - Sets which day of the course you are on
+!! nclass - tracks next lesson (used for shower scene change)
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	$region = 'pushkin'
+	$location_type = 'public_indoors'
+	killvar 'sharedmeal'
+	$setloc['imagepath'] = 'locations/pushkin/ballet_school/'
+	$setloc['StageTitle'] = '忒耳西科瑞翼'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/hall.jpg'
+	!! clear switch vars
+	$balletEv['trigger'] = ''
+	event_day_max = 0
+	gs 'core_library', 'corridor'
+	gs 'core_library', 'stage_title'
+	!! Random trivia - Terpsichore is one of the nine Greecian muses. Her sphere was dance, rhythm and choral music.
+
+	if (month = 7 and day = 9) and (hour = 6 or hour = 7):
+		gt $loc, 'assessment'
+	elseif ballet_day = 6 and balletqw['school'] = 1:
+		minut += 60
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		*nl
+		if mayaqw['grave'] = 4:
+			'你做到了。你熬到了这周结束。接着， <<$npc_firstname[''A274'']>>. 跑过来一把抱住你。"这是干嘛？"你问。"因为你是我朋友，也是我的舞伴，"她笑着说。'
+			'认识你真是太好了，<<$pcs_nickname>>。希望咱们以后还能见面、再一起合作。"你假装想了想，瞧见她脸上担忧的表情。"当然，认识你也很开心，我会跟你保持联系的。"'
+		elseif mayaqw['grave'] < 4:
+			'你做到了。你熬到了周末。接着， <<$npc_firstname[''A274'']>>走过来，飞快地抱了你一下。"这是干嘛？"，你问。'
+			'"因为你是我的舞伴啊！"她笑着说。'
+			'"认识你真是太开心了，<<$pcs_nickname>>。希望咱们还能再见面，一起合作。"'
+			'"当然，认识你我也很开心，我会跟你保持联系的。等成绩一出来，我就告诉你。'
+			'"嗯，我也会的，<<$pcs_nickname>>"'
+		end
+		*nl
+		'就在这时，<<$npc_firstname[''A284'']>>从考场里走了出来。"谢谢大家这一周来参加。希望你们收获满满，也把这些课都记在心里。"你和同学们齐声低声附和。'
+		'"学校会在几周后联系你们，告知评估成绩，并通知我们是否给你们学徒项目的名额。"'
+		'你知道这些名额争起来会很激烈，于是瞥了一眼<<$npc_firstname[''A274'']>>.'
+		'她朝你眨了眨眼，意思是她对你被录取很有信心。'
+		*nl
+		'你走之前冲了个澡便去赶停在外面的巴士。巴士旁边站着<<$npc_firstname[''A284'']>>, 等大家聚齐后她对你们说。"这一周有你们相伴，我们非常开心，祝你们今后一切顺利。"说完，<<$npc_firstname[''A284'']>>转身走回了学校。'
+		gs 'din_van', 'showerdin'
+		gs 'stat'
+		gs 'homes_properties', 'set_home', 'parents_home'
+		act '回家':
+			!! Temporary during development - inform player and allow to (re)join Starlets
+			msg '芭蕾剧情目前就到这里。后续内容很快就会推出。'
+			AlbinaQW['StarletsJoined'] = 0
+
+			gt 'pav_commcenter'
+		end
+	elseif balletqw['school'] ! 1 and ballet_day = 1:
+		'<<$npc_firstname[''A284'']>>. 陪你到了学校，经过一段不长的路程你站在教室外等候由<<$npc_firstname[''A284'']>>安排。 你一边环顾四周看着各种舞者和表演的照片及艺术作品。'
+		'你打量着身边的女孩们，其中几个想吸引你的注意，可还没等你开口，<<$npc_firstname[''A284'']>>就从教室里走了出来。"你们现在可以进去了，姑娘们。"'
+		act '上课': gt $loc, 'pilates'
+	elseif balletqw['school'] ! 1 and ballet_day > 1:
+		'你和同伴们一起去学校，能看到前面几个同学在交头接耳，可你只顾想着自己的心事。还没等你回过神，你已经站在了第一节课的教室门口。'
+		act '上课': gt $loc, 'pilates'
+	elseif month ! 7 or month = 7 and day = 9 and hour >= 8:
+		ballet_grade_score['class'] -= 500
+		'你迟到了，或者干脆没去考试。这门课你已经不及格了。'
+		act '回家': gt 'pav_commcenter'
+	end
+end
+
+
+if $ARGS[0] = 'pilates':
+	*clr & cla
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	$setloc['StageTitle'] = '普拉提'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/pilates_2.jpg'
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	nclass = 1
+	gs 'pushkin_ballet_init', 'daily_assessment'
+	if ballet_day = 1:
+		minut = (8 - hour) * 60
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		'<<$npc_firstname[''A284'']>>沃尔科娃把你带到教室，她让你们都在外面等着，自己先进去了。几分钟后，她走出来，打开门。"进去吧，姑娘们。记住，从现在起，要礼貌、恭敬，最重要的是，要专注。"'
+		'你走进一间宽敞的练功房，墙上装着器械和镜子。角落的大窗户让阳光倾泻进来。角落里立着一架结实的抛光桃花心木钢琴。两位女士就站在那里看着你们鱼贯而入。'
+		'你们一群人挤在门边。其中一位女士大喊一声让你们各就各位！你们自动散开，本能地摆出了芭蕾第一站位。'
+		'"很好。"她从每个女孩身边走过，挑着毛病。接着，她转身走回队伍前面。走到前面时，她说，"大家可以放松，我是<<$npc_firstname[''A284'']>>阿纳尼亚什维利，这周由我教你们。"说完，她转身指向另一位女士。"这位是<<$npc_firstname[''A285'']>>索洛维约娃。她会是你们的音乐老师，也是课堂上的钢琴伴奏。"'
+		'"你们都是凭实力或决心被选来上这周课程的。你们是代表帕夫洛娃班的少数精英。你们是今年新生里的佼佼者，被挑来上这门课，好让你们更热爱舞蹈和芭蕾。"'
+		'"这一周会很累、强度很大，我们要你们全力以赴。在这儿这段时间，你们要全身心扑在舞蹈上，把心都跳出来。我对你们每个人都有这个要求。你们代表的是学校。谁要是做出有损学校名声的事，就会被除名。都明白了吗？"，她顿了顿，严厉地扫过每个人，"很好。"'
+		cla
+		act '开始普拉提':
+			*clr & cla
+			gs 'exercise', 'tier1', 30, 'agil', 'stren'
+			gs 'pushkin_ballet_init', 'exercise_pain'
+			gs 'stat'
+			gs 'core_library', 'stage_title'
+			'"每天上什么课，看你们宿舍的入学手册就行，不过既然介绍环节都结束了，咱们就开始用普拉提做拉伸吧。"'
+			'"举手：谁知道我们为什么练普拉提而不是瑜伽？"'
+			'一个女孩举起了手。'
+			'"你是？"<<$npc_firstname[''A284'']>>问道。" <<$npc_firstname[''A279'']>> <<$npc_lastname[''A279'']>>，"女孩答道。'
+			'" <<$npc_firstname[''A284'']>>的女儿？"'
+			'"是的，老师。"'
+			'"那么，区别在哪儿呢？"，<<$npc_firstname[''A284'']>>生硬地问。'
+			'"瑜伽练的是心性和柔韧，普拉提练的是意志和核心力量。"'
+			'"答得很好，这就是我们每天早上练普拉提的原因。练过瑜伽的话，你们会觉得这轻而易举。"'
+			'说着， <<$npc_firstname[''A284'']>>带着全班做起了高强度的练习，专门用来强化和拉伸肌肉。一小时后，你的身体因为热身而隐隐酸痛。'
+			act '下一节课': gt $loc, 'first_lesson'
+		end
+
+	elseif ballet_day >= 2:
+		*clr & cla
+		gs 'exercise', 'tier1', 30, 'agil', 'stren'
+		gs 'pushkin_ballet_init', 'exercise_pain'
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		'你们陆续走进教室上普拉提课。今天换了位老师。可还没等你们安顿好，她就已经开始教你们怎么用各种器械了。一个小时后，你们的肌肉被练得发酸。'
+		'"记住，同学们，拉伸、热身和规律的健身缺一不可。你们是精英运动员。这一点要时刻记在心里。"你注意到后排的加莎脸红了，不知道是什么让她有这种反应。下课前你匆匆喝了口水，然后赶去上下一节课。'
+		gs 'beverage', 'water_stats'
+		act '下一节课': gt $loc, 'first_lesson'
+	end
+end
+
+
+if $ARGS[0] = 'first_lesson':
+	*clr & cla
+	minut = (9 - hour) * 60
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	$setloc['StageTitle'] = '舞蹈课'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/ballet_class_002.jpg'
+	gs 'exp_gain', 'perform', rand(1, 2)
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	nclass = 2
+	gs 'pushkin_ballet_init', 'daily_assessment'
+	gs 'stat'
+	if ballet_day = 1:
+		!! Set stats for modern dance
+		gs 'exercise', 'tier3', 90, 'agil', 'stren', 'danc'
+		gs 'pushkin_ballet_init', 'exercise_pain'
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		'"都听好了！"<<$npc_firstname[''A284'']>>喊道，"先做个自我介绍。介绍完，我就给你们安排这周的舞伴。"'
+		'<<$npc_firstname[''A284'']>>指向离你最远的学生。看到自己第一个被点名，她露出惊慌的神色，结结巴巴地说""我……我……我是G…… <<$npc_firstname[''A277'']>> <<$npc_lastname[''A277'']>>，"她总算把自己的名字挤了出来，脸因尴尬而涨得通红。'
+		'<<$npc_firstname[''A284'']>>皱起眉头。"你的自信和台风还得练，<<$npc_firstname[''A277'']>>。""是的，阿纳尼亚什维利老师，"<<$npc_firstname[''A277'']>>答道，在她的目光下缩了缩。'
+		'"你。"<<$npc_firstname[''A284'']>>指向另一个学生。"我是<<$npc_firstname[''A27'']>> <<$npc_lastname[''A278'']>>。"你羡慕地看着她那毫不费力的优雅身姿，她朝<<$npc_firstname[''A284'']>>行了个屈膝礼。你早上进排练室时，就注意到她美得惊人。'
+		'<<$npc_firstname[''A284'']>>又指向另一个学生。" <<$npc_firstname[''A275'']>> <<$npc_lastname[''A275'']>>，"<<$npc_firstname[''A274'']>>喊道，同样行了一个优雅的屈膝礼。 <<$npc_firstname[''A284'']>>继续点人做自我介绍，最后终于轮到你向全班介绍自己。'
+		'"既然都自我介绍完了，我就来分配你们这周的学习搭档。"<<$npc_firstname[''A284'']>>开始点名，女孩们按分配两两结对。'
+		'"嗨，<<$npc_firstname[''A274'']>>"，你对她说道，她过来和你搭档，"又见面了<<$pcs_nickname>>，昨晚打扰到你，真不好意思！"'
+		'你还没来得及回答，<<$npc_firstname[''A284'']>>就走到教室前面拍手示意大家注意。她朝<<$npc_firstname[''A285'']>>点了点头，后者坐在钢琴前开始演奏。 <<$npc_firstname[''A284'']>>跳了一段近乎完美的芭蕾，展示着她的优雅和对所教内容的精通。'
+		'<<$npc_firstname[''A284'']>>一停下演奏，她就谢过<<$npc_firstname[''A285'']>>，转身面向全班。'
+		'"这就是我这一周对你们的期望。你们都是从本地区挑出来的最优秀的舞者，我对你们的要求不会降低。本周的课程包括基本功、古典表演、插舞和双人舞。另外，周六有一场正式的分级考核，表现最好的三位会受邀加入剧院。"'
+		'接下来的一个小时里， <<$npc_firstname[''A284'']>>带你们做了一连串高强度练习，她走到每个女孩身边，用一两句话或者一个触碰来纠正姿势。'
+		*nl
+		'课程以传统的行礼收尾，致敬的对象是<<$npc_firstname[''A284'']>>和<<$npc_firstname[''A285'']>>。'
+		act '去淋浴间': gt $loc, 'shower'
+	end
+	if ballet_day = 2:
+		!! Set stats for modern dance
+		gs 'exercise', 'tier3', 90, 'agil', 'stren', 'danc'
+		gs 'pushkin_ballet_init', 'exercise_pain'
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		'你坐在教室里，从鞋袋里掏出新芭蕾舞鞋，试着往脚上套。 <<$npc_firstname[''A274'']>>走过来跟你搭话，开始讲关于舞鞋的事，以及怎么把它们穿软、怎么保养。你朝她笑了笑，谢过她，这时<<$npc_firstname[''A284'']>>走进门来。她拍了拍手，让大家注意。'
+		'"昨天的表现让我看到了你们的本事。今天讲讲考核要求。考核分集体套路和个人套路。我希望这里每个人在接下来这一周里，都跟分配给你的搭档好好练。"'
+		'"我说清楚了吗？"教室里响起一片"是的，<<$npc_lastname[''A284'']>>老师。"她环视全班，打量着学生们的表情。"很好，现在你们跟搭档组队，今天重点练姿态和仪态。"'
+		!! class events
+		'和上一课一样，课程以传统的行礼收尾，致敬的对象是<<$npc_firstname[''A284'']>>和<<$npc_firstname[''A285'']>>。今天你用一组手臂动作（ports de bras）来表达敬意。'
+		act '去淋浴间': gt $loc, 'shower'
+	end
+	if ballet_day = 3:
+		!! Set stats for modern dance
+		gs 'exercise', 'tier4', 90, 'agil', 'stren', 'danc'
+		gs 'pushkin_ballet_init', 'exercise_pain'
+		gs 'stat'
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/ballet_class_003.jpg'
+		gs 'core_library', 'stage_title'
+		'走进教室时，今早的气氛里带着几分兴奋。这周已经过了一半，对即将到来的考核，期待和紧张悄悄蔓延开来。'
+		'你看到<<$npc_firstname[''A284'']>>站在<<$npc_firstname[''A285'']>>身边，一起看一份乐谱。两人挨得那么近，<<$npc_firstname[''A284'']>>的手还搭在<<$npc_firstname[''A285'']>>肩上，你忍不住猜想她们是不是不只是朋友。看到学生们进来，她吓了一跳，抬起头，随即匆匆走开。'
+		'"今天，我们重点练你们的集体考核套路。这就是评分项目。"她的声音不像平时那么有威严，还透着一丝慌乱。不过只过了一会儿，她就开始把你们排成一个小组。'
+		'"这套动作改编自《天鹅湖》的“天鹅进场”片段，作为芭蕾群舞的一部分。没有首席舞者。相反，你们将完全以群舞的形式完成这场演出。你们的表演将接受评分，并与同伴们一起演出。"'
+		'你意识到自己要跳的是群舞队最难的曲目之一。它需要极度的专注和精准的节奏才能完成。你看向<<$npc_firstname[''A274'']>>，从她脸上的表情就能看出，她心里想的也是同一件事。'
+		'"你们是本州最优秀的舞者，所以我期待你们拿出最好的表现。有谁在这里跳过《天鹅湖》吗？"<<$npc_firstname[''A284'']>>问道。<<$npc_firstname[''A274'']>>和<<$npc_firstname[''A275'']>>都举起了手。<<$npc_firstname[''A284'']>>点了点头。"很好。你们俩分别担任各自小组的领舞，全班分成两组，每组五人，<<$npc_firstname[''A285'']>>会为开场场景弹钢琴。"'
+		'接下来一个半小时只能用地狱来形容。之前那个让人安心的<<$npc_firstname[''A284'']>>不见了。取而代之的是，她无情地鞭策所有学生，挑出每一个错误，弄得<<$npc_firstname[''A277'']>>快哭出来了。'
+		act '结束课程':
+			*clr & cla
+			gs 'core_library', 'stage_title'
+			*nl
+			'课程结束时，你跳了一段慢板，最后用一组手臂动作（ports de bras）收尾行礼。'
+			*nl
+			'行礼结束时，你发现自己的脚和身体发酸，与其说是跳舞跳的，不如说是表演时一直站着不动熬出来的。你撕下脚趾上的胶带，脱下舞鞋，然后从地上爬起来，匆匆检查鞋子还能不能安全穿，再把它们收回包里。'
+			' <<$npc_firstname[''A274'']>>走到你身边。"别担心这堂课，<<$pcs_nickname>>。<<$npc_firstname[''A284'']>>对大家都太严厉了。你们以前没跳过，能做到这样已经很好了。"她的话让你安心了些，但你对自个儿的能力还是没底。'
+			'"快点，我们得赶紧准备！"她催道，你们俩匆匆冲了个澡，然后赶去上下一节课。'
+			act '去淋浴间': gt $loc, 'shower'
+		end
+	end
+	if ballet_day = 4:
+		!! Set stats for modern dance
+		gs 'exercise', 'tier3', 90, 'agil', 'stren', 'danc'
+		gs 'pushkin_ballet_init', 'exercise_pain'
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		'经过昨天的排练，你感觉今天的课弥漫着期待又不安的气氛。<<$npc_firstname[''A284'']>>正在教室里等你们来。'
+		'"欢迎。今天我们复习“进场”。有问题吗？"<<$npc_firstname[''A284'']>>的问题迎来一片沉默。"很好，那我们开始。<<$npc_firstname[''A285'']>>，从头开始。"'
+		'你们分成两组，你跟着<<$npc_firstname[''A274'']>>. 她把你排在第二排，让你跟着她，顺便带着身后的同学走完整套动作。遗憾的是，这又是一次高要求的表演，<<$npc_firstname[''A284'']>>几乎没给你们喘息的时间。'
+		'等你终于有了一点喘息的机会，你赶紧吃了一根能量棒，那时<<$npc_firstname[''A284'']>>刚指导完另一组。现在又轮到你们练习了。'
+		'等你结束时， <<$npc_firstname[''A284'']>>对全班说，"明天你们要穿上为排练准备的白色芭蕾服（Ballet Blanc）。在周六正式考核之前，我会先看看你们的着装和仪表。所以请做好准备，明天早上9点整准时到这里。"'
+		*nl
+		'课程结束时，你们把前一天的套路又走了一遍作为行礼。'
+		act '去淋浴间': gt $loc, 'shower'
+	end
+	if ballet_day = 5:
+		!! Set stats for modern dance
+		gs 'exercise', 'tier2', 90, 'agil', 'stren', 'danc'
+		gs 'pushkin_ballet_init', 'exercise_pain'
+		gs 'stat'
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/ballet_class_005.jpg'
+		gs 'core_library', 'stage_title'
+		'你刚上完普拉提课，穿着白色芭蕾服（Ballet Blanc）走进教室。这是你第一次看到大家穿成这样，仿佛自己已经是群舞队的一员，让你为能来到这里而自豪。'
+		' <<$npc_firstname[''A274'']>>叫住了你，"嘿，<<$pcs_nickname>>，让我赶紧给你检查一下。"。 <<$npc_firstname[''A274'']>>很快检查了你的服装和头发，确保你的仪表挑不出毛病，你也为她做了同样的事。'
+		'你坐下来，穿上足尖袜，在脚上扑了粉，然后套上芭蕾舞鞋。你发现鞋子有点破损；这堂课应该还能应付，但你记下得准备好新鞋。'
+		'这不太理想，但你别无选择。系好缎带时，你看到<<$npc_firstname[''A284'']>>走进房间，开始挨个检查你们，想挑出毛病。不过你们班还是过关了，只挨了几句小批评。'
+		act '继续上课':
+			gs 'core_library', 'stage_title'
+			'"做得好，同学们，你们让我感到骄傲。你们完全做到了我的要求。"这是<<$npc_firstname[''A284'']>>难得的表扬。"现在我要你们全力以赴。跳出你们从来没到过的水平。"'
+			'说完，她拍了拍手。"各就各位。" <<$npc_firstname[''A285'']>>开始弹奏。你沉浸在过去一周所有课程融为一体的表演里，顺畅地跳完了整套动作。'
+			' <<$npc_firstname[''A284'']>>以挑剔的目光看着所有女孩的表演，边看边做笔记。时间过得飞快，转眼第一次排练就结束了。"再来一遍，"她喊道。'
+			act '继续排练':
+				*clr & cla
+				$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/ballet_teach_1.jpg'
+				gs 'core_library', 'stage_title'
+				'你们排练了好几次，直到她满意为止，然后她把点评笔记发给所有女孩。把笔记递给你时，她先夸了你几句，然后把<<$npc_firstname[''A274'']>>和<<$npc_firstname[''A275'']>>叫到一旁私下说话。'
+				'"明天你们的考核将在 ' + func('time', 'get_time_string', 9, 0) + ' 开始。你们将以第一站位进入考场，等待考官们的指示。表演完“天鹅进场”后，你们将被要求与舞伴一起表演双人舞。"'
+				'"你们最后一项考试是时长不超过五分钟的个人插舞。这场表演会向评委展示你们的能力，形式随便你们发挥。"'
+				'"还有什么问题吗？如果今晚有疑问或者需要帮忙，就找<<$npc_firstname[''A284'']>>，她会看着给建议或者搭把手。"'
+				act '行礼':
+					*clr & cla
+					$setloc['StageImage'] = '<<$setloc[''imagepath'']>>/events/reverence.jpg'
+					gs 'core_library', 'stage_title'
+					'你和女孩们互相看了看，然后一起行了一个深深的屈膝礼，这是你们前一天晚上商量好的、用来感谢<<$npc_firstname[''A284'']>>和<<$npc_firstname[''A285'']>>这一周教导的礼。'
+					'两位老师都显得很意外，脸上带着笑。"谢谢你们，同学们。这周教你们很愉快，"<<$npc_firstname[''A284'']>>说着，<<$npc_firstname[''A285'']>>也点头附和，把这话重复了一遍。'
+					act '去淋浴间': gt $loc, 'shower'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'shower':
+	*clr & cla
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	gs 'stat'
+	*nl
+	$setloc['StageTitle'] = '学校淋浴间'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/shower_1.jpg'
+	if nclass > 1:
+		$location_type = 'private_shared'
+		gs 'themes', 'indoors'
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		if nclass = 2:
+			act '前往下一课': gt $loc, 'makeup'
+		elseif nclass = 4:
+			act '前往下一课': gt $loc, 'music_theory'
+		end
+		'课后你走进学校的淋浴间。你和同学们没多少工夫聊天，因为离下一节课已经没剩多少时间了。'
+		*nl
+		gs 'core_library', 'bathroom'
+		*nl
+	else
+		$setloc['StageTitle'] = '宿舍浴室'
+		$setloc['StageImage'] = 'locations/pushkin/ballet_residence/residential_bathroom.jpg'
+		$location_type = 'private'
+		gs 'themes', 'indoors'
+		gs 'stat'
+		gs 'core_library', 'stage_title'
+		act '返回走廊':
+			if $clothingworntype = 'nude':
+				msg '<b><font color = "red">离开之前得先把衣服穿好。</font></b>'
+				gt $loc, $loc_arg
+			else
+				gt 'pushkin_ballet_res', 'hallway'
+			end
+		end
+		if (hour > 5 or hour < 8) and week ! 7:
+			'离开之前，你可以对着落地镜<a href="exec: gs ''<<$loc>>'', ''grade_check''">检查仪表</a>。'
+			*nl
+		end
+		gs 'core_library', 'bathroom'
+	end
+end
+
+
+if $ARGS[0] = 'grade_check':
+	$popup_advise = '<center><h3>外貌</h3></center>'
+	$popup_advise += '你按照学校的评估标准，仔细打量了一遍自己的仪表：'
+	$popup_advise += '<br><br>'
+	if pcs_makeup > 1:
+		$popup_advise += '<font color = "green">✓</font>你的妆容达到可接受的标准。</font>'
+	else
+		$popup_advise += '<font color = "red">✗</font>你需要化妆。如果没有化妆品，你需要跟<<$npc_lastname[''A286'']>>老师说。'
+	end
+	$popup_advise += '<br>'
+	if hbraids > 0 or hpingripw > 0 or pcs_hairlng <= 80:
+		$popup_advise += '<font color = "green">✓</font>你看着自己的头发，整理几下乱发，确保发型适合上课。'
+	else
+		$popup_advise += '<font color = "red">✗</font>你需要把头发编成辫子或扎成发髻，或者留短发，以符合学校标准。'
+	end
+	$popup_advise += '<br>'
+	if pcs_pubes > 3:
+		$popup_advise += '<font color = "red">✗</font>你需要剃掉私处的毛发，以避免难看的凸起或毛发从紧身衣两侧露出。'
+	elseif pcs_leghair > 3:
+		$popup_advise += '<font color = "red">✗</font>你用手抚过双腿，发现它们开始变得粗糙，你需要剃毛或脱毛。'
+	else
+		$popup_advise += '<font color = "green">✓</font>你已经刮得干干净净。'
+	end
+	$popup_advise += '<br>'
+	if $apparel['status'] = 'sport' or $apparel['status'] = 'dance':
+		$popup_advise += '<font color = "green">✓</font>你的运动服适合舞蹈课。'
+	else
+		$popup_advise += '<font color = "red">✗</font>你需要换上适合舞蹈学校的运动服。'
+	end
+	msg $popup_advise
+	killvar 'popup_advise'
+end
+
+
+if $ARGS[0] = 'makeup':
+	!! reading material Kevyn Aucoin, The Art of Make Up
+	!! Face Paint The Story of Makeup, Lisa Eldridge
+
+	*clr & cla
+	minut = (11 - hour) * 60
+	$setloc['StageTitle'] = '舞台化妆'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/first_mua.jpg'
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	!! set stats for make up gain - makupskl_lvl
+	gs 'exp_gain', 'intel', rand(1, 2)
+	gs 'exp_gain', 'makupskl', rand(1, 2)
+	makupskl_lvl += rand(1, 3)
+	!! pcs_makeup = 4
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	nclass = 3
+	gs 'pushkin_ballet_init', 'daily_assessment'
+	gs 'stat'
+	if ballet_day = 1:
+		gs 'core_library', 'stage_title'
+		'"欢迎。你们桌上会有一个化妆盒，里面装着你们需要的大半东西。你们还得自备保湿霜和粉底。所有舞者都得自己化妆，排练和演出都一样。"'
+		'老师没有自我介绍，继续滔滔不绝地讲，在你们面前介绍各种化妆品以及各式各样的刷子和化妆工具。你很快就被这节课的信息量压得喘不过气。'
+		'不过，十分钟后，老师终于松了口，开始发化妆图表和技巧手册。此外，老师还发了两本书，一本是丽莎·埃尔德里奇的，一本是凯文·奥库安的，好让你们有更多参考。'
+		' <<$npc_firstname[''A274'']>>悄悄溜到你身边，低声说，"信息量有点大吧？"你点头表示同意。她飞快地眨了下眼，然后转回去听课。'
+	elseif ballet_day = 2:
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/second_mua.jpg'
+		gs 'core_library', 'stage_title'
+		'又过了一天，你的老师还是没自我介绍，反倒让学生们集中注意力。"你们昨晚把我给你们的书读完了吗？"她问道。'
+		'全班同学面面相觑。"可是老师，您从来没让我们读啊，"加莎回答。'
+		'"难道每件事都要我告诉你们？你们是女孩。你们从小就该跟父母学化妆了！"老师没好气地回答。'
+		'"好吧，接下来一个小时你们练这个妆容，明天把成果给我看。"她伸手拿起遥控器。投影仪在墙上投出了你们要照着化的妆容。'
+	elseif ballet_day = 3:
+		gs 'core_library', 'stage_title'
+		'"今天，我要检查你们作业的成果。你们有30分钟来完成这个妆容。"接着她指向墙上那张标明了细节和配色的化妆图表。'
+		'你打开化妆包，照着图表上的样式飞快地化。可惜这实在太紧张了，几乎没时间思考，你只能全神贯注地往脸上画。'
+		'你飞快地瞥了一眼<<$npc_firstname[''A274'']>>，她朝你露出鼓励的微笑，然后转回去化自己的妆。'
+	elseif ballet_day = 4:
+		gs 'core_library', 'stage_title'
+		'今天你们学发型，每人发了一个红色小铁盒。"这是你们的应急盒。要随身带着。"你往里面看了看，有小梳子、刷子、备用发圈、发夹、发卡、发针和发叉。甚至还有一套小针线包，以备衣服破了好补。'
+		'"考试和考核的时候，你们必须时刻注意自己的仪表。所以你们得随身带着这个盒子。要是不够整洁得体，就会被扣分。"'
+		'剩下的时间教的是专业的头发护理、造型基础，还有几个出效果的小窍门。这节课出乎意料地有意思，时间过得飞快。'
+	elseif ballet_day = 5:
+		gs 'core_library', 'stage_title'
+		'"今天，我们来讲讲周六考核时该怎么展示自己。评委会评判你们的舞蹈能力，还有你们化妆和打理头发的水平。"'
+		'"你们都有搭档，所以今天要互相帮忙，为考核做准备。要是将来你们一起工作，排练和演出时也要互相照应，要是自己有余力，还要帮群舞队里的其他人。"'
+		'"作为舞者，我们要互相照应。记住这一点！"她说最后几句话时语气格外重，提醒你芭蕾既是团队协作，也讲自律。"好了同学们，跟搭档分组练习。如果需要帮忙，就举手。"'
+		'"考试要求如下：头发必须盘成发髻，别让脸和脖子被挡住。有碎发就用发夹别住。除了耳钉，不许戴任何首饰。妆容要得体，保持淡雅。记得扑定妆粉。有问题吗？好，继续。"'
+		'今天你的老师格外活跃，在学生之间走来走去，该表扬就表扬，该指点就指点。你看到她跟<<$npc_firstname[''A279'']>>说话，正琢磨她们在聊什么，<<$npc_firstname[''A274'']>>就叫住了你，让你接着练化妆。'
+	end
+	act '去吃午饭': gt $loc, 'lunch'
+end
+
+
+if $ARGS[0] = 'lunch':
+	*clr & cla
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	$setloc['StageTitle'] = '学校食堂'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/cafeteria.jpg'
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	!! gs lunch events
+	gs 'core_library', 'stage_title'
+	*nl
+	'你走进学校食堂。看来你正好赶在两拨午餐人流的空档，所以这里格外安静。'
+	*nl
+	act '前往下一节课':
+		menu_off = 0
+		gt $loc, 'second_lesson'
+	end
+	act '吃午饭':
+		cla
+		menu_off = 1
+		gs 'food', 'medium_meal'
+		'你往盘子里随便盛了点吃的，三两口就扒完了。'
+	end
+	gs 'core_library', 'kitchen', 'shared'
+end
+
+
+if $ARGS[0] = 'second_lesson':
+	*clr & cla
+	minut = (13 - hour) * 60
+	!! set stats for modern dance
+	gs 'exercise', 'tier2', 90, 'agil', 'stren', 'danc'
+	gs 'pushkin_ballet_init', 'exercise_pain'
+	gs 'exp_gain', 'perform', rand(1, 2)
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	nclass = 4
+	gs 'pushkin_ballet_init', 'daily_assessment'
+	gs 'stat'
+	$setloc['StageTitle'] = '舞蹈练习'
+	if mayaqw['grave'] = 4:
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/mirror_ballet.jpg'
+	else
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/class_three.jpg'
+	end
+	gs 'core_library', 'stage_title'
+	if ballet_day = 1:
+		!! 32-count combination
+		'"同学们，听好了，"<<$npc_firstname[''A284'']>>喊道。"你们将和舞伴组队练习把杆动作，并把双人舞作为你们的重点，这将构成你们的考核内容。"'
+		'你走到<<$npc_firstname[''A274'']>>, "嘿，<<$pcs_nickname>>，准备好了吗？"。然后，你与<<$npc_firstname[''A274'']>>一起练习各种动作：普利耶（Plié）、埃莱韦（Elevé）、绷脚擦地（Battement Tendu）和划圈（Rond de Jambe）。'
+		'完成把杆练习后，<<$npc_firstname[''A284'']>>打开了投影仪。"这些是你们双人舞的动作。请到场地中央，我会观察你们的表演。"'
+		'你和<<$npc_firstname[''A274'']>>快速研究了一下图表，等待<<$npc_firstname[''A285'']>>开始弹钢琴。然后，数着拍子，你开始做动作，<<$npc_firstname[''A274'']>>帮你喊出下一个姿势。"'
+		'这一切没有逃过<<$npc_firstname[''A284'']>>, 一旦动作完成，她喊道<<$npc_firstname[''A274'']>>过去，"你似乎第一次就记住了这些动作。让我看看你能不能和我一起表演。"'
+		'她更换了投影仪上的图像并让<<$npc_firstname[''A274'']>>研究了一会儿。"准备好了吗？"她问道，<<$npc_firstname[''A274'']>>点了点头。"那我们开始吧。<<$npc_firstname[''A285'']>>？"'
+		'接下来的五分钟表演迫使<<$npc_firstname[''A274'']>>努力，并且你惊讶地看着她表演得有多好跟着<<$npc_firstname[''A284'']>>的引导。'
+		'表演结束后，<<$npc_firstname[''A284'']>>和<<$npc_firstname[''A274'']>>互相行屈膝礼，并且<<$npc_firstname[''A274'']>>向你走来。你把她的毛巾和水瓶递过去。'
+		'"谢谢，<<$pcs_nickname>>。"她刚完成大跳和旋转，还有些气喘吁吁。"'
+		'"做得好，<<$npc_firstname[''A274'']>>，表演非常精彩。"<<$npc_firstname[''A284'']>>听起来对<<$npc_firstname[''A274'']>>的表现印象深刻。"有这样的天赋，你将来一定大有作为。"'
+		'你暂时看了看班里其他人，看到<<$npc_firstname[''A276'']>>的脸皱成一团，你心想那是嫉妒。'
+	elseif ballet_day = 2:
+		'你站在<<$npc_firstname[''A274'']>>身边，一起进行把杆练习。经过昨天那场即兴表演，<<$npc_firstname[''A284'']>>今天没有来打扰你们。你和<<$npc_firstname[''A274'']>>迅速完成热身，开始练习为考核准备的双人舞套路。'
+		'"记住，<<$pcs_nickname>>，做plié时，你的屁股应该在脚后跟上方，把重心放在第二根脚趾上。"，<<$npc_firstname[''A274'']>>提醒你。'
+		'"好，让我看看你单独来一遍，然后你再看我。"你表演了为考核练习的套路。"记住：腿抬高，注意你的线条！"<<$npc_firstname[''A274'']>>喊道。'
+		'你看着<<$npc_firstname[''A274'']>>毫不费力地完成她的整套动作。"你为什么不早点参加评级或考核？"你问她。"因为时间，而且我的老师觉得我还没准备好，"她回答。'
+		'你还没来得及问下一个问题，<<$npc_firstname[''A284'']>>就宣布下课了。'
+	elseif ballet_day = 3:
+		' <<$npc_firstname[''A274'']>>今天似乎不太专心。她比前几天显得更加疏远。"你没事吧，<<$npc_firstname[''A274'']>>？"你问道。'
+		'"我没事。"<<$npc_firstname[''A274'']>>回答，但她犯的小错误太多了，正当你犹豫要不要接话时，<<$npc_firstname[''A284'']>>走了过来。" <<$npc_firstname[''A274'']>>，你能做得比这更好。"'
+		' <<$npc_firstname[''A274'']>>畏缩了一下，但还是照<<$npc_firstname[''A284'']>>的要求做了，这次几乎没有出错。"好多了，我不希望我的舞者这么马虎，"<<$npc_firstname[''A284'']>>皱着眉头说。"你比这强，我希望你不是在变懒。"'
+		'在<<$npc_firstname[''A274'']>>让你一个人待完剩下的课，但你注意到她在看着<<$npc_firstname[''A284'']>>你很快和<<$npc_firstname[''A274'']>>走得越来越近。'
+	elseif ballet_day = 4:
+		'的课，第一次你<<$npc_firstname[''A274'']>>今天的课，是你第一次有机会好好和她谈谈昨晚发生的事。"你今天感觉怎么样，<<$npc_firstname[''A274'']>>？"'
+		'你在做把杆练习时，她对你微微一笑。"我好多了，谢谢你<<$pcs_nickname>>。昨晚的事很抱歉。"'
+		if mayaqw['grave'] = 4:
+			'"别傻了，<<$npc_firstname[''A274'']>>，如果你需要帮助，你知道在哪里能找到我。这周你帮了我太多，没有你我不可能学到这么多，"你回答。'
+			'"我从没想过会遇到像你这样的人，<<$pcs_nickname>>。昨晚有你陪着真好，互相帮助的事你不用谢我。"'
+			'她的话让你有一种做了正确事情的温暖感觉。 <<$npc_firstname[''A274'']>>比这周任何时候都跳得好；就连其他学生也注意到她的插舞表演多么优雅和美丽。'
+			'你稍作喘息，喝了点水，然后看到<<$npc_firstname[''A275'']>>在练习她自己的套路，你很难判断谁更出色：<<$npc_firstname[''A274'']>>还是她。过了一会儿，你觉得这是个关于优雅的问题，在这方面，你认为<<$npc_firstname[''A274'']>>更胜一筹。'
+		elseif mayaqw['grave'] < 4:
+			'"没关系，<<$npc_firstname[''A274'']>>，我理解失去母亲的悲痛。这周你会让她为你骄傲的，连<<$npc_firstname[''A284'']>>都觉得你和基玛是班上最棒的之一，"你为了让她振作起来说道。'
+			'"嘘，<<$pcs_nickname>>，我还有很长的路要走，她回答。"这些年过得很艰难，为了走到今天，我牺牲了一切。我要对得起她的在天之灵。"'
+			'"她对你一定很重要吧？"你问道。"是的，但我从来没有机会和她亲近。她总是在排练或旅行。"她还没来得及继续说，你注意到<<$npc_firstname[''A284'']>>正朝你们这边看，于是继续练习。'
+		end
+	elseif ballet_day = 5:
+		'"就是明天了，<<$pcs_nickname>>，你为明天准备好了吗？"<<$npc_firstname[''A274'']>>问道。你们俩都感到了压力，但知道不能逼自己太紧。相反，你们练习并背诵动作。'
+		'尽管你很紧张，你还是设法完成了把杆练习，并走了一遍动作，只受到了来自<<$npc_firstname[''A274'']>>. 没过多久，你意识到自己沉浸在课程中，时间飞逝。'
+		if mayaqw['grave'] = 4:
+			'"就是明天了<<$pcs_nickname>>，明天是我们的重要日子。如果你想聊聊，或者想为明天多排练一会儿，今晚来我房间吧。这次该轮到我泡茶了，"她笑着说。'
+			'你也跟着笑了。"好啊，那我就接受你的邀请。"'
+		else
+			'"就是明天了<<$pcs_nickname>>，明天是我们的重要日子。如果你想聊聊，或者想为明天多排练一会儿，今晚来我房间吧，"她微笑着说。'
+		end
+	end
+	*nl
+	act '结束课程':
+		*clr & cla
+		$setloc['StageTitle'] = '行礼'
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/ballet_class_006.jpg'
+		gs 'core_library', 'stage_title'
+		'你向<<$npc_firstname[''A274'']>>以感谢她的帮助，她回了一个屈膝礼，然后你们一起前往淋浴间。'
+		nclass = 4
+		act '去淋浴间': gt $loc, 'shower'
+	end
+end
+
+
+if $ARGS[0] = 'music_theory':
+	*clr & cla
+	minut = (16 - hour) * 60 + 60
+	$setloc['StageTitle'] = '乐理'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/ballet_class_004.jpg'
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	!! set stats for performance, music production and inst. music.
+	gs 'exp_gain', 'intel', rand(1, 2)
+	gs 'exp_gain', 'instrmusic', rand(1, 2)
+	gs 'exp_gain', 'musicprod', rand(1, 2)
+	gs 'stat'
+	gs 'core_library', 'stage_title'
+	gs 'core_library', 'setloc', 'pushkin_ballet_class', $ARGS[0]
+	nclass = 5
+	gs 'pushkin_ballet_init', 'daily_assessment'
+	nclass = 0
+	if ballet_day = 1:
+		'你走进教室，看到<<$npc_firstname[''A285'']>>站在门边。"欢迎，姑娘们。很高兴再次见到你们。希望你们第一天过得愉快？"她用温暖而富有磁性的声音向你们问好。'
+		'你和同学们低声说是，不知道该如何反应。 <<$npc_firstname[''A285'']>>对这不冷不热的回应不以为意。"你们可能在想，为什么你们会在这里，毕竟你们不是音乐家。然而，作为舞者，理解和声、旋律与节奏的基础至关重要。它们构成了音乐的主干，也是作曲家为你们的表演埋下的听觉提示。虽然我不指望你们在周末之前成为音乐家，但你们应该对表演的乐谱有扎实的理解，并帮助传达作曲家的本意。'
+		*nl
+		'课程剩余的时间都在讲乐理，以及如何拆解表演和变奏，以捕捉作曲家的提示。'
+	elseif ballet_day = 2:
+		'音乐课进行到第二天，你开始体会到放松时间的珍贵。"举手，谁知道第一首专门为芭蕾创作的乐曲是什么？"'
+		'出乎你的意料，你看到一个女孩猛地举起了手。她就是那个因美貌而招来全校嫉妒目光的女孩。'
+		'"泰西娅，是吗？"'
+		'"是柴可夫斯基1876年的《天鹅湖》。在那之前，创作芭蕾舞剧的作曲家一直被他们更负盛名的交响乐同行所轻视。"'
+		' <<$npc_firstname[''A285'']>>的眉毛微微挑起。"回答得很好，泰西娅。那你以前学过音乐？"'
+		'"没有，索洛维约娃老师，我只是喜欢芭蕾舞剧，想多了解一些，"她回答。'
+		' <<$npc_firstname[''A285'']>>赞许地点点头，认可Taiya的回答，随后用课程剩余的时间讲述芭蕾的历史。你注意到下课时有几个同学已经昏昏欲睡。'
+	elseif ballet_day = 3:
+		'今天，你被吓了一跳。<<$npc_firstname[''A285'']>>拍了拍手，引起大家的注意。"今天，我们要测试你们学到的东西。我会弹奏几首曲子。第一拍，你们做半蹲（demi plié）向下。"'
+		'"第二拍，你们做半蹲向上。重复到第六拍，做一个大蹲（grand plié）。第七拍从半蹲站起，第八拍结束半蹲。明白了吗？很好。"'
+		' <<$npc_firstname[''A285'']>>毫不浪费时间。她开始弹奏并喊道，"1 2 3，2 2 3，3 2 3，4 2 3，5 2 3，大蹲！6 2 3，结束。"<<$npc_firstname[''A285'']>>用挑剔的目光扫过全班。"你们能做得更好，再来一遍。"'
+		'你继续上课。 <<$npc_firstname[''A285'']>>不断变换节拍，让你们时刻保持警惕，有些女孩因此出错，招来批评。下课时，你庆幸这节课终于结束了。'
+	elseif ballet_day = 4:
+		'"各就各位！"你刚走进教室还没来得及放松，<<$npc_firstname[''A285'']>>就喊了出来。"你们一直在为考核练习必要的变奏。我要复习一下乐谱提示，"她说着坐到钢琴前，开始弹奏“天鹅进场”。'
+		'你们都站在那里，不知道是否该跳舞，但过了一会儿，<<$npc_firstname[''A285'']>>停了下来。"你们听音乐找提示了吗？我们再来一次，数到三，一、二、三。"然后，你们开始了<<$npc_firstname[''A284'']>>一直在训练你们的整套动作。'
+		'区别在于<<$npc_firstname[''A285'']>>用演奏的音符制造听觉提示，引导你贯穿整个表演，你会看到所有舞者在额外指引下都有明显的进步。'
+	elseif ballet_day = 5:
+		'今天是考核前的最后一节课。你们挤进舞蹈厅，开始穿上舞鞋，为上课做准备。'
+		' <<$npc_firstname[''A285'']>>和<<$npc_firstname[''A284'']>>一起走进教室， <<$npc_firstname[''A285'']>>走向钢琴。"同学们，这是你们的最后一节课。之后，我们会进行一次排练，我会对你们的表演给出反馈。"'
+		'"各就各位。"全班手忙脚乱地做准备。"记住<<$npc_firstname[''A285'']>>和我这一周讲过的一切。我要你们听音乐提示，我要你们按照我教的舞步来跳，最重要的是，我要你们向我证明，你们已经为明天做好了准备。"'
+		'<<$npc_firstname[''A284'']>>拍了拍手，数到三时，你听到她指出每个学生的错误。"记住你们的提示！" <<$npc_firstname[''A284'']>>逼得更紧。她叫停了全班。'
+		'"还不算完全失败。从头再来一遍。"你跳完了整支舞，<<$npc_firstname[''A284'']>>注视着全班。"很好，这次好多了。今天我就让你们早点结束，但你们要回到宿舍，为明天做准备。"'
+		'"你们会在厨房里找到我们为你们晚餐和明天早餐提供的建议。如果你们愿意，可以不理它，但这对你们有好处，因为明天考试你们需要全部的能量。考核间隙还提供了能量棒。"'
+		' <<$npc_firstname[''A285'']>>走过来，开始给每个学生分发小册子。"这些是芭蕾乐谱和乐理的指南。里面会列出舞蹈组合，并给出拆解它们的小贴士。"'
+		'你艰难地站起来，双腿软得像果冻，但你还是没有绊倒，勉强向老师们行了一个还算过得去的屈膝礼。你注意到玛雅自己的屈膝礼跟你一样双腿发软。'
+		'"记住，今晚要让肌肉保持温暖，做点轻度拉伸。你们不想受伤或练得太猛，"<<$npc_firstname[''A284'']>>在你们离开教室时说道。'
+	end
+	school_daily_check = daystart
+	act '放学':
+		hour = 17
+		minut = 15
+		gt 'pushkin_ballet_res', 'hallway'
+	end
+end
+
+
+if $ARGS[0] = 'assessment':
+	*clr & cla
+	$setloc['StageTitle'] = '考核日'
+	$location_type = 'public_indoors'
+	gs 'themes', 'indoors'
+	!! Dance exam
+	gs 'pushkin_ballet_init', 'daily_assessment'
+	gs 'exercise', 'tier4', 90, 'agil', 'stren', 'danc'
+	gs 'exercise', 'tier3', 90, 'agil', 'stren', 'danc'
+	gs 'exp_gain', 'perform', rand(5, 10)
+	gs 'pushkin_ballet_init', 'exercise_pain'
+	!! rank is the final assessment score to determine pass, fail or a potential fall into Randolph''s clutches.
+	!! gs 'pushkin_ballet_init', 'famemodifier', 'rank'
+	!! Maya friendship mechanics to be implemented after feedback on core game with how she reacts to you at the exams.
+	minut = (9 - hour) * 60
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>daily/hall.jpg'
+	gs 'stat'
+	gs 'core_library', 'stage_title'
+	minut += 45
+
+	'你到达芭蕾舞学校，能感受到同学们中间弥漫着期待和紧张的气氛。 <<$npc_firstname[''A274'']>>就站在你身边。'
+	'你注意到门上贴着一张古老的俄罗斯谚语——Без труда́ не вытащишь и рыбку из пруда́（不付出劳动，就钓不到池塘里的鱼）。这是对所有学生的告诫：要努力奋斗才能实现梦想。'
+	'"来吧，<<$pcs_nickname>>。"<<$npc_firstname[''A274'']>>把你的注意力拉回眼前的任务。"该开始热身了。我们有一个小时做点轻度的热身运动，然后就得去换衣服。"你点头同意，走进专门用来热身的教室。你走到把杆前开始锻炼。'
+	*nl
+	'你很快和<<$npc_firstname[''A274'']>>一起冲了个澡，然后换上提供的白色芭蕾服（Ballet Blanc），穿上前检查了紧身裤，并拿出你为这一刻珍藏已久的新舞鞋。'
+	*nl
+	'穿好衣服后，你对着镜子检查了一下妆容，然后走到<<$npc_firstname[''A274'']>>身边，检查她的仪容，为第一次考核做准备，她也帮你检查了。'
+	*nl
+	'时间还有富余，你已经站在了考场门外。你感觉紧张得不行，但<<$npc_firstname[''A274'']>>握住你的手，低声说，"你能行的；记住，既别慌也别乱。"你微笑着点头，用"见鬼去吧"回应这句老话，门开了。'
+	act '表演“进场”':
+		*clr & cla
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>exams/exam_1.jpg'
+		gs 'core_library', 'stage_title'
+		gs 'exercise', 'tier4', 30, 'agil', 'stren', 'danc'
+		gs 'stat'
+		'你们鱼贯进入考场，摆出第一站位。一名考官站在门口，检查每个进入的女孩的服装或仪表是否有瑕疵。'
+		'"欢迎，同学们。你们已经入围了今年的学徒录取名单。你们当中有三个人将获准加入我们学校，今天的要求已经告知过你们，我们将对你们的仪表、举止和表演的优雅程度进行全方位评估。"一位坐在桌旁的老人继续罗列考核要求。'
+		'你认出了<<$npc_firstname[''A284'']>>，还有两位你从未见过的老师，以及<<$npc_firstname[''A283'']>>，都在考核你。 <<$npc_firstname[''A283'']>>的目光似乎主要落在你身上，但你觉得是自己多心了。'
+		'"很好。我们可以开始了吗？那就各就各位，数到三，开始！"听到这话，你感到一阵平静，紧张感随之消散，你全神贯注于自己的表演。时间飞逝，你还没反应过来，表演就结束了。'
+		'"谢谢，你们的表演真是太精彩了，"其中一位女老师对全班说。"接下来，我们来看看你们与舞伴的双人舞表演。请在门外等候，我们会叫你们进来。"'
+		act '表演双人舞':
+			*clr & cla
+			gs 'exercise', 'tier3', 30, 'agil', 'stren', 'danc'
+			$setloc['StageImage'] = '<<$setloc[''imagepath'']>>exams/exam_2.jpg'
+			gs 'core_library', 'stage_title'
+			gs 'stat'
+			'你在教室外等候。你穿上了暖足套，确保双脚保持柔韧，并趁机喝了点水，吃了根能量棒。<<$npc_firstname[''A274'']>>在你身边坐下，陷入沉思。'
+			*nl
+			'"你觉得我们表现得怎么样？"你问她。"嗯？"<<$npc_firstname[''A274'']>>抬起头。"是啊，我们表现得非常棒。我没看到我们中有多少人出错，但过程太快了，我没办法看到所有细节。"'
+			'"我知道，"你回答。你还没来得及说别的，你和<<$npc_firstname[''A274'']>>就被叫进去了。'
+			*nl
+			'你和<<$npc_firstname[''A274'']>>得到了考核指示。终于，十分钟后，你们俩完成了双人舞表演，并向考官行了恭敬的屈膝礼。整个过程中，你一直感觉到<<$npc_firstname[''A283'']>>的目光仍在注视着你。'
+			*nl
+			'你无视他的注视，专注于自己的表演。不过，表演结束后，他仍然盯着你看。'
+			'"谢谢你们俩的表演，"其中一位考官用平淡的语气说。"我们稍后会叫你们进来进行个人表演，请利用这段时间做好准备。"'
+			gs 'food', 'healthy_meal_stats'
+			gs 'beverage', 'juice_stats'
+			act '个人表演':
+				*clr & cla
+				minut += 30
+				gs 'exercise', 'tier3', 30, 'agil', 'stren', 'danc'
+				gs 'stat'
+				$setloc['StageImage'] = '<<$setloc[''imagepath'']>>exams/solo_2.jpg'
+				gs 'core_library', 'stage_title'
+				'回到外面，你和<<$npc_firstname[''A274'']>>检查你们的服装。你注意到<<$npc_firstname[''A274'']>>的紧身裤上有个小裂口，于是拿出针线修补。然后你们互相检查头发和妆容，<<$npc_firstname[''A274'']>>喷了些发胶，压住你飞散的碎发。'
+				'桌子上放着一些果汁和零食，供你们在等待考试表演时享用。然后，你和<<$npc_firstname[''A274'']>>开始做一些轻度练习，保持身体柔韧。'
+				'你吃完零食、做完拉伸不久，就在<<$npc_firstname[''A274'']>>之前被叫了进去。'
+				*nl
+				'"<<$pcs_firstname>> <<$pcs_lastname>>，这是你的个人表演。你明白对你的要求吗？"你意识到，来观看个人表演的是学校的芭蕾女总监。幸好，<<$npc_firstname[''A283'']>>不负责评定个人考试。'
+				'你行了个屈膝礼，回答道，"是的，总监，我准备好了。"'
+				*nl
+				'"很好，我们开始吧。"说完，她用一件你看不见的东西敲了敲桌子。然后，数到三，你开始了表演。音乐响起，你跳出了这一周以来烂熟于心的动作。你感觉自己这辈子从没跳得这么好过，一切都前所未有地流畅交融。'
+				*nl
+				'表演结束时，你感到一种失去了某种非凡东西的失落。你意识到自己一直沉浸的情感高潮戛然而止，你勉强维持着仪态，向考官们行了庄重的行礼，然后获准离开。'
+				gs 'pushkin_ballet_init', 'daily_assessment', 'grade'
+				balletqw['school'] = 1
+				!! ToDo - we came from start, why now put the rest back there?
+				act '终场': gt $loc, 'start'
+			end
+		end
+	end
+end
+--- pushkin_ballet_class ---------------------------------

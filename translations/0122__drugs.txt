@@ -1,0 +1,1634 @@
+# drugs
+
+!! How to use:
+!!		Optional flags:
+!!			'gift': pass this along as $ARGS[1] if Sveta is gifted the drug.
+!!					This can technically be any string or number except '' and 0.
+!! SOFT DRUGS:
+!!		Alcohol:		gs 'drugs', 'alcohol', 'type', [count (defaults to 1)]
+!!			Types: beer, champagne, moonshine, rum, scotch, vodka, wine, whiskey
+!!			Count: Number of drinks of the chosen type sveta drinks (if the number is 1, you don''t have add the count, but it isn''t a problem if you do)
+!!			Example 1: sveta drinks vodka gs 'drugs', 'alcohol', 'vodka' (or gs 'drugs', 'alcohol', 'vodka', 1)
+!!			Example 2: sveta drinks 2 beer gs 'drugs', 'alcohol', 'beer', 2
+!!		Coffee:			gs 'drugs', 'caffeine', [strength (defaults to 4)], [count (defaults to 1)]
+!!		Smoking:		gs 'drugs', 'smoke', ['gift']
+!!		Joint/Weed:		gs 'drugs', 'joint', ['gift']
+!! HARD DRUGS:
+!!		Amphetamine:	gs 'drugs', 'amphetamine', ['gift']
+!!		Heroin:			gs 'drugs', 'heroin'
+!!		Cocaine:		gs 'drugs', 'cocaine', ['gift']
+!! ENHANCERS:
+!!		Painkiller:		gs 'drugs', 'painkiller'
+!!		Aphrodisiac:	gs 'drugs', 'aphrodisiac', ['gift']
+!!		Neurobooster:	gs 'drugs', 'mentats', ['gift']
+!!		Steroids:		gs 'drugs', 'steroids', ['gift']
+!!		Breast Cream:	gs 'drugs', 'breastcream', ['gift']
+!!		Hair Cream:		gs 'drugs', 'hair_extensioncream', ['gift']
+!!		Butt Injection:	gs 'drugs', 'butt_injection', ['gift']
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         GENERAL MANAGEMENT                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'cikl':
+	gs 'drugs', 'cocaine_cikl'
+	gs 'drugs', 'mentats_cikl'
+	gs 'drugs', 'steroids_cikl'
+	gs 'drugs', 'aphrodisiac_cikl'
+	gs 'drugs', 'hair_extensioncream_cikl'
+	gs 'drugs', 'butt_injection_cikl'
+	gs 'drugs', 'breastcream_cikl'
+	gs 'drugs', 'caffeine_cikl'
+	gs 'drugs', 'painkiller_cikl'
+	exit
+end
+
+
+if $ARGS[0] = 'hourly_events':
+	gs 'drugs', 'cigarette_hourly_events'
+	gs 'drugs', 'weed_hourly_events'
+	gs 'drugs', 'heroin_hourly_events'
+	gs 'drugs', 'cocaine_hourly_events'
+	gs 'drugs', 'amphetamine_hourly_events'
+	gs 'drugs', 'steroids_hourly_events'
+	gs 'drugs', 'aphrodisiac_hourly_events'
+	gs 'drugs', 'caffeine_hourly_events'
+	gs 'drugs', 'painkiller_hourly_events'
+	exit
+end
+
+
+if $ARGS[0] = 'stat':
+	gs 'drugs', 'heroin_stat'
+	gs 'drugs', 'cocaine_stat'
+	gs 'drugs', 'amphetamine_stat'
+	gs 'drugs', 'caffeine_stat'
+	gs 'drugs', 'painkiller_stat'
+	exit
+end
+
+
+!! compute messages and icons for stat_display, called from stat_display_compute
+if $ARGS[0] = 'compute_stat_display':
+
+	!! ━━━━ ALCOHOL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! alko scale: 1=buzz, 2-3=tipsy, 4-5=drunk, 6-11=very drunk, 12+=wasted
+	if alko >= 12:
+		$stat_texts['alcohol'] = '你已经烂醉如泥了。'
+		gs 'stat_display_compute', 'queue_msg', 'alcohol', 'v_neg', 'drugs/alcohol_5', 3
+		gs 'stat_display_compute', 'queue_alert', '你已经烂醉如泥。', 'v_neg'
+	elseif alko >= 6:
+		$stat_texts['alcohol'] = '你醉得很厉害。'
+		gs 'stat_display_compute', 'queue_msg', 'alcohol', 'neg', 'drugs/alcohol_4', 3
+		gs 'stat_display_compute', 'queue_alert', '你醉得很厉害。', 'neg'
+	elseif alko >= 4:
+		$stat_texts['alcohol'] = '你喝醉了。'
+		gs 'stat_display_compute', 'queue_msg', 'alcohol', 'neutral', 'drugs/alcohol_3', 3
+	elseif alko >= 2:
+		$stat_texts['alcohol'] = '你感觉有点微醺。'
+		gs 'stat_display_compute', 'queue_msg', 'alcohol', 'neutral', 'drugs/alcohol_2', 3
+	elseif alko = 1:
+		$stat_texts['alcohol'] = '你喝酒后感到有点微醺。'
+		gs 'stat_display_compute', 'queue_msg', 'alcohol', 'neutral', 'drugs/alcohol_1', 3
+	end
+
+	!! ━━━━ CIGARETTES ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! Addiction threshold: cigarettes_used >= 20 (or relapse at >=5 with 150+ lifetime)
+	!! Craving: cigarettes_need > 0, ramps hourly; severe at >10, >25, >50
+	!! Partaking: totminut <= cigarettes_minute (3-minute window)
+
+	!! ── Partaking: actively smoking ──
+	if totminut <= drugVars['cigarettes_minute']:
+		$stat_texts['drug_cig_partake'] = '你正在抽一支烟。'
+		if mc_inventory['cigarettes'] > 0:
+			gs 'stat_display_compute', 'queue_msg', 'drug_cig_partake', 'v_pos', 'drugs/cig_use', 3, 'gs ''drugs'', ''smoke'''
+		else
+			gs 'stat_display_compute', 'queue_msg', 'drug_cig_partake', 'v_pos', 'drugs/cig_use', 3
+		end
+	else
+	!! ── Inventory icon: have cigarettes, not currently smoking ──
+		if mc_inventory['cigarettes'] > 0:
+			$stat_texts['drug_cig_inv_tooltip'] = '你有<<mc_inventory[''cigarettes'']>>支烟。点击抽烟。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_cig_inv', '', 'drugs/cig_have', 3, 'gs ''drugs'', ''smoke'''
+		end
+	end
+
+	!! ── Withdrawal / Craving ──
+	if drugVars['cigarettes_need'] > 0 and cheatVars['drugs_immune'] = 0:
+		if drugVars['cigarettes_need'] > 50:
+			$stat_texts['drug_cig_withdraw'] = '你迫切地想抽烟。你的双手在颤抖，什么都无法专注。'
+			gs 'stat_display_compute', 'queue_alert', '你极度渴望抽根烟。', 'v_neg'
+		elseif drugVars['cigarettes_need'] > 25:
+			$stat_texts['drug_cig_withdraw'] = '你真的需要一支烟。你的神经紧张，什么都让你烦躁。'
+		elseif drugVars['cigarettes_need'] > 10:
+			$stat_texts['drug_cig_withdraw'] = '你想抽烟。烟瘾正在折磨你。'
+		else
+			$stat_texts['drug_cig_withdraw'] = '你现在正需要来一根烟。'
+		end
+		if mc_inventory['cigarettes'] > 0:
+			$stat_texts['drug_cig_withdraw'] += ' 你有<<mc_inventory[''cigarettes'']>>支香烟。'
+			$stat_texts['drug_cig_withdraw_tooltip'] = $stat_texts['drug_cig_withdraw'] + ' 点击抽烟。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_cig_withdraw', 'v_neg', 'drugs/cig_crave', 3, 'gs ''drugs'', ''smoke'''
+		else
+			$stat_texts['drug_cig_withdraw'] += ' 你已经没有香烟了。'
+			$stat_texts['drug_cig_withdraw_tooltip'] = $stat_texts['drug_cig_withdraw']
+			gs 'stat_display_compute', 'queue_msg', 'drug_cig_withdraw', 'v_neg', 'drugs/cig_crave', 3
+		end
+	end
+
+	!! ── Addicted (persistent flag — shown when not actively craving) ──
+	if drugVars['cigarettes_used'] >= 20 and cheatVars['drugs_immune'] = 0 and drugVars['cigarettes_need'] = 0:
+		!! Withdrawal threshold: 80 + used*3/5 hours of craving to quit
+		$stat_texts['drug_cig_addict_tooltip'] = '你对尼古丁上瘾了。如果你停止抽烟，几小时内烟瘾就会发作。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_cig_addict', 'neg', 'drugs/cig_addict', 3
+	end
+
+
+	!! ━━━━ WEED ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! weed_high: set to 1–2 on use, decays 1/hour. No addiction system.
+	!! weed_minute: totminut + 2 on use (2-min smoking window)
+
+	!! ── Partaking: actively smoking a joint ──
+	if totminut <= drugVars['weed_minute']:
+		$stat_texts['drug_weed_partake'] = '你正在抽大麻烟。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_weed_partake', 'v_pos', 'drugs/weed_use', 3
+	end
+
+	!! ── High: ongoing weed effect ──
+	if drugVars['weed_high'] > 0:
+		if drugVars['weed_high'] >= 2:
+			$stat_texts['drug_weed_high'] = '你彻底上头了。一切都显得滑稽又遥远。你饿得厉害。'
+			gs 'stat_display_compute', 'queue_alert', '你彻底嗨翻了。', 'accent'
+		else
+			$stat_texts['drug_weed_high'] = '你上头了。世界变得柔软而平静。你感到有点饿了。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_weed_high', 'accent', 'drugs/weed_high', 3
+	end
+
+
+	!! ━━━━ HEROIN ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! heroin_high: +25 on use, decays 1/hour. At >20: also clears alcohol.
+	!! heroin_need: acute withdrawal, ramps hourly (mood penalty >10/24/48), capped at 5 days, then sets heroin_taper.
+	!! heroin_taper: post-acute craving tail (small mood penalty) — an hour countdown set
+	!!   once, scaled by how long the habit lasted (heroin_hours_addicted), capped at 50 days.
+	!!   Recovery (used/hours_addicted reset) when it counts down to 0.
+
+	!! ── High: under heroin effects ──
+	if drugVars['heroin_high'] > 0:
+		if drugVars['heroin_high'] >= 20:
+			$stat_texts['drug_heroin_high'] = '你正处于强烈的海洛因快感中。其他一切都不重要了。'
+			gs 'stat_display_compute', 'queue_alert', '你正处于强烈的海洛因快感中。', 'accent'
+		elseif drugVars['heroin_high'] >= 10:
+			$stat_texts['drug_heroin_high'] = '你感到温暖而麻木。海洛因仍在你的体内流淌。'
+		else
+			$stat_texts['drug_heroin_high'] = '海洛因的快感正在消退。世界正慢慢重新袭来。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_heroin_high', 'accent', 'drugs/heroin_high', 3
+	end
+
+	!! ── Withdrawal: heroin_need > 0 and not currently high ──
+	if drugVars['heroin_need'] > 0 and drugVars['heroin_high'] = 0:
+		if drugVars['heroin_taper'] > 0:
+			$stat_texts['drug_heroin_withdraw'] = '身体的剧痛已经消退，但对海洛因的渴望仍在啃噬着你。要彻底放下还需要时间。'
+		elseif drugVars['heroin_need'] > 48:
+			$stat_texts['drug_heroin_withdraw'] = '你极度痛苦。全身每一根骨头都在疼。你拼命需要海洛因。你的情绪和性情都受到严重影响。'
+			gs 'stat_display_compute', 'queue_alert', '你对海洛因的渴望难以抗拒。', 'v_neg'
+		elseif drugVars['heroin_need'] > 24:
+			$stat_texts['drug_heroin_withdraw'] = '你非常虚弱，痛彻骨髓。戒断反应让你痛苦不堪。'
+			gs 'stat_display_compute', 'queue_alert', '海洛因戒断反应来势汹汹。', 'v_neg'
+		elseif drugVars['heroin_need'] > 10:
+			$stat_texts['drug_heroin_withdraw'] = '你的身体在疼痛，你感觉糟透了。你需要来一针。'
+			gs 'stat_display_compute', 'queue_alert', '你需要来一剂海洛因。', 'neg'
+		else
+			$stat_texts['drug_heroin_withdraw'] = '你开始感到不适。你的身体需要更多海洛因。'
+		end
+		$stat_texts['drug_heroin_withdraw_tooltip'] = $stat_texts['drug_heroin_withdraw']
+		!! No inventory for heroin — player must seek it out. Show withdrawal info on click.
+		gs 'stat_display_compute', 'queue_msg', 'drug_heroin_withdraw', iif(drugVars['heroin_taper'] > 0, 'neg', 'v_neg'), 'drugs/heroin_crave', 3
+
+	!! ── Addicted: used >= 3 but not yet in withdrawal (currently high) ──
+	elseif drugVars['heroin_used'] >= 3 and drugVars['heroin_high'] > 0:
+		!! heroin_high decays exactly 1/hr — this is a precise countdown, not an estimate
+		if drugVars['heroin_high'] = 1:
+			$stat_texts['drug_heroin_addict_tooltip'] = '你对海洛因上瘾了。快感几乎消失 —一小时内戒断反应就会开始。'
+		else
+			$stat_texts['drug_heroin_addict_tooltip'] = '你对海洛因上瘾了。药效消退后，戒断反应将在<<drugVars[''heroin_high'']>>小时后开始。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_heroin_addict', 'neg', 'drugs/heroin_addict', 3
+	end
+
+
+	!! ━━━━ COCAINE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! cocaine_high:   acute high (0–200), hourly decay –20. Status + effects.
+	!! cocaine_system: cumulative dependency (0–60), daily decay. Feeds cocaine_addict.
+	!! cocaine_crash:  post-high crash (0–60), hourly decay –10. Set when high ends.
+	!! cocaine_day:    set to daystart on use.
+	!! cocaine_need:   hourly counter for addicts who haven''t used today.
+
+	!! ── High ──
+	if drugVars['cocaine_high'] > 0:
+		if drugVars['cocaine_high'] >= 100:
+			$stat_texts['drug_cocaine_high'] = '你感到无所不能。可卡因正奔涌在你的血管里。'
+			gs 'stat_display_compute', 'queue_alert', '你可卡因上头了。', 'accent'
+		elseif drugVars['cocaine_high'] >= 40:
+			$stat_texts['drug_cocaine_high'] = '你感到强大而警觉。你的心脏因可卡因而狂跳。'
+		else
+			$stat_texts['drug_cocaine_high'] = '可卡因的兴奋感正在消退但你仍感到一丝余威。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_cocaine_high', 'accent', 'drugs/cocaine_high', 3
+	end
+
+	!! ── Crash (a few hours after high ends) ──
+	if drugVars['cocaine_crash'] > 0 and drugVars['cocaine_high'] = 0:
+		if drugVars['cocaine_crash'] > 30:
+			$stat_texts['drug_cocaine_crash'] = '你正在经历强烈的药效消退。你精疲力竭、烦躁易怒，渴望更多的可卡因。'
+		else
+			$stat_texts['drug_cocaine_crash'] = '可卡因的药效正在消退。你感到空虚而疲惫。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_cocaine_crash', 'neg', 'drugs/cocaine_crave', 3
+	end
+
+	!! ── Withdrawal: addict + haven''t used today ──
+	if drugVars['cocaine_addict'] = 1 and drugVars['cocaine_day'] <> daystart:
+		if drugVars['cocaine_need'] > 144:
+			$stat_texts['drug_cocaine_withdraw'] = '你在毁灭自己。没有可卡因的每一小时都在损耗你的健康和理智。你的情绪和性情在急剧恶化。'
+			gs 'stat_display_compute', 'queue_alert', '你<i>需要</i>可卡因。', 'v_neg'
+		elseif drugVars['cocaine_need'] > 72:
+			$stat_texts['drug_cocaine_withdraw'] = '你急需可卡因。你感到非常虚弱，你的健康在迅速恶化。'
+			gs 'stat_display_compute', 'queue_alert', '可卡因戒断反应来势汹汹。', 'v_neg'
+		elseif drugVars['cocaine_need'] > 24:
+			$stat_texts['drug_cocaine_withdraw'] = '你需要可卡因。渴望非常强烈，你的身体正在变弱。'
+			gs 'stat_display_compute', 'queue_alert', '你需要可卡因。', 'neg'
+		else
+			$stat_texts['drug_cocaine_withdraw'] = '你今天还没碰过可卡因。渴望正在累积。'
+		end
+		if mc_inventory['cocaine'] > 0:
+			$stat_texts['drug_cocaine_withdraw'] += ' 你有<<mc_inventory[''cocaine'']>>剂可卡因。'
+			$stat_texts['drug_cocaine_withdraw_tooltip'] = $stat_texts['drug_cocaine_withdraw'] + ' 点击使用。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_cocaine_withdraw', 'v_neg', 'drugs/cocaine_crave', 3, 'gs ''drugs'', ''cocaine'''
+		else
+			$stat_texts['drug_cocaine_withdraw_tooltip'] = $stat_texts['drug_cocaine_withdraw']
+			gs 'stat_display_compute', 'queue_msg', 'drug_cocaine_withdraw', 'v_neg', 'drugs/cocaine_crave', 3
+		end
+
+	!! ── Addicted: used today, no active withdrawal ──
+	elseif drugVars['cocaine_addict'] = 1 and drugVars['cocaine_day'] = daystart:
+		$stat_texts['drug_cocaine_addict_tooltip'] = '你对可卡因上瘾了。如果明天不再使用，戒断反应就会开始。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_cocaine_addict', 'neg', 'drugs/cocaine_addict', 3
+	end
+
+
+	!! ━━━━ AMPHETAMINE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! amphetamine_high: set to 12 on use, decays 4/hour (~3h high).
+	!! amphetamine_withdrawl (sic): complex state machine.
+	!!   0 = clean, 2 = coming down, >=5 = active withdrawal (up to 169h).
+	!!   Withdrawal: mood loss = withdrawl/5 per hour. Resets at >169.
+
+	!! ── High: wired on amphetamines ──
+	if drugVars['amphetamine_high'] > 0:
+		if drugVars['amphetamine_high'] >= 8:
+			$stat_texts['drug_amphet_high'] = '你兴奋极了！你的心脏怦怦直跳，你觉得自己势不可挡。'
+			gs 'stat_display_compute', 'queue_alert', '你被安非他命顶得亢奋不已。', 'accent'
+		elseif drugVars['amphetamine_high'] >= 4:
+			$stat_texts['drug_amphet_high'] = '你感到亢奋且紧张不安。安非他命的冲击感依然强烈。'
+		else
+			$stat_texts['drug_amphet_high'] = '安非他命的兴奋感正在消退。你感到烦躁不安。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_amphet_high', 'accent', 'drugs/amphet_high', 3
+	end
+
+	!! ── Withdrawal: amphetamine_withdrawl >= 5 and not high ──
+	if drugVars['amphetamine_withdrawl'] >= 5 and drugVars['amphetamine_high'] <= 0:
+		if drugVars['amphetamine_withdrawl'] > 100:
+			$stat_texts['drug_amphet_withdraw'] = '安非他命的药效消退令人难以忍受。你几乎无法正常行动。你的情绪急速低落。'
+			gs 'stat_display_compute', 'queue_alert', '安非他命的药效回落让人难以忍受。', 'v_neg'
+		elseif drugVars['amphetamine_withdrawl'] > 50:
+			$stat_texts['drug_amphet_withdraw'] = '安非他命戒断反应十分剧烈。你感到精疲力竭，情绪低沉绝望。'
+			gs 'stat_display_compute', 'queue_alert', '安非他命戒断反应来势汹汹。', 'v_neg'
+		else
+			$stat_texts['drug_amphet_withdraw'] = '你正在经历安非他命药效褪去。你感到疲倦、烦躁、精疲力尽。'
+			gs 'stat_display_compute', 'queue_alert', '你的安非他命药效正在退去。', 'neg'
+		end
+		if mc_inventory['amphetamine'] > 0:
+			$stat_texts['drug_amphet_withdraw'] += ' 你有<<mc_inventory[''amphetamine'']>>片药丸。'
+			$stat_texts['drug_amphet_withdraw_tooltip'] = $stat_texts['drug_amphet_withdraw'] + ' 点击领取一个。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_amphet_withdraw', 'v_neg', 'drugs/amphet_crave', 3, 'gs ''drugs'', ''amphetamine'''
+		else
+			$stat_texts['drug_amphet_withdraw_tooltip'] = $stat_texts['drug_amphet_withdraw']
+			gs 'stat_display_compute', 'queue_msg', 'drug_amphet_withdraw', 'v_neg', 'drugs/amphet_crave', 3
+		end
+
+	!! ── Coming down: withdrawl = 2 and not high (transition state) ──
+	elseif drugVars['amphetamine_withdrawl'] = 2 and drugVars['amphetamine_high'] <= 0:
+		$stat_texts['drug_amphet_comedown'] = '安非他命的兴奋感已经消退。你感到疲惫无力，反应迟钝。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_amphet_comedown', 'neg', 'drugs/amphet_crave', 3
+	end
+
+	!! ── Addicted: significant use history (>=10), fully clean (withdrawl=0) ──
+	!! used resets only after full 169h detox; withdrawl=0 = calm window between comedown and next use.
+	if drugVars['amphetamine_used'] >= 10 and drugVars['amphetamine_high'] <= 0 and drugVars['amphetamine_withdrawl'] = 0:
+		$stat_texts['drug_amphet_addict'] = '你已经对安非他命产生了依赖。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_amphet_addict', 'neg', 'drugs/amphet_addict', 3
+	end
+
+
+	!! ━━━━ CAFFEINE ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! caffeine_addict: set when caffeine_system >= 60 (daily cikl).
+	!! caffeine_dose: > 0 while active (effect until caffeine_minut).
+	!! caffeine_need: hourly counter while addict + dose = 0.
+
+	!! ── Effect: caffeinated ──
+	if drugVars['caffeine_dose'] > 0:
+		$stat_texts['drug_caffeine_high'] = '你因咖啡因而感到兴奋。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_caffeine_high', 'pos', 'drugs/caffeine_high', 3
+	end
+
+	!! ── Withdrawal: craving caffeine ──
+	if drugVars['caffeine_need'] > 0:
+		$stat_texts['drug_caffeine_withdraw'] = '你对咖啡因产生了渴望。你感到昏昏沉沉，烦躁易怒。'
+		$stat_texts['drug_caffeine_withdraw_tooltip'] = '你对咖啡因产生了渴望。没有它，你的心情每小时都在恶化。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_caffeine_withdraw', 'v_neg', 'drugs/caffeine_crave', 3
+		gs 'stat_display_compute', 'queue_alert', '你渴望咖啡因。', 'neg'
+	end
+
+	!! ── Addicted (shown when not actively craving or caffeinated) ──
+	if drugVars['caffeine_addict'] = 1 and drugVars['caffeine_need'] = 0 and drugVars['caffeine_dose'] = 0:
+		$stat_texts['drug_caffeine_addict_tooltip'] = '你对咖啡因上瘾了。一旦缺少，就会开始渴望。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_caffeine_addict', 'neg', 'drugs/caffeine_addict', 3
+	end
+
+
+	!! ━━━━ PAINKILLER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! painkiller_addict: set when tolerance >= 30 (daily cikl).
+	!! painkiller_points: +100 on use, decays 20/hour. Withdrawal at <10.
+	!! painkiller_need: hourly counter in withdrawal, max 24.
+	!!   Withdrawal: mood loss, head/tummy pain scaling with need.
+
+	!! ── Effect: pain relief active ──
+	if drugVars['painkiller_points'] >= 10:
+		$stat_texts['drug_pk_high'] = '止痛药正在减轻你的疼痛。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_pk_high', 'pos', 'drugs/painkiller_high', 3
+	end
+
+	!! ── Withdrawal: addict + points < 10 ──
+	if drugVars['painkiller_weak'] = 1:
+		if drugVars['painkiller_need'] > 12:
+			$stat_texts['drug_pk_withdraw'] = '你的身体痛苦不堪。头部剧痛，胃部剧烈痉挛。你迫切需要止痛药。'
+			gs 'stat_display_compute', 'queue_alert', '你正遭受严重的止痛药戒断反应。', 'v_neg'
+		else
+			$stat_texts['drug_pk_withdraw'] = '你的身体因戒断而疼痛。你需要止痛药。'
+			gs 'stat_display_compute', 'queue_alert', '你需要止痛药。', 'neg'
+		end
+		if mc_inventory['painkillers'] > 0:
+			$stat_texts['drug_pk_withdraw'] += ' 你有<<mc_inventory[''painkillers'']>>.'
+			$stat_texts['drug_pk_withdraw_tooltip'] = $stat_texts['drug_pk_withdraw'] + ' 点击领取一个。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_pk_withdraw', 'v_neg', 'drugs/painkiller_crave', 3, 'gs ''drugs'', ''painkiller'''
+		else
+			$stat_texts['drug_pk_withdraw_tooltip'] = $stat_texts['drug_pk_withdraw']
+			gs 'stat_display_compute', 'queue_msg', 'drug_pk_withdraw', 'v_neg', 'drugs/painkiller_crave', 3
+		end
+
+	!! ── Addicted: tolerance high but not in withdrawal right now ──
+	elseif drugVars['painkiller_addict'] = 1 and drugVars['painkiller_points'] >= 10:
+		!! Points decay at 20/hr, withdrawal starts at <10.
+		!! hours = floor((points - 10) / 20). If < 1, it''s imminent (sub-hour).
+		sd_tmp_pk_hrs = (drugVars['painkiller_points'] - 10) / 20
+		if sd_tmp_pk_hrs < 1:
+			$stat_texts['drug_pk_addict_tooltip'] = '你对止痛药上瘾了。一小时内将出现戒断反应。'
+		else
+			$stat_texts['drug_pk_addict_tooltip'] = '你对止痛药上瘾了。戒断反应将在<<sd_tmp_pk_hrs>>小时后开始。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_pk_addict', 'neg', 'drugs/painkiller_addict', 3
+		killvar 'sd_tmp_pk_hrs'
+	end
+
+
+	!! ━━━━ APHRODISIAC ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! aphrodisiac_timer: set to 8 on first use, +8 on second, decays 1/hour.
+	!! No addiction system. Overdose resets timer daily (cikl).
+
+	!! ── Effect: aphrodisiac active ──
+	if drugVars['aphrodisiac_timer'] > 0:
+		$stat_texts['drug_aphro_high'] = '你感觉浑身发热，每动一下，腹股沟都会一阵刺痛。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_aphro_high', 'bimbo', 'drugs/aphro_high', 3
+		gs 'stat_display_compute', 'queue_alert', '春药让你欲火焚身、心神不宁。', 'bimbo'
+	end
+
+
+	!! ━━━━ MENTATS (Neurobooster) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! mentats_dose: +1 on use. Resets daily (cikl). >1 = headache.
+	!! No addiction system.
+
+	!! ── Effect: boosted ──
+	if drugVars['mentats_dose'] > 0:
+		if drugVars['mentats_dose'] > 1:
+			$stat_texts['drug_mentats_high'] = '你的大脑感觉过载了。服用超过一粒神经增强剂会带来痛苦。'
+		else
+			$stat_texts['drug_mentats_high'] = '你感觉思维敏锐，注意力集中。'
+		end
+		gs 'stat_display_compute', 'queue_msg', 'drug_mentats_high', 'accent', 'drugs/mentats_high', 3
+	end
+
+
+	!! ━━━━ STEROIDS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! steroids_dose: +1 on use, max 3/day. Resets daily (cikl).
+	!! No addiction. Side effect: body hair growth, clit growth.
+
+	!! ── Effect: steroids active ──
+	if drugVars['steroids_dose'] > 0:
+		if drugVars['steroids_dose'] >= 3:
+			$stat_texts['drug_steroids_high'] = '你体内充满了类固醇。你今天真的不应该再服用了。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_steroids_high', 'neg', 'drugs/steroids_high', 3
+			gs 'stat_display_compute', 'queue_alert', '你今天服用了太多类固醇。', 'neg'
+		else
+			$stat_texts['drug_steroids_high'] = '你能感觉到类固醇在体内发挥作用。'
+			gs 'stat_display_compute', 'queue_msg', 'drug_steroids_high', 'accent', 'drugs/steroids_high', 3
+		end
+	end
+
+
+	!! ━━━━ BREAST CREAM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! breastcream_dose: set to 1 on use, resets daily (cikl).
+
+	!! ── Effect: cream applied ──
+	if drugVars['breastcream_dose'] > 0:
+		$stat_texts['drug_breastcream_high'] = '你的乳房感觉灼热刺痛。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_breastcream_high', 'bimbo', 'drugs/breastcream_high', 3
+	end
+
+
+	!! ━━━━ HAIR EXTENSION CREAM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! hair_extensioncream_dose: set to 1 on use, resets daily (cikl).
+
+	!! ── Effect: cream applied ──
+	if drugVars['hair_extensioncream_dose'] > 0:
+		$stat_texts['drug_haircream_high'] = '你的头皮感觉灼热刺痛。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_haircream_high', 'accent', 'drugs/haircream_high', 3
+	end
+
+
+	!! ━━━━ BUTT INJECTION ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+	!! butt_injection_dose: set to 1 on use, resets daily (cikl).
+
+	!! ── Effect: injection active ──
+	if drugVars['butt_injection_dose'] > 0:
+		$stat_texts['drug_buttinj_high'] = '你的臀部感觉灼热刺痛。'
+		gs 'stat_display_compute', 'queue_msg', 'drug_buttinj_high', 'accent', 'drugs/buttinj_high', 3
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'pain_relief':
+	pain['relief'] = 0
+	if alko <= 3:
+		!! Intentionally empty
+	elseif alko <= 6:
+		pain['relief'] += 15
+	elseif alko <= 9:
+		pain['relief'] += 30
+	else
+		pain['relief'] += 60
+	end
+
+	if drugVars['heroin_high'] > 0:
+		pain['relief'] += 90
+	elseif drugVars['cocaine_high'] > 0:
+		pain['relief'] += 50
+	elseif drugVars['painkiller_points'] > 0:
+		!! Non-linear saturation curve modified by tolerance.
+		!! At tolerance 0: ceiling 60%, saturation 140 (unchanged).
+		!! At tolerance 30 (addict): ceiling 50%, saturation 200.
+		!! At tolerance 60 (heavy): ceiling 40%, saturation 260.
+		!! Decay is handled in painkiller_hourly_events (20 pts/hr) so it runs
+		!! regardless of whether the player is in pain.
+		painkiller_ceiling = 60 - drugVars['painkiller_tolerance'] / 3
+		painkiller_saturation = 140 + drugVars['painkiller_tolerance'] * 2
+		pain['relief'] += (painkiller_ceiling * drugVars['painkiller_points']) / (drugVars['painkiller_points'] + painkiller_saturation)
+		killvar 'painkiller_ceiling'
+		killvar 'painkiller_saturation'
+	end
+	pain['relief'] = max(0, min(pain['relief'], 95))
+	exit
+end
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             SOFT DRUGS                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                          ALCOHOL                           !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = type ['beer', 'wine', 'champagne', 'vodka', 'whiskey', 'scotch', 'rum', 'moonshine']
+!! [ARGS[2] = count (defaults to 1)]
+if $ARGS[0] = 'alcohol':
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['alcohol_used'] += 1
+		if drugVars['alcohol_used'] > 15 and drugVars['alcohol_exp'] = 0: drugVars['alcohol_exp'] = 1
+	end
+
+	$ARGS[1] = $lcase($ARGS[1])
+	ARGS[2] = iif(ARGS[2] <= 1, 1, ARGS[2])
+
+	temp_alc_count = 0
+	:alcohol_jump
+		pcs_health -= 5
+		pcs_energy -= 5
+
+		if $ARGS[1] = 'beer':
+			if trait_vars['drinking'] < 0:
+				alko += rand(1, 2)
+			elseif trait_vars['drinking'] = 0:
+				alko += 1
+			else
+				alko += rand(0, 1)
+			end
+			trait_vars['alko_today'] += 1
+			gs 'mood', 'raise', 'tiny'
+
+			fat += 3
+			if pcs_hydra >= 100:
+				pcs_hydra += 5
+			else
+				pcs_hydra += 10
+			end
+
+		elseif $ARGS[1] = 'wine' or $ARGS[1] = 'champagne':
+			if trait_vars['drinking'] < 0:
+				alko += 3
+			elseif trait_vars['drinking'] = 0:
+				alko += 2
+			else
+				alko += 1
+			end
+			trait_vars['alko_today'] += 2
+			gs 'mood', 'raise', 'small'
+
+			fat += 4
+			if pcs_hydra >= 100:
+				pcs_hydra += 5
+			else
+				pcs_hydra += 10
+			end
+
+		elseif $ARGS[1] = 'vodka' or $ARGS[1] = 'whiskey' or $ARGS[1] = 'scotch' or $ARGS[1] = 'rum':
+			if trait_vars['drinking'] < 0:
+				alko += rand(4, 5)
+			elseif trait_vars['drinking'] = 0:
+				alko += 3
+			else
+				alko += rand(1, 2)
+			end
+			trait_vars['alko_today'] += 3
+
+			fat += 6
+			if pcs_hydra >= 100:
+				pcs_hydra -= 5
+			else
+				pcs_hydra -= 10
+			end
+
+		elseif $ARGS[1] = 'moonshine':
+			if trait_vars['drinking'] < 0:
+				alko += rand(7, 8)
+			elseif trait_vars['drinking'] = 0:
+				alko += 5
+			else
+				alko += rand(2, 3)
+			end
+			trait_vars['alko_today'] += 5
+
+			fat += rand(1, 2)
+			if pcs_hydra >= 100:
+				pcs_hydra -= 5
+			else
+				pcs_hydra -= 10
+			end
+
+		else
+			*pl $func('wrap', 'v_neg', '<br>开发者提示：本场景中缺少酒精类型：（<<$ARGS[1]>>）。请把这连同当前场景的一小段文本作为错误报告。')
+		end
+
+		temp_alc_count += 1
+	if temp_alc_count < ARGS[2]: jump 'alcohol_jump'
+	killvar 'temp_alc_count'
+
+	if drugVars['painkiller_points'] >= 50:
+		if alko >= 12:
+			pcs_health -= 150
+		elseif alko >= 6:
+			pcs_health -= 50
+		end
+	end
+
+	frost = 0
+	pcs_breath = 0
+	gs 'cum_cleanup', 2
+	gs 'stat'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          CAFFEINE                          !!
+		!!------------------------------------------------------------!!
+
+
+!! [ARGS[1] = strength (defaults to 4)]
+!! [ARGS[2] = count (defaults to 1)]
+if $ARGS[0] = 'caffeine':
+	if drugVars['caffeine_dose'] > 0: exit
+
+	if ARGS[1] <= 0: ARGS[1] = 4
+	if ARGS[2] <= 0: ARGS[2] = 1
+
+	drugVars['caffeine_dose'] = ARGS[2]
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['caffeine_used'] += 1
+		drugVars['caffeine_system'] += ARGS[1] * drugVars['caffeine_dose']
+	end
+
+	drugVars['caffeine_minut'] = totminut + (ARGS[1] - 1) * 60 + rand(0, 30) + rand(0, 30) + rand(0, 30) + rand(0, 30)
+	drugVars['sleep_actual'] = pcs_sleep
+
+	if drugVars['caffeine_addict'] = 0:
+		drugVars['sleep_displayed'] = (101 * drugVars['caffeine_dose'] + pcs_sleep) / (1 + drugVars['caffeine_dose'])
+	else
+		drugVars['sleep_displayed'] = (102 * drugVars['caffeine_dose'] + pcs_sleep * (drugVars['caffeine_dose'] + 2)) / (2 * drugVars['caffeine_dose'] + 2)
+	end
+
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'caffeine_cikl':
+	if drugVars['caffeine_system'] <= 0:
+		drugVars['caffeine_system'] = 0
+	elseif drugVars['caffeine_system'] < 20:
+		drugVars['caffeine_system'] -= 1
+	elseif drugVars['caffeine_system'] < 40:
+		drugVars['caffeine_system'] -= 2
+	elseif drugVars['caffeine_system'] < 60:
+		drugVars['caffeine_system'] -= 3
+	else
+		drugVars['caffeine_system'] = min(60, drugVars['caffeine_system'] - 4)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'caffeine_hourly_events':
+	if drugVars['caffeine_addict'] = 1 and drugVars['caffeine_dose'] = 0:
+		drugVars['caffeine_need'] += 1
+	end
+
+	if drugVars['caffeine_need'] > 0:
+		gs 'mood', 'lower', 'small'
+	end
+
+	if drugVars['caffeine_dose'] > 0:
+		pcs_sleep += max(0, min(rand(-1, drugVars['caffeine_dose']), 1))
+	end
+
+	if drugVars['caffeine_addict'] > 0:
+		pcs_sleep -= rand(0, 1)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'caffeine_stat':
+	if drugVars['caffeine_system'] >= 60:
+		drugVars['caffeine_addict'] = 1
+	elseif drugVars['caffeine_system'] <= 0:
+		drugVars['caffeine_addict'] = 0
+	end
+	if drugVars['caffeine_dose'] > 0:
+		drugVars['caffeine_need'] = 0
+		drugVars['sleep_actual'] -= (drugVars['sleep_displayed'] - pcs_sleep)
+		if totminut <= drugVars['caffeine_minut']:
+			pcs_sleep = drugVars['sleep_displayed']
+		else
+			pcs_sleep = drugVars['sleep_actual']
+			drugVars['caffeine_dose'] = 0
+		end
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                         CIGARETTES                         !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a smoke
+!!					(defaults to smoking her own)
+if $ARGS[0] = 'smoke' or $ARGS[0] = 'cigarette':
+	!! Cig not gift -> remove one.
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['cigarettes'] -= 1
+		if mc_inventory['cigarettes'] <= 0: mc_inventory['cigarettes'] = 0 & msg '那是你最后一支香烟了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['cigarettes_used'] += 1
+		drugVars['cigarettes_ever'] += 1
+		if drugVars['cigarettes_used'] > 20 and drugVars['cigarettes_exp'] = 0: drugVars['cigarettes_exp'] = 1
+	end
+
+	stat['cigarettes_smoked'] += 1
+	drugVars['cigarettes_minute'] = totminut + 3
+	drugVars['cigarettes_need'] = 0
+	teeth['smoked'] += 1
+
+	pcs_breath = 0
+	gs 'mood', 'raise', 'medium'
+	gs 'mood', 'hold', 15
+	if pcs_hydra >= 100:
+		pcs_hydra -= 5
+	else
+		pcs_hydra -= 10
+	end
+	if pcs_energy < 80: pcs_energy += 4
+
+	cumspclnt = 2
+	gs 'cum_cleanup'
+	gs 'body', 'SkinLoss', 'Smoke'
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'cigarette_hourly_events':
+	if cheatVars['drugs_immune'] = 0:
+		!! Craving rate scales smoothly with lifetime cigarettes smoked.
+		!! First roll ramps linearly from 40% at 20 smoked to 100% at 260 smoked.
+		!! Second roll adds up to +67% linearly from 260 to 1000 smoked.
+		!! ~83%/hr at 200 smoked (need to smoke every ~12h)
+		!! ~167%/hr at 1000 smoked (need to smoke every ~6h)
+		!! Relapse threshold: 5 for past smokers (150+ lifetime), 20 for first-timers.
+		if drugVars['cigarettes_used'] >= 20 or (drugVars['cigarettes_ever'] >= 150 and drugVars['cigarettes_used'] >= 5):
+			if rand(1, 100) <= 40 + min(drugVars['cigarettes_used'] - 20, 240) / 4:
+				drugVars['cigarettes_need'] += 1
+			end
+			if rand(1, 3) <= max(0, min(drugVars['cigarettes_used'] - 260, 740)) / 370:
+				drugVars['cigarettes_need'] += 1
+			end
+		end
+		if inSleep = 0:
+			if drugVars['cigarettes_need'] > 50:
+				gs 'mood', 'lower', 'large'
+				if drugVars['disp_day_smoke'] < daystart:
+					drugVars['disp_day_smoke'] = daystart
+					gs 'mood', 'lower_disposition', 'tiny'
+				end
+			elseif drugVars['cigarettes_need'] > 25:
+				gs 'mood', 'lower', 'medium'
+			elseif drugVars['cigarettes_need'] > 10:
+				gs 'mood', 'lower', 'tiny'
+			end
+		end
+	end
+
+	!! Withdrawl time depends on cigarettes used
+	if drugVars['cigarettes_need'] > 80 + drugVars['cigarettes_used'] * 3 / 5:
+		drugVars['cigarettes_need'] = 0
+		drugVars['cigarettes_used'] = 0
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                            WEED                            !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a joint
+!!					(defaults to smoking her own)
+if $ARGS[0] = 'weed' or $ARGS[0] = 'joint':
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['joints'] -= 1
+		if mc_inventory['joints'] <= 0: mc_inventory['joints'] = 0 & msg '那是你最后一支大麻烟了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['weed_used'] += 1
+		if drugVars['weed_used'] > 5 and drugVars['weed_exp'] = 0: drugVars['weed_exp'] = 1
+	end
+
+	if minut > 30:
+		drugVars['weed_high'] = 2
+	else
+		drugVars['weed_high'] = 1
+	end
+	drugVars['weed_day'] = daystart
+	drugVars['weed_hour'] = hour
+	drugVars['weed_minute'] = totminut + 2
+
+	pcs_breath = 0
+	gs 'mood', 'raise', 'large'
+	gs 'archetypes', 'gain', 'punk', 'tiny', '抽大麻'
+	gs 'mood', 'hold', 15
+	if pcs_hydra >= 100:
+		pcs_hydra -= 5
+	else
+		pcs_hydra -= 10
+	end
+	pcs_energy = max(0, pcs_energy - 20)
+
+	cumspclnt = 2
+	gs 'cum_cleanup'
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'weed_hourly_events':
+	if drugVars['weed_high'] > 0:
+		drugVars['weed_high'] -= 1
+		if drugVars['weed_high'] > 1:
+			pcs_energy -= 8
+		else
+			pcs_energy -= 4
+		end
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             HARD DRUGS                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                        AMPHETAMINE                         !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a pill
+!!					(defaults to using her own)
+if $ARGS[0] = 'amphetamine':
+	if drugVars['amphetamine_intake'] >= 2:
+		'你的心脏已经在胸腔里狂跳不止，你应该避免再服用任何药丸。'
+		exit
+	end
+
+	*pl $func('wrap', 'accent', '你吞下了白色药丸。')
+
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['amphetamine'] -= 1
+		if mc_inventory['amphetamine'] <= 0: mc_inventory['amphetamine'] = 0 & msg '那是你最后一粒安非他命药丸了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['amphetamine_used'] += 1
+		if drugVars['amphetamine_used'] > 5 and drugVars['amphetamine_exp'] = 0: drugVars['amphetamine_exp'] = 1
+	end
+
+	drugVars['amphetamine_intake'] += 1
+	drugVars['amphetamine_high'] = 12
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'amphetamine_hourly_events':
+	if drugVars['amphetamine_withdrawl'] >= 5:
+		drugVars['amphetamine_withdrawl'] += 1
+		gs 'mood', 'lower', drugVars['amphetamine_withdrawl'] / 5
+	end
+
+	if drugVars['amphetamine_high'] > 0:
+		if drugVars['amphetamine_withdrawl'] < 2: drugVars['amphetamine_withdrawl'] = 2
+		drugVars['amphetamine_bonus'] = 2
+		drugVars['amphetamine_high'] -= 4
+		gs 'mood', 'raise', 2 * drugVars['amphetamine_high']
+
+	elseif drugVars['amphetamine_withdrawl'] = 2:
+		if drugVars['amphetamine_intake'] > 0:
+			drugVars['amphetamine_intake'] -= 1
+		else
+			drugVars['amphetamine_withdrawl'] = 0
+		end
+
+		drugVars['amphetamine_high'] = 0
+		drugVars['amphetamine_bonus'] = 1
+		gs 'mood', 'lower', 'small'
+
+	elseif drugVars['amphetamine_intake'] > 0:
+		drugVars['amphetamine_withdrawl'] += 1
+
+	elseif drugVars['amphetamine_withdrawl'] = 0:
+		drugVars['amphetamine_bonus'] = 0
+	end
+
+	if drugVars['amphetamine_withdrawl'] > 169:
+		drugVars['amphetamine_withdrawl'] = 0
+		drugVars['amphetamine_bonus'] = 0
+		drugVars['amphetamine_used'] = 0
+	end
+
+	if drugVars['amphetamine_high'] <= 0:
+		if inSleep = 1:
+			pcs_energy -= 4 * drugVars['amphetamine_bonus']
+			pcs_hydra -= 8 * drugVars['amphetamine_bonus']
+		else
+			pcs_energy -= 8 * drugVars['amphetamine_bonus']
+			pcs_hydra -= 16 * drugVars['amphetamine_bonus']
+		end
+	else
+		if inSleep = 1:
+			pcs_energy += 4 * drugVars['amphetamine_bonus'] / (1 + drugVars['amphetamine_bonus'])
+			pcs_hydra += 8 * drugVars['amphetamine_bonus'] / (1 + drugVars['amphetamine_bonus'])
+		else
+			pcs_energy += 8 * drugVars['amphetamine_bonus'] / (1 + drugVars['amphetamine_bonus'])
+			pcs_hydra += 16 * drugVars['amphetamine_bonus'] / (1 + drugVars['amphetamine_bonus'])
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'amphetamine_stat':
+	if drugVars['amphetamine_used'] <= 3 or drugVars['amphetamine_high'] > 0: exit
+
+	if rand(1, 5) > 4: drugVars['amphetamine_withdrawl'] = 2
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          COCAINE                           !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is receiving the drugs
+!!					(defaults to using her own)
+if $ARGS[0] = 'cocaine':
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['cocaine'] -= 1
+		if mc_inventory['cocaine'] <= 0: mc_inventory['cocaine'] = 0 & msg '那是你最后一条可卡因了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['cocaine_used'] += 1
+		if drugVars['cocaine_used'] > 3 and drugVars['cocaine_exp'] = 0: drugVars['cocaine_exp'] = 1
+	end
+
+	drugVars['cocaine_high'] = min(200, drugVars['cocaine_high'] + 100)
+	drugVars['cocaine_system'] = min(60, drugVars['cocaine_system'] + 8)
+	drugVars['cocaine_day'] = daystart
+	drugVars['cocaine_crash'] = 0
+	drugVars['cocaine_need'] = 0
+	if drugVars['cocaine_willday'] <> daystart:
+		drugVars['cocaine_willday'] = daystart
+		pcs_willpwr += 10
+	end
+
+	pcs_health = pcs_vital * 10 + pcs_stren * 5
+	gs 'mood', 'raise', 'huge'
+	pcs_horny = max(100, pcs_horny)
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'cocaine_cikl':
+	if drugVars['cocaine_system'] < 20:
+		drugVars['cocaine_system'] = max(0, drugVars['cocaine_system'] - 1)
+	elseif drugVars['cocaine_system'] < 40:
+		drugVars['cocaine_system'] -= 2
+	elseif drugVars['cocaine_system'] < 60:
+		drugVars['cocaine_system'] -= 3
+	else
+		drugVars['cocaine_system'] = min(60, drugVars['cocaine_system'] - 4)
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'cocaine_hourly_events':
+	!! Decay the high; trigger crash when it hits zero
+	if drugVars['cocaine_high'] > 0:
+		drugVars['cocaine_high'] = max(0, drugVars['cocaine_high'] - 20)
+		if drugVars['cocaine_high'] = 0:
+			drugVars['cocaine_crash'] = 60
+		end
+	end
+
+	!! Crash effects (everyone who used recently, ~6 hrs after high ends)
+	if drugVars['cocaine_crash'] > 0 and drugVars['cocaine_high'] = 0:
+		drugVars['cocaine_crash'] = max(0, drugVars['cocaine_crash'] - 10)
+		gs 'mood', 'lower', 'tiny'
+		pcs_stam -= 10
+	end
+
+	!! Withdrawal (addicts only, starting the day after last use)
+	if drugVars['cocaine_addict'] = 0: exit
+	if drugVars['cocaine_high'] > 0: exit
+	if drugVars['cocaine_day'] = daystart: exit
+
+	drugVars['cocaine_need'] += 1
+	pcs_health -= 2 + drugVars['cocaine_need'] / 10
+
+	if drugVars['cocaine_need'] > 144:
+		gs 'mood', 'lower', 'large'
+		if drugVars['disp_day_cocaine'] < daystart:
+			drugVars['disp_day_cocaine'] = daystart
+			gs 'mood', 'lower_disposition', 'tiny'
+		end
+	elseif drugVars['cocaine_need'] > 72:
+		gs 'mood', 'lower', 'medium'
+	elseif drugVars['cocaine_need'] > 24:
+		gs 'mood', 'lower', 'small'
+	elseif drugVars['cocaine_need'] > 6:
+		gs 'mood', 'lower', 'tiny'
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'cocaine_stat':
+	if cheatVars['drugs_immune'] = 1:
+		drugVars['cocaine_addict'] = 0
+		drugVars['cocaine_need'] = 0
+	elseif drugVars['cocaine_system'] >= 25:
+		drugVars['cocaine_addict'] = 1
+	elseif drugVars['cocaine_system'] <= 0:
+		drugVars['cocaine_addict'] = 0
+		drugVars['cocaine_need'] = 0
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                           HEROIN                           !!
+		!!------------------------------------------------------------!!
+
+
+if $ARGS[0] = 'heroin':
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['heroin_used'] += 1
+		if drugVars['heroin_used'] > 1 and drugVars['heroin_exp'] = 0: drugVars['heroin_exp'] = 1
+	end
+
+	gs 'mood', 'raise', 'max'
+	gs 'mood', 'hold', 180
+	drugVars['heroin_high'] += 25
+	drugVars['heroin_day'] = daystart
+
+	pcs_health -= 10
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'heroin_hourly_events':
+	!! Entrenchment time — scales the taper length below.
+	if drugVars['heroin_used'] >= 3: drugVars['heroin_hours_addicted'] += 1
+
+	if drugVars['heroin_high'] > 0:
+		gs 'mood', 'lower', 40 / drugVars['heroin_high']
+		drugVars['heroin_high'] -= 1
+	elseif drugVars['heroin_taper'] > 0:
+		!! heroin_taper doubles as the countdown of hours left.
+		gs 'mood', 'lower', 'small'
+		drugVars['heroin_taper'] -= 1
+		if drugVars['heroin_taper'] <= 0:
+			drugVars['heroin_need'] = 0
+			drugVars['heroin_used'] = 0
+			drugVars['heroin_hours_addicted'] = 0
+		end
+	elseif drugVars['heroin_need'] > 0:
+		drugVars['heroin_need'] += 1
+		if drugVars['heroin_need'] > 48:
+			gs 'mood', 'lower', 'large'
+			if drugVars['disp_day_heroin'] < daystart:
+				drugVars['disp_day_heroin'] = daystart
+				gs 'mood', 'lower_disposition', 'small'
+			end
+		elseif drugVars['heroin_need'] > 24:
+			gs 'mood', 'lower', 'medium'
+		elseif drugVars['heroin_need'] > 10:
+			gs 'mood', 'lower', 'small'
+		end
+		!! Acute phase caps at 5 days, then starts the taper countdown.
+		if drugVars['heroin_need'] >= min(120, 24 + drugVars['heroin_used'] * 2):
+			drugVars['heroin_taper'] = min(1200, 24 + drugVars['heroin_hours_addicted'] * 2)
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'heroin_stat':
+	if drugVars['heroin_high'] > 0:
+		if drugVars['heroin_high'] >= 20 and alko > 0: alko = 0
+		drugVars['heroin_need'] = 0
+		drugVars['heroin_taper'] = 0
+		gs 'mood', 'raise', 'large'
+	elseif drugVars['heroin_used'] >= 3:
+		drugVars['heroin_need'] = max(1, drugVars['heroin_need'])
+	end
+	if drugVars['heroin_used'] >= drugVars['heroin_penalty'] * 25:
+		if drugVars['heroin_penalty'] > 0: vidage += 1
+		drugVars['heroin_penalty'] += 1
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             ENHANCERS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+		!!------------------------------------------------------------!!
+		!!                         PAINKILLER                         !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a pill
+!!					(defaults to using her own)
+!!			  'spell' = 'gift' + doesn''t increase tolerance
+if $ARGS[0] = 'painkiller':
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['painkillers'] -= 1
+		gs 'drugs', 'add_painkiller_timer'
+		if mc_inventory['painkillers'] <= 0:
+			mc_inventory['painkillers'] = 0
+			msg '那是你最后一粒止痛药了。'
+		end
+	end
+
+	drugVars['painkiller_points'] += 100
+
+	if cheatVars['drugs_immune'] = 0 and $ARGS[1] <> 'spell':
+		drugVars['painkiller_tolerance'] += 2
+		if drugVars['painkiller_tolerance'] > 60: drugVars['painkiller_tolerance'] = 60
+	end
+
+	if $ARGS[1] <> 'spell':
+		if alko >= 12:
+			pcs_health -= 150
+		elseif alko >= 6:
+			pcs_health -= 50
+		end
+	end
+
+	gs 'stat'
+	exit
+end
+
+if $ARGS[0] = 'add_painkiller_timer':
+	gs 'drugs', 'refresh_painkiller_timer'
+	painkiller_timer[] = 180
+	exit
+end
+
+
+if $ARGS[0] = 'count_painkiller_timer':
+	gs 'drugs', 'refresh_painkiller_timer'
+	result = arrsize('painkiller_timer')
+	exit
+end
+
+
+if $ARGS[0] = 'refresh_painkiller_timer':
+	temp_pk_gap = totminut - drugVars['painkiller_timer_refresh']
+	drugVars['painkiller_timer_refresh'] = totminut
+	if arrsize('painkiller_timer') > 0:
+		temp_pk_index = 0
+		:painkiller_refresh_loop
+			painkiller_timer[temp_pk_index] -= temp_pk_gap
+			if painkiller_timer[temp_pk_index] <= 0:
+				killvar 'painkiller_timer', temp_pk_index
+			else
+				temp_pk_index += 1
+			end
+		if temp_pk_index < arrsize('painkiller_timer'): jump 'painkiller_refresh_loop'
+		killvar 'temp_pk_index'
+	end
+	killvar 'temp_pk_gap'
+	exit
+end
+
+
+if $ARGS[0] = 'painkiller_act_str':
+	temp_pk_num = func('drugs', 'count_painkiller_timer')
+	$temp_pk_str = $str(temp_pk_num + 1) + $func('shortgs', 'get_number_suffix', temp_pk_num + 1)
+	if temp_pk_num = 0:
+		$result = '服用一片止痛药'
+	elseif temp_pk_num <= 2:
+		$result = '再吃一片止痛药 ' + $func('wrap', 'neutral', '（最近三小时内的第<<$temp_pk_str>>片）')
+	else
+		$result = '再吃一片止痛药 ' + $func('wrap', 'v_neg', '（最近三小时内的第<<$temp_pk_str>>片！）')
+	end
+	killvar 'temp_pk_num'
+	killvar 'temp_pk_str'
+	exit
+end
+
+
+if $ARGS[0] = 'painkiller_cikl':
+	if drugVars['painkiller_tolerance'] > 40:
+		drugVars['painkiller_tolerance'] -= 3
+	elseif drugVars['painkiller_tolerance'] > 20:
+		drugVars['painkiller_tolerance'] -= 2
+	elseif drugVars['painkiller_tolerance'] > 0:
+		drugVars['painkiller_tolerance'] -= 1
+	else
+		drugVars['painkiller_tolerance'] = 0
+		drugVars['painkiller_addict'] = 0
+		drugVars['painkiller_need'] = 0
+	end
+	if drugVars['painkiller_tolerance'] >= 30:
+		drugVars['painkiller_addict'] = 1
+		if drugVars['painkiller_exp'] = 0:
+			drugVars['painkiller_exp'] = 1
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'painkiller_hourly_events':
+	!! Decay points every hour
+	if drugVars['painkiller_points'] > 0:
+		drugVars['painkiller_points'] -= 20
+		if drugVars['painkiller_points'] < 0: drugVars['painkiller_points'] = 0
+	end
+
+	if drugVars['painkiller_addict'] = 0: exit
+
+	if drugVars['painkiller_points'] < 10:
+		drugVars['painkiller_need'] += 1
+		if drugVars['painkiller_need'] > 24: drugVars['painkiller_need'] = 24
+		gs 'mood', 'lower', 'tiny'
+		if drugVars['painkiller_need'] >= 12: gs 'mood', 'lower', 'tiny'
+		!! Withdrawal pain: aching head and stomach cramps, scaling with painkiller_need
+		pain['head'] += drugVars['painkiller_need'] / 6
+		pain['tummy'] += drugVars['painkiller_need'] / 6
+	else
+		if drugVars['painkiller_need'] > 0:
+			drugVars['painkiller_need'] -= 2
+			if drugVars['painkiller_need'] < 0: drugVars['painkiller_need'] = 0
+		end
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'painkiller_stat':
+	drugVars['painkiller_weak'] = 0
+	if drugVars['painkiller_addict'] = 1 and drugVars['painkiller_points'] < 10: drugVars['painkiller_weak'] = 1
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        APHRODISIAC                         !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a pill
+!!					(defaults to using her own)
+if $ARGS[0] = 'aphrodisiac':
+	if drugVars['aphrodisiac_overdose'] = 1:
+		$drugVars['aphrodisiac_msg'] = '<br>你今天吃过的催情口香糖已经够多了。'
+		exit
+	end
+
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['aphrodisiac'] -= 1
+		if mc_inventory['aphrodisiac'] <= 0: mc_inventory['aphrodisiac'] = 0 & msg '那是你最后一粒催情药丸了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['aphrodisiac_used'] += 1
+	end
+
+	if drugVars['aphrodisiac_timer'] <= 0:
+		$drugVars['aphrodisiac_msg'] = $func('wrap', 'bimbo', '<br>你拿起一块口香糖嚼了起来。味道像草莓，但还有点辣。')
+		drugVars['aphrodisiac_timer'] = 8
+		pcs_horny = max(80, pcs_horny)
+	elseif drugVars['aphrodisiac_timer'] >= 1 and drugVars['aphrodisiac_timer'] < 9:
+		$drugVars['aphrodisiac_msg'] = $func('wrap', 'bimbo', '<br>你又拿起一块口香糖嚼了起来。嘴里感到有些刺痛。')
+		drugVars['aphrodisiac_timer'] += 8
+		pcs_horny = max(100, pcs_horny)
+	elseif min_arousal < 60:
+		$drugVars['aphrodisiac_msg'] = $func('wrap', 'v_neg b', '<br>你又拿了一块口香糖开始嚼。突然，你被一阵强烈的性高潮所攫住！<br>高潮持续不断，你瘫倒在地，尽力忍受。')
+		drugVars['aphrodisiac_overdose'] = 1
+		pcs_horny = min_arousal
+
+		orgasm += 1
+		gs 'mood', 'raise', 'medium'
+		min_arousal += 10
+
+		if min_arousal <= 10:
+			$min_arousal_msg = $func('wrap', 'bimbo', '太强烈了！你仍然能感觉到刺痛。')
+		elseif min_arousal <= 20:
+			$min_arousal_msg = $func('wrap', 'bimbo', '你真的开始喜欢上这些了！不过你的裆部还是有点灼热。')
+		elseif min_arousal <= 30:
+			$min_arousal_msg = $func('wrap', 'bimbo', '当你试图站起来时，你注意到自己仍然性欲高涨。你到底怎么了？')
+		elseif min_arousal <= 40:
+			$min_arousal_msg = $func('wrap', 'bimbo', '你确信这一点。每次这种口香糖让你达到高潮时，它们也会增加你的性欲。')
+		elseif min_arousal <= 50:
+			$min_arousal_msg = $func('wrap', 'bimbo', '你用手指划过阴部，打了个寒颤。趁你还能想到性之外的事情，你真的应该停止嚼这些口香糖了。')
+		else
+			$min_arousal_msg = $func('wrap', 'bimbo', '你浑身燥热。你觉得你可以整天和任何东西、任何人做爱。')
+		end
+	else
+		$drugVars['aphrodisiac_msg'] = $func('wrap', 'bimbo', '你战战兢兢地又嚼了一块口香糖，期待更多的高潮，但什么也没发生。嗯。你产生了免疫力吗？')
+	end
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'aphrodisiac_cikl':
+	if drugVars['aphrodisiac_overdose'] = 1: drugVars['aphrodisiac_overdose'] = 0
+	drugVars['aphrodisiac_timer']	= 0
+	exit
+end
+
+
+if $ARGS[0] = 'aphrodisiac_hourly_events':
+	if drugVars['aphrodisiac_timer'] <= 0: exit
+
+	drugVars['aphrodisiac_timer'] -= 1
+	!! Changed from pcs_horny < 80 -> pcs_horny < 70 to ensure a minimum increase of +10. Blame Anjuna
+	if pcs_horny < 70:
+		pcs_horny = 80
+	else
+		pcs_horny += 10
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          MENTATS                           !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a pill
+!!					(defaults to using her own)
+if $ARGS[0] = 'mentats':
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['mentats'] -= 1
+		if mc_inventory['mentats'] <= 0: mc_inventory['mentats'] = 0 & msg '那是你最后一粒神经增强药丸了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['mentats_used'] += 1
+	end
+
+	drugVars['mentats_dose'] += 1
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'mentats_cikl':
+	if drugVars['mentats_expgain'] > 0:
+		intel_exp += rand(0, drugVars['mentats_expgain'] / 2)
+		drugVars['mentats_expgain'] = 0
+	end
+
+	if drugVars['mentats_dose'] = 1:
+		drugVars['mentats_dose'] = 0
+	elseif drugVars['mentats_dose'] > 1:
+		pain['head'] += 20 * drugVars['mentats_dose']
+		drugVars['mentats_dose'] = 0
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                          STEROIDS                          !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a pill
+!!					(defaults to using her own)
+if $ARGS[0] = 'steroids':
+	if drugVars['steroids_dose'] >= 3:
+		'你今天真的不应该再服用任何药丸了。'
+		exit
+	end
+
+	*pl $func('wrap', 'accent', '你吞下了橙色药丸。')
+
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['steroids'] -= 1
+		if mc_inventory['steroids'] <= 0: mc_inventory['steroids'] = 0 & msg '那是你最后一粒类固醇药丸了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['steroids_used'] += 1
+	end
+
+	drugVars['steroids_dose'] += 1
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'steroids_cikl':
+	if drugVars['steroids_stren_expgain'] > 0:
+		stren_exp += rand(0, drugVars['steroids_stren_expgain'] / 2)
+		drugVars['steroids_stren_expgain'] = 0
+	end
+	if drugVars['steroids_vital_expgain'] > 0:
+		vital_exp += rand(0, drugVars['steroids_vital_expgain'] / 2)
+		drugVars['steroids_vital_expgain'] = 0
+	end
+
+	if drugVars['steroids_dose'] >= 1:
+		if lashair < 1:
+			pcs_pubes += drugVars['steroids_dose']
+			pcs_leghair += drugVars['steroids_dose']
+		end
+		drugVars['steroids_dose'] = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'steroids_hourly_events':
+	if drugVars['steroids_check'] = 0: exit
+
+	if rand(0, 4) < drugVars['steroids_dose']: clit_size += rand(0, 1)
+	drugVars['steroids_check'] = 0
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                        BREAST CREAM                        !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a dose
+!!					(defaults to using her own)
+if $ARGS[0] = 'breastcream':
+	if drugVars['breastcream_dose'] >= 1:
+		'再用更多的药膏也不会有任何效果。'
+		exit
+	end
+
+	*pl $func('wrap', 'bimbo', '你把药膏涂在乳房上并揉搓使其吸收。')
+
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['breastcream'] -= 1
+		if mc_inventory['breastcream'] <= 0: mc_inventory['breastcream'] = 0 & msg '那是你最后一点丰胸霜了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['breastcream_used'] += 1
+	end
+
+	drugVars['breastcream_dose'] = 1
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'breastcream_cikl':
+	if drugVars['breastcream_dose'] <= 0: exit
+
+	drugVars['breastcream_dose'] = 0
+
+	temp_bust_diff = pcs_mass['bust'] - pcs_mass['bust_gen']
+	temp_bust_diff = rand(0, 10 + max(0, temp_bust_diff)) / max(1, temp_bust_diff)
+	if temp_bust_diff > 0:
+		bodyVars['bust_other'] += 1
+		'感觉你的乳房稍微变大了一些。'
+	end
+	killvar 'temp_bust_diff'
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                    HAIR EXTENSION CREAM                    !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a dose
+!!					(defaults to using her own)
+if $ARGS[0] = 'hair_extensioncream':
+	if drugVars['hair_extensioncream_dose'] >= 1:
+		'再用更多的生发洗发水也不会有任何效果。'
+		exit
+	end
+
+	*pl $func('wrap', 'bimbo', '你把洗发水抹在头发上揉搓，稍后用清水冲掉。')
+
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['hair_extensioncream'] -= 1
+		if mc_inventory['hair_extensioncream'] <= 0: mc_inventory['hair_extensioncream'] = 0 & msg '那是你最后一点生发洗发水了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['hair_extensioncream_used'] += 1
+	end
+
+	drugVars['hair_extensioncream_dose'] = 1
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'hair_extensioncream_cikl':
+	if drugVars['hair_extensioncream_dose'] <= 0: exit
+
+	drugVars['hair_extensioncream_dose'] = 0
+
+	if pcs_hairlng < 999:
+		pcs_hairlng += 2
+		'感觉你的头发稍微长长了一些。'
+	end
+	exit
+end
+
+
+		!!------------------------------------------------------------!!
+		!!                       BUTT INJECTION                       !!
+		!!------------------------------------------------------------!!
+
+
+!! $ARGS[1] = 'gift' to indicate that Sveta is borrowing a dose
+!!					(defaults to using her own)
+if $ARGS[0] = 'butt_injection':
+	if drugVars['butt_injection_dose'] >= 1:
+		'再注射更多也不会有任何效果。'
+		exit
+	end
+
+	*pl $func('wrap', 'bimbo', '你向臀部注射了KBI配方。')
+
+	if ARGS[1] = 0 and $ARGS[1] = '':
+		mc_inventory['butt_injection'] -= 1
+		if mc_inventory['butt_injection'] <= 0: mc_inventory['butt_injection'] = 0 & msg '那是你最后一针KBI了。'
+	end
+
+	if cheatVars['drugs_immune'] = 0:
+		drugVars['butt_injection_used'] += 1
+	end
+
+	drugVars['butt_injection_dose'] = 1
+	gs 'stat'
+	exit
+end
+
+
+if $ARGS[0] = 'butt_injection_cikl':
+	if drugVars['butt_injection_dose'] <= 0: exit
+
+	drugVars['butt_injection_dose'] = 0
+
+	temp = pcs_mass['butt'] - pcs_mass['butt_gen']
+	temp = rand(0, 10 + max(0, temp)) / max(1, temp)
+
+	if temp > 0:
+		bodyVars['butt_other'] += 1
+		'感觉你的臀部稍微变大了一些。'
+	end
+	killvar 'temp'
+	exit
+end
+
+
+!! Since every drug/function is ended by an "exit" call, the only way to get here through a non-existing drug call.
+$func('wrap', 'v_neg', '<br><br>错误：给予的药物： <<$ARGS[0]>>，不存在或缺失。请将此及当前场景的一小部分文本作为错误报告。<br>')
+
+
+--- drugs ---------------------------------

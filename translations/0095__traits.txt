@@ -1,0 +1,2858 @@
+# traits
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║  Each trait is an $ARGS[0] function with $ARGS[1] sub-args:            ║
+!! ║	gs 'traits', 'panty_preference', 'minute'                           ║
+!! ║	gs 'traits', 'academic',     'daily'                                ║
+!! ║	gs 'traits', 'exhibitionist', 'cheat', 2                            ║
+!! ║                                                                        ║
+!! ║  The $ARGS[0] function name = trait_vars key = registry ID.            ║
+!! ║                                                                        ║
+!! ║  Dispatchers aggregate per-trait calls:                                ║
+!! ║	gs 'traits', 'init' - builds trait list                             ║
+!! ║	gs 'traits', 'daily' - calls each trait''s ''daily'', _aliases      ║
+!! ║	gs 'traits', 'minute' - calls each trait''s ''minute'',_aliases     ║
+!! ║	gs 'traits', 'cheat', 'X', N - set trait X to level N               ║
+!! ║	  (N = -99 for full reset)                                          ║
+!! ║                                                                        ║
+!! ║  Per-trait sub-functions:                                              ║
+!! ║	''details'' — populate $trait_temp / trait_temp with:               ║
+!! ║	  $trait_temp[''name'']        — display name                       ║
+!! ║	  $trait_temp[''icon'']        — icon path (in images/)             ║
+!! ║	  $trait_temp[''desc'']        — description (level-aware)          ║
+!! ║	  trait_temp[''hidden'']       — 1 = hide when inactive             ║
+!! ║	  $trait_temp[''up_msg, N'']   — level-up notification              ║
+!! ║	  $trait_temp[''down_msg, N''] — level-down notification            ║
+!! ║	''daily'' / ''minute'' / ''hourly'' — periodic logic                ║
+!! ║	''cheat'', N — set level N with stable exp (N=-99 = reset)          ║
+!! ║                                                                        ║
+!! ║  Shared utilities:                                                     ║
+!! ║	gs 'traits', 'level', 'X', val — set level, notify on change        ║
+!! ║	gs 'traits', 'register_attskl', 'X' — indicate that this trait      ║
+!! ║                                          affects exp gain and deg loss ║
+!! ║	gs 'traits', 'deregister_attskl', 'X' — it no longer affects        ║
+!! ║                                            exp gain and deg loss       ║
+!! ║	$func('traits', 'card', 'X', lvl) — HTML card for one trait         ║
+!! ║	$func('traits', 'show_all')  — HTML cards for all traits            ║
+!! ║                                                                        ║
+!! ║  Registry (built by init):                                             ║
+!! ║	$trait_vars['list, <i>'] — trait ID                                 ║
+!! ║                                                                        ║
+!! ║  Storage:                                                              ║
+!! ║	trait_vars['X']             — trait level (integer)                 ║
+!! ║	trait_vars['X_exp']         — trait experience                      ║
+!! ║                                                                        ║
+!! ║  EXP / DEG impacts:                                                    ║
+!! ║    traits_vars['X-attrskl-exp_gain'] = N: — Privide an additional      ║
+!! ║              N% exp boost to an attribute or skill with the given name ║
+!! ║              N can be negative for an exp penalty                      ║
+!! ║    traits_vars['X-attrskl-deg_loss'] = N: — Privide an additional      ║
+!! ║              N% deg loss to an attribute or skill with the given name  ║
+!! ║              N can be negative for a slower decay                      ║
+!! ║    Register the skill using the register function                      ║
+!! ║    Deregister the skill when it becomes inactve                        ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!!{
+	Not implemented, shows up in the code:
+	- pokies
+	- sensitive_pussy
+	- first_date_fucker
+	- rape_fetish
+	- repressed
+!!}
+
+
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                        DISPATCHERS                                     ║
+!! ║         thin aggregators that call per-trait sub-functions             ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ init — build trait registry                                            │
+!! │ Called from intro_initialization and saveupdater.                      │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'init':
+	$trait_vars['list, 0'] = 'cumeater'
+	$trait_vars['list, 1'] = 'creampie_fetish'
+	$trait_vars['list, 2'] = 'fertility'
+	$trait_vars['list, 3'] = 'sensitivity'
+	$trait_vars['list, 4'] = 'new_again'
+	$trait_vars['list, 5'] = 'heel_preference'
+	$trait_vars['list, 6'] = 'addictive_personality'
+	$trait_vars['list, 7'] = 'buttslut'
+	$trait_vars['list, 8'] = 'exhibitionist'
+	$trait_vars['list, 9'] = 'panty_preference'
+	$trait_vars['list, 10'] = 'drinking'
+	$trait_vars['list, 11'] = 'academic'
+	$trait_vars['list, 12'] = 'bookworm'
+	$trait_vars['list, 13'] = 'sizequeen'
+	$trait_vars['list, 14'] = 'fitness_freak'
+	$trait_vars['list, 15'] = 'doormat'
+	$trait_vars['list, 16'] = 'cumslut'
+	$trait_vars['list, 17'] = 'cum_addict'
+	$trait_vars['list, 18'] = 'elasticity'
+	$trait_vars['list, 19'] = 'sleep_duration'
+	$trait_vars['list, 20'] = 'body_hair_growth_rate'
+	$trait_vars['list, 21'] = 'body_hair_attitude'
+	$trait_vars['list, 22'] = 'hair_growth_rate'
+	$trait_vars['list, 23'] = 'pain_tolerance'
+	trait_vars['count'] = 24
+	!!$trait_vars['list, 24'] = 'charming'
+	!!$trait_vars['list, 25'] = 'flexible'
+	!!$trait_vars['list, 26'] = 'logcial'
+	!!$trait_vars['list, 27'] = 'nat_athlete'
+	!!$trait_vars['list, 28'] = 'nat_dancer'
+	!!$trait_vars['list, 29'] = 'scholarly'
+	!! ── Timing ────────────────────────────────────────────────────────
+	trait_vars['last_update'] = totminut
+
+	traits_i = 0
+	:traits_init_loop
+	if $trait_vars['list, <<traits_i>>'] ! '':
+		gs 'traits', $trait_vars['list, <<traits_i>>'], 'init'
+		traits_i += 1
+		jump 'traits_init_loop'
+	end
+	killvar 'traits_i'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ daily — called once per day from cikl                                  │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'daily':
+	traits_i = 0
+	:traits_daily_loop
+	if $trait_vars['list, <<traits_i>>'] ! '':
+		gs 'traits', $trait_vars['list, <<traits_i>>'], 'daily'
+		traits_i += 1
+		jump 'traits_daily_loop'
+	end
+	killvar 'traits_i'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ hourly — called from hourly_events                                     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'hourly':
+	traits_i = 0
+	:traits_hourly_loop
+	if $trait_vars['list, <<traits_i>>'] ! '':
+		gs 'traits', $trait_vars['list, <<traits_i>>'], 'hourly'
+		traits_i += 1
+		jump 'traits_hourly_loop'
+	end
+	killvar 'traits_i'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ minute — called from stat, limited to 1 per minute                     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'minute':
+	!! ── Stale-clock gate ──────────────────────────────────────────────
+	!! totminut is computed by gs 'time' which runs late in stat.qsrc.
+	!! On the very first gs 'stat' call it may still be stale (-1 from
+	!! start.qsrc).  Sync to one minute earlier so the next loop runs
+	if totminut <= 0:
+		trait_vars['last_update'] = (minut + hour * 60 + daystart * 1440) - 1
+		exit
+	end
+	!! ── Sleep gate ────────────────────────────────────────────────────
+	!! During sleep totminut advances but nothing should change.
+	!! Sync the clock so the first waking tick starts fresh.
+	if inSleep <> 0:
+		trait_vars['last_update'] = totminut
+		exit
+	end
+
+	!! ── Timing gate ───────────────────────────────────────────────────
+	temp_loop_mul = totminut - trait_vars['last_update']
+	if temp_loop_mul = 0: killvar 'temp_loop_mul' & exit
+	trait_vars['last_update'] = totminut
+
+	traits_i = 0
+	:traits_minute_loop
+	if $trait_vars['list, <<traits_i>>'] ! '':
+		gs 'traits', $trait_vars['list, <<traits_i>>'], 'minute'
+		traits_i += 1
+		jump 'traits_minute_loop'
+	end
+	killvar 'traits_i'
+	exit
+end
+
+
+if $ARGS[0] = 'cheat':
+	gs 'traits', $ARGS[1], 'cheat', ARGS[2]
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ compute_stat_display — called from stat_display_compute                │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'compute_stat_display':
+	traits_i = 0
+	:traits_stat_display_loop
+	if $trait_vars['list, <<traits_i>>'] ! '':
+		gs 'traits', $trait_vars['list, <<traits_i>>'], 'stat_display'
+		traits_i += 1
+		jump 'traits_stat_display_loop'
+	end
+	killvar 'traits_i'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ get_details($trait) - get trait details, populate $trait_temp          │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_details':
+	killvar 'trait_temp'
+	gs 'traits', $ARGS[1], 'details'
+	exit
+end
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                     SHARED UTILITIES                                   ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ level($trait, val) — set trait level, notify on change                 │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'level':
+	if ARGS[2] <> trait_vars[$ARGS[1]]:
+		$temp_level['dir'] = iif(ARGS[2] > trait_vars[$ARGS[1]], 'up', 'down')
+		trait_vars[$ARGS[1]] = ARGS[2]
+		if $temp_level['dir'] = 'up': trait_vars[$ARGS[1] + '_discovered'] = 1
+		gs 'traits', '_notify', $ARGS[1], $temp_level['dir'], ARGS[2]
+		gs 'traits', $ARGS[1], 'level', ARGS[2]
+		killvar 'temp_level'
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ register_attskl($trait) — Register the trait to have an exp effect     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'register_attskl':
+	if arrpos('$traitattskl', $ARGS[1]) < 0: $traitattskl[] = $ARGS[1]
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ deregister_attskl($trait) — Deregister the trait                       │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'deregister_attskl':
+	if arrpos('$traitattskl', $ARGS[1]) >= 0:
+		gs 'array', 'remove_element', '$traitattskl', $ARGS[1]
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ _notify($trait, $dir, level) — show level-change notification          │
+!! │ Calls 'details' to get $trait_temp['up_msg, N'] etc.                   │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = '_notify':
+	if opPRE > 0: exit
+	gs 'traits', 'get_details', $ARGS[1]
+	!! Prefer directional message (msg-up / msg-down), fall back to generic msg
+	if $trait_temp['msg-<<$ARGS[2]>>'] <> '':
+		$temp_notify = $trait_temp['msg-<<$ARGS[2]>>']
+	else
+		$temp_notify = $trait_temp['msg']
+	end
+	if $temp_notify <> '': msg $temp_notify
+	killvar 'temp_notify'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ card($trait, level) — return HTML for a styled trait card              │
+!! │ Calls 'details' for metadata.                                          │
+!! │ Hidden + inactive + undiscovered → "???" with traits/hidden.png        │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'card':
+	gs 'traits', 'get_details', $ARGS[1]
+	$temp_card['icon']	= 'images/system/icons/traits/' + iif($trait_temp['icon'] <> '', $trait_temp['icon'], 'hidden.png')
+	$temp_bcolor		= $func('themes', 'alt_color', $temp_bcolor)
+	$temp_card['bg']	= $temp_bcolor
+	$temp_card['border'] = $theme_hex['accent']
+	$temp_card['desc'] = $trait_temp['desc']
+	$temp_card['name'] = $trait_temp['name']
+	$temp_card['prog'] = ''
+	if $trait_temp['tooltip'] <> '':
+		if trait_temp['exp_down'] = -1:
+			!! $temp_pw = '↓&nbsp—'
+		elseif trait_temp['exp_down'] >= 1000 or trait_temp['exp_down'] <= -1000:
+			$temp_pw = '↓&nbsp' + $str(trait_temp['exp_down'] / 1000) + 'k' + '&nbsp|&nbsp'
+		else
+			$temp_pw = '↓&nbsp' + $str(trait_temp['exp_down']) + '&nbsp|&nbsp'
+		end
+		$temp_pw += '<b>' + $str(trait_temp['exp']) + '</b>'
+		if trait_temp['exp_up'] = -1:
+			!! $temp_pw += '—&nbsp↑'
+		elseif trait_temp['exp_up'] >= 1000 or trait_temp['exp_up'] <= -1000:
+			$temp_pw += '&nbsp|&nbsp' + $str(trait_temp['exp_up'] / 1000) + 'k&nbsp↑'
+		else
+			$temp_pw += '&nbsp|&nbsp' + $str(trait_temp['exp_up']) + '&nbsp↑'
+		end
+		$temp_card['prog'] = '<span title="' + $trait_temp['tooltip'] + '" style="cursor:help;font-size:0.8em;white-space:nowrap;font-family:monospace;opacity:0.7;">[' + $temp_pw + ']</span>'
+		killvar 'temp_pw'
+	end
+
+	if trait_temp['hidden'] = 1 and ARGS[2] = 0 and trait_vars[$ARGS[1] + '_discovered'] = 0 and cheatVars['show_hidden_traits'] = 0:
+		$temp_card['name'] = '???'
+		$temp_card['desc'] = '该特质尚未激活且未知；谁知道它可能是什么？<br>解锁该特质以查看详情。'
+		$temp_card['icon'] = 'images/system/icons/traits/hidden.png'
+		$temp_card['prog'] = ''
+	end
+
+	if ARGS[2] <> 0:
+		$temp_card['opac'] = '1.0'
+	else
+		$temp_card['opac'] = '0.5'
+		$temp_card['border'] = iif(theme['is_dark'] = 1, '#555555', '#aaaaaa')
+	end
+
+	$card_in['icon'] = $temp_card['icon']
+	$card_in['title'] = $temp_card['name']
+	$card_in['extra'] = $temp_card['prog']
+	$card_in['body'] = '<div><<$temp_card[''desc'']>></div>'
+	$card_in['border'] = $temp_card['border']
+	$card_in['bg'] = $temp_card['bg']
+	$card_in['opacity'] = $temp_card['opac']
+	gs 'cards', 'shell'
+	killvar 'card_in'
+
+	killvar 'temp_card'
+	killvar 'temp_bcolor'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ show_all — return HTML for all trait cards, sorted:                    │
+!! │   1. Active traits (level > 0)         — registry order                │
+!! │   2. Inactive visible (not hidden)    — registry order                 │
+!! │   3. Hidden traits (hidden + inactive) — registry order                │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'show_all':
+	!! ── Bucket traits by state ────────────────────────────────────────
+	'<center><font size="2" color="#888888">将鼠标悬停在卡片右上角的EXP控件上，即可了解如何获得或失去经验值。</font></center>'
+	temp_show_all['i'] = 0
+	:show_all_loop
+	if temp_show_all['i'] < trait_vars['count']:
+		killvar 'trait_temp'
+		$temp_show_all['trait'] = $trait_vars['list, ' + str(temp_show_all['i'])]
+		gs 'traits', $temp_show_all['trait'], 'details'
+		if trait_vars[$temp_show_all['trait']] <> 0:
+			$temp_active[] = $temp_show_all['trait']
+		elseif trait_temp['hidden'] = 0 or trait_vars[$temp_show_all['trait'] + '_discovered'] = 1:
+			$temp_visible[] = $temp_show_all['trait']
+		else
+			$temp_hidden[] = $temp_show_all['trait']
+		end
+		killvar 'trait_temp'
+		temp_show_all['i'] += 1
+		jump 'show_all_loop'
+	end
+
+	!! ── Render cards ──────────────────────────────────────────────────
+	$result = ''
+	temp_show_all['i'] = 0
+	:sa_render_act
+	if temp_show_all['i'] < arrsize('temp_active'):
+		$result += $func('traits', 'card', $temp_active[temp_show_all['i']], trait_vars[$temp_active[temp_show_all['i']]])
+		temp_show_all['i'] += 1
+		jump 'sa_render_act'
+	end
+	temp_show_all['i'] = 0
+	:sa_render_vis
+	if temp_show_all['i'] < arrsize('temp_visible'):
+		$result += $func('traits', 'card', $temp_visible[temp_show_all['i']], 0)
+		temp_show_all['i'] += 1
+		jump 'sa_render_vis'
+	end
+	temp_show_all['i'] = 0
+	:sa_render_hid
+	if temp_show_all['i'] < arrsize('temp_hidden'):
+		$result += $func('traits', 'card', $temp_hidden[temp_show_all['i']], 0)
+		temp_show_all['i'] += 1
+		jump 'sa_render_hid'
+	end
+
+	killvar 'temp_active' & killvar 'temp_visible'
+	killvar 'temp_hidden' & killvar 'temp_show_all'
+	exit
+end
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║                      PER-trait FUNCTIONS                               ║
+!! ║       $ARGS[0] = trait name                                            ║
+!! ║       $ARGS[1] = initlevel||daily|hourly|minute|reset                  ║
+!! ║       init: needs to run when the trait is initialized                 ║
+!! ║       level: needs to run when the level changes                       ║
+!! ║       daily: Called through cikl                                       ║
+!! ║       hourly: Called through hourly_events                             ║
+!! ║       minut: needs to run when the trait is initialized                ║
+!! ║       reset: needs to run when the trait is initialized                ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ cumeater — binary, EXP from known swallowing                           │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cumeater':
+	if $ARGS[1] = 'daily':
+		if cheatVars['cumeater_disabled']: exit
+		if trait_vars['cumeater'] = 0:
+			trait_vars['cumeater_exp'] += (stat['swallow'] - stat['swallow_unaware']) - trait_vars['cumeater_prev']
+			trait_vars['cumeater_prev'] = stat['swallow'] - stat['swallow_unaware']
+			if trait_vars['cumeater_exp'] >= 50: gs 'traits', 'level', 'cumeater', 1
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['name'] = '吞精者'
+		$trait_temp['icon'] = 'cumeater.png'
+		trait_temp['hidden'] = 0
+		if trait_vars['cumeater'] = 0:
+			$trait_temp['desc'] = '你对精液并没有特别的喜好。'
+			$trait_temp['msg'] = '你失去了特质<b>吞精者</b>.'
+			trait_temp['exp'] = trait_vars['cumeater_exp']
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 50
+			$trait_temp['tooltip'] = '你有<<trait_vars[''cumeater_exp'']>>经验值。通过有意吞下精液来获得经验值。'
+		elseif trait_vars['cumeater'] = 1:
+			$trait_temp['desc'] = '经验让你逐渐喜欢上精液的味道。吞精变得自然而然，处理精液的新可能性也随之打开。'
+			$trait_temp['msg'] = '你获得了特质<b>吞精者</b>.'
+			trait_temp['exp'] = trait_vars['cumeater_exp']
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = '一生吞精总量： <<trait_vars[''cumeater_exp'']>>.'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['cumeater_exp'] = 0
+			gs 'traits', 'level', 'cumeater', 0
+		elseif ARGS[2] = 1:
+			trait_vars['cumeater_exp'] = 50
+			gs 'traits', 'level', 'cumeater', 1
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ creampie — 0/1/2, direct counter: known vaginal creampies              │
+!! │  0 = none                                                              │
+!! │  1 = Creampie Fetish: exp >= 150                                       │
+!! │  2 = Breeding Slut:   exp >= 200 AND exp_risky >= 100                  │
+!! │ exp       = safe×1 + notsafe×2 + risky×4                               │
+!! │ exp_risky = notsafe×2 + risky×4                                        │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'creampie_fetish':
+	if $ARGS[1] = 'daily':
+		if cheatVars['creampie_fetish_disabled']: exit
+		temp_risky_exp = stat['creampies_notsafe_known'] + stat['creampies_risky_known'] * 2
+		trait_vars['creampie_fetish_exp_risky'] += max(0, temp_risky_exp - trait_vars['creampie_fetish_exp_risky_prev'])
+		trait_vars['creampie_fetish_exp'] += max(0, stat['creampies_safe_known'] + temp_risky_exp * 2 - trait_vars['creampie_fetish_exp_prev'])
+		trait_vars['creampie_fetish_exp_prev'] = trait_vars['creampie_fetish_exp']
+		trait_vars['creampie_fetish_exp_risky_prev'] = trait_vars['creampie_fetish_exp_risky']
+		killvar 'temp_risky_exp'
+
+		if trait_vars['creampie_fetish_exp'] >= 200 and trait_vars['creampie_fetish_exp_risky'] >= 100:
+			if trait_vars['creampie_fetish'] <> 2: gs 'traits', 'level', 'creampie_fetish', 2
+		elseif trait_vars['creampie_fetish_exp'] >= 150:
+			if trait_vars['creampie_fetish'] <> 1: gs 'traits', 'level', 'creampie_fetish', 1
+		else
+			if trait_vars['creampie_fetish'] <> 0: gs 'traits', 'level', 'creampie_fetish', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 0
+		if trait_vars['creampie_fetish'] = 0:
+			$trait_temp['name'] = '内射癖'
+			$trait_temp['icon'] = 'creampie_fetish.png'
+			$trait_temp['desc'] = '有些女人出于这样那样的原因非常痴迷于内射。你不是她们中的一员。'
+			$trait_temp['msg'] = '你失去了特质<b>内射癖</b>.'
+			trait_temp['exp'] = trait_vars['creampie_fetish_exp']
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 150
+			$trait_temp['tooltip'] = '你有<<trait_vars[''creampie_fetish_exp'']>>经验值。通过接受阴道内射来获得经验值。'
+		elseif trait_vars['creampie_fetish'] = 1:
+			$trait_temp['name'] = '内射爱好者'
+			$trait_temp['icon'] = 'creampie_fetish.png'
+			$trait_temp['desc'] = '你对内射的渴望如此强烈，以至于几乎每一次大量精液灌入你的小穴时，你都忍不住高潮。'
+			$trait_temp['msg'] = '你获得了特质<b>内射癖</b>.'
+			trait_temp['exp'] = trait_vars['creampie_fetish_exp']
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 200
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''creampie_fetish_exp'']>>/200. 危险/不安全经验值：<<trait_vars[''creampie_fetish_exp_risky'']>>/100. 继续接受危险的内射以解锁下一等级。'
+		elseif trait_vars['creampie_fetish'] = 2:
+			$trait_temp['name'] = '播种荡妇'
+			$trait_temp['icon'] = 'creampie_fetish_breeding.png'
+			$trait_temp['desc'] = '比起被精液填满，你唯一更爱的就是在不该被填满的时候被填满。危险的内射让你瞬间高潮，而你也越来越讨厌安全套。'
+			$trait_temp['msg'] = '你获得了特质<b>播种荡妇</b>！危险内射带来的刺激唤醒了你内心原始的一面。'
+			trait_temp['exp'] = trait_vars['creampie_fetish_exp']
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''creampie_fetish_exp'']>>. 危险/不安全经验值：<<trait_vars[''creampie_fetish_exp_risky'']>>.'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['creampie_fetish_exp'] = 0
+			trait_vars['creampie_fetish_exp_risky'] = 0
+			trait_vars['creampie_fetish_exp_prev'] = 0
+			trait_vars['creampie_fetish_exp_risky_prev'] = 0
+			gs 'traits', 'level', 'creampie_fetish', 0
+		elseif ARGS[2] = 1:
+			trait_vars['creampie_fetish_exp'] = 150
+			trait_vars['creampie_fetish_exp_risky'] = 0
+			trait_vars['creampie_fetish_exp_prev'] = 0
+			trait_vars['creampie_fetish_exp_risky_prev'] = 0
+			gs 'traits', 'level', 'creampie_fetish', 1
+		elseif ARGS[2] = 2:
+			trait_vars['creampie_fetish_exp'] = 200
+			trait_vars['creampie_fetish_exp_risky'] = 100
+			trait_vars['creampie_fetish_exp_prev'] = 0
+			trait_vars['creampie_fetish_exp_risky_prev'] = 0
+			gs 'traits', 'level', 'creampie_fetish', 2
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ fertility — -2/-1/0/1,2, set externally (no daily/tick logic)          │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'fertility':
+	if $ARGS[1] = 'daily':
+		if cheatVars['fertility_disabled']: exit
+
+		!! Conditioning decay
+		if pilldaychk = daystart and ptype = 0:
+			if trait_vars['fertility_bc_conditioning'] > 0: trait_vars['fertility_bc_conditioning'] -= 4
+		elseif pilldaychk < daystart:
+			if trait_vars['fertility_bc_conditioning'] > 0: trait_vars['fertility_bc_conditioning'] -= 2
+		end
+		if trait_vars['fertility_bc_conditioning'] < 0: trait_vars['fertility_bc_conditioning'] = 0
+
+		!! +2 is the conditioning-exclusive level
+		if trait_vars['fertility_bc_conditioning'] >= 10:
+			if trait_vars['fertility'] < 2: gs 'traits', 'fertility', 'hypno_grant'
+		else
+			if trait_vars['fertility'] = 2: gs 'traits', 'level', 'fertility', trait_vars['fertility_precond']
+		end
+	end
+
+	if $ARGS[1] = 'hypno_grant':
+		trait_vars['fertility_precond'] = trait_vars['fertility']
+		gs 'traits', 'level', 'fertility', 2
+	end
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 0
+		if trait_vars['fertility'] = 0:
+			$trait_temp['name'] = '生育能力'
+			$trait_temp['icon'] = 'hyper_fertile.png'
+			$trait_temp['desc'] = '你既算不上特别易孕，也不算不孕。你的受孕几率处于平均水平。'
+			$trait_temp['msg'] = '你的生育能力已恢复正常。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+		elseif trait_vars['fertility'] = 1:
+			$trait_temp['name'] = '超强生育力'
+			$trait_temp['icon'] = 'hyper_fertile.png'
+			$trait_temp['desc'] = '你的身体极易受孕。你的受孕几率显著提高。'
+			$trait_temp['msg'] = '你获得了特质<b>超强生育力</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+		elseif trait_vars['fertility'] = 2:
+			$trait_temp['name'] = '荷尔蒙调节'
+			$trait_temp['icon'] = 'hyper_fertile.png'
+			$trait_temp['desc'] = '不知为何，你的身体极其易孕。你无法解释原因，但你的受孕几率大幅提高。<br>幸运的是，你已经在服用 巴甫洛夫医生 给你的避孕药，所以没什么好担心的。'
+			$trait_temp['msg'] = '不知为何，你已经变得<b>荷尔蒙调节</b>。幸好你已经在服用避孕药，所以没什么好担心的。'
+			trait_temp['exp'] = trait_vars['fertility_bc_conditioning']
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = '条件化：<<trait_vars[''fertility_bc_conditioning'']>>/50. 如果原始原因被移除，则会衰减。'
+		elseif trait_vars['fertility'] = -1:
+			$trait_temp['name'] = '不孕'
+			$trait_temp['icon'] = 'infertile.png'
+			$trait_temp['desc'] = '你的身体基本无法受孕。即使你想要孩子，也很难怀上。'
+			$trait_temp['msg'] = '你获得了特质<b>不孕</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+		elseif trait_vars['fertility'] = -2:
+			$trait_temp['name'] = '不孕'
+			$trait_temp['icon'] = 'infertile.png'
+			$trait_temp['desc'] = '你的身体完全无法生育。受孕对你来说是不可能的。'
+			$trait_temp['msg'] = '你获得了特质<b>不孕</b>. 你的身体已经变得完全不育。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99:
+			trait_vars['fertility_bc_conditioning'] = 0
+			gs 'traits', 'level', 'fertility', 0
+		else
+			gs 'traits', 'level', 'fertility', func('math', 'int_clamp', ARGS[2], -2, 2)
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label'] = '生育能力'
+		if trait_vars['fertility'] = 2:
+			$trait_temp['ov_val'] = '激素调理'
+		elseif trait_vars['fertility'] = 1:
+			$trait_temp['ov_val'] = '极易受孕'
+		elseif trait_vars['fertility'] = 0:
+			$trait_temp['ov_val'] = '正常'
+		elseif trait_vars['fertility'] = -1:
+			$trait_temp['ov_val'] = '不易受孕'
+		elseif trait_vars['fertility'] = -2:
+			$trait_temp['ov_val'] = '不孕'
+		end
+		$trait_temp['ov_left'] = 'gs ''traits'', ''fertility'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['fertility'] - 1, -2, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''fertility'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['fertility'] + 1, -2, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		gs 'traits', 'level', 'fertility', func('math', 'int_clamp', ARGS[2], -2, 1)
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ sensitivity — levels -2 / -1 / 0 / 1                                   │
+!! │  1 = easy orgasms (2× buildup). Source: experimental trials.           │
+!! │  0 = normal.                                                           │
+!! │ -1 = hard to please (future natural path, reserved).                   │
+!! │ -2 = conditioned anorgasmia (hypno only, permanent until reset).       │
+!! │ trait_vars['sensitivity_override'] = 1 while at therapist.             │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sensitivity':
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 1
+		if trait_vars['sensitivity'] <= -2:
+			!! Hypno-induced anorgasmia — description varies by awareness/stage/marriage
+			$trait_temp['name'] = '性高潮障碍'
+			$trait_temp['icon'] = 'hard_to_cum_hypno.png'
+			if therapistQW['hotel_key'] = 3:
+				!! Married to therapist
+				if hypnoTime >= 10:
+					!! Advanced stage — player has internalized the conditioning
+					$trait_temp['desc'] = '未经丈夫允许就高潮是不合适的。没有他在，高潮会让人觉得不对——几乎不可想象。你属于他。'
+				else
+					$trait_temp['desc'] = '除非是丈夫让你高潮，否则你几乎不可能达到高潮。你不会去质疑这一点——这样就是对的。'
+				end
+			elseif trait_vars['sensitivity_override'] = 1:
+				!! Currently with master (therapist override active)
+				if hypnoTime >= 10:
+					$trait_temp['desc'] = '未经主人允许就高潮是不合适的。而现在，在他面前，这个限制被解除了——本该如此。'
+				else
+					$trait_temp['desc'] = '除非是你的主人在让你高潮，否则你很难高潮。当你和他在一起时，这种困难就会消失。'
+				end
+			else
+				!! Not at therapist, not married — player unaware of cause
+				if hypnoTime >= 10:
+					$trait_temp['desc'] = '不知为何，除非满足某个特定的、说不清的条件，否则高潮会让你觉得不合适——几乎是禁忌。你无法解释原因。只是放任自己高潮让你觉得不对劲。'
+				else
+					$trait_temp['desc'] = '出于某种你无法解释的原因，你几乎再也无法高潮了。这是一个令人沮丧的谜团。'
+				end
+			end
+		elseif trait_vars['sensitivity'] = -1:
+			$trait_temp['name'] = '难以满足'
+			$trait_temp['icon'] = 'hard_to_please.png'
+			$trait_temp['desc'] = '高潮对你来说并不容易。你的快感累积速度减半。'
+			$trait_temp['msg'] = '你已经患上了<b>难以满足</b>的状况。达到高潮变得困难得多。'
+		elseif trait_vars['sensitivity'] = 0:
+			$trait_temp['name'] = '正常敏感度'
+			$trait_temp['icon'] = 'easy_orgasms.png'
+			$trait_temp['desc'] = '你的敏感度完全普通。高潮自然发生。'
+			$trait_temp['msg'] = '你的敏感度已恢复正常。'
+		elseif trait_vars['sensitivity'] = 1:
+			$trait_temp['name'] = '容易高潮'
+			$trait_temp['icon'] = 'easy_orgasms.png'
+			$trait_temp['desc'] = '高潮对你来说很容易达到。有时只需一次抽送。你的高潮累积速度加倍。'
+			$trait_temp['msg'] = '你获得了特质<b>容易高潮</b>!'
+		end
+		!! lvl 0/1: no widget — changes only via story events or cheats
+		!! lvl -2 (Anorgasmia): widget omitted — hypno-induced, permanent until reset
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['sensitivity_override'] = 0
+			gs 'traits', 'level', 'sensitivity', 0
+		elseif ARGS[2] = -2:
+			trait_vars['sensitivity_override'] = 0
+			gs 'traits', 'level', 'sensitivity', -2
+		elseif ARGS[2] = -1 or ARGS[2] = 1:
+			gs 'traits', 'level', 'sensitivity', ARGS[2]
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ new_again — countdown (84→0), set at game start                        │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'new_again':
+	if $ARGS[1] = 'level':
+		if ARGS[2] = 0:
+			gs 'traits', 'deregister_attskl', 'new_again'
+		else
+			trait_vars['new_again-all-exp_gain'] = 100
+			gs 'traits', 'register_attskl', 'new_again'
+		end
+	end
+
+	if $ARGS[1] = 'daily':
+		if cheatVars['new_again_disabled']:
+			if trait_vars['new_again'] <> 0: gs 'traits', 'level', 'new_again', 0
+			exit
+		end
+		if trait_vars['new_again'] = 0:
+			if trait_vars['new_again_exp'] > 0: gs 'traits', 'level', 'new_again', 1
+		else
+			if trait_vars['new_again_exp'] > 0:
+				trait_vars['new_again_exp'] -= 1
+			else
+				gs 'traits', 'level', 'new_again', 0
+			end
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['name'] = '一切焕然一新'
+		$trait_temp['icon'] = 'new_again.png'
+		trait_temp['hidden'] = 1
+		if trait_vars['new_again'] = 0:
+			$trait_temp['desc'] = '你在这种处境下待得够久，已经习惯了。你不再觉得自己格格不入。'
+			$trait_temp['msg'] = '你失去了特质<b>一切焕然一新</b>.'
+		elseif trait_vars['new_again'] = 1:
+			$trait_temp['desc'] = '被投入到新生活中，迫使你重新评估和重新学习一切。你短时间内能更快地学习新技能。'
+			$trait_temp['msg'] = '你获得了特质<b>一切焕然一新</b>.'
+			trait_temp['exp'] = trait_vars['new_again_exp']
+			trait_temp['exp_down'] = 0
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = '剩余天数：<<trait_vars[''new_again_exp'']>> '
+			$trait_temp['tooltip'] += '随时间推移自动消退。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['new_again_exp'] = 0
+			gs 'traits', 'level', 'new_again', 0
+		elseif ARGS[2] = 1:
+			trait_vars['new_again_exp'] = 84
+			gs 'traits', 'level', 'new_again', 1
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ heel_preference — dual-sided (-1…3)                                    │
+!! │ -1 = Bambi''s First Steps (learning debuff, countdown via exp)         │
+!! │  0 = Normal (comfortable in anything)                                  │
+!! │ +1 = Heel Accustomed (slight pain in flats)                            │
+!! │ +2 = Heel Dependent (moderate pain in flats)                           │
+!! │ +3 = Heel Addict (severe pain in flats)                                │
+!! │                                                                        │
+!! │ Bambi: exp starts negative, incremented by outfit.qsrc when            │
+!! │   wearing heels. Reaches 0 → level 0. Capped at 2h/day.                │
+!! │ Dependency: exp goes positive from sustained heel wearing.             │
+!! │   High(4)=+1/min, Ultra(5)=+2/min, Fetish(6)=+3/min.                   │
+!! │   Flats(≤1/none)=-2/min. Daily decay of 100 toward 0.                  │
+!! │   Pain applied in outfit.qsrc when wearing flats at pos levels.        │
+!! │ Thresholds: 30000 (tier1), 70000 (tier2), 120000 (tier3).              │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'heel_preference':
+	!! ── Minute tick: dependency exp accumulation ──────────────────────
+	if $ARGS[1] = 'minute':
+		if cheatVars['heel_preference_disabled']: exit
+		if temp_loop_mul <= 0: exit
+		!! Only accumulate dependency exp when bambi is resolved
+		if trait_vars['heel_preference'] >= 0:
+			if PShoHeels >= 6:
+				!! Fetish/eroto heels: +3/min
+				trait_vars['heel_preference_exp'] += 3 * temp_loop_mul
+			elseif PShoHeels = 5:
+				!! Ultra high heels: +2/min
+				trait_vars['heel_preference_exp'] += 2 * temp_loop_mul
+			elseif PShoHeels = 4:
+				!! High heels: +1/min
+				trait_vars['heel_preference_exp'] += temp_loop_mul
+			elseif PShoHeels = 3:
+				!! Mid heels: +0.5/min (50% chance), only at lvl 0 or halfway to lvl 2
+				if trait_vars['heel_preference_exp'] < 50000:
+					if temp_loop_mul < 2 and rand(0, 1) = 0:
+						trait_vars['heel_preference_exp'] += 1
+					else
+						trait_vars['heel_preference_exp'] += temp_loop_mul / 2
+					end
+				end
+			elseif PShoHeels = 2:
+				!! Low heels: +0.25/min (25% chance), only up to halfway to lvl 1
+				if trait_vars['heel_preference_exp'] < 15000:
+					if temp_loop_mul < 4 and rand(0, 3) = 0:
+						trait_vars['heel_preference_exp'] += 1
+					else
+						trait_vars['heel_preference_exp'] += temp_loop_mul / 4
+					end
+				end
+			elseif PShoHeels = 1:
+				!! Flats: -2/min toward 0
+				trait_vars['heel_preference_exp'] -= min(2 * temp_loop_mul, trait_vars['heel_preference_exp'])
+			end
+			trait_vars['heel_preference_exp'] = min(trait_vars['heel_preference_exp'], 150000)
+		end
+	end
+
+	!! ── Daily tick ────────────────────────────────────────────────────
+	if $ARGS[1] = 'daily':
+		if cheatVars['heel_preference_disabled']: exit
+
+		!! Bambi side: level -1, exp counts up via outfit.qsrc
+		if trait_vars['heel_preference'] < 0:
+			if trait_vars['heel_preference_exp'] >= 0: gs 'traits', 'level', 'heel_preference', 0
+			trait_vars['heel_preference_daily_limit'] = 120
+		end
+
+		!! Dependency side: daily decay
+		if trait_vars['heel_preference'] >= 0 and trait_vars['heel_preference_exp'] > 0:
+			trait_vars['heel_preference_exp'] -= min(100, trait_vars['heel_preference_exp'])
+		end
+
+		!! Level evaluation for dependency
+		if trait_vars['heel_preference'] >= 0:
+			if trait_vars['heel_preference_exp'] >= 120000:
+				if trait_vars['heel_preference'] <> 3: gs 'traits', 'level', 'heel_preference', 3
+			elseif trait_vars['heel_preference_exp'] >= 70000:
+				if trait_vars['heel_preference'] <> 2: gs 'traits', 'level', 'heel_preference', 2
+			elseif trait_vars['heel_preference_exp'] >= 30000:
+				if trait_vars['heel_preference'] <> 1: gs 'traits', 'level', 'heel_preference', 1
+			else
+				if trait_vars['heel_preference'] <> 0: gs 'traits', 'level', 'heel_preference', 0
+			end
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'heel_preference.png'
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['heel_preference_exp']
+		if trait_vars['heel_preference'] = -1:
+			$trait_temp['name'] = '斑比的第一步'
+			$trait_temp['icon'] = 'heel_preference_bambi.png'
+			$trait_temp['desc'] = '你还在学习穿高跟鞋走路。穿着它们走动感觉笨拙而不协调。'
+			$trait_temp['msg'] = '你获得了特质<b>斑比的第一步</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 0
+			$trait_temp['tooltip'] = '<<-trait_vars[''heel_preference_exp'']>>剩余进度步数。 '
+			$trait_temp['tooltip'] += '穿高跟鞋来恢复——鞋跟越高效果越好，每天最多两小时。'
+		elseif trait_vars['heel_preference'] = 0:
+			$trait_temp['name'] = '高跟鞋偏好'
+			$trait_temp['desc'] = '你可以毫不费力地穿高跟鞋走路。'
+			$trait_temp['msg'] = '你失去了特质<b>斑比的第一步</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 30000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''heel_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '穿高跟鞋来培养偏好。鞋跟越高，进展越快。低跟鞋只帮助到15k。 '
+			$trait_temp['tooltip'] += '经验值每天下降100点并在穿平底鞋时下降。'
+		elseif trait_vars['heel_preference'] = 1:
+			$trait_temp['name'] = '高跟鞋适应'
+			$trait_temp['desc'] = '你已经太习惯穿高跟鞋，穿平底鞋反而觉得有点不对劲。穿平底鞋或赤脚时脚会微微酸痛，而驾驭高跟鞋则轻松得多。'
+			$trait_temp['msg'] = '你获得了特质<b>高跟鞋适应</b>. 现在穿平底鞋走路感觉别扭，而高跟鞋稍微容易驾驭。'
+			trait_temp['exp_down'] = 30000
+			trait_temp['exp_up'] = 70000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''heel_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '穿高跟鞋来推进。鞋跟越高，进展越快。低跟鞋不再有帮助，中跟鞋只帮助到50k。 '
+			$trait_temp['tooltip'] += '经验值每天下降100点并在穿平底鞋时下降。'
+		elseif trait_vars['heel_preference'] = 2:
+			$trait_temp['name'] = '高跟鞋依赖'
+			$trait_temp['desc'] = '你的脚已经完全适应了高跟鞋，以至于低于中跟的任何鞋子都会引起不适。低跟鞋会痛，平底鞋更糟。你发现穿高跟鞋走路更容易。'
+			$trait_temp['msg'] = '你获得了特质<b>高跟鞋依赖</b>. 你需要你的高跟鞋，并且更擅长驾驭它们。'
+			trait_temp['exp_down'] = 70000
+			trait_temp['exp_up'] = 120000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''heel_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '穿高跟鞋来推进。鞋跟越高，进展越快。低跟和中跟鞋不再有帮助。 '
+			$trait_temp['tooltip'] += '经验值每天下降100点并在穿平底鞋时下降。'
+		elseif trait_vars['heel_preference'] = 3:
+			$trait_temp['name'] = '高跟鞋成瘾'
+			$trait_temp['desc'] = '你的脚因长时间穿高跟鞋而重塑。任何低于高跟的鞋子都会痛——中跟鞋酸痛，低跟鞋更糟，平底鞋则是折磨。穿高跟鞋走路对你来说很自然。'
+			$trait_temp['msg'] = '你获得了特质<b>高跟鞋成瘾</b>. 高跟鞋现在是必需品，也更容易驾驭。'
+			trait_temp['exp_down'] = 120000
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''heel_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '穿高跟鞋来维持这个特质。 '
+			$trait_temp['tooltip'] += '经验值每天下降100点并在穿平底鞋时下降。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['heel_preference_exp'] = 0
+			trait_vars['heel_preference_exp_rem'] = 0
+			gs 'traits', 'level', 'heel_preference', 0
+		elseif ARGS[2] = -1:
+			trait_vars['heel_preference_exp'] = -1000
+			gs 'traits', 'level', 'heel_preference', -1
+		elseif ARGS[2] = 1:
+			trait_vars['heel_preference_exp'] = 50000
+			gs 'traits', 'level', 'heel_preference', 1
+		elseif ARGS[2] = 2:
+			trait_vars['heel_preference_exp'] = 95000
+			gs 'traits', 'level', 'heel_preference', 2
+		elseif ARGS[2] = 3:
+			trait_vars['heel_preference_exp'] = 135000
+			gs 'traits', 'level', 'heel_preference', 3
+		end
+	end
+
+
+	if $ARGS[1] = 'stat_display':
+		if cheatVars['heel_preference_disabled']: exit
+		if trait_vars['heel_preference'] = -1:
+			$stat_texts['heel_preference'] = '你还在学习穿高跟鞋走路（斑比的第一步）。'
+			gs 'stat_display_compute', 'queue_msg', 'heel_preference', 'neg', 'traits/heel_preference_bambi', 4
+		elseif trait_vars['heel_preference'] = 3 and PShoHeels <= 2:
+			$stat_texts['heel_preference'] = '你的脚穿平底鞋时会痛——你需要你的高跟鞋。'
+			gs 'stat_display_compute', 'queue_msg', 'heel_preference', 'neg', 'traits/heel_preference', 4
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ addictive — leveled 0-3, external counters: drugVars                   │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'addictive_personality':
+	if $ARGS[1] = 'daily':
+		if cheatVars['addictive_personality_disabled']: exit
+		temp_addictive_exp = drugVars['cigarettes_exp'] + drugVars['weed_exp'] + drugVars['heroin_exp'] + drugVars['cocaine_exp'] + drugVars['alcohol_exp'] + drugVars['amphetamine_exp'] + drugVars['painkiller_exp']
+		trait_vars['addictive_personality_exp'] += temp_addictive_exp - trait_vars['addictive_personality_prev']
+		trait_vars['addictive_personality_prev'] = temp_addictive_exp
+
+		if trait_vars['addictive_personality_exp'] >= 4:
+			if trait_vars['addictive_personality'] <> 3: gs 'traits', 'level', 'addictive_personality', 3
+		elseif trait_vars['addictive_personality_exp'] >= 3:
+			if trait_vars['addictive_personality'] <> 2: gs 'traits', 'level', 'addictive_personality', 2
+		elseif trait_vars['addictive_personality_exp'] >= 2:
+			if trait_vars['addictive_personality'] <> 1: gs 'traits', 'level', 'addictive_personality', 1
+		elseif trait_vars['addictive_personality_exp'] = 0:
+			if trait_vars['addictive_personality'] <> 0: gs 'traits', 'level', 'addictive_personality', 0
+		end
+		killvar 'temp_addictive_exp'
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'addictive_personality.png'
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['addictive_personality_exp']
+		if trait_vars['addictive_personality'] = 0:
+			$trait_temp['name'] = '成瘾人格'
+			$trait_temp['desc'] = '你并不特别容易成瘾。你与成瘾物质的关系和大多数人没什么两样。'
+			$trait_temp['msg'] = '你失去了特质<b>成瘾人格</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 2
+			$trait_temp['tooltip'] = '遇到的成瘾物质：<<trait_vars[''addictive_personality_exp'']>>. '
+			$trait_temp['tooltip'] += '尝试更多成瘾物质来发展这个特质。'
+		elseif trait_vars['addictive_personality'] = 1:
+			$trait_temp['name'] = '成瘾人格（1级）'
+			$trait_temp['desc'] = '你有点容易成瘾。拒绝成瘾物质比以前更耗费意志力。'
+			$trait_temp['msg-up'] = '你获得了特质<b>成瘾人格</b>.'
+			$trait_temp['msg-down'] = '<b>成瘾人格</b>已降低至Lv. 1.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 3
+			$trait_temp['tooltip'] = '遇到的成瘾物质：<<trait_vars[''addictive_personality_exp'']>>. '
+			$trait_temp['tooltip'] += '遇到更多成瘾物质以进阶。'
+		elseif trait_vars['addictive_personality'] = 2:
+			$trait_temp['name'] = '成瘾人格（2级）'
+			$trait_temp['desc'] = '你相当容易成瘾。拒绝成瘾物质需要大量的意志力。'
+			$trait_temp['msg-up'] = '<b>成瘾人格</b>已提升至Lv. 2.'
+			$trait_temp['msg-down'] = '<b>成瘾人格</b>已降低至Lv. 2.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 4
+			$trait_temp['tooltip'] = '遇到的成瘾物质：<<trait_vars[''addictive_personality_exp'']>>. '
+			$trait_temp['tooltip'] += '遇到更多成瘾物质以进阶。'
+		elseif trait_vars['addictive_personality'] = 3:
+			$trait_temp['name'] = '成瘾人格（3级）'
+			$trait_temp['desc'] = '你极易成瘾。拒绝成瘾物质极其困难。'
+			$trait_temp['msg-up'] = '<b>成瘾人格</b>已提升至Lv. 3.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = '遇到的成瘾物质：<<trait_vars[''addictive_personality_exp'']>>.'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['addictive_personality_exp'] = 0
+			trait_vars['addictive_personality_prev'] = 0
+			drugVars['cigarettes_exp'] = 0
+			drugVars['weed_exp'] = 0
+			drugVars['heroin_exp'] = 0
+			drugVars['cocaine_exp'] = 0
+			drugVars['alcohol_exp'] = 0
+			drugVars['amphetamine_exp'] = 0
+			drugVars['painkiller_exp'] = 0
+			gs 'traits', 'level', 'addictive_personality', 0
+		elseif ARGS[2] = 1:
+			trait_vars['addictive_personality_exp'] = 2
+			gs 'traits', 'level', 'addictive_personality', 1
+		elseif ARGS[2] = 2:
+			trait_vars['addictive_personality_exp'] = 3
+			gs 'traits', 'level', 'addictive_personality', 2
+		elseif ARGS[2] = 3:
+			trait_vars['addictive_personality_exp'] = 4
+			gs 'traits', 'level', 'addictive_personality', 3
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ buttslut — leveled 0-3, driven by anal orgasm count                    │
+!! │ Exp accumulates at lvl 1+, decays -1/day without new orgasms.          │
+!! │ 0→1: 10 lifetime orgasms. 1→2: 25 exp. 2→3: 75 exp.                    │
+!! │ Level 1 cannot be lost, except via the cheat menu.                     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'buttslut':
+	if $ARGS[1] = 'daily':
+		if cheatVars['buttslut_disabled']: exit
+		temp_anal_orgasms_today = (orgasm_anal - orgasm_anal_unaware) - trait_vars['buttslut_prev_anal']
+		if temp_anal_orgasms_today > 0:
+			trait_vars['buttslut_exp'] += temp_anal_orgasms_today
+			trait_vars['buttslut_prev_anal'] = orgasm_anal - orgasm_anal_unaware
+		else
+			!! Can''t naturally decay below level 1
+			if trait_vars['buttslut_exp'] > 10: trait_vars['buttslut_exp'] -= 1
+		end
+		killvar 'temp_anal_orgasms_today'
+
+		if trait_vars['buttslut_exp'] >= 75:
+			if trait_vars['buttslut'] <> 3: gs 'traits', 'level', 'buttslut', 3
+		elseif trait_vars['buttslut_exp'] >= 25:
+			if trait_vars['buttslut'] <> 2: gs 'traits', 'level', 'buttslut', 2
+		elseif trait_vars['buttslut_exp'] >= 10:
+			if trait_vars['buttslut'] <> 1: gs 'traits', 'level', 'buttslut', 1
+		elseif trait_vars['buttslut_exp'] = 0:
+			if trait_vars['buttslut'] <> 0: gs 'traits', 'level', 'buttslut', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'buttslut.png'
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['buttslut_exp']
+		if trait_vars['buttslut'] = 0:
+			$trait_temp['name'] = 'Buttslut'
+			$trait_temp['desc'] = '肛交并不能特别打动你。可有可无。'
+			$trait_temp['msg'] = '你失去了特质<b>屁股荡妇</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 10
+			$trait_temp['tooltip'] = '肛交高潮：<<trait_vars[''buttslut_exp'']>>. '
+			$trait_temp['tooltip'] += '在清醒状态下获得肛交高潮即可获得此特质。'
+		elseif trait_vars['buttslut'] = 1:
+			$trait_temp['name'] = 'Buttslut (Level 1)'
+			$trait_temp['desc'] = '你已经对肛交产生了兴趣。从中获得的刺激明显更加强烈。'
+			$trait_temp['msg-up'] = '你获得了特质<b>屁股荡妇</b>.'
+			$trait_temp['msg-down'] = '<b>屁股荡妇</b>已降低至Lv. 1.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 25
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''buttslut_exp'']>>. '
+			$trait_temp['tooltip'] += '体验更多肛门高潮以进阶。'
+			$trait_temp['tooltip'] += '没有肛交高潮时，EXP每天衰减1，但这个等级不会自然丢失。'
+		elseif trait_vars['buttslut'] = 2:
+			$trait_temp['name'] = 'Buttslut (Level 2)'
+			$trait_temp['desc'] = '你真的很享受肛交。曾经不舒服的事现在变成了真正快乐的源泉。'
+			$trait_temp['msg-up'] = '<b>屁股荡妇</b>已提升至Lv. 2.'
+			$trait_temp['msg-down'] = '<b>屁股荡妇</b>已降低至Lv. 2.'
+			trait_temp['exp_down'] = 25
+			trait_temp['exp_up'] = 75
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''buttslut_exp'']>>. '
+			$trait_temp['tooltip'] += '体验更多肛门高潮以进阶。'
+			$trait_temp['tooltip'] += '没有肛门高潮时 EXP 每天衰减 1.'
+		elseif trait_vars['buttslut'] = 3:
+			$trait_temp['name'] = 'Buttslut (Level 3)'
+			$trait_temp['desc'] = '你是个肛交成瘾者。没有什么能像从后面被进入那样让你兴奋。'
+			$trait_temp['msg-up'] = '<b>屁股荡妇</b>已提升至Lv. 3.'
+			trait_temp['exp_down'] = 75
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''buttslut_exp'']>>. '
+			$trait_temp['tooltip'] += '没有肛门高潮时 EXP 每天衰减 1.'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['buttslut_exp'] = 0
+			gs 'traits', 'level', 'buttslut', 0
+		elseif ARGS[2] = 1:
+			trait_vars['buttslut_exp'] = 10
+			gs 'traits', 'level', 'buttslut', 1
+		elseif ARGS[2] = 2:
+			trait_vars['buttslut_exp'] = 50
+			gs 'traits', 'level', 'buttslut', 2
+		elseif ARGS[2] = 3:
+			trait_vars['buttslut_exp'] = 100
+			gs 'traits', 'level', 'buttslut', 3
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ exhibitionist — leveled 0-3, derived from exhibitionist_exp            │
+!! │ Level 3 is gated behind Kseniya quest (park flash event)               │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'exhibitionist':
+	if $ARGS[1] = 'daily':
+		if cheatVars['exhibitionist_disabled']: exit
+		if trait_vars['exhibitionist_exp'] > 0: trait_vars['exhibitionist_exp'] -= 1
+
+		if trait_vars['exhibitionist_exp'] >= 100:
+			if exhibitionQW >= 3 and trait_vars['exhibitionist'] <> 3: gs 'traits', 'level', 'exhibitionist', 3
+		elseif trait_vars['exhibitionist_exp'] >= 50:
+			if trait_vars['exhibitionist'] <> 2: gs 'traits', 'level', 'exhibitionist', 2
+		elseif trait_vars['exhibitionist_exp'] >= 10:
+			if trait_vars['exhibitionist'] <> 1: gs 'traits', 'level', 'exhibitionist', 1
+		else
+			if trait_vars['exhibitionist'] <> 0: gs 'traits', 'level', 'exhibitionist', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'exhibitionist.png'
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['exhibitionist_exp']
+		if trait_vars['exhibitionist'] = 0:
+			$trait_temp['name'] = 'Exhibitionist'
+			$trait_temp['desc'] = '你对暴露癖没有太大兴趣。被人看到裸体的想法让你很不自在。'
+			$trait_temp['msg'] = '你失去了特质<b>暴露狂</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 10
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''exhibitionist_exp'']>>. '
+			$trait_temp['tooltip'] += '参与暴露行为来获得这个特质。 '
+			$trait_temp['tooltip'] += 'EXP每日衰减1点。'
+		elseif trait_vars['exhibitionist'] = 1:
+			$trait_temp['name'] = 'Exhibitionist (Level 1)'
+			$trait_temp['desc'] = '你开始享受被人注目的刺激感。这其中有种令人兴奋的东西。'
+			$trait_temp['msg-up'] = '你获得了特质<b>暴露狂</b>.'
+			$trait_temp['msg-down'] = '<b>暴露狂</b>已降低至Lv. 1.'
+			trait_temp['exp_down'] = 10
+			trait_temp['exp_up'] = 50
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''exhibitionist_exp'']>>. '
+			$trait_temp['tooltip'] += '参与暴露行为来推进。 '
+			$trait_temp['tooltip'] += 'EXP每日衰减1点。'
+		elseif trait_vars['exhibitionist'] = 2:
+			$trait_temp['name'] = 'Exhibitionist (Level 2)'
+			$trait_temp['desc'] = '暴露自己让你获得真正的快感。这种兴奋感难以用其他方式复制。'
+			$trait_temp['msg-up'] = '<b>暴露狂</b>已提升至Lv. 2.'
+			$trait_temp['msg-down'] = '<b>暴露狂</b>已降低至Lv. 2.'
+			trait_temp['exp_down'] = 50
+			trait_temp['exp_up'] = 100
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''exhibitionist_exp'']>>. '
+			$trait_temp['tooltip'] += '参与暴露行为来推进。Lv. 3需要特定的剧情事件。 '
+			$trait_temp['tooltip'] += 'EXP每日衰减1点。'
+		elseif trait_vars['exhibitionist'] = 3:
+			$trait_temp['name'] = 'Exhibitionist (Level 3)'
+			$trait_temp['desc'] = '你是一个不知羞耻的暴露狂。在公共场合暴露比穿衣遮体更自然。'
+			$trait_temp['msg-up'] = '<b>暴露狂</b>已提升至Lv. 3.'
+			trait_temp['exp_down'] = 100
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''exhibitionist_exp'']>>. '
+			$trait_temp['tooltip'] += 'EXP每日衰减1点。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['exhibitionist_exp'] = 0
+			gs 'traits', 'level', 'exhibitionist', 0
+		elseif ARGS[2] = 1:
+			trait_vars['exhibitionist_exp'] = 30
+			gs 'traits', 'level', 'exhibitionist', 1
+		elseif ARGS[2] = 2:
+			trait_vars['exhibitionist_exp'] = 74
+			gs 'traits', 'level', 'exhibitionist', 2
+		elseif ARGS[2] = 3:
+			trait_vars['exhibitionist_exp'] = 150
+			if exhibitionQW < 3: exhibitionQW = 3
+			gs 'traits', 'level', 'exhibitionist', 3
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ commando — leveled 0-3, 1-min tick from clothing state                 │
+!! │ Gain: not nude + no panties (skirts gain faster at lvl 0). 			│
+!! │ Neutral: the outfit replaces panties. No change. 						│
+!! │ Loss: wearing panties, 50% chance/tick. Lvl 3 lowers mood.             │
+!! │ Asymmetric exp resets prevent rapid level oscillation.                 │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'panty_preference':
+	if $ARGS[1] = 'minute':
+		if cheatVars['panty_preference_disabled']: exit
+		if $clothingworntype = 'nude': exit
+		!! TODO: Add consideration for hypnopanties
+
+		!! EXP gain/loss
+		if PCloPanties = 1 and PCoverFront < 4:
+			!! Neutral case, no change
+		elseif $pantyworntype = 'none' or PPanCoverFront = 4:
+			trait_vars['panty_preference_exp'] += iif(trait_vars['panty_preference'] = 0, iif(PCloSkirt > 0, 2, 1), 1)
+		else
+			if rand(0, 1) = 0 and trait_vars['panty_preference_exp'] > 0:
+				trait_vars['panty_preference_exp'] -= 1
+				if trait_vars['panty_preference'] = 3: gs 'mood', 'lower', 'tiny'
+			end
+		end
+
+		!! Level changes
+		if trait_vars['panty_preference_exp'] >= 40000:
+			if trait_vars['panty_preference'] <> 3: gs 'traits', 'level', 'panty_preference', 3
+		elseif trait_vars['panty_preference_exp'] >= 30000:
+			if trait_vars['panty_preference'] <> 2: gs 'traits', 'level', 'panty_preference', 2
+		elseif trait_vars['panty_preference_exp'] >= 15000:
+			if trait_vars['panty_preference'] <> 1: gs 'traits', 'level', 'panty_preference', 1
+		else
+			if trait_vars['panty_preference'] <> 0: gs 'traits', 'level', 'panty_preference', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'commando.png'
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['panty_preference_exp']
+		if trait_vars['panty_preference'] = 0:
+			$trait_temp['name'] = 'Commando'
+			$trait_temp['icon'] = 'commando-panties.png'
+			$trait_temp['desc'] = '不穿内裤的想法让你不舒服。任何装扮下你都更喜欢穿内裤。'
+			$trait_temp['msg'] = '你失去了特质<b>不穿内裤</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 15000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''panty_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '不穿内裤来获得这个特质。 '
+			$trait_temp['tooltip'] += '穿内裤时EXP会衰减。'
+		elseif trait_vars['panty_preference'] = 1:
+			$trait_temp['name'] = 'Commando (Level 1)'
+			$trait_temp['desc'] = '穿裙子时不穿内裤你觉得很自在。不过穿裤子时不穿内裤还是有点别扭。'
+			$trait_temp['msg-up'] = '你获得了特质<b>不穿内裤</b>.'
+			$trait_temp['msg-down'] = '<b>不穿内裤</b>已降低至Lv. 1.'
+			trait_temp['exp_down'] = 15000
+			trait_temp['exp_up'] = 30000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''panty_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '继续不穿内裤以进阶。'
+			$trait_temp['tooltip'] += '穿内裤时EXP会衰减。'
+		elseif trait_vars['panty_preference'] = 2:
+			$trait_temp['name'] = 'Commando (Level 2)'
+			$trait_temp['desc'] = '你完全习惯了不穿内裤，即使是穿裤子的时候。'
+			$trait_temp['msg-up'] = '<b>不穿内裤</b>已提升至Lv. 2.'
+			$trait_temp['msg-down'] = '<b>不穿内裤</b>已降低至Lv. 2.'
+			trait_temp['exp_down'] = 30000
+			trait_temp['exp_up'] = 40000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''panty_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '继续不穿内裤以进阶。'
+			$trait_temp['tooltip'] += '穿内裤时EXP会衰减。'
+		elseif trait_vars['panty_preference'] = 3:
+			$trait_temp['name'] = 'Commando (Level 3)'
+			$trait_temp['desc'] = '不穿内裤已成为自然。穿内裤反而感觉不对劲 —不舒服又憋闷。'
+			$trait_temp['msg'] = '<b>不穿内裤</b>已提升至Lv. 3.'
+			trait_temp['exp_down'] = 40000
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''panty_preference_exp'']>>. '
+			$trait_temp['tooltip'] += '穿内裤时EXP会衰减，导致在此等级下心情下降。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['panty_preference_exp'] = 0
+			gs 'traits', 'level', 'panty_preference', 0
+		elseif ARGS[2] = 1:
+			trait_vars['panty_preference_exp'] = 22000
+			gs 'traits', 'level', 'panty_preference', 1
+		elseif ARGS[2] = 2:
+			trait_vars['panty_preference_exp'] = 35000
+			gs 'traits', 'level', 'panty_preference', 2
+		elseif ARGS[2] = 3:
+			trait_vars['panty_preference_exp'] = 45000
+			gs 'traits', 'level', 'panty_preference', 3
+		end
+	end
+
+
+	if $ARGS[1] = 'stat_display':
+		if cheatVars['panty_preference_disabled']: exit
+		if trait_vars['panty_preference'] = 3 and PCloPanties = 1:
+			$stat_texts['panty_preference'] = '穿内裤感觉不对劲——你已经太习惯不穿了。'
+			gs 'stat_display_compute', 'queue_msg', 'panty_preference', 'neg', 'traits/commando', 4
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ drinking — leveled -1/0/1, points-driven with hysteresis               │
+!! │ alko_today written by drugs.qsrc. Points range -100..100.              │
+!! │ Gain: +min(alko_today, 9)/drinking day.                                │
+!! │ Decay: accelerating with consecutive sober days.                       │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'drinking':
+	if $ARGS[1] = 'daily':
+		if cheatVars['drinking_disabled']: exit
+		if trait_vars['alko_today'] > 0:
+			trait_vars['drinking_days_sober'] = 0
+			trait_vars['drinking_exp'] += min(trait_vars['alko_today'], 9)
+		else
+			trait_vars['drinking_days_sober'] += 1
+			trait_vars['drinking_exp'] -= func('math', 'int_clamp', trait_vars['drinking_days_sober'] / 3, 1, 9)
+		end
+		trait_vars['alko_today'] = 0
+		trait_vars['drinking_exp'] = func('math', 'int_clamp', trait_vars['drinking_exp'], -100, 100)
+
+		if trait_vars['drinking_exp'] >= 50:
+			if trait_vars['drinking'] <> 1: gs 'traits', 'level', 'drinking', 1
+		elseif trait_vars['drinking_exp'] <= -50:
+			if trait_vars['drinking'] <> -1: gs 'traits', 'level', 'drinking', -1
+		else
+			if trait_vars['drinking'] <> 0: gs 'traits', 'level', 'drinking', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['drinking_exp']
+		if trait_vars['drinking'] = 0:
+			$trait_temp['name'] = '酒精耐受度'
+			$trait_temp['icon'] = 'alko.png'
+			$trait_temp['desc'] = '你对酒精的耐受度一般。没什么值得夸耀的。'
+			$trait_temp['msg-up'] = '你失去了特质<b>轻量级</b>. 你的酒精耐受度现为平均水平。'
+			$trait_temp['msg-down'] = '你失去了特质<b>重量级</b>. 你的酒精耐受度现为平均水平。'
+			trait_temp['exp_down'] = -50
+			trait_temp['exp_up'] = 50
+			$trait_temp['tooltip'] = '耐受EXP: <<trait_vars[''drinking_exp'']>>. '
+			$trait_temp['tooltip'] += '定期饮酒以增强耐受度。'
+			$trait_temp['tooltip'] += '保持清醒会随时间降低耐受度。'
+		elseif trait_vars['drinking'] = 1:
+			$trait_temp['name'] = '酒精耐受力 —重量级'
+			$trait_temp['icon'] = 'alko-heavy.png'
+			$trait_temp['desc'] = '你对酒精有很高的耐受度。你不费吹灰之力就能把大多数人喝趴下。'
+			$trait_temp['msg-up'] = '你获得了特质<b>重量级</b>.'
+			trait_temp['exp_down'] = 50
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = '耐受EXP: <<trait_vars[''drinking_exp'']>>. '
+			$trait_temp['tooltip'] += '保持清醒会随时间降低耐受度。'
+		elseif trait_vars['drinking'] = -1:
+			$trait_temp['name'] = '酒精耐受力 —轻量级'
+			$trait_temp['icon'] = 'alko-light.png'
+			$trait_temp['desc'] = '你对酒精的耐受度很低。即使少量也比大多数人更容易上头。'
+			$trait_temp['msg-up'] = '你获得了特质<b>轻量级</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -50
+			$trait_temp['tooltip'] = '耐受EXP: <<trait_vars[''drinking_exp'']>>. '
+			$trait_temp['tooltip'] += '定期饮酒以恢复。'
+		end
+	end
+
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['drinking_exp'] = 0
+			trait_vars['drinking_days_sober'] = 0
+			gs 'traits', 'level', 'drinking', 0
+		elseif ARGS[2] = -1:
+			trait_vars['drinking_exp'] = -75
+			trait_vars['drinking_days_sober'] = 0
+			gs 'traits', 'level', 'drinking', -1
+		elseif ARGS[2] = 1:
+			trait_vars['drinking_exp'] = 75
+			trait_vars['drinking_days_sober'] = 0
+			gs 'traits', 'level', 'drinking', 1
+		end
+	end
+
+
+	if $ARGS[1] = 'overview':
+		if trait_vars['drinking'] = -1:
+			$trait_temp['ov_val'] = '轻量级'
+		elseif trait_vars['drinking'] = 1:
+			$trait_temp['ov_val'] = '重量级'
+		else
+			$trait_temp['ov_val'] = '正常'
+		end
+		$trait_temp['ov_label'] = '酒精耐受度'
+		$trait_temp['ov_left'] = 'gs ''traits'', ''drinking'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['drinking'] - 1, -1, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''drinking'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['drinking'] + 1, -1, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		if ARGS[2] = -1:
+			trait_vars['drinking_exp'] = -50
+		elseif ARGS[2] = 1:
+			trait_vars['drinking_exp'] = 50
+		else
+			trait_vars['drinking_exp'] = 0
+		end
+		gs 'traits', 'level', 'drinking', func('math', 'int_clamp', ARGS[2], -1, 1)
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ nerd — leveled 0-3, weekly eval + daily grupvalue effects              │
+!! │ Points adjusted on Saturday (school) or Friday (uni).                  │
+!! │ nerd_lessons incremented by lesson files.                              │
+!! │ Hysteresis: gain at 40/60/80 points, lose at 20/40/60.                 │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'academic':
+	!! TODO: add negative levels
+	if $ARGS[1] = 'daily':
+		if cheatVars['academic_disabled']: exit
+		if gschoolVars['school_diploma'] = 0 and kanikuli = 0 and week <= 5:
+			!! monday, wednesday, friday: 5 non-PE lessons
+			!! tuesday, thursday: 6 non-PE lessons
+			temp_lessons_today = iif(week = 1 or week = 3 or week = 5, 5, 6)
+			if trait_vars['academic_lessons'] >= temp_lessons_today:
+				trait_vars['academic_exp'] += 1
+			elseif trait_vars['academic_lessons'] = temp_lessons_today - 1:
+				trait_vars['academic_exp'] -= iif(trait_vars['academic'] > 0, 1, rand(0, 1))
+			elseif trait_vars['academic_lessons'] <= temp_lessons_today - 2:
+				trait_vars['academic_exp'] -= iif(trait_vars['academic'] > 0, 2, rand(1, 2))
+			end
+			trait_vars['academic_lessons'] = 0
+		elseif university['semester_week'] > 0 and university['student'] = 1 and week = 5:
+			!! University: 9 weekly classes, more aggressive scaling
+			!! EXP granted once per week, unlike school, due to irregular schedule.
+			!! Skip first week:
+			if trait_vars['academic_started'] = 0: trait_vars['academic_started'] = 1 & exit
+			!! 9 weekly classes, gain if >7, lose if <4.
+			if trait_vars['academic_lessons'] >= 8:
+				trait_vars['academic_exp'] += 20 * (trait_vars['academic_lessons'] - 7)
+			elseif trait_vars['academic_lessons'] <= 3:
+				trait_vars['academic_exp'] -= 20 * iif(trait_vars['academic'] > 0, 2, rand(1, 2))
+			end
+			trait_vars['academic_lessons'] = 0
+		end
+		trait_vars['academic_exp'] = func('math', 'int_clamp', trait_vars['academic_exp'], -500, 500)
+
+		!! Status evaluation with hysteresis bands
+		if trait_vars['academic'] = 0:
+			if trait_vars['academic_exp'] > 200: gs 'traits', 'level', 'academic', 1
+		elseif trait_vars['academic'] = 1:
+			if trait_vars['academic_exp'] > 300: gs 'traits', 'level', 'academic', 2
+			if trait_vars['academic_exp'] < 150: gs 'traits', 'level', 'academic', 0
+		elseif trait_vars['academic'] = 2:
+			if trait_vars['academic_exp'] > 400: gs 'traits', 'level', 'academic', 3
+			if trait_vars['academic_exp'] < 250: gs 'traits', 'level', 'academic', 1
+		elseif trait_vars['academic'] = 3:
+			if trait_vars['academic_exp'] < 350: gs 'traits', 'level', 'academic', 2
+		end
+
+		!! grupvalue effects from nerd status
+		if trait_vars['academic'] = 3:
+			grupvalue[1] -= 1
+			grupvalue[3] += rand(1, 2)
+			grupvalue[4] -= rand(1, 2)
+		elseif trait_vars['academic'] = 2:
+			grupvalue[3] += 1
+			grupvalue[4] -= 1
+		elseif trait_vars['academic'] = 1:
+			grupvalue[3] += rand(0, 1)
+		end
+		killvar 'temp_lessons_today'
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'nerd.png'
+		trait_temp['hidden'] = 0
+		trait_temp['exp'] = trait_vars['academic_exp']
+		if trait_vars['academic'] = 0:
+			$trait_temp['name'] = '普通学生'
+			$trait_temp['desc'] = '你并不特别用功，对学业也没多大兴趣。上学只是你熬过去的事情。'
+			$trait_temp['msg'] = '你失去了<b>学业</b>特质。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 200
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''academic_exp'']>>. '
+			$trait_temp['tooltip'] += '定期上课以培养学习习惯。'
+			$trait_temp['tooltip'] += '缺课会减少EXP。'
+		elseif trait_vars['academic'] = 1:
+			$trait_temp['name'] = '喜欢学习'
+			$trait_temp['desc'] = '你喜欢学习。学习对你来说更自然，学术同伴似乎也对你亲近起来。'
+			$trait_temp['msg-up'] = '学术特质已升级为<b>喜欢学习</b>.'
+			$trait_temp['msg-down'] = '学业特质已降级为<b>喜欢学习</b>.'
+			trait_temp['exp_down'] = 150
+			trait_temp['exp_up'] = 300
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''academic_exp'']>>. '
+			$trait_temp['tooltip'] += '继续上课以进阶。'
+			$trait_temp['tooltip'] += '缺课会减少EXP。'
+		elseif trait_vars['academic'] = 2:
+			$trait_temp['name'] = '热爱学习'
+			$trait_temp['desc'] = '你热爱学习。专注对你来说很容易，学业让你有成就感，好学的同伴也尊重你。'
+			$trait_temp['msg-up'] = '学术特质已升级为<b>热爱学习</b>.'
+			$trait_temp['msg-down'] = '学业特质已降级为<b>热爱学习</b>.'
+			trait_temp['exp_down'] = 250
+			trait_temp['exp_up'] = 400
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''academic_exp'']>>. '
+			$trait_temp['tooltip'] += '继续上课以进阶。'
+			$trait_temp['tooltip'] += '缺课会减少EXP。'
+		elseif trait_vars['academic'] = 3:
+			$trait_temp['name'] = '老师的宠儿'
+			$trait_temp['desc'] = '你是老师的宠儿。你在课堂上的专注和投入无人能及——尽管不是每个人都欣赏这一点。'
+			$trait_temp['msg-up'] = '学术特质已升级为<b>老师的宠儿</b>.'
+			trait_temp['exp_down'] = 350
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''academic_exp'']>>. '
+			$trait_temp['tooltip'] += '缺课会导致此特质退化。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['academic_exp'] = 0
+			trait_vars['academic_lessons'] = 0
+			trait_vars['nerd_learn_home'] = 0
+			gs 'traits', 'level', 'academic', 0
+		elseif ARGS[2] = 1:
+			trait_vars['academic_exp'] = 200
+			gs 'traits', 'level', 'academic', 1
+		elseif ARGS[2] = 2:
+			trait_vars['academic_exp'] = 325
+			gs 'traits', 'level', 'academic', 2
+		elseif ARGS[2] = 3:
+			trait_vars['academic_exp'] = 400
+			gs 'traits', 'level', 'academic', 3
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label']	= '学业模式'
+		$trait_temp['ov_val']	= iif(trait_vars['academic'] = 0, '普通学生', iif(trait_vars['academic'] = 1, '喜欢学习', iif(trait_vars['academic'] = 2, '热爱学习', '老师的宠儿')))
+		$trait_temp['ov_left']	= 'gs ''traits'', ''academic'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['academic'] - 1, 0, 3)
+		$trait_temp['ov_right']	= 'gs ''traits'', ''academic'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['academic'] + 1, 0, 3)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		if ARGS[2] = 0:
+			trait_vars['academic_exp'] = 0
+		elseif ARGS[2] = 1:
+			trait_vars['academic_exp'] = 250
+		elseif ARGS[2] = 2:
+			trait_vars['academic_exp'] = 350
+		elseif ARGS[2] = 3:
+			trait_vars['academic_exp'] = 450
+		end
+		gs 'traits', 'level', 'academic', func('math', 'int_clamp', ARGS[2], 0, 3)
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ bookworm — binary trait, exp from reading books                        │
+!! │ trait_vars['bookworm'] = 0 or 1 (binary level)                         │
+!! │ trait_vars['bookworm_exp'] = reading intensity (was pcs_nerd)          │
+!! │ lastreadday = daystart of last book read (set by library_funcs)        │
+!! │ Gains level 1 when exp >= 5, loses it when exp drops to 0.             │
+!! │ Mood effects run hourly via 'hourly' sub-function.                     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'bookworm':
+
+	if $ARGS[1] = 'hourly':
+		if cheatVars['bookworm_disabled']: exit
+		!! Reading withdrawal: mood effects based on days since last read.
+		if trait_vars['bookworm'] > 0:
+			if daystart = lastreadday:
+				if pcs_mood < 90: gs 'mood', 'raise', 'tiny'
+			elseif daystart = lastreadday + 2:
+				if pcs_mood > 50: gs 'mood', 'lower', 'tiny'
+			else
+				if pcs_mood > 10: gs 'mood', 'lower', 'tiny'
+			end
+		end
+	end
+
+	if $ARGS[1] = 'daily':
+		if cheatVars['bookworm_disabled']: exit
+		!! EXP decay: if 3+ days without reading, aggressively lower exp
+		if trait_vars['bookworm'] > 0 and daystart > lastreadday + 2:
+			trait_vars['bookworm_exp'] = max(0, trait_vars['bookworm_exp'] / 10 - stat['men_fucked'] - stat['women_fucked'] - stat['herm_fucked'])
+		end
+		!! Level evaluation
+		if trait_vars['bookworm_exp'] >= 1:
+			if trait_vars['bookworm'] = 0: gs 'traits', 'level', 'bookworm', 1
+		else
+			if trait_vars['bookworm'] = 1: gs 'traits', 'level', 'bookworm', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['name'] = '书虫'
+		$trait_temp['icon'] = 'bookworm.png'
+		trait_temp['hidden'] = 1
+		trait_temp['exp'] = trait_vars['bookworm_exp']
+		if trait_vars['bookworm'] = 0:
+			$trait_temp['desc'] = '你并没有特别热爱阅读。书是不错，但可有可无。'
+			$trait_temp['msg'] = '你失去了特质<b>书虫</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 1
+			$trait_temp['tooltip'] = '阅读 EXP: <<trait_vars[''bookworm_exp'']>>. '
+			$trait_temp['tooltip'] += '读书多到视力开始受损。'
+		else
+			$trait_temp['desc'] = '你痴迷地阅读，以至于视力已经为此受损。手中有书时感觉最好，太久不读书就会焦躁不安。'
+			$trait_temp['msg'] = '你获得了特质<b>书虫</b>.'
+			trait_temp['exp_down'] = 0
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = '阅读 EXP: <<trait_vars[''bookworm_exp'']>>. 上次阅读：' + iif(daystart = lastreadday, '今天', iif(daystart = lastreadday + 1, '昨天', '<<daystart - lastreadday>>天前')) + '。'
+			$trait_temp['tooltip'] += '如果超过2天不阅读EXP会迅速下降。'
+		end
+	end
+
+	if $ARGS[1] = 'stat_display':
+		if cheatVars['bookworm_disabled']: exit
+		if trait_vars['bookworm'] > 0:
+			if daystart = lastreadday:
+				$stat_texts['bookworm'] = '读完一本书后你沉浸在幻想中。'
+				gs 'stat_display_compute', 'queue_msg', 'bookworm', 'v_pos'
+			elseif daystart = lastreadday + 1:
+				$stat_texts['bookworm'] = '你有点无聊并想一头扎进书里。'
+				gs 'stat_display_compute', 'queue_msg', 'bookworm', 'neutral'
+			elseif daystart = lastreadday + 2:
+				$stat_texts['bookworm'] = '你真的很想读点什么。'
+				gs 'stat_display_compute', 'queue_msg', 'bookworm', 'neg'
+			else
+				$stat_texts['bookworm'] = '你有着极其强烈的阅读欲望！'
+				gs 'stat_display_compute', 'queue_msg', 'bookworm', 'v_neg'
+				gs 'stat_display_compute', 'queue_alert', '你极度渴望读点什么。', 'v_neg'
+			end
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['bookworm_exp'] = 0
+			gs 'traits', 'level', 'bookworm', 0
+		elseif ARGS[2] = 1:
+			trait_vars['bookworm_exp'] = 100
+			lastreadday = daystart
+			gs 'traits', 'level', 'bookworm', 1
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Sleep Duration — -1/0/1, no natural change			    		        │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sleep_duration':
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 1
+		if trait_vars['sleep_duration'] = 0:
+			$trait_temp['name'] = '正常睡眠者'
+			$trait_temp['icon'] = 'sleep.png'
+			$trait_temp['desc'] = '你的睡眠模式很正常。睡一个正常的觉后你会感到精力充沛，也能靠合理的睡眠量正常生活。'
+			$trait_temp['msg'] = '你的自然睡眠模式已恢复正常。'
+			$trait_temp['tooltip'] = '由基因或剧情事件设定。'
+		elseif trait_vars['sleep_duration'] = 1:
+			$trait_temp['name'] = '短睡眠者'
+			$trait_temp['icon'] = 'sleep.png'
+			$trait_temp['desc'] = '你是个短睡眠者。只睡几个小时就能恢复精力，所需的睡眠比大多数人少。'
+			$trait_temp['msg'] = '你已经变成了一个<b>短睡眠者</b>.'
+			$trait_temp['tooltip'] = '睡眠恢复能量比正常快。清醒时睡眠消耗稍快。'
+		elseif trait_vars['sleep_duration'] = -1:
+			$trait_temp['name'] = '长睡眠者'
+			$trait_temp['icon'] = 'sleep_long.png'
+			$trait_temp['desc'] = '你是个长睡眠者。你需要比大多数人更多的睡眠才能休息好，睡眠不足时很难正常活动。'
+			$trait_temp['msg'] = '你已经变成了一个<b>长睡眠者</b>.'
+			$trait_temp['tooltip'] = '睡眠恢复能量比正常慢。清醒时睡眠消耗更快。'
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label'] = '睡眠模式'
+		if trait_vars['sleep_duration'] = 1:
+			$trait_temp['ov_val'] = '短睡眠者'
+		elseif trait_vars['sleep_duration'] = 0:
+			$trait_temp['ov_val'] = '正常'
+		elseif trait_vars['sleep_duration'] = -1:
+			$trait_temp['ov_val'] = '长睡眠者'
+		end
+		$trait_temp['ov_left'] = 'gs ''traits'', ''sleep_duration'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['sleep_duration'] - 1, -1, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''sleep_duration'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['sleep_duration'] + 1, -1, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		gs 'traits', 'level', 'sleep_duration', func('math', 'int_clamp', ARGS[2], -1, 1)
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			gs 'traits', 'level', 'sleep_duration', 0
+		elseif ARGS[2] = -1 or ARGS[2] = 1:
+			gs 'traits', 'level', 'sleep_duration', ARGS[2]
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Natural Elasticity — -1/0/1, no natural change                         │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'elasticity':
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 1
+		if trait_vars['elasticity'] = 0:
+			$trait_temp['name'] = '正常弹性'
+			$trait_temp['icon'] = 'elasticity.png'
+			$trait_temp['desc'] = '你的身体具有正常的弹性水平。你可以随时间拉伸以容纳更大的物体。'
+			$trait_temp['msg'] = '你的自然弹性已恢复正常。'
+			$trait_temp['tooltip'] = '通过特定事件改变。'
+		elseif trait_vars['elasticity'] = 1:
+			$trait_temp['name'] = '天生弹性'
+			$trait_temp['icon'] = 'elasticity.png'
+			$trait_temp['desc'] = '你的身体天生富有弹性。你比大多数人更容易容纳较大尺寸的物体，并且适应很快。'
+			$trait_temp['msg'] = '你的身体已变得<b>天生弹性</b>.'
+			$trait_temp['tooltip'] = '由特定事件设定。永久。'
+		elseif trait_vars['elasticity'] = -1:
+			$trait_temp['name'] = '无弹性'
+			$trait_temp['icon'] = 'elasticity_low.png'
+			$trait_temp['desc'] = '你的通道异常僵硬。容纳较大的物体比平常更困难，而且你适应缓慢，从扩张中恢复也慢。'
+			$trait_temp['msg'] = '你的身体已变得<b>无弹性</b>.'
+			$trait_temp['tooltip'] = '由特定事件设定。永久。'
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label'] = '弹性'
+		if trait_vars['elasticity'] = 1:
+			$trait_temp['ov_val'] = '天生弹性'
+		elseif trait_vars['elasticity'] = 0:
+			$trait_temp['ov_val'] = '正常'
+		elseif trait_vars['elasticity'] = -1:
+			$trait_temp['ov_val'] = '无弹性'
+		end
+		$trait_temp['ov_left'] = 'gs ''traits'', ''elasticity'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['elasticity'] - 1, -1, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''elasticity'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['elasticity'] + 1, -1, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		gs 'traits', 'level', 'elasticity', func('math', 'int_clamp', ARGS[2], -1, 1)
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			gs 'traits', 'level', 'elasticity', 0
+		elseif ARGS[2] = -1 or ARGS[2] = 1:
+			gs 'traits', 'level', 'elasticity', ARGS[2]
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ sizequeen — 0/1/2                                                      │
+!! │ trait_vars['sizequeen'] = 0 or 1                                       │
+!! │ trait_vars['sizequeen_exp'] = training tracker                         │
+!! │ trait_vars['sizequeen_temp'] = tracker during arousal encounter        │
+!! │ EXP gain limited to 6 per encounter, added when calling 'end'          │
+!! │    +3 exp from having sex with dick_length >= 22                       │
+!! │    +1 exp from having sex with dick_length >= 17                       │
+!! │    -1 exp/day natural decay.                                           │
+!! │    -2 exp from having sex with dick_length <= 12                       │
+!! │    -3 exp from having sex with dick_length <= 7                        │
+!! │ Can''t lose level 1 after gaining it, except via the cheat menu        │
+!! │ Threshold: exp >= 60 for lvl 1, 120 for lvl 2                          │
+!! │ Effect at lvl 1: 150% arousal from >= 17, 200% from >= 22              │
+!! │    50% arousal from <=12, none from <= 7                               │
+!! │ Effect at lvl 2: 200% arousal from >= 17, 250% from >= 22              │
+!! │    no arousal from <=12                                                │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sizequeen':
+	if $ARGS[1] = 'update':
+		if cheatVars['sizequeen_disabled']: exit
+		trait_vars['sizequeen_exp'] += min(trait_vars['sizequeen_temp'], 6)
+		trait_vars['sizequeen_temp'] = 0
+		exit
+	end
+
+	if $ARGS[1] = 'calc_effect':
+		!! ARGS[2] = original stimulation
+		!! ARGS[3] = object size (dick/toy length)
+		!! ARGS[4] = hole size (enables hole-relative thresholds)
+		!!
+		!! Thresholds are relative to the hole:
+		!!   tiny   : object < hole - 10
+		!!   small  : hole - 10 <= object < hole - 5
+		!!   comfort: hole - 5 <= object <= hole + 5
+		!!   large  : hole + 5 < object <= hole + 15
+		!!   huge   : object > hole + 15
+		!!
+		!! Level 0 (no trait): 5 % reduction per unit below comfort, capped at 75 %
+		!! Level 1: tiny → 0, small → 50 %, comfort → 100 %, large → 150 %, huge → 200 %
+		!! Level 2: tiny → turn-off (0 stim + mood penalty), small → 0, comfort → 100 %, large → 200 %, huge → 300 %
+		arousalVars['sizequeen_turnoff'] = 0
+		temp_size_rel = ARGS[3] - ARGS[4]
+		if trait_vars['sizequeen'] = 2:
+			if temp_size_rel > 15:
+				result = ARGS[2] * 3
+			elseif temp_size_rel > 5:
+				result = ARGS[2] * 2
+			elseif temp_size_rel < -10:
+				result = 0
+				arousalVars['sizequeen_turnoff'] = 1
+			elseif temp_size_rel < -5:
+				result = 0
+			else
+				result = ARGS[2]
+			end
+		elseif trait_vars['sizequeen'] = 1:
+			if temp_size_rel > 15:
+				result = ARGS[2] * 2
+			elseif temp_size_rel > 5:
+				result = (ARGS[2] * 3) / 2
+			elseif temp_size_rel < -10:
+				result = 0
+			elseif temp_size_rel < -5:
+				result = ARGS[2] / 2
+			else
+				result = ARGS[2]
+			end
+		else
+			if temp_size_rel < -5:
+				temp_understim_pct = min(75, (-temp_size_rel - 5) * 5)
+				result = max(1, ARGS[2] * (100 - temp_understim_pct) / 100)
+				killvar 'temp_understim_pct'
+			else
+				result = ARGS[2]
+			end
+		end
+		killvar 'temp_size_rel'
+	end
+
+	if $ARGS[1] = 'daily':
+		if cheatVars['sizequeen_disabled']: exit
+		!! Can''t go back to level 0 after gaining level 1, regardless of exp.
+		!! Can still lose EXP to make reaching level 2 harder.
+		if trait_vars['sizequeen_exp'] >= 120:
+			if trait_vars['sizequeen'] <> 2: gs 'traits', 'level', 'sizequeen', 2
+		elseif trait_vars['sizequeen_exp'] >= 60:
+			if trait_vars['sizequeen'] <> 1: gs 'traits', 'level', 'sizequeen', 1
+		end
+		trait_vars['sizequeen_exp'] = max(trait_vars['sizequeen_exp'] - 1, 0)
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'sizequeen.png'
+		trait_temp['hidden'] = 1
+		trait_temp['exp'] = trait_vars['sizequeen_exp']
+		if trait_vars['sizequeen'] = 0:
+			$trait_temp['name'] = '尺寸偏好'
+			$trait_temp['desc'] = '你可以享受与任何尺寸伴侣的性爱，没有特别的偏好。'
+			$trait_temp['msg'] = '你失去了特质<b>尺寸女王</b>. 如果这不是作弊重置，那就是出了问题，请报告此情况。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 60
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''sizequeen_exp'']>>. '
+			$trait_temp['tooltip'] += '与尺寸傲人的伴侣做爱。'
+			$trait_temp['tooltip'] += 'EXP每天衰减1点且与小尺寸伴侣相处时也会衰减。'
+		elseif trait_vars['sizequeen'] = 1:
+			$trait_temp['name'] = '尺寸女王'
+			$trait_temp['desc'] = '说尺寸不重要的人都在撒谎。天赋异禀的伴侣能给你额外的快感，而尺寸小的则让你快感更少。'
+			$trait_temp['msg-up'] = '你获得了特质<b>尺寸女王</b>! 你现在更喜欢更大的伴侣和玩具。'
+			$trait_temp['msg-down'] = '特质<b>尺寸女王</b>已下降至等级 1。你仍然更喜欢更大的伴侣和玩具，但你的偏好柔和了一些。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 120
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''sizequeen_exp'']>>. '
+			$trait_temp['tooltip'] += '与尺寸傲人的伴侣做爱。'
+			$trait_temp['tooltip'] += 'EXP 每天衰减 1，并且与较小的伴侣相处也会衰减。此等级不会自然丢失。'
+		elseif trait_vars['sizequeen'] = 2:
+			$trait_temp['name'] = '尺寸成瘾'
+			$trait_temp['desc'] = '你对巨根永远欲求不满，越大越好。尺寸小的伴侣已经完全让你提不起兴致。'
+			$trait_temp['msg'] = '特质“尺寸女王”已提升至等级 2 - <b>尺寸成瘾</b>! 你对巨根永远欲求不满。'
+			trait_temp['exp_down'] = 120
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''sizequeen_exp'']>>. '
+			$trait_temp['tooltip'] += 'EXP 每天衰减 1，并且与较小的伴侣相处也会衰减。低于 120 时降至 Lv. 1。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['sizequeen_exp'] = 0
+			trait_vars['sizequeen_temp'] = 0
+			gs 'traits', 'level', 'sizequeen', 0
+		elseif ARGS[2] = 1:
+			trait_vars['sizequeen_exp'] = 80
+			gs 'traits', 'level', 'sizequeen', 1
+		elseif ARGS[2] = 2:
+			trait_vars['sizequeen_exp'] = 130
+			gs 'traits', 'level', 'sizequeen', 2
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ fitness_freak — binary trait, arousal from exercise                    │
+!! │ trait_vars['fitness_freak'] = 0 or 1                                   │
+!! │ trait_vars['fitness_freak_exp'] = training tracker                     │
+!! │ Gains: from exercising while aroused or naked.                         │
+!! │   +2 when pcs_horny >= 60, +3 when pcs_horny >= 100.                   │
+!! │   +1 bonus when naked. Called from exercise.qsrc per session.          │
+!! │ Loses: -1 exp/day decay.                                               │
+!! │ Level 1 at exp >= 30, loses at exp <= 0. Cap 60.                       │
+!! │ Effect: exercise increases horniness.                                  │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'fitness_freak':
+
+	!! Called from exercise.qsrc once per exercise session
+	!! ARGS[2] = temp_exVars['mult'] (3=15min, 4=20min, 6=30min, 12=60min)
+	if $ARGS[1] = 'workout':
+		if cheatVars['fitness_freak_disabled']: exit
+		if trait_vars['fitness_freak_today'] >= 10: exit
+		temp_ff_gain = 0
+		if pcs_horny >= 100:
+			temp_ff_gain = 3
+		elseif pcs_horny >= 60:
+			temp_ff_gain = 2
+		else
+			temp_ff_gain = - 2
+		end
+		if $clothingworntype = 'nude': temp_ff_gain += 1
+		!! Scale by workout length (ARGS[2]/4, baseline 20min=4, +2 for rounding)
+		temp_ff_gain = (temp_ff_gain * max(ARGS[2], 1) + 2) / 4
+		trait_vars['fitness_freak_exp'] += temp_ff_gain
+		trait_vars['fitness_freak_exp'] = func('math', 'int_clamp', trait_vars['fitness_freak_exp'], -10, 100)
+		if temp_ff_gain > 0: trait_vars['fitness_freak_today'] += temp_ff_gain
+		killvar 'temp_ff_gain'
+	end
+
+	if $ARGS[1] = 'daily':
+		if cheatVars['fitness_freak_disabled']: exit
+		trait_vars['fitness_freak_today'] = 0
+		trait_vars['fitness_freak_exp'] -= 1
+		trait_vars['fitness_freak_exp'] = func('math', 'int_clamp', trait_vars['fitness_freak_exp'], -10, 100)
+		if trait_vars['fitness_freak_exp'] >= 60:
+			if trait_vars['fitness_freak'] = 0: gs 'traits', 'level', 'fitness_freak', 1
+		elseif trait_vars['fitness_freak_exp'] <= 40:
+			if trait_vars['fitness_freak'] = 1: gs 'traits', 'level', 'fitness_freak', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['name'] = '健身狂'
+		$trait_temp['icon'] = 'fitness_freak.png'
+		trait_temp['hidden'] = 1
+		trait_temp['exp'] = trait_vars['fitness_freak_exp']
+		if trait_vars['fitness_freak'] = 0:
+			$trait_temp['desc'] = '运动对你来说只是运动。'
+			$trait_temp['msg'] = '你失去了特质<b>健身狂</b>. 运动不再让你兴奋。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 60
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''fitness_freak_exp'']>>. '
+			$trait_temp['tooltip'] += '在兴奋或赤裸时锻炼。 '
+			$trait_temp['tooltip'] += 'EXP每日衰减1点。'
+		else
+			$trait_temp['desc'] = '锻炼让你燥热难耐。健身房对你来说是一种别样的刺激。'
+			$trait_temp['msg'] = '你获得了特质<b>健身狂</b>! 运动现在让你兴奋。'
+			trait_temp['exp_down'] = 40
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''fitness_freak_exp'']>>. '
+			$trait_temp['tooltip'] += 'EXP 每天衰减 1。在没有兴奋时锻炼会降低 EXP。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['fitness_freak_exp'] = 0
+			trait_vars['fitness_freak_today'] = 0
+			gs 'traits', 'level', 'fitness_freak', 0
+		elseif ARGS[2] = 1:
+			trait_vars['fitness_freak_exp'] = 80
+			gs 'traits', 'level', 'fitness_freak', 1
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ hair_growth_rate — physical (-1, 0, 1)									│
+!! │ +1 = Lush Growth: 50% chance of a bonus mm each day					│
+!! │  0 = Normal															│
+!! │ -1 = Slow Grower: 1/3 chance to skip daily growth						│
+!! │ Set via character creation; hairgrowcht overrides all tiers			│
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'hair_growth_rate':
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 0
+		if trait_vars['hair_growth_rate'] = 1:
+			$trait_temp['icon'] = 'long_hair.png'
+			$trait_temp['name'] = '茂盛生长'
+			$trait_temp['desc'] = '你的头发比正常情况长得更快。'
+			$trait_temp['msg'] = '你获得了特质<b>茂盛生长</b>! 你的头发生长速度比正常快约 50%。'
+		elseif trait_vars['hair_growth_rate'] = 0:
+			$trait_temp['icon'] = 'long_hair.png'
+			$trait_temp['name'] = '头发生长速度'
+			$trait_temp['desc'] = '你的头发以正常速度生长。'
+			$trait_temp['msg'] = '你的头发生长速度已恢复正常。'
+		elseif trait_vars['hair_growth_rate'] = -1:
+			$trait_temp['icon'] = 'short_hair.png'
+			$trait_temp['name'] = '生长缓慢'
+			$trait_temp['desc'] = '你的头发生长速度比平均慢约三分之一。'
+			$trait_temp['msg'] = '你获得了特质<b>生长缓慢</b>! 你的头发似乎比平时长得更慢。'
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label'] = '头发生长'
+		if trait_vars['hair_growth_rate'] = 1:
+			$trait_temp['ov_val'] = '快'
+		elseif trait_vars['hair_growth_rate'] = 0:
+			$trait_temp['ov_val'] = '正常'
+		elseif trait_vars['hair_growth_rate'] = -1:
+			$trait_temp['ov_val'] = '慢'
+		end
+		$trait_temp['ov_left'] = 'gs ''traits'', ''hair_growth_rate'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['hair_growth_rate'] - 1, -1, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''hair_growth_rate'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['hair_growth_rate'] + 1, -1, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		gs 'traits', 'level', 'hair_growth_rate', ARGS[2]
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			gs 'traits', 'level', 'hair_growth_rate', 0
+		elseif ARGS[2] = -1:
+			gs 'traits', 'level', 'hair_growth_rate', -1
+		elseif ARGS[2] = 1:
+			gs 'traits', 'level', 'hair_growth_rate', 1
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ body_hair_growth_rate — physical (-1…1)                                │
+!! │ +1 = Jungle Jane: hair grows 2× faster                                 │
+!! │  0 = Normal                                                            │
+!! │ -1 = Slow Growth: hair grows ~20% more slowly                          │
+!! │ Set via character creation, events, or trials — not exp-driven         │
+!! │ lashair = 1 makes all tiers irrelevant                                 │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'body_hair_growth_rate':
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 1
+		if lashair = 1:
+			$trait_temp['name'] = '体毛生长速度'
+			$trait_temp['desc'] = '你做过激光脱毛——体毛生长速度不再重要。'
+		else
+			if trait_vars['body_hair_growth_rate'] = 1:
+				$trait_temp['name'] = '丛林简'
+				$trait_temp['icon'] = 'body_hair_fast.png'
+				$trait_temp['desc'] = '你的体毛以正常速度的两倍生长。'
+				$trait_temp['msg'] = '你获得了特质<b>丛林简</b>! 你的体毛现在生长速度快了两倍。'
+				$trait_temp['tooltip'] = '你的毛发生长速度约为正常的两倍。'
+			elseif trait_vars['body_hair_growth_rate'] = 0:
+				$trait_temp['name'] = '体毛生长速度'
+				$trait_temp['icon'] = 'body_hair_normal.png'
+				$trait_temp['desc'] = '你的体毛以正常速度生长。'
+				$trait_temp['msg'] = '你的体毛生长速度已恢复正常。'
+			elseif trait_vars['body_hair_growth_rate'] = -1:
+				$trait_temp['name'] = '生长缓慢'
+				$trait_temp['icon'] = 'body_hair_slow.png'
+				$trait_temp['desc'] = '你的体毛比常人长得慢。'
+				$trait_temp['msg'] = '你的体毛似乎比平时长得更慢。'
+			end
+		end
+	end
+
+	if $ARGS[1] = 'stat_display':
+		if cheatVars['body_hair_growth_rate_disabled']: exit
+		if lashair = 1: exit
+		if trait_vars['body_hair_growth_rate'] = 1:
+			$stat_texts['body_hair_growth_rate'] = '你的体毛生长速度是正常的两倍。'
+			gs 'stat_display_compute', 'queue_msg', 'body_hair_growth_rate', 'neutral'
+		elseif trait_vars['body_hair_growth_rate'] = -1:
+			$stat_texts['body_hair_growth_rate'] = '你的体毛比常人长得慢。'
+			gs 'stat_display_compute', 'queue_msg', 'body_hair_growth_rate', 'v_pos'
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label'] = '体毛生长'
+		if trait_vars['body_hair_growth_rate'] = 1:
+			$trait_temp['ov_val'] = '快'
+		elseif trait_vars['body_hair_growth_rate'] = 0:
+			$trait_temp['ov_val'] = '正常'
+		elseif trait_vars['body_hair_growth_rate'] = -1:
+			$trait_temp['ov_val'] = '慢'
+		end
+		$trait_temp['ov_left'] = 'gs ''traits'', ''body_hair_growth_rate'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['body_hair_growth_rate'] - 1, -1, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''body_hair_growth_rate'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['body_hair_growth_rate'] + 1, -1, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		gs 'traits', 'level', 'body_hair_growth_rate', ARGS[2]
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			gs 'traits', 'level', 'body_hair_growth_rate', 0
+		elseif ARGS[2] = -1:
+			gs 'traits', 'level', 'body_hair_growth_rate', -1
+		elseif ARGS[2] = 1:
+			gs 'traits', 'level', 'body_hair_growth_rate', 1
+		end
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ body_hair_attitude — psychological (-2…1)                              │
+!! │ +1 = Natural: hairy-positive; mild mood penalty when shaved            │
+!! │  0 = Neutral                                                           │
+!! │ -1 = Silky: smooth preference; mild discomfort when hairy              │
+!! │ -2 = Smooth Compulsion (hypno): distress if any hair present           │
+!! │ Gains toward +1: +2/day unshaven legs (>6), +1/day pubes (>30)         │
+!! │ Gains toward -1: +3/day shaven legs (<=3), +1.5/day pubes (<=5)        │
+!! │ lashair = 1 resets non-hypno tiers to 0                                │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'body_hair_attitude':
+
+	!! ── Hourly mood effects ───────────────────────────────────────────
+	!! Not yet wired into the 'hourly' dispatch — body_hair still
+	!! handles mood effects until the full migration is complete.
+	if $ARGS[1] = 'hourly':
+		if cheatVars['body_hair_attitude_disabled']: exit
+		if lashair = 1: exit
+		if trait_vars['body_hair_attitude'] = -2 and pcs_mood > 10:
+			if pcs_pubes > 3: gs 'mood', 'lower', 'tiny'
+			if pcs_leghair > 3: gs 'mood', 'lower', 'tiny'
+		elseif trait_vars['body_hair_attitude'] = -1 and pcs_mood > 20:
+			if pcs_pubes > 3: gs 'mood', 'lower', rand(1, 2)
+			if pcs_leghair > 3: gs 'mood', 'lower', rand(1, 2)
+		end
+	end
+
+	!! ── One-time mood hit when the player shaves ──────────────────────
+	!! Called from din_van 'brit' in legs and full-shave paths.
+	!! Only fires for Natural (+1): shaving feels wrong.
+	if $ARGS[1] = 'on_shave':
+		if trait_vars['body_hair_attitude'] = 1: gs 'mood', 'lower', rand(2, 4)
+	end
+
+	if $ARGS[1] = 'daily':
+		if cheatVars['body_hair_attitude_disabled']: exit
+		if trait_vars['body_hair_attitude'] = -2: exit
+		if lashair = 1:
+			if trait_vars['body_hair_attitude'] <> 0: gs 'traits', 'level', 'body_hair_attitude', 0
+			exit
+		end
+
+		if pcs_leghair > 6:
+			trait_vars['body_hair_attitude_exp'] += 2
+		elseif pcs_leghair <= 3:
+			trait_vars['body_hair_attitude_exp'] -= 3
+		end
+
+		if pcs_pubes > 30:
+			trait_vars['body_hair_attitude_exp'] += 1
+		elseif pcs_pubes <= 5:
+			trait_vars['body_hair_attitude_exp'] -= rand(1, 2)
+		end
+
+		trait_vars['body_hair_attitude_exp'] = func('math', 'int_clamp', trait_vars['body_hair_attitude_exp'], -500, 500)
+
+		!! Asymmetric thresholds: easy to fall out of Natural/Silky, hard to enter them.
+		!! Natural (+1): gain at >=400 from neutral, lose at <150
+		!! Silky  (-1): gain at <=-400 from neutral, lose at >-150
+		if trait_vars['body_hair_attitude'] = 1:
+			if trait_vars['body_hair_attitude_exp'] < 150: gs 'traits', 'level', 'body_hair_attitude', 0
+		elseif trait_vars['body_hair_attitude'] = 0:
+			if trait_vars['body_hair_attitude_exp'] >= 400:
+				gs 'traits', 'level', 'body_hair_attitude', 1
+			elseif trait_vars['body_hair_attitude_exp'] <= -400:
+				gs 'traits', 'level', 'body_hair_attitude', -1
+			end
+		elseif trait_vars['body_hair_attitude'] = -1:
+			if trait_vars['body_hair_attitude_exp'] > -150: gs 'traits', 'level', 'body_hair_attitude', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 1
+		trait_temp['exp'] = trait_vars['body_hair_attitude_exp']
+		if lashair = 1 and trait_vars['body_hair_attitude'] <> -2:
+			$trait_temp['name'] = '体毛态度'
+			$trait_temp['desc'] = '你做过激光脱毛——你对体毛的感受不再重要。'
+		else
+			if trait_vars['body_hair_attitude'] = 1:
+				$trait_temp['name'] = '自然'
+				$trait_temp['icon'] = 'body_hair_jungle_jane.png'
+				$trait_temp['desc'] = '你已经接纳了自己自然的体毛。剃毛让你觉得没有必要，甚至有点不对劲。'
+				$trait_temp['msg'] = '你获得了特质<b>自然</b>. 体毛在你身上就是恰到好处。'
+				trait_temp['exp_down'] = 150
+				trait_temp['exp_up'] = -1
+				$trait_temp['tooltip'] = 'EXP: <<trait_vars[''body_hair_attitude_exp'']>>. '
+				$trait_temp['tooltip'] += '持续剃毛以失去该特质。'
+			elseif trait_vars['body_hair_attitude'] = 0:
+				$trait_temp['name'] = '体毛态度'
+				$trait_temp['icon'] = 'body_hair_shave.png'
+				$trait_temp['desc'] = '你对自己的体毛没有强烈的好恶。'
+				$trait_temp['msg'] = '你对体毛的感觉已恢复正常。'
+				trait_temp['exp_down'] = -400
+				trait_temp['exp_up'] = 400
+				$trait_temp['tooltip'] = 'EXP: <<trait_vars[''body_hair_attitude_exp'']>>. '
+				$trait_temp['tooltip'] += '让体毛生长以获得自然。 '
+				$trait_temp['tooltip'] += '持续剃毛以获得丝滑。'
+			elseif trait_vars['body_hair_attitude'] = -1:
+				$trait_temp['name'] = '丝滑'
+				$trait_temp['icon'] = 'body_hair_wax.png'
+				$trait_temp['desc'] = '光滑的皮肤感觉恰到好处。任何体毛都会让你感到有点别扭。'
+				$trait_temp['msg'] = '你获得了特质<b>丝滑</b>. 光滑的皮肤感觉恰到好处。'
+				trait_temp['exp_down'] = -1
+				trait_temp['exp_up'] = -150
+				$trait_temp['tooltip'] = 'EXP: <<trait_vars[''body_hair_attitude_exp'']>>. '
+				$trait_temp['tooltip'] += '让体毛生长以失去该特质。'
+			elseif trait_vars['body_hair_attitude'] = -2:
+				$trait_temp['icon'] = 'body_hair_wax.png'
+				$trait_temp['name'] = '光滑强迫症'
+				if lashair = 1:
+					$trait_temp['desc'] = '你有一种强迫性的需求，要让身体保持完美光滑。庆幸的是，激光脱毛意味着体毛对你不再是问题。'
+				else
+					$trait_temp['desc'] = '你有一种强迫性的需求，要让身体保持完美光滑。任何体毛都会让你感到苦恼。'
+				end
+				$trait_temp['msg'] = '你获得了特质<b>光滑强迫症</b>. 你无法忍受任何体毛。'
+			end
+		end
+	end
+
+	if $ARGS[1] = 'hypno_grant':
+		trait_vars['body_hair_attitude_exp'] = -500
+		gs 'traits', 'level', 'body_hair_attitude', -2
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['body_hair_attitude_exp'] = 0
+			gs 'traits', 'level', 'body_hair_attitude', 0
+		elseif ARGS[2] = -2:
+			gs 'traits', 'level', 'body_hair_attitude', -2
+		elseif ARGS[2] = -1:
+			trait_vars['body_hair_attitude_exp'] = -450
+			gs 'traits', 'level', 'body_hair_attitude', -1
+		elseif ARGS[2] = 1:
+			trait_vars['body_hair_attitude_exp'] = 450
+			gs 'traits', 'level', 'body_hair_attitude', 1
+		end
+	end
+
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ pain_tolerance — -1/0/1, set via story events                   │
+!! │  -1 = Low: amplified mood loss, lower mood floor from pain      │
+!! │   0 = Normal                                                    │
+!! │  +1 = High: reduced mood loss, higher mood floor from pain      │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'pain_tolerance':
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 0
+		trait_temp['exp_down'] = -1
+		trait_temp['exp_up'] = -1
+		if trait_vars['pain_tolerance'] = -1:
+			$trait_temp['name'] = '疼痛敏感'
+			$trait_temp['icon'] = 'pain_sensitive.png'
+			$trait_temp['desc'] = '你对疼痛的耐受性很低。即使是轻微的不适，对你的影响也比大多数人更强烈，会让你的情绪更快、更严重地变差。'
+			$trait_temp['msg'] = '你获得了特质<b>疼痛敏感</b>.'
+		elseif trait_vars['pain_tolerance'] = 0:
+			$trait_temp['name'] = '疼痛耐受'
+			$trait_temp['icon'] = 'pain_sensitive.png'
+			$trait_temp['desc'] = '你对疼痛的承受能力和大多数人差不多。在任何一个方向上都没有什么异常。'
+			$trait_temp['msg'] = '你的疼痛耐受力已恢复正常。'
+		elseif trait_vars['pain_tolerance'] = 1:
+			$trait_temp['name'] = '耐痛'
+			$trait_temp['icon'] = 'pain_tolerance.png'
+			$trait_temp['desc'] = '你对疼痛的耐受性很高。能压垮其他人的不适，对你来说几乎无感。'
+			$trait_temp['msg'] = '你获得了特质<b>耐痛</b>.'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			gs 'traits', 'level', 'pain_tolerance', 0
+		elseif ARGS[2] = -1:
+			gs 'traits', 'level', 'pain_tolerance', -1
+		elseif ARGS[2] = 1:
+			gs 'traits', 'level', 'pain_tolerance', 1
+		end
+	end
+
+	if $ARGS[1] = 'overview':
+		$trait_temp['ov_label'] = '疼痛耐受'
+		if trait_vars['pain_tolerance'] = -1:
+			$trait_temp['ov_val'] = '低'
+		elseif trait_vars['pain_tolerance'] = 0:
+			$trait_temp['ov_val'] = '正常'
+		elseif trait_vars['pain_tolerance'] = 1:
+			$trait_temp['ov_val'] = '高'
+		end
+		$trait_temp['ov_left'] = 'gs ''traits'', ''pain_tolerance'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['pain_tolerance'] - 1, -1, 1)
+		$trait_temp['ov_right'] = 'gs ''traits'', ''pain_tolerance'', ''ov_set'', ' + func('math', 'int_clamp', trait_vars['pain_tolerance'] + 1, -1, 1)
+	end
+
+	if $ARGS[1] = 'ov_set':
+		gs 'traits', 'level', 'pain_tolerance', func('math', 'int_clamp', ARGS[2], -1, 1)
+	end
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ doormat — 4-level trait, absorbs hypnoOutcast                          │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'doormat':
+	if $ARGS[1] = 'daily':
+		if cheatVars['doormat_disabled']: exit
+		if trait_vars['doormat_exp'] >= 10:
+			if trait_vars['doormat'] <> 3: gs 'traits', 'level', 'doormat', 3
+		elseif trait_vars['doormat_exp'] >= 5:
+			if trait_vars['doormat'] <> 2: gs 'traits', 'level', 'doormat', 2
+		elseif trait_vars['doormat_exp'] >= 2:
+			if trait_vars['doormat'] <> 1: gs 'traits', 'level', 'doormat', 1
+		else
+			if trait_vars['doormat'] <> 0: gs 'traits', 'level', 'doormat', 0
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		trait_temp['hidden'] = 1
+		trait_temp['exp'] = trait_vars['doormat_exp']
+		if trait_vars['doormat'] = 0:
+			$trait_temp['name'] = 'Confidence'
+			$trait_temp['icon'] = 'doormat.png'
+			$trait_temp['desc'] = '你有着正常的自我价值感。'
+		elseif trait_vars['doormat'] = 1:
+			$trait_temp['name'] = '软柿子'
+			$trait_temp['icon'] = 'doormat.png'
+			$trait_temp['desc'] = '你发现自己很难维护自己。屈服变得比以前更容易了。'
+			$trait_temp['msg'] = '你已经养成了<b>软柿子</b>的特质。为自己挺身而出感觉更难了。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 5
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''doormat_exp'']>>. 通过特定故事事件更改。'
+		elseif trait_vars['doormat'] = 2:
+			$trait_temp['name'] = '受气包'
+			$trait_temp['icon'] = 'doormat.png'
+			$trait_temp['desc'] = '被人呼来喝去对你来说感觉很正常。你几乎不假思索就服从了。'
+			$trait_temp['msg'] = '你的自我价值感进一步恶化了。你现在是一个<b>受气包</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 10
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''doormat_exp'']>>. 通过特定故事事件更改。'
+		elseif trait_vars['doormat'] = 3:
+			$trait_temp['name'] = '坏掉'
+			$trait_temp['icon'] = 'doormat.png'
+			$trait_temp['desc'] = '你觉得自己不配拥有比这更好的待遇。有些事情就是让你觉得无法拒绝。'
+			$trait_temp['msg'] = '你内心深处的某些东西已经<b>坏掉</b>. 反抗几乎难以想象。'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''doormat_exp'']>>. 由特定故事事件设定。'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['doormat_exp'] = 0
+			gs 'traits', 'level', 'doormat', 0
+		elseif ARGS[2] = 1:
+			trait_vars['doormat_exp'] = 2
+			gs 'traits', 'level', 'doormat', 1
+		elseif ARGS[2] = 2:
+			trait_vars['doormat_exp'] = 5
+			gs 'traits', 'level', 'doormat', 2
+		elseif ARGS[2] = 3:
+			trait_vars['doormat_exp'] = 10
+			gs 'traits', 'level', 'doormat', 3
+		end
+	end
+
+
+	!{if $ARGS[1] = 'stat_display':
+		if cheatVars['doormat_disabled']: exit
+		if trait_vars['doormat'] = 1:
+			$stat_texts['doormat'] = '今天你很难为自己挺身而出。'
+			gs 'stat_display_compute', 'queue_msg', 'doormat', 'neg', 'traits/doormat', 4
+		elseif trait_vars['doormat'] = 2:
+			$stat_texts['doormat'] = '被人呼来喝去感觉很正常。你几乎不假思索就服从了。'
+			gs 'stat_display_compute', 'queue_msg', 'doormat', 'neg', 'traits/doormat', 4
+		elseif trait_vars['doormat'] = 3:
+			$stat_texts['doormat'] = '反抗在今天几乎难以想象。'
+			gs 'stat_display_compute', 'queue_msg', 'doormat', 'v_neg', 'traits/doormat', 4
+		end
+	end}
+
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ cumslut — 2-tier (0-2)                                                 │
+!! │  0 = Normal: no strong feelings about visible cum                      │
+!! │ +1 = Cumslut: arousal boost from visible cum in private                │
+!! │ +2 = Cumbucket: arousal in private+public, mood boost in public        │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cumslut':
+
+	!! ── Minute tick: EXP from visible cum + trait effects ─────────────
+	if $ARGS[1] = 'minute':
+		if cheatVars['cumslut_disabled']: exit
+
+		!! Determine location context
+		temp_cumslut['is_public'] = 0
+		if $location_type = 'public_outdoors' or $location_type = 'public_indoors': temp_cumslut['is_public'] = 1
+
+		!! Count visible external cum locations (face, chest, belly, hair, back)
+		temp_cumslut['visible_cum'] = 0
+		if cumloc[6] > 0: temp_cumslut['visible_cum'] += 1
+		if cumloc[7] > 0: temp_cumslut['visible_cum'] += 1
+		if cumloc[11] > 0: temp_cumslut['visible_cum'] += 1
+		if cumloc[13] > 0: temp_cumslut['visible_cum'] += 1
+		if cumloc[16] > 0: temp_cumslut['visible_cum'] += 1
+
+		if temp_cumslut['visible_cum'] > 0:
+			!! EXP accumulation: public = 3x, private = 1x
+			if temp_cumslut['is_public'] = 1:
+				temp_cumslut['exp_gain'] = temp_cumslut['visible_cum'] * 3 * temp_loop_mul
+			else
+				temp_cumslut['exp_gain'] = temp_cumslut['visible_cum'] * temp_loop_mul
+			end
+
+			!! cum_addict synergy: +20% at L1, +40% at L2
+			if trait_vars['cum_addict'] >= 2 and rand(1, 100) <= 40:
+				temp_cumslut['exp_gain'] *= 2
+			elseif trait_vars['cum_addict'] >= 1 and rand(1, 100) <= 20:
+				temp_cumslut['exp_gain'] *= 2
+			end
+
+			trait_vars['cumslut_exp'] += temp_cumslut['exp_gain']
+			if temp_cumslut['is_public'] = 1: trait_vars['cumslut_exp_public'] += temp_cumslut['exp_gain']
+
+			!! trait effects: arousal/mood buffs
+			if rand(1, 100) <= 10:
+				if trait_vars['cumslut'] = 2:
+					pcs_horny += 2
+					if temp_cumslut['is_public'] = 1:
+						pcs_horny += 2
+						gs 'mood', 'raise', 'tiny'
+					end
+				elseif trait_vars['cumslut'] = 1:
+					if temp_cumslut['is_public'] = 0: pcs_horny += 2
+				end
+			end
+		end
+
+		trait_vars['cumslut_exp'] = func('math', 'int_clamp', trait_vars['cumslut_exp'], 0, 4000)
+		trait_vars['cumslut_exp_public'] = func('math', 'int_clamp', trait_vars['cumslut_exp_public'], 0, 2000)
+
+		!! Level evaluation
+		if trait_vars['cumslut_exp'] >= 2000 and trait_vars['cumslut_exp_public'] >= 1000:
+			if trait_vars['cumslut'] <> 2: gs 'traits', 'level', 'cumslut', 2
+		elseif trait_vars['cumslut_exp'] >= 300:
+			if trait_vars['cumslut'] <> 1: gs 'traits', 'level', 'cumslut', 1
+		else
+			if trait_vars['cumslut'] <> 0: gs 'traits', 'level', 'cumslut', 0
+		end
+	end
+
+	!! ── Daily tick: decay ─────────────────────────────────────────────
+	if $ARGS[1] = 'daily':
+		if cheatVars['cumslut_disabled']: exit
+		if trait_vars['cumslut_exp'] > 0:
+			trait_vars['cumslut_exp'] -= min(60, trait_vars['cumslut_exp'])
+			trait_vars['cumslut_exp_public'] -= min(60, trait_vars['cumslut_exp_public'])
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'cumslut.png'
+		trait_temp['hidden'] = 1
+		trait_temp['exp'] = trait_vars['cumslut_exp']
+		if trait_vars['cumslut'] = 2:
+			$trait_temp['name'] = '精盆'
+			$trait_temp['desc'] = '你对浑身沾满精液上了瘾。无论公开还是私下，身上带着精液都会让你湿透。被人看到时的那种羞耻只会让感觉更棒。'
+			$trait_temp['msg'] = '你获得了特质<b>精盆</b>. 你沉迷于被人看到浑身沾满精液。'
+			trait_temp['exp_down'] = 2000
+			trait_temp['exp_up'] = -1
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''cumslut_exp'']>>. '
+			$trait_temp['tooltip'] += 'EXP每天衰减60。'
+		elseif trait_vars['cumslut'] = 1:
+			$trait_temp['name'] = '精液荡妇'
+			$trait_temp['desc'] = '被精液覆盖会让你兴奋 —只要没有别人能看到。精液在你皮肤上的感觉就足以让你兴奋起来。'
+			$trait_temp['msg'] = '你获得了特质<b>精液荡妇</b>. 在私密场合带着精液让你觉得自己很下流 —而你爱这种感觉。'
+			trait_temp['exp_down'] = 300
+			trait_temp['exp_up'] = 2000
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''cumslut_exp'']>> （公开：<<trait_vars[''cumslut_exp_public'']>>/1000). '
+			$trait_temp['tooltip'] += '在公共场合带着精液以升到Lv. 2. '
+			$trait_temp['tooltip'] += 'EXP每天衰减60。'
+		elseif trait_vars['cumslut'] = 0:
+			$trait_temp['name'] = '精液展示'
+			$trait_temp['desc'] = '你对身上显眼的精液没有强烈感觉。大多数人宁愿不浑身沾着精液到处走。'
+			$trait_temp['msg'] = '你失去了特质<b>精液荡妇</b>.'
+			trait_temp['exp_down'] = -1
+			trait_temp['exp_up'] = 300
+			$trait_temp['tooltip'] = 'EXP: <<trait_vars[''cumslut_exp'']>>. '
+			$trait_temp['tooltip'] += '带着显眼的精液到处走动以获得EXP. '
+			$trait_temp['tooltip'] += 'EXP每天衰减60。'
+		end
+		if trait_vars['cum_addict'] > 0:
+			$trait_temp['desc'] += $iif(trait_vars['cum_addict'] = 1, ' 20%', ' 40%') + ' 因<b>精液成瘾</b>特质而获得额外EXP.'
+		end
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			trait_vars['cumslut_exp'] = 0
+			trait_vars['cumslut_exp_public'] = 0
+			gs 'traits', 'level', 'cumslut', 0
+		elseif ARGS[2] = 1:
+			trait_vars['cumslut_exp'] = 1000
+			trait_vars['cumslut_exp_public'] = 0
+			gs 'traits', 'level', 'cumslut', 1
+		elseif ARGS[2] = 2:
+			trait_vars['cumslut_exp'] = 4000
+			trait_vars['cumslut_exp_public'] = 2000
+			gs 'traits', 'level', 'cumslut', 2
+		end
+	end
+
+	killvar 'temp_cumslut'
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ cum_addict — leveled 0-2, hypno-only                                   │
+!! │ Absorbs hypnoAddict. Player craves cum inside her (any source).        │
+!! │ 0 = Normal: no dependency                                              │
+!! │ 1 = Cum Craving: restless without cum; minimum arousal floor 30        │
+!! │ 2 = Cum Addicted: strong penalties; minimum arousal floor 50           │
+!! │ missCum counts hours without cum. timeTresh in same unit.              │
+!! │ Minute sensor detects cum; hourly handler processes craving.           │
+!! │ hypnoWithdrawal is separate (therapist session dependency).            │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'cum_addict':
+
+	!! ── Minute sensor: detect cum presence ────────────────────────────
+	if $ARGS[1] = 'minute':
+		if trait_vars['cum_addict'] = 0: exit
+		if cumloc[0] > 0 or cumloc[3] > 0:
+			trait_vars['cum_addict_sensed'] = 1
+		end
+	end
+
+	!! ── Hourly: cum craving / satisfaction ────────────────────────────
+	if $ARGS[1] = 'hourly':
+		if trait_vars['cum_addict'] = 0: exit
+
+		!! Cum was present at some point this hour → satisfaction
+		if trait_vars['cum_addict_sensed'] = 1:
+			killvar 'missCum'
+			trait_vars['cum_addict_sensed'] = 0
+			gs 'mood', 'raise', 'tiny'
+		else
+			missCum += 1
+		end
+
+		!! Craving penalty when too long without cum
+		if missCum > timeTresh:
+			if trait_vars['cum_addict'] = 1:
+				gs 'mood', 'lower', 'tiny'
+				pcs_horny += 10
+			else
+				gs 'mood', 'lower', 'small'
+				pcs_horny += 20
+			end
+		end
+	end
+
+	!! ── Daily: arousal floor + condom sabotage ────────────────────────
+	if $ARGS[1] = 'daily':
+		if trait_vars['cum_addict'] = 1:
+			min_arousal = max(min_arousal, 30)
+		elseif trait_vars['cum_addict'] = 2:
+			min_arousal = max(min_arousal, 50)
+		end
+
+		!! Desperation: force high arousal + sabotage condoms
+		if trait_vars['cum_addict'] > 0 and missCum > timeTresh:
+			pcs_horny = max(pcs_horny, 90)
+			if preziktype = 0 or preziktype = 2:
+				if mc_inventory['normal_condoms'] > 0 and mc_inventory['sabotaged_condoms'] < rand(2, 3): gs 'din_bad', 'sabotage_a_condom', 'no_text'
+				if preziktype = 0 and mc_inventory['sabotaged_condoms'] > 0: gs 'din_bad', 'set_condom_used', 'sabotaged'
+			end
+		end
+	end
+
+	if $ARGS[1] = 'details':
+		$trait_temp['icon'] = 'cum_addict.png'
+		trait_temp['hidden'] = 1
+		if trait_vars['cum_addict'] = 1:
+			$trait_temp['name'] = '渴望精液'
+			$trait_temp['desc'] = '体内有精液时你会感觉更好。太久没有它会让你焦躁不安、心情低落。你总是至少保持一定程度的欲望（最低30）。'
+			$trait_temp['msg'] = '你已经形成了<b>渴望精液</b>的状况。没有它你会觉得不完整。'
+		elseif trait_vars['cum_addict'] = 2:
+			$trait_temp['name'] = '精液成瘾'
+			$trait_temp['desc'] = '你的身体需要精液。没有它，你几乎无法正常思考——你的心情跌入谷底，身体渴求着它。你总是处于欲望之中（最低50）。'
+			$trait_temp['msg'] = '你已经变得<b>精液成瘾</b>。你极度需要它。'
+		elseif trait_vars['cum_addict'] = 0:
+			$trait_temp['name'] = '精液依赖'
+			$trait_temp['desc'] = '你对精液没有特别的渴望。'
+			$trait_temp['msg'] = '你的精液依赖已经消退。'
+		end
+	end
+
+	if $ARGS[1] = 'hypno_grant':
+		!! Called from therapist.qsrc when hypnoTime crosses thresholds
+		!! ARGS[2] = target level (1 or 2)
+		gs 'traits', 'level', 'cum_addict', ARGS[2]
+	end
+
+	if $ARGS[1] = 'cheat':
+		if ARGS[2] = -99 or ARGS[2] = 0:
+			gs 'traits', 'level', 'cum_addict', 0
+			killvar 'missCum'
+		elseif ARGS[2] = 1 or ARGS[2] = 2:
+			gs 'traits', 'level', 'cum_addict', ARGS[2]
+		end
+	end
+
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║  NOT IMPLEMENTED YET                                                   ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Charming / Mean                                                        │
+!! │ Provides a 10% gain / loss in xp for Social skills                     │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'charming':
+	if $ARGS[1] = 'level' or $ARGS[1] = 'init':
+		if trait_vars['charming'] = 0:
+			gs 'traits', 'deregister_attskl', 'charming'
+		elseif trait_vars['charming'] > 0:
+			gs 'traits', 'register_attskl', 'charming'
+			trait_vars['charming-humint-exp_gain'] = 10
+			trait_vars['charming-humint-deg_loss'] = -10
+			trait_vars['charming-persuas-exp_gain'] = 10
+			trait_vars['charming-persuas-deg_loss'] = -10
+		else
+			gs 'traits', 'register_attskl', 'charming'
+			trait_vars['charming-humint-exp_gain'] = -10
+			trait_vars['charming-humint-deg_loss'] = 10
+			trait_vars['charming-persuas-exp_gain'] = -10
+			trait_vars['charming-persuas-deg_loss'] = 10
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Flexible                                                               │
+!! │ Provides a 10% gain in xp for certain sports                           │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'flexible':
+	if $ARGS[1] = 'level' or $ARGS[1] = 'init':
+		if trait_vars['flexible'] = 0:
+			gs 'traits', 'deregister_attskl', 'flexible'
+		else
+			gs 'traits', 'register_attskl', 'flexible'
+			trait_vars['flexible-dancero-exp_gain'] = 10
+			trait_vars['flexible-dancero-deg_loss'] = -10
+			trait_vars['flexible-dancpol-exp_gain'] = 10
+			trait_vars['flexible-dancpol-deg_loss'] = -10
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Logical                                                                │
+!! │ Provides a 10% gain in xp for computer and chess                       │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'logical':
+	if $ARGS[1] = 'level' or $ARGS[1] = 'init':
+		if trait_vars['logical'] = 0:
+			gs 'traits', 'deregister_attskl', 'logical'
+		else
+			gs 'traits', 'register_attskl', 'logical'
+			trait_vars['logical-compskl-exp_gain'] = 10
+			trait_vars['logical-compskl-deg_loss'] = -10
+			trait_vars['logical-comphckng-exp_gain'] = 10
+			trait_vars['logical-comphckng-deg_loss'] = -10
+			trait_vars['logical-chess-exp_gain'] = 10
+			trait_vars['logical-chess-deg_loss'] = -10
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Natural Athlete                                                        │
+!! │ Provides a 10% gain in xp for sports skills                            │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'nat_athlete':
+	if $ARGS[1] = 'level' or $ARGS[1] = 'init':
+		if trait_vars['nat_athlete'] = 0:
+			gs 'traits', 'deregister_attskl', 'nat_athlete'
+		else
+			gs 'traits', 'register_attskl', 'nat_athlete'
+			trait_vars['nat_athlete-run-exp_gain'] = 10
+			trait_vars['nat_athlete-run-deg_loss'] = -10
+			trait_vars['nat_athlete-icesktng-exp_gain'] = 10
+			trait_vars['nat_athlete-icesktng-deg_loss'] = -10
+			trait_vars['nat_athlete-wrstlng-exp_gain'] = 10
+			trait_vars['nat_athlete-wrstlng-deg_loss'] = -10
+			trait_vars['nat_athlete-ftbll-exp_gain'] = 10
+			trait_vars['nat_athlete-ftbll-deg_loss'] = -10
+			trait_vars['nat_athlete-bkbll-exp_gain'] = 10
+			trait_vars['nat_athlete-bkbll-deg_loss'] = -10
+			trait_vars['nat_athlete-vbll-exp_gain'] = 10
+			trait_vars['nat_athlete-vbll-deg_loss'] = -10
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Natural Dancer                                                         │
+!! │ Provides a 10% gain in XP for dance skills                             │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'nat_dancer':
+	if $ARGS[1] = 'level' or $ARGS[1] = 'init':
+		if trait_vars['nat_dancer'] = 0:
+			gs 'traits', 'deregister_attskl', 'nat_dancer'
+		else
+			gs 'traits', 'register_attskl', 'nat_dancer'
+			trait_vars['nat_dancer-danc-exp_gain'] = 10
+			trait_vars['nat_dancer-danc-deg_loss'] = -10
+			trait_vars['nat_dancer-dancero-exp_gain'] = 10
+			trait_vars['nat_dancer-dancero-deg_loss'] = -10
+			trait_vars['nat_dancer-dancpol-exp_gain'] = 10
+			trait_vars['nat_dancer-dancpol-deg_loss'] = -10
+		end
+	end
+	exit
+end
+
+
+!! ┌────────────────────────────────────────────────────────────────────────┐
+!! │ Scholarly                                                              │
+!! │ Provides a 10% gain in xp for Intelligence                             │
+!! │ easier to get good notes at school, faster studying in the university  │
+!! └────────────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'scholarly':
+	if $ARGS[1] = 'level':
+		if trait_vars['scholarly'] = 0:
+			gs 'traits', 'deregister_attskl', 'scholarly'
+		else
+			gs 'traits', 'register_attskl', 'scholarly'
+			trait_vars['scholarly-intel-exp_gain'] = 10
+			trait_vars['scholarly-intel-deg_loss'] = -10
+		end
+	end
+	exit
+end
+
+
+
+
+!! ╔════════════════════════════════════════════════════════════════════════╗
+!! ║ MODS                                                                   ║
+!! ║ If the program reaches this, then the called trait might be from a mod ║
+!! ╚════════════════════════════════════════════════════════════════════════╝
+
+
+!!copyarr 'modARGS', 'ARGS'
+!! gs 'mod_system', 'traits'
+
+
+--- traits ---------------------------------

@@ -1,0 +1,2106 @@
+# stat_display
+
+
+if settingmode = 1: exit
+
+
+!! ╔══════════════════════════════════════════════════════════════════╗
+!! ║              stat_display — Modular stat panel                   ║
+!! ╠══════════════════════════════════════════════════════════════════╣
+!! ║  Usage:  gs 'stat_display'   ← main render call                  ║
+!! ╚══════════════════════════════════════════════════════════════════╝
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                        HELPER FUNCTIONS                             ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_bar — $func('stat_display', 'helper_bar',                │
+!! │   $gradient, $name, value [, max, phantom, overlay,             │
+!! │   $overlay_gradient, $thresholds])                              │
+!! │ Reads sd['render_mode'] and sd['name_side'].                    │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_bar':
+	!! render_mode offset: sd uses 0/1/2, progressbar ARGS[8] expects 1/2/3
+	sd_hb['rm'] = sd['render_mode'] + 1
+	!! ── text-only mode (render_mode = 2) ────────────────────────────
+	if sd['render_mode'] = 2:
+		$result = $ARGS[2] + ': ' + $func('progressbar', $ARGS[1], ARGS[3], ARGS[4], ARGS[5], ARGS[6], $ARGS[7], '', $ARGS[8], sd_hb['rm'])
+	!! ── bar modes ───────────────────────────────────────────────────
+	else
+		if sd['name_side'] = 1:
+			$result = '<tr><td nowrap style="font-size: <<sd_font_pct>>%;">&nbsp;' + $ARGS[2] + '&nbsp;</td><td>' + $func('progressbar', $ARGS[1], ARGS[3], ARGS[4], ARGS[5], ARGS[6], $ARGS[7], '', $ARGS[8], sd_hb['rm']) + '</td></tr>'
+		else
+			$result = '<tr><td>' + $func('progressbar', $ARGS[1], ARGS[3], ARGS[4], ARGS[5], ARGS[6], $ARGS[7], '', $ARGS[8], sd_hb['rm']) + '</td><td nowrap style="font-size: <<sd_font_pct>>%;">&nbsp;' + $ARGS[2] + '</td></tr>'
+		end
+	end
+	killvar 'sd_hb'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_bar_cell — like helper_bar but returns two <td> cells    │
+!! │ Used by skills/relations multi-column layouts.                  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_bar_cell':
+	$sd_bc['bar'] = $func('progressbar', $ARGS[1], ARGS[3], ARGS[4], ARGS[5], ARGS[6], $ARGS[7], '', $ARGS[8], sd['render_mode'] + 1)
+	if sd['name_side'] = 1:
+		$result = '<td nowrap style="font-size: <<sd_font_pct>>%;">&nbsp;' + $ARGS[2] + '&nbsp;</td><td>' + $sd_bc['bar'] + '</td>'
+	else
+		$result = '<td>' + $sd_bc['bar'] + '</td><td nowrap style="font-size: <<sd_font_pct>>%;">&nbsp;' + $ARGS[2] + '</td>'
+	end
+	killvar 'sd_bc'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_skill_entry($name, value, cell_index)                    │
+!! │ Mode 0=text, 1+=bars. Multi-column via sd['skills_columns'].    │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_skill_entry':
+	sd_se['cols'] = sd['skills_columns']
+	$sd_se['name'] = $ARGS[1]
+	if stat_cfg['skills_mode'] > 0:
+		!! Bar mode
+		if ARGS[3] mod sd_se['cols'] = 0: $result = '<tr>'
+		$result += $func('stat_display', 'helper_bar_cell', 'smooth_positive', $sd_se['name'], ARGS[2])
+		if ARGS[3] mod sd_se['cols'] = (sd_se['cols'] - 1): $result += '</tr>'
+	else
+		!! Text mode
+		if ARGS[3] mod sd_se['cols'] = 0: $result = '<tr>'
+		$result += '<td style="font-size: <<sd_font_pct>>%;">' + $str(ARGS[2]) + ' ' + $sd_se['name'] + '</td>'
+		if ARGS[3] mod sd_se['cols'] = (sd_se['cols'] - 1): $result += '</tr>'
+	end
+	killvar 'sd_se'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_rel_entry($name, value, cell_index)                      │
+!! │ Mode 0=text, 1+=bars. Multi-column, optional color.             │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_rel_entry':
+	sd_re['cols'] = sd['relations_columns']
+	!! Resolve display name
+	$sd_re['dname'] = $ARGS[1]
+	if stat_cfg['relations_mode'] > 0:
+		!! Bar mode
+		if stat_cfg['rel_color_mode'] = 1:
+			$sd_re['color'] = $func('progressbar', 'color', 'smooth_positive', ARGS[2], '10,35,60,80')
+			!! Inlined themes.wrap_hex (one-line function, not worth a call here)
+			$sd_re['dname'] = '<font color="' + $sd_re['color'] + '">' + $sd_re['dname'] + '</font>'
+		end
+		if ARGS[3] mod sd_re['cols'] = 0: $result = '<tr>'
+		$result += $func('stat_display', 'helper_bar_cell', 'smooth_positive', $sd_re['dname'], ARGS[2])
+		if ARGS[3] mod sd_re['cols'] = (sd_re['cols'] - 1): $result += '</tr>'
+	else
+		!! Text mode
+		if ARGS[3] mod sd_re['cols'] = 0: $result = '<tr>'
+		if stat_cfg['rel_color_mode'] = 1:
+			$sd_re['color'] = $func('progressbar', 'color', 'smooth_positive', ARGS[2], '10,35,60,80')
+			!! Inlined themes.wrap_hex (one-line function, not worth a call here)
+			$result += '<td style="font-size: <<sd_font_pct>>%;"><font color="' + $sd_re['color'] + '">' + $sd_re['dname'] + ': ' + $str(ARGS[2]) + '</font></td>'
+		else
+			$result += '<td style="font-size: <<sd_font_pct>>%;">' + $sd_re['dname'] + ': ' + $str(ARGS[2]) + '</td>'
+		end
+		if ARGS[3] mod sd_re['cols'] = (sd_re['cols'] - 1): $result += '</tr>'
+	end
+	killvar 'sd_re'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_toggle($key, $label) — collapse/expand link (▲ / ▽)      │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_toggle':
+	if stat_hide[$ARGS[1]] = 0:
+		$result = '<a href="exec: stat_hide[''' + $ARGS[1] + '''] = 1 & gs ''$menu_obnovit''">▲' + $ARGS[2] + '</a>'
+	else
+		$result = '<a href="exec: stat_hide[''' + $ARGS[1] + '''] = 0 & gs ''$menu_obnovit''">▽' + $ARGS[2] + '</a>'
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_rel_name($npc_key [, $npcid]) — NPC display name         │
+!! │ Priority: per-NPC override > global mode > fallback chain.      │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_rel_name':
+	$sd_hn['key'] = $ARGS[1]
+	!! Use explicit NPC ID if provided, otherwise the key IS the NPC ID
+	if $ARGS[2] <> '':
+		$sd_hn['npcid'] = $ARGS[2]
+	else
+		$sd_hn['npcid'] = $sd_hn['key']
+	end
+	!! Determine effective mode: per-NPC override > global
+	sd_hn['mode'] = stat_cfg['rel_name_mode']
+	if $sd_hn['key'] <> '' and sd_rel_name_override[$sd_hn['key']] > 0:
+		sd_hn['mode'] = sd_rel_name_override[$sd_hn['key']]
+	end
+	if sd_hn['mode'] = 1:
+		$result = $npc_firstname[$sd_hn['npcid']]
+	elseif sd_hn['mode'] = 2:
+		$result = $npc_lastname[$sd_hn['npcid']]
+		if $result = '': $result = $npc_firstname[$sd_hn['npcid']]
+	elseif sd_hn['mode'] = 3:
+		$result = $npc_nickname[$sd_hn['npcid']]
+		if $result = '': $result = $npc_firstname[$sd_hn['npcid']]
+	else
+		$result = $npc_usedname[$sd_hn['npcid']]
+	end
+	!! Fallback chain: usedname > firstname > nickname > lastname
+	if $result = '': $result = $npc_usedname[$sd_hn['npcid']]
+	if $result = '': $result = $npc_firstname[$sd_hn['npcid']]
+	if $result = '': $result = $npc_nickname[$sd_hn['npcid']]
+	if $result = '': $result = $npc_lastname[$sd_hn['npcid']]
+	if $result = '': $result = $sd_hn['key']
+	killvar 'sd_hn'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_resolve_align — resolve section alignment                │
+!! ├─────────────────────────────────────────────────────────────────┤
+!! │ func('stat_display', 'helper_resolve_align', $section_key)      │
+!! │ Returns: 0=left, 1=center, 2=right  (numeric result)            │
+!! │ Per-section values: 0=Global, 1=Left, 2=Center, 3=Right.        │
+!! │ Default (0) inherits from stat_cfg['global_align'].             │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_resolve_align':
+	sd_ha['sec'] = stat_cfg['align_' + $ARGS[1]]
+	if sd_ha['sec'] = 0:
+		!! 0 = Global: inherit from global_align (0=left, 1=center, 2=right)
+		result = stat_cfg['global_align']
+	elseif sd_ha['sec'] = 2:
+		!! 2 = Center
+		result = 1
+	elseif sd_ha['sec'] = 3:
+		!! 3 = Right
+		result = 2
+	else
+		!! 1 = Left
+		result = 0
+	end
+	killvar 'sd_ha'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_align_wrap — wrap content with alignment markup          │
+!! ├─────────────────────────────────────────────────────────────────┤
+!! │ $func('stat_display','helper_align_wrap',$section_key/align     │
+!! │ , $content)                                                     │
+!! │ ARGS[1] = 0=left (no-op), 1=center, 2=right                     │
+!! │ Returns content wrapped, or unchanged if align=0 or empty.      │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_align_wrap':
+	if $ARGS[1] <> '':
+		temp_align = func('stat_display', 'helper_resolve_align', $ARGS[1])
+	else
+		temp_align = ARGS[1]
+	end
+	if temp_align = 1 and $ARGS[2] <> '':
+		$result = '<center>' + $ARGS[2] + '</center>'
+	elseif temp_align = 2 and $ARGS[2] <> '':
+		!! Use a full-width wrapper table so block-level tables (progress bars etc.) are also pushed right
+		$result = '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="right">' + $ARGS[2] + '</td></tr></table>'
+	else
+		$result = $ARGS[2]
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_font_wrap($html) — wrap non-table section content in a   │
+!! │ block div with an explicit font-size. No-op when font_size=100  │
+!! │ or $html is empty. Use for non-table sections; table cells use  │
+!! │ $sd_font_wrap_o/c (or an explicit td style) directly.           │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_font_wrap':
+	if sd_font_pct <> 100 and $ARGS[1] <> '':
+		$result = '<div style="font-size: <<sd_font_pct>>%;">' + $ARGS[1] + '</div>'
+	else
+		$result = $ARGS[1]
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ helper_section_header — prepend section title to $result        │
+!! ├─────────────────────────────────────────────────────────────────┤
+!! │ $func('stat_display', 'helper_section_header',                  │
+!! │       $section_key, $result_html)                               │
+!! │ Returns: header HTML + $result_html, or $result_html unchanged  │
+!! │          if sec_headers = 0 or $result_html = ''                │
+!! │ Alignment: inherits from helper_resolve_align($section_key).    │
+!! │ Header text sourced from $sd_dn[key].                           │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'helper_section_header':
+	!! Alignment creates break, so no extra br needed
+	$sd_sh['align'] = func('stat_display', 'helper_resolve_align', $ARGS[1])
+	$temp_br = iif(sd_font_pct <> 100, '', '<br>')
+	if stat_cfg['sec_headers'] = 0:
+		$result = $ARGS[2]
+	elseif stat_cfg['sec_headers'] = 2:
+		!! Collapsible mode: toggle link always shown; body appended only when non-empty
+		$sd_sh['lbl'] = $func('stat_display', 'helper_toggle', $ARGS[1], '&nbsp;' + $sd_dn[$ARGS[1]])
+		$result = $func('stat_display', 'helper_font_wrap', $sd_sh['lbl'])
+		if $ARGS[2] <> '': $result += $temp_br + $ARGS[2]
+		killvar 'sd_sh'
+	else
+		!! Labels mode (sec_headers = 1): only shown when content is non-empty
+		if $ARGS[2] = '':
+			$result = ''
+		else
+			$result = $func('stat_display', 'helper_font_wrap', '<b>' + $sd_dn[$ARGS[1]] + '</b>') + $temp_br + $ARGS[2]
+		end
+	end
+	$result = $func('stat_display', 'helper_align_wrap', $ARGS[1], $result)
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                        SEPARATOR SYSTEM                             ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ get_separator($prev_type, $cur_type)                            │
+!! │ separator_style: 0=matrix  1=<br>  2=<hr>                       │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'get_separator':
+	if stat_cfg['separator_style'] = 1:
+		$result = '<br style="font-size: <<sd_font_pct>>%;">'
+	elseif stat_cfg['separator_style'] = 2:
+		$result = '<hr style="margin:12px 10px;">'
+	else
+		!! ── Mode 0 (default): intelligent content-type matrix ───────
+		!! structured ↔ structured → plain line break
+		if ($ARGS[1] = 'bars' or $ARGS[1] = 'table') and ($ARGS[2] = 'bars' or $ARGS[2] = 'table'):
+			$result = '<br style="font-size: <<sd_font_pct>>%;">'
+		!! structured ↔ anything else → visual divider
+		elseif ($ARGS[1] = 'bars' or $ARGS[1] = 'table') or ($ARGS[2] = 'bars' or $ARGS[2] = 'table'):
+			$result = '<hr style="margin:<<sep_margin_px>>px 10px;">'
+		!! everything else → small margin gap (safe with block elements)
+		else
+			$result = '<div style="margin:<<sep_margin_px>>px 0;"></div>'
+		end
+	end
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                             SECTIONS                                ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_weather — weather visual + temperature                      │
+!! │ weather_visual: 0=image  1=text.  temp_pos: 0=R 1=↓ 2=↑ 3=L     │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_weather':
+	!! ── Build the temperature string (scale-aware) ──────────────────
+	$sd_w['temp'] = $func('outdoors', 'get_temp_string', temper[0], temper[1], stat_cfg['temp_scale'])
+
+	!! ── Build the weather visual (image or text description) ────────
+	if stat_cfg['weather_visual'] = 1:
+		!! Text mode: same theme color as the temperature, no underline, no trailing period
+		if temper[0] < 0 or (temper[0] = 0 and temper[1] < 0):
+			!! temper[1] < 0 signals a -0.x°C reading truncation would otherwise
+			!! render sign-less (temper[0] = 0 has no way to show "-0" alone)
+			$sd_w['theme'] = 'accent'
+		elseif temper[0] < 10:
+			$sd_w['theme'] = 'v_pos'
+		elseif temper[0] < 20:
+			$sd_w['theme'] = 'pos'
+		elseif temper[0] < 30:
+			$sd_w['theme'] = 'neg'
+		else
+			$sd_w['theme'] = 'v_neg'
+		end
+		!! Escape double-quotes inside $weather (e.g. from font color attrs)
+		!! so they don''t break the href attribute delimiter.
+		$sd_w['safe_weather'] = $replace($weather, '"', '&quot;')
+		$sd_w['visual'] = '<a href="exec: msg ''<<$sd_w[''safe_weather'']>>''" style="text-decoration:none;">' + $func('wrap', $sd_w['theme'], $mid($osadki, 1, len($osadki) - 1)) + '</a>'
+	else
+		!! Image mode (default)
+		$sd_w['safe_weather'] = $replace($weather, '"', '&quot;')
+		$sd_w['visual'] = '<a href="exec: msg ''<<$sd_w[''safe_weather'']>>''">' + $weatherImage + '</a>'
+	end
+
+	!! ── Cache alignment once (used for table attr and below/above wrap) ──
+	sd_w['center'] = func('stat_display', 'helper_resolve_align', 'weather')
+
+	!! ── Layout visual and temperature by temp_pos ──────────────────
+	!! Resolve align attr once for table modes (text-align on a div doesn''t move block tables)
+	$sd_w['align_attr'] = iif(sd_w['center'] = 1, ' align="center"', iif(sd_w['center'] = 2, ' align="right"', ''))
+	if stat_cfg['temp_pos'] = 1:
+		!! below: visual on its own line, temp underneath
+		$result = $sd_w['visual'] + '<br>' + $sd_w['temp']
+	elseif stat_cfg['temp_pos'] = 2:
+		!! above: temp first, then visual
+		$result = $sd_w['temp'] + '<br>' + $sd_w['visual']
+	elseif stat_cfg['temp_pos'] = 3:
+		!! left: temp in left column, visual in right column
+		$result = '<table' + $sd_w['align_attr'] + '><tr><td style="font-size: <<sd_font_pct>>%;">' + $sd_w['temp'] + '</td><td style="font-size: <<sd_font_pct>>%;">' + $sd_w['visual'] + '</td></tr></table>'
+	else
+		!! right (default, 0): visual in left column, temp in right column
+		$result = '<table' + $sd_w['align_attr'] + '><tr><td style="font-size: <<sd_font_pct>>%;">' + $sd_w['visual'] + '</td><td style="font-size: <<sd_font_pct>>%;">' + $sd_w['temp'] + '</td></tr></table>'
+	end
+
+	$result = $func('stat_display', 'helper_font_wrap', $result)
+
+	!! ── Optional alignment (below/above layouts only) ───────────────
+	!! These are inline/text content, so helper_align_wrap (text-align) works correctly
+	if stat_cfg['temp_pos'] = 1 or stat_cfg['temp_pos'] = 2:
+		$result = $func('stat_display', 'helper_align_wrap', 'weather', $result)
+	end
+
+	killvar 'sd_w'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_time — time, date, calendar events, SMS badge               │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_time':
+	$result = ''
+
+	!! ── Time and date ───────────────────────────────────────────────
+	if stat_cfg['time_hidden'] = 0:
+		$result += '<b>' + $func('time', 'get_time_string', hour, minut, stat_cfg['time_format']) + '</b>'
+		$result += '&nbsp;&nbsp;'
+		$result += $func('time', 'get_date_string', year, month, day, stat_cfg['date_format'])
+	end
+
+	!! ── Calendar events ─────────────────────────────────────────────
+	if $start_type['loc'] = 'sg' and gschoolVars['school_diploma'] <> 1 and $holyday <> '':
+		if $result <> '': $result += '<br>'
+		$result += $holyday
+	end
+
+	!! ── Birthday ────────────────────────────────────────────────────
+	if birthday = day and birthmonth = month:
+		if $result <> '': $result += '<br>'
+		$result += '<b>今天是你生日。</b>'
+	end
+
+	!! ── Unread SMS badge ────────────────────────────────────────────
+	if telefon['UnreadSMS'] > 0:
+		if $result <> '': $result += '<br>'
+		$result += '<b>你有<<telefon[''UnreadSMS'']>>条未读消息。</b>'
+	end
+
+	$result = $func('stat_display', 'helper_font_wrap', $result)
+
+	!! ── Optional centering ──────────────────────────────────────────
+	$result = $func('stat_display', 'helper_align_wrap', 'time', $result)
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_money — purse/pockets, desk drawer, bank balance            │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_money':
+	$result = ''
+	!! ── Purse or pockets ────────────────────────────────────────────
+	!! Purse if bag > 0, otherwise pockets
+	$result += iif(bag > 0, '钱包', '口袋') + ': <b>' + $func('money', 'format_balance', 'cash') + '</b>'
+	!! ── Desk drawer ─────────────────────────────────────────────────
+	!! Only shown when non-zero
+	if stolmoney > 0:
+		$result += ', 抽屉：<b>' + $func('money', 'format_balance', 'desk') + '</b>'
+	end
+	!! ── Bank account ────────────────────────────────────────────────
+	!! Only shown once account is open; v_neg theme if overdrawn
+	if bankAccount = 1:
+		$result += ', 银行：' + $func('wrap', iif(karta >= bankDebtLimit, 'none b', 'v_neg b'), $func('money', 'format_balance', 'bank'))
+	end
+	$result = $func('stat_display', 'helper_font_wrap', $result)
+	!! ── Optional centering ──────────────────────────────────────────
+	!! Apply section alignment (left/center/right)
+	$result = $func('stat_display', 'helper_align_wrap', 'money', $result)
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_loadsave — QS / Save / Load / QL buttons                    │
+!! │ loadsave_mode: 0=icon  1=text                                   │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_loadsave':
+	if stat_cfg['loadsave_mode'] = 1:
+		!! ── Text links ──────────────────────────────────────────────
+		$result = '<a href="exec: savegame ''quicksave.sav'' && pl''快速存档完成''">快速保存</a>'
+		$result += '  <a href="exec: savegame">保存</a>'
+		$result += '  <a href="exec: opengame">读取</a>'
+		$result += '  <a href="exec: if input(''输入任意内容以确认快速读取'') <> '''': opengame ''quicksave.sav''">快速读取</a>'
+	else
+		!! ── Icon buttons (loadsave_mode = 0, default) ───────────────
+		$result = '<a href="exec: savegame ''quicksave.sav'' && pl''快速存档完成''"><img src="images/system/icons/stat_qsave.png" height="<<stat_cfg[''menu_icon_height'']>>"></a>'
+		$result += '  <a href="exec: savegame"><img src="images/system/icons/stat_save.png" height="<<stat_cfg[''menu_icon_height'']>>"></a>'
+		$result += '  <a href="exec: opengame"><img src="images/system/icons/stat_load.png" height="<<stat_cfg[''menu_icon_height'']>>"></a>'
+		$result += '  <a href="exec: if input(''输入任意内容以确认快速读取'') <> '''': opengame ''quicksave.sav''"><img src="images/system/icons/stat_qload.png" height="<<stat_cfg[''menu_icon_height'']>>"></a>'
+	end
+	$result = $func('stat_display', 'helper_font_wrap', $result)
+	!! ── Optional centering ──────────────────────────────────────────
+	!! Apply section alignment (left/center/right)
+	$result = $func('stat_display', 'helper_align_wrap', 'loadsave', $result)
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_menu_bar — navigation icon bar ($menu_bar_order[] driven)   │
+!! │ magic_separate: 0=combined journal  1=separate spellbook icon   │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_menu_bar':
+	!! ── character ───────────────────────────────────────────────────
+	$sd_mb['character_ico'] = 'icon_character.png'
+	$sd_mb['character_url'] = 'gt ''$menu_character'''
+	$sd_mb['character_tip'] = '角色描述'
+	$sd_mb['character_dis'] = '1'
+
+	!! ── looks ───────────────────────────────────────────────────────
+	$sd_mb['looks_ico'] = 'icon_lookself.png'
+	$sd_mb['looks_url'] = 'gt ''$menu_looks'''
+	$sd_mb['looks_tip'] = '外貌（脸部、身体、服装……）'
+	$sd_mb['looks_dis'] = '1'
+
+	!! ── purse ───────────────────────────────────────────────────────
+	$sd_mb['purse_ico'] = 'icon_purse.png'
+	$sd_mb['purse_url'] = 'gs ''din_bad'', ''d_bag'''
+	$sd_mb['purse_tip'] = '你的钱包'
+	$sd_mb['purse_dis'] = '1'
+	$sd_mb['purse_skp'] = iif(bag > 0, '0', '1')
+
+	!! ── phone ───────────────────────────────────────────────────────
+	$sd_mb['phone_ico'] = iif(telefon['UnreadSMS'] > 0, 'icon_phone_sms.gif', 'icon_phone.png')
+	$sd_mb['phone_url'] = 'gs ''telefon'', ''Phone_menu'''
+	$sd_mb['phone_tip'] = '你的手机'
+	$sd_mb['phone_dis'] = '0'
+
+	!! ── journal ─────────────────────────────────────────────────────
+	!! When magic is separate: journal always goes to calendar
+	!! When combined: goes to records (which routes to magic tab if magic)
+	if stat_cfg['magic_separate'] = 1:
+		$sd_mb['journal_ico'] = 'journal_norm.png'
+		$sd_mb['journal_url'] = 'gt ''journal'', ''calendar'''
+		$sd_mb['journal_tip'] = '日志'
+	elseif $start_type['magic'] <> 'nomagic':
+		$sd_mb['journal_ico'] = 'journal_magic.png'
+		$sd_mb['journal_url'] = 'jclose = 1 & $jumploc = '''' & gs ''obj_din'', ''records'''
+		$sd_mb['journal_tip'] = '法术书与日志'
+	else
+		$sd_mb['journal_ico'] = 'journal_norm.png'
+		$sd_mb['journal_url'] = 'jclose = 1 & $jumploc = '''' & gs ''obj_din'', ''records'''
+		$sd_mb['journal_tip'] = '日志'
+	end
+	$sd_mb['journal_dis'] = '1'
+
+	!! ── magic (separate spellbook icon) ─────────────────────────────
+	$sd_mb['magic_ico'] = 'journal_magic.png'
+	$sd_mb['magic_url'] = 'jclose = 1 & $jumploc = '''' & gs ''journal'', ''magictab'''
+	$sd_mb['magic_tip'] = '法术书'
+	$sd_mb['magic_dis'] = '1'
+	!! Only show when magic is enabled AND separation is on
+	$sd_mb['magic_skp'] = iif($start_type['magic'] <> 'nomagic' and stat_cfg['magic_separate'] = 1, '0', '1')
+
+	!! ── clock ───────────────────────────────────────────────────────
+	$sd_mb['clock_ico'] = 'clock.png'
+	$sd_mb['clock_url'] = 'gs ''obj_din'', ''wait'''
+	$sd_mb['clock_tip'] = '消磨时间'
+	$sd_mb['clock_dis'] = '1'
+
+	!! ── settings ────────────────────────────────────────────────────
+	$sd_mb['settings_ico'] = 'icon_menu.png'
+	$sd_mb['settings_url'] = 'gt ''$menu_settings'''
+	$sd_mb['settings_tip'] = '菜单与作弊菜单'
+	$sd_mb['settings_dis'] = '1'
+
+	!! ── help ─────────────────────────────────────────────────────────
+	!! Probe the help system to see if the current scene has a dedicated
+	!! page. The probe is read-only (does not consume any pending override).
+	!! TODO: re-enable when help content is ready ($sd_mb['help_skp'] = '1' hides it)
+	$sd_mb['help_skp'] = '1'
+	$sd_mb['help_url'] = 'gs ''help'', ''open'''
+	$sd_mb['help_dis'] = '0'
+	if $func('help', 'probe') <> 'generic':
+		$sd_mb['help_ico'] = 'icon_help_color.png'
+		$sd_mb['help_tip'] = '帮助：特定于当前场景或地点'
+	else
+		$sd_mb['help_ico'] = 'icon_help_white.png'
+		$sd_mb['help_tip'] = '帮助 &amp; 术语表'
+	end
+
+	!! ── Build the bar by iterating $menu_bar_order[] ────────────────
+	$sd_mb['cells'] = ''
+	sd_mb['i'] = 0
+	sd_mb['max'] = arrsize('$menu_bar_order')
+	:sd_mb_loop
+		$sd_mb['key'] = $menu_bar_order[sd_mb['i']]
+
+		!! Skip hidden items (default _skp is '' which val() treats as 0)
+		if val($sd_mb[$sd_mb['key'] + '_skp']) = 0:
+			!! Determine the href (menu_off substitution)
+			if menu_off and val($sd_mb[$sd_mb['key'] + '_dis']):
+				$sd_mb['act'] = 'gs ''obj_din'', ''menu_disabled'''
+			else
+				$sd_mb['act'] = $sd_mb[$sd_mb['key'] + '_url']
+			end
+
+			!! Build cell content
+			$sd_mb['cell'] = '<a href="exec: ' + $sd_mb['act'] + '"><img title="' + $sd_mb[$sd_mb['key'] + '_tip'] + '" ' + $sd['micon'] + $sd_mb[$sd_mb['key'] + '_ico'] + '"></a>'
+
+			$sd_mb['cells'] += '<span style="display:inline-block; vertical-align:middle;">' + $sd_mb['cell'] + '</span>'
+		end
+
+		sd_mb['i'] += 1
+	if sd_mb['i'] < sd_mb['max']: jump 'sd_mb_loop'
+
+	!! ── Assemble the bar ─────────────────────────────────────────────
+	if $sd_mb['cells'] <> '':
+		$result = '<div>' + $sd_mb['cells'] + '</div>'
+		!! Apply section alignment (left/center/right)
+		$result = $func('stat_display', 'helper_align_wrap', 'menu_bar', $result)
+	else
+		$result = ''
+	end
+
+	!! ── Cleanup local arrays ────────────────────────────────────────
+	killvar 'sd_mb'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_status — status bars ($status_bar_order[] driven)           │
+!! │ render_mode: 0=table  1=character  2=text-only  3=prose         │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_status':
+	$result = ''
+
+	!! ── Per-section render mode ──────────────────────────────────────
+	sd['render_mode'] = stat_cfg['render_mode_status']
+
+	!! ── Prose mode (render_mode=3): use pre-computed summary, skip bars ──
+	if stat_cfg['render_mode_status'] = 3:
+		$result = $func('stat_display', 'helper_font_wrap', $sd_status_prose)
+
+		!! Apply section alignment (left/center/right)
+		$result = $func('stat_display', 'helper_align_wrap', 'status', $result)
+
+		killvar 'sd_s'
+		exit
+	end
+
+	!! ── Per-group label position override ───────────────────────────
+	sd['name_side'] = stat_cfg['name_side_status']
+
+	!! ── Iterate status bars in user-defined order ───────────────────
+	!! <br> is prepended only when $result is non-empty (no leading break)
+	sd_s['i'] = 0
+	sd_s['max'] = arrsize('$status_bar_order')
+	:sd_status_bar_loop
+		$sd_s['key'] = $status_bar_order[sd_s['i']]
+		$sd_s['bar'] = ''
+
+		!! Skip hidden bars
+		if stat_hide_bar[$sd_s['key']] = 0:
+			!! ── Arousal ─────────────────────────────────────────────
+			if $sd_s['key'] = 'arousal':
+				$sd_s['bar'] = $func('stat_display', 'helper_bar', 'mono:bimbo', '性兴奋', pcs_horny)
+
+			!! ── Pain ────────────────────────────────────────────────
+			elseif $sd_s['key'] = 'pain':
+				$sd_s['bar'] = $func('stat_display', 'helper_bar', 'mono:v_neg', '疼痛', pain['total'], 0, pain['damage'])
+
+			!! ── Health ──────────────────────────────────────────────
+			elseif $sd_s['key'] = 'health':
+				$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '健康', pcs_health, healthmax)
+
+			!! ── Mana ────────────────────────────────────────────────
+			elseif $sd_s['key'] = 'mana':
+				if $start_type['magic'] <> 'nomagic':
+					$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '法力', pcs_mana, manamax)
+				end
+
+			!! ── Willpower ───────────────────────────────────────────
+			elseif $sd_s['key'] = 'willpower':
+				$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '意志力', pcs_willpwr, willpowermax)
+
+			!! ── Stamina ─────────────────────────────────────────────
+			elseif $sd_s['key'] = 'stamina':
+				$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '体力', pcs_stam, stammax)
+
+			!! ── Mood (+ disposition) ────────────────────────────────
+			elseif $sd_s['key'] = 'mood':
+				if stat_cfg['overlay'] = 0 and sd['render_mode'] = 0:
+					$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '心情', pcs_mood, 0, 0, moodVars['disp'], 'accent')
+				else
+					$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '心情', pcs_mood)
+					if stat_hide_bar['disposition'] = 0:
+						!! Disposition is a second bar inside this slot; join it directly
+						!! In text-only mode bars are inline so insert bar_sep; table/char modes use <tr> rows
+						if $sd_s['bar'] <> '': $sd_s['bar'] += iif(sd['render_mode'] = 2, iif(stat_cfg['newline_status'] = 1, ' ', '<br>'), '')
+						$sd_s['bar'] += $func('stat_display', 'helper_bar', 'smooth_positive', '态度', moodVars['disp'])
+					end
+				end
+
+			!! ── Energy (Hunger) ─────────────────────────────────────
+			elseif $sd_s['key'] = 'energy':
+				if cheatVars['hunger'] = 0:
+					$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '饥饿', pcs_energy)
+				end
+				if stat_hide_bar['weight'] = 0:
+					if $sd_s['bar'] <> '': $sd_s['bar'] += iif(sd['render_mode'] = 2, iif(stat_cfg['newline_status'] = 1, ' ', '<br>'), '')
+					if pregChem >= 800:
+						temp_weight_value['upper_raw'] = 15 + vitalbuf / 20
+						temp_weight_value['lower_raw'] = -(10 + vitalbuf / 10)
+					else
+						temp_weight_value['upper_raw'] = 20 + vitalbuf / 10
+						temp_weight_value['lower_raw'] = -(5 + vitalbuf / 10)
+					end
+					$temp_weight_value['func'] = "result = (ARGS[0] + 10 + vitalbuf / 10) * 100 / (35 + vitalbuf / 5)"
+					temp_weight_value['raw'] = dyneval($temp_weight_value['func'], fat)
+					temp_weight_value['lower'] = dyneval($temp_weight_value['func'], temp_weight_value['lower_raw'])
+					temp_weight_value['zero'] = dyneval($temp_weight_value['func'], 0)
+					temp_weight_value['z_upper'] = dyneval($temp_weight_value['func'], temp_weight_value['upper_raw'] - 5)
+					temp_weight_value['upper'] = dyneval($temp_weight_value['func'], temp_weight_value['upper_raw'])
+					$sd_s['bar'] += $func('stat_display', 'helper_bar', 'centrum_positive', '体重增加', temp_weight_value['raw'], 0, 0, 0, '', "<<temp_weight_value['lower']>>,<<temp_weight_value['zero']>>,<<temp_weight_value['z_upper']>>,<<temp_weight_value['upper']>>")
+					killvar 'temp_weight_value'
+				end
+
+			!! ── Thirst ──────────────────────────────────────────────
+			elseif $sd_s['key'] = 'thirst':
+				if cheatVars['thirst'] = 0:
+					$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '口渴', pcs_hydra)
+				end
+
+			!! ── Sleep (+ caffeine phantom) ──────────────────────────
+			elseif $sd_s['key'] = 'sleep':
+				if cheatVars['sleep'] = 0:
+					if drugVars['caffeine_dose'] > 0 and drugVars['sleep_actual'] < 100:
+						$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '睡眠', pcs_sleep, 0, drugVars['sleep_actual'])
+					else
+						$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '睡眠', pcs_sleep)
+					end
+				end
+
+			!! ── Faith (prude archetype only) ────────────────────────
+			elseif $sd_s['key'] = 'faith':
+				if $arch_vars['main_active'] = 'prude':
+					$sd_s['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '信仰', pcs_faith)
+				end
+			end
+		end
+
+		!! Append with inter-bar separator only when both sides are non-empty
+		!! and we are in a mode where bars are inline (text-only only)
+		if $sd_s['bar'] <> '':
+			if $result <> '' and sd['render_mode'] = 2: $result += iif(stat_cfg['newline_status'] = 1, ' ', '<br>')
+			$result += $sd_s['bar']
+		end
+
+		sd_s['i'] += 1
+	if sd_s['i'] < sd_s['max']: jump 'sd_status_bar_loop'
+
+	!! Wrap <tr> rows in <table> (table mode and character mode)
+	if sd['render_mode'] <> 2 and $result <> '':
+		$result = '<table cellpadding="1" cellspacing="0">' + $result + '</table>'
+	else
+		$result = $func('stat_display', 'helper_font_wrap', $result)
+	end
+	!! Apply section alignment (left/center/right)
+	$result = $func('stat_display', 'helper_align_wrap', 'status', $result)
+
+	killvar 'sd_s'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_attributes — attribute bars with optional XP overlay        │
+!! │ render_mode: 0=table  1=character  2=text-only  3=prose         │
+!! │ show_attr_xp=1: accent overlay = XP progress (table mode only)  │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_attributes':
+	$result = ''
+
+	!! ── Per-section render mode ──────────────────────────────────────
+	sd['render_mode'] = stat_cfg['render_mode_attrs']
+
+	!! ── Prose mode (render_mode=3): generate text summary, skip bars ──
+	if stat_cfg['render_mode_attrs'] = 3:
+		gs 'stat_display_compute', 'compute_attributes_prose'
+		$result = $func('stat_display', 'helper_font_wrap', $sd_attrs_prose)
+
+		!! Apply section alignment (left/center/right)
+		$result = $func('stat_display', 'helper_align_wrap', 'attributes', $result)
+
+		killvar 'sd_a'
+		exit
+	end
+
+	!! ── XP overlay snapshot (table mode only, when enabled) ─────────
+	if stat_cfg['show_attr_xp'] = 1 and sd['render_mode'] = 0:
+		attr_xp['inhib'] = 0
+		if inhib_xpnxt > inhib_xpprv: attr_xp['inhib'] = (inhib_exp - inhib_xpprv) * 100 / (inhib_xpnxt - inhib_xpprv)
+		attr_xp['stren'] = 0
+		if stren_xpnxt > stren_xpprv: attr_xp['stren'] = (stren_exp - stren_xpprv) * 100 / (stren_xpnxt - stren_xpprv)
+		attr_xp['agil'] = 0
+		if agil_xpnxt > agil_xpprv: attr_xp['agil'] = (agil_exp - agil_xpprv) * 100 / (agil_xpnxt - agil_xpprv)
+		attr_xp['vital'] = 0
+		if vital_xpnxt > vital_xpprv: attr_xp['vital'] = (vital_exp - vital_xpprv) * 100 / (vital_xpnxt - vital_xpprv)
+		attr_xp['intel'] = 0
+		if intel_xpnxt > intel_xpprv: attr_xp['intel'] = (intel_exp - intel_xpprv) * 100 / (intel_xpnxt - intel_xpprv)
+		attr_xp['sprt'] = 0
+		if sprt_xpnxt > sprt_xpprv: attr_xp['sprt'] = (sprt_exp - sprt_xpprv) * 100 / (sprt_xpnxt - sprt_xpprv)
+		attr_xp['react'] = 0
+		if react_xpnxt > react_xpprv: attr_xp['react'] = (react_exp - react_xpprv) * 100 / (react_xpnxt - react_xpprv)
+		attr_xp['chrsm'] = 0
+		if chrsm_xpnxt > chrsm_xpprv: attr_xp['chrsm'] = (chrsm_exp - chrsm_xpprv) * 100 / (chrsm_xpnxt - chrsm_xpprv)
+		attr_xp['prcptn'] = 0
+		if prcptn_xpnxt > prcptn_xpprv: attr_xp['prcptn'] = (prcptn_exp - prcptn_xpprv) * 100 / (prcptn_xpnxt - prcptn_xpprv)
+		attr_xp['magik'] = 0
+		if magik_xpnxt > magik_xpprv: attr_xp['magik'] = (magik_exp - magik_xpprv) * 100 / (magik_xpnxt - magik_xpprv)
+	end
+
+	!! ── Per-group label position override ───────────────────────────
+	sd['name_side'] = stat_cfg['name_side_attrs']
+
+	!! ── Build bar rows via $attr_bar_order[] ────────────────────────
+	!! <br> prepended only when $sd_a['bars'] is non-empty (no leading break)
+	$sd_a['bars'] = ''
+	sd_a['i'] = 0
+	sd_a['max'] = arrsize('$attr_bar_order')
+	:sd_attr_bar_loop
+		$sd_a['key'] = $attr_bar_order[sd_a['i']]
+		$sd_a['bar'] = ''
+
+		!! Skip hidden bars
+		if stat_hide_bar[$sd_a['key']] = 0:
+			!! ── Compute XP overlay percentage ───────────────────────
+			sd_a['xp'] = 0
+			if stat_cfg['show_attr_xp'] = 1 and sd['render_mode'] = 0: sd_a['xp'] = attr_xp[$sd_a['key']]
+
+			!! ── Render the bar ──────────────────────────────────────
+			if $sd_a['key'] = 'inhib':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '抑制', 100 - pcs_inhib, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'stren':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '力量', pcs_stren, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'agil':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '敏捷', pcs_agil, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'vital':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '耐力', pcs_vital, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'intel':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '智力', pcs_intel, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'sprt':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '精神', pcs_sprt, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'react':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '反应', pcs_react, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'chrsm':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '魅力', pcs_chrsm, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'prcptn':
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '感知', pcs_prcptn, 0, 0, sd_a['xp'], 'accent')
+			elseif $sd_a['key'] = 'apprnc':
+				sd_a['ov'] = 0
+				if stat_cfg['show_apprnc_base'] = 1 and sd['render_mode'] = 0:
+					sd_a['ov'] = pcs_apprncbase * 100 / 200
+					if sd_a['ov'] > 100: sd_a['ov'] = 100
+					if sd_a['ov'] < 0: sd_a['ov'] = 0
+				end
+				$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '魅力', pcs_apprnc, 200, 0, sd_a['ov'], 'mono:punk')
+			elseif $sd_a['key'] = 'magik':
+				if $start_type['magic'] <> 'nomagic':
+					$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '魔法', pcs_magik, 0, 0, sd_a['xp'], 'accent')
+				end
+			elseif $sd_a['key'] = 'sucexcess':
+				if $start_type['magic'] <> 'nomagic' and succubusflag = 1:
+					$sd_a['bar'] = $func('stat_display', 'helper_bar', 'smooth_positive', '魅魔能量', sucexcess)
+				end
+			end
+		end
+
+		!! Append with inter-bar separator only when both sides are non-empty
+		!! and we are in a mode where bars are inline (text-only only)
+		if $sd_a['bar'] <> '':
+			if $sd_a['bars'] <> '' and sd['render_mode'] = 2: $sd_a['bars'] += iif(stat_cfg['newline_attributes'] = 1, ' ', '<br>')
+			$sd_a['bars'] += $sd_a['bar']
+		end
+
+		sd_a['i'] += 1
+	if sd_a['i'] < sd_a['max']: jump 'sd_attr_bar_loop'
+
+	!! Wrap <tr> rows in <table> (table mode and character mode)
+	if sd['render_mode'] <> 2 and $sd_a['bars'] <> '':
+		$result += '<table cellpadding="1" cellspacing="0">' + $sd_a['bars'] + '</table>'
+	else
+		$result += $func('stat_display', 'helper_font_wrap', $sd_a['bars'])
+	end
+	!! Apply section alignment (left/center/right)
+	$result = $func('stat_display', 'helper_align_wrap', 'attributes', $result)
+
+	killvar 'sd_a'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_icons — render icon rows from $sd_icons_N[] (N=1..4)        │
+!! │ Each entry is pre-rendered <a><img></a> HTML from queue_msg.    │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_icons':
+	$result = ''
+	sd_ic['align'] = func('stat_display', 'helper_resolve_align', 'icons')
+	$sd_ic['align_attr'] = iif(sd_ic['align'] = 1, ' align="center"', iif(sd_ic['align'] = 2, ' align="right"', ''))
+	$sd_ic['rows'] = ''
+	sd_ic['row'] = 1
+	:sd_icon_row_loop
+		$sd_ic['arr'] = '$sd_icons_' + $str(sd_ic['row'])
+		sd_ic['max'] = arrsize($sd_ic['arr'])
+		if sd_ic['max'] > 0:
+			$sd_ic['line'] = ''
+			sd_ic['j'] = 0
+			:sd_icon_cell_loop
+				if sd_ic['row'] = 1:
+					$sd_ic['line'] += '<td>' + $sd_icons_1[sd_ic['j']] + '</td>'
+				elseif sd_ic['row'] = 2:
+					$sd_ic['line'] += '<td>' + $sd_icons_2[sd_ic['j']] + '</td>'
+				elseif sd_ic['row'] = 3:
+					$sd_ic['line'] += '<td>' + $sd_icons_3[sd_ic['j']] + '</td>'
+				else
+					$sd_ic['line'] += '<td>' + $sd_icons_4[sd_ic['j']] + '</td>'
+				end
+				sd_ic['j'] += 1
+			if sd_ic['j'] < sd_ic['max']: jump 'sd_icon_cell_loop'
+			if $sd_ic['line'] <> '':
+				$sd_ic['rows'] += '<tr>' + $sd_ic['line'] + '</tr>'
+			end
+		end
+		sd_ic['row'] += 1
+	if sd_ic['row'] <= 4: jump 'sd_icon_row_loop'
+
+	if $sd_ic['rows'] <> '':
+		!! Wrap in a full-width table so alignment is block-level (avoids float from align="right")
+		if sd_ic['align'] = 1:
+			$sd_ic['td_attr'] = ' align="center"'
+		elseif sd_ic['align'] = 2:
+			$sd_ic['td_attr'] = ' align="right"'
+		else
+			$sd_ic['td_attr'] = ''
+		end
+		$result = '<table width="100%" cellpadding="0" cellspacing="0"><tr><td' + $sd_ic['td_attr'] + '><table cellpadding="0" cellspacing="0">' + $sd_ic['rows'] + '</table></td></tr></table>'
+	end
+
+	killvar 'sd_ic'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_alerts — render $sd_alerts[] queue                          │
+!! │ Each entry is auto-wrapped in <b>…</b> at render time.          │
+!! │ Alerts always show; they ignore show_positive_texts.            │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_alerts':
+	$result = ''
+
+	sd_mt['max'] = arrsize('$sd_alerts')
+	if sd_mt['max'] > 0:
+		sd_mt['i'] = 0
+		:sd_alert_loop
+			!! Entries are pre-rendered HTML strings — wrap in bold and output
+			if $sd_alerts[sd_mt['i']] <> '':
+				if $sd['sep_alert'] = '<br>':
+					!! One entry per line
+					$result += '<div style="font-size: <<sd_font_pct>>%;"><b>' + $sd_alerts[sd_mt['i']] + '</b></div>'
+				else
+					$result += iif($result <> '', $sd['sep_alert'], '') + $sd_font_wrap_o + '<b>' + $sd_alerts[sd_mt['i']] + '</b>' + $sd_font_wrap_c
+				end
+			end
+			sd_mt['i'] += 1
+		if sd_mt['i'] < sd_mt['max']: jump 'sd_alert_loop'
+	end
+
+	killvar 'sd_mt'
+
+	$result = $func('stat_display', 'helper_align_wrap', 'alerts', $result)
+
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_calendar — upcoming calendar events                         │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_calendar':
+	$result = $func('stat_display', 'helper_font_wrap', $cal_upcoming_html)
+	$result = $func('stat_display', 'helper_align_wrap', 'calendar', $result)
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_skills — skill groups in $skill_group_order[] order         │
+!! │ skills_mode: 0=text table  1=table bars  2=character bars       │
+!! │ skills_group_mode: 0=joined  1=gap  2=header                    │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_skills':
+	$result = ''
+	$sd_sk['rows'] = ''
+
+	skillval['teacher']		= iif($job_status['pav_voc_school_teacher'] = 'employed', teacher['level'], 0)
+	skillval['splcstng']	= iif($start_type['magic'] <> 'nomagic', pcs_splcstng, 0)
+	skillval['humint']		= pcs_humint
+	skillval['persuas']		= pcs_persuas
+	skillval['observ']		= pcs_observ
+	skillval['run']			= pcs_run
+	skillval['vball']		= pcs_vball
+	skillval['ftbll']		= pcs_ftbll
+	skillval['wrstlng']		= pcs_wrstlng
+	skillval['chess']		= pcs_chess
+	skillval['icesktng']	= pcs_icesktng
+	skillval['gaming']		= pcs_gaming
+	skillval['pool']		= pcs_pool
+	skillval['bkbll']		= pcs_bkbll
+	skillval['jab']			= pcs_jab
+	skillval['punch']		= pcs_punch
+	skillval['kick']		= pcs_kick
+	skillval['def']			= pcs_def
+	skillval['shoot']		= pcs_shoot
+	skillval['bushcraft']	= pcs_bushcraft
+	skillval['makupskl']	= pcs_makupskl
+	skillval['danc']		= pcs_danc
+	skillval['dancero']		= pcs_dancero
+	skillval['dancpol']		= pcs_dancpol
+	skillval['cheer']		= pcs_cheer
+	skillval['mdlng']		= pcs_mdlng
+	skillval['heels']		= pcs_heels
+	skillval['vokal']		= pcs_vokal
+	skillval['instrmusic']	= pcs_instrmusic
+	skillval['photoskl']	= pcs_photoskl
+	skillval['artskls']		= pcs_artskls
+	skillval['perform']		= pcs_perform
+	skillval['musicprod']	= pcs_musicprod
+	skillval['cleaning']	= pcs_cleaning
+	skillval['compskl']		= pcs_compskl
+	skillval['comphckng']	= pcs_comphckng
+	skillval['hndiwrk']		= pcs_hndiwrk
+	skillval['sewng']		= pcs_sewng
+	skillval['servng']		= pcs_servng
+	skillval['medcn']		= pcs_medcn
+
+	!! ── Per-section render mode (bar mode only) ─────────────────────
+	if stat_cfg['skills_mode'] > 0:
+		sd['render_mode'] = stat_cfg['skills_mode'] - 1
+	end
+	sd['name_side'] = stat_cfg['name_side_skills']
+
+	!! ── Compute actual table column count (bar mode = 2 cells per entry) ──
+	sd_sk['td_cols'] = iif(stat_cfg['skills_mode'] > 0, sd['skills_columns'] * 2, sd['skills_columns'])
+
+	!! ── Scale bar width for multi-column ──
+	sd_sk['save_barwidth'] = stat_cfg['bar_width']
+	if sd['skills_columns'] > 1:
+		!! Resolve default (0 → 200) before dividing, so 0/N doesn''t stay 0
+		stat_cfg['bar_width'] = iif(stat_cfg['bar_width'] > 0, stat_cfg['bar_width'], 200) / sd['skills_columns']
+	end
+
+	sd_sk['gi'] = 0
+	sd_sk['gmax'] = arrsize('$skill_group_order')
+	sd_sk['joined_cnt'] = 0
+	sd_sk['align'] = func('stat_display', 'helper_resolve_align', 'skills')
+	:sd_skill_group_loop
+		$sd_sk['grp'] = $skill_group_order[sd_sk['gi']]
+		$sd_sk['grp_rows'] = ''
+		!! In joined mode, carry a running count across groups
+		if stat_cfg['skills_group_mode'] = 0:
+			sd_sk['cnt'] = sd_sk['joined_cnt']
+		else
+			sd_sk['cnt'] = 0
+		end
+
+		!! Skip entire group if hidden
+		if stat_hide[$sd_sk['grp']] = 0:
+
+			sd_sk['si'] = 0
+			:sd_skill_entry_loop
+				!! Members are stored under dense composite keys ('<grp>_0', '_1', …);
+				!! an empty read means we ran past the last member of this group.
+				$sd_sk['key'] = $skill_grp[$sd_sk['grp'] + '_' + $str(sd_sk['si'])]
+				if $sd_sk['key'] = '': jump 'sd_skill_entry_done'
+
+				!! Skip individually hidden skills
+				if stat_hide_skill[$sd_sk['key']] = 0:
+					sd_sk['val'] = skillval[$sd_sk['key']]
+
+					if sd_sk['val'] > 0:
+						$sd_sk['grp_rows'] += $func('stat_display', 'helper_skill_entry', $sd_dn[$sd_sk['key']], sd_sk['val'], sd_sk['cnt'])
+						sd_sk['cnt'] += 1
+					end
+				end
+
+				sd_sk['si'] += 1
+			jump 'sd_skill_entry_loop'
+			:sd_skill_entry_done
+
+			!! Assemble group rows
+			if $sd_sk['grp_rows'] <> '':
+				!! skills_group_mode: 0=joined (no headers), 1=gap, 2=header — all use single table
+				if stat_cfg['skills_group_mode'] = 0:
+					!! Joined: carry running count, don''t close partial rows
+					sd_sk['joined_cnt'] = sd_sk['cnt']
+					$sd_sk['rows'] += $sd_sk['grp_rows']
+				elseif stat_cfg['skills_group_mode'] = 1:
+					!! Close unclosed row if cell count not a multiple of columns
+					if sd_sk['cnt'] mod sd['skills_columns'] <> 0: $sd_sk['grp_rows'] += '</tr>'
+					!! Gap: spacer row between groups, no header text (skip spacer for first group)
+					if $sd_sk['rows'] <> '':
+						$sd_sk['rows'] += '<tr><td colspan="' + $str(sd_sk['td_cols']) + '" style="padding-top:6px;border:none;"></td></tr>'
+					end
+					$sd_sk['rows'] += $sd_sk['grp_rows']
+				else
+					!! Close unclosed row if cell count not a multiple of columns
+					if sd_sk['cnt'] mod sd['skills_columns'] <> 0: $sd_sk['grp_rows'] += '</tr>'
+					!! Header: header row with group name, no side borders
+					$sd_sk['hdr_style'] = 'padding-top:4px;border-left:none;border-right:none;font-size:<<sd_font_pct>>%;'
+					$sd_sk['hdr_align'] = ''
+					if sd_sk['align'] = 1:
+						$sd_sk['hdr_style'] += 'text-align:center;'
+						$sd_sk['hdr_align'] = ' align="center"'
+					elseif sd_sk['align'] = 2:
+						$sd_sk['hdr_style'] += 'text-align:right;'
+						$sd_sk['hdr_align'] = ' align="right"'
+					end
+					$sd_sk['rows'] += '<tr><td colspan="' + $str(sd_sk['td_cols']) + '"' + $sd_sk['hdr_align'] + ' style="' + $sd_sk['hdr_style'] + '"><b>' + $sd_dn[$sd_sk['grp']] + '</b></td></tr>' + $sd_sk['grp_rows']
+				end
+			end
+		end
+
+		sd_sk['gi'] += 1
+	if sd_sk['gi'] < sd_sk['gmax']: jump 'sd_skill_group_loop'
+
+	!! Close final unclosed row in joined mode
+	if stat_cfg['skills_group_mode'] = 0 and sd_sk['joined_cnt'] mod sd['skills_columns'] <> 0:
+		$sd_sk['rows'] += '</tr>'
+	end
+
+	!! Wrap with alignment
+	if $sd_sk['rows'] <> '':
+		$sd_sk['align_attr'] = iif(sd_sk['align'] = 1, ' align="center"', iif(sd_sk['align'] = 2, ' align="right"', ''))
+		!! All modes use a single table; add visible borders in text mode
+		if stat_cfg['skills_mode'] = 0:
+			$result = '<table' + $sd_sk['align_attr'] + ' cellpadding="2" cellspacing="0" border="1" style="border-collapse:collapse;border-color:#555;">' + $sd_sk['rows'] + '</table>'
+		else
+			$result = '<table' + $sd_sk['align_attr'] + ' cellpadding="1" cellspacing="0">' + $sd_sk['rows'] + '</table>'
+		end
+	end
+
+	!! Restore bar width
+	stat_cfg['bar_width'] = sd_sk['save_barwidth']
+
+	killvar 'sd_sk'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_relations — NPC relations in $rel_group_order[] order       │
+!! │ relations_mode: 0=text table  1=table bars  2=character bars    │
+!! │ relations_group_mode: 0=joined  1=gap  2=header                 │
+!! │ Lovers group: always dynamic from $lover[].                     │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_relations':
+	$result = ''
+	$sd_rl['rows'] = ''
+	sd_rl['cols'] = sd['relations_columns']
+	sd_rl['align'] = func('stat_display', 'helper_resolve_align', 'relations')
+
+	!! ── Per-section render mode (bar mode only) ─────────────────────
+	if stat_cfg['relations_mode'] > 0:
+		sd['render_mode'] = stat_cfg['relations_mode'] - 1
+	end
+	sd['name_side'] = stat_cfg['name_side_relations']
+
+	!! ── Compute actual table column count (bar mode = 2 cells per entry) ──
+	sd_rl['td_cols'] = iif(stat_cfg['relations_mode'] > 0, sd['relations_columns'] * 2, sd['relations_columns'])
+
+	!! ── Scale bar width for multi-column ──
+	sd_rl['save_barwidth'] = stat_cfg['bar_width']
+	if sd['relations_columns'] > 1:
+		!! Resolve default (0 → 200) before dividing, so 0/N doesn''t stay 0
+		stat_cfg['bar_width'] = iif(stat_cfg['bar_width'] > 0, stat_cfg['bar_width'], 200) / sd['relations_columns']
+	end
+
+	!! ── Iterate groups in $rel_group_order[] ──────────────────────
+	sd_rl['gi'] = 0
+	sd_rl['gmax'] = arrsize('$rel_group_order')
+	sd_rl['joined_cnt'] = 0
+	:sd_rel_group_loop
+		$sd_rl['grp'] = $rel_group_order[sd_rl['gi']]
+		$sd_rl['grp_rows'] = ''
+		!! In joined mode, carry a running count across groups
+		if stat_cfg['relations_group_mode'] = 0:
+			sd_rl['cnt'] = sd_rl['joined_cnt']
+		else
+			sd_rl['cnt'] = 0
+		end
+
+		!! Skip hidden groups
+		if stat_hide_rel_grp[$sd_rl['grp']] = 0:
+
+			!! Family group: only for sg start
+			if $sd_rl['grp'] = 'family' and $start_type['loc'] <> 'sg':
+				jump 'sd_rel_group_next'
+			end
+
+			!! ── Lovers group: dynamic from $lover[] ─────────────────
+			if $sd_rl['grp'] = 'lovers':
+				sd_rl['li'] = 0
+				sd_rl['lmax'] = arrsize('$lover')
+				:sd_rel_lover_loop
+					if sd_rl['li'] >= sd_rl['lmax']: jump 'sd_rel_lover_done'
+					$sd_rl['lovid'] = $lover[sd_rl['li']]
+					if $npc_rel_type[$sd_rl['lovid']] = 'boyfriend':
+						$sd_rl['lovtype'] = 'BF'
+					elseif $npc_rel_type[$sd_rl['lovid']] = 'girlfriend':
+						$sd_rl['lovtype'] = 'GF'
+					elseif $npc_rel_type[$sd_rl['lovid']] = 'fuckbuddy':
+						$sd_rl['lovtype'] = 'FB'
+					elseif $npc_rel_type[$sd_rl['lovid']] = 'sugar_daddy':
+						$sd_rl['lovtype'] = 'SD'
+					else
+						$sd_rl['lovtype'] = ''
+					end
+					if $sd_rl['lovtype'] <> '':
+						!! Skip if user has hidden this NPC
+						if stat_hide_rel[$sd_rl['lovid']] = 0:
+							!! Resolve name via helper (respects global mode + per-NPC overrides)
+							$sd_rl['lovname'] = $sd_rl['lovtype'] + ' ' + $func('stat_display', 'helper_rel_name', '', $sd_rl['lovid'])
+							$sd_rl['grp_rows'] += $func('stat_display', 'helper_rel_entry', $sd_rl['lovname'], npc_rel[$sd_rl['lovid']], sd_rl['cnt'])
+							sd_rl['cnt'] += 1
+						end
+					end
+					sd_rl['li'] += 1
+				jump 'sd_rel_lover_loop'
+				:sd_rel_lover_done
+			else
+				!! ── Static group: iterate $rel_grp['<group>_<i>'] ──────
+				sd_rl['mi'] = 0
+				:sd_rel_member_loop
+					$sd_rl['key'] = $rel_grp[$sd_rl['grp'] + '_' + $str(sd_rl['mi'])]
+					if $sd_rl['key'] = '': jump 'sd_rel_member_done'
+
+					!! Skip if user has hidden this entry
+					if stat_hide_rel[$sd_rl['key']] = 0:
+						sd_rl['val'] = npc_rel[$sd_rl['key']]
+						if sd_rl['val'] > 0:
+							$sd_rl['name'] = $func('stat_display', 'helper_rel_name', $sd_rl['key'])
+							$sd_rl['grp_rows'] += $func('stat_display', 'helper_rel_entry', $sd_rl['name'], sd_rl['val'], sd_rl['cnt'])
+							sd_rl['cnt'] += 1
+						end
+					end
+
+					sd_rl['mi'] += 1
+				jump 'sd_rel_member_loop'
+				:sd_rel_member_done
+			end
+
+			!! Close unclosed row if cell count not a multiple of columns
+			if $sd_rl['grp_rows'] <> '':
+				!! relations_group_mode: 0=joined (no headers), 1=gap, 2=header — all use single table
+				if stat_cfg['relations_group_mode'] = 0:
+					!! Joined: carry running count, don''t close partial rows
+					sd_rl['joined_cnt'] = sd_rl['cnt']
+					$sd_rl['rows'] += $sd_rl['grp_rows']
+				elseif stat_cfg['relations_group_mode'] = 1:
+					if sd_rl['cnt'] mod sd['relations_columns'] <> 0: $sd_rl['grp_rows'] += '</tr>'
+					!! Gap: spacer row between groups, no header text (skip spacer for first group)
+					if $sd_rl['rows'] <> '':
+						$sd_rl['rows'] += '<tr><td colspan="' + $str(sd_rl['td_cols']) + '" style="padding-top:6px;border:none;"></td></tr>'
+					end
+					$sd_rl['rows'] += $sd_rl['grp_rows']
+				else
+					if sd_rl['cnt'] mod sd['relations_columns'] <> 0: $sd_rl['grp_rows'] += '</tr>'
+					!! Header: header row with group name, no side borders
+					$sd_rl['hdr_style'] = 'padding-top:4px;border-left:none;border-right:none;font-size:<<sd_font_pct>>%;'
+					$sd_rl['hdr_align'] = ''
+					if sd_rl['align'] = 1:
+						$sd_rl['hdr_style'] += 'text-align:center;'
+						$sd_rl['hdr_align'] = ' align="center"'
+					elseif sd_rl['align'] = 2:
+						$sd_rl['hdr_style'] += 'text-align:right;'
+						$sd_rl['hdr_align'] = ' align="right"'
+					end
+					$sd_rl['rows'] += '<tr><td colspan="' + $str(sd_rl['td_cols']) + '"' + $sd_rl['hdr_align'] + ' style="' + $sd_rl['hdr_style'] + '"><b>' + $sd_dn[$sd_rl['grp']] + '</b></td></tr>' + $sd_rl['grp_rows']
+				end
+			end
+		end
+
+		:sd_rel_group_next
+		sd_rl['gi'] += 1
+	if sd_rl['gi'] < sd_rl['gmax']: jump 'sd_rel_group_loop'
+
+	!! Close final unclosed row in joined mode
+	if stat_cfg['relations_group_mode'] = 0 and sd_rl['joined_cnt'] mod sd['relations_columns'] <> 0:
+		$sd_rl['rows'] += '</tr>'
+	end
+
+	!! Wrap with alignment
+	if $sd_rl['rows'] <> '':
+		!! Resolve align attribute for the table element itself (text-align on a wrapper div
+		!! has no effect on block-level table elements; align="" on <table> works correctly)
+		$sd_rl['align_attr'] = iif(sd_rl['align'] = 1, ' align="center"', iif(sd_rl['align'] = 2, ' align="right"', ''))
+		!! All modes use a single table; add visible borders in text mode
+		if stat_cfg['relations_mode'] = 0:
+			$result = '<table' + $sd_rl['align_attr'] + ' cellpadding="2" cellspacing="0" border="1" style="border-collapse:collapse;border-color:#555;">' + $sd_rl['rows'] + '</table>'
+		else
+			$result = '<table' + $sd_rl['align_attr'] + ' cellpadding="1" cellspacing="0">' + $sd_rl['rows'] + '</table>'
+		end
+	end
+
+	!! Restore bar width
+	stat_cfg['bar_width'] = sd_rl['save_barwidth']
+
+	killvar 'sd_rl'
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_texts — render $sd_texts[] queue                            │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_texts':
+	$result = ''
+
+	sd_mt['max'] = arrsize('$sd_texts')
+	if sd_mt['max'] > 0:
+		sd_mt['i'] = 0
+		:sd_text_loop
+			!! Entries are pre-rendered HTML strings — output directly
+			if $sd_texts[sd_mt['i']] <> '':
+				if $sd['sep_text'] = '<br>':
+					$result += '<div style="font-size: <<sd_font_pct>>%;">' + $sd_texts[sd_mt['i']] + '</div>'
+				else
+					$result += iif($result <> '', $sd['sep_text'], '') + $sd_font_wrap_o + $sd_texts[sd_mt['i']] + $sd_font_wrap_c
+				end
+			end
+			sd_mt['i'] += 1
+		if sd_mt['i'] < sd_mt['max']: jump 'sd_text_loop'
+	end
+
+	killvar 'sd_mt'
+
+	!! font-size already applied per-entry above; helper_font_wrap skipped
+	!! here to avoid wrapping (and scaling) the same content twice.
+	!! Apply section alignment (left/center/right)
+	$result = $func('stat_display', 'helper_align_wrap', 'texts', $result)
+
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ sec_images — player images (face, body, clothing, etc.)         │
+!! │ image_size: 0=fit  1=full  2=force-h  3=force-w                 │
+!! │ image_headers: 0=off  1=type  2=name  3=name+info               │
+!! │ image_header_pos: 0=above  1=below                              │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'sec_images':
+	if sd_img['count'] = 0:
+		$result = ''
+		exit
+	end
+
+	!! ── Build sizing attribute / style ──────────────────────────────
+	sd_si['fit_width'] = 0
+	if stat_cfg['image_size'] = 0:
+		!! Fit to width: table drives column widths, img fills td
+		sd_si['fit_width'] = 1
+		$sd_si['size'] = 'width="100%" style="max-width:100%; width:100%; display:block;"'
+	elseif stat_cfg['image_size'] = 2:
+		$sd_si['size'] = 'height="<<stat_cfg[''image_size_px'']>>"'
+	elseif stat_cfg['image_size'] = 3:
+		$sd_si['size'] = 'width="<<stat_cfg[''image_size_px'']>>"'
+	else
+		!! Full size (1): no sizing constraint
+		$sd_si['size'] = ''
+	end
+
+	!! ── Determine column layout ─────────────────────────────────────
+	!! stat_cfg stores 0/1/2 (toggle_menu index) → actual columns 1/2/3
+	!! 3 = Wrap: single flowing row that wraps to further rows as needed.
+	sd_si['wrap_mode'] = 0
+	if stat_cfg['image_columns'] = 3: sd_si['wrap_mode'] = 1
+	sd_si['wrap_free'] = 0
+	if sd_si['wrap_mode'] = 1:
+		if sd_si['fit_width'] = 1:
+			sd_si['cols'] = sd_img['count']
+		else
+			sd_si['wrap_free'] = 1
+		end
+	else
+		sd_si['cols'] = min(max(stat_cfg['image_columns'] + 1, 1), 3)
+	end
+
+	!! ── Determine spacing ───────────────────────────────────────────
+	if stat_cfg['image_spacing'] = 0:
+		sd_si['cellspacing'] = 0
+		sd_si['cellpadding'] = 0
+	else
+		sd_si['cellspacing'] = 4
+		sd_si['cellpadding'] = 4
+	end
+
+	!! ── Wrap-free layout ────────────────────────────────────────────
+	if sd_si['wrap_free'] = 1:
+		sd_si['ann_pos'] = stat_cfg['image_header_pos']
+		$result = '<div>'
+		sd_si['ci'] = 0
+		:sd_si_wrap_loop
+
+			$sd_si['key'] = $sd_img['order_' + $str(sd_si['ci'])]
+			$sd_si['url'] = $sd_img['url_' + $sd_si['key']]
+
+			!! ── Header text ─────────────────────────────────────────
+			$sd_si['hdr'] = ''
+			if stat_cfg['image_headers'] = 1:
+				$sd_si['hdr'] = $sd_img['label_' + $sd_si['key']]
+			elseif stat_cfg['image_headers'] >= 2:
+				!! Mode 2 (Item name) and 3 (Name & info) both use the short name
+				$sd_si['hdr'] = $sd_img['short_' + $sd_si['key']]
+				$sd_si['hdr'] = $replace($sd_si['hdr'], 'number ', '#')
+				if $mid($sd_si['hdr'], len($sd_si['hdr']), 1) = '.':
+					$sd_si['hdr'] = $mid($sd_si['hdr'], 1, len($sd_si['hdr']) - 1)
+				end
+			end
+			if $sd_si['hdr'] <> '':
+				if stat_cfg['image_header_font'] = 0:
+					$sd_si['hdr'] = '<small><<$sd_si[''hdr'']>></small>'
+				elseif stat_cfg['image_header_font'] = 2:
+					$sd_si['hdr'] = '<b><<$sd_si[''hdr'']>></b>'
+				end
+			end
+
+			!! ── Condition text (only in mode 3: Name & info) ─────────
+			$sd_si['cond'] = ''
+			if stat_cfg['image_headers'] = 3:
+				$sd_si['cond'] = $sd_img['cond_' + $sd_si['key']]
+			end
+
+			!! ── Build annotation content (header + cond combined) ────
+			$sd_si['ann'] = ''
+			if $sd_si['hdr'] <> '':
+				$sd_si['ann'] = $sd_si['hdr']
+			end
+			if $sd_si['cond'] <> '':
+				if $sd_si['ann'] <> '': $sd_si['ann'] += '<br>'
+				$sd_si['ann'] += '<small>' + $sd_si['cond'] + '</small>'
+			end
+
+			!! ── Image tag ────────────────────────────────────────────
+			$sd_si['img'] = '<a href="exec: view ''<<$sd_si[''url'']>>''"><img <<$sd_si[''size'']>> src="<<$sd_si[''url'']>>"></a>'
+
+			!! ── One self-contained flow cell per image ───────────────
+			$sd_si['cell'] = '<div style="display:inline-block; vertical-align:top; text-align:center; margin:<<sd_si[''cellspacing'']>>px;">'
+			if sd_si['ann_pos'] = 0 and $sd_si['ann'] <> '':
+				$sd_si['cell'] += $sd_font_wrap_o + $sd_si['ann'] + $sd_font_wrap_c + '<br>'
+			end
+			$sd_si['cell'] += $sd_si['img']
+			if sd_si['ann_pos'] = 1 and $sd_si['ann'] <> '':
+				$sd_si['cell'] += '<br>' + $sd_font_wrap_o + $sd_si['ann'] + $sd_font_wrap_c
+			end
+			$sd_si['cell'] += '</div>'
+			$result += $sd_si['cell']
+
+			sd_si['ci'] += 1
+		if sd_si['ci'] < sd_img['count']: jump 'sd_si_wrap_loop'
+		$result += '</div>'
+
+		!! ── Apply section alignment (left/center/right) ─────────────────
+		$result = $func('stat_display', 'helper_align_wrap', 'images', $result)
+
+		killvar 'sd_si'
+		exit
+	end
+
+	!! ── Build table output ───────────────────────────────────────────
+	if sd_si['fit_width'] = 1:
+		$result = '<table width="100%" cellspacing="<<sd_si[''cellspacing'']>>" cellpadding="<<sd_si[''cellpadding'']>>">'
+		$sd_si['td_width'] = ' width="' + $str(100 / sd_si['cols']) + '%"'
+	else
+		$result = '<table cellspacing="<<sd_si[''cellspacing'']>>" cellpadding="<<sd_si[''cellpadding'']>>">'
+		$sd_si['td_width'] = ''
+	end
+
+	!! ── Whether annotation (header + condition) goes above or below ──
+	sd_si['ann_pos'] = stat_cfg['image_header_pos']
+
+	sd_si['ci'] = 0
+	$sd_si['img_cells'] = ''
+	$sd_si['ann_cells'] = ''
+	sd_si['has_ann'] = 0
+	:sd_si_cell_loop
+
+		$sd_si['key'] = $sd_img['order_' + $str(sd_si['ci'])]
+		$sd_si['url'] = $sd_img['url_' + $sd_si['key']]
+
+		!! ── Header text ─────────────────────────────────────────────
+		$sd_si['hdr'] = ''
+		if stat_cfg['image_headers'] = 1:
+			$sd_si['hdr'] = $sd_img['label_' + $sd_si['key']]
+		elseif stat_cfg['image_headers'] >= 2:
+			!! Mode 2 (Item name) and 3 (Name & info) both use the short name
+			$sd_si['hdr'] = $sd_img['short_' + $sd_si['key']]
+			$sd_si['hdr'] = $replace($sd_si['hdr'], 'number ', '#')
+			if $mid($sd_si['hdr'], len($sd_si['hdr']), 1) = '.':
+				$sd_si['hdr'] = $mid($sd_si['hdr'], 1, len($sd_si['hdr']) - 1)
+			end
+		end
+		if $sd_si['hdr'] <> '':
+			if stat_cfg['image_header_font'] = 0:
+				$sd_si['hdr'] = '<small><<$sd_si[''hdr'']>></small>'
+			elseif stat_cfg['image_header_font'] = 2:
+				$sd_si['hdr'] = '<b><<$sd_si[''hdr'']>></b>'
+			end
+		end
+
+		!! ── Condition text (only in mode 3: Name & info) ─────────────
+		$sd_si['cond'] = ''
+		if stat_cfg['image_headers'] = 3:
+			$sd_si['cond'] = $sd_img['cond_' + $sd_si['key']]
+		end
+
+		!! ── Build annotation cell content (header + cond combined) ───
+		$sd_si['ann'] = ''
+		if $sd_si['hdr'] <> '':
+			$sd_si['ann'] = $sd_si['hdr']
+		end
+		if $sd_si['cond'] <> '':
+			if $sd_si['ann'] <> '': $sd_si['ann'] += '<br>'
+			$sd_si['ann'] += '<small>' + $sd_si['cond'] + '</small>'
+		end
+
+		!! ── Image tag ───────────────────────────────────────────────
+		$sd_si['img'] = '<a href="exec: view ''<<$sd_si[''url'']>>''"><img <<$sd_si[''size'']>> src="<<$sd_si[''url'']>>"></a>'
+
+		!! ── Accumulate cells for this image-row ─────────────────────
+		$sd_si['img_cells'] += '<td valign="middle" align="center"<<$sd_si[''td_width'']>>>' + $sd_si['img'] + '</td>'
+		$sd_si['ann_cells'] += '<td valign="top"    align="center"<<$sd_si[''td_width'']>>>' + $sd_font_wrap_o + $sd_si['ann'] + $sd_font_wrap_c + '</td>'
+		if $sd_si['ann'] <> '': sd_si['has_ann'] = 1
+
+		!! ── Flush completed image-row ────────────────────────────────
+		if (sd_si['ci'] + 1) mod sd_si['cols'] = 0 or sd_si['ci'] + 1 >= sd_img['count']:
+			!! Annotation above
+			if sd_si['ann_pos'] = 0 and sd_si['has_ann'] = 1:
+				$result += '<tr>' + $sd_si['ann_cells'] + '</tr>'
+			end
+			!! Images
+			$result += '<tr>' + $sd_si['img_cells'] + '</tr>'
+			!! Annotation below
+			if sd_si['ann_pos'] = 1 and sd_si['has_ann'] = 1:
+				$result += '<tr>' + $sd_si['ann_cells'] + '</tr>'
+			end
+			$sd_si['img_cells'] = ''
+			$sd_si['ann_cells'] = ''
+			sd_si['has_ann'] = 0
+		end
+
+		sd_si['ci'] += 1
+	if sd_si['ci'] < sd_img['count']: jump 'sd_si_cell_loop'
+	$result += '</table>'
+
+	!! ── Wrap in <center> if alignment = center ──────────────────────
+	$result = $func('stat_display', 'helper_align_wrap', 'images', $result)
+
+	killvar 'sd_si'
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                          MISCELLANEOUS                              ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ debug_trace — replaces stat panel with call trace UI            │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'debug_trace':
+	p '<center>'
+	if $git_hash <> '': pl '<<$git_hash>>'
+	if debug['call_trace_selector'] = 0:
+		p '地点切换&nbsp;|&nbsp;'
+		p '<a href="exec: debug[''call_trace_selector''] = 1 & gs ''stat_display''">直接</a>'
+		nl '<hr>'
+
+		if debug['trace_loc_change'] = 0:
+			p '<a href="exec: debug[''trace_loc_change''] = 1 & gs ''stat_display''">开始</a>&nbsp;|&nbsp;'
+		else
+			p '<a href="exec: debug[''trace_loc_change''] = 0 & gs ''stat_display''">停止</a>&nbsp;|&nbsp;'
+		end
+		p '<a href="exec: $debug[''loc_change_trace''] = '''' & gs ''stat_display''">清除</a>&nbsp;|&nbsp;'
+		pl '<a href="exec: debug[''trace_shown''] = 0 & gs ''stat''">返回</a></center>'
+
+		p $debug['loc_change_trace']
+	else
+		p '<a href="exec: debug[''call_trace_selector''] = 0 & gs ''stat_display''">地点切换</a>&nbsp;|&nbsp;'
+		p 'direct'
+		nl '<hr>'
+
+		p '<a href="exec: $trace_locations[] = $input(''location name'') & gs ''stat_display''">按名称添加</a>&nbsp;|&nbsp;'
+		p '<a href="exec: $trace_locations[] = $curloc & gs ''stat_display''">添加 $curloc</a>'
+		nl '<hr>'
+
+		if arrsize('$trace_locations') > 0:
+			p '<a href="exec: gs ''debug_tools'', ''trace_list_locs''">列出地点</a>&nbsp;|&nbsp;'
+			p '<a href="exec: killvar ''$trace_locations'' & gs ''stat_display''">清除</a>'
+		else
+			p '列出地点&nbsp;|&nbsp;'
+			p 'clear'
+		end
+		nl '<hr>'
+
+		p '<a href="exec: $debug[''direct_trace''] = '''' & gs ''stat_display''">清除</a>&nbsp;|&nbsp;'
+		pl '<a href="exec: debug[''trace_shown''] = 0 & gs ''stat''">返回</a></center>'
+
+		p $debug['direct_trace']
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ init — populate sd[] context + order array defaults             │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'init':
+	!! ── $sd_dn[] — display name lookup (static, guarded) ──────────
+	if $sd_dn['arousal'] = '':
+		!! Status bars + attributes + images
+		$sd_dn['arousal']			= '性兴奋'
+		$sd_dn['pain']				= '疼痛'
+		$sd_dn['health']			= '健康'
+		$sd_dn['mana']				= '法力'
+		$sd_dn['willpower']			= '意志力'
+		$sd_dn['stamina']			= '体力'
+		$sd_dn['mood']				= '心情'
+		$sd_dn['energy']			= '饥饿'
+		$sd_dn['thirst']			= '口渴'
+		$sd_dn['sleep']				= '睡眠'
+		$sd_dn['faith']				= '信仰'
+		$sd_dn['inhib']				= '抑制'
+		$sd_dn['stren']				= '力量'
+		$sd_dn['agil']				= '敏捷'
+		$sd_dn['vital']				= '耐力'
+		$sd_dn['intel']				= '智力'
+		$sd_dn['sprt']				= '精神'
+		$sd_dn['react']				= '反应'
+		$sd_dn['chrsm']				= '魅力'
+		$sd_dn['prcptn']			= '感知'
+		$sd_dn['apprnc']			= '魅力'
+		$sd_dn['magik']				= '魔法'
+		$sd_dn['sucexcess']			= '魅魔能量'
+		$sd_dn['face']				= '外貌'
+		$sd_dn['body']				= '身体'
+		$sd_dn['coat']				= '外套'
+		$sd_dn['clothes']			= '衣服'
+		$sd_dn['bra']				= '胸罩'
+		$sd_dn['panties']			= '内裤'
+		$sd_dn['shoes']				= '鞋子'
+		$sd_dn['bodysuit']			= '连体衣'
+		!! Stat panel sections
+		$sd_dn['weather']			= '天气'
+		$sd_dn['time']				= '时间'
+		$sd_dn['menu_bar']			= '主菜单'
+		$sd_dn['money']				= '金钱'
+		$sd_dn['icons']				= '图标'
+		$sd_dn['status']			= '状态'
+		$sd_dn['alerts']			= '通知'
+		$sd_dn['calendar']			= '日历'
+		$sd_dn['attributes']		= '属性'
+		$sd_dn['skills']			= '技能'
+		$sd_dn['relations']			= '关系'
+		$sd_dn['images']			= '图片'
+		$sd_dn['texts']				= '状态文本'
+		$sd_dn['loadsave']			= '保存 / 读取按钮'
+		!! Skill groups
+		$sd_dn['mental']			= '精神'
+		$sd_dn['sport']				= '运动'
+		$sd_dn['combat']			= '战斗'
+		$sd_dn['beauty']			= '美貌'
+		$sd_dn['artistic']			= '艺术'
+		$sd_dn['job']				= '工作'
+		!! Individual skills
+		$sd_dn['humint']			= '人际技能'
+		$sd_dn['persuas']			= '说服'
+		$sd_dn['observ']			= '观察'
+		$sd_dn['splcstng']			= '施法'
+		$sd_dn['run']				= '跑步'
+		$sd_dn['vball']				= '排球'
+		$sd_dn['ftbll']				= '足球'
+		$sd_dn['wrstlng']			= '摔跤'
+		$sd_dn['chess']				= '国际象棋'
+		$sd_dn['icesktng']			= '滑冰'
+		$sd_dn['gaming']			= '游戏'
+		$sd_dn['pool']				= '台球'
+		$sd_dn['bkbll']				= '篮球'
+		$sd_dn['jab']				= '刺拳'
+		$sd_dn['punch']				= '重击'
+		$sd_dn['kick']				= '踢击'
+		$sd_dn['def']				= '防御'
+		$sd_dn['shoot']				= '射击术'
+		$sd_dn['bushcraft']			= '野外生存'
+		$sd_dn['makupskl']			= '化妆'
+		$sd_dn['danc']				= '舞蹈'
+		$sd_dn['dancero']			= '艳舞'
+		$sd_dn['dancpol']			= '钢管舞'
+		$sd_dn['cheer']				= '啦啦队'
+		$sd_dn['mdlng']				= '模特'
+		$sd_dn['heels']				= '高跟鞋'
+		$sd_dn['vokal']				= '唱歌'
+		$sd_dn['instrmusic']		= '乐器'
+		$sd_dn['photoskl']			= '摄影'
+		$sd_dn['artskls']			= '艺术技能'
+		$sd_dn['perform']			= '表演'
+		$sd_dn['musicprod']			= '音乐制作'
+		$sd_dn['cleaning']			= '清洁'
+		$sd_dn['compskl']			= '电脑'
+		$sd_dn['comphckng']			= '黑客技术'
+		$sd_dn['hndiwrk']			= '手工'
+		$sd_dn['sewng']				= '裁缝'
+		$sd_dn['servng']			= '服务'
+		$sd_dn['medcn']				= '医学'
+		$sd_dn['teacher']			= '教学'
+		!! Relationship groups
+		$sd_dn['family']			= '家庭'
+		$sd_dn['lovers']			= '恋人'
+		$sd_dn['coolkid']			= '酷小孩'
+		$sd_dn['jock']				= '运动健将'
+		$sd_dn['nerd']				= '书呆子'
+		$sd_dn['gopnik']			= '戈普尼克'
+		$sd_dn['staff']				= '学校（其他）'
+		$sd_dn['pavlovsk']			= '巴甫洛夫斯克'
+		$sd_dn['city']				= '圣彼得堡'
+	end
+
+	!! ── $sd_st[] — section type lookup (static, guarded) ──────────
+	if $sd_st['status'] = '':
+		$sd_st['status']			= 'bars'
+		$sd_st['attributes']		= 'bars'
+		$sd_st['time']				= 'text'
+		$sd_st['money']				= 'text'
+		$sd_st['alerts']			= 'text'
+		$sd_st['calendar']			= 'text'
+		$sd_st['texts']				= 'text'
+		$sd_st['weather']			= 'visual'
+		$sd_st['menu_bar']			= 'visual'
+		$sd_st['icons']				= 'visual'
+		$sd_st['images']			= 'visual'
+		$sd_st['loadsave']			= 'compact'
+	end
+	!! Dynamic entries — depend on current toggle state
+	$sd_st['skills']	= iif(stat_cfg['skills_mode'], 'bars', 'table')
+	$sd_st['relations']	= iif(stat_cfg['relations_mode'], 'bars', 'table')
+
+	!! ── $menu_bar_order[] defaults ──────────────────────────────────
+	if arrsize('$menu_bar_order') <> 8:
+		killvar 'menu_bar_order'
+		$menu_bar_order[0]			= 'character'
+		$menu_bar_order[1]			= 'looks'
+		$menu_bar_order[2]			= 'purse'
+		$menu_bar_order[3]			= 'phone'
+		$menu_bar_order[4]			= 'journal'
+		$menu_bar_order[5]			= 'magic'
+		$menu_bar_order[6]			= 'clock'
+		$menu_bar_order[7]			= 'settings'
+	end
+
+	!! ── $status_bar_order[] defaults ────────────────────────────────
+	if arrsize('$status_bar_order') <> 11:
+		killvar 'status_bar_order'
+		$status_bar_order[0]		= 'arousal'
+		$status_bar_order[1]		= 'pain'
+		$status_bar_order[2]		= 'health'
+		$status_bar_order[3]		= 'mana'
+		$status_bar_order[4]		= 'willpower'
+		$status_bar_order[5]		= 'stamina'
+		$status_bar_order[6]		= 'mood'
+		$status_bar_order[7]		= 'energy'
+		$status_bar_order[8]		= 'thirst'
+		$status_bar_order[9]		= 'sleep'
+		$status_bar_order[10]		= 'faith'
+	end
+
+	!! ── $attr_bar_order[] defaults ──────────────────────────────────
+	if arrsize('$attr_bar_order') <> 12:
+		killvar 'attr_bar_order'
+		$attr_bar_order[0]			= 'inhib'
+		$attr_bar_order[1]			= 'stren'
+		$attr_bar_order[2]			= 'agil'
+		$attr_bar_order[3]			= 'vital'
+		$attr_bar_order[4]			= 'intel'
+		$attr_bar_order[5]			= 'sprt'
+		$attr_bar_order[6]			= 'react'
+		$attr_bar_order[7]			= 'chrsm'
+		$attr_bar_order[8]			= 'prcptn'
+		$attr_bar_order[9]			= 'apprnc'
+		$attr_bar_order[10]			= 'magik'
+		$attr_bar_order[11]			= 'sucexcess'
+	end
+
+	!! ── $image_order[] defaults ─────────────────────────────────────
+	if arrsize('$image_order') <> 8:
+		killvar 'image_order'
+		$image_order[0]				= 'face'
+		$image_order[1]				= 'body'
+		$image_order[2]				= 'coat'
+		$image_order[3]				= 'clothes'
+		$image_order[4]				= 'bra'
+		$image_order[5]				= 'panties'
+		$image_order[6]				= 'shoes'
+		$image_order[7]				= 'bodysuit'
+	end
+
+	!! ── $skill_group_order[] defaults ─────────────────────────────────
+	if arrsize('$skill_group_order') <> 6:
+		killvar 'skill_group_order'
+		$skill_group_order[0]		= 'mental'
+		$skill_group_order[1]		= 'sport'
+		$skill_group_order[2]		= 'combat'
+		$skill_group_order[3]		= 'beauty'
+		$skill_group_order[4]		= 'artistic'
+		$skill_group_order[5]		= 'job'
+	end
+
+	!! ── Skill group membership ───────────────────────────────────────
+	if arrsize('$skill_grp') = 0:
+		$skill_grp['mental_0']		= 'humint'
+		$skill_grp['mental_1']		= 'persuas'
+		$skill_grp['mental_2']		= 'observ'
+		$skill_grp['mental_3']		= 'splcstng'
+		$skill_grp['sport_0']		= 'run'
+		$skill_grp['sport_1']		= 'vball'
+		$skill_grp['sport_2']		= 'ftbll'
+		$skill_grp['sport_3']		= 'wrstlng'
+		$skill_grp['sport_4']		= 'chess'
+		$skill_grp['sport_5']		= 'icesktng'
+		$skill_grp['sport_6']		= 'gaming'
+		$skill_grp['sport_7']		= 'pool'
+		$skill_grp['sport_8']		= 'bkbll'
+		$skill_grp['combat_0']		= 'jab'
+		$skill_grp['combat_1']		= 'punch'
+		$skill_grp['combat_2']		= 'kick'
+		$skill_grp['combat_3']		= 'def'
+		$skill_grp['combat_4']		= 'shoot'
+		$skill_grp['combat_5']		= 'bushcraft'
+		$skill_grp['beauty_0']		= 'makupskl'
+		$skill_grp['beauty_1']		= 'danc'
+		$skill_grp['beauty_2']		= 'dancero'
+		$skill_grp['beauty_3']		= 'dancpol'
+		$skill_grp['beauty_4']		= 'cheer'
+		$skill_grp['beauty_5']		= 'mdlng'
+		$skill_grp['beauty_6']		= 'heels'
+		$skill_grp['artistic_0']	= 'vokal'
+		$skill_grp['artistic_1']	= 'instrmusic'
+		$skill_grp['artistic_2']	= 'photoskl'
+		$skill_grp['artistic_3']	= 'artskls'
+		$skill_grp['artistic_4']	= 'perform'
+		$skill_grp['artistic_5']	= 'musicprod'
+		$skill_grp['job_0']			= 'cleaning'
+		$skill_grp['job_1']			= 'compskl'
+		$skill_grp['job_2']			= 'comphckng'
+		$skill_grp['job_3']			= 'hndiwrk'
+		$skill_grp['job_4']			= 'sewng'
+		$skill_grp['job_5']			= 'servng'
+		$skill_grp['job_6']			= 'medcn'
+		$skill_grp['job_7']			= 'teacher'
+	end
+
+	!! ── $rel_group_order[] defaults (lovers = dynamic from $lover[]) ──
+	if arrsize('$rel_group_order') <> 9:
+		killvar 'rel_group_order'
+		$rel_group_order[0]			= 'family'
+		$rel_group_order[1]			= 'lovers'
+		$rel_group_order[2]			= 'coolkid'
+		$rel_group_order[3]			= 'jock'
+		$rel_group_order[4]			= 'nerd'
+		$rel_group_order[5]			= 'gopnik'
+		$rel_group_order[6]			= 'staff'
+		$rel_group_order[7]			= 'pavlovsk'
+		$rel_group_order[8]			= 'city'
+	end
+
+	!! ── NPC group membership (ordered by importance / frequency) ────
+	if arrsize('$rel_grp') = 0:
+		$rel_grp['family_0']		= 'A29'		& !! Natasha (Mother)
+		$rel_grp['family_1']		= 'A34'		& !! Kolka (Brother)
+		$rel_grp['family_2']		= 'A28'		& !! Vladimir (Dad)
+		$rel_grp['family_3']		= 'A33'		& !! Anya (Sister)
+		$rel_grp['family_4']		= 'A30'		& !! Lyudmila (Aunt Luda)
+		$rel_grp['family_5']		= 'A54'		& !! Mikhail (Uncle Misha)
+		$rel_grp['coolkid_0']		= 'A14'		& !! Ekaterina
+		$rel_grp['coolkid_1']		= 'A4'		& !! Igor
+		$rel_grp['coolkid_2']		= 'A1'		& !! Dmitriy
+		$rel_grp['coolkid_3']		= 'A25'		& !! Sonia
+		$rel_grp['coolkid_4']		= 'A15'		& !! Viktoria
+		$rel_grp['coolkid_5']		= 'A17'		& !! Irina
+		$rel_grp['coolkid_6']		= 'A22'		& !! Elžbieta
+		$rel_grp['coolkid_7']		= 'A139'	& !! Stanislava
+		$rel_grp['coolkid_8']		= 'A140'	& !! Yelizaveta
+		$rel_grp['coolkid_9']		= 'A146'	& !! Marcus
+		$rel_grp['coolkid_10']		= 'A147'	& !! Andrey
+		$rel_grp['coolkid_11']		= 'A148'	& !! Mefodiy
+		$rel_grp['jock_0']			= 'A23'		& !! Albina
+		$rel_grp['jock_1']			= 'A5'		& !! Fyodor
+		$rel_grp['jock_2']			= 'A13'		& !! Lariska
+		$rel_grp['jock_3']			= 'A3'		& !! Ivan
+		$rel_grp['jock_4']			= 'A8'		& !! Svyatoslav
+		$rel_grp['jock_5']			= 'A19'		& !! Avelina
+		$rel_grp['jock_6']			= 'A18'		& !! Christina
+		$rel_grp['jock_7']			= 'A141'	& !! Veronika
+		$rel_grp['jock_8']			= 'A149'	& !! Lazar
+		$rel_grp['jock_9']			= 'A150'	& !! Erast
+		$rel_grp['jock_10']			= 'A165'	& !! Vanya
+		$rel_grp['nerd_0']			= 'A2'		& !! Artyom
+		$rel_grp['nerd_1']			= 'A16'		& !! Natasha
+		$rel_grp['nerd_2']			= 'A6'		& !! Peter
+		$rel_grp['nerd_3']			= 'A12'		& !! Julia
+		$rel_grp['nerd_4']			= 'A142'	& !! Zinaida
+		$rel_grp['nerd_5']			= 'A151'	& !! Evgeny
+		$rel_grp['nerd_6']			= 'A152'	& !! Feofan
+		$rel_grp['nerd_7']			= 'A153'	& !! Gerasim
+		$rel_grp['nerd_8']			= 'A240'	& !! Natalia
+		$rel_grp['gopnik_0']		= 'A11'		& !! Vasily (Shulga)
+		$rel_grp['gopnik_1']		= 'A9'		& !! Viktor
+		$rel_grp['gopnik_2']		= 'A10'		& !! Denis
+		$rel_grp['gopnik_3']		= 'A21'		& !! Valeria
+		$rel_grp['gopnik_4']		= 'A20'		& !! Yalena
+		$rel_grp['gopnik_5']		= 'A24'		& !! Pauline
+		$rel_grp['gopnik_6']		= 'A143'	& !! Alyona
+		$rel_grp['gopnik_7']		= 'A144'	& !! Anushka
+		$rel_grp['gopnik_8']		= 'A145'	& !! Katyusha
+		$rel_grp['gopnik_9']		= 'A154'	& !! Radomir
+		$rel_grp['gopnik_10']		= 'A155'	& !! Lavrenti
+		$rel_grp['gopnik_11']		= 'A156'	& !! Arkadi
+		$rel_grp['gopnik_12']		= 'A157'	& !! Roman
+		$rel_grp['gopnik_13']		= 'A158'	& !! Valentin
+		$rel_grp['gopnik_14']		= 'A189'	& !! Nikolai
+		$rel_grp['staff_0']			= 'A69'		& !! Mikhail (teacher)
+		$rel_grp['staff_1']			= 'A26'		& !! Anatoly E. (teacher)
+		$rel_grp['staff_2']			= 'A7'		& !! Lesco
+		$rel_grp['staff_3']			= 'A159'	& !! Petia
+		$rel_grp['staff_4']			= 'A133'	& !! Rolan
+		$rel_grp['pavlovsk_0']		= 'A112'	& !! Sergey
+		$rel_grp['pavlovsk_1']		= 'A57'		& !! Rex
+		$rel_grp['pavlovsk_2']		= 'A219'	& !! Katja
+		$rel_grp['pavlovsk_3']		= 'A89'		& !! Eugene
+		$rel_grp['pavlovsk_4']		= 'A217'	& !! Varsonofy
+		$rel_grp['pavlovsk_5']		= 'A27'		& !! Vera
+		$rel_grp['pavlovsk_6']		= 'A60'		& !! Miroslava
+		$rel_grp['pavlovsk_7']		= 'A63'		& !! Dimitriy
+		$rel_grp['city_0']			= 'A218'	& !! Tanya
+		$rel_grp['city_1']			= 'A220'	& !! Vika
+		$rel_grp['city_2']			= 'A82'		& !! Djibril
+		$rel_grp['city_3']			= 'A84'		& !! Kendra
+		$rel_grp['city_4']			= 'A216'	& !! Martin
+		$rel_grp['city_5']			= 'A241'	& !! Alexandria
+		$rel_grp['city_6']			= 'A260'	& !! Sofia
+		$rel_grp['city_7']			= 'A204'	& !! Savva
+	end
+
+	!! ── Precomputed render-context strings ──────────────────────────
+	if stat_cfg['newline_alerts'] = 2:
+		$sd['sep_alert'] = ' '
+	else
+		$sd['sep_alert'] = '<br>'
+	end
+
+	if stat_cfg['newline_texts'] = 1:
+		$sd['sep_text'] = '<br>'
+	elseif stat_cfg['newline_texts'] = 2:
+		$sd['sep_text'] = ' '
+	elseif stat_cfg['msg_separator'] = 1:
+		$sd['sep_text'] = ' '
+	else
+		$sd['sep_text'] = '<br>'
+	end
+	$sd['micon'] = 'height="' + str(stat_cfg['menu_icon_height']) + '" src="images/system/icons/menu/'
+	!! skills_columns / relations_columns: stored as toggle index (0=1col, 1=2col, 2=3col)
+	sd['skills_columns'] = stat_cfg['skills_columns'] + 1
+	sd['relations_columns'] = stat_cfg['relations_columns'] + 1
+
+	!! ── $stat_order[] defaults ──────────────────────────────────────
+	if arrsize('$stat_order') <> 14:
+		killvar 'stat_order'
+		$stat_order[] = 'weather'
+		$stat_order[] = 'time'
+		$stat_order[] = 'menu_bar'
+		$stat_order[] = 'money'
+		$stat_order[] = 'icons'
+		$stat_order[] = 'alerts'
+		$stat_order[] = 'calendar'
+		$stat_order[] = 'status'
+		$stat_order[] = 'attributes'
+		$stat_order[] = 'texts'
+		$stat_order[] = 'images'
+		$stat_order[] = 'skills'
+		$stat_order[] = 'relations'
+		$stat_order[] = 'loadsave'
+	end
+	exit
+end
+
+
+!! ┌─────────────────────────────────────────────────────────────────┐
+!! │ finalize — HTML cleanup, font size, Android output, final print │
+!! └─────────────────────────────────────────────────────────────────┘
+if $ARGS[0] = 'finalize':
+
+	!! ── Font size cleanup ───────────────────────────────────────────
+	!! Finalize android line before clearing wrappers
+	if stat_cfg['android']:
+		$sd_android += ' <a href="exec: savegame ''quicksave.sav'' && pl''快速存档完成''">快存</a>  <a href="exec: if input(''输入任意内容以确认快速读取'') <> '''': opengame ''quicksave.sav''">快读</a>'
+		$sd_android = $func('stat_display', 'helper_font_wrap', $sd_android)
+	end
+	killvar 'sd_font_wrap_o'
+	killvar 'sd_font_wrap_c'
+	killvar 'sd_font_pct'
+	killvar 'sep_margin_px'
+
+	!! ── HTML cleanup ────────────────────────────────────────────────
+	$stat_msg = $replace($stat_msg, '  ', ' ')
+	$stat_msg = $replace($stat_msg, '<br> ', '<br>')
+	$stat_msg = $func('cleanHTML', $stat_msg)
+
+	!! ── Final print ─────────────────────────────────────────────────
+	if stat_cfg['android']:
+		*pl $func('cleanHTML', $sd_android)
+		$stat_msg = '安卓模式，<a href="exec: gs ''$menu_obnovit''">刷新</a>' + $stat_msg
+	else
+		pl $stat_msg
+	end
+	exit
+end
+
+
+!! ╔═════════════════════════════════════════════════════════════════════╗
+!! ║                    MAIN — CENTRAL DISPATCHER                        ║
+!! ╚═════════════════════════════════════════════════════════════════════╝
+
+
+if $ARGS[0] <> '': exit
+!! Debug trace: replaces entire stat panel with call trace info
+if debug['trace_shown'] = 1:
+	clr
+	gs 'stat_display', 'debug_trace'
+	exit
+end
+
+!! ── Initialization ──────────────────────────────────────────────────
+
+if stat_cfg['android'] = 0: clear
+
+!! Build Android short-form status string (shown instead of full stat panel)
+$sd_android = '<b><<$func(''time'', ''get_time_string'')>></b>'
+$sd_android += '<<$weekName>> <<day>>/<<month>>, <<$func(''money'', ''format'', money)>>, <a href="exec: clr & pl $sd_android">状态</a>'
+
+gs 'stat_display', 'init'
+
+!! ── Data Computation ────────────────────────────────────────────────
+
+gs 'stat_display_compute', 'compute_data'
+
+!! Always-show-face: open face image viewer on every stat update
+if cfg_vars['faceturn'] = 1: view $func('$face_image')
+
+!! ── Font size span wrappers ──────────────────────────────────────────
+!! $sd_font_wrap_o : opening <span style="font-size:X%;"> ('' when 100%)
+!! $sd_font_wrap_c : closing </span>                      ('' when 100%)
+!! Used directly in table cell helpers and via helper_font_wrap for sections.
+if stat_cfg['font_size'] = -2:
+	sd_font_pct = 70
+elseif stat_cfg['font_size'] = -1:
+	sd_font_pct = 85
+elseif stat_cfg['font_size'] = 1:
+	sd_font_pct = 115
+elseif stat_cfg['font_size'] = 2:
+	sd_font_pct = 130
+elseif stat_cfg['font_size'] <> 0:
+	sd_font_pct = stat_cfg['font_size']
+else
+	sd_font_pct = 100
+end
+$sd_font_wrap_o = iif(sd_font_pct <> 100, '<span style="font-size:' + $str(sd_font_pct) + '%;">', '')
+$sd_font_wrap_c = iif($sd_font_wrap_o <> '', '</span>', '')
+!! sep_margin_px : 8px section-gap margin (get_separator), scaled to font size
+sep_margin_px = 8 * sd_font_pct / 100
+
+!! ── Section Rendering (dispatcher loop) ─────────────────────────────
+
+$stat_msg = ''
+
+!! Git hash header
+if $git_hash <> '':
+	$stat_msg = '<center>' + $git_hash + '</center>'
+end
+
+$sd_d['prev'] = ''
+sd_d['i'] = 0
+sd_d['max'] = arrsize('$stat_order')
+:sd_dispatch_loop
+
+	!! $stat_order[] contains section keys directly
+	$sd_d['sec'] = $stat_order[sd_d['i']]
+	$sd_d['res'] = ''
+
+	!! Render content if not hidden (stat_hide=0)
+	if stat_hide[$sd_d['sec']] = 0:
+		$sd_d['res'] = $func('stat_display', 'sec_' + $sd_d['sec'])
+	end
+
+	!! Render section header if visible or in collapsible mode (sec_headers=2)
+	!! Minor/utility sections (weather, time, money, loadsave, menu_bar) never get a header.
+	if $sd_d['sec'] <> 'weather' and $sd_d['sec'] <> 'time' and $sd_d['sec'] <> 'money' and $sd_d['sec'] <> 'loadsave' and $sd_d['sec'] <> 'menu_bar':
+		if stat_hide[$sd_d['sec']] = 0 or stat_cfg['sec_headers'] = 2:
+			$sd_d['res'] = $func('stat_display', 'helper_section_header', $sd_d['sec'], $sd_d['res'])
+		end
+	end
+
+	!! Insert separator if needed
+	if $sd_d['res'] <> '':
+		!! ── Determine content type, insert separator between non-empty sections ─
+		$sd_d['cur'] = $iif($sd_st[$sd_d['sec']] <> '', $sd_st[$sd_d['sec']], 'text')
+		if $sd_d['prev'] <> '':
+			$stat_msg += $func('stat_display', 'get_separator', $sd_d['prev'], $sd_d['cur'])
+		end
+		$sd_d['prev'] = $sd_d['cur']
+	end
+
+	$stat_msg += $sd_d['res']
+	sd_d['i'] += 1
+if sd_d['i'] < sd_d['max']: jump 'sd_dispatch_loop'
+killvar 'sd_d'
+
+!! ── Final Assembly ──────────────────────────────────────────────────
+
+gs 'stat_display', 'finalize'
+
+
+--- stat_display ---------------------------------

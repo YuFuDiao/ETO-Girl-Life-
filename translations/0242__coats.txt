@@ -1,0 +1,454 @@
+# coats
+!!{
+	2026/05/13
+	gs 'coats', 'remove'
+	To remove coat and store them
+	gs 'coats', 'wear', 'type', 'number'
+	To wear coat - There is no previous worn stored as this is only specified through cloakroom/wardrobe
+!!}
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             FUNCTIONS                              !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'get_total':
+	if $mid($ARGS[1], 1, 5) = 'bomba':
+		result = 20
+	elseif $mid($ARGS[1], 1, 4) = 'cats':
+		result = 20
+	elseif $mid($ARGS[1], 1, 10) = 'danilovich':
+		result = 20
+	elseif $mid($ARGS[1], 1, 5) = 'dolls':
+		result = 20
+	elseif $mid($ARGS[1], 1, 2) = 'gm':
+		result = 20
+	elseif $mid($ARGS[1], 1, 8) = 'moncheri':
+		result = 20
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'totals':
+	total = func('coats', 'get_total', $ARGS[1])
+	exit
+end
+
+
+if $ARGS[0] = 'not_wear_reason':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+	if arrsize('ARGS') = 3: gs 'coat_attributes', $ARGS[1], ARGS[2]
+
+	$result = ''
+	if func('coats', 'is_immutable', $ARGS[1], ARGS[2]): exit
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]) = 0:
+		$result = 'not_owned'
+		exit
+	end
+	if func('coats', 'in_wardrobe', $ARGS[1], ARGS[2]) = 0:
+		$result = 'not_in_wardrobe'
+		exit
+	end
+	if func('coats', 'is_strength_low', $ARGS[1], ARGS[2]):
+		$result = 'low_strength'
+		exit
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'can_wear':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+	if arrsize('ARGS') = 3: gs 'coat_attributes', $ARGS[1], ARGS[2]
+
+	result = ($func('coats', 'not_wear_reason', $ARGS[1], ARGS[2], 'attributes_set') = '')
+	exit
+end
+
+
+if $ARGS[0] = 'is_owned':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+
+	result = dyneval("result = (<<$ARGS[1]>>_coats[<<ARGS[2]>>] > 0)")
+	exit
+end
+
+
+if $ARGS[0] = 'in_wardrobe':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+
+	result = 0
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 0)")
+	end
+	exit
+end
+
+if $ARGS[0] = 'in_storage':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+
+	result = 0
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 1)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'in_unwanted':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+
+	result = 0
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		result = dyneval("result = (<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 2)")
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'is_strength_low':
+	if arrsize('ARGS') = 1: $ARGS[1] = $coatworntype
+	if arrsize('ARGS') = 2: ARGS[2] = coatwornnumber
+
+	result = dyneval("result = (<<$ARGS[1]>>_coats_h[<<ARGS[2]>>] <= 0)")
+	exit
+end
+
+
+
+if $ARGS[0] = 'is_wearing_any':
+	result = ($coatworntype <> '' and $coatworntype <> 'none')
+	exit
+end
+
+
+if $ARGS[0] = 'is_wearing':
+	result = ($coatworntype = $ARGS[1] and coatwornnumber = ARGS[2])
+	exit
+end
+
+
+if $ARGS[0] = 'is_immutable':
+	result = 0
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                             MANAGEMENT                             !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'add_item':
+	if $ARGS[1] = '': exit
+	if ARGS[2] = 0: exit
+
+	gs 'coat_attributes', $ARGS[1], ARGS[2]
+
+	if CoatQuality = 0: exit
+
+	dynamic "
+		<<$ARGS[1]>>_coats[<<ARGS[2]>>] = 1
+		<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_coats_w[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_coats_h[<<ARGS[2]>>] = CoatStrength
+	"
+	exit
+end
+
+
+if $ARGS[0] = 'remove_item':
+	if $ARGS[1] = '': $ARGS[1] = $coatworntype
+	if ARGS[2] = 0: ARGS[2] = coatwornnumber
+
+	if $ARGS[1] = '' or $ARGS[1] = 'none': exit
+
+	dynamic "
+		<<$ARGS[1]>>_coats[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_coats_w[<<ARGS[2]>>] = 0
+		<<$ARGS[1]>>_coats_h[<<ARGS[2]>>] = 0
+	"
+
+	if $ARGS[1] = $coatworntype and ARGS[2] = coatwornnumber:
+		gs 'coats', 'strip_code'
+		$lastworncoattype = 'none'
+		lastworncoatnumber = 0
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'reset_immutables':
+	exit
+end
+
+
+if $ARGS[0] = 'dispose':
+	gs 'coats', 'remove_item', $coatworntype, coatwornnumber
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_wardrobe':
+	if $ARGS[1] = '': $ARGS[1] = $coatworntype
+	if ARGS[2] = 0: ARGS[2] = coatwornnumber
+
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 0"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_storage':
+	if $ARGS[1] = '': $ARGS[1] = $coatworntype
+	if ARGS[2] = 0: ARGS[2] = coatwornnumber
+
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 1"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'move_to_unwanted':
+	if $ARGS[1] = '': $ARGS[1] = $coatworntype
+	if ARGS[2] = 0: ARGS[2] = coatwornnumber
+
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "<<$ARGS[1]>>_coats_s[<<ARGS[2]>>] = 2"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'remove':
+	gs 'coats', 'strip'
+	exit
+end
+
+
+if $ARGS[0] = 'strip':
+	if $coatworntype = '':
+		$coatworntype = 'none'
+		coatwornnumber = 0
+	end
+
+	$lastworncoattype = $coatworntype
+	lastworncoatnumber = coatwornnumber
+	gs 'coats', 'strip_code'
+	exit
+end
+
+
+if $ARGS[0] = 'strip_code':
+	$coatworntype = 'none'
+	coatwornnumber = 0
+
+	gs 'coats', 'reset_CoatVars'
+	gs 'coats', 'reset_PCoatVars'
+	gs 'outfit', 'set_derived_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'reset_CoatVars':
+	CoatWarm = 0
+	CoatQuality = 0
+	CoatPrice = 0
+	CoatStrength = 0
+	CoatMaxStrength = 0
+	$coat_description = ''
+	exit
+end
+
+
+if $ARGS[0] = 'reset_PCoatVars':
+	PCoatWarm = 0
+	PCoatQuality = 0
+	PCoatPrice = 0
+	PCoatStrength = 0
+	PCoatMaxStrength = 0
+	PCoatBorrowed = 0
+	exit
+end
+
+
+if $ARGS[0] = 'wear':
+	if $ARGS[1] = 'last_worn':
+		$ARGS[1] = $lastworncoattype
+		ARGS[2] = lastworncoatnumber
+	end
+	if $ARGS[1] = '' or $ARGS[1] = 'none': exit
+
+	gs 'coats', 'strip'
+
+	gs 'coat_attributes', $ARGS[1], ARGS[2]
+
+	if arrpos('$ARGS', 'check') > 0:
+		$temp_not_wear_reason = $func('coats', 'not_wear_reason', $ARGS[1], ARGS[2], 'attributes_set')
+		if $temp_not_wear_reason <> '':
+			if $temp_not_wear_reason = 'not_owned':
+				msg '你没有这件外套'
+			end
+			killvar '$temp_not_wear_reason'
+			exit
+		end
+		killvar '$temp_not_wear_reason'
+	end
+
+	$coatworntype = $ARGS[1]
+	coatwornnumber = ARGS[2]
+
+	dynamic "
+		<<$ARGS[1]>>_coats_w[<<ARGS[2]>>] = 1
+	"
+
+	PCoatWarm = CoatWarm
+	PCoatQuality = CoatQuality
+	PCoatPrice = CoatPrice
+	PCoatStrength = CoatStrength
+	PCoatMaxStrength = CoatMaxStrength
+
+	if arrpos('$ARGS', 'borrowed') >= 0:
+		PCoatBorrowed = 1
+		PCoatStrength = PCoatMaxStrength
+	end
+
+	gs 'outfit', 'set_derived_vars'
+	exit
+end
+
+
+if $ARGS[0] = 'increase_cur_strength':
+	if ARGS[1] <= 0: ARGS[1] = 1
+	gs 'coats', 'increase_strength', $coatworntype, coatwornnumber, ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'decrease_cur_strength':
+	if ARGS[1] <= 0: ARGS[1] = 1
+	gs 'coats', 'decrease_strength', $coatworntype, coatwornnumber, ARGS[1]
+	exit
+end
+
+
+if $ARGS[0] = 'increase_strength':
+	if $ARGS[1] = '': $ARGS[1] = $coatworntype
+	if ARGS[2] = 0: ARGS[2] = coatwornnumber
+	if ARGS[3] <= 0: ARGS[3] = 1
+
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		gs 'coat_attributes', $ARGS[1], ARGS[2]
+		dynamic "
+			<<$ARGS[1]>>_coats_h[<<ARGS[2]>>] = min(<<$ARGS[1]>>_coats_h[<<ARGS[2]>>] + <<ARGS[3]>>, <<CoatMaxStrength>>)
+			if '<<$ARGS[1]>>' = $coatworntype and <<ARGS[2]>> = coatwornnumber:
+				PCoatStrength = <<$ARGS[1]>>_coats_h[<<ARGS[2]>>]
+			end
+		"
+	end
+	exit
+end
+
+
+if $ARGS[0] = 'decrease_strength':
+	if $ARGS[1] = '': $ARGS[1] = $coatworntype
+	if ARGS[2] = 0: ARGS[2] = coatwornnumber
+	if ARGS[3] <= 0: ARGS[3] = 1
+
+	if func('coats', 'is_owned', $ARGS[1], ARGS[2]):
+		dynamic "
+			<<$ARGS[1]>>_coats_h[<<ARGS[2]>>] -= <<ARGS[3]>>
+			if <<$ARGS[1]>>_coats_h[<<ARGS[2]>>] < 0: <<$ARGS[1]>>_coats_h[<<ARGS[2]>>] = 0
+			if '<<$ARGS[1]>>' = $coatworntype and <<ARGS[2]>> = coatwornnumber:
+				PCoatStrength = <<$ARGS[1]>>_coats_h[<<ARGS[2]>>]
+			end
+		"
+	end
+	exit
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                         WARDROBE AND SHOPS                         !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+!! DEPRECATED
+if $ARGS[0] = 'set_shop_display_exceptions':
+	gs 'coat_view','init', 'set_exceptions'
+	exit
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'view_coat_list':
+	!! ARGS 1 - action type (clean, dirty, store, bathroom, wardrobe)
+	gt 'coat_view', 'view_grid', $ARGS[1]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'view_coat_item':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - coat type
+	!! ARGS[3] - coat index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gt 'coat_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest0':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - coat type
+	!! ARGS[3] - coat index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'coats', 'move_to_wardrobe', $ARGS[2], ARGS[3]
+	gt 'coat_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest1':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - coat type
+	!! ARGS[3] - coat index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'coats', 'move_to_storage', $ARGS[2], ARGS[3]
+	gt 'coat_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+!! DEPRECATED
+if $ARGS[0] = 'dest2':
+	!! $ARGS[1] = action type (draw, shop)
+	!! $ARGS[2] - coat type
+	!! ARGS[3] - coat index
+	!! ARGS[4] - price modifier (0-100, taken as %) {OPTIONAL}
+	gs 'coats', 'move_to_unwanted', $ARGS[2], ARGS[3]
+	gt 'coat_view', 'view_item', $ARGS[1], $ARGS[2], ARGS[3], ARGS[4]
+end
+
+
+--- coats ---------------------------------

@@ -1,0 +1,759 @@
+# help
+!! Help / glossary system.
+!!
+!! Entry points (call these from outside):
+!!   gs 'help', 'open'              — open contextual page based on current location
+!!   gs 'help', 'open', 'page_key'  — open a specific named page directly
+!!
+!! Internal navigation between help pages uses:
+!!   gs 'loc', 'page_name'   — no push/pop, stays inside the glossary
+!!
+!! Exiting always goes through 'back', which pops the state stack.
+!!
+!! Context variables (set on open, cleared on back):
+!!   $help_from_curloc          — $curloc at the moment the glossary was opened
+!!   $help_from_loc_arg         — $loc_arg at the moment the glossary was opened
+!!   $help_from_location_type   — $location_type at the moment the glossary was opened
+!!
+!! Page rendering — each page handler sets these then calls gs 'help', 'render':
+!!   $help_page_title    — displayed in the banner
+!!   $help_page_key      — set automatically by render from its ARGS[1]
+!!   $help_page_loc      — location name this page lives in (omit if 'help'; set to e.g. 'help_2' if split)
+!!   $help_page_content  — HTML string for the main content area
+
+
+!! ── Open: entry from the stat bar icon or a direct link ─────────────
+!! If ARGS[1] is provided it is used as the target page directly.
+!! Otherwise the fallback-chain dispatcher (show) picks the best page.
+if $ARGS[0] = 'open':
+	gs 'state', 'push'
+	menu_off = 1
+	$help_from_curloc = $curloc
+	$help_from_loc_arg = $loc_arg
+	$help_from_location_type = $location_type
+	gt 'help', iif($ARGS[1] <> '', $ARGS[1], 'show')
+end
+
+
+!! ── Show: fallback-chain dispatcher ─────────────────────────────────
+!! Priority:
+!!   1. Exact match on curloc + loc_arg
+!!   2. Exact match on curloc alone
+!!   3. Match on $help_from_location_type
+!!   4. Generic fallback
+if $ARGS[0] = 'show':
+	!! 1. Exact loc + arg match
+	!! (add: if $help_from_curloc = 'loc' and $help_from_loc_arg = 'arg': gt 'help', 'page_name')
+
+	!! 2. Exact loc match
+	!! (add: if $help_from_curloc = 'loc': gt 'help', 'page_name')
+
+	!! 3. location_type match
+	!! (add: if $help_from_location_type = 'home': gt 'help', 'topic_home')
+
+	!! 4. Generic fallback
+	gt 'help', 'generic'
+end
+
+
+!! ── Back: exit the glossary and restore game state ──────────────────
+if $ARGS[0] = 'back':
+	killvar 'help_from_curloc'
+	killvar 'help_from_loc_arg'
+	killvar 'help_from_location_type'
+	killvar 'help_page_title'
+	killvar 'help_page_key'
+	killvar 'help_page_loc'
+	killvar 'help_page_content'
+	killvar 'help_gen_c'
+	killvar 'help_gen_cs'
+	gs 'state', 'pop'
+end
+
+
+!! ════════════════════════════════════════════════════════════════════
+!! LAYOUT ENGINE
+!! ════════════════════════════════════════════════════════════════════
+
+!! ── def_section: register a top-level TOC section ──────────────────
+!! ARGS[1] = key   ARGS[2] = page arg ('' = header only)   ARGS[3] = display label
+!! ARGS[4] = location name (optional — omit or pass '' for 'help')
+!! Children are added via def_child; the children string starts empty here.
+if $ARGS[0] = 'def_section':
+	$help_toc_sections[] = $ARGS[1]
+	$help_toc_label[$ARGS[1]] = $ARGS[3]
+	$help_toc_page[$ARGS[1]] = $ARGS[2]
+	$help_toc_loc[$ARGS[1]] = iif($ARGS[4] <> '', $ARGS[4], 'help')
+end
+
+
+!! ── def_group: non-navigating collapsible group header ──────────────
+!! ARGS[1] = parent section key ('' = top-level section list)
+!! ARGS[2] = group key   ARGS[3] = display label
+!! If a parent is given the group becomes a child of that section (nested).
+!! Add leaf children with def_child using this group key as parent.
+if $ARGS[0] = 'def_group':
+	$help_toc_label[$ARGS[2]] = $ARGS[3]
+	$help_toc_page[$ARGS[2]] = ''
+	$help_toc_loc[$ARGS[2]] = 'help'
+	help_toc_is_group[$ARGS[2]] = 1
+	if $ARGS[1] = '':
+		$help_toc_sections[] = $ARGS[2]
+	else
+		if $help_toc_children[$ARGS[1]] = '':
+			$help_toc_children[$ARGS[1]] = $ARGS[2]
+		else
+			$help_toc_children[$ARGS[1]] += ' ' + $ARGS[2]
+		end
+	end
+end
+
+
+!! ── def_child: register a child entry under a parent section ─────────
+!! ARGS[1] = parent key   ARGS[2] = child key   ARGS[3] = display label
+!! ARGS[4] = location name (optional — omit or pass '' for 'help')
+!! The child key is used directly as the page handler arg.
+if $ARGS[0] = 'def_child':
+	if $help_toc_children[$ARGS[1]] = '':
+		$help_toc_children[$ARGS[1]]  = $ARGS[2]
+	else
+		$help_toc_children[$ARGS[1]] += ' ' + $ARGS[2]
+	end
+	$help_toc_label[$ARGS[2]] = $ARGS[3]
+	$help_toc_page[$ARGS[2]] = $ARGS[2]
+	$help_toc_loc[$ARGS[2]] = iif($ARGS[4] <> '', $ARGS[4], 'help')
+end
+
+
+!! ── toc_init: define the TOC tree structure ──────────────────────────
+!! Called before each render. Rebuilds structure arrays from scratch.
+!! Expand/collapse state (help_toc_open[]) is NOT cleared — persists within the session.
+!!
+!! Add new entries here using def_section / def_child.
+!! For pages in a split file (help_2.qsrc etc.) pass the location name as the last arg.
+!! Example:   gs 'help', 'def_child', 'ui', 'ui_phone', 'Phone', 'help_2'
+!!
+!! def_section signature:  key, page_arg, label  [, loc]
+!! def_child signature:    parent_key, child_key, label  [, loc]
+if $ARGS[0] = 'toc_init':
+	killvar 'help_toc_sections'
+	killvar 'help_toc_label'
+	killvar 'help_toc_page'
+	killvar 'help_toc_children'
+	killvar 'help_toc_loc'
+	killvar 'help_toc_is_group'
+
+	!! ── User Interface ──────────────────────────────────────────────
+	gs 'help', 'def_section',	'ui',			'ui_overview',			'用户界面'
+	gs 'help', 'def_child',		'ui',			'ui_statbar',			'状态栏'
+	gs 'help', 'def_child',		'ui',			'ui_menu',				'导航菜单'
+	gs 'help', 'def_child',		'ui',			'ui_actions',			'操作按钮'
+
+	!! ── Game Mechanics ────────────────────────────────────────────
+	gs 'help', 'def_section',	'mechanics',	'mech_overview',		'游戏机制'
+	gs 'help', 'def_child',		'mechanics',	'mech_time',			'时间与日程'
+	gs 'help', 'def_child',		'mechanics',	'mech_stats',			'属性与特性'
+	gs 'help', 'def_child',		'mechanics',	'mech_money',			'金钱与财务'
+
+	!! ── Characters ────────────────────────────────────────────────────
+	gs 'help', 'def_section',	'chars',		'chars_overview',		'角色'
+	gs 'help', 'def_child',		'chars',		'chars_pc',				'你的角色',			'help_characters'
+
+	!! ── Family (nested under Characters) ───────────────────────────
+	gs 'help', 'def_group',		'chars',		'family',				'家人'
+	gs 'help', 'def_child',		'family',		'char_dad',				$npc_usedname['A28'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_mom',				$npc_usedname['A29'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_luda',			$npc_usedname['A30'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_grandma',			$npc_usedname['A31'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_grandpa',			$npc_usedname['A32'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_anya',			$npc_usedname['A33'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_kolka',			$npc_usedname['A34'],		'help_characters'
+	gs 'help', 'def_child',		'family',		'char_uncle_misha',		$npc_usedname['A54'],		'help_characters'
+
+	!! ── School groups (nested under Characters) ─────────────────────
+	gs 'help', 'def_group',		'chars',		'sch_cool',				'学校：酷小孩'
+	gs 'help', 'def_child',		'sch_cool',		'char_dimka',			$npc_usedname['A1'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_igor',			$npc_usedname['A4'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_marcus',			$npc_usedname['A146'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_andrey',			$npc_usedname['A147'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_mefodiy',			$npc_usedname['A148'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_katja',			$npc_usedname['A14'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_vicky',			$npc_usedname['A15'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_irina',			$npc_usedname['A17'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_bella',			$npc_usedname['A22'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_stasya',			$npc_usedname['A139'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_lizaveta',		$npc_usedname['A140'],		'help_characters'
+	gs 'help', 'def_child',		'sch_cool',		'char_sonia',			$npc_usedname['A25'],		'help_characters'
+
+	gs 'help', 'def_group',		'chars',		'sch_jock',				'学校：运动健将'
+	gs 'help', 'def_child',		'sch_jock',		'char_ivan',			$npc_usedname['A3'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_fedor',			$npc_usedname['A5'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_svyatoslav',		$npc_usedname['A8'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_lazar',			$npc_usedname['A149'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_erast',			$npc_usedname['A150'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_vanya',			$npc_usedname['A165'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_lariska',			$npc_usedname['A13'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_christina',		$npc_usedname['A18'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_lina',			$npc_usedname['A19'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_albina',			$npc_usedname['A23'],		'help_characters'
+	gs 'help', 'def_child',		'sch_jock',		'char_ronnie',			$npc_usedname['A141'],		'help_characters'
+
+	gs 'help', 'def_group',		'chars',		'sch_nerd',				'学校：书呆子'
+	gs 'help', 'def_child',		'sch_nerd',		'char_artem',			$npc_usedname['A2'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_petka',			$npc_usedname['A6'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_evgeny',			$npc_usedname['A151'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_feofan',			$npc_usedname['A152'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_gerasim',			$npc_usedname['A153'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_julia',			$npc_usedname['A12'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_natasha_s',		$npc_usedname['A16'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_zina',			$npc_usedname['A142'],		'help_characters'
+	gs 'help', 'def_child',		'sch_nerd',		'char_natalia',			$npc_usedname['A240'],		'help_characters'
+
+	gs 'help', 'def_group',		'chars',		'sch_gopnik',			'学校：混混'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_vitek',			$npc_usedname['A9'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_dan',				$npc_usedname['A10'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_shulga',			$npc_usedname['A11'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_radomir',			$npc_usedname['A154'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_lavrenti',		$npc_usedname['A155'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_arkadi',			$npc_usedname['A156'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_roman_y',			$npc_usedname['A157'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_valentin',		$npc_usedname['A158'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_niko',			$npc_usedname['A189'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_lena',			$npc_usedname['A20'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_lera',			$npc_usedname['A21'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_pauline',			$npc_usedname['A24'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_alyona',			$npc_usedname['A143'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_anushka',			$npc_usedname['A144'],		'help_characters'
+	gs 'help', 'def_child',		'sch_gopnik',	'char_katyusha',		$npc_usedname['A145'],		'help_characters'
+
+	gs 'help', 'def_group',		'chars',		'sch_outcast',			'学校：边缘人'
+	gs 'help', 'def_child',		'sch_outcast',	'char_lesco',			$npc_usedname['A7'],		'help_characters'
+	gs 'help', 'def_child',		'sch_outcast',	'char_petia',			$npc_usedname['A159'],		'help_characters'
+
+	gs 'help', 'def_group',		'chars',		'sch_teacher',			'学校：教师'
+	gs 'help', 'def_child',		'sch_teacher',	'char_coach',			$npc_usedname['A69'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_vasilyev',		$npc_usedname['A128'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_ivanov',			$npc_usedname['A129'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_yenotin',			$npc_usedname['A130'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_pavlovich',		$npc_usedname['A131'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_kuznetsov_t',		$npc_usedname['A132'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_matveev',			$npc_usedname['A133'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_miss_volkov',		$npc_usedname['A134'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_miss_sokoloff',	$npc_usedname['A135'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_miss_aleksand',	$npc_usedname['A136'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_miss_braakman',	$npc_usedname['A137'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_miss_orlov',		$npc_usedname['A138'],		'help_characters'
+	gs 'help', 'def_child',		'sch_teacher',	'char_anatoly',			$npc_usedname['A26'],		'help_characters'
+
+	!! ── Pavlovsk: Residents & Adults (nested under Characters) ──────
+	gs 'help', 'def_group',		'chars',		'pav_resident',			'巴甫洛夫斯克：居民'
+	gs 'help', 'def_child',		'pav_resident',	'char_vera',			$npc_usedname['A27'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_olu',				$npc_usedname['A55'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_roma',			$npc_usedname['A56'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_rex',				$npc_usedname['A57'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_arthur',			$npc_usedname['A73'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_marisha',			$npc_usedname['A93'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_sergey',			$npc_usedname['A112'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_vadim',			$npc_usedname['A113'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_shulyov',			$npc_usedname['A127'],		'help_characters'
+	gs 'help', 'def_child',		'pav_resident',	'char_pavlin',			$npc_usedname['A217'],		'help_characters'
+
+	!! ── Gadukino (nested under Characters) ──────────────────────────
+	gs 'help', 'def_group',		'chars',		'gadukino',				'加杜基诺村'
+	gs 'help', 'def_child',		'gadukino',		'char_mira',			$npc_usedname['A60'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_kolyamba',		$npc_usedname['A61'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_vasyan',			$npc_usedname['A62'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_mitka',			$npc_usedname['A63'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_afanasiy',		$npc_usedname['A64'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_vitaliy',			$npc_usedname['A65'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_andrei_g',		$npc_usedname['A172'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_igor_g',			$npc_usedname['A173'],		'help_characters'
+	gs 'help', 'def_child',		'gadukino',		'char_sergei_g',		$npc_usedname['A174'],		'help_characters'
+
+	!! ── City (nested under Characters) ──────────────────────────────
+	gs 'help', 'def_group',		'chars',		'city',					'城市'
+	gs 'help', 'def_child',		'city',			'char_jora',			$npc_usedname['A44'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_nicholas',		$npc_usedname['A52'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_ilyushkin',		$npc_usedname['A76'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_tryndin',			$npc_usedname['A77'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_eugene',			$npc_usedname['A89'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_tatiana',			$npc_usedname['A176'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_nastja',			$npc_usedname['A192'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_savva',			$npc_usedname['A204'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_tanya',			$npc_usedname['A218'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_kat',				$npc_usedname['A219'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_grigory',			$npc_usedname['A221'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_alex',			$npc_usedname['A241'],		'help_characters'
+	gs 'help', 'def_child',		'city',			'char_amelia',			$npc_usedname['A267'],		'help_characters'
+
+	!! ── University (nested under Characters) ────────────────────────
+	gs 'help', 'def_group',		'chars',		'university',			'大学'
+	gs 'help', 'def_child',		'university',	'char_djibril',			$npc_usedname['A82'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_goshi',			$npc_usedname['A83'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_kendra',			$npc_usedname['A84'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_vika_u',			$npc_usedname['A220'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_ermias',			$npc_usedname['A243'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_haruna',			$npc_usedname['A245'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_lilly',			$npc_usedname['A247'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_silvestr',		$npc_usedname['A248'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_sofia_u',			$npc_usedname['A260'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_prof_marinova',	$npc_usedname['A269'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_prof_kudelina',	$npc_usedname['A270'],		'help_characters'
+	gs 'help', 'def_child',		'university',	'char_prof_borisov',	$npc_usedname['A271'],		'help_characters'
+
+	!! ── Pushkin & Ballet (nested under Characters) ───────────────────
+	gs 'help', 'def_group',		'chars',		'pushkin',				'普希金与芭蕾'
+	gs 'help', 'def_child',		'pushkin',		'char_maya',			$npc_usedname['A274'],		'help_characters'
+	gs 'help', 'def_child',		'pushkin',		'char_tanis',			$npc_usedname['A276'],		'help_characters'
+	gs 'help', 'def_child',		'pushkin',		'char_gasha',			$npc_usedname['A280'],		'help_characters'
+	gs 'help', 'def_child',		'pushkin',		'char_rudolf',			$npc_usedname['A283'],		'help_characters'
+	gs 'help', 'def_child',		'pushkin',		'char_bronya',			$npc_usedname['A286'],		'help_characters'
+
+	!! ── Locations ─────────────────────────────────────────────────
+	gs 'help', 'def_section',	'locs',			'locs_overview',		'地点'
+	gs 'help', 'def_child',		'locs',			'locs_home',			'家'
+	gs 'help', 'def_child',		'locs',			'locs_school',			'学校'
+	gs 'help', 'def_child',		'locs',			'locs_town',			'城镇'
+end
+
+
+!! ── render_banner: page header above the content column (func) ──────
+!! Back link on the left, page title prominent, optional context badge.
+if $ARGS[0] = 'render_banner':
+	$result =  '<div style="position:relative;padding:2px 0 8px 0;border-bottom:1px solid;margin-bottom:10px;text-align:center">'
+	$result += '<span style="position:absolute;left:0;top:2px"><a style="text-decoration:none;font-size:0.85em;opacity:0.6" href="exec: gs ''help'', ''back''">&#8592; 返回</a></span>'
+	$result += '<b style="font-size:1.1em">' + $help_page_title + '</b>'
+	if $help_from_location_type <> '':
+		$result += ' <small style="opacity:0.4"> [' + $help_from_location_type + ']</small>'
+	end
+	$result += '</div>'
+end
+
+
+!! ── render_toc: sidebar TOC HTML (func) ──────────────────────────────
+!! 3-level tree: sections → leaf children or group children → leaf grandchildren.
+!! Groups at level 2 are expandable but do not navigate.
+!! Active page is bold.  ▶ = collapsed  ▼ = expanded.
+if $ARGS[0] = 'render_toc':
+	!! Auto-open: expand the section (and nested group) that owns the current page
+	rt_ao_i = 0
+	:rt_ao_loop
+	if rt_ao_i < arrsize('$help_toc_sections'):
+		$rt_ao_key = $help_toc_sections[rt_ao_i]
+		if $help_toc_page[$rt_ao_key] = $help_page_key:
+			help_toc_open[$rt_ao_key] = 1
+		elseif instr(' ' + $help_toc_children[$rt_ao_key] + ' ', ' ' + $help_page_key + ' ') > 0:
+			help_toc_open[$rt_ao_key] = 1
+		else
+			!! Scan group children of this section for the current page
+			$rt_ao_grem = $help_toc_children[$rt_ao_key]
+			:rt_ao_gloop
+			if $rt_ao_grem <> '':
+				rt_ao_gsp = instr($rt_ao_grem, ' ')
+				if rt_ao_gsp > 0:
+					$rt_ao_gk   = $mid($rt_ao_grem, 1, rt_ao_gsp - 1)
+					$rt_ao_grem = $mid($rt_ao_grem, rt_ao_gsp + 1)
+				else
+					$rt_ao_gk   = $rt_ao_grem
+					$rt_ao_grem = ''
+				end
+				if help_toc_is_group[$rt_ao_gk]:
+					if instr(' ' + $help_toc_children[$rt_ao_gk] + ' ', ' ' + $help_page_key + ' ') > 0:
+						help_toc_open[$rt_ao_key] = 1
+						help_toc_open[$rt_ao_gk]  = 1
+					end
+				end
+				jump 'rt_ao_gloop'
+			end
+		end
+		rt_ao_i += 1
+		jump 'rt_ao_loop'
+	end
+	killvar 'rt_ao_i'
+	killvar 'rt_ao_key'
+	killvar 'rt_ao_grem'
+	killvar 'rt_ao_gsp'
+	killvar 'rt_ao_gk'
+
+	!! Build HTML
+	$rt_html = '<div style="font-weight:bold;font-size:0.95em;padding:0 0 6px 0;border-bottom:2px solid;margin-bottom:8px">目录</div>'
+
+	if arrsize('$help_toc_sections') = 0:
+		$rt_html += '<small><i>暂无主题。</i></small>'
+	else
+		rt_i = 0
+		:rt_sec_loop
+		if rt_i < arrsize('$help_toc_sections'):
+			$rt_key     = $help_toc_sections[rt_i]
+			$rt_label   = $help_toc_label[$rt_key]
+			$rt_page    = $help_toc_page[$rt_key]
+			$rt_loc     = $help_toc_loc[$rt_key]
+			$rt_kids    = $help_toc_children[$rt_key]
+			rt_open     = help_toc_open[$rt_key]
+			rt_has_kids = iif($rt_kids <> '', 1, 0)
+
+			!! Triangle toggle
+			if rt_has_kids:
+				$rt_tri    = iif(rt_open, '&#9660;', '&#9654;')
+				$rt_toggle = '<a style="text-decoration:none" href="exec: help_toc_open[''<<$rt_key>>''] = 1 - help_toc_open[''<<$rt_key>>''] & gs ''<<$help_page_loc>>'', ''<<$help_page_key>>''">' + $rt_tri + '</a> '
+			else
+				$rt_toggle = '&nbsp;&nbsp; '
+			end
+
+			!! Section label
+			if $rt_page <> '':
+				if $rt_page = $help_page_key:
+					$rt_active = ' style="font-weight:bold;border-left:3px solid;padding-left:4px;margin-left:-7px;display:inline-block"'
+				else
+					$rt_active = ''
+				end
+				$rt_lnk    = '<a href="exec: gs ''<<$rt_loc>>'', ''<<$rt_page>>''"' + $rt_active + '>' + $rt_label + '</a>'
+			elseif help_toc_is_group[$rt_key]:
+				$rt_lnk    = '<a style="color:inherit;text-decoration:none;cursor:pointer" href="exec: help_toc_open[''<<$rt_key>>''] = 1 - help_toc_open[''<<$rt_key>>''] & gs ''<<$help_page_loc>>'', ''<<$help_page_key>>''">' + $rt_label + '</a>'
+			else
+				$rt_lnk    = $rt_label
+			end
+
+			$rt_html += '<div style="margin:4px 0;font-weight:bold;font-size:0.95em">' + $rt_toggle + $rt_lnk + '</div>'
+
+			!! Children (level 2) — only when section is open
+			if rt_open and $rt_kids <> '':
+				$rt_remaining = $rt_kids
+				:rt_child_loop
+				if $rt_remaining <> '':
+					rt_sp = instr($rt_remaining, ' ')
+					if rt_sp > 0:
+						$rt_ck        = $mid($rt_remaining, 1, rt_sp - 1)
+						$rt_remaining = $mid($rt_remaining, rt_sp + 1)
+					else
+						$rt_ck        = $rt_remaining
+						$rt_remaining = ''
+					end
+
+					if help_toc_is_group[$rt_ck]:
+						!! Level-2 group: expandable sub-header, no navigation
+						rt_cg_open    = help_toc_open[$rt_ck]
+						$rt_cg_tri    = iif(rt_cg_open, '&#9660;', '&#9654;')
+						$rt_cg_toggle = '<a style="text-decoration:none" href="exec: help_toc_open[''<<$rt_ck>>''] = 1 - help_toc_open[''<<$rt_ck>>''] & gs ''<<$help_page_loc>>'', ''<<$help_page_key>>''">' + $rt_cg_tri + '</a> '
+						$rt_cg_lnk    = '<a style="color:inherit;text-decoration:none;cursor:pointer" href="exec: help_toc_open[''<<$rt_ck>>''] = 1 - help_toc_open[''<<$rt_ck>>''] & gs ''<<$help_page_loc>>'', ''<<$help_page_key>>''">' + $help_toc_label[$rt_ck] + '</a>'
+						$rt_html += '<div style="margin:3px 0 1px 0;padding-left:14px;font-style:italic;font-size:0.88em;opacity:0.75">' + $rt_cg_toggle + $rt_cg_lnk + '</div>'
+
+						!! Level-3 group children
+						if rt_cg_open and $help_toc_children[$rt_ck] <> '':
+							$rt_gc_rem = $help_toc_children[$rt_ck]
+							:rt_gc_loop
+							if $rt_gc_rem <> '':
+								rt_gc_sp = instr($rt_gc_rem, ' ')
+								if rt_gc_sp > 0:
+									$rt_gc_k   = $mid($rt_gc_rem, 1, rt_gc_sp - 1)
+									$rt_gc_rem = $mid($rt_gc_rem, rt_gc_sp + 1)
+								else
+									$rt_gc_k   = $rt_gc_rem
+									$rt_gc_rem = ''
+								end
+								$rt_gc_l   = $help_toc_label[$rt_gc_k]
+								$rt_gc_p   = $help_toc_page[$rt_gc_k]
+								$rt_gc_loc = $help_toc_loc[$rt_gc_k]
+								if $rt_gc_p = $help_page_key:
+									$rt_gc_act = ' style="font-weight:bold;border-left:3px solid;padding-left:3px;margin-left:-6px;display:inline-block"'
+								else
+									$rt_gc_act = ''
+								end
+								$rt_html += '<div style="margin:1px 0;padding-left:28px;font-size:0.88em"><a href="exec: gs ''<<$rt_gc_loc>>'', ''<<$rt_gc_p>>''"' + $rt_gc_act + '>' + $rt_gc_l + '</a></div>'
+								jump 'rt_gc_loop'
+							end
+						end
+					else
+					!! Level-2 leaf child
+					$rt_cl     = $help_toc_label[$rt_ck]
+					$rt_cp     = $help_toc_page[$rt_ck]
+					$rt_cloc   = $help_toc_loc[$rt_ck]
+					if $rt_cp = $help_page_key:
+						$rt_cactive = ' style="font-weight:bold;border-left:3px solid;padding-left:4px;margin-left:-7px;display:inline-block"'
+					else
+						$rt_cactive = ''
+					end
+					$rt_html += '<div style="margin:2px 0;padding-left:14px"><a href="exec: gs ''<<$rt_cloc>>'', ''<<$rt_cp>>''"' + $rt_cactive + '>' + $rt_cl + '</a></div>'
+					end
+					jump 'rt_child_loop'
+				end
+			end
+			rt_i += 1
+			jump 'rt_sec_loop'
+		end
+	end
+
+	$result = $rt_html
+end
+
+
+!! ── render: assemble and output the full help layout ─────────────────
+!! ARGS[1] = page key ($ARGS[0] of the calling stub).
+!! Derives $help_page_loc from the TOC registry; falls back to 'help'.
+!! Auto-sets $help_page_title from the TOC label unless the stub already
+!! set a custom title. Always adds a 'Back' act.
+if $ARGS[0] = 'render':
+	!! Page key is passed as ARGS[1]; loc is derived from the TOC registry after toc_init.
+	$help_page_key = $ARGS[1]
+
+	*clr & cla
+	gs 'help', 'toc_init'
+
+	!! Derive loc from TOC data (populated by toc_init); fall back to 'help' for
+	!! unregistered pages such as the 'generic' landing page.
+	$help_page_loc = iif($help_toc_loc[$help_page_key] <> '', $help_toc_loc[$help_page_key], 'help')
+
+	!! Auto-set title from the TOC label, but only if the stub did not set a custom
+	!! title already. chars_pc uses the live player name instead of the static label.
+	if $help_page_title = '' and $help_toc_label[$help_page_key] <> '':
+		$help_page_title = $help_toc_label[$help_page_key]
+	end
+
+	!! Sidebar extends full height; banner sits only above the content column.
+	$help_layout =	'<table width="100%" cellspacing="0" cellpadding="0"><tr>'
+	$help_layout +=		'<td width="20%" valign="top" style="border-right:1px solid;padding:8px 12px 8px 0">'
+	$help_layout +=			$func('help', 'render_toc')
+	$help_layout +=		'</td>'
+	$help_layout +=		'<td valign="top" style="padding:0 0 8px 16px">'
+	$help_layout +=			$func('help', 'render_banner')
+	$help_layout +=			$help_page_content
+	$help_layout +=		'</td>'
+	$help_layout += '</tr></table>'
+
+	*p $help_layout
+
+	act '返回': gs 'help', 'back'
+end
+
+
+!! ════════════════════════════════════════════════════════════════════
+!! PAGES
+!! Each page sets $help_page_title (if a custom title is needed) and
+!! $help_page_content, then calls gs 'help', 'render', $ARGS[0].
+!! The render handler derives page key and loc automatically.
+!! Additional acts beyond 'Back' can be added after gs 'help', 'render', $ARGS[0].
+!! ════════════════════════════════════════════════════════════════════
+
+!! ── Index / landing page ─────────────────────────────────────────────
+!! Shows a full-page card grid of all top-level sections so players can
+!! navigate to any area directly, without relying on the sidebar alone.
+if $ARGS[0] = 'generic':
+	$help_page_title = '帮助与词汇表'
+
+	$help_gen_cs = 'border:1px solid;border-radius:4px;padding:10px 14px;vertical-align:top;width:50%'
+
+	$help_page_content = '<p style="font-size:0.9em;margin-bottom:12px">从下方选择主题或使用左侧的目录面板。</p>'
+	$help_page_content += '<table width="100%" cellspacing="6" cellpadding="0"><tr>'
+
+	!! ── User Interface card ───────────────────────────────────────
+	$help_gen_c  = '<a href="exec: gs ''help'', ''ui_overview''" style="font-size:1.2em;font-weight:bold">用户界面</a><br>'
+	$help_gen_c += '<small>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''ui_statbar''">状态栏</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''ui_menu''">导航菜单</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''ui_actions''">操作按钮</a>'
+	$help_gen_c += '</small>'
+	$help_page_content += '<td style="' + $help_gen_cs + '">' + $help_gen_c + '</td>'
+
+	!! ── Game Mechanics card ───────────────────────────────────────
+	$help_gen_c  = '<a href="exec: gs ''help'', ''mech_overview''" style="font-size:1.2em;font-weight:bold">游戏机制</a><br>'
+	$help_gen_c += '<small>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''mech_time''">时间与日程</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''mech_stats''">属性与数值</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''mech_money''">金钱与财务</a>'
+	$help_gen_c += '</small>'
+	$help_page_content += '<td style="' + $help_gen_cs + '">' + $help_gen_c + '</td>'
+
+	$help_page_content += '</tr><tr>'
+
+	!! ── Characters card ───────────────────────────────────────────
+	$help_gen_c  = '<a href="exec: gs ''help'', ''chars_overview''" style="font-size:1.2em;font-weight:bold">角色</a><br>'
+	$help_gen_c += '<small>'
+	$help_gen_c += '<a href="exec: gs ''help_characters'', ''chars_pc''">你的角色</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''chars_overview''">家庭与学校</a>'
+	$help_gen_c += '</small>'
+	$help_page_content += '<td style="' + $help_gen_cs + '">' + $help_gen_c + '</td>'
+
+	!! ── Locations card ────────────────────────────────────────────
+	$help_gen_c  = '<a href="exec: gs ''help'', ''locs_overview''" style="font-size:1.2em;font-weight:bold">地点</a><br>'
+	$help_gen_c += '<small>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''locs_home''">Home</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''locs_school''">学校</a><br>'
+	$help_gen_c += '<a href="exec: gs ''help'', ''locs_town''">城镇</a>'
+	$help_gen_c += '</small>'
+	$help_page_content += '<td style="' + $help_gen_cs + '">' + $help_gen_c + '</td>'
+
+	$help_page_content += '</tr></table>'
+
+	killvar 'help_gen_c'
+	killvar 'help_gen_cs'
+
+	gs 'help', 'render', $ARGS[0]
+end
+
+
+!! ════════════════════════════════════════════════════════════════════
+!! USER INTERFACE PAGES
+!! ════════════════════════════════════════════════════════════════════
+
+if $ARGS[0] = 'ui_overview':
+	$help_page_title	= '用户界面'
+	$help_page_content	= '<b>用户界面</b><br><br>'
+	$help_page_content	+= '游戏屏幕分为两个主要区域：其中<b>主窗口</b>在左侧 '
+	$help_page_content	+= '显示当前场景和你的行动选择，而<b>状态面板</b>在 '
+	$help_page_content	+= '右侧显示你的角色信息和导航图标。<br><br>'
+	$help_page_content	+= '在左侧选择一个子主题以查看更多详情。'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'ui_statbar':
+	$help_page_title	= '状态栏'
+	$help_page_content	= '<b>状态栏</b><br><br>'
+	$help_page_content	+= '屏幕右侧的状态面板一目了然地显示你的关键状态：'
+	$help_page_content	+= '金钱，能量，心情，和外表等。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充真实的状态说明。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'ui_menu':
+	$help_page_title	= '导航菜单'
+	$help_page_content	= '<b>导航菜单</b><br><br>'
+	$help_page_content	+= '状态面板底部的图标行可让你跳转到主要界面：'
+	$help_page_content	+= '你的物品栏，手机，地图，日历，和本帮助系统。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充逐图标的说明。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'ui_actions':
+	$help_page_title	= '操作按钮'
+	$help_page_content	= '<b>操作按钮</b><br><br>'
+	$help_page_content	+= '主窗口中的可点击链接列表代表可用的行动 '
+	$help_page_content	+= '在当前场景中供你选择。行动可以让你移动到新地点，触发 '
+	$help_page_content	+= '事件，或改变你的属性。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充更多细节。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+
+!! ════════════════════════════════════════════════════════════════════
+!! GAME MECHANICS PAGES
+!! ════════════════════════════════════════════════════════════════════
+
+if $ARGS[0] = 'mech_overview':
+	$help_page_title	= '游戏机制'
+	$help_page_content	= '<b>游戏机制</b><br><br>'
+	$help_page_content	+= 'Girl Life 模拟日常生活。时间随着你采取行动而流逝；'
+	$help_page_content	+= '你的属性会根据你的选择而升降，并且必须管理金钱 '
+	$help_page_content	+= '来支付生活开支。<br><br>'
+	$help_page_content	+= '在左侧选择一个子主题以查看更多详情。'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'mech_time':
+	$help_page_title	= 'Time & Schedule'
+	$help_page_content	= '<b>时间与日程</b><br><br>'
+	$help_page_content	+= '游戏时钟分为几个时段（早晨、下午、晚上、夜间）。 '
+	$help_page_content	+= '大多数行动消耗一个或多个时段。一周遵循学校/工作 '
+	$help_page_content	+= '时间表，并且某些事件只发生在特定日期。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充真实的时间系统细节。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'mech_stats':
+	$help_page_title	= 'Stats & Attributes'
+	$help_page_content	= '<b>属性与数值</b><br><br>'
+	$help_page_content	+= '你的角色有一系列数值属性 —美貌、体能、智力， '
+	$help_page_content	+= '自信，等等。属性有上限和下限，并通过 '
+	$help_page_content	+= '活动、睡眠、饮食和事件。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充属性列表和范围。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'mech_money':
+	$help_page_title	= 'Money & Finances'
+	$help_page_content	= '<b>金钱与财务</b><br><br>'
+	$help_page_content	+= '金钱用于食物、衣物、房租和社交活动。 '
+	$help_page_content	+= '收入来自工作、津贴和其他来源，具体取决于 '
+	$help_page_content	+= '你当前的生活状况。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充收入/支出明细。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+
+!! ════════════════════════════════════════════════════════════════════
+!! CHARACTERS PAGES
+!! ════════════════════════════════════════════════════════════════════
+
+if $ARGS[0] = 'chars_overview':
+	$help_page_title	= '角色'
+	$help_page_content	= '<b>角色</b><br><br>'
+	$help_page_content	+= '游戏世界中居住着常驻NPC，他们各自拥有 '
+	$help_page_content	+= '与你角色的关系值。他们对待你的方式取决于 '
+	$help_page_content	+= '那个数值以及你的属性。<br><br>'
+	$help_page_content	+= '在左侧选择一个子主题以查看更多详情。'
+	gs 'help', 'render', $ARGS[0]
+end
+
+!! chars_pc lives in help_characters.qsrc with the player live name.
+
+if $ARGS[0] = 'chars_family':
+	$help_page_title	= '家庭'
+	$help_page_content	= '<b>家庭</b><br><br>'
+	$help_page_content	+= '你的家人会影响你的初始家庭状况、可用的零用钱， '
+	$help_page_content	+= '以及某些故事线。与他们的关系可以改善或恶化 '
+	$help_page_content	+= '随时间变化。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充家庭成员档案。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'chars_npc':
+	$help_page_title	= '其他人'
+	$help_page_content	= '<b>其他人</b><br><br>'
+	$help_page_content	+= '同学、老师、店主和其他人构成了游戏世界。 '
+	$help_page_content	+= '与他们建立关系会解锁新的事件和选项。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充NPC名单。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+
+!! ════════════════════════════════════════════════════════════════════
+!! LOCATIONS PAGES
+!! ════════════════════════════════════════════════════════════════════
+
+if $ARGS[0] = 'locs_overview':
+	$help_page_title	= '地点'
+	$help_page_content	= '<b>地点</b><br><br>'
+	$help_page_content	+= '游戏世界包含许多不同的地点，每个地点都有各自的 '
+	$help_page_content	+= '可用行动和到达所需的时间成本。你可以往返于它们之间 '
+	$help_page_content	+= '使用地图或直接行动链接往返。<br><br>'
+	$help_page_content	+= '在左侧选择一个子主题以查看更多详情。'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'locs_home':
+	$help_page_title	= 'Home'
+	$help_page_content	= '<b>Home</b><br><br>'
+	$help_page_content	+= '家是你的行动基地。在这里你可以睡觉、吃饭、换衣服， '
+	$help_page_content	+= '学习，并和与你同住的家人共度时光。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充逐房间明细。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'locs_school':
+	$help_page_title	= '学校'
+	$help_page_content	= '<b>学校</b><br><br>'
+	$help_page_content	+= '学校在工作日上课。上课会提高你的成绩和智力。 '
+	$help_page_content	+= '课间你可以社交、加入社团，或偷偷溜出校园。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充学校地图和时间表。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+if $ARGS[0] = 'locs_town':
+	$help_page_title	= '城镇'
+	$help_page_content	= '<b>城镇</b><br><br>'
+	$help_page_content	+= '城镇中心有商店、公园、咖啡馆和各种可参观的场所。 '
+	$help_page_content	+= '大多数城镇地点在下午和晚上开放。<br><br>'
+	$help_page_content	+= '<i>（占位文本 —待补充场所列表和营业时间。）</i>'
+	gs 'help', 'render', $ARGS[0]
+end
+
+--- help ---------------------------------

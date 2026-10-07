@@ -1,0 +1,272 @@
+# pav_factory
+!! 2021/05/08
+
+CLOSE ALL
+
+if $ARGS[0] = 'tailor':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_factory', 'tailor'
+	$location_type = 'public_indoors'
+	gs 'stat'
+	'有一个小木柜台，上面挂着一块牌子，写着："如果你穿不上，我们就帮你改。"'
+	'柜台后面，一位老人正在查看一些修补好的衣服。他停下来，温和地微笑着向你打招呼。'
+	'"你好，小姑娘。想改几件衣服吗？每件收你<<$func(''money'', ''string_price'', 500)>>。"'
+
+	act '离开': gt 'pav_industrial'
+
+	gs 'tailor', 'set_tailor_acts'
+end
+
+
+if $ARGS[0] = 'enter':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_factory', 'enter'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	!! v4: If the player was fired, show fired scene before anything else
+	if $job_status['pav_factory'] = 'fired':
+		gt 'pav_factory', 'fired'
+	end
+
+	!! v4: If the player has unacknowledged misses, redirect to scolding
+	if $job_status['pav_factory'] = 'employed' and job_missed_total['pav_factory'] > job_miss_acknowledged['pav_factory']:
+		gt 'pav_factory', 'scolding'
+	end
+
+	!! v4: Auto-switch schedule when player turns 18 (schedule 0 = under-18, schedule 1 = 18+)
+	if $job_status['pav_factory'] = 'employed' and age >= 18 and $job_active_schedule['pav_factory'] = '0' and pav_factory_schedule_change_pending = 0:
+		gt 'pav_factory', 'schedule_change'
+	end
+
+	'<center><b>纺织厂，巴黎公社</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/factory/pav_factory.jpg" ></center>'
+	'你正站在巴甫洛夫斯克最大的雇主——本地纺织厂——所在的建筑里。'
+	'墙上挂着一张工作班次表：'
+	'第一班 - '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 16, 0)+'。'
+	'第二班 - '+func('time', 'get_time_string', 16, 0)+' 到 '+func('time', 'get_time_string', 20, 0)+'。'
+	*nl
+
+	!! v4: Hiring links — check not already employed and no calendar conflict
+	if $job_status['pav_factory'] = '' and age < 18:
+		if func('jobs', 'check_employment_possible', 'pav_factory', 0) = 1:
+			'你可以在这里申请一份<a href="exec:minut += 15 & gt ''pav_factory'', ''job_start''">兼职工作</a>。'
+		else
+			'你看到他们在招人，但班次时间与你现有的日程冲突。'
+		end
+	end
+	if $job_status['pav_factory'] = '' and age >= 18:
+		if func('jobs', 'check_employment_possible', 'pav_factory', 1) = 1:
+			'你可以在这里申请一份<a href="exec:minut += 15 & gt ''pav_factory'', ''job_start''">全职工作</a>。'
+		else
+			'你看到他们在招人，但班次时间与你现有的日程冲突。'
+		end
+	end
+
+	act '离开': minut += 5 & gt 'pav_industrial'
+
+	!! v4: Show "start shift" when arrival time window is open
+	if $job_status['pav_factory'] = 'employed' and func('jobs', 'is_arrival_time', 'pav_factory') = 1:
+		'你的班次现在开始了。'
+		act '开始班次': gt 'pav_factory', 'job'
+	end
+
+	if $job_status['pav_factory'] = 'employed':
+		'你可以辞职，但这样做会导致工资被扣除。'
+		act '辞职':
+			!! v4: Dock one shift worth of pay before paying out
+			!! Under-18: dock 240 min (4h). 18+: dock 480 min (8h).
+			gs 'jobs', 'get_shift_for_day', 'pav_factory', daystart
+			temp_dock = result_duration
+			if job_worked_count['pav_factory'] > temp_dock:
+				job_worked_count['pav_factory'] -= temp_dock
+			else
+				job_worked_count['pav_factory'] = 0
+			end
+			!! Pay out remaining accrued wages to bank
+			gs 'jobs', 'paycheck', 'pav_factory', 'bank'
+			gs 'jobs', 'set_terminated', 'pav_factory'
+			killvar 'temp_dock'
+			minut += 5
+			gt 'pav_factory', 'enter'
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          MISS/FIRE SCENES                          !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'scolding':
+	!! Foreman scolds player for missed shifts
+	!! Redirected from 'enter' when job_missed_total > job_miss_acknowledged
+	!! Escalating dialogue based on job_booking_debt (1, 2, 3 = fired by engine)
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_factory', 'scolding'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center><b>工头办公室</b></center>'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/stepan/nachalnik.jpg" ></center>'
+
+	if job_booking_debt['pav_factory'] = 1:
+		'你一走进去，工头斯捷潘·谢尔盖耶维奇就招手让你到他的办公桌前来。他从文件中抬起头，微微皱着眉。'
+		'"<<$pcs_lastname>>，我注意到你旷工了。谁都有不在状态的时候，但这里是工厂——机器可不等人。别再让这种事发生了。"'
+	elseif job_booking_debt['pav_factory'] = 2:
+		'你走进去时，工头正等着你。他表情严厉，连客套话都懒得说。'
+		'"<<$pcs_lastname>>，这是你第二次旷工了。我之前警告过你。再缺勤一次，我就只能让你走人了。工厂不能靠不可靠的工人运转。"'
+		'他用钢笔敲着桌子，紧紧盯着你。"我说得够清楚了吗？"'
+	end
+
+	!! Mark misses as acknowledged so this scene doesn''t replay
+	job_miss_acknowledged['pav_factory'] = job_missed_total['pav_factory']
+
+	act '道歉': gt 'pav_factory', 'enter'
+end
+
+
+if $ARGS[0] = 'fired':
+	!! Player has been fired (status set by v4 engine missed_shift auto-fire)
+	!! Check termination reason for appropriate dialogue
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_factory', 'scolding'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center><b>工头办公室</b></center>'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/stepan/nachalnik.jpg" ></center>'
+
+	if $job_termination_reason['pav_factory'] = 'no_show':
+		'工头双臂交叉站在办公桌后面。他没有让你坐下。'
+		'"<<$pcs_lastname>>，我给过你公平的警告——不止一次。你旷了太多次班，我没法再向管理层替你说情了。"'
+		'他把一份表格滑过桌面。"你被解雇了，立即生效。按照合同，你未结清的工资将被没收。很抱歉事情发展成这样。"'
+	else
+		'工头把你叫进他的办公室。他的语气公事公办。'
+		'"<<$pcs_lastname>>，恐怕我们得让你走了。这不是针对你个人——只是事情就是这样。"'
+	end
+
+	!! Clear v4 job data
+	gs 'jobs', 'cleanup_job', 'pav_factory'
+
+	act '离开': minut += 5 & gt 'pav_industrial'
+end
+
+
+if $ARGS[0] = 'schedule_change':
+	!! Player turned 18 while employed — foreman transfers them to the full-time first shift
+	!! Triggered from 'enter' when age >= 18 and still on schedule 0 (under-18 part-time)
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_factory', 'scolding'
+	$location_type = 'public_indoors'
+	gs 'stat'
+	'<center><b>工头办公室</b></center>'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/stepan/nachalnik.jpg" ></center>'
+
+	'你走进工厂时，工头斯捷潘·谢尔盖耶维奇在入口附近拦住了你。他手里拿着一个文件夹，脸上露出满意的神情。'
+	'"<<$pcs_lastname>>，我正想找你呢。生日快乐——嗯，不管是迟是早。"他瞥了一眼文件夹。"根据我们的记录，你现在已经十八岁了，也就是说我们终于可以把你调到主班次了。"'
+	*nl
+	'他带你走到排班表前，敲了敲第一行。"从现在开始，你将上第一班——工作日从 '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 16, 0)+'点。整整八个小时，全薪。工资标准不变——<b>₽</b>150 每小时——但你每天挣的钱会翻倍。"'
+	*nl
+	'"别迟到，"他咧嘴一笑，补充道，然后转身回了办公室。'
+
+	!! v4: Switch from schedule 0 (part-time) to schedule 1 (full-time)
+	!! Check if new schedule conflicts with existing calendar events
+	if func('jobs', 'check_employment_possible', 'pav_factory', 1) = 0:
+		*nl
+		'你意识到新的班次时间与你现有的日程冲突。你告诉工头，你不确定能否兼顾新的班次和其他安排。他看了你一会儿，然后理解地点了点头。'
+		"好吧，那暂时先让你留在第二班。但请尽快想办法协调好你的日程，好吗？"
+		pav_factory_schedule_change_pending = 1
+	else
+		gs 'jobs', 'change_schedule', 'pav_factory', 1
+	end
+
+	act '继续': gt 'pav_factory', 'enter'
+end
+
+
+if $ARGS[0] = 'job_start':
+	*clr & cla
+	menu_off = 0
+	gs 'core_library', 'setloc', 'pav_factory', 'job_start'
+	$location_type = 'public_indoors'
+	gs 'stat'
+
+	'<center><b>工头办公室</b></center>'
+	'<center><img <<$set_imgh>> src="images/characters/pavlovsk/resident/stepan/nachalnik.jpg" ></center>'
+	'你走进工厂工头斯捷潘·谢尔盖耶维奇的办公室，问他有没有空缺的工作。'
+
+	act '离开': gt 'pav_factory', 'enter'
+
+	if age < 18:
+		'"当然，请坐，"他说。"这份工作复杂细致，但不需要什么特殊知识，你应该很快就能上手。因为你还没成年，只能做兼职，报酬是<<$func(''money'', ''string_profit'', 150)>>每小时。一旦你成年，我们可以把你转为全职。作为一家国家认可的公司，我们需要所有相关的证明文件。主班在工作日，从'+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 16, 0)+'点开始，但你会是第二班，从'+func('time', 'get_time_string', 16, 0)+' 到 '+func('time', 'get_time_string', 20, 0)+'。'
+		'但要注意，如果你在一个月内旷工超过三天，你就会被解雇。工资在月底发放，如果在那之前被解雇，尚未领取的工资将被没收。那么，你觉得可以吗？"'
+
+		if func('jobs', 'check_employment_possible', 'pav_factory', 0) = 1:
+			act '接受工作':
+				cla
+				menu_off = 1
+				minut += 10
+				!! v4: Employ on schedule 0 (under-18 part-time)
+				gs 'jobs', 'set_employed', 'pav_factory'
+				'你把文件递给他，他接了过去，然后提醒你每个工作日 '+func('time', 'get_time_string', 16, 0)+'。'
+
+				act '离开': gt 'pav_factory', 'enter'
+			end
+		else
+			*nl
+			$func('wrap', 'neg', '不幸的是，轮班时间与你现有的日程冲突。')
+		end
+
+	else
+		'"当然，请坐，"他指着办公桌前的木椅说。"这份工作复杂细致，但不需要什么特殊知识，你应该很快就能上手。作为一家国家认可的公司，我们需要所有相关的证明文件。主班在工作日，从 '+func('time', 'get_time_string', 8, 0)+' 到 '+func('time', 'get_time_string', 16, 0)+'，而报酬是<<$func(''money'', ''string_profit'', 150)>>每小时。'
+		'但要注意，如果你在一个月内旷工超过三天，你就会被解雇。工资在月底发放，如果在那之前被解雇，尚未领取的工资将被没收。那么，你觉得可以吗？"'
+
+		if func('jobs', 'check_employment_possible', 'pav_factory', 1) = 1:
+			act '接受工作':
+				cla
+				menu_off = 1
+				minut += 10
+				!! v4: Employ on schedule 0 then immediately switch to schedule 1 (18+ full-time)
+				gs 'jobs', 'set_employed', 'pav_factory'
+				gs 'jobs', 'change_schedule', 'pav_factory', 1
+				'你把文件递给他，他收下，然后提醒你每个工作日都要在 '+func('time', 'get_time_string', 8, 0)+'。'
+
+				act '离开': gt 'pav_factory', 'enter'
+			end
+		else
+			*nl
+			$func('wrap', 'neg', '不幸的是，轮班时间与你现有的日程冲突。')
+		end
+	end
+end
+
+
+if $ARGS[0] = 'job':
+	*clr & cla
+	menu_off = 1
+	!! v4: Record shift worked via clock (adds shift duration in minutes to worked_count)
+	gs 'jobs', 'clock', 'pav_factory'
+	!! Advance time by shift duration from active schedule
+	gs 'jobs', 'get_shift_for_day', 'pav_factory', daystart
+	minut += result_duration
+	gs 'stat'
+	'<center><b>纺织厂，巴黎公社</b></center>'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/factory/pav_factory.jpg" ></center>'
+	'你在工厂里卖力地工作了一整个班次。工头让你在工厂里到处跑，干各种各样的活儿。整个班次你几乎连休息的时间都没有。'
+
+	act '离开': minut += 5 & gt 'pav_industrial'
+end
+
+
+--- pav_factory ---------------------------------

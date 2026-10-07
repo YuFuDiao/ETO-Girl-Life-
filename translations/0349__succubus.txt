@@ -1,0 +1,979 @@
+# succubus
+!! succubusQW = 0 The fairy has not yet given you the option
+!! succubusQW = 1 The fairy has given you the option
+!! succubusQW = 2 You have had succubus_dream_1 / You are ready for succubus_dream_2
+!! succubusQW = 3 You have had succubus_dream_2 / You are ready for succubus_dream_3
+!! succubusQW = 4 You have had succubus_dream_3 / You are ready for succubus_dream_4
+!! succubusQW = 5 You have had succubus_dream_4 / You are ready for succubus_dream_5
+!! succubusQW = 6 You have had succubus_dream_5 / You are ready for succubus_dream_6
+!! succubusQW = 7 You have had succubus_dream_6 / You are ready for succubus_dream_7
+!! succubusQW = 8 You have had succubus_dream_7 / You are ready for succubus_dream_8
+!! succubusQW = 9 You have had succubus_dream_8 / You are ready for succubus_dream_9
+!! succubusQW = 10 You have had succubus_dream_9 / You are ready for succubus_dream_10
+!! succubusQW = 11 You have become a succubus
+!! succubusQW = 12 You have become an enhanced mage
+!! succubusQW = 13 You have become cursed
+!! succubusQW = 14 You have fed
+!! 2026/05/02 (May 02, 2026)
+!! The various calls for succubus specific events
+!! Varible identification:
+!!	scfwon; a flag to indicate that a call is from a fight that was won or you were hunting, set at the calling location
+!!	scpopt; a flag to indicate that a call is optional for some reason, set at the calling location: 0: No, 1: Yes, 2: option taken
+!!	$sclocrt; a string to indicate where a call came from if $loc may not have been set, set at the calling location when needed
+!!	$scargrt; a string to set by the $ARGS from the calling location if $metca may not have been set, set at the calling location when needed
+!!	$scsubloc; a string to allow a sub-routine in this location to call another and still get back to the first
+!!	suceatinit; a flag to indicate that the initiation sub-routine was done
+
+
+!! *********
+!! Callers that used to check "succubusQW >= N" on its own should use this so the mage/cursed endings are not mistaken for succubus progress.
+
+if $ARGS[0] = 'active':
+	if succubusQW >= ARGS[1] and succubusQW <> 12 and succubusQW <> 13: result = 1
+	exit
+end
+
+!! *********
+!! This is the initiation sub-routine and is called by every event
+
+if $ARGS[0] = 'init':
+	if succubusQW = 14 and scpopt = 1 and succhungry < 1:
+		'你感觉到<<$sucself1>>精神一振，随时准备迸发而出……'
+		act '召唤你的力量并进食（需要大量时间）': scpopt = 0 & gt 'succubus', 'init'
+		act '试着控制你的冲动':
+			cla
+			'你试图抑制<<$sucself1>>…'
+			gs 'willpower', 'misc', 'resist', 'easy'
+			will_cost = will_cost * succublvl
+			if pcs_willpwr < will_cost:
+				'<br>你的意志力不足以控制你的冲动。'
+				'<<$sucself1>>继续向你的意识表层涌上来。'
+				succonfail = 1
+				scpopt = 0
+				xgt 'succubus', 'init'
+			else
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'而你成功了，<<$sucself1>>回到了你的核心。'
+				act '继续': scpopt = 2 & gt $sclocrt, $scargrt
+			end
+		end
+	elseif succubusQW = 11:
+		gt 'succubus', 'firsttime'
+	else
+		if succonfail <> 1: '你把<<$sucself1>>从它的栖息之地召唤出来'
+		'它完全充满你，用力量渗透你的全身…'
+		$func('wrap', 'neg b', '以及饥饿')
+		'<center><img <<$set_imgh>> src="images/pc/body/succubusself.jpg"></center>'
+		suceatinit = 1
+		succonfail = 0
+		act '继续': gt 'succubus', $scsubloc
+	end
+end
+
+
+!! *********
+!! This is used if the called event is the first time it has happened (ie succubusQW = 11)
+
+
+if $ARGS[0] = 'firsttime':
+	cla
+	if scfwon = 1:
+		'胜利的兴奋与对可能发生之事的恐惧一起涌上心头，时间仿佛停止了。'
+	elseif scfwon = 0:
+		'对即将发生在你身上的事的恐惧完全袭来，时间仿佛停止了。'
+	end
+	'你感觉到，从那个自你接纳精灵能量起就存在于你体内的力量核心深处，有什么东西开始……'
+	''
+	'<i>舒展开来……</i>'
+	''
+	if scpopt <> 1 or succhungry > 0:
+		act '继续':
+			scpopt = 0
+			succubusQW = 14
+			xgt 'succubus', 'init'
+		end
+	else
+		act '放手……':
+			scpopt = 0
+			succubusQW = 14
+			xgt 'succubus', 'init'
+		end
+		act '把它压回去':
+			cla
+			'你试图抑制<<$sucself1>>…'
+			gs 'willpower', 'misc', 'resist', 'easy'
+			will_cost *= succublvl
+			if pcs_willpwr < will_cost:
+				'你失败了，<<$sucself1>>继续向你的意识表层涌上来。'
+				succonfail = 1
+				scpopt = 0
+				succubusQW = 14
+				xgt 'succubus', 'init'
+			else
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'而你成功了，<<$sucself1>>回到了你的核心。'
+				act '继续': scpopt = 2 & gt $sclocrt, $scargrt
+			end
+		end
+	end
+end
+
+!! *********
+
+
+!! Succubus Level & hunger calcs
+if $ARGS[0] = 'cikl':
+	cheatVars['std'] = 1
+	gs 'cheatmenu_din', 'std_cure'
+
+!!	Hunger handling
+	if sucxpsnapshot >= succubxp: succhungry += 1
+	sucxpsnapshot = succubxp
+	if succubxp < 0: succubxp = 0
+
+!!	Level handling
+	if succubxp < 60:
+		succublvl = 1
+		$sucself1 = '那种感觉'
+		sucstorecap = 0
+		succappbonus = 1
+	elseif succubxp < 150:
+		succublvl = 2
+		$sucself1 = '那股力量'
+		sucstorecap = 0
+		succappbonus = 3
+	elseif succubxp < 270:
+		succublvl = 3
+		$sucself1 = '你的另一个自我'
+		sucstorecap = 100
+		succappbonus = 6
+	else
+		succublvl = 4
+		$sucself1 = '你的真实自我'
+		sucstorecap = 200
+		succappbonus = 10
+	end
+
+	if sucskill >= 2 and succublvl >= 2: sucstorecap += 100
+	if sucskill >= 3 and succublvl >= 2: sucstorecap += (sucstorecap * 2) / 10
+
+	if stren_muta < (succublvl - 1): stren_muta = (succublvl - 1)
+	if agil_muta < (succublvl - 1): agil_muta = (succublvl - 1)
+	if vital_muta < (succublvl - 1): vital_muta = (succublvl - 1)
+	if intel_muta < (succublvl - 1): intel_muta = (succublvl - 1)
+	if react_muta < (succublvl - 1): react_muta = (succublvl - 1)
+	if sprt_muta < (succublvl - 1): sprt_muta = (succublvl - 1)
+	if chrsm_muta < (succublvl - 1): chrsm_muta = (succublvl - 1)
+	if prcptn_muta < (succublvl - 1): prcptn_muta = (succublvl - 1)
+
+	if (sucexcess >= 100 and (sucskill < 2 or succhungry > -2)) or (sucexcess >= 100 + sucstorecap and sucskill >= 2):
+		if pcs_stren	< 250: gs 'exp_gain', 'stren',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_agil		< 250: gs 'exp_gain', 'agil',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_vital	< 250: gs 'exp_gain', 'vital',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_intel	< 250: gs 'exp_gain', 'intel',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_react	< 250: gs 'exp_gain', 'react',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_sprt		< 250: gs 'exp_gain', 'sprt',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_chrsm	< 250: gs 'exp_gain', 'chrsm',	20, 'no_bonus' & sucexcess -= 10
+		if pcs_prcptn	< 250: gs 'exp_gain', 'prcptn',	20, 'no_bonus' & sucexcess -= 10
+		if succhungry > (0 - 2 - succublvl): succhungry -= 1 & sucexcess -= 10
+		if pcs_skin < 100: pcs_skin += 1 & sucexcess -= 2
+!!		This is to drive the Succubus vidage into the max appearance range
+		if vidageday < 720 and vidage >= 28: vidageday += 4 & sucexcess -= 4
+		if vidageday > 0 and vidage <= 20: vidageday -= 4 & sucexcess -= 4
+		if vidageday >= 720 and vidage > 28:
+			vidageday -= 360
+			vidage -= 1
+		end
+		temp_ideal_body_mass = func('body', 'CalcOptBodyMass')
+		if pcs_mass['body'] < temp_ideal_body_mass - 1:
+			pcs_mass['body'] += 2
+			sucexcess -= 10
+		elseif pcs_mass['body'] > temp_ideal_body_mass + 1:
+			pcs_mass['body'] -= 2
+			sucexcess -= 10
+		end
+		killvar 'temp_ideal_body_mass'
+
+		if sucexcess > sucstorecap: sucexcess = sucstorecap
+	elseif sucexcess < 0 and succhungry < 0:
+		succhungry += 1
+		sucexcess += max(-sucexcess, 10 * succublvl)
+	end
+	if sucexcess < 0: sucpowzeroed += 1
+	if sucexcess >= 0 and sucpowzeroed > 0: sucpowzeroed -= 1
+
+!!	This is so a Succubus always moves toward a default vaginal and anal size when she has the accomadation ability
+	if sucskill >= 4:
+		if pcs_vag - 2 >= 25:
+			pcs_vag -= 2
+		elseif pcs_vag + 2 <= 25:
+			gs 'arousal_funcs', 'stretch', 'vaginal', 2
+		end
+		if pcs_ass - 2 >= 8:
+			pcs_ass -= 2
+		elseif pcs_ass + 2 <= 8:
+			gs 'arousal_funcs', 'stretch', 'anal', 2
+		end
+	end
+end
+
+
+
+
+
+
+!! This is the 'city_park' and 'city_residential' call
+
+
+if $ARGS[0] = 'RapistFight':
+	*clr & cla
+	$scsubloc = $ARGS[0]
+	if suceatinit = 0: gt 'succubus', 'init'
+	suceatinit = 0
+	pcs_horny = max(100, pcs_horny)
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/pc/body/succubusself.jpg"></center>'
+	'出于本能，你几乎意识不到是什么驱使你的力量伸出去，攫住了那个准强奸犯的心智。'
+	'你看到恐惧充满他的双眼，欲望也同时涌向他的下体，你感到他的心智正在抵抗你的控制。'
+
+	act '继续':
+		cla
+		scrand = rand(0, 3)
+		if fightEnding = 8 and scfwon = 1:
+			scrand -= 1
+			scfwon = 0
+			fightEnding = 0
+			if rikudo > 10: rikudo += 100
+			Win += 1
+		elseif fightEnding = 8:
+			fightEnding = 0
+			SUB += 1
+			Loss += 1
+			if rikudo > 10: rikudo -= 10
+		else
+			scrand -= 1
+			scfwon = 0
+			fightEnding = 0
+		end
+		if scrand < succublvl:
+			scfeed = succublvl + rand(1, 4)
+			if scfeed = 2:
+				$scxcum = '两次'
+			else
+				$scxcum = '多次'
+			end
+			'你迅速把他拖到看不见的地方，撕下他的裤子，露出你现在饥渴难耐的小穴。'
+			'你把他按倒在地，随即骑了上去，如今一触即发的小穴让你直接高潮。'
+			''
+			'你骑了他一阵，你的力量迫使他射精<<$scxcum>>，每一次喷发都被榨出最后一滴能量，那股冲击让你随着他一起高潮……'
+			''
+			act '继续':
+				succubusQW['rapist_cash'] = rand(50, 300)
+
+				i = 0
+				:sucfeeding_loop
+					i += 1
+					$orgasm_or = 'yes'
+					gs 'arousal', 'vaginal', -5, 'dom', 'no_orgasm_msg'
+				if scfeed > i: jump 'sucfeeding_loop'
+				gs 'arousal', 'end'
+
+				!! Seems appropriate. Reducing it, but leaving it in. Potentially worth revisiting
+				pcs_willpwr += scfeed
+				succubxp += 6
+				sexnutrition += 30 * scfeed
+				sucabscum = 1
+				minut += 15 + (20 * scfeed) / succublvl
+				killvar 'scfeed' & killvar 'scrand'
+				gs 'stat'
+				cla
+				'最后，当你的本能告诉你他已经再也给不出什么时，你从他身上下来，整理好自己的衣服。'
+				'当你准备离开时，你俯视着这个差点成了强奸犯、如今却成了你盘中餐的男人，他瘫在那里精疲力尽，你不禁想，这次经历会不会让他以后不敢再做这种事……'
+				'在他思考这些事情之前，你翻了翻他的钱包，拿出<<$func(''money'', ''string_profit'', succubusQW[''rapist_cash''])>>作为额外的奖励。'
+				gs 'money', 'earn', succubusQW['rapist_cash'], 'cash'
+				act '离开': gt $loc, $loc_arg
+			end
+		else
+			minut += 5
+			gs 'stat'
+			''
+			'你感觉到他的恐惧压过了他的欲望，也冲破了你的掌控……'
+			'等你把自己拉回现实世界时，他早已不见踪影。'
+			act '继续': gt $loc, $loc_arg
+		end
+	end
+end
+
+!! *********
+
+!! This is for feeding in PavRes
+
+
+if $ARGS[0] = 'pavResfeed':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/community/dk_night.jpg"></center>'
+	'迪斯科正热闹，这意味着有很多青少年在社区中心进进出出。你在社区中心沿街下去的地方找了个位置，埋伏起来等待你的猎物。'
+	'你躲了几分钟，看着一群群学生从你身边经过，等待一个落单的猎物好扑上去。你埋伏了将近三十分钟，一边想着即将到口的美餐，手好几次不由自主地伸到了双腿之间。'
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/pc/body/succubusself.jpg"></center>'
+		'就在你开始觉得不会有人单独经过时，一个穿运动服的年轻小伙径直从你身边走过，钻进了灌木丛。他拉下裤子撒尿。'
+		'“哇，看看这儿有什么？”你从黑暗中说道，吓得他一跳。'
+		'“他妈的是谁在那儿？”他一边提起裤子一边说，徒劳地四下找你。'
+		'“在大庭广众之下露出来？真是个变态！”'
+		'“这话该由那个偷看的姑娘来说吧。你在哪儿？”'
+		'“就在这儿。”你一边说一边悄悄绕到他身后，伸手探进他的裤子里。你摸了他一阵，想弄清他到底有多少本钱。'
+		'“摸到喜欢的了？”他得意洋洋地问。你不知道他凭什么得意——他下面那玩意儿可没什么了不起的。'
+		act '先让他热热身':
+			gs 'money', 'earn', rand(250, 500), 'cash'
+			scfeed = succublvl + rand(1, 4)
+
+			i = 0
+			:sucfeeding_loop2
+				i += 1
+				$orgasm_or = 'yes'
+				gs 'arousal', 'vaginal', -5, 'dom', 'no_orgasm_msg'
+			if scfeed > i: jump 'sucfeeding_loop2'
+			gs 'arousal', 'end'
+
+			!! Seems appropriate. Reducing it, but leaving it in. Potentially worth revisiting
+			pcs_willpwr += scfeed
+			succubxp += 6
+			sexnutrition += 30 * scfeed
+			sucabscum = 1
+			minut += 15 + (20 * scfeed) / succublvl
+			killvar 'scfeed' & killvar 'scrand'
+			gs 'stat'
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/shared/sex/blowjob/boybj2.jpg"></center>'
+			'“唉，凑合着用吧。”你对他说。他把你拖进灌木丛，按着你跪了下去。你决定暂时顺着他，把嘴唇凑上他的鸡巴，施展你的魔法——字面意义上的魔法。你给了他只有像你这样的魅魔才能给的那种口交。没过多久他就在你嘴里射了。你咽了下去，脸上带着微笑，细细品味这道主菜前的开胃小点。他捏住你的下巴，轻蔑地看着你。'
+			'“真是个荡妇，你要是这么喜欢精液，也许我该叫上我的朋友们让你吃个够。想不想要啊，婊子？”'
+			'<center><img <<$set_imgh>> src="images/pc/body/succubusself.jpg"></center>'
+			'你满足的微笑变成了自信的狞笑，一把将他扫倒在地。他想爬起来，你却用非人的力气把他按了回去。你任由本能接管一切，脱下衣服，坐到他那逐渐硬挺的肉棒上。你狠狠地骑着他，尽可能快地榨取他。他射了一次，两次，三次，然后是更多次。他求你停下，可你根本没在听。'
+			'最终，他再也榨不出任何力气，你从他身上抬起身。他昏倒在地，脸上带着痛苦的表情。现在该让他为那句婊子付出代价了。你翻查他的口袋找值钱的东西，找到一部手机和一些零钱。'
+			'你把钱塞进口袋，一手把手机捏碎。然后，在确认四下无人之后，你把他拖回人行道，就那样把他丢在那儿——昏睡着，连裤子都没有，等着被人发现。他不会记得这次惩罚，也不记得今晚的大部分事情，但你确实玩得很开心。'
+			act '继续': gt 'pav_residential'
+		end
+	end
+end
+
+!! *********
+
+
+!! This is where you ask Tatiana about what you are
+if $ARGS[0] = 'tatianaask':
+	gs 'stat'
+	gs 'themes', 'indoors'
+	$func('wrap', 'header center b', '塔蒂亚娜')
+	if sucpcinfo = 2:
+		minut += 10
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/lab/event/main1.jpg"></center>'
+		'你脱掉衣服躺在沙发上，塔季扬娜开始检查你。'
+		'这一次，当她施展咒法、用上那些古怪的器具时，你真的感觉到她的力量探入你体内，在里面游走、戳刺、翻搅。'
+		if succubusQW = 11: '你体内的某种东西因此而惊慌失措，恐惧攫住了你的心神。'
+		'你隐约听到塔季扬娜咕哝道：“嗯，这是什么？”接着她的力量戳了戳<<$sucself1>>。'
+		$sclocrt = 'succubus' & $scargrt = 'tatianaask'
+		$scsubloc = 'tatianasex' & scpopt = 1
+		sucpcinfo = 3
+		act '继续': xgt 'succubus', 'init'
+		exit
+	elseif sucpcinfo = 3:
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/lab/event/main1.jpg"></center>'
+		scpopt = 0
+		If tatisucsex <> 0:
+			'等你那场意外的进食结束、塔季扬娜也缓过神来之后，她说：“唉，这可真没想到，去把衣服穿上吧。”'
+		else
+			'完事后塔季扬娜面色潮红，她说：“嗯，这倒挺有意思的，去把衣服穿上吧。”'
+		end
+		sucpcinfo = 4
+		sucinfoday = daystart + 10 + rand(0, 7)
+		act '穿好衣服': gt 'succubus', 'tatianaask'
+		exit
+	end
+	minut += 10
+	'<center><img <<$set_imgh>> src="images/system/1_openings/shared/npc_tatiana.jpg"></center>'
+	if sucpcinfo >= 4 and ARGS[1] = 0:
+		'“你是个魅魔。不过，魅魔并不是恶魔，那种印象是伪装法术造成的副作用；她们其实是妖精的一种，就像你跟我说过的那个仙子，而且她们原本就生存在这个位面上。作为妖精，魅魔和‘灵魂’毫无关系，但她们确实以性爱时释放的能量为食。获取这种能量最有效率的方式是内服精液，不过如果魅魔在女人高潮时与她有性接触，女女性高潮也能获得大量能量。”'
+		if tatisucsex <> 0:
+			'她接着朝你抛来一个娇媚的微笑，说：“我可以告诉你，和一个心甘情愿的魅魔做爱是<i>绝妙的体验</i>。”'
+		else
+			'她接着用探究的目光看着你，说：“我听说和一个心甘情愿的魅魔做爱是绝妙的体验。”'
+		end
+		'“魅魔只能通过转化普通人类来繁衍，我说的‘普通’是指非法师。不管那个仙子做了什么，那都不可能是正常的魅魔转化，可我也不知道正常的方法<i>究竟</i>是什么。'
+		'“她们可以也应该吃普通食物，因为光是维持生存，她们消耗的能量就比人类多；但她们同样需要性能量才能活下去，所以你不能只靠多吃而不做爱。'
+		if sucskill < 1:
+			'“而且我能教你怎么判断自己的能量水平。”'
+		end
+	end
+	if sucpcinfo >= 5 and (ARGS[1] = 0 or ARGS[1] = 1):
+		minut += 5
+		'“魅魔能够像古斯塔夫那样突破正常人类的极限，但与古斯塔夫不同的是，由于她们是妖精，伪装法术对她们不起作用。'
+		'“她们会自动把超出生存所需的性能量储存在体内，当这些能量积累到足够多时——我们就把那个点称为 100 单位——她们的身体会自动用这些能量来强化自身：提升身体和精神能力、保持年轻的容貌，并留下储备以防找不到食物。'
+		'“低阶魅魔会失去所有未用于强化的能量，而高阶魅魔则能把超出 100 单位的那部分未使用能量储存起来。'
+		if sucskill >= 2:
+			'“如你所知，只要有储备，她们就能学会在身体使用能量之前先把能量储存起来，也能提升自己的储存容量。”'
+		else
+			'“而且，”她咧嘴一笑补充道，“只要你有储备，我就能教你在身体使用能量之前先把能量存起来，还能教你提升储存容量！只是在我们尝试教你之前，一定要确保你的储备是满的。”'
+		end
+	end
+	if sucpcinfo >= 6 and (ARGS[1] = 0 or ARGS[1] = 2):
+		if sucskill >= 3:
+			'“她们也像你一样学会了更高效地利用性能量，从而增加了可用于生存和储存的能量。”'
+		else
+			minut += 5
+			'“她们发现，用她的话说，在一次‘连续数日的性狂欢’之后，魅魔能够学会更高效地利用能量，从而增加可用于生存和储存的能量。随后她弄清了她们是如何做到的，并把这套方法传给了我。为了让这次训练不必耗费数天不间断的性爱，我需要购买价值<<$func(''money'', ''string_price'', 5000)>>的若干材料，以及7天来建立我自己的力量储备，而你需要至少有3天的储备和至少100单位的储存能量。'
+			'“即使做了这些准备，训练仍然需要8到10个小时的……不……停……性爱……”'
+			if tatisucsex <= 0:
+				'她说出最后三个词时，语气里既有期待又有忐忑，她眼中的神情也正是如此。'
+			else
+				'她说出最后三个词时，语气里满是诱惑，眼神中既有期待又带着情欲。'
+!!				Hopefully can add an arousal call here
+			end
+		end
+	end
+	if sucpcinfo >= 7 and (ARGS[1] = 0 or ARGS[1] = 3):
+		minut += 5
+		'“魅魔在饥饿时有一定的领地意识，但吃饱之后，这种冲动就弱得可以轻易压制。她们似乎在世界各地的销金窟里建立了中立领地，比如阿姆斯特丹、摩洛哥和拉斯维加斯。那样的地方不会被某一个魅魔独占，而是有一群魅魔在那里安了家。”'
+		'“魅魔的身体可以学会消耗一点力量，来容纳几乎任何尺寸的……器具。”说到这儿，她得意地朝你咧嘴一笑。'
+		if sucskill < 4: '我可以教你，你只要去街那头那家店买他们卖的最大的假阳具，然后把它和100单位的储存能量带回来就行。'
+	end
+	if ARGS[1] = 0:
+		'“她们很可能还有其他能力和弱点，但我遇到过的那几个魅魔不太愿意透露信息，不过我已经向我的关系网发出了索取更多情报的请求。”'
+		'“据我所知，你是这一带唯一的魅魔。”'
+		act '问她是否知道更多':
+			cla
+			'你问她是否还知道别的什么。'
+			'她答道：“不，我知道的就这些。”'
+			act '继续': gt 'tatiana_lab', 'Tatiana'
+		end
+	end
+	gs 'stat'
+	act '完成': gt 'tatiana_lab', 'Tatiana'
+end
+
+!! **********
+
+
+!! This is sex with Tatiana
+if $ARGS[0] = 'tatianasex':
+	$scsubloc = 'tatianasex'
+	if suceatinit = 0: gt 'succubus', 'init'
+	suceatinit = 0
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/body/succubusself.jpg"></center>'
+	if sucpcinfo < 4:
+		tatisucsex -= 2
+		'你的力量顺着与塔季扬娜之间的连接延伸过去，点燃了她的欲火，同时<<$sucself1>>也抓住了她的力量。'
+		'这时，你夺回了一些控制权，让她的力量在你体内循环，而<<$sucself1>>也在她体内循环，使她的激情与你的激情一同起伏。'
+		'塔季扬娜迅速脱光衣服，移到你的双腿之间……'
+	else
+		'你掌控了<<$sucself1>>，在你轻柔地亲吻她时，<<$sucself1>>缓缓流入塔季扬娜体内，同时你引导她的力量流入你体内。'
+		'她的力量与<<$sucself1>>完全交织在一起，你建立起一个缓缓流动的循环，让她的激情与你的激情一同起伏。'
+		'接着塔季扬娜一路亲吻着向下，在你的双腿之间就位。'
+	end
+
+	act '继续':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/karinsucsex1.jpg"></center>'
+		'她舔弄你的时候，所感受到的与你完全相同，直到你们俩一同迎来第一次高潮。'
+		'然后你把她转过来，摆成“69”的姿势。'
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/karinsucsex2.jpg"></center>'
+			'你们互相取悦了一段时间，一起高潮，然后某个时候你翻了个身。'
+			act '继续':
+				if sucpcinfo >= 6 and sucskill < 3 and sctrainprep = 1: gt 'succubus', 'training3sex'
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/karinsucsex3.jpg"></center>'
+				'你们就这样持续了一段时间，来回翻着身，一同经历多次高潮，直到你感觉到她的身体开始疲惫，尽管她的力量水平比你们刚开始时还要高一些。'
+				act '完成':
+					cla
+					gs 'npcStat', 'A176'	& !! Tatiana
+					scfeed = 2 + succublvl + rand(1, 4)
+					if tatianaSex = 0: tatianaSex = 1 & girl += 1
+					$orgasm_or = 'no'
+					gs 'arousal', 'cuni', 20, 'lesbian'
+					gs 'arousal', 'end'
+					pcs_horny = 0
+					orgasm += scfeed
+					!! Seems appropriate. Reducing it, but leaving it in. Potentially worth revisiting
+					pcs_willpwr += scfeed
+					sexnutrition += 25 * scfeed
+					suclezsex = stat['female_sexual_times']
+					succubxp += 6
+					sucabslez = 1
+					minut += 20 + (20 * scfeed) / succublvl
+					tatisucsexday = daystart + 1 + scfeed / 3
+					killvar 'scfeed'
+					if sucpcinfo < 4: gt 'succubus', 'tatianaask'
+					tatisucsex += 1
+					if tatisucsex = 0: tatisucsex = 1
+					gs 'stat'
+					'你们俩整理好自己时，塔季扬娜说：“刚才太激烈了，谢谢你！”'
+					act '继续': gt 'tatiana_lab', 'Tatiana'
+				end
+			end
+		end
+	end
+end
+!! **********
+
+
+!! Trainging sex ending
+if $ARGS[0] = 'training3sex':
+	*clr & cla
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/characters/city/tatiana/sex/karinsucsex3.jpg"></center>'
+	'你们就这样持续了几个小时，偶尔换个姿势，整个过程中你们让彼此之间那股庞大的能量循环得越来越快，直到几乎感觉你和塔季扬娜共用一个身体，持续不断地高潮。'
+	'你失去了时间概念，只能勉强完成塔季扬娜说你必须做的那些事。'
+	'最终，你感觉到多余的能量已经耗尽，你的能量处理通道有了显著改善，而塔季扬娜虽然精疲力竭，自身的力量却得到了大幅提升。'
+	act '完成':
+		cla
+		sucskill = 3
+		killvar 'sctrainprep'
+		gs 'npcStat', 'A176'	& !! Tatiana
+		if tatianaSex = 0: tatianaSex = 1
+		$orgasm_or = 'no'
+		gs 'arousal', 'cuni', 15 * rand(1, 8), 'dom', 'lesbian'
+		gs 'arousal', 'cuni_give', -15, 'dom', 'lesbian'
+		gs 'arousal', 'end'
+		suclezsex = stat['female_sexual_times']
+		tatisucsex += 1
+		if tatisucsex = 0: tatisucsex = 1
+		!! Seems appropriate. Potentially worth revisiting
+		pcs_willpwr = willpowermax
+		sucexcess -= 100
+		succhungry += 1
+		succubxp += 10
+		tatisucsexday = daystart + rand (5, 10)
+		pcs_hairbsh = 0
+		if pcs_makeup > makeup['base']: pcs_makeup = 0
+		pcs_energy = 100 & pcs_sleep = 40
+		gs 'stat'
+		'你们俩整理好自己时，塔季扬娜说：“哇……真是哇！那感觉……难以形容！我从来没有感受过<i>任何</i>那样的东西！”她温柔地吻了你一下，又补了一句：“谢谢你！”'
+		'然后她躺在沙发上，立刻就睡着了。你把毯子盖在她身上，准备离开。'
+		act '离开': gt 'city_center'
+	end
+end
+!! **********
+
+
+!! This is the computer search
+if $ARGS[0] = 'kompresearch':
+	minut += 10 * rand(3, 6)
+	sucpcinfo = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/pc/items/accessories/computer/succresrch.jpg"></center>'
+	'除了一大堆网络上的故事，你找到的最接近你一直以来的感受的东西就是魅魔——一种通过性摧毁或腐蚀男人灵魂的恶魔生物。'
+	'可是，你并不觉得自己在腐蚀什么，而且这个对应也不太贴切……'
+	'也许你该去问问塔季扬娜……'
+	act '继续': gt 'komp', 'browse'
+end
+
+!! **********
+
+
+!! This is the start of the Succubus "Sleepwalking" code
+if $args[0] = 'sucwalkinginit':
+
+	!! This checks for a valid location and sets the zone
+	!! Zone 1;
+	!! 'bedr' = Apartment on St. Petersburg Residential street
+	!! 'nichBedroomServant' = Tanya''s apartment downtown
+	!! 'dom_gor' = Hostel downtown
+	!! 'uni_dorm' = Dorm at the university
+	!! 'city_hous_res_bedr'
+	!! Zone 2;
+	!! 'bedrPar' = Parent''s apartment in Pavlovsk
+	!! 'HotelRoom' = Hotel next to train station in Pavlovsk
+	!! Zone 3; 'ybedroom' = Mansion outside city
+	!! Zone 4; 'bedr2x' = Apartment in "Old Town" (aka Pushkin)
+	!! Zone 5; 'gad_gphouse' = Grandmother''s house in Gadukino
+
+	if $loc = 'bedr' or $loc = 'nichBedroomServant' or $loc = 'dom_gor' or $loc = 'uni_dorm' or $loc = 'city_house_res_bedr' or ($loc = 'HotelRoom' and $region = 'city'):
+		sucslpzone = 1
+	elseif $loc = 'bedrPar' or ($loc = 'HotelRoom' and $region = 'pav'):
+		sucslpzone = 2
+	elseif $loc_arg = 'ybedroom':
+		sucslpzone = 3
+	elseif $loc = 'bedr2x':
+		sucslpzone = 4
+	elseif $mid($loc, 1, 6) = 'gad_gp':
+		sucslpzone = 5
+	else
+		exit
+	end
+
+
+!! Vibrator and Panty handling (pun intended)
+	if succublvl <= 2:
+		if $pantyworntype <> 'none': gs 'underwear', 'remove'
+	else
+		if sleepVars['bedPanty'] = 1:
+			gs 'underwear', 'wear'
+		elseif sleepVars['bedPanty'] = 2:
+			gs 'underwear', 'remove'
+		end
+	end
+	if analPlugIn = 1 and sleepVars['bedAnal'] = 1: analPlugIn = 0 & analPlugOut = 0
+	if vibratorIN = 1 and sleepVars['bedVibrator'] = 1: vibratorIN = 0
+
+!! This is the simple method for the base level succubus
+	if succublvl = 1 and $lastwornclothingtype <> 'nude':
+		gs 'outfit', 'wear_last_worn'
+		gt 'succubus', 'sucwalkinggo'
+	end
+
+	!! This is to put all owned and wearable clothing in 2 large arrays
+	$succlocat[0] = 'eroto_dress'
+	$succlocat[1] = 'eroto_outfits'
+	$succlocat[2] = 'eroto_strip'
+	$succlocat[3] = 'scandalicious_dress'
+	$succlocat[4] = 'scandalicious_outfits'
+	$succlocat[5] = 'salacious_outfit'
+	$succlocat[6] = 'salacious_dress'
+	$succlocat[7] = 'fashionista_dress'
+	$succlocat[8] = 'fashionista_oufits'
+	$succlocat[9] = 'cats_dress'
+	$succlocat[10] = 'cats_outfits'
+	$succlocat[11] = 'coco_dress'
+	$succlocat[12] = 'coco_outfits'
+	$succlocat[13] = 'flamingos_dress'
+	$succlocat[14] = 'flamingos_outfits'
+	$succlocat[15] = 'market_outfits'
+	$succlocat[16] = 'gm_outfits'
+	$succlocat[17] = 'gm_dress'
+	$succlocat[18] = 'gm_office'
+	$succlocat[19] = 'gm_school'
+	$succlocat[20] = 'dolls_outfits'
+	$succlocat[21] = 'dolls_dress'
+	$succlocat[22] = 'bomba_outfits'
+	$succlocat[23] = 'bomba_dress'
+	$succlocat[24] = 'danilovich_outfits'
+	$succlocat[25] = 'nerdvana_cosplay'
+	$succlocat[26] = 'nerdvana_outfits'
+	$succlocat[27] = 'moncheri_gown'
+	$succlocat[28] = 'moncheri_dress'
+	$succlocat[29] = 'materinstvo_dress'
+	$succlocat[30] = 'gm_server'
+	$succlocat[31] = 'gm_maid'
+
+	!! wearing cicle
+	temp_succubus_x = 0
+	temp_succubus_j = 0
+	:loopclotype
+		gs 'clothing', 'totals', $succlocat[temp_succubus_j]
+
+		temp_succubus_i = 1
+		:loopclonum
+			if func('clothing', 'can_wear', $succlocat[temp_succubus_j], temp_succubus_i):
+				$succlolistn[temp_succubus_x] = $succlocat[temp_succubus_j]
+				succlolisti[temp_succubus_x] = temp_succubus_i
+				temp_succubus_x += 1
+			end
+			temp_succubus_i += 1
+		if temp_succubus_i <= total: jump 'loopclonum'
+		temp_succubus_j += 1
+	if temp_succubus_j < arrsize('$succlocat'): jump 'loopclotype'
+
+	killvar 'temp_succubus_i'
+	killvar 'temp_succubus_j'
+
+	if succublvl < 3:
+		!!	This picks any outfit at random
+		:oops
+			clopickrand = rand(0, temp_succubus_x - 1)
+		if $succlolistn[clopickrand] = '': jump 'oops'
+
+		gs 'clothing', 'wear', $succlolistn[clopickrand], succlolisti[clopickrand]
+		killvar 'succlolistn'
+		killvar 'succlolisti'
+		killvar 'temp_succubus_x'
+		killvar 'succlocat'
+		gt 'succubus', 'sucwalkinggo'
+	end
+
+
+	z = 0
+
+	scclocatcnt = 0
+	:randpoploop_bimbo_outer
+		y = 0
+		:randpoploop_bimbo_inner
+			if $succlocat[scclocatcnt] = $succlolistn[y]:
+				gs 'clothing_attributes', $succlolistn[y], succlolisti[y]
+				if CloBimbo = 1:
+					$succlorandn[z] = $succlolistn[y]
+					succlorandi[z] = succlolisti[y]
+					z += 1
+				end
+			end
+			y += 1
+		if y <= temp_succubus_x: jump 'randpoploop_bimbo_inner'
+		scclocatcnt += 1
+	if scclocatcnt <= 6: jump 'randpoploop_bimbo_outer'
+
+	if z < 1: scpckrnd = 1
+	if scpckrnd > 0:
+		if scclocatcnt <= 10: jump 'randpoploop_bimbo_outer'
+	end
+
+	if z < 1:
+		scpckrnd = 0
+		scclocatcnt = 0
+		:randpoploop_full_outer
+			y = 0
+			:randpoploop_full_inner
+				if $succlocat[scclocatcnt] = $succlolistn[y]:
+					$succlorandn[z] = $succlolistn[y]
+					succlorandi[z] = succlolisti[y]
+					z += 1
+				end
+				y += 1
+			if y <= temp_succubus_x: jump 'randpoploop_full_inner'
+			scclocatcnt += 1
+		if scclocatcnt <= 6: jump 'randpoploop_full_outer'
+
+		if z < 1: scpckrnd = 1
+		if scpckrnd > 0:
+			if scclocatcnt <= 10: jump 'randpoploop_full_outer'
+
+			if z < 1: scpckrnd = 2
+			if scpckrnd > 1:
+				if scclocatcnt <= arrsize('$succlocat'): jump 'randpoploop_full_outer'
+			end
+		end
+	end
+
+
+	:oops2
+		clopickrand = rand(0, z - 1)
+	if $succlorandn[clopickrand] = '': jump 'oops2'
+
+	gs 'clothing', 'wear', $succlorandn[clopickrand], succlorandi[clopickrand]
+
+	killvar 'succlolistn'
+	killvar 'succlolisti'
+	killvar 'succlorandn'
+	killvar 'succlorandi'
+	killvar 'succlocat'
+	killvar 'scclocatcnt'
+	killvar 'scpckrnd'
+	killvar 'temp_succubus_x'
+	killvar 'y'
+	killvar 'z'
+
+	if succublvl < 4: gt 'succubus', 'sucwalkinggo'
+
+
+	!!	This covers a high level succubus doing complex activities
+	if pcs_hairbsh < 1: pcs_hairbsh = 1
+	if mc_inventory['lipbalm'] > 0 and pcs_lipbalm <= 0:
+		mc_inventory['lipbalm'] -= 1
+		lipkoef += rand(0, 1)
+		if lipkoef > 50:
+			lipkoef = 0
+			pcs_lip += 1
+		end
+		pcs_lipbalm += 8
+	end
+	if pcs_makeup <= 1 and mc_inventory['cosmetics'] > 0:
+		pcs_makeup = 4
+		if mc_inventory['cosmetics'] < 3 and pcs_makeup = 4: pcs_makeup = 3
+		if mc_inventory['cosmetics'] < 2 and pcs_makeup = 3: pcs_makeup = 2
+		if mc_inventory['cosmetics'] < 1 and pcs_makeup <> 1:
+			pcs_makeup = 1
+		else
+			if pcs_makeup = 2: mc_inventory['cosmetics'] -= 1
+			if pcs_makeup = 3: mc_inventory['cosmetics'] -= 2
+			if pcs_makeup = 4: vidageday -= 1 & mc_inventory['cosmetics'] -= 3
+		end
+	end
+
+	gt 'succubus', 'sucwalkinggo'
+end
+
+
+!! This sets the results of the "sucwalking" event and picks the final location
+if $args[0] = 'sucwalkinggo':
+
+!! Here is what the PC sees
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/shared/home/bedroom/dream/sucrandream3.jpg"></center>'
+	if succublvl < 3:
+		$sucselftmp = '你核心中<<$sucself1>>的化身'
+	else
+		$sucselftmp = $sucself1
+	end
+	'你梦见自己在和<<$sucselftmp>>.'
+	'你不知道那是怎么回事，但你觉得你<b><i>输了</i></b>……'
+	killvar 'sucselftmp'
+
+!! This is the results, time, and sleep variable clearing section
+	sucencntrand = (1 + succublvl)/2 + rand(0, succublvl)
+	scfeed = (succublvl * sucencntrand) + rand(1, (4 * sucencntrand))
+	minut += 180 + ((scfeed * 10) / succublvl)
+	pcs_health += 5 * (360 + ((scfeed * 10) / succublvl))
+	pcs_sleep += 15 * ((360 + ((scfeed * 10) / succublvl)) / 60)
+	pcs_condition['lack_of_sleep'] = 0
+	gs 'stat'
+	clr
+
+	inSleep = 0
+	pcs_horny = 0
+	orgasm += scfeed
+	!! Seems appropriate. Reducing it, but leaving it in. Potentially worth revisiting
+	pcs_willpwr += scfeed
+	succubxp += 3 * sucencntrand
+	sexnutrition += 25 * scfeed
+	scwalkmon = rand (50, (100 * sucencntrand))
+	gs 'money', 'earn', scwalkmon, 'cash'
+	sucwalkday = daystart + sucencntrand + rand(0, 5)
+
+	sctemp = rand(1, 10)
+	if sucencntrand > 1:
+		if sctemp <= 6:
+			sucabscum = 1
+		elseif sctemp = 7:
+			sucabslez = 1
+		else
+			sucabslez = 1 & sucabscum = 1
+		end
+	else
+		if sctemp <= 7:
+			sucabscum = 1
+		else
+			sucabslez = 1
+		end
+	end
+	killvar 'sctemp'
+	killvar 'scfeed' & killvar 'sucencntrand'
+
+	!! This picks the location where you end up and how you got there
+	if succublvl >= 4 and func('car_funcs', 'has_car') and func('car_funcs', 'has_wreck') = 0:
+		if car['fuel'] < 5:
+			if func('money', 'can_afford', (30 * (car['tank'] - car['fuel'])), 'cash'):
+				gs 'money', 'pay', (30 * (car['fuel'] - car['fuel'])), 'cash'
+				car['fuel'] = car['tank']
+			else
+				if kanistra > 0:
+					car['fuel'] += 5
+					kanistra -= 1
+				else
+					gs 'money', 'set', 0, 'cash'
+					scwalkmon = 0
+					car['fuel'] += rand(10, car['tank'])
+				end
+			end
+		end
+		sctemp = rand(1, 11)
+		if sctemp = 1:
+			gs 'car_funcs', 'setloc', 'city_residential', '', 'city'
+		elseif sctemp = 2:
+			gs 'car_funcs', 'setloc', 'city_center', '', 'city'
+		elseif sctemp = 3:
+			gs 'car_funcs', 'setloc', 'city_industrial', '', 'city'
+		elseif sctemp = 4:
+			gs 'car_funcs', 'setloc', 'city_industrial_train', 'outside', 'city'
+		elseif sctemp = 5:
+			gs 'car_funcs', 'setloc', 'city_lake', 'start', 'city'
+		elseif sctemp = 6:
+			gs 'car_funcs', 'setloc', 'city_park', 'start', 'city'
+		elseif sctemp = 7:
+			gs 'car_funcs', 'setloc', 'dachi', '', 'other'
+		elseif sctemp = 8:
+			gs 'car_funcs', 'setloc', 'pushkin', '', 'pushkin'
+		elseif sctemp = 9:
+			gs 'car_funcs', 'setloc', 'pav_residential', '', 'pav'
+		elseif sctemp = 10:
+			gs 'car_funcs', 'setloc', 'gadukino', '', 'gad'
+		else
+			gs 'car_funcs', 'setloc', 'pav_commercial', '', 'pav'
+		end
+		killvar 'sctemp'
+
+		car['fuel'] -= rand(1, 4)
+		car['current_condition'] -= rand(3, 6)
+!!		This forces the dynmanic at the top of carF to load in case it had not
+		gs 'carF'
+		sccarflag = 1
+	else
+		sctemp = rand(1, 5)
+		if sucslpzone = 1:
+			if sctemp = 1: $sucgoloc = 'city_industrial' & $sucgometka = ''
+			if sctemp = 2: $sucgoloc = 'city_residential' & $sucgometka = ''
+			if sctemp = 3: $sucgoloc = 'city_center' & $sucgometka = ''
+			if sctemp = 4: $sucgoloc = 'city_park' & $sucgometka = 'start'
+			if sctemp = 5: $sucgoloc = 'city_lake' & $sucgometka = 'start'
+		elseif sucslpzone = 2:
+			if sctemp = 1: $sucgoloc = 'pav_commercial' & $sucgometka = ''
+			if sctemp = 2: $sucgoloc = 'pav_residential' & $sucgometka = ''
+			if sctemp = 3: $sucgoloc = 'pav_park' & $sucgometka = 'start'
+			if sctemp = 4: $sucgoloc = 'pav_market' & $sucgometka = ''
+			if sctemp = 5: $sucgoloc = 'pav_lake' & $sucgometka = ''
+		elseif sucslpzone = 3:
+			if sctemp = 1: $sucgoloc = 'city_industrial' & $sucgometka = ''
+			if sctemp = 2: $sucgoloc = 'city_park' & $sucgometka = 'start'
+			if sctemp = 3: $sucgoloc = 'pav_commercial' & $sucgometka = ''
+			if sctemp = 4: $sucgoloc = 'pav_market' & $sucgometka = ''
+			if sctemp = 5: $sucgoloc = 'motel' & $sucgometka = ''
+		elseif sucslpzone = 4:
+			if sctemp = 1: $sucgoloc = 'pushkin' & $sucgometka = ''
+			if sctemp = 2: $sucgoloc = 'pushkin_sq' & $sucgometka = ''
+			if sctemp = 3: $sucgoloc = 'pushkin_parks' & $sucgometka = ''
+			if sctemp = 4: $sucgoloc = 'pav_market' & $sucgometka = ''
+			if sctemp = 5: $sucgoloc = 'city_industrial' & $sucgometka = ''
+		elseif sucslpzone = 5:
+			if sctemp = 1: $sucgoloc = 'gadukino' & $sucgometka = ''
+			if sctemp = 2: $sucgoloc = 'pav_market' & $sucgometka = ''
+			if sctemp = 3: $sucgoloc = 'motel' & $sucgometka = ''
+			if sctemp = 4: $sucgoloc = 'city_industrial' & $sucgometka = ''
+			if sctemp = 5: $sucgoloc = 'city_park' & $sucgometka = 'start'
+		end
+		killvar 'sctemp' & killvar 'sucslpzone'
+	end
+
+!! This is the wake up action
+	act '醒来':
+		cla
+		pcs_sleep = 100
+		gs 'mood', 'raise', 'medium'
+		pcs_health += healthmax/5
+		pcs_stam = stammax
+		!! Commenting it out for now, but potentially worth revisiting
+		!! pcs_willpwr = pcs_intel * 5 + will * 5 + 1000
+		pcs_mana = (pcs_intel * pcs_magik) + pcs_magik * 100 + pcs_vital * 10 + rikudo
+
+		minut += 15
+		gs 'stat'
+		$scwrdtmp = '.'
+		''
+		'你醒来，发现自己不在自己的床上……'
+		if pcs_hairbsh = 1 and pcs_makeup > 1: $scwrdtmp = '，你的头发梳得整整齐齐，还化了妆。'
+		'相反，你穿戴整齐<<$scwrdtmp>>'
+		if scwalkmon > 0:
+			'你找到<<$func(''money'', ''string_profit'', scwalkmon)>>塞在你的乳沟里（你把它放进了钱包）。'
+			gs 'money', 'earn', scwalkmon, 'cash'
+		end
+		'而且你感觉自己简直<i>充满</i>了能量。'
+		''
+		'过了一会儿，你开始纳闷自己在哪儿……'
+		killvar 'scwalkmon' & killvar 'scwrdtmp'
+		act '环顾四周，看看你在哪里':
+			if sccarflag = 1:
+				killvar 'sccarflag'
+				dynamic $enddrive
+			else
+				gt $sucgoloc, $sucgometka
+			end
+		end
+	end
+end
+!! **********
+
+
+--- succubus ---------------------------------

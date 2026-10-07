@@ -1,0 +1,684 @@
+# albinahome
+!! 2022/03/16
+
+!! Albina House Schedule
+!! Not accessible between 21:00 - 10:00
+
+if $ARGS[0] = 'door_bell':
+	*clr & cla
+	gs 'schedule', 'A23'
+	gs 'albinahome', 'zoya_schedule'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/albinahome.jpg"></center>'
+	if hour >= 21 or hour <= 9:
+		'现在可不是上门拜访的好时机！'
+		act '离开': gt 'pav_residential'
+	else
+		minut += 2
+		gs 'stat'
+		'你沿着长长的车道走到阿尔比娜家的前门，按响了门铃。'
+		if locat['A23'] = 35:
+			'你等了几分钟，但连女仆都没来应门。看来家里没人。'
+			act '离开': minut += 2 & gt 'pav_residential'
+		elseif (week = 6 or week = 7) and locat['A23'] = 1 and AlbinaQW['meet_zoya'] = 0:
+			gt 'albina_mother_events', 'zoya_meet'
+		elseif locat['zoya'] = 8 or locat['zoya'] = 9:
+			'你听到门闩解锁的声音，然后门被女仆打开了。'
+			'"你好，<<$pcs_firstname>>小姐，"她微笑着说。"阿尔比娜小姐现在不在家，不过她应该会在下午5点前回来。佐娅女士说如果你愿意，可以进来等她。"'
+			act '离开':
+				cla
+				'你摇了摇头。"不用了，没关系。我晚点再来。"'
+				'她点了点头。"就像我说的，阿尔比娜小姐通常下午5点前会到家，如果你想那时再来也行。"'
+				'你点头回应，随后她关上门，你沿着车道往回走。'
+				act '离开': minut += 2 & gt 'pav_residential'
+			end
+			act '在屋里等阿尔比娜':
+				cla
+				'"那我就进来等她，可以吗？"你回答说。'
+				'女仆微笑着让到一旁，让你进去。'
+				'"请跟我来，<<$pcs_firstname>>小姐。"'
+				if locat['zoya'] = 8:
+					gt 'albina_mother_events', 'zoya_sunbathing_solo1'
+				else
+					gt 'albina_mother_events', 'zoya_workout_solo'
+				end
+			end
+		elseif locat['zoya'] = 10:
+			gt 'albina_mother_events', 'zoya_sunbathing_albina'
+		elseif locat['zoya'] = 11:
+			gt 'albina_mother_events', 'zoya_yoga_albina'
+		else
+			'几秒钟后，你听到门闩解锁的咔嗒声，门随即打开，露出女仆的身影。'
+			'"你好，<<$pcs_firstname>>小姐，"她礼貌地微笑着说。'
+			'"你好。阿尔比娜在家吗？"你礼貌地问道。'
+			if locat['A23'] ! 1:
+				if locat['A23'] = 2:
+					'"阿尔比娜小姐在学校，"她皱着眉回答。"你不也该在学校吗？"'
+					'你只能尴尬地低声咕哝几句，转身离开，听到身后的门关上了。'
+					act '离开': minut += 2 & gt 'pav_residential'
+				else
+					'她摇了摇头，又露出一个礼貌的微笑。"抱歉，阿尔比娜小姐现在不方便。"'
+					'"哦。好吧。那我晚点再来，"你回答说。'
+					if locat['A23'] = 6:
+						'"我想她和你的其他朋友在海滩上，如果你想的话可以去那里找她？"她说着关上了门。'
+					else
+						'她只是点了点头，然后关上了门。'
+					end
+					act '离开': minut += 2 & gt 'pav_residential'
+				end
+			else
+				'她点点头，退到一旁让你进去。'
+				act '进入': gt 'albinahome', 'maid_greet'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'maid_greet':
+	CLOSE ALL
+	if daystart <= AlbinaQW['visiting']: gt 'albinahome', 'hallway'
+
+	!! Entering the house and getting random chances for events
+	AlbinaQW['visiting'] = daystart
+	temp_rand = rand(0, 4)
+	if temp_rand = 0:
+		killvar 'temp_rand'
+		gt 'albina_house_events', 'alb_yoga_start'
+	elseif temp_rand = 1 and daystart > AlbinaQW['daily_event']:
+		AlbinaQW['daily_event'] = daystart
+		killvar 'temp_rand'
+		gt 'albina_sex_scenes', 'lazar_start'
+	elseif temp_rand = 2 and temper >= 15 and sunWeather = 1:
+		killvar 'temp_rand'
+		gt 'albina_house_events', 'albina_sunbathe_solo'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/maid.jpg"></center>'
+		'"请随意，就当在自己家一样，<<$pcs_firstname>>小姐。我会通知阿尔比娜小姐你到了，"她说完便告退了。'
+		act '继续': gt 'albinahome', 'hallway'
+	end
+	killvar 'temp_rand'
+end
+
+if $ARGS[0] = 'hallway':
+	CLOSE ALL
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	menu_off = 0
+	frost = 0
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	gs 'themes', 'indoors'
+	!! For leaving the house or going to the bathroom, no random event chances
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/hallway.jpg"></center>'
+	'门厅布置得很考究，铺着实木地板，有众多拱门和雅致的装饰。灯光嵌入精致的楼梯中，两侧是环绕式阳台。'
+	'有人叮嘱过你不要独自在房子里乱逛，所以你能去的地方有限。'
+	if hour >= 21:
+		*nl
+		'女仆带着礼貌的微笑走过来。"抱歉，<<$pcs_firstname>>小姐，您该离开了。您可以明天再来拜访。"'
+		'你点点头，收拾好东西，然后女仆带你去门口。'
+		act '离开': minut += 2 & gt 'pav_residential'
+	else
+		act '离开':
+			!! AlbinaQW['visiting'] = 0
+			minut += 3
+			gt 'pav_residential'
+		end
+		act '去阿尔比娜的卧室': gt 'albinahome', 'bedroom'
+		act '去佐娅的卧室': gt 'albinahome', 'zoya_room'
+		act '去客厅': gt 'albinahome', 'living_room'
+		act '去卫生间': gt 'albinahome', 'downstairs_bathroom'
+		act '去厨房': gt 'albinahome', 'kitchen'
+		act '去游泳池': gt 'albinahome', 'pool_side'
+	end
+end
+
+if $ARGS[0] = 'downstairs_bathroom':
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	menu_off = 0
+	$location_type = 'bathroom'
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	gs 'themes', 'indoors'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/bathroom.jpg"></center>'
+	'这间浴室和房子其他地方一样布置考究，家具陈设全都使用了抛光大理石。'
+	*nl
+	'有淋浴，厕所，洗手池，<a href="exec:gt ''mirror'', ''start''">镜子</a>, 你可以 ' + iif(pcs_hairbsh < 1, '<a href="exec:gt ''mirror'', ''brush''">梳头</a>', '梳头') + ' 你的头发，甚至还有一个独立的浴缸。'
+	act '返回走廊': gt 'albinahome', 'hallway'
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	if mc_inventory['painkillers'] > 0:
+		if pain['total'] > 0:
+			act $func('drugs', 'painkiller_act_str'):
+				cla
+				gs 'drugs', 'painkiller'
+				gs 'beverage', 'water_stats'
+				*nl
+				'你拿了一片止痛药，用一杯水吞了下去。'
+				act '完成': gt $loc, $loc_arg
+			end
+		end
+	end
+	gs 'din_van', 'prvt_pee'
+end
+
+if $ARGS[0] = 'bedroom_event_random':
+	!! temp = iif((month < 9) and (month > 5) and (week = 3 or week = 6), rand(1, 12), rand(1, 10))
+	temp_rand = rand(0, 6)
+	if temp_rand = 0:
+		!! Lazar Sex Event
+		killvar 'temp_rand'
+		gt 'albina_sex_scenes', 'lazar_start'
+	elseif temp_rand = 1:
+		!! hot tub
+		killvar 'temp_rand'
+		gt 'albina_house_events', 'hot_tub1'
+	elseif temp_rand = 2 and temper < 10:
+		!! swim winter
+		killvar 'temp_rand'
+		gt 'albina_house_events', 'swim_winter1'
+	elseif temp_rand = 3 and AlbinaQW['studylock'] = 0 and AlbinaQW['flashdrive'] = 0:
+		!! laptop event
+		killvar 'temp_rand'
+		gt 'albina_events', 'study_door'
+	elseif temp_rand = 4:
+		killvar 'temp_rand'
+		gt 'albina_house_events', 'alb_bedroom_shower'
+	elseif temp_rand = 5:
+		killvar 'temp_rand'
+		gt 'albinahome', 'dancing'
+	end
+	killvar 'temp_rand'
+end
+
+if $ARGS[0] = 'bedroom':
+	CLOSE ALL
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	menu_off = 0
+	if daystart > AlbinaQW['daily_event']:
+		AlbinaQW['daily_event'] = daystart
+		gs 'albinahome', 'bedroom_event_random'
+	elseif daystart <> AlbinaQW['extra_event']:
+		AlbinaQW['extra_event'] = daystart
+		temp_rand = rand(0, 2)
+		if temp_rand = 0:
+			gs 'albina_house_events', 'dancing'
+		elseif temp_rand = 1:
+			gs 'albina_house_events', 'ass_too_big'
+		end
+		killvar 'temp_rand'
+	end
+	minut += 1
+	gs 'stat'
+	gs 'themes', 'indoors'
+	*clr & cla
+	if AlbinaQW['albride'] = 3:
+		AlbinaQW['albride'] = 4
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big23.jpg"></center>'
+		'你上楼来到阿尔比娜的房间，她看到你进来时朝你微笑。"所以你已经见过我妈妈了？别担心。她<i>基本上</i>无害，而且其实挺喜欢你的。那你想做点什么？"'
+		act '闲逛': gt $loc, $loc_arg
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/albinaroom.jpg"></center>'
+		if hour >= 21:
+			'"时间不早了，<<$pcs_nickname>>，"阿尔比娜说。"你该走了。"'
+			'你看了看手机上的时间，叹了口气。"是啊，我确实该走了……"'
+			'离开前，你给了阿尔比娜一个告别的拥抱。'
+			act '离开': minut += 3 & gt 'pav_residential'
+		elseif (week = 5 or week = 6) and hour >= 20:
+			'阿尔比娜突然开始脱衣服，然后从衣柜里拽出一件性感的黑色连衣裙套上。'
+			'"我要去迪斯科舞厅，"她边说边穿上高跟鞋。"想跟我一起来吗？我知道不算什么，不过我会替你付入场费的。"'
+			act '好的':
+				cla
+				'你点点头。"我很乐意跟你一起去跳舞！"'
+				'等她化好妆、弄好头发后，你们俩一起下楼，前往社区中心。'
+				act '去迪斯科舞厅': minut += 5 & gt 'pav_disco'
+			end
+			act '不用了，谢谢':
+				cla
+				'"不用了，谢谢，"你回答说。"反正我也该走了。"'
+				'"哦。好吧。那至少陪我走到镇上？"她回答说。'
+				'你点点头，等她收拾好，然后你们一起下楼，走向住宅区。'
+				'"祝你今晚玩得开心，阿尔比娜，"你对她说，然后给了她一个告别的拥抱。'
+				act '离开': minut += 5 & gt 'pav_residential'
+			end
+		else
+			'阿尔比娜的卧室，一言以蔽之，<i>奢华</i>. 中心是一张铺满柔软枕头的大双人床，房间后部的一扇门通往她的套内<a href="exec:gt ''albinahome'', ''albina_bathroom''">浴室</a>. 还有一扇通往阳台的推拉门，可以俯瞰游泳池。一面墙上还嵌着一个装满昂贵衣服的衣柜。'
+			'她的<a href="exec:gt ''albina_house_events'', ''computer''">笔记本电脑</a>正放在旁边的书桌上。'
+			act '<b>走到走廊</b>': gt 'albinahome', 'hallway'
+			act '<b>说再见并离开</b>': minut += 3 & gt 'pav_residential'
+			act '与阿尔比娜聊天': gt 'albina_chat', 'chat'
+			act '谈论电子游戏': gt 'albina_house_events', 'tekken_game'
+			act '谈论衣服': gt 'albinahome', 'dressing'
+			if temper >= 15 and sunWeather = 1 and hour < 19:
+				act '问她要不要去游泳池游泳': gt 'albina_house_events', 'naked_swim'
+			end
+			act '问她要不要在按摩浴缸里放松一下': gt 'albina_house_events', 'hot_tub_ask'
+			if photographyEv = 2 and portfolio_people[7] = 0:
+				act '问是否可以给她拍照': gt 'albina_house_events', 'albina_photos'
+			end
+			if AlbinaQW['SportDay'] ! daystart:
+				act '询问关于跳舞的事': gt 'albinahome', 'dancing1'
+			end
+		end
+	end
+end
+
+if $ARGS[0] = 'albina_bathroom':
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	menu_off = 0
+	$location_type = 'bathroom'
+	*clr & cla
+	minut += 1
+	gs 'stat'
+	gs 'themes', 'indoors'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/bathroom.jpg"></center>'
+	'和房子里的其他浴室一样，阿尔比娜的套内浴室装饰得奢华精致，铺着抛光大理石和亮面瓷砖。'
+	*nl
+	'有一个大型淋浴间，马桶，洗手盆，<a href="exec:gt ''mirror'', ''start''">镜子</a>, 你可以 ' + iif(pcs_hairbsh < 1, '<a href="exec:gt ''mirror'', ''brush''">梳头</a>', '梳头') + ' 你的头发，还有一个巨大的大理石浴缸，看起来足以容纳两个人。'
+	if rand(0, 2) = 0:
+		'你环顾房间时，注意到浴缸边缘粘着一个大型吸盘假阳具。阿尔比娜可能是心不在焉地把它忘在这里，但以你对这位朋友的了解，她也很可能是故意放在这的。'
+		!! act 'Inspect it':
+
+		act '别管它': gt 'albinahome', 'albina_bathroom'
+	end
+	act '返回阿尔比娜的房间': gt 'albinahome', 'bedroom'
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	if mc_inventory['painkillers'] > 0:
+		if pain['total'] > 0:
+			act $func('drugs', 'painkiller_act_str'):
+				cla
+				gs 'drugs', 'painkiller'
+				gs 'beverage', 'water_stats'
+				*nl
+				'你拿了一片止痛药，用一杯水吞了下去。'
+				act '完成': gt $loc, $loc_arg
+			end
+		end
+	end
+	gs 'din_van', 'prvt_pee'
+end
+
+if $ARGS[0] = 'living_room':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	$location_type = 'public_indoors'
+	minut += 1
+	gs 'albinahome', 'zoya_schedule'
+	gs 'stat'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/livingroom.jpg"></center>'
+	'客厅布置得非常考究，铺着抛光木地板，房间里摆满了看起来价值不菲的家具。'
+	'你的注意力被某种玻璃和金属制成的装饰品吸引，它可能比你整间公寓还值钱。'
+	*nl
+	if locat['zoya'] = 5:
+		'<a href="exec:minut += 1 & gt ''zoya_chat'', ''lounge_chat''">卓娅</a>在这里，正端着酒杯在沙发上放松，翻阅着似乎是各种工作相关的文件。'
+		'你可以坐下来和她聊天。'
+	elseif rand(0, 2) = 0 and hour < 17:
+		'女仆正忙着掸灰尘、擦拭房间。她似乎没有注意到你的存在。'
+	else
+		'目前这里没人。'
+	end
+	act '去走廊': gt 'albinahome', 'hallway'
+	act '去阿尔比娜的卧室': gt 'albinahome', 'bedroom'
+	act '去佐娅的卧室': gt 'albinahome', 'zoya_room'
+	act '去卫生间': gt 'albinahome', 'downstairs_bathroom'
+	act '去厨房': gt 'albinahome', 'kitchen'
+	act '去游泳池': gt 'albinahome', 'pool_side'
+end
+
+if $ARGS[0] = 'kitchen':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	$location_type = 'public_indoors'
+	$locclass = 'kitr'
+	minut += 1
+	gs 'albinahome', 'zoya_schedule'
+	gs 'stat'
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/kitchen.jpg"></center>'
+	'设备齐全的厨房和房子其他地方一样布置考究，家具陈设全都使用闪亮的漆木。'
+	if hour >= 21:
+		*nl
+		'女仆带着礼貌的微笑走过来。"抱歉，<<$pcs_firstname>>小姐，您该离开了。您可以明天再来拜访。"'
+		'你点点头，收拾好东西，然后女仆带你去门口。'
+		act '离开': minut += 2 & gt 'pav_residential'
+	elseif locat['zoya'] = 3:
+		if hour < 7:
+			'<a href="exec:minut += 1 & gt ''zoya_chat'', ''breakfast_chat''">卓娅</a>在这里，正坐在桌旁吃早餐。'
+			'你可以坐下来和她聊天。'
+		else
+			'佐娅在这里，正坐在桌边吃晚饭，同时翻看着似乎是各种工作相关的文件。你大概不该打扰她。'
+		end
+	else
+		'目前这里没人。'
+	end
+	gs 'kit_din'
+	act '去走廊': gt 'albinahome', 'hallway'
+	act '去阿尔比娜的卧室': gt 'albinahome', 'bedroom'
+	act '去佐娅的卧室': gt 'albinahome', 'zoya_room'
+	act '去客厅': gt 'albinahome', 'living_room'
+	act '去卫生间': gt 'albinahome', 'downstairs_bathroom'
+	act '去游泳池': gt 'albinahome', 'pool_side'
+	gs 'kit_din', 'fill_bottle'
+	gs 'kit_din', 'driwater'
+end
+
+if $ARGS[0] = 'pool_side':
+	*clr & cla
+	minut += 1
+	gs 'albinahome', 'zoya_schedule'
+	gs 'stat'
+	if month >= 11 or month <= 3:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/pool_winter.jpg"></center>'
+		'小泳池占据了后院中央的大部分空间，旁边还有一个独立的按摩浴缸。泳池边摆放着多张躺椅和折叠椅。'
+		'考虑到现在的天气，你觉得跳下去可不是个好主意。'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/pool.jpg"></center>'
+		'小泳池占据了后院中央的大部分空间，旁边还有一个独立的按摩浴缸。泳池边摆放着多张躺椅和折叠椅。'
+		if temper >= 15 and sunWeather = 1:
+			'天气这么热，你几乎想跳进清澈见底的水里凉快一下。你琢磨着阿尔比娜会不会想下水游一圈？'
+		else
+			'清澈见底的池水看起来相当诱人。你琢磨着阿尔比娜会不会想下水游一圈？'
+		end
+	end
+	if locat['zoya'] = 8:
+		'<a href="exec:minut += 1 & gt ''albina_mother_events'', ''zoya_sunbathing_solo2''">卓娅</a>正裸着上身躺在泳池中央的浮垫上晒日光浴。'
+		'你犹豫着是否该打扰她。她现在看起来相当放松，可能并不想有人作伴。'
+	elseif hour >= 21:
+		*nl
+		'女仆带着礼貌的微笑走过来。"抱歉，<<$pcs_firstname>>小姐，您该离开了。您可以明天再来拜访。"'
+		'你点点头，收拾好东西，然后女仆带你去门口。'
+		act '离开': minut += 2 & gt 'pav_residential'
+	else
+		'现在这里没人。'
+	end
+	act '去走廊': gt 'albinahome', 'hallway'
+	act '去阿尔比娜的卧室': gt 'albinahome', 'bedroom'
+	act '去客厅': gt 'albinahome', 'living_room'
+	act '去佐娅的卧室': gt 'albinahome', 'zoya_room'
+	act '去卫生间': gt 'albinahome', 'downstairs_bathroom'
+	act '去厨房': gt 'albinahome', 'kitchen'
+end
+
+if $ARGS[0] = 'zoya_room':
+	gs 'core_library', 'setloc', 'albinahome', $ARGS[0]
+	menu_off = 0
+	*clr & cla
+	minut += 1
+	gs 'albinahome', 'zoya_schedule'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	if locat['zoya'] = 1:
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/zoyaroom.jpg"></center>'
+		'你沿着走廊走到卓娅的卧室。伸手握住门把手，你推开门缝，朝里面偷看了一眼。'
+		'房间里一片漆黑，你看到佐娅正躺在床上睡觉。你决定不去打扰她，轻轻关上了门。'
+		act '离开': minut += 1 & gt 'albinahome', 'hallway'
+	elseif locat['zoya'] = 2:
+		gt 'albina_mother_events', 'peep2'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/zoyaroom.jpg"></center>'
+		'你沿着走廊走到卓娅的卧室。伸手握住门把手，你推开门缝，朝里面偷看了一眼。'
+		'房间布置之考究让你倒吸一口气，房间中央的大床吸引了你的注意。一张书桌靠着一面墙放着，而另一面墙几乎全由推拉板构成，后面藏着套内浴室。'
+		'房间本身一尘不染，到处都看不到一粒灰尘。除此之外，似乎也没什么其他值得注意的东西。'
+		act '离开': minut += 1 & gt 'albinahome', 'hallway'
+	end
+end
+
+if $ARGS[0] = 'dancing':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	if AlbinaQW['SportHome'] = 0:
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/train.mp4"></video></center>'
+		'阿尔比娜正在房间里锻炼，做着一些拉伸动作。'
+		'她穿着紧身瑜伽裤，把她匀称的身材衬托得相当到位。'
+		'哦，嘿<<$pcs_nickname>>！"她看到你时微笑着说。'
+		act '问她为什么不去健身房锻炼':
+			*clr & cla
+			AlbinaQW['SportHome'] = 1
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big23.jpg"></center>'
+			'"我自己家里就有健身房，干吗还要浪费时间跑去健身房？"她说，你意识到自己问了个蠢问题，脸微微发红。'
+			'"我正要下楼去做一些舞蹈练习。如果你想的话，我可以教你一些脱衣舞和钢管舞的技巧？"'
+			act '不用了，谢谢':
+				cla
+				AlbinaQW['SportDay'] = daystart
+				'"不用了，谢谢，"你回答说。"我挺好的。"'
+				'"好吧，给我一分钟，让我把这里弄完，再梳洗一下。"'
+				'她做完锻炼，然后走进套间浴室冲了个澡。几分钟后她回来，穿上衣服，然后坐在床上。'
+				'"那么……你想做点什么？"'
+				act '找点事做': gt 'albinahome', 'bedroom'
+			end
+			act '教我脱衣舞': gt 'albinahome', 'stripping'
+			act '教我钢管舞': gt 'albinahome', 'poledancing'
+		end
+	else
+		'<center><video autoplay loop <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/train.mp4"></video></center>'
+		'你走进房间，看到阿尔比娜正穿着瑜伽裤做着一些拉伸动作。'
+		'她朝你微笑。"嘿，<<$pcs_nickname>>！我刚要下楼去健身房做舞蹈练习。想让我教你几手吗？"'
+		act '不用了，谢谢':
+			cla
+			AlbinaQW['SportDay'] = daystart
+			'"不用了，谢谢，"你回答说。"我挺好的。"'
+			'"好吧，给我一分钟，让我把这里弄完，再梳洗一下。"'
+			'她做完锻炼，然后走进套间浴室冲了个澡。几分钟后她回来，穿上衣服，然后坐在床上。'
+			'"那么……你想做点什么？"'
+			act '找点事做': gt 'albinahome', 'bedroom'
+		end
+		act '教我脱衣舞': gt 'albinahome', 'stripping'
+		act '教我钢管舞': gt 'albinahome', 'poledancing'
+	end
+end
+
+if $ARGS[0] = 'dancing1':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/albinaroom.jpg"></center>'
+	'"我们能一起练舞吗？"你问道。'
+	'她微笑着点点头。"当然可以！你想练脱衣舞还是钢管舞？"'
+	act '教我脱衣舞': gt 'albinahome', 'stripping'
+	act '教我钢管舞': gt 'albinahome', 'poledancing'
+end
+
+if $ARGS[0] = 'stripping':
+	*clr & cla
+	AlbinaQW['SportDay'] = daystart
+	gs 'npc_relationship', 'modify', 'A23', 1
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/stripdance.jpg"></center>'
+	if pcs_inhib < 60: gs 'exp_gain', 'inhib', rand(2, 3)
+
+	if pcs_danc >= 40:
+		gs 'exercise', 'tier2', 120, 'agil', 'dancero'
+		gs 'stat'
+		'"好了，我们需要一些空间。跟我来。"'
+		'她带你下楼来到家庭健身房，在那里教你如何一边脱衣服一边跟着音乐激情舞动。'
+
+		if pcs_dancero >= 100: '你已经会了她能教的一切，所以没有学到任何新东西。'
+	else
+		gs 'exercise', 'tier3', 120, 'agil', 'danc'
+		gs 'stat'
+		'脱衣舞对你来说太复杂了。你没办法边跳舞边脱衣服。阿尔比娜建议你先从学跳舞开始。'
+	end
+	gs 'albinahome', 'post_workout_shower'
+	act '休息': gt 'albinahome', 'bedroom'
+end
+
+if $ARGS[0] = 'poledancing':
+	*clr & cla
+	AlbinaQW['SportDay'] = daystart
+	gs 'npc_relationship', 'modify', 'A23', 1
+	if pcs_stren >= 40 and pcs_dancero >= 40:
+		if pcs_inhib < 60: gs 'exp_gain', 'inhib', rand(2, 3)
+		gs 'exercise', 'tier2', 120, 'stren', 'vital', 'dancpol'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/poledance.jpg"></center>'
+		'阿尔比娜带你来到家庭健身房，在那里教你各种钢管上的杂技动作。你们俩玩得非常开心。'
+		if pcs_dancpol >= 100: '你已经会了她能教的一切，所以没有学到任何新东西。'
+		gs 'albinahome', 'post_workout_shower'
+		act '休息': gt 'albinahome', 'bedroom'
+	elseif pcs_stren < 40 and pcs_dancero >= 40:
+		'你尽全力照着阿尔比娜的指示做，结果一头撞在钢管上，摔倒在地上。'
+		'你仰面躺在地上，看到阿尔比娜跪在你身旁。"你没事吧，<<$pcs_nickname>>？看来你的力量还不足以练钢管舞，所以我们得先锻炼你的力量。"'
+		'你朝她点了点头，她把你拉起来，然后检查了一下你的头。"可能会淤青，但除此之外，你看上去没事。"'
+		act '锻炼力量 (2:00)':
+			*clr & cla
+			gs 'exercise', 'tier2', 120, 'stren', 'vital'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/stren.jpg"></center>'
+			'阿尔比娜教你如何通过各种练习来锻炼力量。'
+			'你不禁想，她是不是就是靠这些练习才拥有这么漂亮的屁股。'
+			gs 'albinahome', 'post_workout_shower'
+			act '休息': gt 'albinahome', 'bedroom'
+		end
+	else
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/stripdance.jpg"></center>'
+		if pcs_inhib < 60: gs 'exp_gain', 'inhib', rand(2, 3)
+		'阿尔比娜咧嘴一笑。"你的脱衣舞还练不到能跳钢管舞的程度。我们应该先练那个。"'
+		if pcs_danc >= 40:
+			gs 'exercise', 'tier2', 120, 'agil', 'dancero'
+			gs 'stat'
+			'她教你如何一边脱衣服一边跟着音乐激情舞动。'
+
+			if pcs_dancero >= 100: '你已经会了她能教的一切，所以没有学到任何新东西。'
+		else
+			gs 'exercise', 'tier3', 120, 'agil', 'danc'
+			gs 'stat'
+			'脱衣舞对你来说太复杂了。你没办法边跳舞边脱衣服。阿尔比娜建议你先从学跳舞开始。'
+		end
+		gs 'albinahome', 'post_workout_shower'
+		act '休息': gt 'albinahome', 'bedroom'
+	end
+end
+
+if $ARGS[0] = 'post_workout_shower':
+	'"你看上去出了不少汗，<<$pcs_nickname>>。你应该去冲个澡。要是你在家具上留下汗渍，妈妈会不高兴的。洗完到我的卧室来找我。"'
+	gs 'din_van', 'shower'
+end
+
+if $ARGS[0] = 'dressing':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/albinaroom.jpg"></center>'
+	'你们聊起了你现有的衣服，以及该如何搭配去参加社区中心的舞会，随后阿尔比娜邀请你试试她的一些衣服。'
+	act '试穿一些衣服':
+		*clr & cla
+		minut += 60
+		gs 'mood', 'raise', 'tiny'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/resident/albinahome/dressing.jpg"></center>'
+		'你和阿尔比娜打开她巨大的衣柜，开始翻找她的各种衣服。'
+		'你在她的衣柜里翻找时，对她拥有这么多不同的衣服感到惊叹。她的衣柜就像一个无底洞，里面塞满了连衣裙、裙子、打底裤、牛仔裤和其他看起来价格不菲的衣服。'
+		'你们俩最后花了一个小时试穿各种不同的衣服。'
+		act '完成': gt 'albinahome', 'bedroom'
+	end
+end
+
+if $ARGS[0] = 'zoya_schedule':
+	locat['zoya'] = 0
+	if week < 5:
+		if hour < 6:
+			!! Asleep
+			locat['zoya'] = 1
+		elseif hour = 6 and minut < 30:
+			!! Showering/getting ready for work
+			locat['zoya'] = 2
+		elseif hour = 6 and minut > 30:
+			!! Having breakfast
+			locat['zoya'] = 3
+		elseif hour >= 7 and hour < 19:
+			!! At work
+			locat['zoya'] = 4
+		elseif hour = 19:
+			!! Having dinner
+			locat['zoya'] = 3
+		elseif hour = 20:
+			!! Relaxing/doing paperwork
+			locat['zoya'] = 5
+		elseif hour = 21 and minut < 30:
+			!! Showering/getting ready for bed
+			locat['zoya'] = 2
+		else
+			!! Asleep
+			locat['zoya'] = 1
+		end
+	elseif week = 5:
+		if hour < 6:
+			!! Asleep
+			locat['zoya'] = 1
+		elseif hour = 6 and minut < 30:
+			!! Showering/getting ready for work
+			locat['zoya'] = 2
+		elseif hour = 6 and minut > 30:
+			!! Having breakfast
+			locat['zoya'] = 3
+		elseif hour >= 7 and hour < 18:
+			!! At work
+			locat['zoya'] = 4
+		elseif hour = 18 and minut < 30:
+			!! Shopping at supermarket
+			locat['zoya'] = 6
+		elseif hour = 18 and minut > 30:
+			!! Having dinner
+			locat['zoya'] = 3
+		elseif hour = 19:
+			!! Showering
+			locat['zoya'] = 2
+		elseif hour = 20 or hour = 21:
+			!! Relaxing/doing paperwork
+			locat['zoya'] = 5
+		else
+			!! Asleep
+			locat['zoya'] = 1
+		end
+	else
+		if hour < 8:
+			!! Asleep
+			locat['zoya'] = 1
+		elseif hour = 8 and minut < 30:
+			!! Showering
+			locat['zoya'] = 2
+		elseif hour = 8 and minut > 30:
+			!! Having breakfast
+			locat['zoya'] = 3
+		elseif hour >= 9 and hour < 16:
+			!! Doing various things in the city
+			locat['zoya'] = 7
+		elseif hour = 16:
+			if temper >= 15 and sunWeather = 1:
+				!! Sunbathing by the pool alone
+				locat['zoya'] = 8
+			else
+				!! Working out alone
+				locat['zoya'] = 9
+			end
+		elseif hour = 17:
+			if temper >= 15 and sunWeather = 1:
+				!! Sunbathing by the pool with Albina
+				locat['zoya'] = 10
+			else
+				!! Working out with Albina
+				locat['zoya'] = 11
+			end
+		elseif hour = 18:
+			!! Having dinner
+			locat['zoya'] = 3
+		elseif hour = 19 and minut < 30:
+			!! Showering
+			locat['zoya'] = 2
+		elseif (hour = 19 and minut > 30) and hour < 22:
+			!! Relaxing/doing paperwork
+			locat['zoya'] = 5
+		else
+			!! Asleep
+			locat['zoya'] = 1
+		end
+	end
+end
+
+
+--- albinahome ---------------------------------

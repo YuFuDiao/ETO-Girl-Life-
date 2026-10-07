@@ -1,0 +1,124 @@
+# fuelstation
+
+if $ARGS[0] = 'start':
+	cla & *clr
+	menu_off = 0
+	gs 'core_library', 'setloc', 'fuelstation', 'start'
+	$location_type = 'public_outdoors'
+	gs 'stat'
+
+	'<center><b>加油站</b></center>'
+	if hour < 8 or hour > 21:
+		'<center><img <<$set_imgh>> src="images/locations/shared/gas/gazprom_night.jpg"></center>'
+	else
+		'<center><img <<$set_imgh>> src="images/locations/shared/gas/gazprom_day.jpg"></center>'
+	end
+	'当地的加油站，便宜的加油泵功能有限，但总是会把油箱加满。'
+	'汽油价格是 ' + $func('money', 'string_price', 30) + ' 每升。'
+	*nl
+	'天气好的时候，女孩们有时会提供洗车服务来赚点小费。这没有什么规定，所以你随时可以试试。'
+
+	act '离开':
+		if $region = 'city':
+			minut += 5
+			gt 'city_industrial'
+		elseif $region = 'pav':
+			minut += 5
+			gt 'pav_commercial'
+		end
+	end
+
+	if temper < 10:
+		'天气太冷了，不适合洗车。你更可能生病而不是赚钱。也许等天气暖和一点再来试试？'
+	elseif sunWeather = 0:
+		'外面下雨的时候不能洗车！也许晴天再来试试？'
+	elseif hour < 8:
+		'现在洗车太早了。'
+	elseif hour >= 21:
+		'现在洗车太晚了。'
+	else
+		act '洗车窗 (1:00)': gt 'fuelstation_carwash', 'start'
+	end
+	act '去厕所': gt 'fuelstation', 'toilet'
+
+	if func('car_funcs', 'has_car'):
+		if kanistra < 5:
+			act '购买油罐并加满 5 升汽油 (' + $func('money', 'string_price', 150) + ')':
+				cla
+				kanistra += 1
+				gs 'money', 'pay', 150
+				'你买了一个汽油罐。（它会自动放进你汽车的后备箱里）'
+
+				act '取下泵': gt 'fuelstation', 'start'
+			end
+		end
+
+		if func('car_funcs', 'is_here'):
+			'你的<a href="exec: gs ''carF'', ''start''"><<$car[''name'']>></a>停在这里。'
+			if car['fuel'] < car['tank']:
+				zprbenz = (car['tank'] - car['fuel'])
+				zprpay = zprbenz * 30
+				act '加满油箱' + $func('money', 'get_cost_string', zprpay):
+					if func('money', 'can_afford', zprpay) = 0:
+						$noMoney
+					else
+						*clr & cla
+						zprbenz = car['tank'] - car['fuel']
+						zprpay = zprbenz * 30
+						car['fuel'] = car['tank']
+						gs 'money', 'pay', zprpay
+
+						!! WD: Uninitialised ~ 'pol'
+						!! if pol > 0:'<center><img <<$set_imgh>> src="images/locations/shared/gas/zapr1.jpg"></center>'
+
+						'<center><img <<$set_imgh>> src="images/locations/shared/gas/zapr1.jpg"></center>'
+
+						'你加满油并支付 ' + $func('money', 'string_price', zprpay) + '。'
+
+						act '取下泵': gt 'fuelstation', 'start'
+					end
+				end
+			end
+		end
+	end
+end
+
+killvar 'zprbenz'
+killvar 'zprpay'
+
+
+if $ARGS[0] = 'toilet':
+	cla & *clr
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'fuelstation', 'toilet'
+	$location_type = 'bathroom'
+	minut += 2
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	'<center><h4>加油站厕所</h4></center>'
+	'<center><img <<$set_imgh>> src="images/locations/shared/bathroom/toilet.jpg"></center>'
+	'你在一间肮脏的加油站厕所里。至少这里还算隐蔽。'
+
+	act '离开厕所':
+		if $clothingworntype ! 'nude':
+			gt 'fuelstation', 'start'
+		else
+			msg '<b><font color = red>你需要穿好衣服。</font></b>'
+			gt 'fuelstation', 'toilet'
+		end
+	end
+
+	act '照镜子': gt 'mirror', 'start'
+	if pcs_hairbsh < 1: act '梳头发': gt 'mirror', 'brush'
+
+	gs 'din_van', 'tampon'
+	gs 'din_van', 'quickwash'
+	gs 'din_van', 'basin'
+	gs 'din_van', 'publicpan'
+	gs 'din_van', 'pblc_pee'
+end
+
+
+--- fuelstation ---------------------------------

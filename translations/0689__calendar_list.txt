@@ -1,0 +1,1288 @@
+# calendar_list
+
+!! Module 7: Event List
+!! Contains definitions of all events that can be added to the calendar
+!! After defining an event here, call gs 'calendar', 'add', 'event_function_name' to add it to the calendar
+!!
+!! TIMESLOT CONVERSION REFERENCE:
+!! The calendar uses timeslots (0-95) where each timeslot = 15 minutes
+!! To convert hour:minute to timeslot: ts = (hour * 4) + (minute / 15)
+!! Examples: 08:00 → 32, 09:30 → 38, 12:00 → 48, 16:00 → 64
+!! To convert minutes to timeslots: ts = minutes / 15
+!! Examples: 30 min → 2 ts, 60 min → 4 ts, 90 min → 6 ts, 120 min → 8 ts
+
+!! ============================================================================
+!! Event Variables:
+!! $event_vars['id']         - Unique event identifier
+!! $event_vars['title']      - Event title
+!! $event_vars['loc']        - Event location
+!! $event_vars['desc']       - Event description
+!! event_vars['daystart']    - Start day
+!! event_vars['all_day']     - 0=timed event, 1=all-day event
+!! event_vars['color']       - Event color number (0..20). 0 for random color
+!! event_vars['blocking']    - 0=non-blocking, 1=blocking (conflicts prevent other events)
+!! event_vars['priority']    - 0=low (hidden by any higher), 1=normal (hidden by 2), 2=high (never hidden)
+!! $event_vars['recur']      - Repeat pattern: 'daily', 'weekly', 'biweekly', 'monthly', 'yearly',
+!! 							'monthly-N-W' (Nth weekday W each month, e.g. 'monthly-3-6' = 3rd Saturday),
+!! 							'yearly-mmdd-mmdd' (yearly date range, e.g. 'yearly-1231-0114' for Dec 31-Jan 14),
+!! 							'1 3 5' (space-delimited weekdays), or '' (no recurrence)
+!! event_vars['recur_end']   - daystart when repeating ends (0=never)
+!! event_vars['holiday']     - 0=ignore holidays, 1=skip holidays, 2=only on holidays
+!!
+!! Flexible Time Windows:
+!! event_vars['flex_type']   - 0=fixed time, 1=flexible start window, 2=flexible both (future)
+!! event_vars['duration_ts'] - Event duration in timeslots (1 timeslot = 15 minutes)
+!!
+!! For flex_type = 0 (fixed time):
+!! event_vars['start_ts']    - Start timeslot (0..95)
+!!
+!! For flex_type = 1 (flexible start):
+!! event_vars['window_start_ts'] - Earliest possible arrival timeslot
+!! event_vars['window_end_ts']   - Latest possible arrival timeslot (deadline)
+!! ============================================================================
+
+!! ============================================================================
+!! init_event_vars
+!! Initializes all event_vars to their default values
+!! Call this before defining each new event to reset to clean state
+!! Input: None
+!! Output: Sets event_vars to default values matching calendar_events format
+!! ============================================================================
+if $ARGS[0] = 'init_event_vars':
+	killvar 'event_vars'
+
+	!! Core identification
+	$event_vars['id'] = ''                    & !! Unique event ID (REQUIRED - must be set)
+	$event_vars['title'] = ''                 & !! Display title (REQUIRED - must be set)
+	$event_vars['loc'] = ''                   & !! Location name (optional)
+	$event_vars['desc'] = ''                  & !! Detailed description (optional)
+	event_vars['color'] = 0                   & !! Color index 1-20, or 0 for random (default: 0 = random)
+	event_vars['priority'] = 1                & !! Priority 0-2: 0=low, 1=normal, 2=high (default: 1)
+
+	!! Event type and timing
+	event_vars['daystart'] = daystart         & !! Start day (default: today)
+	event_vars['all_day'] = 0                 & !! 0=timed event, 1=all-day event (default: 0)
+	event_vars['blocking'] = 0                & !! 0=non-blocking, 1=blocks other events (default: 0)
+	event_vars['holiday'] = 0                 & !! 0=ignore, 1=skip holidays, 2=only on holidays (default: 0)
+
+	!! Recurrence pattern
+	$event_vars['recur'] = ''                 & !! daily, weekly, biweekly, monthly, yearly, monthly-N-W (e.g. monthly-3-6 = 3rd Saturday), yearly-mmdd-mmdd (date range), or space-delimited weekdays 1 3 5 (default: no recurrence)
+gs 'time', 'to_daystart', 2024, 12, 31
+	event_vars['recur_end'] = dateVars['daystart'] & !! daystart when repeating ends, 0=never (default: Dec 31, 2024)
+
+	!! Time type: flex_type 0=fixed time, 1=flexible arrival window
+	event_vars['flex_type'] = 0               & !! Default: fixed time event
+
+	!! Event timing (applies to both fixed and flexible events)
+	event_vars['duration_ts'] = 4             & !! Event duration in timeslots (default: 4 = 1 hour)
+
+	!! Fixed time event fields (flex_type = 0)
+	event_vars['start_ts'] = 0               & !! Start timeslot 0-95 (default: 0 = no start)
+
+	!! Flexible time event fields (flex_type = 1)
+	event_vars['window_start_ts'] = 0        & !! Earliest arrival timeslot (default: 0 = no window)
+	event_vars['window_end_ts'] = 0          & !! Latest arrival timeslot (default: 0 = no window)
+
+	exit
+end
+
+
+!! ============================================================================
+!! assign_color
+!! If event_vars['color'] is 0, assigns a random color (1-20)
+!! Otherwise leaves the color unchanged
+!! Call this before adding an event to ensure it has a valid color
+!! Input: None (reads event_vars['color'])
+!! Output: Sets event_vars['color'] to 1-20
+!! ============================================================================
+if $ARGS[0] = 'assign_color':
+	if event_vars['color'] = 0:
+		!! Pick random color from 1-20
+		event_vars['color'] = rand(1, 20)
+	end
+	exit
+end
+
+!! ============================================================================
+!! National Holidays (All-Day Events)
+!! These are Russian national holidays that appear on the calendar
+!! Source: cikl.qsrc lines 787-806
+!! ============================================================================
+
+
+!! New Year Holidays - January 1-8 (yearly recurring date range)
+if $ARGS[0] = 'holiday_new_year':
+	gs 'time', 'to_daystart', 2016, 1, 1
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_new_year'
+	$event_vars['title'] = '新年假期'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly-0101-0108'
+	exit
+end
+
+
+!! Orthodox Christmas - January 7th (yearly recurring)
+if $ARGS[0] = 'holiday_christmas':
+	gs 'time', 'to_daystart', 2016, 1, 7
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_christmas'
+	$event_vars['title'] = '圣诞节'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! Defender of Fatherland Day - February 23rd (yearly recurring)
+if $ARGS[0] = 'holiday_fatherland':
+	gs 'time', 'to_daystart', 2016, 2, 23
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_fatherland'
+	$event_vars['title'] = '祖国保卫者日'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! Women''s Day - March 8th (yearly recurring)
+if $ARGS[0] = 'holiday_womens_day':
+	gs 'time', 'to_daystart', 2016, 3, 8
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_womens_day'
+	$event_vars['title'] = '三八妇女节'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! Spring and Labor Day - May 1st (yearly recurring)
+if $ARGS[0] = 'holiday_labor_day':
+	gs 'time', 'to_daystart', 2016, 5, 1
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_labor_day'
+	$event_vars['title'] = '五一劳动节'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! National Holiday - May 2nd (yearly recurring)
+if $ARGS[0] = 'holiday_may_2':
+	gs 'time', 'to_daystart', 2016, 5, 2
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_may_2'
+	$event_vars['title'] = '国庆节'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! Victory Day - May 9th (yearly recurring)
+if $ARGS[0] = 'holiday_victory_day':
+	gs 'time', 'to_daystart', 2016, 5, 9
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_victory_day'
+	$event_vars['title'] = '胜利日'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! Russia Day - June 12th (yearly recurring)
+if $ARGS[0] = 'holiday_russia_day':
+	gs 'time', 'to_daystart', 2016, 6, 12
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_russia_day'
+	$event_vars['title'] = '俄罗斯日'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! National Holiday - June 13th (yearly recurring)
+if $ARGS[0] = 'holiday_june_13':
+	gs 'time', 'to_daystart', 2016, 6, 13
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_june_13'
+	$event_vars['title'] = '国庆节'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+
+!! Unity Day - November 4th (yearly recurring)
+if $ARGS[0] = 'holiday_unity_day':
+	gs 'time', 'to_daystart', 2016, 11, 4
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'holiday_unity_day'
+	$event_vars['title'] = '民族团结日'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly'
+	exit
+end
+
+!! ============================================================================
+!! School Breaks (All-Day Events)
+!! Source: sleep.qsrc lines 92-109 (is_tomorrow_school_vacation function)
+!! Using yearly date ranges for recurring breaks
+!! ============================================================================
+
+
+!! Winter Break - Dec 31 to Jan 14 (yearly recurring, spans year boundary)
+if $ARGS[0] = 'school_winter_break':
+	gs 'time', 'to_daystart', 2016, 12, 31
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'school_winter_break'
+	$event_vars['title'] = '寒假'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly-1231-0114'
+	exit
+end
+
+
+!! Spring Break - March 19-25 (yearly recurring)
+if $ARGS[0] = 'school_spring_break':
+	gs 'time', 'to_daystart', 2016, 3, 19
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'school_spring_break'
+	$event_vars['title'] = '春假'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly-0319-0325'
+	exit
+end
+
+
+!! Summer Break - May 31 to Aug 30 (yearly recurring)
+if $ARGS[0] = 'school_summer_break':
+	gs 'time', 'to_daystart', 2016, 5, 31
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'school_summer_break'
+	$event_vars['title'] = '暑假'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly-0531-0830'
+	exit
+end
+
+
+!! Autumn Break - November 3-10 (yearly recurring)
+if $ARGS[0] = 'school_autumn_break':
+	gs 'time', 'to_daystart', 2016, 11, 3
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'school_autumn_break'
+	$event_vars['title'] = '秋假'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'yearly-1103-1110'
+	exit
+end
+
+!! ============================================================================
+!! School Events
+!! ============================================================================
+
+
+!! School Graduation - May 26th, 2017, 8:00-12:00
+if $ARGS[0] = 'school_graduation':
+	gs 'time', 'to_daystart', 2017, 5, 26
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'school_graduation'
+	$event_vars['title'] = '学校毕业'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '学校毕业典礼'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (4 * 4)  & !! 4 hours
+	event_vars['priority'] = 2
+	exit
+end
+
+
+!! School Days - Summer to Fall (Sep 1 - Nov 2, 2016)
+!! Monday: Math, Russian, Literature, Art, Biology and P.E.
+if $ARGS[0] = 'school_monday_fall2016':
+	gs 'time', 'to_daystart', 2016, 9, 5
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_monday_fall2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、生物和体育。'
+	$event_vars['recur'] = '1'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_tuesday_fall2016':
+	gs 'time', 'to_daystart', 2016, 9, 6
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_tuesday_fall2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '2'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_wednesday_fall2016':
+	gs 'time', 'to_daystart', 2016, 9, 7
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_wednesday_fall2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、生物、历史、计算机和体育。'
+	$event_vars['recur'] = '3'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_thursday_fall2016':
+	gs 'time', 'to_daystart', 2016, 9, 1
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_thursday_fall2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '4'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_friday_fall2016':
+	gs 'time', 'to_daystart', 2016, 9, 2
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_friday_fall2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、历史和体育。'
+	$event_vars['recur'] = '5'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+!! School Days - Fall to Winter (Nov 11 - Dec 30, 2016)
+if $ARGS[0] = 'school_monday_winter2016':
+	gs 'time', 'to_daystart', 2016, 11, 16
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_monday_winter2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、生物和体育。'
+	$event_vars['recur'] = '1'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_tuesday_winter2016':
+	gs 'time', 'to_daystart', 2016, 11, 17
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_tuesday_winter2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '2'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_wednesday_winter2016':
+	gs 'time', 'to_daystart', 2016, 11, 11
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_wednesday_winter2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、生物、历史、计算机和体育。'
+	$event_vars['recur'] = '3'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_thursday_winter2016':
+	gs 'time', 'to_daystart', 2016, 11, 12
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_thursday_winter2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '4'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_friday_winter2016':
+	gs 'time', 'to_daystart', 2016, 11, 13
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_friday_winter2016'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、历史和体育。'
+	$event_vars['recur'] = '5'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+!! School Days - Winter to Spring (Jan 15 - Mar 18, 2017)
+if $ARGS[0] = 'school_monday_spring2017':
+	gs 'time', 'to_daystart', 2017, 1, 16
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_monday_spring2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、生物和体育。'
+	$event_vars['recur'] = '1'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_tuesday_spring2017':
+	gs 'time', 'to_daystart', 2017, 1, 17
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_tuesday_spring2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '2'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_wednesday_spring2017':
+	gs 'time', 'to_daystart', 2017, 1, 18
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_wednesday_spring2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、生物、历史、计算机和体育。'
+	$event_vars['recur'] = '3'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_thursday_spring2017':
+	gs 'time', 'to_daystart', 2017, 1, 19
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_thursday_spring2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '4'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_friday_spring2017':
+	gs 'time', 'to_daystart', 2017, 1, 20
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_friday_spring2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、历史和体育。'
+	$event_vars['recur'] = '5'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+!! School Days - Spring to Graduation (Mar 26 - May 25, 2017)
+if $ARGS[0] = 'school_monday_final2017':
+	gs 'time', 'to_daystart', 2017, 3, 27
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_monday_final2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、生物和体育。'
+	$event_vars['recur'] = '1'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_tuesday_final2017':
+	gs 'time', 'to_daystart', 2017, 3, 28
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_tuesday_final2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '2'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_wednesday_final2017':
+	gs 'time', 'to_daystart', 2017, 3, 29
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_wednesday_final2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、生物、历史、计算机和体育。'
+	$event_vars['recur'] = '3'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_thursday_final2017':
+	gs 'time', 'to_daystart', 2017, 3, 30
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_thursday_final2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：英语，地理，科学，手工，计算机和音乐。'
+	$event_vars['recur'] = '4'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+
+if $ARGS[0] = 'school_friday_final2017':
+	gs 'time', 'to_daystart', 2017, 3, 31
+	event_vars['daystart'] = dateVars['daystart']
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	$event_vars['id'] = 'school_friday_final2017'
+	$event_vars['title'] = '上课日'
+	$event_vars['loc'] = '巴甫洛夫斯克住宅区学校'
+	$event_vars['desc'] = '今天的课程：数学、俄语、文学、艺术、历史和体育。'
+	$event_vars['recur'] = '5'
+	event_vars['start_ts'] = (8 * 4) + (0 / 15)  & !! 8:00
+	event_vars['duration_ts'] = (6 * 4)  & !! 6 hours
+	event_vars['color'] = 20
+	exit
+end
+
+!! ============================================================================
+!! Medical Appointments
+!! ============================================================================
+
+
+!! Therapist Appointment - Every Thursday, flexible 18:00-19:00, 1 hour
+if $ARGS[0] = 'therapist_appointment':
+	event_vars['daystart'] = daystart - (week - 4)
+	$event_vars['id'] = 'therapist_appointment'
+	$event_vars['title'] = '治疗师预约'
+	$event_vars['loc'] = '巴甫洛夫斯克诊所'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (18 * 4) + (0 / 15)  & !! 18:00
+	event_vars['window_end_ts'] = (19 * 4) + (0 / 15)  & !! 19:00
+	event_vars['duration_ts'] = (1 * 4)  & !! 1 hour
+	event_vars['priority'] = 2
+	$event_vars['recur'] = '4'
+	exit
+end
+
+
+!! Therapist Hotel Visit - Every Saturday night into Sunday morning, from 20:00
+if $ARGS[0] = 'therapist_hotel_visit':
+	event_vars['daystart'] = daystart - week + 6  & !! Saturday of current week
+	$event_vars['id'] = 'therapist_hotel_visit'
+	$event_vars['title'] = '旅馆探访'
+	$event_vars['loc'] = '巴甫洛夫斯克 Hotel'
+	$event_vars['desc'] = '你不知道为什么，但你必须去某个特定的旅馆房间。'
+	event_vars['flex_type'] = 0
+	event_vars['start_ts'] = (20 * 4) + (0 / 15)  & !! 20:00
+	event_vars['duration_ts'] = (4 * 4)  & !! 20:00 to midnight
+	event_vars['priority'] = 2
+	$event_vars['recur'] = '6'  & !! Saturday
+	event_vars['recur_end'] = 0  & !! no fixed end - removed programmatically when the obligation ends
+	exit
+end
+
+
+
+!! ============================================================================
+!! Entertainment and Social Events
+!! ============================================================================
+
+
+!! Disco Party - Friday/saturday nights, flexible 20:00-22:30, 1.5 hours
+if $ARGS[0] = 'disco_party':
+	gs 'time', 'to_daystart', 2016, 6, 3
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'disco_party'
+	$event_vars['title'] = '迪斯科派对'
+	$event_vars['loc'] = '巴甫洛夫斯克社区中心'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (20 * 4) + (0 / 15)  & !! 20:00
+	event_vars['window_end_ts'] = (22 * 4) + (30 / 15)  & !! 22:30
+	event_vars['duration_ts'] = (1 * 4) + (30 / 15)  & !! 1.5 hours
+	$event_vars['recur'] = '5 6'
+	exit
+end
+
+
+!! Gopnik Initiation - one-time event at 20:00 today only
+!! Added in gschool_socialchg.qsrc when gopnik_initiation = 1 is set
+if $ARGS[0] = 'gopnik_initiation_event':
+	event_vars['daystart'] = daystart  & !! Today only
+	$event_vars['id'] = 'gopnik_initiation_event'
+	$event_vars['title'] = '戈普尼克入会仪式'
+	$event_vars['loc'] = '公寓车库'
+	$event_vars['desc'] = '八点在公寓车库见 Lena 和 Lera。别迟到。'
+	event_vars['flex_type'] = 0
+	event_vars['start_ts'] = (20 * 4)  & !! 20:00
+	event_vars['duration_ts'] = (2 * 4)  & !! 2 hours estimated
+	$event_vars['recur'] = ''           & !! One-time only
+	event_vars['recur_end'] = daystart  & !! Expires today
+	event_vars['priority'] = 2
+	event_vars['color'] = 9
+	exit
+end
+
+!! ============================================================================
+!! Transportation
+!! ============================================================================
+
+
+!! Morning Train - Daily 11:00, 30 minutes
+if $ARGS[0] = 'train_morning':
+	gs 'time', 'to_daystart', 2016, 6, 1
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'train_morning'
+	$event_vars['title'] = '城际列车'
+	$event_vars['loc'] = '巴甫洛夫斯克车站'
+	event_vars['priority'] = 0
+	event_vars['start_ts'] = (11 * 4) + (0 / 15)  & !! 11:00
+	event_vars['duration_ts'] = (0 * 4) + (30 / 15)  & !! 30 minutes
+	$event_vars['recur'] = 'daily'
+	event_vars['color'] = 9
+	exit
+end
+
+
+!! Evening Train - Daily 18:00, 30 minutes
+if $ARGS[0] = 'train_evening':
+	gs 'time', 'to_daystart', 2016, 6, 1
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'train_evening'
+	$event_vars['title'] = '城际列车'
+	$event_vars['loc'] = '巴甫洛夫斯克车站'
+	event_vars['priority'] = 0
+	event_vars['start_ts'] = (18 * 4) + (0 / 15)  & !! 18:00
+	event_vars['duration_ts'] = (0 * 4) + (30 / 15)  & !! 30 minutes
+	$event_vars['recur'] = 'daily'
+	event_vars['color'] = 9
+	exit
+end
+
+!! ============================================================================
+!! Religious Events
+!! ============================================================================
+
+
+!! Church Vigil - Every Saturday, flexible 19:00-22:00, 45 minutes
+if $ARGS[0] = 'church_vigil':
+	gs 'time', 'to_daystart', 2016, 6, 4
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'church_vigil'
+	$event_vars['title'] = '教堂守夜'
+	$event_vars['loc'] = '巴甫洛夫斯克教堂'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (19 * 4) + (0 / 15)  & !! 19:00
+	event_vars['window_end_ts'] = (22 * 4) + (0 / 15)  & !! 22:00
+	event_vars['duration_ts'] = (0 * 4) + (45 / 15)  & !! 45 minutes
+	$event_vars['recur'] = '6'
+	event_vars['color'] = 7
+	exit
+end
+
+
+!! Church Divine Liturgy - Every Sunday, flexible 9:45-11:00, 1 hour
+if $ARGS[0] = 'church_liturgy':
+	gs 'time', 'to_daystart', 2016, 6, 5
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'church_liturgy'
+	$event_vars['title'] = '神圣礼仪'
+	$event_vars['loc'] = '巴甫洛夫斯克教堂'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (9 * 4) + (45 / 15)  & !! 9:45
+	event_vars['window_end_ts'] = (11 * 4) + (0 / 15)  & !! 11:00
+	event_vars['duration_ts'] = (1 * 4)  & !! 1 hour
+	$event_vars['recur'] = '7'
+	event_vars['color'] = 7
+	exit
+end
+
+!! ============================================================================
+!! Extracurricular Activities
+!! ============================================================================
+
+
+!! Starlets Practice - Monday, Wednesday, Saturday, Sunday
+!! Flexible 15:00-16:00, 2 hours duration
+if $ARGS[0] = 'starlets_practice_regular':
+	event_vars['daystart'] = daystart - week + 1  & !! Start on Monday of current week
+	$event_vars['id'] = 'starlets_practice_regular'
+	$event_vars['title'] = '小明星练习'
+	$event_vars['loc'] = '巴甫洛夫斯克社区中心'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['window_end_ts'] = (16 * 4) + (0 / 15)  & !! 16:00
+	event_vars['duration_ts'] = (2 * 4)  & !! 2 hours
+	$event_vars['recur'] = '1 3 6 7'
+	gs 'time', 'to_daystart', 2017, 5, 31
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['blocking'] = 1
+	event_vars['holiday'] = 1
+	event_vars['color'] = 3
+	exit
+end
+
+
+!! Starlets Practice - Friday (non-odd weeks only)
+!! Flexible 15:00-16:00, 2 hours duration
+!! This handles alternating Fridays when it''s NOT an odd week
+if $ARGS[0] = 'starlets_practice_friday':
+	!! Start on the nearest Friday of a non-odd week
+	if odd_week = 0:
+		event_vars['daystart'] = daystart - week + 5  & !! This week''s Friday
+	else
+		event_vars['daystart'] = daystart - week + 12  & !! Next week''s Friday
+	end
+	$event_vars['id'] = 'starlets_practice_friday'
+	$event_vars['title'] = '小明星练习'
+	$event_vars['loc'] = '巴甫洛夫斯克社区中心'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['window_end_ts'] = (16 * 4) + (0 / 15)  & !! 16:00
+	event_vars['duration_ts'] = (2 * 4)  & !! 2 hours
+	$event_vars['recur'] = 'biweekly'
+	gs 'time', 'to_daystart', 2017, 5, 31
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 3
+	exit
+end
+
+
+!! Anna BDSM Training Sessions - Mondays and Tuesdays, flexible 19:30-21:00, 2 hours
+!! Added in pav_hotelWork.qsrc when Anna first gives the invite (IgorevnaBDSM reaches 5)
+!! Removed at session 9 completion (IgorevnaBDSM reaches 14) and in ARGS[0]=10 as safety
+if $ARGS[0] = 'anna_bdsm_session':
+	event_vars['daystart'] = daystart - week + 1  & !! Anchor to Monday of current week
+	$event_vars['id'] = 'anna_bdsm_session'
+	$event_vars['title'] = '与安娜的会面'
+	$event_vars['loc'] = '巴甫洛夫斯克酒店'
+	$event_vars['desc'] = '与 Anna 的 BDSM 训练课。'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (20 * 4) + (0 / 15)   & !! 20:00
+	event_vars['window_end_ts'] = (21 * 4) + (0 / 15)    & !! 21:00
+	event_vars['duration_ts'] = (2 * 4)                   & !! 2 hours
+	$event_vars['recur'] = '1 2'                           & !! Monday + Tuesday
+	event_vars['recur_end'] = 0                            & !! No end date - removed programmatically
+	event_vars['priority'] = 2
+	event_vars['color'] = 6
+	exit
+end
+
+
+!! Nerd Game Night - weekly on the chosen day (Tuesday or Thursday), flexible arrival, 3 hours
+!! Added when the player commits to a game night day (nerd_game_night.qsrc)
+!! Removed and re-added if the player changes day; removed when the storyline ends
+if $ARGS[0] = 'nerd_game_night_event':
+	event_vars['daystart'] = daystart - week + nerd_game['fixed_uni_day']  & !! Anchor to chosen weekday
+	$event_vars['id'] = 'nerd_game_night_event'
+	$event_vars['title'] = '游戏之夜'
+	$event_vars['loc'] = '咖啡洞'
+	$event_vars['desc'] = '与费奥凡和书呆子们的每周桌面游戏之夜。开始于 ' + $func('time', 'get_time_string', 18, 0) + '。'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (17 * 4) + (45 / 15)  & !! 17:45
+	event_vars['window_end_ts'] = (18 * 4) + (15 / 15)    & !! 18:15
+	event_vars['duration_ts'] = (3 * 4)                    & !! 3 hours
+	$event_vars['recur'] = str(nerd_game['fixed_uni_day']) & !! '2' = Tuesday or '4' = Thursday
+	event_vars['recur_end'] = 0                            & !! No end date - removed programmatically
+	event_vars['priority'] = 1
+	event_vars['color'] = 4
+	exit
+end
+
+
+!! ============================================================================
+!! Gopnik Fight Night
+!! 3rd Saturday each month at 20:00, 3 hours.
+!! Sep 2016 – Dec 2017 (game never extends beyond 2017).
+!! Jun-Aug 2016 are skipped naturally by anchoring daystart to Sep 2016.
+!! Jun-Aug 2017 appear on the calendar (access gate in pav_old_school.qsrc allows
+!!   post-graduation access via diploma != 0, regardless of kanikuli).
+!! Added via gs 'calendar', 'add', 'gopnik_fight_night_event'
+!! Triggered when gopnik_fight_nightQW['invite'] = 1 (gschool_gopnik_chats.qsrc)
+!! ============================================================================
+if $ARGS[0] = 'gopnik_fight_night_event':
+	!! Anchor daystart to the 3rd Saturday of Sep 2016 (first occurrence)
+	gs 'time', 'to_daystart', 2016, 9, 1
+	gs 'time', 'to_date', dateVars['daystart']
+	event_vars['daystart'] = dateVars['daystart'] + ((6 - dateVars['week'] + 7) mod 7) + 14
+	$event_vars['id'] = 'gopnik_fight_night_event'
+	$event_vars['title'] = '戈普尼克格斗之夜'
+	$event_vars['loc'] = '巴甫洛夫斯克老学校'
+	$event_vars['desc'] = '在老学校体育馆的格斗之夜。开始于 ' + $func('time', 'get_time_string', 20, 0) + '。'
+	event_vars['flex_type'] = 0
+	event_vars['start_ts'] = (20 * 4)
+	event_vars['duration_ts'] = (3 * 4)
+	$event_vars['recur'] = 'monthly-3-6'
+	event_vars['priority'] = 1
+	event_vars['color'] = 9
+	exit
+end
+
+
+!! Band Practice (Praiders) - Every Wednesday, flexible 16:00-20:00, 2 hours
+!! Added in gschool_gopnik_chats.qsrc / anushkachat.qsrc / radapt.qsrc / radchat.qsrc
+!! After graduation the band goes on tour, ending Wednesday garage practices.
+!! All 4 members (A144/A154/A156/A158) are at locat=24 from 16:00 until 22:00 on Wed.
+!! window_end = 20:00 so a 2-hour visit still ends before they leave at 22:00.
+if $ARGS[0] = 'band_practice_event':
+	gs 'time', 'to_daystart', 2016, 6, 1                   & !! Game start - anchor Wednesday
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'band_practice_event'
+	$event_vars['title'] = '乐队排练'
+	$event_vars['loc'] = '五八庄园车库'
+	$event_vars['desc'] = '拉多米尔和普拉德斯在一个改造过的车库里排练。顺道来听听或闲逛。'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (16 * 4)               & !! 16:00 earliest arrival
+	event_vars['window_end_ts'] = (20 * 4)                 & !! 20:00 latest arrival (band leaves at 22:00)
+	event_vars['duration_ts'] = (2 * 4)                    & !! 2 hours
+	$event_vars['recur'] = '3'                             & !! Every Wednesday
+	gs 'time', 'to_daystart', 2017, 5, 31
+	event_vars['recur_end'] = dateVars['daystart']         & !! Ends when band goes on tour after graduation
+	event_vars['priority'] = 0
+	event_vars['color'] = 5
+	exit
+end
+
+
+!! Cheerleading Practice - Tuesday and Thursday
+!! First school term only (until Nov 2, 2016)
+!! Flexible 14:45-15:00, 1 hour 45 minutes duration
+if $ARGS[0] = 'cheerleading_practice_1':
+	event_vars['daystart'] = daystart - week + 2  & !! Start on Tuesday of current week
+	$event_vars['id'] = 'cheerleading_practice'
+	$event_vars['title'] = '啦啦队练习'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = '2 4'
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+!! Cheerleading Practice - Tuesday and Thursday
+!! Second school term only (Nov 11, 2016 - Dec 30, 2016)
+!! Flexible 14:45-15:00, 1 hour 45 minutes duration
+if $ARGS[0] = 'cheerleading_practice_2':
+	gs 'time', 'to_daystart', 2016, 11, 11
+	event_vars['daystart'] = max(daystart, dateVars['daystart']) - week + 2  & !! Start on Tuesday
+	$event_vars['id'] = 'cheerleading_practice'
+	$event_vars['title'] = '啦啦队练习'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = '2 4'
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+!! Cheerleading Practice - Tuesday and Thursday
+!! Third school term only (Jan 15 - Mar 18, 2017)
+!! Flexible 14:45-15:00, 1 hour 45 minutes duration
+if $ARGS[0] = 'cheerleading_practice_3':
+	gs 'time', 'to_daystart', 2017, 1, 15
+	event_vars['daystart'] = max(daystart, dateVars['daystart']) - week + 2  & !! Start on Tuesday
+	$event_vars['id'] = 'cheerleading_practice'
+	$event_vars['title'] = '啦啦队练习'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = '2 4'
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+!! Cheerleading Practice - Tuesday and Thursday
+!! Fourth school term only (Mar 26 - May 25, 2017)
+!! Flexible 14:45-15:00, 1 hour 45 minutes duration
+if $ARGS[0] = 'cheerleading_practice_4':
+	gs 'time', 'to_daystart', 2017, 3, 26
+	event_vars['daystart'] = max(daystart, dateVars['daystart']) - week + 2  & !! Start on Tuesday
+	$event_vars['id'] = 'cheerleading_practice'
+	$event_vars['title'] = '啦啦队练习'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = '2 4'
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+if $ARGS[0] = 'cheerleading_game_tomorrow':
+	event_vars['daystart'] = daystart + 1 & !! Tomorrow
+	$event_vars['id'] = 'cheerleading_game'
+	$event_vars['title'] = '比赛中的拉拉队'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+!! Cheerleading Practice - Friday (odd weeks only)
+!! Flexible 14:45-15:00, 1 hour 45 minutes duration
+if $ARGS[0] = 'cheerleading_game_1':
+	if (odd_week = 1 and week <= 5) or (odd_week = 0 and week >= 6):
+		event_vars['daystart'] = daystart - week + 5  & !! This week''s Friday
+	else
+		event_vars['daystart'] = daystart - week + 12  & !! Next week''s Friday
+	end
+	$event_vars['id'] = 'cheerleading_game'
+	$event_vars['title'] = '比赛中的拉拉队'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = 'biweekly'
+	gs 'time', 'to_daystart', 2016, 11, 2
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+if $ARGS[0] = 'cheerleading_game_2':
+	gs 'time', 'to_daystart', 2016, 11, 15
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'cheerleading_game'
+	$event_vars['title'] = '比赛中的拉拉队'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = 'biweekly'
+	gs 'time', 'to_daystart', 2016, 12, 30
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+if $ARGS[0] = 'cheerleading_game_3':
+	gs 'time', 'to_daystart', 2017, 1, 27
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'cheerleading_game'
+	$event_vars['title'] = '比赛中的拉拉队'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = 'biweekly'
+	gs 'time', 'to_daystart', 2017, 3, 18
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+
+if $ARGS[0] = 'cheerleading_game_4':
+	gs 'time', 'to_daystart', 2017, 3, 24
+	event_vars['daystart'] = dateVars['daystart']
+	$event_vars['id'] = 'cheerleading_game'
+	$event_vars['title'] = '比赛中的拉拉队'
+	$event_vars['loc'] = '学校体育馆'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (14 * 4) + (45 / 15)  & !! 14:45
+	event_vars['window_end_ts'] = (15 * 4) + (0 / 15)  & !! 15:00
+	event_vars['duration_ts'] = (1 * 4) + (45 / 15)  & !! 1 hour 45 minutes
+	$event_vars['recur'] = 'biweekly'
+	gs 'time', 'to_daystart', 2017, 5, 25
+	event_vars['recur_end'] = dateVars['daystart']
+	event_vars['priority'] = 2
+	event_vars['color'] = 2
+	exit
+end
+
+!! ============================================================================
+!! Sports and Recreation
+!! ============================================================================
+
+
+!! Volleyball Tournament - Every Saturday, flexible 16:00-18:00, 4 hours
+if $ARGS[0] = 'volleyball_tournament':
+	event_vars['daystart'] = daystart - week + 6  & !! Start on Saturday of current week
+	$event_vars['id'] = 'volleyball_tournament'
+	$event_vars['title'] = '排球锦标赛'
+	$event_vars['loc'] = '巴甫洛夫斯克社区中心'
+	$event_vars['desc'] = '每周锦标赛。确保拿出你的最佳状态。'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (16 * 4) + (0 / 15)  & !! 16:00
+	event_vars['window_end_ts'] = (18 * 4) + (0 / 15)  & !! 18:00
+	event_vars['duration_ts'] = (4 * 4)  & !! 4 hours
+	$event_vars['recur'] = '6'
+	exit
+end
+
+
+!! Guitar lessons
+!! Uses the 'ml_guitarlesson' variable to determine the date and time of the next lesson
+if $ARGS[0] = 'guitar_lesson':
+	event_vars['daystart'] = ml_guitarlesson['nextlesson']
+	$event_vars['id'] = 'guitar_lessons_' + ml_guitarlesson['nextlesson'] + '_' + ml_guitarlesson['lessonhour']
+	$event_vars['title'] = '吉他课'
+	$event_vars['loc'] = '巴甫洛夫斯克社区中心'
+	event_vars['flex_type'] = 1
+	event_vars['window_start_ts'] = (ml_guitarlesson['lessonhour'] * 4) + (0 / 15)  & !! Lesson hour
+	event_vars['window_end_ts'] = ((ml_guitarlesson['lessonhour'] + 1) * 4) + (0 / 15)  & !! Lesson hour + 1 hour
+	event_vars['duration_ts'] = (45 / 15)  & !! 45 minutes
+	exit
+end
+
+
+!! ===========================================================================
+!! Gadukino
+!! ===========================================================================
+
+
+!! Mitka''s Drinking Invite - one-time event for the day Mitka renews the invitation
+!! Added/refreshed each time Mitka offers the invite (mitka.qsrc); expires that same day
+if $ARGS[0] = 'mitka_drinking_invite':
+	$event_vars['id'] = 'mitka_drinking_invite'
+	$event_vars['title'] = '和米特卡喝酒'
+	$event_vars['loc'] = '森林路，加杜基诺'
+	$event_vars['desc'] = '米特卡、科利亚姆巴和瓦相在村外林间小路旁碰头喝私酿，时间是 ' + $func('time', 'get_time_string', 20, 0) + '.'
+	event_vars['flex_type'] = 0
+	event_vars['start_ts'] = (20 * 4)  & !! 20:00
+	event_vars['duration_ts'] = (3 * 4)  & !! 3 hours
+	$event_vars['recur'] = ''
+	event_vars['recur_end'] = daystart  & !! Expires today
+	event_vars['priority'] = 1
+	event_vars['color'] = 9
+	exit
+end
+
+
+!! ===========================================================================
+!! Legal and Financial Obligations
+!! ===========================================================================
+
+
+!! Fine Deadline - One-time event on the day of the deadline, all-day event
+!! This uses the 'fine_deadline' variable from policeQW to determine the date and fine amount
+if $ARGS[0] = 'fine_deadline':
+	event_vars['daystart'] = policeQW['fine_deadline']
+	$event_vars['id'] = 'fine_deadline_' + policeQW['fine_deadline']
+	$event_vars['title'] = policeQW['legal_fine'] + ' 罚款到期'
+	event_vars['all_day'] = 1
+	exit
+end
+
+
+!! Blackmailer Payment Deadline - all-day event on the payment due date
+!! Added in blackmailer.qsrc update_payment_calendar when smsday is assigned
+!! Removed when payment is completed (make_payment), debt wiped (Add_SMS_failure), or purge_all
+if $ARGS[0] = 'blackmail_payment_deadline':
+	event_vars['daystart'] = blackmailQW['smsday']
+	$event_vars['id'] = 'blackmail_payment_deadline'
+	$event_vars['title'] = '敲诈者付款到期'
+	$event_vars['loc'] = ''
+	$event_vars['desc'] = '离开 ' + $func('money', 'string_price', blackmailQW['next_payment']) + '午夜前在公园里。别迟到，否则会有后果。'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = ''
+	event_vars['recur_end'] = blackmailQW['smsday']
+	event_vars['priority'] = 2
+	event_vars['color'] = 1  & !! Red for urgency
+	exit
+end
+
+
+!! Vadim Bely (Belgang) Weekly Payment Deadline - all-day event on the next Sunday
+!! Added when debt is created (LakeBoyDy.qsrc) and updated each payday (belgang.qsrc)
+!! Removed when debt is fully paid (payremaining) or player is defaulted to the sauna
+if $ARGS[0] = 'belgang_payment_deadline':
+	!! Compute next payment Sunday:
+	!!   belfirstweek=1 means first payment is end of NEXT week (two Sundays away)
+	if belfirstweek = 1:
+		event_vars['daystart'] = daystart - week + 14  & !! Two Sundays away
+	elseif week = 7:
+		event_vars['daystart'] = daystart + 7           & !! Next Sunday (not today)
+	else
+		event_vars['daystart'] = daystart - week + 7   & !! This coming Sunday
+	end
+	$event_vars['id'] = 'belgang_payment_deadline'
+	$event_vars['title'] = '瓦迪姆·别雷付款到期'
+	$event_vars['loc'] = ''
+	$event_vars['desc'] = '每周付款 ' + $func('money', 'string_debt', belgangPayWeek) + ' 应支付给瓦迪姆·别雷。周日在小镇上找到他。'
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = ''
+	event_vars['recur_end'] = event_vars['daystart']   & !! Expires that Sunday
+	event_vars['priority'] = 2
+	event_vars['color'] = 1  & !! Red for urgency
+	exit
+end
+
+if $ARGS[0] = 'cycle_phase_0':
+	$event_vars['id'] = 'cycle_0'
+	$event_vars['title'] = '月经期' + $iif(cheatVars['track_period'] = 1, '', ' (est.)')
+	event_vars['color'] = 3
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'daily'
+	exit
+end
+
+if $ARGS[0] = 'cycle_phase_1':
+	$event_vars['id'] = 'cycle_1'
+	$event_vars['title'] = '卵泡期' + $iif(cheatVars['track_period'] = 1, '', ' (est.)')
+	event_vars['color'] = 5
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'daily'
+	exit
+end
+
+if $ARGS[0] = 'cycle_phase_2':
+	$event_vars['id'] = 'cycle_2'
+	$event_vars['title'] = '受孕期' + $iif(cheatVars['track_period'] = 1, '', ' (est.)')
+	event_vars['color'] = 7
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'daily'
+	exit
+end
+
+if $ARGS[0] = 'cycle_phase_3':
+	$event_vars['id'] = 'cycle_3'
+	$event_vars['title'] = '黄体期' + $iif(cheatVars['track_period'] = 1, '', ' (est.)')
+	event_vars['color'] = 9
+	event_vars['all_day'] = 1
+	$event_vars['recur'] = 'daily'
+	exit
+end
+
+
+--- calendar_list ---------------------------------

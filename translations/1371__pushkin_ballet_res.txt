@@ -1,0 +1,502 @@
+# pushkin_ballet_res
+!! Date Created: 17th Sept, 2022
+!! Version: .01 - initial release
+!! Version: .02 - bug fixes and additional content
+!! Version: .03 - bug fixes and content improvements
+!! Author: Hooded Silence
+!!
+!! Ballet Summer School - Residential accommodation activities.
+!! Residential block is restricted to communal shower, room and a bedroom.
+!! Curfew for the block is 2100, with penalties to final school score for breaching it. Entry is gated by buzzer.
+!!
+!! Variables
+!!
+!! balletqw[daystart] - used to set first night to prevent event conflicts
+!! ballet_day - tracker variable to set which day of the course you are on
+
+$setloc['imagepath'] = 'locations/pushkin/'
+
+if $ARGS[0] = 'check_start_evt':
+	if $start_type['cat'] = 'dancer' and balletqw['letter'] = 1 and (daystart = 185 and hour = 16):
+		!! Pre-flight - travel to school dorms
+		act '<b>前往芭蕾舞学校</b>': gt 'pushkin_ballet_res', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'start':
+	*clr & cla
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	!! reset letter
+	gs 'array', 'remove_element', 'balletqw', 'letter'
+	minut += 45
+	gs 'stat'
+	'<center><h1>欢迎与介绍</h1></center>'
+	'<center><img <<$set_imgh>> src="<<$npc_img_path[''A286'']>>/286.jpg"></center>'
+	*nl
+	'当你和你的团队第一次走进宿舍大厅时，一位面容端庄的中年妇女迎接了你们，她将是你们住宿期间的舍监。'
+	'"欢迎各位同学来到宿舍的第一个夜晚。我是你们的舍监，<<$npc_firstname[''A286'']>> <<$npc_lastname[''A286'']>>。如果你们有任何问题或需要帮助，可以在右手边的房间找到我。"她指了指一扇门，门上挂着一块刻有"舍监"字样的黄铜门牌。'
+	'"我会核对学生名单，你们每天晚上都要应答。你们还可以在卧室里找到一份规则清单，这些规则将严格执行。我们绝不容忍任何有损学校声誉的行为。"'
+	*pl '"你们明白了吗？" '
+	'于是，你和其他学生齐声回答："是的，<<$npc_lastname[''A286'']>>女士。"'
+	'"很好。我建议你们读一读卧室里的规则。无知不能作为借口。"'
+	*nl
+	'"好了，现在我来分配你们的房间。"她看了看手里的记录板，开始念出学生的名字，一边分配房间一边在名单上打勾。'
+	'"<<$pcs_firstname>> <<$pcs_lastname>>？""到！"你回答，"你被分配到了十二号房间，在一楼楼梯右侧。你们有什么问题吗？没有？很好，等你们安顿好之后，我们在公共休息室见。"'
+	act '找到你的房间': gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'bedroom':
+	*clr & cla
+	$location_type = 'private'
+	$setloc['StageTitle'] = '宿舍卧室'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>ballet_residence/bedroom.jpg'
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	$region = 'pushkin'
+	gs 'shortgs', 'clothing_status'
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'core_library', 'stage_title'
+
+	if balletqw['daystart'] = 0:
+		gs 'homes_properties', 'set_home', 'pushkin_ballet_dorm'
+		balletqw['daystart'] = daystart
+		if week ! 7 : ballet_day = week
+
+		'你环顾这间将成为你接下来一周卧室的房间，角落里摆着一张舒适的小床。还有一张可以用来学习的书桌。角落里放着一个带镜门的全身<a href="exec:gt ''wardrobe'', ''start''">衣柜</a>。'
+		'你开始把行李箱里的东西整理进衣柜，安顿好今晚的住处，然后准备去见你的同学们。'
+		'入口旁边的墙上贴着各种火灾疏散须知。在这些须知旁边，有一张写着<b>住宿规则</b>的纸。'
+		act '去见你的同学': minut += 60 & gt $loc, 'communal_area'
+		act '阅读规则': gt $loc, 'rules'
+	else
+		if (hour = 6 or hour = 7) and $apparel['status'] ! 'sport':
+			'<b><font color = "red">你需要换上芭蕾学校的着装（穿运动服）。</font></b>'
+		else
+			'你走进房间，坐在书桌前，想着接下来该做什么。'
+		end
+		*nl
+		'角落里放着你的<a href="exec:gt ''wardrobe'', ''start''">衣柜</a>，里面装着为即将到来的考核准备的<a href="exec:view''images/<<$setloc[''imagepath'']>>/ballet_residence/ballet_blanc.jpg''">白色芭蕾</a>舞裙和你这一周的衣服。'
+		if komp = 1: '你的<a href="exec: gt ''komp'',''start''">电脑</a>放在书桌上。'
+		'<table><tr><td valign="top">'
+		func('alarmclock', 'base_alarmclock_text')
+		if $apparel['status'] ! 'nude':
+			act '去走廊': minut += 5 & gt $loc, 'hallway'
+		else
+			act '去走廊': msg '<b><font color = "red">虽然作为舞者你不太担心在夫人面前展示自己，夫人<<$npc_lastname[''A286'']>>可能会对你的行为说上几句难听的话。</font></b>'
+		end
+		!! Core events
+		!! First Maya event
+		if ballet_day = 3 and mayaqw['grave'] = 0 and (hour >= 17 and hour <= 20):
+			act '回应敲门声' : gs 'npc_274_init', 'grave'
+		elseif ballet_day = 3 and hour > 19 and mayaqw['grave'] = 1:
+			act '又一次敲门声': gt 'npc_274_init', 'post_grave'
+		elseif ballet_day = 3 and mayaqw['grave'] = 0 and hour >= 21:
+			mayaqw['grave'] = -1
+		elseif ballet_debug = 1:
+			$ballet_log[] = '<<daystart>> / <<hour>>:<<minut>> - 玛雅·格雷夫事件未触发。'
+		end
+		!! Default actions
+		gs 'core_library', 'bedroom'
+		!! Homework options
+		if week ! 7:
+			if homework_active = 1:
+				gs $loc, 'homework'
+			else
+				act '家庭作业任务': homework_active = 1 & gs $loc, 'homework'
+				act '阅读规则': gt $loc, 'rules'
+				act '查看课程表': gt $loc, 'class_schedule'
+			end
+		end
+		!! debug acts
+		if ballet_debug = 1:
+			gs 'pushkin_ballet_init', 'debug_menu'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'hallway':
+	*clr & cla
+	$setloc['StageTitle'] = '宿舍走廊'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>/ballet_residence/hall.jpg'
+	$location_type = 'public_indoors'
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	gs 'core_library', 'corridor'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	gs 'core_library', 'stage_title'
+	!! Visit NPCs
+	ballet_awol = 0
+	if ballet_day ! week:
+		ballet_day = week
+	end
+	nclass = 0
+	gs 'shortgs', 'clothing_status'
+	if $apparel['status'] ! 'nude' and ($apparel['status'] = 'sport' or $apparel['status'] = 'dance'):
+		if hour = 7 and minut <= 30 and $apparel['status'] = 'sport':
+			act '<b>上芭蕾舞课</b>': gt 'pushkin_ballet_class', 'start'
+		elseif ballet_day ! 7 and ((hour = 7 and (minut > 30 and minut <= 59)) or (hour >=8 and hour <= 16)):
+			$balletEv['trigger'] = 'late'
+			gs 'npc_274_init', 'summer_school'
+		else
+			act '离开宿舍': minut += 5 & ballet_awol = 1 & gt 'pushkin_ballet_center', 'start'
+		end
+	elseif $apparel['status'] = 'nude' or $apparel['status'] = 'underwear' or $apparel['status'] = 'bra' or $apparel['status'] = 'panties':
+		msg '<b><font color = "red">虽然作为舞者你比大多数人更少拘谨，夫人<<$npc_lastname[''A286'']>>可能会对你的着装选择，或缺乏着装，有几句不客气的话要说。</font></b>'
+	else
+		msg '<b><font color = "red">夫人<<$npc_lastname[''A286'']>>要求学生在宿舍期间穿运动服或舞蹈服。</font></b>'
+	end
+	if birthday_party['events'] = 0 and week = 2 and (hour > 16 and hour < 18):
+		gt 'pushkin_ballet_evt', 'res_events', 'birthday', 'card'
+	else
+		act '回你的房间': minut += 5 & gt $loc, 'bedroom'
+		act '进入公共休息室': minut += 5 & gt $loc, 'communal_area'
+		act '去卫生间': minut += 5 & gt 'pushkin_ballet_class', 'shower'
+		act '去厨房': minut += 5 & gt $loc, 'kitchen'
+		!! if week ! 7 and npc_trust['A274'] >= 10:
+		!!	act 'Visit Maya': minut += 5 & gt $loc, 'maya_room'
+		!! end
+		!! act 'Knock on wardens door' : minut += 5 & gt $loc, 'warden_room'
+	end
+	if ballet_day = 7:
+		'大厅里熙熙攘攘，学生们正在安顿各自的房间。路过时，有些人向你挥手或微笑致意。你看到夫人<<$npc_lastname[''A286'']>>站在大厅尽头，照看着学生们，随时准备提供帮助。'
+	else
+		amb_event = rand(1, 4)
+		if amb_event = 1:
+			'你走进宿舍优雅的走廊，听到旁边某个房间里传来音乐声。'
+		elseif amb_event = 2:
+			'走进走廊时，你听到从一个女孩的房间里传来咯咯的笑声。'
+		elseif amb_event = 3:
+			'当你离开房间时，看到一个学生沿着走廊飞奔，差点撞到你。你听到他们说了一声"抱歉"，随即消失在其中一个房间里。'
+		elseif amb_event = 4:
+			if hour < 8 or hour > 21:
+				'你听到有人在这么晚的时候试着弹钢琴。还没等你抱怨，就听到钢琴被重重合上的声音，你不禁缩了缩脖子。过了一会儿，两个女孩从公共休息室走出来，激烈地争吵着。'
+			else
+				gs 'mood', 'raise', 'tiny'
+				'你听到有人在公共休息室里弹钢琴。你听不出弹的是什么曲子，但那舒缓的旋律让你放松了下来。'
+			end
+		end
+		killvar 'amb_event'
+	end
+end
+
+
+if $ARGS[0] = 'maya_room':
+	*clr & cla
+	$location_type = 'private'
+	$setloc['StageTitle'] = '<<$npc_firstname[''A274'']>>房间'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>/ballet_residence/maya_room.jpg'
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'core_library', 'stage_title'
+	'<<$npc_firstname[''A274'']>>的房间和你的房间十分相似。她的衣柜敞开着，你能看到挂杆上挂着她的芭蕾舞裙。书桌上放着几本书，其中有一本摊开的诗集。你匆匆一瞥，看到那页的标题是阿赫玛托娃所写的《像一块白色的石头》。'
+	'旁边是一张老旧的照片，照片里一位女士在公园里，角落里系着一条黑色缎带。'
+	act '去走廊': minut += 5 & gt $loc, 'hallway'
+	!! Maya events
+end
+
+
+if $ARGS[0] = 'communal_area':
+	*clr & cla
+	$setloc['StageTitle'] = '公共休息室'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>/ballet_residence/communal.jpg'
+	$location_type = 'public_indoors'
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'core_library', 'stage_title'
+	!! 'You enter the communal room.'
+	act '去走廊': minut += 5 & gt $loc, 'hallway'
+	if week = 2 and (hour > 15 and hour <= 17):
+		gs 'pushkin_ballet_evt', 'res_events', 'party'
+	end
+	if week = 7 and balletqw['res_mg'] = 0:
+		*nl
+		gs 'pushkin_ballet_evt', 'res_events', 'introductions'
+	elseif (birthday_party['events'] > 0 and birthday_party['events'] <= 3) and (hour >= 16 and hour <= 17):
+		gs 'pushkin_ballet_evt', 'res_events', 'prep'
+	elseif (birthday_party['events'] = 2 or birthday_party['events'] = 4) and ((hour >= 18 and minut >= 30) or (hour >= 19 and hour < 21)):
+		!! minute += 90
+		gt 'pushkin_ballet_evt', 'res_events', 'birthday' , 'party'
+	else
+		!! gs 'pushkin_ballet_init', 'gen_event'
+		'制作中 - 暂无内容'
+	end
+	!! Communal random events
+end
+
+
+if $ARGS[0] = 'kitchen':
+	*clr & cla
+	$setloc['StageTitle'] = '宿舍厨房'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>ballet_residence/kitchen.jpg'
+	$location_type = 'private'
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'core_library', 'stage_title'
+	!! TODO: Cook meal with Maya if grave = 4
+	!! TODO: Random cooking events
+	act '去走廊': minut += 5 & gt $loc, 'hallway'
+	gs 'core_library', 'kitchen', 'full'
+	!! Set up events
+	*nl
+	if week = 2 and (birthday_party['events'] = 0 and (hour >= 16 and hour <= 17)):
+		gs 'pushkin_ballet_evt', 'res_events', 'kitchen_birthday'
+	else
+		'你走进厨房区域，很庆幸学校提供了做饭所需的基本用品，以及供学生们晚上吃的零食。'
+	end
+	if hour > 16:
+		act '吃一顿便餐': gs 'food', 'small_meal'
+		act '吃晚餐': gs 'food', 'medium_meal'
+		elseif (hour > 4 and hour < 8) and mayaqw['grave'] = 4 and sharedmeal ! daystart:
+		act '与<<$npc_firstname[''A274'']>>':
+			*clr & cla
+			sharedmeal = daystart
+			gs 'food', 'family_meals', 'breakfast'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="<<$npc_img_path[''A274'']>>/274-1.jpg"></center>'
+			'你遇到<<$npc_firstname[''A274'']>>在她准备早餐的时候。你帮忙准备并在享用早餐时聊起了即将开始的课程。'
+			act '吃完早餐': gt $loc, 'kitchen'
+		end
+	elseif hour > 4 and hour < 8:
+		act '吃早餐':
+			*clr & cla
+			$setloc['StageImage'] = '<<$setloc[''imagepath'']>>ballet_residence/breakfast.jpg'
+			gs 'food', 'family_meals', 'breakfast'
+			gs 'stat'
+			gs 'core_library', 'stage_title'
+			'你在冰箱里找了些水果，然后煮了些粥当早餐。'
+			act '吃完早餐': gt $loc, 'kitchen'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'warden_room':
+	*clr & cla
+	$location_type = 'private'
+	$setloc['StageTitle'] = '舍监住所'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>/ballet_residence/warden.jpg'
+	$location_type = 'public_indoors'
+	gs 'core_library', 'setloc', 'pushkin_ballet_res', $ARGS[0]
+	gs 'stat'
+	gs 'themes', 'indoors'
+	gs 'core_library', 'stage_title'
+
+	if $ARGS[1] = 'reputation':
+		!! TODO:
+		"那番谈话"
+	end
+	!! Punishment or plot
+	act '去走廊': minut += 5 & ballet_awol = 0 & gt $loc, 'hallway'
+end
+
+
+!! Activities
+if $ARGS[0] = 'rules':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	*pl '<center><h2>住宿规则</h2></center>'
+	*pl '你看了看墙上的规则。'
+
+	*pl '在住宿期间，你必须遵守以下规则：'
+	*nl
+	'1) 男生禁止进入宿舍楼。'
+	'2) 所有住户必须在 '+func('time', 'get_time_string', 21, 0)+' 之前返回宿舍楼。没有例外。如果迟到，必须向值班管理员报告。'
+	'3) 宿舍内禁止吸烟、饮酒或使用毒品。如果被发现，你将立即被学校开除。'
+	'4) 早餐时间从 '+func('time', 'get_time_string', 6, 0)+' 到 '+func('time', 'get_time_string', 7, 0)+'。'
+	'5) 所有房间必须保持干净整洁。'
+	'6) 如有需要，贵重物品可以交给值班舍监保管。所有盗窃或问题必须立即报告。'
+	'7) 紧急情况下，你必须服从值班舍监的指示。'
+
+	act '看向别处': gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'class_schedule':
+	*clr & cla
+	minut += 5
+	gs 'stat'
+	*pl '<center><h2>宿舍时间表</h2></center>'
+	*nl '你看了看课程表和指南。'
+	*nl '注意：无故缺课将被记过：'
+	*nl
+	'周一至周五：'
+	*nl
+	'0730 - 离开住所。'
+	'0800 - 0900: 普拉提训练课。'
+	'0900 - 1100: 集体把杆练习和姿态训练。'
+	'1100 - 1200: 化妆理论课。'
+	'1200 - 1300: 午餐时间。'
+	'1300 - 1600: 双人舞与单人把杆。'
+	'1600 - 1700: 芭蕾与音乐理论。'
+	*nl
+	'周六：'
+	'0730 - 离开住所。'
+	'0800 - 1200: 分级考核。'
+	*nl
+	'考核结束后将安排交通工具，两周后你会收到信件得知考核结果。'
+	*nl
+	'规则：'
+	*nl
+	'上课期间，学生应穿着运动服装，最好是紧身连体衣。'
+	'头发必须编成辫子或盘成发髻，其他发型一律不允许。'
+	'任何时候都必须化妆，上课期间要保持干净整洁、仪容得体。白天你可以使用淋浴间。'
+	'学校对所有毒品和酒精实行零容忍政策。如果你醉酒或涉嫌服用违禁物质，将面临纪律处分。'
+	*nl
+	'如果任何时候需要帮助你可以找宿舍管理员女士<<$npc_lastname[''A286'']>>或任何一位老师。'
+	act '看向别处': gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'homework':
+	cla
+	!! Non-standard actions
+	if hour >= 16 and week ! 7:
+		act '把杆练习（30分钟）': gt 'pushkin_ballet_evt', 'barre_exercise'
+		act '学习（60分钟）': gt $loc, 'study'
+		if mc_inventory['cosmetics'] >= 9:
+			act '练习化妆（60分钟）' : gt $loc, 'make_up'
+		end
+		if feet_track ! daystart: act '护理你的双脚（30分钟）': gt $loc, 'feetcare'
+	end
+	act '听广播（30分钟）': gt $loc, 'radio'
+	act '返回': homework_active = 0 & gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'radio':
+	*clr & cla
+	minut += 30
+	gs 'mood', 'raise', rand(1, 5)
+	pcs_sleep -= rand(1, 10)
+	if ballet_day >= 1 and week ! 7:
+		instrmusic_exp += rand(1, 3)
+		gs 'exp_gain', 'perform', rand(1, 3)
+		ballet_homework[week] += 1
+		ballet_grade_score['homework'] += ballet_homework[week]
+	end
+	$setloc['StageTitle'] = '广播'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>ballet_residence/russian_radio.jpg'
+	gs 'stat'
+	gs 'core_library', 'stage_title'
+
+	'你听了半小时广播，结合之前课上所学的音乐知识记录下这段演奏。然后，你闭上眼睛，过了一会儿开始跟着熟悉的旋律哼唱，放松下来。 '
+
+	act '关掉广播': gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'feetcare':
+
+	!! Feet care - to be expanded. with different routines.
+	!! feet soak in Epsom salts
+	!! Arnica gel to help reduce swelling around calfs and ankles, or soaking in witch hazel
+	!! sew ballet shoes and break the soles for prep.
+	!! Thera band for feet exercises
+	!! check toe pads
+
+	*clr & cla
+	mood += rand(1, 10)
+	pcs_health += 15
+	minut += 30
+	feet_track = daystart
+	ballet_grade_health += 1
+	gs 'stat'
+	$setloc['StageTitle'] = '足部护理'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>ballet_events/feet_soak.jpg'
+	gs 'core_library', 'stage_title'
+
+	'在芭蕾课上度过漫长的一天后，你认真地检查自己的小腿和双脚是否有伤，把山金车凝胶轻轻按摩到小腿和脚踝上，以缓解僵硬和肿胀。接着，你仔细检查老茧，看看有没有起水泡。'
+	'检查完毕后，你拿起弹力带，开始做一系列足部拉伸练习，最后用网球在小腿和脚底进行舒缓按摩。'
+	'你短暂休息了一下，然后穿上暖足袜，去厨房取冷水，并翻找冰箱里的冰块。幸运的是，学校备有制冰盒。你重新装满制冰盒后，又接了一碗水，端回自己的房间。'
+	'你坐在床上，把冰块和冰水倒进碗里做成足浴。加了一点泻盐后，你深吸一口气，把脚浸入冰冷的水中。突如其来的寒意让你的身体微微一颤，但过了一会儿，这种感觉就消散了。你闭上眼睛，试着放松。'
+
+	!! logic check for then you check your new ballet shoes, and start sewing the ribbons on and break the sole to relax whilst your feet soak.
+
+	act '完成足部护理': gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'study':
+	!! Study ballet and music
+	*clr & cla
+	mood -= rand(1, 10)
+	minut += 60
+	ballet_homework[week] += 1
+	ballet_grade_score['homework'] += ballet_homework[week]
+	$setloc['StageTitle'] = '芭蕾舞学习'
+	$setloc['StageImage'] = '<<$setloc[''imagepath'']>>ballet_residence/study.jpg'
+	gs 'stat'
+	gs 'core_library', 'stage_title'
+	'你拿起课本和笔记本，开始学习芭蕾动作、历史和音乐理论，一边学习一边认真做笔记。读了一个小时后，你发现自己的目光开始变得呆滞。意识到需要休息一下，你决定站起来伸个懒腰。'
+	act '完成学习': gt $loc, 'bedroom'
+end
+
+
+if $ARGS[0] = 'make_up':
+		!! Practice make up skills
+		*clr & cla
+		minut += 60
+		ballet_homework[week] += 1
+		ballet_grade_score['homework'] += ballet_homework[week]
+		gs 'exp_gain', 'makupskl', rand(1, 3)
+		if pcs_makupskl <= 30:
+			mc_inventory['cosmetics'] -= 9
+			pcs_makeup = 0
+		elseif pcs_makupskl <= 69:
+			mc_inventory['cosmetics'] -= 5
+			pcs_makeup = 3
+		else
+			mc_inventory['cosmetics'] -= 3
+			pcs_makeup = 5
+		end
+		gs 'stat'
+		$setloc['StageTitle'] = '化妆练习'
+		$setloc['StageImage'] = '<<$setloc[''imagepath'']>>/ballet_events/make-up.jpg'
+		gs 'core_library', 'stage_title'
+
+		if pcs_makupskl <= 30:
+			'你努力想要掌握化妆的基本功，却浪费了大量昂贵的化妆品。你开始怀疑自己是不是需要找人帮忙练习。'
+		elseif pcs_makupskl <= 69:
+			'你一边上底妆和修容，一边试着重现学校里教过的灵巧笔法。贴假睫毛时你费了点功夫才弄好。你试了好几次才完成最后的妆容融合，不过练习结束时，你对成果很满意，虽然它不会赢得任何奖项。'
+		else
+			'你熟练而灵巧地化好妆容，动作之快、手法之娴熟，足以让大多数女孩嫉妒不已。最终妆容几乎无可挑剔，你挑剔地审视着最终效果，试图找出任何瑕疵。'
+		end
+		act '完成练习': gt $loc, 'bedroom'
+end
+
+
+!! Intercomm
+if $ARGS[0] = 'warden':
+	!! residential buzzer logic statements
+	if (hour > 20 or hour < 6) and ballet_awol = 1:
+		if school_curfew > 0: ballet_grade_discipline[week] -= 2
+		'"普希金芭蕾舞宿舍楼，请问有什么可以帮您？"你从对讲机里听到夫人<<$npc_lastname[''A286'']>>冰冷的声音。'
+		'"<<$pcs_firstname>> <<$pcs_lastname>>，能让我进去吗？"停顿了几秒钟。'
+		'"<<$pcs_firstname>> <<$pcs_lastname>>，到我的办公室来见我。现在。"你发誓周围的温度刚刚骤降了好几度，然后门铃响起，门被打开。'
+		gt 'pushkin_ballet_res', 'warden_room'
+	elseif (hour >= 17 or hour < 21 ) and ballet_awol = 1:
+		'"普希金芭蕾舞宿舍楼，请问有什么可以帮您？"你从对讲机里听到夫人<<$npc_lastname[''A286'']>>的声音。'
+		'"<<$pcs_firstname>> <<$pcs_lastname>>，能让我进去吗？"停顿了几秒钟，你听到门铃响起，门被打开。'
+		gt 'pushkin_ballet_res', 'hallway'
+	elseif ballet_awol = 1:
+		if school_curfew > 0: ballet_grade_discipline[week] -= 5
+		'"普希金芭蕾舞宿舍楼，请问有什么可以帮您？"你从对讲机里听到夫人<<$npc_lastname[''A286'']>>的声音。'
+		'"<<$pcs_firstname>> <<$pcs_lastname>>，能让我进去吗？"停顿了几秒钟。'
+		'"<<$pcs_firstname>> <<$pcs_lastname>>，你到底去哪儿了？给我进来。现在。"听到她的声音，你咽了口唾沫，战战兢兢地走向她的办公室。'
+		gt 'pushkin_ballet_res', 'warden_room'
+	else
+		minut += 10
+		gs 'stat'
+		'你按下门铃，但没有人回应。'
+		act '返回': gt 'pushkin'
+	end
+end
+
+--- pushkin_ballet_res ---------------------------------

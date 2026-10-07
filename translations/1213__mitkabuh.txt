@@ -1,0 +1,1347 @@
+# mitkabuh
+!! 2021/05/05
+
+$loc = 'mitkabuh'
+gs 'miroslava_schedule'
+
+
+if $ARGS[0] = '':
+	npc_drunk['A60'] = 0
+	GadBoy['drunk_event'] = 0
+	MiraVars['drunk_event'] = 0
+	menu_off = 1
+	CLOSE ALL
+	gs 'stat'
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/mitka_old_trailer.jpg"></center>'
+	*nl
+	if GadBoy['first_drink'] = 1:
+		'你跟着男孩们走进树林。大约十五分钟后，你们来到一辆锈迹斑斑的旧拖车前，车身有一部分已经被草木覆盖。它显然在这里放了很久。'
+		'米特卡宣布你们到了。他说在这外面没人会来打扰他们时，可不是在开玩笑。'
+		'路其实不算远，但你一定得知道该往哪走才能找到这个地方。'
+	else
+		'你跟着男孩们走进树林。很快那辆熟悉的旧拖车映入眼帘。'
+	end
+	*nl
+	if sunWeather = 1:
+		'今天天空晴朗所以你们都决定今晚在外面喝酒。'
+		if GadBoy['first_drink'] = 1:
+			'男孩们把几根木头和一条长凳摆成一圈供大家坐。算不上最舒服的座位，不过你很快就会醉得不在乎了。'
+		else
+			'你迅速走到长椅旁坐下趁别人还没来得及占它。'
+		end
+
+		act '在外面坐下':
+			if $locat['A60_loc'] = 'mitkabuh_group':
+				gt 'mitkabuh', 'partywithMira'
+			else
+				gt 'mitkabuh', 'partyalone'
+			end
+		end
+	else
+		'今天外面天气不好所以你们都决定今晚在室内喝酒。'
+		if GadBoy['first_drink'] = 1:
+			'拖车内部和你预想的差不多。主区域有几张沙发和桌子，后面还有一间卧室——不过那从来不是用来睡觉的。'
+			'拖车里到处都是散落的空瓶子和杯子，还能闻到酒味。这显然不是拖车里的第一场派对，也绝不会是最后一场。'
+		else
+			'拖车内部看起来和上次一样，只是可能多了几个散落的空瓶子和杯子。你迅速走向最好的沙发坐下趁别人还没占有它。'
+		end
+
+		act '进入拖车':
+			if $locat['A60_loc'] = 'mitkabuh_group':
+				gt 'mitkabuh', 'partywithMira'
+			else
+				gt 'mitkabuh', 'partyalone'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'partyalone':
+	$loc = 'mitkabuh'
+	$loc_arg = 'partyalone'
+	$location_type = 'public_indoors'
+
+	$menu_loc = 'mitkabuh'
+	$menu_arg = 'partyalone'
+	menu_off = 0
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunk.jpg"></center>'
+	*nl
+	'你、米特卡、科良巴和瓦夏坐在拖车里的'+iif(sunWeather=1, '户外木头上', '沙发上')+'。自酿烈酒管够，但没有什么零食。'
+
+	!! prevent drinking events from repeating after sex is done because the passage of time in the sex events allowed alko to decrease again
+	if GadBoy['drunk_event'] = 1 and alko < 10: alko = 10
+	GadBoy['drinkday'] = daystart
+
+	!! Sveta is not drunk
+	if alko < 10:
+		gs 'willpower', 'drink', 'resist'
+		if pcs_willpwr < will_cost:
+			act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '离开' + $func('willpower', 'get_willcost_string'):
+				minut += 15
+				gs 'willpower', 'drink', 'resist'
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+
+				gt 'gad_road', 'start'
+			end
+		end
+		act '和男孩们喝酒':
+			*clr & cla
+			menu_off = 1
+			minut += 15
+			gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+			gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+			gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+			gs 'beverage', 'moonshine_stats'
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+			*nl
+			'米特卡把一些酒倒进一个透明塑料小酒杯里，递给你。'
+			'私酿酒灼烧着你的喉咙。你的眼睛有些流泪你很难喘过气来。你镇定下来，环顾四周但记得没人带任何吃的东西。'
+			'米特卡赞许地看着你，“好东西，对吧？”'
+			if GadBoy['first_drink'] = 1:
+				GadBoy['first_drink'] = 2
+				'“比我预想的要烈多了！”你回答道。'
+			else
+				'“和你上次酿的一样好喝！”你回答道。'
+			end
+
+			act '继续喝酒': gt 'mitkabuh', 'partyalone'
+		end
+	!! Sveta is drunk and already had sex with Mitka or is the village whore
+	elseif npc_QW['A63'] > 0 and GadBoy['river_gang'] < 3:
+		*clr & cla
+		menu_off = 1
+		if GadBoy['drunk_event'] = 0:
+			GadBoy['drunk_event'] = 1
+			if npc_QW['A63'] < 10:
+				gt 'mitkabuh', 'solo_1to9'
+			elseif npc_QW['A63'] = 10:
+				gt 'mitkabuh', 'solo_10'
+			else
+				temp_rand = rand(1, 10)
+				if temp_rand < 4:
+					gt 'mitkabuh', 'solo_11andup_1boy'
+				elseif temp_rand < 10:
+					gt 'mitkabuh', 'solo_11andup_2boys'
+				else
+					gt 'mitkabuh', 'solo_11andup_3boys'
+				end
+			end
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunk.jpg"></center>'
+			*nl
+			if npc_QW['A63'] < 10:
+				'你醉得太厉害，几乎站不住。你决定今晚该走了。'
+				'你离开时无意中听到男人们在谈论你，但听不清他们在说什么。'
+			else
+				'你醉得太厉害，几乎站不住。男人们叫你离开，他们今晚已经操过你了，但让你明天一定要再来一轮。'
+				if MiraVars['QW'] < 11:
+					'你正要离开时，男人们在身后喊道：“嘿，<<$pcs_nickname>>，再来和我们喝酒啊，我们可爱操你了！！哈哈！”你往外走时他们大笑起来。你醉得想不出一句像样的骂人话，只能嘟囔道：“我相信你们可以找别人代替……”'
+				else
+					'你正要离开时，男人们在身后喊道：“嘿，<<$pcs_nickname>>，再来和我们喝酒啊，我们可爱操你了！！哈哈！”你往外走时他们大笑起来。你醉得想不出一句像样的骂人话，只好径直走开。'
+				end
+			end
+
+			act '离开': minut += 15 & gt 'gad_road', 'start'
+		end
+	!! Sveta is drunk but hasn''t done anything to encourage Mitka yet
+	else
+		*clr & cla
+		menu_off = 1
+		'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big63.jpg"></center>'
+		*nl
+		'你醉得太厉害，几乎站不住。米特卡注意到你的状态，走过来笑着对你说：“看来你今晚喝够了。滚吧。”'
+
+		act '离开': minut += 15 & gt 'gad_road', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'partywithMira':
+	gs 'core_library', 'setloc', 'mitkabuh', 'partywithMira'
+	$location_type = 'public_indoors'
+	menu_off = 0
+
+	MiraVars['follower'] = 0
+	MiraVars['follow_time'] = 3
+
+	!! start Mira''s quest
+	if MiraVars['QW'] = 0: MiraVars['QW'] = 1
+
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunk.jpg"></center>'
+	*nl
+	'你、米拉、米特卡、科良巴和瓦夏正坐在'+iif(sunWeather=1, '户外的木头上', '拖车里的沙发上')+'。自酿烈酒管够，但没有什么零食。'
+
+	!! prevent drinking events from repeating after sex is done because the passage of time in the sex events allowed alko to decrease again
+	if GadBoy['drunk_event'] = 1 and alko < 10: alko = 10
+	if MiraVars['drunk_event'] = 1 and npc_drunk['A60'] < 10: npc_drunk['A60'] = 10
+
+	!! Sveta is drunk and Mira is drunk and boys fucked both already tonight
+	if npc_drunk['A60'] >= 10 and alko >= 10 and GadBoy['drunk_event'] = 1 and MiraVars['drunk_event'] = 1:
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/girls_go.jpg"></center>'
+		*nl
+		if npc_QW['A63'] < 11 and MiraVars['QW'] < 11:
+			'你和米拉都醉得太厉害并且几乎站不住。你决定是时候该走了并且你们应该一起走回家。'
+			'当你离开时，你无意中听到男人们在谈论你们俩，但听不清他们在说什么。'
+		elseif npc_QW['A63'] < 11 and MiraVars['QW'] >= 11:
+			'你和米拉都醉得太厉害并且几乎站不住。你决定是时候该走了并且你们应该一起走回家。'
+			'你正要离开时，男人们在身后朝米拉喊道：“嘿，米拉，再来和我们喝酒啊，我们可爱操你了！！哈哈！”你往外走时他们大笑起来。'
+		elseif npc_QW['A63'] >= 11 and MiraVars['QW'] < 11:
+			'你和米拉都醉得厉害，几乎站不住。男人们叫你们离开，说今晚已经操过你们了，但明天一定要再来一轮。'
+			'你正要离开时，男人们在身后喊道：“嘿，<<$pcs_nickname>>，再来和我们喝酒啊，我们可爱操你了！！哈哈！”你往外走时他们大笑起来。你醉得想不出一句像样的骂人话，只能嘟囔道：“我相信你们可以找别人代替……”'
+		elseif npc_QW['A63'] >= 11 and MiraVars['QW'] >= 11:
+			'你和米拉都醉得厉害，几乎站不住。男人们叫你们离开，说今晚已经操过你们了，但明天一定要再来一轮。'
+			'你正要离开时，男人们在身后朝你们俩喊道：“嘿，<<$pcs_nickname>>和米拉，再来和我们喝酒啊，我们可爱操你们俩了！！哈哈！”你往外走时他们大笑起来。你醉得想不出一句像样的骂人话，只好和米拉一起走开。'
+		end
+
+		act '离开': minut += 15 & gt 'gad_road', 'start'
+	!! Mira is drunk and not had sex with the boys or refused a drink yet tonight
+	elseif npc_drunk['A60'] >= 10 and MiraVars['drunk_event'] = 0:
+		*clr & cla
+		MiraVars['drunk_event'] = 1
+		if MiraVars['QW'] = 5:
+			gt 'mitkabuh', 'mira_5'
+		elseif MiraVars['QW'] = 7:
+			gt 'mitkabuh', 'mira_7'
+		elseif MiraVars['QW'] = 8:
+			gt 'mitkabuh', 'mira_8'
+		elseif MiraVars['QW'] = 9:
+			gt 'mitkabuh', 'mira_9'
+		elseif MiraVars['QW'] >= 11:
+			gt 'mitkabuh', 'mira_11andup'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+			*nl
+			'你想递给米拉一小杯烈酒，但她拒绝了。她今晚已经喝得太多，只想聊聊天度过剩下的夜晚。'
+			if alko < 10:
+				gs 'willpower', 'drink', 'resist'
+				if pcs_willpwr < will_cost:
+					act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '离开' + $func('willpower', 'get_willcost_string'):
+						npc_drunk['A60'] = 0
+						minut += 15
+						gs 'willpower', 'drink', 'resist'
+						gs 'willpower', 'pay', 'resist'
+						gs 'stat'
+
+						gt 'gad_road', 'start'
+					end
+				end
+				act '自己喝下这杯酒':
+					cla
+					minut += 15
+					gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+					gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+					gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+					gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+					gs 'beverage', 'moonshine_stats'
+					gs 'stat'
+
+					act '继续喝酒': gt 'mitkabuh', 'partywithMira'
+				end
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/girls_go.jpg"></center>'
+				*nl
+				'你和米拉都醉得太厉害并且几乎站不住。你决定是时候该走了并且你们应该一起走回家。'
+				'当你离开时，你无意中听到男人们在谈论你们俩，但听不清他们在说什么。'
+
+				act '离开': minut += 15 & gt 'gad_road', 'start'
+			end
+		end
+	!! Sveta is drunk and not had sex with the boys or refused a drink yet tonight
+	elseif alko >= 10 and GadBoy['drunk_event'] = 0:
+		*clr & cla
+		GadBoy['drunk_event'] = 1
+		!! Sveta already had sex with Mitka or is the village whore
+		if npc_QW['A63'] > 0 and GadBoy['river_gang'] < 3:
+			if npc_QW['A63'] < 10:
+				gt 'mitkabuh', 'solo_1to9'
+			elseif npc_QW['A63'] = 10:
+				gt 'mitkabuh', 'solo_10'
+			else
+				temp_rand = rand(1, 10)
+				if temp_rand < 4:
+					gt 'mitkabuh', 'solo_11andup_1boy'
+				elseif temp_rand < 10:
+					gt 'mitkabuh', 'solo_11andup_2boys'
+				else
+					gt 'mitkabuh', 'solo_11andup_3boys'
+				end
+				killvar 'temp_rand'
+			end
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+			*nl
+			'米拉想再递给你一小杯烈酒，但你拒绝了。你今晚已经喝得太多，只想聊聊天度过剩下的夜晚。'
+			if npc_drunk['A60'] < 10:
+				act '离开': minut += 15 & gt 'gad_road', 'start'
+				gs 'willpower', 'drink', 'force'
+				if pcs_willpwr < will_cost:
+					act '让米拉代替你喝下这杯酒' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '让米拉代替你喝下这杯酒' + $func('willpower', 'get_willcost_string'):
+						cla
+						minut += 15
+						gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+						gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+						gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+						gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+						npc_drunk['A60'] += 5
+						gs 'willpower', 'drink', 'force'
+						gs 'willpower', 'pay', 'force'
+						gs 'stat'
+
+						act '继续喝酒': gt 'mitkabuh', 'partywithMira'
+					end
+				end
+
+			else
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/girls_go.jpg"></center>'
+				*nl
+				'你和米拉都醉得太厉害并且几乎站不住。你决定是时候该走了并且你们应该一起走回家。'
+				'当你离开时，你无意中听到男人们在谈论你们俩，但听不清他们在说什么。'
+
+				act '离开': minut += 15 & gt 'gad_road', 'start'
+			end
+		end
+	else
+		!! Sveta is not drunk and Mira is not drunk
+		if alko < 10 and npc_drunk['A60'] < 10:
+			gs 'willpower', 'drink', 'resist'
+			if pcs_willpwr < will_cost:
+				act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '离开' + $func('willpower', 'get_willcost_string'):
+					minut += 15
+					gs 'willpower', 'drink', 'resist'
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+
+					gt 'gad_road', 'start'
+				end
+			end
+			act '和米拉及男孩们一起喝':
+				*clr & cla
+				menu_off = 1
+				minut += 15
+				gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+				*nl
+				'米特卡把一些酒倒进一个透明塑料小酒杯里，递给你。'
+				gs 'willpower', 'drink', 'force'
+				if pcs_willpwr < will_cost:
+					act '让米拉代替你喝下这杯酒' + $func('willpower', 'get_willcost_string'): $noWillpower
+				else
+					act '让米拉代替你喝下这杯酒' + $func('willpower', 'get_willcost_string'):
+						cla
+						minut += 15
+						gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+						gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+						gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+						gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+						npc_drunk['A60'] += 5
+						gs 'willpower', 'drink', 'force'
+						gs 'willpower', 'pay', 'force'
+						gs 'stat'
+
+						'米拉打量了一下杯中的东西，然后一仰头把整杯酒一饮而尽。她瞪大双眼咳了一下，微笑着吸了口气。你和男孩们聊着天他们也喝着酒。'
+
+						act '继续喝酒': gt 'mitkabuh', 'partywithMira'
+					end
+				end
+				act '自己喝下这杯酒':
+					cla
+					minut += 15
+					gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+					gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+					gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+					gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+					gs 'beverage', 'moonshine_stats'
+					gs 'stat'
+
+					'你接过装满私酿酒的小酒杯，一口灌了下去，咳嗽着倒吸一口气。米拉一边和男孩们聊天，一边也喝着酒。'
+					'米特卡赞许地看着你，“好东西，对吧？”'
+					if GadBoy['first_drink'] = 1:
+						GadBoy['first_drink'] = 2
+						'“比我预想的要烈多了！”你回答道。'
+					else
+						'“和你上次酿的一样好喝！”你回答道。'
+					end
+
+					act '继续喝酒': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		!! Sveta is not drunk
+		elseif alko < 10:
+			gs 'willpower', 'drink', 'resist'
+			if pcs_willpwr < will_cost:
+				act '离开' + $func('willpower', 'get_willcost_string'): $noWillpower
+			else
+				act '离开' + $func('willpower', 'get_willcost_string'):
+					minut += 15
+					gs 'willpower', 'drink', 'resist'
+					gs 'willpower', 'pay', 'resist'
+					gs 'stat'
+
+					gt 'gad_road', 'start'
+				end
+			end
+			act '和男孩们喝酒':
+				*clr & cla
+				menu_off = 1
+				minut += 15
+				gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+				gs 'beverage', 'moonshine_stats'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+				*nl
+				'米特卡把一些酒倒进一个透明塑料小酒杯里，递给你。'
+				'私酿酒灼烧着你的喉咙。你的眼睛有些流泪你很难喘过气来。你镇定下来，环顾四周但记得没人带任何吃的东西。'
+				'米特卡赞许地看着你，“好东西，对吧？”'
+				if GadBoy['first_drink'] = 1:
+					GadBoy['first_drink'] = 2
+					'“比我预想的要烈多了！”你回答道。'
+				else
+					'“和你上次酿的一样好喝！”你回答道。'
+				end
+
+				act '继续喝酒': gt 'mitkabuh', 'partywithMira'
+			end
+		!! Mira is not drunk
+		elseif npc_drunk['A60'] < 10:
+			act '离开': minut += 15 & gt 'gad_road', 'start'
+			act '看着米拉和男孩们喝酒':
+				*clr & cla
+				menu_off = 1
+				gs 'npc_relationship', 'modify', 'A60', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A61', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A62', rand(0, 1)
+				gs 'npc_relationship', 'modify', 'A63', rand(0, 1)
+				minut += 15
+				npc_drunk['A60'] += 5
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drinking.jpg"></center>'
+				*nl
+				'米特卡把一些酒倒进一个透明塑料小酒杯里，递给米拉。'
+				'米拉打量了一下杯中的东西，然后一仰头把整杯酒一饮而尽。她瞪大双眼咳了一下，微笑着吸了口气。你和男孩们聊着天他们也喝着酒。'
+
+				act '继续观看': gt 'mitkabuh', 'partywithMira'
+			end
+		end
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                            DRUNK EVENTS                            !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'set_continue_acts':
+	if sunWeather = 1:
+		act '在外面坐下':
+			if $locat['A60_loc'] = 'mitkabuh_group':
+				gt 'mitkabuh', 'partywithMira'
+			else
+				gt 'mitkabuh', 'partyalone'
+			end
+		end
+	else
+		act '坐进拖车里。':
+			if $locat['A60_loc'] = 'mitkabuh_group':
+				gt 'mitkabuh', 'partywithMira'
+			else
+				gt 'mitkabuh', 'partyalone'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'solo_1to9':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big63.jpg"></center>'
+	*nl
+	'你醉得太厉害，几乎站不住。米特卡注意到你的状态，一把搂住你的腰。“哎呀呀，小<<$pcs_nickname>>，喝得有点多了吧？跟我来。”'
+
+	temp_rand = rand(1, 10)
+	if (temp_rand = 1 or (temp_rand < 5 and stat['think_virgin'] = 0)) and mesec = 0:
+		act '你点点头，含糊不清地说着…咕哝着什么，倒进了他张开的怀抱里。':
+			*clr & cla
+			if func('pcs_has_attr', 'sex_virgin'):
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkafirst.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka2.jpg"></center>'
+			end
+			*nl
+			'他带你 '+iif(sunWeather=1, '在拖车内部，', '进入拖车的卧室，')+'让你躺到床上，开始脱掉你的衣服。'
+			if func('pcs_has_attr', 'sex_virgin'):
+				'米特卡插入时，你感觉到自己的处女膜破了。米特卡低头看着你说：“哇，你居然还是处女？我真该多享受一会儿这个时刻！”'
+			else
+				'米特卡显然很享受操你。他把你按在身下时脸上带着灿烂的笑容。'
+			end
+			'米特卡懒得拔出来，直接射在你体内深处。他喘着粗气从你身上下来，说：“你喝醉的时候更像个骚货！”'
+			'他站起来回去和科良巴与瓦夏喝酒，留下你赤身裸体躺在床上。过了一会儿你清醒到足以穿好衣服回到男孩们身边坐下。'
+
+			gs 'npc_relationship', 'modify', 'A63', 1
+			if npc_QW['A63'] < 10: npc_QW['A63'] += 1
+			gs 'boyStat', 'A63'
+			npc_had_sex['A63'] = 1
+			gs 'cum_call', '', 'A63', 1
+			gs 'arousal', 'vaginal', 20, 'sub'
+			gs 'arousal', 'end'
+
+			gs 'mitkabuh', 'set_continue_acts'
+		end
+	elseif temp_rand < 9:
+		act '你点点头，含糊不清地说着…咕哝着什么，倒进了他张开的怀抱里。':
+			*clr & cla
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabj.jpg"></center>'
+			*nl
+			'他带你 '+iif(sunWeather=1, '走进拖车，', '走进拖车的卧室，')+'然后把你按得跪在地上。'
+			'他让你脱光衣服，然后把鸡巴塞进你嘴里让你吮吸。'
+
+			gs 'npc_relationship', 'modify', 'A63', 1
+			if npc_QW['A63'] < 10: npc_QW['A63'] += 1
+			gs 'boyStat', 'A63'
+			npc_had_sex['A63'] = 1
+			gs 'arousal', 'bj', 10, 'sub'
+			gs 'stat'
+
+			act '让他射':
+				*clr & cla
+				temp_randB = rand(0, 5)
+				if temp_randB = 5:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabjcum1.jpg"></center>'
+					*nl
+					'你用力吮吸着他的鸡巴，直到温热的精液突然灌满你的嘴。你吃了一惊，把鸡巴从嘴里抽出来，它继续把精液喷到你的脸上和胸上。'
+					'他让你把他的鸡巴舔干净，然后才离开你，回去跟科良巴和瓦夏喝酒。过了一会儿，你稍微清醒了一些，穿上衣服，回到男人们身边坐下。'
+
+					minut += 5
+					gs 'cum_call', 'face', 'A63', 1
+					gs 'cum_call', 'mouth', 'A63', 1
+					gs 'cum_call', 'breasts', 'A63', 1
+				elseif temp_randB >= 3:
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabjcum.jpg"></center>'
+					*nl
+					'你收紧嘴唇，更用力地吮吸米特卡的鸡巴。你的头上下起伏，尽可能把整根鸡巴塞进嘴里和喉咙深处。'
+					'终于，你感到米特卡的鸡巴搏动起来，几秒钟后，你的嘴里充满了他的咸精液。你飞快地全咽了下去。'
+					'他让你把他的鸡巴舔干净，然后才离开你，回去跟科良巴和瓦夏喝酒。过了一会儿，你稍微清醒了一些，穿上衣服，回到男人们身边坐下。'
+
+					gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+					gs 'cum_call', 'mouth_swallow', 'A63', 1
+				else
+					'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabjcum2.jpg"></center>'
+					*nl
+					'米特卡粗暴地抓住你的头发，操起你的嘴来。你只能张着嘴，任他的鸡巴撞到你喉咙深处。'
+					'他快要射的时候，把你的头往后一拉，开始把温热黏稠的精液喷满你的脸和头发。'
+					'他让你把他的鸡巴舔干净，然后才离开你，回去跟科良巴和瓦夏喝酒。过了一会儿，你稍微清醒了一些，穿上衣服，回到男人们身边坐下。'
+
+					gs 'arousal', 'bj', 5, 'sub', 'deepthroat', 'rough'
+					gs 'cum_call', 'face', 'A63', 1
+					gs 'cum_call', 'mouth_swallow', 'A63', 1
+					gs 'cum_call', 'hair', 'A63', 1
+				end
+				gs 'arousal', 'end'
+
+				gs 'mitkabuh', 'set_continue_acts'
+				killvar 'temp_randB'
+			end
+		end
+	else
+		act '你点点头，含糊不清地说着…咕哝着什么，倒进了他张开的怀抱里。':
+			*clr & cla
+			if pcs_ass < 10:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaanal.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaanal1.jpg"></center>'
+			end
+			*nl
+			'他带你 '+iif(sunWeather=1, '在拖车内部，', '进入拖车的卧室，')+'让你在床上弯下腰，然后开始脱掉你的衣服。'
+			if func('pcs_has_attr', 'sex_anal_virgin'):
+				'“还是个肛交处女，嗯？这次之后你的屁股再也回不到从前了！”米特卡说着把鸡巴插进你的屁股里。'
+			else
+				'米特卡显然很享受操你的屁股。他把你按在身下时脸上带着灿烂的笑容。'
+			end
+			'米特卡懒得拔出来，直接射在你屁股深处。他喘着粗气从你身上下来，说：“你喝醉的时候更像个骚货！”'
+			'他站起来回去和科良巴与瓦夏喝酒，留下你赤身裸体躺在床上。过了一会儿你清醒到足以穿好衣服回到男孩们身边坐下。'
+
+			gs 'npc_relationship', 'modify', 'A63', 1
+			if npc_QW['A63'] < 10: npc_QW['A63'] += 1
+			gs 'boyStat', 'A63'
+			npc_had_sex['A63'] = 1
+			gs 'cum_call', 'anus', 'A63', 1
+			gs 'arousal', 'anal', 15, 'sub', 'rough'
+			gs 'arousal', 'end'
+
+			gs 'mitkabuh', 'set_continue_acts'
+		end
+	end
+	killvar 'temp_rand'
+end
+
+
+if $ARGS[0] = 'solo_10':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big63.jpg"></center>'
+	*nl
+	'你醉得太厉害，几乎站不住。米特卡注意到你的状态，一把搂住你的腰。“哎呀呀，小<<$pcs_nickname>>，喝得有点多了吧？跟我来。”'
+
+	act '你含糊地说想上厕所':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunkgirl.jpg"></center>'
+		*nl
+		'米特卡扶着你'+iif(sunWeather=1, '站起来，', '走到外面，')+'靠在一棵树上，你醉醺醺地咯咯笑着尿了出来。米特卡一直看着你，笑个不停。他自己也几乎站不稳，摇摇晃晃地走过来把你拉进怀里。'
+		'“听着，<<$pcs_nickname>>，跟我来。”米特卡大声说。你想瞒着我们，可我们早就知道了。“我要让人像操婊子一样操你。我知道你不会介意的。”米特卡邪恶地咧嘴一笑。'
+		'他转向他的朋友们，“过来，”他指着醉醺醺的科良巴说。“到这边来，拿这个骚货找点乐子。”科良巴摇摇晃晃地走上前，一边走一边把裤子往下拉。“我们虽然醉了，但还是能玩玩这个婊子的小穴……”'
+		'“嗯，真是美景啊。”米特卡得意地结巴着说，把你暴露在所有人面前。“让派对开始吧！”'
+
+		act '抗议':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunkgirl.jpg"></center>'
+			*nl
+			'你拒绝了，醉醺醺地试图抵挡逼近的科良巴，却连站都站不稳。'
+			'你的挣扎惹恼了米特卡，他抓住你的胳膊'+iif(sunWeather=1, '走进拖车', '走进拖车的卧室')+'。'
+			'米特卡在你耳边低语：“你这么想要我的鸡巴，那这次就给你。但下一次，你要照我说的做。明白吗？”'
+
+			act '呻吟着表示同意':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkasexnopublic.jpg"></center>'
+				*nl
+				'米特卡粗暴地扯掉你所有的衣服，把你按在床边，开始毫不留情地猛干你。你从没见过他这样，也许大家只是比平时喝得更多，明天一切就会过去。'
+				'米特卡操你的时候，你只能发出呻吟。声音大得你确信卧室外面的人都听得见。你忍不住想，今晚之后其他男人可能会开始用不一样的眼光对你。'
+				'他射在你体内，然后回去和科良巴、瓦夏继续喝酒，把你光着身子留在床上。过了一会儿，你清醒了一些，穿好衣服回到男孩们身边坐下。'
+
+				gs 'npc_relationship', 'modify', 'A63', 1
+				gs 'npc_relationship', 'modify', 'A61', -5
+				npc_QW['A63'] = 11
+				gs 'boyStat', 'A63'
+				npc_had_sex['A63'] = 1
+				if mesec = 0:
+					gs 'cum_call', '', 'A63', 1
+					gs 'arousal', 'vaginal', 10, 'sub', 'rough'
+				else
+					gs 'cum_call', 'anus', 'A63', 1
+					gs 'arousal', 'anal', 10, 'sub', 'rough'
+				end
+				gs 'arousal', 'end'
+
+				gs 'mitkabuh', 'set_continue_acts'
+			end
+		end
+		act '弯下腰':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkasexpublic0.2.jpg"></center>'
+			*nl
+			'科良巴让你弯下腰趴在一根附近的木头上。他一只手撑在你背上来稳住自己，另一只手把鸡巴引导进你的'+iif(mesec=0, '小穴', '屁股')+'。'
+			'科良巴操你的时候，你只能发出呻吟，但你忍不住想，今晚之后其他男人可能会开始用不一样的眼光对你。'
+			'你们俩都醉得厉害，很难保持任何节奏。最后科良巴加快了一点，射在了你的'+iif(mesec=0, '小穴', '屁股')+'。'
+			'他站起来回去和米特卡、瓦夏喝酒，把你光着身子留在外面。过了一会儿，你清醒了一些，穿好衣服回到男孩们身边坐下。'
+
+			gs 'npc_relationship', 'modify', 'A63', 1
+			gs 'npc_relationship', 'modify', 'A61', 5
+			npc_QW['A63'] = 11
+			gs 'boyStat', 'A61'
+			npc_had_sex['A61'] = 1
+			if mesec = 0:
+				gs 'cum_call', '', 'A61', 1
+				gs 'arousal', 'vaginal', 10, 'sub'
+			else
+				gs 'cum_call', 'anus', 'A61', 1
+				gs 'arousal', 'anal', 10, 'sub'
+			end
+			gs 'arousal', 'end'
+
+			gs 'mitkabuh', 'set_continue_acts'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'solo_11andup_1boy':
+	*clr & cla
+	menu_off = 1
+	temp_rand = rand(0, 1)
+	temp2_rand = rand(1, 3)
+	if temp_rand = 0:
+		if temp2_rand = 1:
+			gs 'boyStat', 'A63', '0'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big63.jpg"></center>'
+		elseif temp2_rand = 2:
+			gs 'boyStat', 'A61', '0'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big61.jpg"></center>'
+		else
+			gs 'boyStat', 'A62', '0'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big62.jpg"></center>'
+		end
+		*nl
+		'当你在喝酒时，<<$boydesc[0]>>走到你面前从你手里拿走那个酒杯。你为我做点事后就能拿回这个。'
+		'“跪下，吸我的鸡巴。”<<$boydesc[0]>>一边脱裤子一边命令道。'
+
+		act '来点跑酷！并且挡住她的路！':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			npc_had_sex[$boy[0]] = 1
+			gs 'arousal', 'bj', 10, 'sub'
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabjpublic.jpg"></center>'
+			*nl
+			'你跪下，把他的鸡巴含进嘴里，你一舔它就迅速硬了起来。你尽可能把整根塞进嘴里。'
+
+			act '让他射':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkagroupcum2.jpg"></center>'
+				*nl
+				'你的头上下起伏，<<$boydesc[1]>>呻吟起来。他开始射的时候，你张开嘴让他看清楚，他把精液射进你的喉咙里。'
+				if GadBoy['river_gang'] = 2:
+					'完事之后他看着你说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给你：“拿去把自己收拾干净。”'
+					gs 'money', 'earn', 5
+				end
+				'他让你把鸡巴舔干净，然后离开你回去继续喝酒。过了一会儿，你清醒了一些，穿好衣服回到男孩们身边坐下。'
+
+				gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+				gs 'cum_call', 'mouth_swallow', $boy[0], 1
+				gs 'arousal', 'end'
+
+				gs 'mitkabuh', 'set_continue_acts'
+			end
+		end
+	else
+		if temp2_rand = 1:
+			gs 'boyStat', 'A63', '0'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big63.jpg"></center>'
+		elseif temp2_rand = 2:
+			gs 'boyStat', 'A61', '0'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big61.jpg"></center>'
+		else
+			gs 'boyStat', 'A62', '0'
+			'<center><img <<$set_imgh>> src="images/characters/shared/headshots_main/big62.jpg"></center>'
+		end
+		*nl
+		'当你在喝酒时，<<$boydesc[0]>>走到你面前从你手里拿走那个酒杯。你为我做点事后就能拿回这个。'
+		'“弯下腰，让我操你。”<<$boydesc[0]>>一边脱裤子一边命令道。'
+
+		act '弯下腰':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			npc_had_sex[$boy[0]] = 1
+			if mesec = 0:
+				gs 'arousal', 'vaginal', 20, 'sub'
+			else
+				gs 'arousal', 'anal', 20, 'sub'
+			end
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkasexpublic0.2.jpg"></center>'
+			*nl
+			'<<$boydesc[0]>>让你弯下腰趴在拖车外一根附近的木头上。他一只手撑在你背上来稳住自己，另一只手把鸡巴引导进你的'+iif(mesec=0, '小穴', '屁股')+'。'
+			if mesec = 0:
+				gs 'cum_call', '', $boy[0], 1
+			else
+				gs 'cum_call', 'anus', $boy[0], 1
+			end
+			'他很快加快了节奏，你感觉每一次抽插都比上一次更深。没过多久，他就射在了你的'+iif(mesec=0, '小穴', '屁股')+'。'
+			if GadBoy['river_gang'] = 2:
+				'完事之后<<$boydesc[0]>>看着你说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+				'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给你：“拿去把自己收拾干净。”'
+				gs 'money', 'earn', 5
+			end
+			'他站起来回去继续喝酒，把你一个人留在外面。过了一会儿，你清醒了一些，穿好衣服回到男孩们身边坐下。'
+
+			gs 'arousal', 'end'
+
+			gs 'mitkabuh', 'set_continue_acts'
+		end
+	end
+	killvar 'temp_rand'
+	killvar 'temp2_rand'
+end
+
+
+if $ARGS[0] = 'solo_11andup_2boys':
+	*clr & cla
+	menu_off = 1
+	temp_rand = rand(0, 1)
+	temp2_rand = rand(1, 3)
+	if temp_rand = 0:
+		if temp2_rand = 1:
+			gs 'boyStat', 'A63', '0'
+			gs 'boyStat', 'A61', '1'
+		elseif temp2_rand = 2:
+			gs 'boyStat', 'A63', '0'
+			gs 'boyStat', 'A62', '1'
+		else
+			gs 'boyStat', 'A61', '0'
+			gs 'boyStat', 'A62', '1'
+		end
+		if month >= 6 and month <= 8:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/2boys.1.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/2boys.2.jpg"></center>'
+		end
+		*nl
+		'当你在喝酒时，<<$boydesc[0]>> and <<$boydesc[1]>>走到你面前从你手里拿走那个酒杯。你为我们做点事后就能拿回这个。'
+		'“跪下，吸我们的鸡巴。”<<$boydesc[0]>>一边脱裤子一边命令道。<<$boydesc[1]>>也很快跟着掏出自己的鸡巴。'
+
+		act '轮流吸他们':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			gs 'npc_relationship', 'modify', $boy[1], 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			npc_had_sex[$boy[0]] = 1
+			npc_had_sex[$boy[1]] = 1
+			gs 'arousal', 'bj', 10, 'sub'
+			stat['gangbang_count'] += 1
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabjpublicguys.jpg"></center>'
+			*nl
+			'当你弯腰去吸<<$boydesc[0]>>的鸡巴时，<<$boydesc[1]>>绕到你身后，开始用手指插你的'+iif(mesec=0, '小穴', '屁股')+'。'
+			'几分钟后他们交换位置，轮流让你给他们口交，另一个人则用手指插你。'
+
+			act '让他们高潮':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkabjpublicguys2.jpg"></center>'
+				*nl
+				'你跪在<<$boydesc[0]>>和<<$boydesc[1]>>面前，把两根鸡巴都塞进嘴里。两个男孩开始射精，你必须赶紧把两人份的精液吞下去，免得从嘴里溢出来。'
+				if GadBoy['river_gang'] = 2:
+					'完事之后<<$boydesc[0]>>看着你说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给你：“拿去把自己收拾干净。”'
+					gs 'money', 'earn', 5
+				end
+				'他们让你把他们俩舔干净然后继续回去喝酒。过了一会儿你清醒到足以穿好衣服回到男孩们身边坐下。'
+
+				gs 'arousal', 'bj', 5, 'sub', 'deepthroat'
+				gs 'cum_call', 'mouth_swallow', $boy[0], 1
+				gs 'cum_call', 'mouth', $boy[1], 1
+				gs 'arousal', 'end'
+
+				gs 'mitkabuh', 'set_continue_acts'
+			end
+		end
+	else
+		if temp2_rand = 1:
+			gs 'boyStat', 'A63', '0'
+			gs 'boyStat', 'A61', '1'
+		elseif temp2_rand = 2:
+			gs 'boyStat', 'A63', '0'
+			gs 'boyStat', 'A62', '1'
+		else
+			gs 'boyStat', 'A61', '0'
+			gs 'boyStat', 'A62', '1'
+		end
+		if month >= 6 and month <= 8:
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/2boys.1.jpg"></center>'
+		else
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/village/2boys.2.jpg"></center>'
+		end
+		*nl
+		'当你在喝酒时，<<$boydesc[0]>> and <<$boydesc[1]>>走到你面前从你手里拿走那个酒杯。你为我们做点事后就能拿回这个。'
+		'“让我们俩一起上你。”<<$boydesc[0]>>一边脱裤子一边命令道。<<$boydesc[1]>>也很快跟着掏出自己的鸡巴。'
+
+		act '为他们弯下腰':
+			*clr & cla
+			gs 'npc_relationship', 'modify', $boy[0], 1
+			gs 'npc_relationship', 'modify', $boy[1], 1
+			if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+			npc_had_sex[$boy[0]] = 1
+			npc_had_sex[$boy[1]] = 1
+			gs 'arousal', 'bj', 10, 'sub', 'rough', 'deepthroat'
+			if mesec = 0:
+				gs 'arousal', 'vaginal', 10, 'sub', 'rough'
+			else
+				gs 'arousal', 'anal', 10, 'sub', 'rough'
+			end
+			stat['gangbang_count'] += 1
+			gs 'stat'
+
+			if sunWeather = 1:
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkapublicguys2.jpg"></center>'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitkaguys2.jpg"></center>'
+			end
+			*nl
+			'男孩们先脱掉你的衣服，把你的身体暴露在所有人面前。'
+			'<<$boydesc[0]>>让你弯下腰趴在'+iif(sunWeather=1, '拖车外的长凳上。', '拖车的厨房里。')+'他双手抓住你的腰，把你的'+iif(mesec=0, '小穴', '屁股')+'按到他的鸡巴上。'
+			'<<$boydesc[1]>>抓住你的头发，把鸡巴塞进你嘴里。他们在你体内抽插，你在两个男孩之间来回摇晃。'
+			'他们加快了节奏，没多久两人就都射在了你体内。'
+			if GadBoy['river_gang'] = 2:
+				'完事之后<<$boydesc[0]>>看着你说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+				'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给你：“拿去把自己收拾干净。”'
+				gs 'money', 'earn', 5
+			end
+			'他们让你把他们俩舔干净然后继续回去喝酒。过了一会儿你清醒到足以穿好衣服回到男孩们身边坐下。'
+
+			if mesec = 0:
+				gs 'cum_call', '', $boy[0], 1
+			else
+				gs 'cum_call', 'anus', $boy[0], 1
+			end
+			gs 'cum_call', 'mouth', $boy[1], 1
+			gs 'arousal', 'end'
+
+			gs 'mitkabuh', 'set_continue_acts'
+		end
+	end
+	killvar 'temp_rand'
+	killvar 'temp2_rand'
+end
+
+
+if $ARGS[0] = 'solo_11andup_3boys':
+	*clr & cla
+	menu_off = 1
+	'<center><img <<$set_imgh>> src="images/locations/gadukino/village/drunk.jpg"></center>'
+	*nl
+	'你正在喝酒时，米特卡、科良巴和瓦夏走到你面前，从你手里拿走酒杯。你为我们做点事后就能拿回这个。'
+	'“让我们三个一起轮你。”米特卡一边脱裤子一边命令道。科良巴和瓦夏也很快跟着掏出自己的鸡巴。'
+
+	act '对他们微笑':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkagroup.jpg"></center>'
+		*nl
+		'你在拖车外的长凳上坐下，把乳房露给男孩们看。这就是他们需要的全部鼓励，他们很快围了上来。'
+		'你开始撸科利亚巴和瓦西扬，同时米特卡把手指插进你的 '+iif(mesec=0, '小穴', '屁股')+'。'
+
+		gs 'npc_relationship', 'modify', 'A63', 1
+		gs 'npc_relationship', 'modify', 'A62', 1
+		gs 'npc_relationship', 'modify', 'A61', 1
+		if npc_QW['A63'] < 20: npc_QW['A63'] += 1
+		gs 'boyStat', 'A63'
+		npc_had_sex['A63'] = 1
+		gs 'boyStat', 'A62'
+		npc_had_sex['A62'] = 1
+		gs 'boyStat', 'A61'
+		npc_had_sex['A61'] = 1
+		stat['gangbang_count'] += 1
+		gs 'arousal', 'hj', 5, 'sub', 'gangbang'
+		if mesec = 0:
+			gs 'arousal', 'vaginal_finger', 5, 'sub', 'gangbang'
+		else
+			gs 'arousal', 'anal_finger', 5, 'sub', 'gangbang'
+		end
+		gs 'stat'
+
+		act '被轮奸':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/gadukino/sex/mitka/mitka_group/mitkagroupcum.jpg"></center>'
+			*nl
+			'科良巴和瓦夏按住你，米特卡插入你的'+iif(mesec=0, '小穴', '屁股')+'。你尽力同时用嘴和手取悦他们两人。'
+			'他们不断换位置，让每个人都有机会用你所有的洞。过了一会儿，你习惯了这种持续的猛干，这三个男孩似乎不像平常那样容易累。'
+			'你感觉他们可能在互相较劲，看谁能坚持最久，只是不告诉你。'
+			'瓦夏第一个射了，把精液喷满你的全身。这引发了连锁反应，科良巴开始把精液射满你的脸和头发，米特卡则同时灌满你的'+iif(mesec=0, '小穴', '屁股')+'。'
+			if GadBoy['river_gang'] = 2:
+				'他们完事之后，米特卡看着你说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+				'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给你：“拿去把自己收拾干净。”'
+				gs 'money', 'earn', 5
+			end
+			'然后男人们回去继续喝酒，把你光着身子独自留在外面。过了一会儿，你清醒了一些，穿好衣服回到男孩们身边坐下。'
+
+			gs 'arousal', 'hj', 10, 'sub', 'gangbang', 'rough'
+			gs 'arousal', 'bj', 10, 'sub', 'gangbang', 'rough'
+			if mesec = 0:
+				gs 'arousal', 'vaginal', 10, 'sub', 'gangbang', 'rough'
+			else
+				gs 'arousal', 'anal', 10, 'sub', 'gangbang', 'rough'
+			end
+			gs 'cum_call', 'breasts', 'A62', 1
+			gs 'cum_call', 'stomach', 'A62', 1
+			gs 'cum_call', 'face', 'A61', 1
+			gs 'cum_call', 'mouth', 'A61', 1
+			if mesec = 0:
+				gs 'cum_call', '', 'A63', 1
+			else
+				gs 'cum_call', 'anus', 'A63', 1
+			end
+			gs 'arousal', 'end'
+
+			gs 'mitkabuh', 'set_continue_acts'
+		end
+	end
+end
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                                MIRA                                !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'mira_5':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	MiraVars['QW'] = 6
+	gs 'stat'
+
+	gs 'miroslava', 'miraclothes'
+	*nl
+	'米拉现在彻底醉倒了，她看着你眨了眨眼，然后牵起米特卡的手，把他带到'+iif(sunWeather=1, '拖车后面别人看不见的地方', '远离拖车的另一边')+'，避开其他男孩。'
+	'几分钟后，你借口离开正在和你聊天的科良巴和瓦夏，跟了上去。'
+
+	act '看着他们':
+		*clr & cla
+		gs 'arousal', 'voyeur_sex', 15, 'sub'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/mirawish1_2.jpg"></center>'
+		*nl
+		'等你追上他们并找到一个好的藏身之处时，米特卡和米拉已经开始了。米拉光着身子躺在一张木桌上，双腿翘在空中。'
+		'米特卡正用鸡巴操她的屁股，就像米拉答应的那样。每次他插进去，米拉都会轻声呻吟，桌子在她身下吱嘎作响。'
+		'从你偷看的地方很容易就能听见米特卡大力抽插的声响。十五分钟后，米拉扭动着屁股，像牛一样叫着，玩得不亦乐乎。'
+		'米特卡受不了了，他开始大声地射在她屁股里，甚至懒得拔出来。他让她把鸡巴舔干净，然后回去和其他男孩继续喝酒。'
+		'米拉四处张望想找到你，但醉成这样的她根本看不见你。'
+
+		act '与米拉交谈':
+			*clr & cla
+			minut += 5
+			MiraVars['QW'] = 7
+			gs 'stat'
+
+			gs 'miroslava', 'miraclothes'
+			*nl
+			'你从藏身处出来，走到米拉面前。你告诉她，米特卡操她屁股的全过程你都看见了。'
+			'你问她是否喜欢被操屁股。让你意外的是，米拉回答说她确实很喜欢。'
+			'你有点失望，因为这本来应该是一种惩罚。然后你提醒她，她还有两个愿望要完成。等全部完成后，她就还清了对你的债。米拉点点头说，她随时准备听从你的愿望。'
+
+			if sunWeather = 1:
+				act '返回拖车': gt 'mitkabuh', 'partywithMira'
+			else
+				act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mira_7':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	MiraVars['QW'] = 8
+	gs 'stat'
+
+	gs 'miroslava', 'miraclothes'
+	*nl
+	'“我无聊死了！”米特卡喊道。“米拉，把你的屁股挪过来，给我们表演个难忘的节目！”他像猪一样哼哼。“让我们看看你的骚洞有多松，婊子……”'
+	'米拉拒绝了。米特卡和其他人立刻要求她服从命令。她继续拒绝听他们的摆布。最后米拉提出一个折中方案，他们同意了：她只是脱光衣服，被逼着在他们面前四肢着地爬来爬去，装成一条狗……'
+
+	act '看着她':
+		*clr & cla
+		gs 'arousal', 'erotic_nudity', 15, 'sub'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/miraqw15_1.jpg"></center>'
+		*nl
+		'米拉脱光所有衣服，接下来十五分钟里在草地上四肢着地爬来爬去，不停地左右摇晃脑袋，还轻轻叫几声。米拉为了取悦他们而自贬身价，男人们一边喝酒一边大笑。'
+
+		if sunWeather = 1:
+			act '返回拖车': gt 'mitkabuh', 'partywithMira'
+		else
+			act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mira_8':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	MiraVars['QW'] = 9
+	gs 'stat'
+
+	gs 'miroslava', 'miraclothes'
+	*nl
+	'“我无聊死了！”米特卡喊道。“米拉，把你的屁股挪过来，给我们表演个难忘的节目！”他像猪一样哼哼。“让我们看看你的骚洞有多松，婊子……”'
+	'米拉含糊地应了一声，然后脱掉衣服。'
+
+	act '看着她':
+		*clr & cla
+		gs 'arousal', 'voyeur_sex', 15, 'sub'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw15.jpg"></center>'
+		*nl
+		'米拉四肢着地，把屁股朝派对的方向撅起来。她开始把手指插进两个洞里。米拉一边把更多手指塞进自己被撑开的洞里，一边呻吟。'
+		'她继续笨拙地把手指深深插进自己的小穴和屁股里。最后她达到了今晚众多高潮中的第一次。'
+
+		if sunWeather = 1:
+			act '返回拖车': gt 'mitkabuh', 'partywithMira'
+		else
+			act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mira_9':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	MiraVars['QW'] = 10
+	gs 'stat'
+
+	gs 'miroslava', 'miraclothes'
+	*nl
+	'米拉现在醉得厉害，几乎站不住，却还一直要更多的私酿酒。瓦夏走过来，脸上带着恶魔般的笑容说：“我有个更好的主意。不如你来伺候我和科良巴的鸡巴？那样你就能多喝点。”'
+	'米拉只是笑了笑说：“当然可以，可你们喝了那么多私酿酒，还能硬得起来吗？”米特卡拍了拍她的屁股，说她是个能为自己负责的成年人，可以自己做决定。与此同时，科良巴走到米拉身边，用力按住她的肩膀。'
+	'米拉醉醺醺地咯咯笑着，象征性地抗拒了几秒，最后还是跪了下来。她看着他拉开裤链，把裤子褪到脚踝……'
+
+	act '看着她和科良巴':
+		*clr & cla
+		gs 'arousal', 'voyeur_sex', 5, 'sub'
+		gs 'stat'
+
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw10.jpg"></center>'
+		*nl
+		'米拉见他的鸡巴还没完全硬起来，立刻向前俯身，把它整根吞到根部，开始给他一个极好的口交。她的嘴唇在皮肤上滑动，然后把它整个吸进嘴里，再吐出来舔弄龟头和茎身。科良巴幸福地闭上眼，享受着米拉的口交。'
+		if npc_QW['A63'] < 10: '米特卡问你能不能也这样对他，你哼了一声说不行。米特卡看起来很失望，但还是又递给你一小杯私酿酒。'
+
+		act '继续':
+			*clr & cla
+			gs 'arousal', 'voyeur_sex', 5, 'sub'
+			gs 'stat'
+
+			'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw10_1.jpg"></center>'
+			*nl
+			'米拉吸了他的鸡巴几分钟后，科良巴粗暴地把她的嘴从鸡巴上推开，开始把一股股精液射到她脸上。米拉闭着眼，醉醺醺地嘟囔着，努力装出性感色情明星的样子，同时慢慢用手指抹过脸庞收集精液。然后她把手指放进嘴里舔干净。'
+
+			act '看着她和瓦夏':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 5, 'sub'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw10_2.jpg"></center>'
+				*nl
+				'“好了，现在轮到我了。”瓦夏说着站到米拉面前。她也热情地吸他，最后他射在她舌头上和嘴里。她把他的精液全部咽了下去。'
+
+				act '看着她和米特卡':
+					*clr & cla
+					gs 'arousal', 'voyeur_sex', 5, 'sub'
+					gs 'stat'
+
+					'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw10_3.jpg"></center>'
+					*nl
+					'米特卡自己也已经喝了好几杯，他默默地走到米拉身边，一言不发地示意她弯下腰。米拉醉醺醺地晃了几秒，才顺从地把屁股转向他，把内裤拨到一边，把她湿漉漉的小穴暴露在所有人眼前。米特卡掏出鸡巴，把龟头抵在她的阴唇之间，上下摩擦，用她的爱液润滑。'
+
+					act '继续':
+						*clr & cla
+						gs 'arousal', 'voyeur_sex', 10, 'sub'
+						gs 'stat'
+
+						'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw10_4.jpg"></center>'
+						'米特卡重重地打了她屁股一下，在上面留下一个红色的手印。他粗暴地抓住她的内裤拉到膝盖处，然后开始粗暴地操她。米特卡醉得厉害，根本坚持不了多久，很快就射在了她的小穴里。米拉脸上带着满足的表情叹了口气，也达到了高潮。你自己的胯下像着了火，只想自慰。男孩们看着你心照不宣地笑着，看到你的手轻轻碰着自己的胯下，双腿互相摩擦。你必须在失控之前离开，免得开口让男人们也操你。'
+
+
+						act '与米拉交谈':
+							*clr & cla
+							minut += 5
+							MiraVars['QW'] = 11
+							gs 'stat'
+
+							gs 'miroslava', 'miraclothes'
+							*nl
+							'你走到米拉面前，不知该从何说起。米拉慢慢回过神来，看了看自己，脸开始发红。'
+							'最后你鼓起勇气问她刚才到底发生了什么。米拉仍然不敢看你的眼睛，结结巴巴地说她也不知道自己为什么会那样做。她说自己失控了。'
+							'米拉继续盯着地面，你能看到她脸上的羞愧。'
+							'但你也喝醉了，却没有像她那样做。她的脸因羞愧而低垂，继续看着地面。'
+							'你设法安慰她，告诉她应该咬牙挺过去，继续往前走。一切都会好起来的，你们该回去继续喝酒玩乐。'
+							'米拉感谢你的支持，但她还是无法鼓起勇气看你。'
+
+							if sunWeather = 1:
+								act '返回拖车': gt 'mitkabuh', 'partywithMira'
+							else
+								act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'mira_11andup':
+	*clr & cla
+	menu_off = 1
+	minut += 5
+	if MiraVars['QW'] < 15: MiraVars['QW'] += 1
+	gs 'stat'
+
+	temp_rand = rand(1, 3)
+	if rand(0, 1) = 0:
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/miraqw11_4.jpg"></center>'
+		*nl
+		'“那么，米拉，”米尔卡笑着说，“准备好吸鸡巴了吗？”其他男人纷纷表示赞同。'
+		'米拉脸微微一红，但还是点点头，顺从地就地跪下。'
+
+		if temp_rand = 1:
+			act '看着她':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 15, 'sub', 'group'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11_5.jpg"></center>'
+				*nl
+				'男孩们立刻把你忘在一边，围住米拉掏出鸡巴递到她面前。米拉开始挨个吸他们，呻吟声和响亮的吮吸声打破了夜晚的寂静。没过多久，米拉就让男人们射了她一身。'
+				if MiraVars['QW'] >= 16:
+					'他们完事之后，米特卡看着米拉说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给她：“拿去把自己收拾干净。”'
+				end
+
+				if sunWeather = 1:
+					act '返回拖车': gt 'mitkabuh', 'partywithMira'
+				else
+					act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		elseif temp_rand = 2:
+			act '看着她':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 15, 'sub', 'goup'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11_6.jpg"></center>'
+				*nl
+				'男孩们立刻把你忘在一边，围住米拉轮流粗暴地操她的嘴。她不停发出闷哼和干呕声，但他们毫不在意，继续把鸡巴撞进她的嘴里和喉咙，直到所有人都射在她身上。'
+				if MiraVars['QW'] >= 16:
+					'他们完事之后，米特卡看着米拉说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给她：“拿去把自己收拾干净。”'
+				end
+
+				if sunWeather = 1:
+					act '返回拖车': gt 'mitkabuh', 'partywithMira'
+				else
+					act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		else
+			act '看着她':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 15, 'sub', 'group'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11_7.jpg"></center>'
+				*nl
+				'男孩们立刻把你忘在一边，围住米拉掏出鸡巴。她开始轮流吸每个人，同时用空着的手撸其他人。你心想，米拉在这方面已经相当熟练了，男孩们很快就高潮，把精液射进她嘴里。'
+				if MiraVars['QW'] >= 16:
+					'他们完事之后，米特卡看着米拉说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给她：“拿去把自己收拾干净。”'
+				end
+
+				if sunWeather = 1:
+					act '返回拖车': gt 'mitkabuh', 'partywithMira'
+				else
+					act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		end
+	else
+		'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11.jpg"></center>'
+		*nl
+		'“那么，米拉，”米特卡笑着说，“准备好用你的小穴干活了吗？”其他男人纷纷表示赞同。'
+		'米拉醉醺醺地咯咯笑着回应，随后当着众人的面爽快地脱下裤子，转过身背对他们，又把内裤拉下来。她向前弯腰，把小穴和屁股展示给所有人看。'
+
+		if temp_rand = 1:
+			act '看着她':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 15, 'sub'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11_1.jpg"></center>'
+				*nl
+				'科良巴对这场表演很满意，但今晚还想要更多。他把米拉拉到一边，命令她用小穴伺候他的鸡巴。他脱下裤子一屁股坐下，等着她服从。米拉跳到他身上，开始骑他的鸡巴，直到他射在她体内。'
+				if MiraVars['QW'] >= 16:
+					'完事之后科良巴看着米拉说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给她：“拿去把自己收拾干净。”'
+				end
+
+				if sunWeather = 1:
+					act '返回拖车': gt 'mitkabuh', 'partywithMira'
+				else
+					act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		elseif temp_rand = 2:
+			act '看着她':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 15, 'sub'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11_2.jpg"></center>'
+				*nl
+				'米特卡赞许地哼了一声，把醉醺醺的米拉拉到一边，脱下裤子把鸡巴插进她露出的小穴。他操了她一阵子，最后把精液全射进她的小穴里。'
+				if MiraVars['QW'] >= 16:
+					'完事之后米特卡看着米拉说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给她：“拿去把自己收拾干净。”'
+				end
+
+				if sunWeather = 1:
+					act '返回拖车': gt 'mitkabuh', 'partywithMira'
+				else
+					act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		else
+			act '看着她':
+				*clr & cla
+				gs 'arousal', 'voyeur_sex', 15, 'sub'
+				gs 'stat'
+
+				'<center><img <<$set_imgh>> src="images/characters/gadukino/mira/sex/miraqw11_3.jpg"></center>'
+				*nl
+				'瓦夏很享受这场表演，他叫米拉跟他走并脱掉衣服。米拉看了他一秒，然后服从了他的命令。等米拉完全赤裸后，瓦夏脱下裤子开始操她。瓦夏一边粗暴地操米拉一边又喊又叫，像个牛仔。最后，他深深射进她的小穴里。'
+				if MiraVars['QW'] >= 16:
+					'完事之后瓦夏看着米拉说：“你还在等什么？哦对了，钱。为了一卢布你什么都肯干。拿去吧。”'
+					'他拿起一张<<$func(''money'', ''string_profit'', 5)>>的钞票，从口袋里掏出来扔给她：“拿去把自己收拾干净。”'
+				end
+
+				if sunWeather = 1:
+					act '返回拖车': gt 'mitkabuh', 'partywithMira'
+				else
+					act '回到拖车里': gt 'mitkabuh', 'partywithMira'
+				end
+			end
+		end
+	end
+	killvar 'temp_rand'
+end
+
+
+--- mitkabuh ---------------------------------

@@ -1,0 +1,1095 @@
+# pav_station
+
+if $ARGS[0] = 'station_outside':
+	$menu_loc = 'pav_station'
+	$menu_arg = 'station_outside'
+	$location_type = 'public_indoors'
+	$region = 'pav'
+	menu_off = 0
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavext.jpg" ></center>'
+	'警察局刷着一身亮眼的黄色，明摆着就是要让人想不注意都难。'
+	'这里的警察动不动就滥用职权，反正上头没人会在乎巴甫洛夫斯克这样的小镇。'
+
+	act '返回火车站': minut += 3 & gt 'pav_train_hall'
+	act '进入警察局': minut += 1 & gt 'pav_station', 'station_inside'
+end
+
+
+if $ARGS[0] = 'station_inside':
+	$menu_loc = 'pav_station'
+	$menu_arg = 'station_inside'
+	$location_type = 'public_indoors'
+	$region = 'pav'
+	menu_off = 0
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavrec.jpg" ></center>'
+	'迎面是一小间接待区，总有人懒洋洋地杵在那儿，等着出点什么热闹。'
+	'屋里早已不复当年光景，让你想起从父母那儿听来的说法：他们年轻的时候，这里的一切就已经破败不堪了。'
+
+	act '离开车站': minut += 1 & gt 'pav_station', 'station_outside'
+	act '走近接待处': minut += 2 & gt 'pav_station', 'reception'
+	if katalkinSexOnce = 1 and hour >= 8: minut += 1 & act '拜访卡塔尔金队长': gt 'katalkin'
+end
+
+
+if $ARGS[0] = 'reception':
+	*clr & cla
+	menu_off = 1
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavrec.jpg" ></center>'
+	'你走到接待台前，办事员一脸鄙夷地看着你。"你想干什么？"'
+
+	act '只是随便看看':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavrec.jpg" ></center>'
+		'"我只是随便看看。"你开玩笑地答道。'
+		'办事员板着脸看着你。"这地方像是能让你随便闹着玩的吗？"'
+		'"大概不能吧……"你尴尬地笑了笑，讪讪地回答。"我就是想看看警察局里面长什么样。"'
+		'"这话可从来没人说过。"办事员立刻接话。"我不知道你想搞什么名堂，但你最好赶紧走，不然我就叫警官来把你关起来。"'
+		'你只是点点头，就赶紧走开了。'
+
+		act '走开': minut += 2 & gt 'pav_station', 'station_inside'
+	end
+
+	if rape_count > 0 and rape_day + 2 > daystart: act '报案称遭到强暴': gt 'pav_station', 'rape_report'
+	gs 'blackmailer', 'set_police_act'
+end
+
+temp_tot_booked_pav = policeQW['shoplift_booked_pav'] + policeQW['prostitution_booked_pav']
+
+
+if $ARGS[0] = 'entrance':
+	menu_off = 1
+	$func('wrap', 'header center h1', '接待区')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavrec.jpg" ></center>'
+	'警官拽着你的胳膊把你拖了进去，只要你稍有一点反抗，他就抓得更紧。'
+	'警官押着你经过接待区时，办事员探出头朝走廊望了一眼，一脸的不以为然。'
+	*nl
+
+	!! first time offender, event where Sveta gets caught stealing
+	!! need to add a variable to store that Sveta has been brought into the police station
+	if $ARGS[1] = 'shplft' or $ARGS[1] = 'shoplift':
+		policeQW['shoplift_booked_pav'] += 1
+		$policeQW['crime_flag_pav'] = 'shoplift'
+		temp_tot_booked_pav += 1
+
+		if temp_tot_booked_pav = 1:
+			xgt 'pav_station', 'first_shoplift'
+		elseif temp_tot_booked_pav <= 5:
+			xgt 'pav_station', 'repeat'
+		elseif temp_tot_booked_pav <= 10:
+			xgt 'pav_station', 'multiple'
+		else
+			xgt 'pav_station', 'regular'
+		end
+
+	else
+		policeQW['prostitution_booked_pav'] += 1
+		$policeQW['crime_flag_pav'] = 'prostitution'
+		temp_tot_booked_pav += 1
+
+		if temp_tot_booked_pav = 1:
+			xgt 'pav_station', 'first_prostitution'
+		elseif temp_tot_booked_pav <= 5:
+			xgt 'pav_station', 'repeat'
+		elseif temp_tot_booked_pav <= 10:
+			xgt 'pav_station', 'multiple'
+		else
+			xgt 'pav_station', 'regular'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'first_shoplift':
+	cla
+	minut += 2
+	gs 'pain', 2, 'armR', 'pinch'
+	gs 'stat'
+
+	if fame['pav_slut'] > 250:
+		'他认出是你。"你不就是<<$pcs_firstname>>·<<$pcs_lastname>>吗，是……呃……娜塔莎家那几个孩子之一？我一点都不意外。那女人的事我多少听说过……"'
+	elseif grupTipe = 1:
+		'他认出是你。"哟，这不是<<$pcs_firstname>>·<<$pcs_lastname>>吗！谁能想到你竟然也会落到这儿来？"'
+	elseif grupTipe = 2:
+		'他认出是你。"<<$pcs_lastname>>，我真希望这是你头一回，也是最后一回被带到这儿来……"'
+	elseif grupTipe = 3:
+		'他认出是你。"你说<<$pcs_firstname>>·<<$pcs_lastname>>犯了罪？我这下可真是长见识了……"'
+	elseif grupTipe = 4:
+		'他认出是你。"你进这儿来是迟早的事，<<$pcs_lastname>>。一点都不让人意外。"'
+!!	elseif high enough fame in something like sports etc
+!!	!!need code for this
+!!		'He notices that it''s you. "Well, well, well… Look how the high and mighty <<$pcs_firstname>> <<$pcs_lastname>> has fallen…"'
+	elseif policeQW['toldonguard_pav'] = 2:
+		!! if had sex with the security guard but still got arrested
+		'"我没撒谎！是那个保安逼我跟他发生关系的！你们为什么就是不信我？"你苦苦哀求，可一点用都没有。'
+		'警官叹了口气。"你以为你是第一个这么说的？你们这些偷东西的小妓女，什么借口我没听过。在这里，你可不是什么受害者！"'
+		*nl
+		'你沮丧地呜咽了一声，低头看着地面，被带进警局深处办登记手续。'
+	else
+		'他认出是你。"我想凡事总有个头一回。为了你好，但愿这是第一次，也是最后一次。"'
+	end
+
+	act '继续深入': gt 'pav_station', 'booking'
+end
+
+
+if $ARGS[0] = 'first_prostitution':
+	cla
+	minut += 2
+	gs 'pain', 2, 'armR', 'pinch'
+	gs 'stat'
+
+	if policeQW['prostitution_bribe'] = 1:
+		if pcs_hotcat < 3:
+			'"我抓到这家伙在外面卖身，你知道她想干什么吗？她居然想用身子贿赂我！"'
+			'其他人摇摇头。"她到底在想什么？谁会想上像她这么丑的人啊！"'
+			'你羞愧地低下头，被押着往警局深处去办登记手续。'
+		elseif pcs_hotcat > 7:
+			'"我抓到这家伙在外面卖身，你知道她想干什么吗？她居然想用身子贿赂我！"'
+			'其他警官贪婪地打量着你。"你比我强！"其中一个喊道。"看看她！你多久才有一次这样的机会？我肯定会答应的！"'
+			'你脸上浮现出一丝微笑，在你被带往警局深处办理登记时，心里竟有点受宠若惊。'
+		else
+			'"我抓到这个自己在外面卖淫的，你知道她想干什么吗？她想用色相贿赂我！"'
+			'"嗯，她看起来没那么糟。"其他人开玩笑地回应。"我大概不会答应，不过我看得出这招对别人也许管用。"'
+			'你对他们无礼的言语皱起眉头，但仍保持沉默，被带进警局更深处办理登记。'
+		end
+	else
+		if pcs_hotcat < 3:
+			'"我抓到这个自己在外面卖淫的。你敢信吗？谁会想干这头猪？！"他大喊着，其他警官顿时哄堂大笑。'
+			'"她到底在想什么？老实说，你把她从街头弄走是帮了大家一个大忙。"其中一个说道，随后你被带往警局更深处。'
+		elseif pcs_hotcat > 7:
+			'"我在街角抓到这个自己在外面卖淫的。真是浪费。"他转向你，摇了摇头。"像你这样漂亮的小东西，完全可以找个有钱人同居、靠他养活，但我想这对你这种渴望鸡巴的骚货来说还不够吧，嗯？"'
+			*nl
+			'其他警官残忍地笑了起来。"真是太可惜了。看看她，美得让人窒息！你肯把自己卖给陌生人，肯定有严重的心理问题。"'
+			*nl
+			'"我敢肯定钱一定不少！"抓着你的警官大笑着说，领着你朝警察局更深处走去。'
+		else
+			'"我抓到这个自己在外面卖淫的。她长得不赖，但你知道，她挣的钱不像其他那些女孩那么多。"他说着失望地咂了咂嘴。'
+			'其他警官耸耸肩，摇了摇头。"大概是外面那些没钱挑三拣四的便宜混蛋吧。"你被带往警局更深处时，其中一个打趣道。'
+		end
+	end
+
+	act '继续深入': gt 'pav_station', 'booking'
+end
+
+
+if $ARGS[0] = 'repeat':
+	cla
+	minut += 2
+	gs 'pain', 2, 'armR', 'pinch'
+	gs 'stat'
+
+	if temp_tot_booked_pav = 1:
+		'"<<$pcs_lastname>>小姐，你干这些事还太年轻了。我们恐怕得把你妈妈叫来……"'
+		'他带你往警察局更里面走，其他人微笑着摇了摇头。'
+	elseif temp_tot_booked_pav = 2:
+		'"看来你是学不乖啊，<<$pcs_lastname>>小姐。真该把你父母叫来了……"'
+		'其他人笑着摇摇头，他带你往警局更里面走去。'
+	elseif temp_tot_booked_pav = 3:
+		'"<<$pcs_lastname>>，又在这儿见到你，我真是震惊坏了。其实也没那么震惊。跟我想的一模一样。"'
+		'他带你往警察局更里面走，其他人微笑着摇了摇头。'
+	elseif temp_tot_booked_pav = 4:
+		'"我真替你父母难过，居然养出这么个让人失望的孩子……"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	else
+		'"我本以为惯犯会是科托夫家那几个孩子或者他们的朋友，没想到是你，<<$pcs_lastname>>小姐……"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	end
+
+	act '继续深入': gt 'pav_station', 'booking'
+end
+
+
+if $ARGS[0] = 'multiple':
+	cla
+	minut += 2
+	gs 'pain', 2, 'armR', 'pinch'
+	gs 'stat'
+
+	if temp_tot_booked_pav = 6:
+		'"像你父母那样不会管教孩子的，根本就不该再生。"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_tot_booked_pav = 7:
+		'"这一带的孩子都怎么了？你是不是跟科托夫家那几个小鬼还有他们那帮废物朋友混在一起？"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_tot_booked_pav = 8:
+		'"哟，这不是我们最欢迎的客人吗！欢迎回来，<<$pcs_lastname>>小姐。房间都给你备好了。"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_tot_booked_pav = 9:
+		'"你肯定是巴甫洛夫斯克最恶劣的惯犯之一。你三天两头就被抓。"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	else
+		'"我们该拿你怎么办，<<$pcs_firstname>>？我真不知道要怎样你才肯收手……"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	end
+
+	act '继续深入': gt 'pav_station', 'booking'
+end
+
+
+if $ARGS[0] = 'regular':
+	cla
+	minut += 2
+	gs 'pain', 2, 'armR', 'pinch'
+	gs 'stat'
+
+	temp_rand = rand(1, 8)
+	if temp_rand = 1:
+		'坐在接待台后的工作人员朝你这边看过来，抓你的警官则低头瞪着你。"<<$pcs_lastname>>，办你的案子我早就烦透了！真希望他们把你关上很久！"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_rand = 2:
+		'坐在接待台后的工作人员朝你这边看过来，抓你的警官一脸坏笑。"哟，这不是我们最欢迎的常客吗。这回打算住多久？"'
+		'他带你往警察局更里面走，其他人哄堂大笑。'
+	elseif temp_rand = 3:
+		'坐在接待台后的工作人员看着你，抓你的警官重重叹了口气。"<<$pcs_lastname>>，你为什么还要干这种事？这种日子你还没过够吗？"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_rand = 4:
+		'坐在接待台后的工作人员看着你，抓你的警官皮笑肉不笑。"真是惊喜啊，是我们最喜欢的小罪犯！"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_rand = 5:
+		'"看来是我赌赢了！我就知道你会再进来。谢谢你的那100卢布，<<$pcs_firstname>>!"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_rand = 6:
+		'"这回又是什么事，<<$pcs_lastname>>？你就不觉得腻吗？"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	elseif temp_rand = 7:
+		'"你就没想过改邪归正？你眼看着就要成年了，该趁早清醒点，别等落到真正糟糕的境地。"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	else
+		'"你就非得把她带回局里吗？这下我又得做一大堆额外的文书……"'
+		'其他人都摇了摇头，他带你往警察局更里面走。'
+	end
+	killvar 'temp_rand'
+
+	act '继续深入': gt 'pav_station', 'booking'
+end
+
+
+!! Goes through the process of getting booked, pretty straight forward, an event when Sveta gets booked the first time (three ways how this goes) and repeatable bookings
+if $ARGS[0] = 'booking':
+	if temp_tot_booked_pav = 1:
+		gt 'pav_station', 'booking1'
+	else
+		gt 'pav_station', 'booking2'
+	end
+end
+
+
+if $ARGS[0] = 'booking1':
+	killvar 'temp_tot_booked_pav'
+	minut += 10
+	gs 'stat'
+	$func('wrap', 'header center h1', '等候区')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking.jpg"></center>'
+	'警官带着你穿过警局，走进一间挺小的房间，里面摆着几把椅子，还有一张放着电话和指纹采集器的柜台。靠墙的一边架着一台拍嫌犯照用的相机。'
+	'"坐那边去。"警官命令道，你照吩咐坐下，他则走到门口叫来另一名警官。你默默坐着，想偷听他们在说什么，却什么也听不清。'
+	*nl
+	'几分钟后，带你进来的警官带着另一名你不认识的警官回来了。那人很年轻，长得也相当英俊。'
+	'"好了，<<$pcs_lastname>>，我把你交给我的同事，剩下的他会办。"第一名警官说着转向另一名警官。"她的口袋我已经查过了，没什么值得注意的东西。"'
+	'年轻警官上下打量着你，一眼就把你掂量了个大概。"<<$pcs_lastname>>，对吧？"'
+
+	act '配合':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+		'"没错……<<$pcs_firstname>>·<<$pcs_lastname>>。"你谨慎地回答。'
+		'"很好，很好。希望我们接下来都能这么客气。"他皮笑肉不笑。"现在我来告诉你流程：我会问你几个问题，你得如实回答。"他意味深长地盯着你。"然后我会给你采指纹，再拍嫌犯照。明白了吗？"'
+		'你垂头丧气，有气无力地点了点头。'
+		'"很好。现在过来这边。"他命令道，人已经走向柜台。'
+
+		act '采集指纹': gt 'pav_station', 'take_fingerprints1'
+	end
+
+	gs 'willpower', 'crime', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '鲁莽地回答' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '鲁莽地回答' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			minut += 5
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+			'"我叫<i>去你妈的，猪</i>!"你鲁莽地回答。'
+			'"这样可不太好！"他皱起眉头。"看来我只能先把你关进拘留室，让你冷静冷静，好好想想自己都说了什么……"'
+			'警官用力把你从椅子上拽起来，一路拖向拘留室。你想反抗，可他们力气太大了。'
+			'你还没反应过来，身后的门就砰地关上了，你唯一能做的就是抡起拳头砸门。'
+
+			act '在拘留室里':
+				*clr & cla
+				minut += 120
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavhold.jpg"></center>'
+				'不知道过了多久，门突然打开，你看到警官站在那儿，脸上挂着得意的笑。"现在肯配合了吗，姑娘？"'
+				'你本想一脚踹在他裆上，把他脸上那点笑意打掉，但你知道那只会让事情更糟，于是只点了点头。'
+				'"很好。跟我来，赶紧把手续给你办了。"'
+
+				act '跟他走到柜台':
+					*clr & cla
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking.jpg"></center>'
+					'你跟着步子飞快的警官走到桌前。"听好了。我没工夫听你耍嘴皮子，老老实实回答问题就行，明白吗？"'
+					'警官随后问了你几个问题，把每个回答都仔细记了下来。'
+					'你尽量把每个回答都拖得长长的，能拖多久就拖多久，眼看着他对你越来越恼火，你不禁露出了微笑。'
+					'等你终于答完，警官低头怒视着你。"该采集指纹和拍嫌犯照了。"他粗声粗气地说，随后把你带进一间房间，里面有一台正对着墙的相机。'
+
+					act '采集指纹': gt 'pav_station', 'take_fingerprints1'
+				end
+			end
+		end
+	end
+
+	act '试图耍滑头脱身':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+		'"确实是……"你回答时朝他轻轻眨了眨眼。'
+		'警官让你起身跟他走，好给你办手续。你点点头，妩媚地站起来，尽可能多露出些肌肤，想引起他的注意。'
+		'他看着你，似乎完全没领会你的暗示。"请跟我到柜台这边来。"他语气平淡地说。'
+		'他刚开始给你采指纹，你就使出浑身解数跟他调情，想让他给你个警告就把你放了。'
+
+		act '更卖力地调情':
+			*clr & cla
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking0.jpg"></center>'
+			'就在你以为他对你的调情毫无反应时，他却走过来，关上了门。'
+			*nl
+			'"你为什么要关门？"你问。'
+			'他耸耸肩，仍用那种平淡的语气回答。"我以为你也许想要点隐私……"'
+			'你环顾四周，等着他的下一步指示。'
+			'"把衣服脱掉。"他用同样单调的语气命令道。'
+			*nl
+			'你吃惊地看着他。"什么？！"'
+			'"你以为我没发现你一直在挑逗我？"他回答。"把衣服脱掉！"'
+
+			act '脱衣服': gt 'pav_station', 'booking1_undress'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'take_fingerprints1':
+	minut += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/police/fingerprint.jpg"></center>'
+	'你乖乖跟在后面。正要开始办手续时，你有点紧张，但警官开口了。"不用担心。采指纹是登记流程里的标准环节。我们需要指纹，好把你录入全国数据库，这样万一你以后再犯事，我们就不必再费一遍功夫来辨认你了。"'
+	'你点点头，很快把手指蘸进印泥，再按到纸上。随后，警官指了指那面正对着相机的墙，示意你站过去。'
+	*nl
+	'你走过去靠墙站好，警官给你拍下嫌犯照。'
+	'"拍完嫌犯照，我们会把你带到拘留室，等你父母之一来接你。"'
+	'"非得给我父母打电话吗？"你紧张地问。'
+	'警官神情严肃地点了点头。"考虑到你的年龄，恐怕必须打。现在别动，我给你拍嫌犯照。"'
+
+	act '站着别动':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+		'你叹了口气，站在那儿不动，让他拍完嫌犯照，办完最后的手续。'
+		'他一办完，就把你带出房间，往下面的拘留室走去。你听到门砰地关上，这才突然意识到自己孤身一人被锁在了里面。'
+
+		act '在拘留室里': gt 'pav_station', 'holdingcell'
+	end
+
+	gs 'willpower', 'crime', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '向他竖中指' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '向他竖中指' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			minut += 5
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/shared/police/bookedfu.jpg"></center>'
+			'他给你拍照时，你嗤之以鼻，朝他竖起中指。他从相机后探出头瞪了你一眼，然后完成最后的手续。'
+			'他一做完，就把你带出房间，向下朝拘留室走去。你听到门砰地关上，突然意识到你孤身一人被锁了起来。'
+
+			act '在拘留室里': gt 'pav_station', 'holdingcell'
+		end
+	end
+
+	act '挑逗他':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/bookedplay.jpg"></center>'
+		'你微笑着，张开手指贴上嘴唇，舌头从指间伸出，让他拍照。'
+		'他从相机后探出头，叹了口气。"你在干什么？"'
+
+		act '只是闹着玩':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+			'你无辜地朝他笑了笑。"没什么。我只是在开个无伤大雅的小玩笑。"'
+			'他叹了口气，摇了摇头，然后完成了最后一份文书工作。'
+			'他一做完，就把你带出房间，向下朝拘留室走去。你听到门砰地关上，突然意识到你孤身一人被锁了起来。'
+
+			act '在拘留室里': gt 'pav_station', 'holdingcell'
+		end
+
+		act '别打电话给我父母':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+			'你向他露出最诱人的微笑。"要不你关上门，我们玩得开心点，然后你干脆……放我走？听起来怎么样？"'
+			'他走过来，关上了门。'
+			*nl
+			'"你为什么要关门？"你问。'
+			'他耸耸肩，用同样平淡的语气回答。"我以为你可能会想要点隐私……"'
+			'你环顾房间等待进一步的指示。'
+			'"把衣服脱了。"他用同样单调的语气命令道。'
+
+			act '脱衣服': gt 'pav_station', 'booking1_undress'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'booking1_undress':
+	gs 'arousal', 'foreplay', 3, 'inhibition', 'sub'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking2.jpg"></center>'
+	'最初的惊讶散去后，你开始脱衣服。你对这一切仍感到困惑，但同时又因随时可能被人撞见而有点兴奋。'
+	'"现在要干什么？"你问，同时尽量遮住自己的身体。'
+	'"不如你给我口交，我就帮你把罪名销掉？"他笑着说。'
+
+	act '服从':
+		policeQW['bookingofficer_sex_pav'] = 1
+		*clr & cla
+		gs 'arousal', 'bj', 5, 'inhibition', 'sub'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/bookingbj1.jpg"></center>'
+		'你顺从地点点头，他带你到嫌犯照片墙前，让你蹲下，然后拉开裤子拉链，露出硬挺的鸡巴对着你。它在你面前搏动，急切地等待进入你的嘴。'
+		'"让我看看你的嘴有多厉害……"他说。"记住要安静，否则你会惹上更大的麻烦。"'
+		'他抓住鸡巴，一下子捅进你嘴里。当你急切地开始吮吸时，你能感觉到他的鸡巴在你嘴里变大，这表明你做得很好。'
+		*nl
+		'过了一会儿，他抓住你的手腕，将自己更深地顶入你的喉咙。'
+		'"把我的鸡巴吞下去，妓女！"他低声咆哮。'
+
+		act '继续吮吸':
+			*clr & cla
+			gs 'cum_call', 'mouth_swallow'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/bookingbj2.jpg"></center>'
+			'你继续吮吸他，以任何可能的方式取悦他直到你突然听到他阴茎抽搐时沉重的喘息。'
+			'他把阴茎从你嘴里抽出来并叫你张大嘴同时他套弄了几下阴茎射进你嘴里。'
+			*nl
+			'你的嘴很快就被填满，你尽力不让他那大量的精液漏出来。你的第一反应是想吐掉，但他低头期待地看着你。'
+			'你苦着脸把一切都吞了下去，他把鸡巴收回去，拉上裤子拉链，又走到柜台边。'
+			'"穿好衣服，我们好把手续办完。"他对你说。'
+
+			act '穿好衣服':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/bookingcum.jpg"></center>'
+				'你确保衣服上没有精液，然后迅速穿好衣服，警官则准备指纹采集程序。'
+				'你正要开始办手续时，他开口了。"幸好你配合了。现在我能帮你了。一切都会没事的……"'
+				'你叹了口气，犹豫地一根一根把手指浸入墨水中，然后不紧不慢地将它们按在纸上。警官随后指着墙壁，让你站在那里。'
+
+				act '拍档案照':
+					*clr & cla
+					minut += 10
+					gs 'arousal', 'end'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+					'你拖着自己走到墙边站住不动当警官给你拍嫌犯照片。'
+					'"就这些了。"他说，"既然办完了，跟我来。"'
+					'他带你穿过警察局回到前面。你注意到其他几个办公室的人笑着看你，但没人说什么。'
+					'你走到警局门口时，警官替你打开门。"以后尽量别惹麻烦。当然，随你便。"'
+					'你一走出去，他就随手关上了门。'
+
+					act '离开车站': minut += 3 & gt 'pav_train_hall'
+				end
+			end
+		end
+	end
+
+	gs 'willpower', 'sex', 'resist', 'hard'
+	if pcs_willpwr < will_cost:
+		act '拒绝他' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拒绝他' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			minut += 5
+			gs 'willpower', 'pay', 'resist'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking1.jpg"></center>'
+			'你摇了摇头。"不，住手！"'
+			'"怎么了？我以为你想要这样？你刚才一直在挑逗我！"他嘶声说。'
+			'"我不想要这样，求你放我走，否则……否则我就尖叫！"你威胁他。'
+			'"……好吧，随你便。"他咕哝道。"把衣服穿上，我们继续吧……"'
+			'你迅速穿好衣服，警官则准备指纹采集程序。'
+
+			act '穿好衣服':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/shared/police/fingerprint.jpg"></center>'
+				'你正要开始办手续时，警官开口了。"你知道吗，我本来真会帮你的？下次好好想想吧。"'
+				'你叹了口气，犹豫地一根一根把手指浸入墨水中，然后不紧不慢地将它们按在纸上。警官随后指着墙壁，让你站在那里。'
+
+				act '拍档案照':
+					*clr & cla
+					minut += 15
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+					'你拖着脚步走到墙边。他给你拍照时你站着不动。'
+					'"就这些了。"他说。"现在你该去拘留室了，等侦探来审问你。"'
+					'你慢慢点头，警官把你带出房间。你走出去时，他走到你身后，你感到他那只大手在摸你的屁股。'
+					'"你会后悔拒绝我的。"他正要锁上牢房门时低声说道。你听到门砰地关上，猛然意识到自己独自一人被锁在了里面。'
+
+					act '在拘留室里': gt 'pav_station', 'holdingcell'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'booking2':
+	killvar 'temp_tot_booked_pav'
+	minut += 15
+	gs 'stat'
+	$func('wrap', 'header center h1', '等候区')
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking.jpg"></center>'
+	'你走进一个熟悉的场景。和上次相比没什么变化。当你再次被带往登记室时，你已经知道等待自己的是什么。警官指了指一把椅子，你坐下，他则走出房间。'
+	'仿佛过了很久，上次那个年轻警官回来了。'
+
+	if policeQW['bookingofficer_sex_pav'] >= 1:
+		'年轻警官脸上带着饥渴淫荡的笑容打量着你。"<<$pcs_lastname>>，嗯？我记得你上次来过。"他边说边走到你面前，下身几乎要贴到你的脸上才停下。'
+		'你往后靠了靠，让他的下身不再离你的脸那么近，叹了口气。你预感他还会想要一次口交。'
+	else
+		'年轻警官脸上带着微笑打量着你。"<<$pcs_lastname>>，嗯？我记得你上次来过。"'
+		'回想起上次和他在一起的经历，你叹了口气。'
+	end
+
+	'他走到柜台边，招手示意你过去。'
+
+	act '站起来':
+		*clr & cla
+		minut += 10
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/fingerprint.jpg"></center>'
+		if policeQW['bookingofficer_sex_pav'] >= 1:
+			'你站起身，走到柜台边站到他身旁。"由于你上次来过，我们只需要更新一些信息。"警官站得离你非常近，肩膀都贴着你，同时开始问你几个问题并记录每个答案。'
+			'他空着的那只手先在你后腰上摸了摸，随即滑到你的屁股上，开始揉捏起来。'
+			'你快速回答每一个问题，因为你知道惹麻烦不会有什么好结果，而且如果你配合，他们可能会对你宽松一些。'
+			'问话结束后，警官说话时甚至都没看你一眼。"现在我来采集你的指纹并拍嫌犯照。"'
+		else
+			'你站起身，走到柜台边站到他身旁。"由于你上次来过，我们只需要更新一些信息。"'
+			'他随后开始问你几个问题，并仔细记录每一个答案。你飞快地回答每个问题，因为你深知惹麻烦不会有好结果，而如果你配合，他们也许会对你宽容一些。'
+			'问话结束后，警官说话时甚至都没看你一眼。"现在我来采集你的指纹并拍嫌犯照。"'
+		end
+		act '采集指纹': gt 'pav_station', 'take_fingerprints1'
+	end
+
+	gs 'willpower', 'crime', 'self', 'hard'
+	if pcs_willpwr < will_cost:
+		act '朝他吐口水' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '朝他吐口水' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			minut += 5
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+			'"又是你？"你粗鲁地问。'
+			'"别装作很惊讶的样子。"警官回答。"你是要配合，还是想让我再把你关进拘留室？"'
+			'你眯起眼睛，嘴唇扭曲成一抹苦笑，随即心里的什么东西突然崩断了。没有任何预兆，你朝他脸上吐了口唾沫，让他措手不及。'
+			'警官用力抓住你，把你拖向拘留室。'
+			'"恶心的贱人！"他喊道，随即在你身后重重关上门。现在你唯一能做的就是用拳头砸门。'
+
+			act '在拘留室里':
+				*clr & cla
+				minut += 120
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavhold.jpg"></center>'
+				'你不知道过了多久，门突然打开，你看到警官站在那儿。"冷静下来了吗？"'
+				'你现在只想再朝他脸上吐口水，但你知道那样毫无用处，于是只是点了点头。'
+				'"很好。现在跟我来，让我终于把你登记好……"'
+
+				act '拍档案照':
+					*clr & cla
+					minut += 15
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+					'这一次，你直接被带去拍嫌犯照。'
+					'你拖着沉重的脚步走到墙边，站着一动不动，让警官为你拍嫌犯照。'
+					'"拍完嫌犯照后，我会把你带回拘留室，等你的父母之一来接你。"'
+					'等你办完后，他默默无言地把你带回牢房。他把你推进去，门在你身后砰地一声重重关上。'
+
+					act '在拘留室里': gt 'pav_station', 'holdingcell'
+				end
+			end
+		end
+	end
+
+	act '调情':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking0.jpg"></center>'
+
+		if policeQW['bookingofficer_sex_pav'] >= 1:
+			'"哦，又是你。"你站起身，摆出最诱人的姿势走到柜台边站到他身旁，露出媚笑。'
+			'他笑了笑，拍了你的屁股一下。"由于你上次来过，我们只需要更新一些信息。"'
+			'你飞快地回答完每个问题，他又采集了你的指纹。很快，他走过来，关上了门。'
+			*nl
+			'他笑着向你靠近。"把衣服脱了。"'
+			'你惊讶地盯着他。"又来？可是……可是我以为上次就够了？"'
+			'"我巴望着你能再来，因为我还没跟你玩够呢。"他回答。'
+			'最初的震惊散去后，你开始脱衣服。你仍感到困惑，但同时又因这行为既冒险又禁忌而有点兴奋。'
+			gs 'arousal', 'foreplay', 5, 'inhibition', 'sub'
+			gs 'stat'
+
+			act '脱衣服': gt 'pav_station', 'booking2_undress'
+
+		else
+			'"哦，又是你。"你站起身，摆出最诱人的姿势走到柜台边站到他身旁，露出媚笑。'
+			'他似乎要么在无视你的调情，要么根本没察觉。"由于你上次来过，我们只需要更新一些信息。"'
+			'他随后开始问你几个问题，并仔细记录每一个答案。你飞快地回答每个问题，因为你深知惹麻烦不会有好结果，而如果你配合，他们也许会对你宽容一些。'
+			'问话结束后，警官说话时甚至都没看你一眼。"现在我来采集你的指纹并拍嫌犯照。"'
+
+			act '更卖力地调情':
+				*clr & cla
+				gs 'arousal', 'foreplay', 5, 'inhibition', 'sub'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking1.jpg"></center>'
+				'他再次采集你的指纹时，你使出浑身解数继续跟他调情。就在你确定他对你的调情视而不见时，他走过来，关上了门。'
+				'"你为什么要关门？"你问。'
+				'他耸耸肩，用同样平淡的语气回答。"我以为你可能会想要点隐私……"'
+				'你环顾房间等待进一步的指示。'
+				'"把衣服脱了。"他用同样单调的语气命令道。'
+				'你震惊地看着他。"什么？！"'
+				'"你以为我没注意到你一直在挑逗我吗？"他回答。"现在把衣服脱了！"'
+				'最初的震惊散去后，你开始脱衣服。你困惑于他怎么能这么肆无忌惮，但同时又因这行为既冒险又禁忌而有点兴奋。'
+
+				act '脱衣服': gt 'pav_station', 'booking2_undress'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'take_fingerprints2':
+	minut += 10
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/shared/police/fingerprint.jpg"></center>'
+	'你顺从地站着不动，让他再次采集你的指纹。很快，警官指向那面正对着相机的墙，示意你站到那里。'
+
+	act '站着别动':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+		'你走过去站在墙边，警官给你拍嫌犯照片。'
+		'"拍完嫌犯照后，我会带你到拘留室，等你的父母之一来接你。"'
+		'等你办完后，他默默无言地把你带回牢房。他把你推进去，门在你身后砰地一声重重关上。'
+
+		act '在拘留室里': gt 'pav_station', 'holdingcell'
+	end
+
+	act '向他竖中指':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/bookedfu.jpg"></center>'
+		'他给你拍照时，你嗤之以鼻，朝他竖起中指。他从相机后探出头，瞪了你片刻，然后走过去完成最后的手续。办完后，他带你离开房间，朝拘留室走去。你听到门砰地关上，猛然意识到自己独自一人被锁了起来。'
+
+		act '在拘留室里': gt 'pav_station', 'holdingcell'
+	end
+
+	act '挑逗他':
+		*clr & cla
+		minut += 5
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/bookedplay.jpg"></center>'
+		'你微笑着，张开手指贴上嘴唇，舌头从指间伸出，让他拍照。'
+		'他从相机后探出头，叹了口气。"你在干什么？"'
+
+		act '只是闹着玩':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+			'你无辜地朝他笑了笑。"没什么。我只是在开个无伤大雅的小玩笑。"'
+			'他叹了口气，摇了摇头，然后完成了最后一份文书工作。'
+			'他一做完，就把你带出房间，向下朝拘留室走去。你听到门砰地关上，突然意识到你孤身一人被锁了起来。'
+
+			act '在拘留室里': gt 'pav_station', 'holdingcell'
+		end
+
+		act '别打电话给我父母':
+			*clr & cla
+			minut += 5
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booking_officer.jpg"></center>'
+			'你向他露出最诱人的微笑。"要不你关上门，我们玩得开心点，然后你干脆放我走？听起来怎么样？"'
+			'他走过来关上了门，而你等待着接受他的下一步指示。'
+			'"把衣服脱了。"他用同样单调的语气命令道。'
+
+			act '脱衣服': gt 'pav_station', 'booking1_undress'
+		end
+	end
+end
+
+
+if $ARGS[0] = 'booking2_undress':
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking2.jpg"></center>'
+
+	if policeQW['bookingofficer_sex_pav'] >= 5:
+		'你脱掉衣服，知道他很可能会要求你做什么。想到随时可能被人发现，你感到有点兴奋。'
+		'"规矩你早就知道了，骚货。去桌子那边，我就帮你把罪名销掉。"他笑着说。'
+
+		if rand(0, 1) = 0 and func('pcs_has_attr', 'sex_virgin') = 0:
+			act '移到桌前': gt 'pav_station', 'booking_vaginal'
+		else
+			act '移到桌前': gt 'pav_station', 'booking_anal'
+		end
+
+	elseif policeQW['bookingofficer_sex_pav'] >= 4 and func('pcs_has_attr', 'sex_virgin') = 0:
+		'你脱掉衣服，知道他很可能会要求你做什么。想到随时可能被人发现，你感到有点兴奋。'
+		'"现在去那边那张桌子，我就帮你把罪名销掉。"他笑着说。'
+
+		act '移到桌前': gt 'pav_station', 'booking_vaginal'
+	else
+		'最初的惊讶散去后，你开始脱衣服。你对这一切仍感到困惑，但同时又因随时可能被人撞见而有点兴奋。'
+		'"现在要干什么？"你问，同时尽量遮住自己的身体。'
+		'"不如你给我口交，我就帮你把罪名销掉？"他笑着说。'
+		gs 'arousal', 'foreplay', 3, 'inhibition', 'sub'
+		gs 'stat'
+
+		act '服从':
+			policeQW['bookingofficer_sex_pav'] += 1
+			*clr & cla
+			gs 'arousal', 'bj', 5, 'inhibition', 'sub'
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/bookingbj1.jpg"></center>'
+			'你顺从地点点头，他带你到嫌犯照片墙前，让你蹲下，然后拉开裤子拉链，露出硬挺的鸡巴对着你。它在你面前搏动，急切地等待进入你的嘴。'
+			'"让我看看你的嘴有多厉害……"他说。"记住要安静，否则你会惹上更大的麻烦。"'
+			'他抓住鸡巴，一下子捅进你嘴里。当你急切地开始吮吸时，你能感觉到他的鸡巴在你嘴里变大，这表明你做得很好。'
+			*nl
+			'过了一会儿，他抓住你的手腕，将自己更深地顶入你的喉咙。'
+			'"把我的鸡巴吞下去，妓女！"他低声咆哮。'
+
+			act '继续吮吸':
+				*clr & cla
+				gs 'cum_call', 'mouth_swallow'
+				gs 'arousal', 'bj', 5, 'inhibition', 'sub'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/bookingbj2.jpg"></center>'
+				'你继续吮吸他，以任何可能的方式取悦他直到你突然听到他阴茎抽搐时沉重的喘息。'
+				'他把阴茎从你嘴里抽出来并叫你张大嘴同时他套弄了几下阴茎射进你嘴里。'
+				*nl
+				'你的嘴很快就被填满，你尽力不让他那大量的精液漏出来。你的第一反应是想吐掉，但他低头期待地看着你。'
+				'你苦着脸把一切都吞了下去，他把鸡巴收回去，拉上裤子拉链，又走到柜台边。'
+				'"穿好衣服，我们好把手续办完。"他对你说。'
+
+				act '清理':
+					*clr & cla
+					minut += 5
+					gs 'arousal', 'bj', 1, 'inhibition', 'sub'
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/bookingcum.jpg"></center>'
+					'你确保衣服上没有精液，然后迅速穿好衣服，警官则准备指纹采集程序。'
+					'你正要开始办手续时，他开口了。"幸好你配合了。现在我能帮你了。一切都会没事的……"'
+					'你叹了口气，犹豫地一根一根把手指浸入墨水中，然后不紧不慢地将它们按在纸上。警官随后指着墙壁，让你站在那里。'
+
+					act '拍档案照':
+						*clr & cla
+						minut += 10
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+						'你拖着自己走到墙边站住不动当警官给你拍嫌犯照片。'
+						'"就这些了。"他说，"既然办完了，跟我来。"'
+						'他带你穿过警察局回到前面。你注意到其他几个办公室的人笑着看你，但没人说什么。'
+						'你走到警局门口时，警官替你打开门。"以后尽量别惹麻烦。当然，随你便。"'
+						'你一走出去，他就随手关上了门。'
+						gs 'arousal', 'end'
+
+						act '离开车站': minut += 3 & gt 'pav_train_hall'
+					end
+				end
+			end
+		end
+
+		gs 'willpower', 'sex', 'resist', 'hard'
+		if pcs_willpwr < will_cost:
+			act '拒绝他' + $func('willpower', 'get_willcost_string'): $noWillpower
+		else
+			act '拒绝他' + $func('willpower', 'get_willcost_string'):
+				*clr & cla
+				minut += 5
+				gs 'willpower', 'pay', 'resist'
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking1.jpg"></center>'
+				'你摇了摇头。"不，住手！"'
+				'"怎么了？我以为你想要这样？你刚才一直在挑逗我！"他嘶声说。'
+				'"我不想要这样，求你放我走，否则……否则我就尖叫！"你威胁他。'
+				'"……好吧，随你便。"他咕哝道。"把衣服穿上，我们继续吧……"'
+				'你迅速穿好衣服，警官则准备指纹采集程序。'
+
+				act '穿好衣服':
+					*clr & cla
+					minut += 5
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/shared/police/fingerprint.jpg"></center>'
+					'你正要开始办手续时，警官开口了。"你知道吗，我本来真会帮你的？下次好好想想吧。"'
+					'你叹了口气，犹豫地一根一根把手指浸入墨水中，然后不紧不慢地将它们按在纸上。警官随后指着墙壁，让你站在那里。'
+
+					act '拍档案照':
+						*clr & cla
+						minut += 15
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+						'你拖着脚步走到墙边。他给你拍照时你站着不动。'
+						'"就这些了。"他说。"现在你该去拘留室了，等侦探来审问你。"'
+						'你慢慢点头，警官把你带出房间。你走出去时，他走到你身后，你感到他那只大手在摸你的屁股。'
+						'"你会后悔拒绝我的。"他正要锁上牢房门时低声说道。你听到门砰地关上，猛然意识到自己独自一人被锁在了里面。'
+
+						act '在拘留室里': gt 'pav_station', 'holdingcell'
+					end
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'booking_vaginal':
+	policeQW['bookingofficer_sex_pav'] += 1
+	gs 'arousal', 'vaginal', 2, 'inhibition', 'sub', 'rough'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/sex/bookingvag1.jpg"></center>'
+	'你顺从地走到桌边。"这真的有必要吗？"你再次问道。'
+	'他把你按倒在桌上，让你仰面躺着。"我需要解释多少遍？你现在应该习惯了吧。"'
+	'他掏出自己的家伙，先用龟头挑逗你的缝隙，然后猛地插进你的身体。接着他开始快速抽送，根本不在乎你是否享受。'
+	'几秒后，他突然从你体内抽出，开始粗暴地摆弄你。"翻过去。"'
+
+	act '转过身':
+		*clr & cla
+		gs 'arousal', 'vaginal', 3, 'inhibition', 'sub', 'rough'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/sex/bookingvag2.jpg"></center>'
+		'你还没来得及反应，他就粗暴地把你翻了过去。你还没缓过劲来，就感到他再次把家伙插进你湿漉漉的小穴，让你忍不住大声呻吟。'
+		'"听仔细了。你现在真得保持安静。"他喘着气低声说。'
+		'当你的小穴逐渐适应了他的家伙后，他加快了节奏。'
+
+		act '继续被操':
+			*clr & cla
+			gs 'arousal', 'vaginal', 1, 'inhibition', 'sub', 'rough'
+			gs 'cum_call', 'butt', '警察'
+!! this needs more code kevin said something about age, the cop is young 23-25 range
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/sex/bookingcum.jpg"></center>'
+			'他开始喘粗气，然后突然从你体内抽出，你感觉到他滚烫的精液溅在你的屁股上，直到他最终大声呻吟，然后转身走开。'
+			'你瞥了一眼，看到他收起家伙，拉上裤子拉链，然后走向柜台。"把衣服穿上，我们好把手续办完。"'
+
+			act '穿好衣服':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking1.jpg"></center>'
+				'你环顾四周，没有找到可以用来清理自己的东西。你叹了口气，飞快地穿上衣服，警官则准备进行指纹采集程序。'
+				'"幸好你配合了。现在我能帮你了。一切都会没事的……"他带着一丝微笑说。'
+				'你叹了口气，犹豫地一个接一个地把手指蘸进油墨，不慌不忙地把它们按在纸上。'
+
+				act '拍档案照':
+					*clr & cla
+					minut += 10
+					gs 'arousal', 'end'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+					'你拖着自己走到墙边站住不动当警官给你拍嫌犯照片。'
+					'"就这些了。"他说，"既然办完了，跟我来。"'
+					'他带你穿过警察局回到前面。你注意到其他几个办公室的人笑着看你，但没人说什么。'
+					'你走到警局门口时，警官替你打开门。"以后尽量别惹麻烦。当然，随你便。"'
+					'你一走出去，他就随手关上了门。'
+
+					act '离开车站': minut += 3 & gt 'pav_train_hall'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'booking_anal':
+	policeQW['bookingofficer_sex_pav'] += 1
+	gs 'arousal', 'anal', 2, 'inhibition', 'sub', 'rough'
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/sex/bookinganal1.jpg"></center>'
+	'你顺从地走到桌边。"这真的有必要吗？"你再次问道。'
+	'他把你转过身，然后把你往前按，让你趴在桌上。"我需要解释多少遍？你现在应该习惯了吧。"'
+	'你感到他用手指在你肛门里鼓捣着什么，随后毫无预警地把家伙捅进你的屁股。'
+	'你惊得倒吸一口气，紧紧抓住桌沿，但他毫不迟疑地开始抽送，根本不在乎你是否享受。'
+
+	act '任他狠狠操弄':
+		*clr & cla
+		gs 'arousal', 'anal', 3, 'inhibition', 'sub', 'rough'
+		gs 'stat'
+		'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/sex/bookinganal2.jpg"></center>'
+		'他压在你身上，用力而粗野地撞击着你，每一下猛烈的冲撞都让桌沿深深硌进你的胯骨，疼得难受。在他粗暴地操你的屁股时，你既痛得闷哼，又舒服得呻吟。'
+		'"你现在真得保持安静。"他喘着气低声说。'
+		'当你的肛门逐渐适应了他的家伙后，他把节奏提得更快了。'
+
+		act '继续被操':
+			*clr & cla
+			gs 'arousal', 'anal', 1, 'inhibition', 'sub', 'rough'
+			gs 'cum_call', 'butt', '警察'
+!! this needs more code kevin said something about age, the cop is young 23-25 range
+			gs 'stat'
+			'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/sex/bookingcum.jpg"></center>'
+			'他开始喘粗气，然后突然从你体内抽出，你感觉到他滚烫的精液溅在你的屁股上，直到他最终大声呻吟，然后转身走开。'
+			'你瞥了一眼，看到他收起家伙，拉上裤子拉链，然后走向柜台。"把衣服穿上，我们好把手续办完。"'
+
+			act '穿好衣服':
+				*clr & cla
+				minut += 5
+				gs 'stat'
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/police/booking1.jpg"></center>'
+				'你环顾四周，没有找到可以用来清理自己的东西。你叹了口气，飞快地穿上衣服，警官则准备进行指纹采集程序。'
+				'"幸好你配合了。现在我能帮你了。一切都会没事的……"他带着一丝微笑说。'
+				'你叹了口气，犹豫地一个接一个地把手指蘸进油墨，不慌不忙地把它们按在纸上。'
+
+				act '拍档案照':
+					*clr & cla
+					minut += 10
+					gs 'arousal', 'end'
+					'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/booked.jpg"></center>'
+					'你拖着自己走到墙边站住不动当警官给你拍嫌犯照片。'
+					'"就这些了。"他说，"既然办完了，跟我来。"'
+					'他带你穿过警察局回到前面。你注意到其他几个办公室的人笑着看你，但没人说什么。'
+					'你走到警局门口时，警官替你打开门。"以后尽量别惹麻烦。当然，随你便。"'
+					'你一走出去，他就随手关上了门。'
+
+					act '离开车站': minut += 3 & gt 'pav_train_hall'
+				end
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = 'holdingcell':
+	minut += 5 * rand(6, 12)
+	if rand(1, 2) = 1:
+		$temp_rescuer = '妈妈'
+	else
+		$temp_rescuer = '继父'
+	end
+	gs 'stat'
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/injail.jpg"></center>'
+	'你在牢房角落找了个干净的落脚处坐下。一坐下去，冰冷的金属长凳让你打了个寒颤。'
+	'你感觉像等了永远那么久，但实际肯定没有感觉的那么长。'
+	'终于，另一名警官回来了，打开牢门。"走吧，有人替你交了罚款。"'
+	'你走出牢房，他在你身后关上牢门，然后带你走到警察局门前。当你走进主房间时，你发现你的<<$temp_rescuer>>正盯着你看。'
+
+	act '瞪回去':
+		*clr & cla
+		gs 'stat'
+		!! image of mom or step dad
+		'<i>（这个场景尚未完成。）</i>'
+		act '被带回家': minut += 15 & gt 'korrPar'
+	end
+
+	act '看向别处':
+		*clr & cla
+		gs 'stat'
+		!! image of mom or step dad
+		'<i>（这个场景尚未完成。）</i>'
+		act '被带回家': minut += 15 & gt 'korrPar'
+	end
+end
+
+
+if $ARGS[0] = 'rape_report':
+	'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavrec.jpg"></center>'
+	'你一步一步地拖着身子穿过城镇，直到突然发现自己站在警察局里。一个看起来百无聊赖的警察瞥了你一眼。'
+	'"需要帮忙吗？"'
+	'"我……我想报……报一桩强……强奸案……"你结结巴巴地说。警官的眼睛因惊讶而睁大，但那神情与其说是对你身上发生的事感到震惊，不如说是没想到你真有正经报案要说。'
+	'"哦！好，请这边走，我们在这里做笔录。"'
+
+	act '继续':
+		minut += rand(2, 5)
+		gs 'stat'
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/shared/police/interrogation1.jpg"></center>'
+		'你在一张破旧的办公桌前坐下，另一名警官坐在你对面，他看起来只比接待你的那位略微能干一点。'
+		'"好了，女士，告诉我你遭遇了什么。"'
+		'你尽可能向警察描述了事情经过，他一边做笔记。你是怎么突然遭到袭击的，是怎么被侵犯的。'
+
+		act '继续':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/shared/police/interrogation2.jpg"></center>'
+			'"袭击发生在哪里？"'
+
+			if $loc = 'pav_commercial':
+				'"在……商业区。但他把我拖走了。我……我不记得拖了多远……"'
+			else
+				'"在……居民区。但他把我拖走了。我……我不记得拖了多远……"'
+			end
+
+			'"你能描述一下他的长相吗？"'
+			'你的脸色瞬间变得煞白。"我……我！"'
+			'"关于他的任何信息都有帮助。身高？体型？发色？眼睛颜色？"'
+
+			act '我……说不出口……':
+				cla & *nl
+				'<center><img <<$set_imgh>> src="images/locations/shared/police/interrogation1.jpg"></center>'
+				'"他……我不记得他有多高……而且……他穿着一件普通的连帽衫，我看不出他的体型……还有……我不知道他长什么样……在那件事发生的时候，他一直在我身后……"'
+				'警官什么都没说，但你看到他微微摇了摇头。你意识到你提供给他的信息几乎毫无用处。镇上一桩强奸案，却没有其他任何线索可循？你还不如告诉他你在公园里看见了一只鸟。'
+				*nl
+				'有那么一瞬间，你想到还有多少像你一样的女孩曾坐在这张桌前，做着一份同样的、却毫无结果的笔录。你猜想她们之中是否有人也被强奸你的那个男人侵犯过……'
+
+				act '结束采访':
+					*clr & cla
+					minut += rand(2, 5)
+					gs 'stat'
+					'<center><img <<$set_imgh>> src="images/locations/shared/police/pavrec.jpg"></center>'
+					'说完，你结束面试并被带到前门。'
+					'"我们会认真考虑你提供的信息。再次为发生在你身上的事感到非常抱歉。"'
+					'他随即走开了，留下你孤零零一个人……'
+
+					act '离开': minut += 3 & gt 'pav_train_hall'
+				end
+
+				if cumsumvag + cumsumass > 0:
+					act '我能做性侵取证吗？':
+						*clr & cla
+						minut += rand(2, 5)
+						gs 'stat'
+						'<center><img <<$set_imgh>> src="images/locations/shared/police/interrogation2.jpg"></center>'
+						'突然，一丝希望的火花在你脑海中亮起。'
+						'"那做个强奸取证检查呢？"你绝望地问。"他……在我体内射了。我可以……"'
+						'不等你说完，你看到警官摇了摇头。'
+						'"抱歉，女士，但我们只是小镇的警察局。我们根本没有足够的经费购置强奸取证包。就算有，我们也没有能化验它的实验室。很抱歉。"'
+						'你的希望刚刚燃起，就立刻被浇灭了，你瘫坐在椅子上，感到十分沮丧。'
+
+						act '结束采访':
+							*clr & cla
+							'<center><img <<$set_imgh>> src="images/locations/pavlovsk/police/pavext.jpg"></center>'
+							'说完，你结束面试并被带到前门。'
+							'"我们会认真考虑你提供的信息。再次为发生在你身上的事感到非常抱歉。"'
+							'他随即走开了，留下你独自面对思绪和被强暴的记忆……'
+
+							act '离开': minut += 3 & gt 'pav_train_hall'
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+
+--- pav_station ---------------------------------

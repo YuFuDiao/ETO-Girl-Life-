@@ -1,0 +1,661 @@
+# KGZgame
+minut += 1
+gs 'stat'
+gs 'KGZdyn'
+
+if KGZVars['HP'] <= 0:
+	*clr & cla
+	'<center><b>游戏结束</b></center>'
+
+	act '退出': gt 'KGZstart'
+	exit
+end
+
+if KGZVars['hour'] >= 6 and KGZVars['hour'] <= 21:
+	KGZVars['svet'] = 1
+else
+	KGZVars['svet'] = 0
+end
+
+!! Gain gaming experience for every in-game hour survived
+if KGZVars['last_xp_hour'] <> (KGZVars['day'] - 1) * 24 + (KGZVars['hour'] - 8):
+	KGZVars['last_xp_hour'] = (KGZVars['day'] - 1) * 24 + (KGZVars['hour'] - 8)
+	gs 'exp_gain', 'gaming', rand(0, 3)
+end
+
+'<a href="exec:gt ''KGZstart''">退出游戏</a>'
+
+'天<<KGZVars[''day'']>>'
+'时间<<KGZVars[''hour'']>>h.'
+'生命<<KGZVars[''HP'']>>'
+
+if KGZVars['sup'] <= 0: '你没有食物了，正在挨饿！'
+
+'武器：<<$KGZVars[''weapon_text'']>>'
+
+if $KGZVars['gun_text'] ! '':	*pl $KGZVars['gun_text']
+if $KGZVars['gun2_text'] ! '':	*pl $KGZVars['gun2_text']
+if $KGZVars['gun3_text'] ! '':	*pl $KGZVars['gun3_text']
+
+if KGZVars['bolgarka'] > 0: '你有一台电池供电的角磨机，可以用来切割锁具和其他坚固的材料。'
+if KGZVars['ratia'] = 1: '你有一台收音机。可以用来通讯，但你永远不知道另一头是谁。'
+
+if KGZVars['place'] = 0:
+	'<center><b>你的公寓</b></center>'
+	'你的公寓是一个安全的地方。你有足够的物资可以维持<<KGZVars[''sup'']>>天。'
+
+	if KGZVars['medkit'] > 0:
+		'你有<<KGZVars[''medkit'']>>个急救包。'
+
+		if KGZVars['HP'] < 100:
+			act '处理你的伤口':
+				cla
+				KGZVars['hour'] += 1
+				KGZVars['HP'] = 100
+				KGZVars['medkit'] -= 1
+				minut += 1
+				gs 'stat'
+				'你用急救箱治疗伤口。'
+
+				act '继续': gt $curloc
+			end
+		end
+	end
+
+	act '休息':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		gs 'stat'
+		'你躺在沙发上休息同时留意着任何入侵者或僵尸。'
+
+		act '继续': gt $curloc
+	end
+
+	act '离开公寓':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		KGZVars['place'] = 1
+		KGZVars['batl'] = 0
+		gs 'stat'
+		'你小心翼翼地离开公寓，尽量不惊动死者。'
+
+		act '继续': gt $curloc
+	end
+elseif KGZVars['place'] = 1:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>城市街道</b></center>'
+	'尸体和被遗弃的车辆散落在这座昔日繁华都市的街道上。'
+
+	if KGZVars['batl'] = 0:
+		'你小心地走在街上，发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己':
+				if KGZVars['svet'] = 1: KGZVars['dist'] = rand(5, 30)
+				if KGZVars['svet'] = 2: KGZVars['dist'] = rand(3, 10)
+
+				gt 'KGZfight'
+			end
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod'
+	end
+elseif KGZVars['place'] = 2:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>废弃商店</b></center>'
+	'当你走进这家废弃商店时，变质的食物和腐肉的陈腐气息扑面而来。'
+
+	if KGZVars['batl'] = 0:
+		'你继续往商店深处走，发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己':
+				if KGZVars['svet'] = 1: KGZVars['dist'] = rand(3, 10)
+				if KGZVars['svet'] = 2: KGZVars['dist'] = rand(2, 8)
+
+				gt 'KGZfight'
+			end
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod2'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod2'
+	end
+elseif KGZVars['place'] = 3:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>废弃医院</b></center>'
+	'地板上散落着多具尸体。这里曾是救死扶伤的地方，如今却散发着死亡的气息。'
+
+	if KGZVars['batl'] = 0:
+		'你继续往医院深处走，发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己':
+				if KGZVars['svet'] = 1: KGZVars['dist'] = rand(3, 10)
+				if KGZVars['svet'] = 2: KGZVars['dist'] = rand(2, 8)
+
+				gt 'KGZfight'
+			end
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod3'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod3'
+	end
+elseif KGZVars['place'] = 4:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>林荫大道</b></center>'
+	'损毁的车辆和腐烂的尸体散落在林荫大道的街道上。'
+
+	if KGZVars['batl'] = 0:
+		'沿着林荫大道漫步，你发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己':
+				if KGZVars['svet'] = 1: KGZVars['dist'] = rand(5, 30)
+				if KGZVars['svet'] = 2: KGZVars['dist'] = rand(3, 10)
+
+				gt 'KGZfight'
+			end
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod4'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod4'
+	end
+elseif KGZVars['place'] = 5:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>被毁的猎具店</b></center>'
+	'这家猎具店几乎被洗劫一空。展示架和柜台被砸碎掀翻，几具尸体散落各处。'
+
+	if KGZVars['batl'] = 0:
+		'你继续往商店深处走，发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 6) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod5'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod5'
+	end
+elseif KGZVars['place'] = 6:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>被攻占的警察局</b></center>'
+	'平民和警察的尸体散落一地，被掀翻的桌子被用作临时路障。'
+	'这座昔日的正义堡垒曾是幸存者的避风港，也是抵抗僵尸大军最后的据点之一，但最终被死者攻陷，后来又被活着的人洗劫一空。'
+
+	if KGZVars['batl'] = 0:
+		'你继续往车站深处走，发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 5) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod6'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod6'
+	end
+elseif KGZVars['place'] = 7:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>被洗劫的药房</b></center>'
+	'这家药房是疫情爆发初期最早被洗劫的地方之一。被抢空的货架上几乎什么也没剩下。'
+
+	if KGZVars['batl'] = 0:
+		'你继续往商店深处走，发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 5) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod7'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod7'
+	end
+elseif KGZVars['place'] = 8:
+	KGZVars['dead'] = rand(KGZVars['day'] * 2, KGZVars['day'] * 4)
+	'<center><b>堵塞的高速公路</b></center>'
+	'疫情爆发期间，人们争相逃离城市，导致这条高速公路几乎被堵死，许多人只能徒步奔逃，以甩开追赶的死者。'
+	'这些被遗弃的车辆如今为幸存者提供了大量战利品，但也让僵尸能够轻易伏击那些毫无防备的人。'
+
+	if KGZVars['batl'] = 0:
+		'当你在公路上闲逛时，你发现了<<KGZVars[''dead'']>>只丧尸。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己':
+				if KGZVars['svet'] = 1: KGZVars['dist'] = rand(5, 30)
+				if KGZVars['svet'] = 2: KGZVars['dist'] = rand(3, 10)
+
+				gt 'KGZfight'
+			end
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod8'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod8'
+	end
+elseif KGZVars['place'] = 9:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>废弃加油站</b></center>'
+	'这家废弃加油站的燃料和其他值钱的东西早已被洗劫一空。如今它不过是公路上的一个里程标志。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只丧尸在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 5) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod9'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod9'
+	end
+elseif KGZVars['place'] = 10:
+	KGZVars['dead'] = rand(KGZVars['day'] * 5, KGZVars['day'] * 10)
+
+	if KGZVars['placeA'] = 20: KGZVars['place'] = 100 & gt $curloc
+	if KGZVars['placeA'] = 10: KGZVars['place'] = 11 & gt $curloc
+	if KGZVars['placeA'] = 0: KGZVars['place'] = 8 & gt $curloc
+
+	'<center><b>通往布拉格堡的路</b></center>'
+	'这条路显然通向隔离区边缘的一座军事基地。路上散落着被遗弃的汽车，车辆几乎无法通行。'
+	'由于这里离城市很远，再加上靠近隔离区边缘可能被军方开枪射击的威胁，很少有幸存者敢冒险前往。'
+
+	if KGZVars['batl'] = 0:
+		'你沿着路闲逛时，看到<<KGZVars[''dead'']>>只丧尸在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己':
+				if KGZVars['svet'] = 1: KGZVars['dist'] = rand(5, 30)
+				if KGZVars['svet'] = 2: KGZVars['dist'] = rand(3, 10)
+
+				gt 'KGZfight'
+			end
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod10'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod10'
+	end
+elseif KGZVars['place'] = 11:
+	KGZVars['dead'] = rand(KGZVars['day'] * 10, KGZVars['day'] * 20)
+	'<center><b>布拉格堡</b></center>'
+	'布拉格堡是一座规模不大、但防御森严的军事基地，四周环绕着围墙。'
+
+	if KGZVars['batl'] = 0:
+		'你走近时，发现<<KGZVars[''dead'']>>只丧尸在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(3, 10) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod11'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod11'
+	end
+elseif KGZVars['place'] = 12:
+	if KGZVars['dost'] = 0: KGZVars['dost'] = 1
+
+	KGZVars['dead'] = rand(KGZVars['day'] * 10, KGZVars['day'] * 20)
+	'<center><b>布拉格堡屋顶</b></center>'
+	'屋顶上满是腐烂的尸体和大量的弹壳。'
+	'这里有足够的物资可以维持<<KGZVars[''sup'']>>天。'
+
+	if KGZVars['fortQW'] > 0: '一个<a href="exec: gt ''KGZdyn'', ''KGZvincent''">年轻男子</a>倚靠在一把狙击步枪旁。'
+	if KGZVars['medkit'] > 0:
+		'有<<KGZVars[''medkit'']>>个急救包可用。'
+
+		if KGZVars['HP'] < 100:
+			act '处理你的伤口':
+				cla
+				KGZVars['hour'] += 1
+				KGZVars['HP'] = 100
+				KGZVars['medkit'] -= 1
+				minut += 1
+				gs 'stat'
+				'你用急救箱治疗伤口。'
+
+				act '继续': gt $curloc
+			end
+		end
+	end
+
+	act '休息':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		gs 'stat'
+		'你在屋顶上安顿下来，但目光始终没有离开那道被封锁的楼梯——死者仍然可以从那里爬上来。'
+
+		act '继续': gt $curloc
+	end
+
+	act '进入堡垒':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		KGZVars['place'] = 11
+		KGZVars['batl'] = 0
+		gs 'stat'
+		'你慢慢地沿着楼梯走下去，尽量不惊动死者。'
+
+		act '继续': gt $curloc
+	end
+elseif KGZVars['place'] = 13:
+	KGZVars['dead'] = rand(KGZVars['day'] * 10, KGZVars['day'] * 20)
+	'<center><b>布拉格堡补给仓库</b></center>'
+	'这里曾是囤积补给品的仓库。里面很暗，你能听到各种声响从深处传来。'
+
+	if KGZVars['batl'] = 0:
+		'你能辨认出有<<KGZVars[''dead'']>>具僵尸在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 3) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod13'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod13'
+	end
+elseif KGZVars['place'] = 14:
+	KGZVars['dead'] = rand(KGZVars['day'] * 10, KGZVars['day'] * 20)
+	'<center><b>布拉格堡医务室</b></center>'
+	'医务室里光线昏暗，你能听到里面传来各种声响。'
+
+	if KGZVars['batl']= 0:
+		'有<<KGZVars[''dead'']>>具僵尸在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 3) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod14'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod14'
+	end
+elseif KGZVars['place'] = 15:
+	KGZVars['dead'] = rand(KGZVars['day'] * 10, KGZVars['day'] * 20)
+	'<center><b>布拉格堡军械库</b></center>'
+	'这座曾经戒备森严的军械库已被砸得门户大开。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只丧尸在四处徘徊。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 3) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod15'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod15'
+	end
+elseif KGZVars['place'] = 16:
+	KGZVars['dead'] = rand(KGZVars['day'] * 10, KGZVars['day'] * 20)
+	'<center><b>布拉格堡车库</b></center>'
+	'车库里仍停放着民用和军用车辆，但你能听到这座光线昏暗的建筑深处传来令人不安的声响。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只丧尸在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(2, 3) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod16'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着这里没有藏着什么…'
+		gs 'KGZdyn', 'KGZvihod16'
+	end
+elseif KGZVars['place'] = 100:
+	KGZVars['dead'] = rand(KGZVars['day'] * 20, KGZVars['day'] * 30)
+	'<center><b>城市郊区</b></center>'
+	'这里曾是城市边缘绵延的郊区，如今只剩下烧毁的废墟。'
+	'军方为了控制疫情曾用燃烧弹轰炸这里，但少数几座坚固的房屋幸免于火海，至今仍矗立着。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只丧尸在街道废墟间游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(10, 30) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod100'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod100'
+	end
+elseif KGZVars['place'] = 101:
+	'<center><b>废弃的郊区房屋</b></center>'
+	'这栋房子是安全的。这里有足够的物资可以维持<<KGZVars[''sup'']>>天。'
+
+	if KGZVars['medkit'] > 0:
+		'有<<KGZVars[''medkit'']>>个急救包可用。'
+
+		if KGZVars['HP'] < 100:
+			act '处理你的伤口':
+				cla
+				KGZVars['hour'] += 1
+				KGZVars['HP'] = 100
+				KGZVars['medkit'] -= 1
+				minut += 1
+				gs 'stat'
+				'你用急救箱治疗伤口。'
+
+				act '继续': gt $curloc
+			end
+		end
+	end
+
+	act '休息':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		gs 'stat'
+		'你躺在沙发上休息同时留意着任何入侵者或僵尸。'
+
+		act '继续': gt $curloc
+	end
+
+	act '离开房子':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		KGZVars['place'] = 100
+		KGZVars['batl'] = 0
+		gs 'stat'
+		'你小心翼翼地离开房子，尽量不惊动死者。'
+
+		act '继续': gt $curloc
+	end
+elseif KGZVars['place'] = 102:
+	KGZVars['dead'] = rand(KGZVars['day'] * 5, KGZVars['day'] * 10)
+	'<center><b>废弃超市</b></center>'
+	'这家废弃超市高高矗立，俯瞰着周围的建筑。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只在四处游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(5, 10) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod102'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着里面没有藏着什么……'
+		gs 'KGZdyn', 'KGZvihod102'
+	end
+elseif KGZVars['place'] = 200:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 2)
+	'<center><b>森林</b></center>'
+	'动物的诡异叫声和风声在这片森林的树间呼啸回荡。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只丧尸在树林间游荡。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(10, 30) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod200'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod200'
+	end
+elseif KGZVars['place'] = 201:
+	KGZVars['dead'] = rand(KGZVars['day'], KGZVars['day'] * 3)
+	'<center><b>农场</b></center>'
+	'一道高大坚固的栅栏环绕着这座看似古朴的农场。曾经生活在这里的动物早已消失不见。'
+
+	if KGZVars['batl'] = 0:
+		'你发现<<KGZVars[''dead'']>>只丧尸在田野间徘徊。'
+		KGZVars['agr'] = rand(0, 10)
+
+		if KGZVars['agr'] <= 8:
+			'感觉到你，死者立即冲过来攻击。'
+
+			act '保护自己': KGZVars['dist'] = rand(10, 30) & gt 'KGZfight'
+		else
+			'幸运的是，死者没有注意到你。'
+			gs 'KGZdyn', 'KGZvihod201'
+		end
+	else
+		'你没看到任何僵尸，但这并不意味着它们不在外面…'
+		gs 'KGZdyn', 'KGZvihod201'
+	end
+elseif KGZVars['place'] = 202:
+	'<center><b>旧农舍</b></center>'
+	'这座旧农舍是安全的。这里有足够的物资可以维持<<KGZVars[''sup'']>>天。'
+
+	if KGZVars['medkit'] > 0:
+		'有<<KGZVars[''medkit'']>>个急救包可用。'
+
+		if KGZVars['HP'] < 100:
+			act '处理你的伤口':
+				cla
+				KGZVars['hour'] += 1
+				KGZVars['HP'] = 100
+				KGZVars['medkit'] -= 1
+				minut += 1
+				gs 'stat'
+				'你用急救箱治疗伤口。'
+
+				act '继续': gt $curloc
+			end
+		end
+	end
+
+	act '休息':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		gs 'stat'
+		'你躺在沙发上休息同时留意着任何入侵者或僵尸。'
+
+		act '继续': gt $curloc
+	end
+
+	act '离开':
+		cla
+		KGZVars['hour'] += 1
+		minut += 1
+		KGZVars['place'] = 201
+		KGZVars['batl'] = 0
+		gs 'stat'
+		'你小心翼翼地离开农舍，尽量不惊动死者。'
+
+		act '继续': gt $curloc
+	end
+end
+
+
+--- KGZgame ---------------------------------

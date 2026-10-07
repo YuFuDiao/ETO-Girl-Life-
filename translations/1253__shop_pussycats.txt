@@ -1,0 +1,757 @@
+# shop_pussycats
+!! 2022/03/12
+
+if $ARGS[0] = '' or $ARGS[0] = 'start':
+	CLOSE ALL
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'start'
+	$sexloc = 'shop_pussycats'
+	killvar 'locclass'
+	gs 'stat'
+	gs 'themes', 'indoors'
+
+	'<b><center><font size="4">Pussy-Cats</font></center></b>'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	*nl
+	'这家小店正播放着最新登顶榜单的流行单曲。店内装潢色彩鲜艳、设计大胆，地板上摆满了展示着更大胆风格服饰的货架和桌子。'
+	'环顾四周那些漂亮却瘦骨嶙峋的模特的广告，你离开这里时要么会被诱惑着买点什么，要么会自信心受挫。'
+
+	act '离开商店': minut += 3 & gt 'city_mall'
+
+	act '查看连衣裙': minut += 5 & gt 'shop_pussycats', 'dress'
+	act '查看其他服装': minut += 5 & gt 'shop_pussycats', 'clothes'
+	act '查看内裤': minut += 5 & gt 'shop_pussycats', 'panties'
+	act '查看胸罩': minut += 5 & gt 'shop_pussycats', 'bras'
+	act '查看鞋子': minut += 5 & gt 'shop_pussycats', 'shoes'
+	act '查看钱包': minut += 5 & gt 'shop_pussycats', 'purses'
+	act '查看外套': minut += 5 & gt 'shop_pussycats', 'coats'
+
+	!! v4: Redirect to manager if debt threshold reached during work time (punish scene)
+	if $job_status['city_pussycats_clerk'] = 'employed' and job_booking_debt['city_pussycats_clerk'] >= 3 and func('jobs', 'is_work_time', 'city_pussycats_clerk') = 1: gt 'andrey'
+
+	!! v4: Hiring sign — only show when not employed/terminated/fired
+	if $job_status['city_pussycats_clerk'] = '':
+		*nl
+		'你进门时看到一张招聘告示，上面潦草地写着："<b>经理索布利亚金先生工作日从 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 20, 0)+', 周末 '+func('time', 'get_time_string', 9, 0)+' 到 '+func('time', 'get_time_string', 15, 0)+'; 求职者应在工作日不晚于 '+func('time', 'get_time_string', 14, 30)+'!</b>"'
+		if hour >= 9 and (hour < 15 or (hour = 14 and minut <= 30)) and week < 6:
+			act '与经理谈话':
+				minut += 1
+				gt 'andrey'
+			end
+		end
+	end
+
+	!! v4: Show "go to work" when arrival time window is open
+	if $job_status['city_pussycats_clerk'] = 'employed' and func('jobs', 'is_arrival_time', 'city_pussycats_clerk') = 1:
+		act '去上班':
+			cla
+			!! v4: Record shift via clock (adds shift duration in minutes to worked_count)
+			gs 'jobs', 'clock', 'city_pussycats_clerk'
+			!! Get shift duration for time advance and stat effects
+			gs 'jobs', 'get_shift_for_day', 'city_pussycats_clerk', daystart
+			!! Advance time to shift start then add duration
+			if hour * 60 + minut < result_start: minut += result_start - (hour * 60 + minut)
+			minut += result_duration
+			!! Simulates a lunch break during the shift
+			gs 'food', 'medium_meal_stats'
+			gs 'beverage', 'water_stats'
+			if result_duration <= 240:
+				'你花了4个小时打扫店铺、叠挂衣服并招待顾客。现在店里看起来干净又整洁。'
+			else
+				'你花了6个小时打扫店铺、叠挂衣服并招待顾客。现在店里看起来干净又整洁。'
+			end
+			gs 'shop_pussycats', 'events'
+		end
+	end
+
+	!! v4: Show "talk to manager" for terminated (resigned) or fired players during office hours
+	if ($job_status['city_pussycats_clerk'] = 'terminated' or $job_status['city_pussycats_clerk'] = 'fired') and hour >= 9 and hour < 18 and week < 6:
+		act '再和经理谈谈':
+			minut += 1
+			gt 'andrey'
+		end
+	end
+
+	!! WD: Change trading hours to consistant with the other shops
+	!! if hour > 21 or hour < 8 or week >= 6:
+	if hour > 21 or hour < 8:
+		cla
+		'一名保安朝你走来。"抱歉，商店已经关门了。请你离开。"'
+		$func('wrap', 'v_neg b center', '商店关门了。')
+
+		act '离开': minut += 3 & gt 'city_mall'
+	end
+	gs 'stat'
+end
+
+
+if $ARGS[0] = 'dress':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'dress'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的连衣裙')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'clothing', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats_dress'
+			gs 'shop_utils', 'init', 'set_steps', 3, Clothingstock mod 3
+			gs 'shop_utils', 'init', 'set_default_exceptions'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'clothes':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'clothes'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的服装')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'clothing', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats_outfits'
+			gs 'shop_utils', 'init', 'set_steps', 3, (Clothingstock / 3) mod 3
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'shoes':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'shoes'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的鞋子')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'shoes', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'panties':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'panties'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的内裤')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'panties', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'bras':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'bras'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的文胸')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'bras', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'purses':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'purses'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的手提包')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'purses', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+if $ARGS[0] = 'coats':
+	menu_off = 0
+	gs 'core_library', 'setloc', 'shop_pussycats', 'coats'
+	$locclass = 'changingroom'
+	gs 'stat'
+
+	$func('wrap', 'header center b', '查看猫咪小铺的外套')
+	*nl
+
+	if func('shop_utils', 'is_init') = 0:
+		gs 'shop_utils', 'init', 'start', 'coats', 'shop'
+			gs 'shop_utils', 'init', 'add_type', 'cats'
+		gs 'shop_utils', 'init', 'end'
+	end
+
+	gs 'shop_utils', 'display', 'grid_shop'
+
+	act '返回':
+		minut += 1
+		gs 'shop_utils', 'cleanup'
+		gt 'shop_pussycats', 'start'
+	end
+end
+
+
+
+
+	!!====================================================================!!
+	!!                                                                    !!
+	!!                          EVENTS and WORK                           !!
+	!!                                                                    !!
+	!!====================================================================!!
+
+
+if $ARGS[0] = 'events':
+	random = rand(0, 14)
+
+	if random = 0:
+		gs 'shop_pussycats', '0'
+	elseif random = 1:
+		gs 'shop_pussycats', '1'
+	elseif random = 2:
+		gs 'shop_pussycats', '2'
+	elseif random = 3:
+		gs 'shop_pussycats', '3'
+	elseif random = 4:
+		gs 'shop_pussycats', '4'
+	elseif random = 5:
+		gs 'shop_pussycats', '5'
+	elseif random = 6:
+		gs 'shop_pussycats', '6'
+	elseif random = 7:
+		gs 'shop_pussycats', '7'
+	elseif random = 8:
+		gs 'shop_pussycats', '8'
+	elseif random = 9:
+		gs 'shop_pussycats', '9'
+	elseif random = 10:
+		gs 'shop_pussycats', '10'
+	elseif random = 11:
+		gs 'shop_pussycats', '11'
+	elseif random = 12:
+		gs 'shop_pussycats', '12'
+	elseif random = 13:
+		gs 'shop_pussycats', '13'
+	else
+		gs 'shop_pussycats', '14'
+	end
+end
+
+
+if $ARGS[0] = '0':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/mag5.jpg"></center>'
+	'两个家伙不停地跟你调情，让你没法专心工作。几次想赶走他们都失败了，你简直快绝望了。'
+	'幸好经理注意到了情况，迅速把那两个家伙推出了店门。'
+	act '完成你的班次': gt 'shop_pussycats', 'endwork'
+end
+
+
+if $ARGS[0] = '1':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/twogirls.jpg"></center>'
+	'两个女孩在店里驻足，你带她们四处参观，试图引诱她们购买更贵的商品。'
+	'等她们买完想要的东西甚至更多之后，其中一个女孩冲你笑了笑。"你可帮了大忙！我真想现在就狠狠亲你一口！"'
+	'她说话这么直白，让你有点发懵。"只要顾客满意就好！"'
+	'她们付了衣服钱，然后开开心心地走出了商店。'
+	act '完成你的班次': gt 'shop_pussycats', 'endwork'
+end
+
+
+if $ARGS[0] = '2':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+	'今天顾客很多，接下来的两个小时里你忙得脚不沾地。'
+	'下班时，经理朝你走来。'
+	'"听我说，<<$pcs_nickname>>，我知道你今天干得很辛苦，但你也看到了，我们人手不够。再坚持一个小时，我会给你一笔你绝不会后悔的奖金！"'
+
+	gs 'willpower', 'misc', 'resist', 'medium'
+	if pcs_willpwr < will_cost:
+		act '拒绝' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '拒绝' + $func('willpower', 'get_willcost_string'):
+			cla & *nl
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			!! v4: Dock bonus for refusing overtime (1 hour worth = 205₽)
+			if job_bonus_pay['city_pussycats_clerk'] >= 205: gs 'jobs', 'bonus_pay', 'city_pussycats_clerk', -205
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+			'你开始找借口推脱，但经理只是耸了耸肩。'
+			'"行，那你回家吧。没有你我们也能应付，不过今天的奖金你就别指望了！"'
+			'你也只是耸耸肩，此刻已经累得什么都不在乎了。'
+			act '完成你的班次': gt 'shop_pussycats', 'endwork'
+		end
+	end
+
+	act '接受':
+		cla
+		minut += 60
+		!! v4: Add overtime bonus (1 hour worth = 205₽)
+		gs 'jobs', 'bonus_pay', 'city_pussycats_clerk', 205
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+		'看来你别无选择。又干了一个小时后，你累得不行，但一想到奖金，嘴角还是忍不住上扬。'
+
+		act '完成你的班次': gt 'shop_pussycats', 'endwork'
+	end
+end
+
+
+if $ARGS[0] = '3':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	'今天顾客很少，所以你一边叠衣服一边和娜斯佳聊了会儿天。她喜欢谈论自己的性经历和感受，而今天的话题就是她失去处女之身的故事。'
+	'她绘声绘色地讲起某天体育课后她在更衣室里被一群男生轮奸的经过，毫不留给你想象的空间。虽然那已经是过去的事了，但她至今仍清晰地记得每一个细节，包括参与其中的每个男生的名字。'
+
+	act '完成你的班次': gt 'shop_pussycats', 'endwork'
+end
+
+
+if $ARGS[0] = '4':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	if katia = 1:
+		'那个古怪的女孩又来了，在衣服间翻看着。可惜店规不允许你和顾客套近乎，不然你真的很想找机会和她交个朋友。'
+		'你总觉得她一直在看你，因为每当你瞥向她时，她都会先笑一下，然后红着脸别过头去。'
+	else
+		katia = 1
+		'今天店里来了个古怪的女孩。她在店里走来走去翻看衣服，却什么也不买，连试穿都没有。她衣着朴素，但看起来并不穷，所以不可能是单纯来闲逛看橱窗的。'
+		'你总有一种她在看你的感觉。每当你抬起眼睛，她就飞快地别过头去，盯着最近的一件衣服，假装饶有兴趣地端详。'
+		'你上前询问是否需要帮忙，她却垂下眼帘，小声嘟囔着什么，你看到她脸红了。几秒钟后，她一句话也没说就跑出了商店。'
+	end
+
+	act '完成你的班次': gt 'shop_pussycats', 'endwork'
+end
+
+
+if $ARGS[0] = '5':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	'经理让你下班后来见他，但没有告诉你原因。'
+	'你走到他办公室门前，正要敲门，却发现门微微敞开一条缝……'
+
+	act '往里看':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/young_shop_quest10.jpg"></center>'
+		'你眼前是一幅不堪入目的画面。经理正对着显示器，裤子褪到脚边，手上撸动着一根戴着安全套的鸡巴。几乎紧接着，他就仰起头开始射精。'
+		'随后，他摘下安全套扔进旁边的垃圾桶，提起裤子，朝门口走去。'
+		'你尽可能轻手轻脚地从门口跑开，躲到员工出口附近的箱子后面。索布利亚金先生什么都没察觉，从你身边走过，进了卫生间。'
+		'确认安全后，你溜进他的办公室，出于好奇看了一眼他的显示器。从你看到的画面来看，他似乎是个青少年色情片的爱好者。'
+
+		act '等他':
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/manager_andrew.jpg"></center>'
+			'你从桌前退开，心里想着要是他发现你看了他的电脑会怎样。'
+			'一分钟后他回来了，"啊，<<$pcs_nickname>>，你来了真好！有份文件需要你签一下。"'
+			'他走到办公桌前翻了翻文件，然后递给你一份表格。'
+			'你根本没在意那张纸上的内容，看都没看就签了字还给他。道别之后，你回到了营业区。'
+
+			act '完成你的班次': gt 'shop_pussycats', 'endwork'
+		end
+	end
+end
+
+
+if $ARGS[0] = '6':
+	*clr & cla
+	gs 'money', 'earn', 1000, 'cash'
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop_quest6.jpg"></center>'
+	'三个醉醺醺、看不出年纪的女人跌跌撞撞地闯进店里，穿着破旧的衣服。她们三个都穿着破洞丝袜、花哨的迷你裙和脏兮兮的T恤。'
+	'娜斯佳看到她们时笑了笑，你向她投去一个询问的眼神。'
+	'她朝其中一个人指了指。"看见她了吗，那个穿红裙子的？我在学校认识她。"'
+	*nl
+	'"她看上去连18岁都不到！"你回应道。"这么年轻就打扮得这么骚，也太堕落了。"'
+	'"这跟堕落没关系，<<$pcs_nickname>>！"她皱眉说道。"有些女孩睡过的男人比她多得多，可看上去完全不像。你不能光看外表。"'
+	'那几个人连衣服看都不看，抓起眼前最先够到的几样东西就拿到收银台。娜斯佳的朋友把一叠脏兮兮、皱巴巴的钞票扔在柜台上。'
+	*nl
+	'"谢啦，娜斯佳！"她说着，几个女孩拿起东西离开了商店。'
+	'"来，这份给你，你应得一半，"娜斯佳说着，眨眨眼递给你一把钞票。"她们手头有点紧，所以……我给她们打了个折。"'
+
+	act '完成你的班次': gt 'shop_pussycats', 'endwork'
+end
+
+
+if $ARGS[0] = '7':
+	*clr & cla
+	temp_pussycats_index = rand(1, func('clothing', 'get_total', 'cats_outfits'))
+	gs 'clothing_attributes', 'cats_outfits', temp_pussycats_index
+	'<center><img <<$set_imgh>> src="images/pc/items/cats/outfits/<<temp_pussycats_index>>.jpg"></center>'
+	'娜斯佳走到你面前。"这件漂亮的新衬衫有点小瑕疵，经理让我把它放进打折区，不过也许你想自己留着？原价是<<$func(''money'', ''string_price'', CloPrice)>>, 但你可以用 ' + $func('money', 'string_price', 720) + '."'
+	if cats_outfits[temp_pussycats_index] = 1:
+		*nl
+		'你看了看这件衣服，发现它你已经有一件了。"谢谢，不过这身衣服我已经有了。"'
+		act '完成你的班次':
+			killvar 'temp_pussycats_index'
+			gt 'shop_pussycats', 'endwork'
+		end
+	else
+		if func('money', 'can_afford', 720):
+			act '购买这件服装（猫咪小铺 #<<temp_pussycats_index>> ' + $func('money', 'string_price', 720) + ')':
+				cla
+				gs 'money', 'pay', 720
+				gs 'clothing', 'add_item', 'cats_outfits', temp_pussycats_index
+				gs 'clothing', 'decrease_strength', 'cats_outfits', temp_pussycats_index, 40
+				*nl
+				'你为这件并不完美的衣服付了钱。由于缝线有瑕疵，它可能用不了那么久，但你仍然捡了个大便宜。'
+				act '完成你的班次':
+					killvar 'temp_pussycats_index'
+					gt 'shop_pussycats', 'endwork'
+				end
+			end
+			act '拒绝':
+				killvar 'temp_pussycats_index'
+				gt 'shop_pussycats', 'endwork'
+			end
+		else
+			*nl
+			'你身上没带那么多现金，所以没法接受她的提议。'
+			act '完成你的班次':
+				killvar 'temp_pussycats_index'
+				gt 'shop_pussycats', 'endwork'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = '8':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop_quest5.jpg"></center>'
+	'两个打扮得非常时髦的男人走进店里看那些透明衬衫。你经常在附近看到他们，所以他们大概就住在不远处。他们总是形影不离，甚至还牵着手。'
+
+	act '需要帮忙吗？':
+		cla
+		'"我看你们是在给女孩挑礼物。有什么需要帮忙的吗？"'
+
+		if pcs_hotcat < 6:
+			'其中一个人从头到脚打量了你一番。'
+			'"亲爱的，看起来需要帮忙的是你！"他不屑地说。'
+			'你转身离开，去找另一位——但愿更友善的——顾客，而他在背后和他的男友刻薄地议论着你的外表。'
+
+			act '完成你的班次': gt 'shop_pussycats', 'endwork'
+		else
+			'其中一个人从头到脚打量了你一番。"哎呀，多漂亮的姑娘！别担心，美人儿，我们自己来就行！"'
+			'那个男人朝你挥手道别，牵起同伴的手，一边走一边赞叹地议论着你的外表。'
+			'你脚步轻快地去招呼另一位顾客。'
+
+			act '完成你的班次': gt 'shop_pussycats', 'endwork'
+		end
+	end
+end
+
+
+if $ARGS[0] = '9':
+	cla
+	'你走进一间试衣间，去收拾顾客落下的衣服。就在这时，你不小心把一条裙子弄掉了。弯腰去捡的时候，你注意到台座上有一个非常不起眼的东西。'
+	'当你意识到那是一个隐藏的摄像头时，你震惊了！你只能想到一个这东西会出现在这里的理由。也许你该告诉经理……'
+
+	act '保持沉默':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+		'你深吸几口气，强迫自己冷静下来，理了理思绪。'
+		'你完全可以假装自己不知道这件事。你又没在这个试衣间里换过衣服，而那些换过的女孩多半也永远不会知道这里曾有个摄像头。'
+
+		act '完成你的班次': gt 'shop_pussycats', 'endwork'
+	end
+
+	gs 'willpower', 'misc', 'self', 'medium'
+	if pcs_willpwr < will_cost:
+		act '告诉经理' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '告诉经理' + $func('willpower', 'get_willcost_string'):
+			*clr & cla
+			'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+			gs 'willpower', 'pay', 'self'
+			'你没敲门就冲进经理办公室，语无伦次地说起刚才发生的事。'
+			'"<<$pcs_nickname>>，冷静点！到底怎么了？！"'
+			'你用颤抖的手指向试衣间的方向。"那儿！那儿！在试衣间里！快！"'
+			*nl
+			'他不情愿地从椅子上站起来，跟你走了过去。回到试衣间里，他蹲下身，拽了拽粘在台座上的摄像头。'
+			'"我们该报警——"你刚开口，就被他打断了。'
+			'"不行，"他站起身，把摄像头在手里转了一圈，"要是报警，商店会被停业整顿，整个地方都会被搜查一遍，看还有没有这种东西。我们可能会被罚款，甚至更糟，所以还是别轻举妄动。"'
+			*nl
+			'他把你送出试衣间。"回家吧。剩下的试衣间我来检查。你能留心发现这个很好，不过这事没必要告诉任何人，明白吗？"'
+			'你点了点头。反正你的班也快结束了，你决定直接回家，把这件事抛到脑后。'
+
+			act '下班': gt 'shop_pussycats', 'endwork'
+		end
+	end
+end
+
+
+if $ARGS[0] = '10':
+	temp_pussycats_index = rand(1, func('clothing', 'get_total', 'gm_outfits'))
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/pc/items/gm/outfits/<<temp_pussycats_index>>.jpg"></center>'
+	'你走进试衣间，发现有人落下一套衣服。你记得它属于一个刚买完新衣服离开商店的女孩。她显然是觉得自己不再需要这套了，就把它留在了试衣间里。'
+	'你决定等到下班，看看她会不会回来拿，但她始终没有回来。你仔细端详着这套衣服：是 G&M 的普通款式，几乎全新，也挺干净。你能直接据为己有吗？'
+
+	act '放回去，然后下班':
+		killvar 'temp_pussycats_index'
+		gt 'shop_pussycats', 'endwork'
+	end
+
+	gs 'willpower', 'misc', 'resist', 'easy'
+	if pcs_willpwr < will_cost:
+		act '留下它' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '留下它' + $func('willpower', 'get_willcost_string'):
+			cla
+			gs 'willpower', 'pay', 'resist'
+			'离开前，你把那套衣服带走了。那个女孩显然不想要它了，而你也不会白白扔掉几乎全新的衣服——这可是白捡的！'
+
+			!! WD: Uninitialised ~ 'wear_chest_have_'
+			if gm_outfits[temp_pussycats_index] = 0:
+				*nl
+				'不过，你随即想起来自己已经有这套衣服了，于是决定把它留在店里。也许还能转卖出去？老板一定会因此喜欢你的！'
+			else
+				gs 'clothing', 'add_item', 'gm_outfits', temp_pussycats_index
+			end
+
+			act '完成你的班次':
+				killvar 'temp_pussycats_index'
+				gt 'shop_pussycats', 'endwork'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = '11':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/young_shop_quest2.jpg"></center>'
+	'路过试衣间时，你听到里面传来声响。出于好奇，你确认四下无人后往里看去，看到了一幅相当香艳的画面。'
+	'一个看起来年纪不大的女人正跪在地上，给一个同样年轻的男人做着相当娴熟的口交。'
+
+	gs 'willpower', 'misc', 'self', 'hard'
+	if pcs_willpwr < will_cost:
+		act '听他们说' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '听他们说' + $func('willpower', 'get_willcost_string'):
+			cla
+			gs 'willpower', 'misc', 'self', 'hard'
+			gs 'willpower', 'pay', 'self'
+			'你站在试衣间旁边，听着她舔弄吮吸他的鸡巴。突然，她发出一声异样的声音，说明情况有了变化。'
+			'你赶紧又往试衣间里瞥了一眼，只见那男的抓着女孩的头发，用力把她往自己的鸡巴上按。你从没见过女孩的喉咙被这样猛烈地肏。'
+			'接着你听到那男的开始呻吟，他应该快要射了。'
+			'女孩大声咳嗽起来，随后你听到她咯咯地笑。"对，射在我脸上！对……"'
+			gs 'arousal', 'voyeur_sex', 2
+			gs 'stat'
+
+			act '往试衣间里看':
+				*clr & cla
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/sex/young_shop_quest3.jpg"></center>'
+				'你又往试衣间里看了一眼。女孩的脸上糊着厚厚一层精液，那男的把鸡巴重新塞回她嘴里，逼她把鸡巴舔干净。'
+				'完事后，他悄悄地提起裤子，看着女孩用手指把脸上的精液刮下来舔掉。'
+				*nl
+				'你决定在被发现之前离开。一分钟后，那对男女现身了，你看到她脸上的精液没有擦干净。'
+				'你一声不吭地看着他们俩离开商店。'
+				gs 'arousal', 'voyeur_sex', -2
+				gs 'arousal', 'end'
+
+				act '完成你的班次': gt 'shop_pussycats', 'endwork'
+			end
+		end
+	end
+
+	act '无视他们':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+		'这显然不关你的事，于是你从试衣间旁走开，开始叠衣服。'
+		'几分钟后，那对男女走出试衣间，你看到女孩脸上还残留着精液的痕迹。'
+		'你拼命忍住不笑，但还是没忍住，看着那对男女飞快地、悄无声息地离开了商店。'
+
+		act '完成你的班次': gt 'shop_pussycats', 'endwork'
+	end
+end
+
+
+if $ARGS[0] = '12':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	'你刚挂完新系列里几件可爱的衬衫，一位老太太就走到你面前。她看起来七十来岁，开始长篇大论、絮絮叨叨地讲起她自己、她的工作、现代时尚和过去的岁月。'
+	'接着她开始抱怨现代社会及其种种弊病：欺骗、腐败、毒品、性，总而言之什么都抱怨一通。然后她又怀念起过去的美好时光——那时候草更绿，女人们十八岁就还是处女之身出嫁：'
+	'"现在竟然变成了这样……我孙女的班里已经没有处女了。她才上七年级，班里还有10个女生！这像话吗？有个叫列娜的女孩，已经做过<i>三次</i>人流了！这个世界到底怎么了？"'
+	'"这是我孙女，"她说着给你看了一张年轻女孩的照片。"你以前也上的是这所学校吗？所以你现在才穿成这样？你不觉得丢人吗？"'
+
+	act '这只是工作的一部分':
+		cla
+		'"我穿成这样是因为我得工作挣钱。不这样，我怎么活下去？"你一边解释，一边向老太太保证自己平时绝不会这样出门。'
+		'她终于软化了，对你的回答很满意，不过还是念了句祷词、给你画了个十字，然后祝福你幸福安康。'
+		'老太太终于朝出口走去，你如释重负地叹了口气。'
+
+		act '完成你的班次': gt 'shop_pussycats', 'endwork'
+	end
+
+	gs 'willpower', 'misc', 'self', 'easy'
+	if pcs_willpwr < will_cost:
+		act '丢人，奶奶！' + $func('willpower', 'get_willcost_string'): $noWillpower
+	else
+		act '丢人，奶奶！' + $func('willpower', 'get_willcost_string'):
+			cla & *nl
+			gs 'willpower', 'pay', 'self'
+			gs 'stat'
+			'"我为什么要为此觉得丢人？我又没做错什么！这只是当下的时尚；我们早就不活在斯大林时代了！"'
+			'"要是斯大林同志还在世的时候，这种事根本不会发生！"她皱着眉说。'
+			'接着她又开始新一番说教，讲起过去的岁月、诚实、正直和规矩。'
+			'她滔滔不绝地抱怨了很久，最后终于觉得没趣，一边骂着现在的年轻人，一边摇摇晃晃地走出了门。'
+
+			act '完成你的班次': gt 'shop_pussycats', 'endwork'
+		end
+	end
+end
+
+
+if $ARGS[0] = '13':
+	kira = 1
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	'离下班还有二十分钟的时候，一位女士带着一个打扮时髦的女孩走到你面前。那女孩看起来有点不高兴。'
+	'"妈，真的没必要！我们别在这家店买了……"'
+	'"别闹了！你的同学都穿这样的衣服。你想受欢迎，对吧？你不想被别人取笑吧？"'
+	*nl
+	'"您好，有什么需要帮忙的吗？"你微笑着问道。'
+	'那位女士打量着你，审视着你的外表，然后转向她的女儿。'
+	'"看到了吗，基拉？这姑娘只比你大一点点，而且穿得——"她还没来得及说完，基拉又开始抱怨起来。'
+	*nl
+	'"可在这里几乎没人看得见她！我又不能穿成这样出门，尤其是不穿胸罩；别人会把我全身看光的！"'
+	'那位女士惊讶地摊开双手。"让他们看又怎么了？你在长大！不秀一下你的身材才是可惜呢！我懒得再跟你吵了。"'
+	'那位女士带着傲慢的微笑，重新把目光转向你。'
+	'"告诉我，姑娘。你穿的这种衣服适合我们家基拉吗？"她微微点着头问道，显然只是在等你说出肯定的答复。'
+
+	act '当然':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop_quest9.jpg"></center>'
+		'"当然可以！"你自信地回答。"我所有的朋友都在这里买衣服。我们有一件<i>完美</i>的衬衫，穿在您女儿身上一定会<i>惊艳</i>全场！当然，我们所有的产品都是为不穿胸罩设计的，"你眨了眨眼。你很快找到合适的尺码，递给泪眼汪汪的基拉。"那边的试衣间可以试穿！"'
+		'那位女士抓住女儿的手臂，把她带进试衣间。几分钟后她们回来了。'
+		*nl
+		'"果然不出我所料，"你笑着说。"你穿这件真好看！"'
+		'"基拉的朋友们一定会嫉妒死的！这件美人多少钱？"'
+		'"只要<<$func(''money'', ''string_price'', 2400)>>！"'
+		*nl
+		'那位女士开心地眉开眼笑，付了钱，然后一把抓住基拉的手臂，几乎是把她拖出了商店。'
+		act '完成你的班次': gt 'shop_pussycats', 'endwork'
+	end
+
+	act '不行':
+		*clr & cla
+		'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/oh_really_fine.jpg"></center>'
+		'你摇了摇头。"抱歉，她还太小，不适合穿这种衣服。也许再等几年吧。"'
+		'那位女士难以置信地看着你。她显然没想到你会反对一桩可能的生意。'
+		'"我在电视上看到，到处都有年轻女孩穿这种风格的衣服！"'
+
+		act '劝劝她':
+			*clr & cla
+			'"电视上看到的东西不能全信。那些女孩只是为了博眼球才打扮成那样。真正自重的女孩是不会那样穿的。"'
+			if rand(0, 1) = 0:
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/oh_really_fine.jpg"></center>'
+				'"真的吗？"那位时髦的女士沉思片刻，接受了你的建议。"好吧，那我们改去普通商店。我可不想让我的基拉穿得像个小骚货。"'
+				'你看到基拉正冲你开心地笑。"太谢谢你了。再见！"'
+				'她挥手道别，然后跑着去追她的母亲。'
+
+				act '完成你的班次': gt 'shop_pussycats', 'endwork'
+			else
+				'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/oh_really_fine.jpg"></center>'
+				'那位女士根本不听你的。"你不肯帮我们，那我就去找愿意帮忙的店员！"'
+				'离开前，女孩谢谢你为她说了话，然后跑去追上她的母亲。'
+
+				act '完成你的班次': gt 'shop_pussycats', 'endwork'
+			end
+		end
+	end
+end
+
+
+if $ARGS[0] = '14':
+	*clr & cla
+	'<center><img <<$set_imgh>> src="images/locations/city/citycenter/mall/cats/young_shop.jpg"></center>'
+	'直到你下班打卡，都没发生什么有趣的事。'
+
+	act '完成你的班次': gt 'shop_pussycats', 'endwork'
+end
+
+
+if $ARGS[0] = 'endwork':
+	!! v4: End of shift — offer pay collection if this is the last work day before a break
+	!! Uses is_work_day to check if tomorrow is NOT a work day (making today payday)
+	cla
+
+	if job_worked_count['city_pussycats_clerk'] > 0 and func('jobs', 'is_work_day', 'city_pussycats_clerk', daystart + 1) = 0:
+		act '领取工资': gt 'andrey', 'regular'
+	else
+		act '离开': minut += 3 & gt 'city_mall'
+	end
+end
+
+
+--- shop_pussycats ---------------------------------
