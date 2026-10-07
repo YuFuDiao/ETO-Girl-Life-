@@ -36,7 +36,3 @@ translations/
 ## 与上游的关系
 
 汉化基于《Girl Life》EtO 分支。原版游戏内容、`.qsp` 源代码及其素材的版权归原作者所有；本仓库仅包含译文，供学习与交流使用。
-
-## 说明
-
-`translations_099/`、`snapshots/`、`backups/`、`tools/` 等目录存在于本地工作区但被 `.gitignore` 排除，不属于本仓库内容。
