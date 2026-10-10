@@ -9,6 +9,13 @@
 
 原始 `.qsp` 英文原文、生成脚本、审计日志与快照均不入库。
 
+## 与原版/社区的关系
+
+- **原版游戏（英文社区版）**：https://tfgames.site/game/597/girl-life-english-community-version
+  —— 汉化基于此版本，遇到疑似原版缺陷可在此对照英文原版复现；图像包也在原版发布页/社区获取。
+- **社区 Discord**：https://discord.gg/6G8ZENF
+- 本仓库仅分发**中文译文与汉化版 `.qsp`**，游戏本体内容、素材与版权归原作者及社区所有。
+
 ## 一、下载游戏
 
 到 [Releases](https://github.com/YuFuDiao/ETO-Girl-Life-/releases) 页面下载最新的 `.qsp` 文件，配合图像包用 QSP 播放器（QQSP）运行即可游玩。
@@ -88,10 +95,14 @@ translations/
 | `推送到GitHub.ps1` | 提交 `translations/` 改动并推送到本仓库 |
 | `发布Release.ps1` | 按日期批量创建 release 并上传 `.qsp` 附件（每个 release 一个附件） |
 
-## 与上游的关系
-
-汉化基于《Girl Life》EtO 分支。原版游戏内容、`.qsp` 源代码及其素材的版权归原作者所有；本仓库仅包含译文，供学习与交流使用。汉化资源免费分享。
 
 ## 说明
 
 `translations_099/`、`snapshots/`、`backups/`、`tools/`、`release_0992/` 等目录存在于本地工作区但被 `.gitignore` 排除，不属于本仓库内容。
+
+## 与原版/社区的关系
+
+- **原版游戏（英文社区版）**：https://tfgames.site/game/597/girl-life-english-community-version
+  —— 汉化基于此版本；遇到疑似原版缺陷可在此对照英文原版复现；**图像包**也在原版发布页/社区获取。
+- **社区 Discord**：https://discord.gg/6G8ZENF
+- 本仓库仅分发**中文译文与汉化版 `.qsp`**，游戏本体内容、素材与版权归原作者及社区所有。
